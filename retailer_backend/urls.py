@@ -19,7 +19,6 @@ from django.conf.urls import include, url
 
 
 urlpatterns = [
-    path('', include('drfpasswordless.urls')),
     url(r'^api-auth/', include('rest_framework.urls')),
     url(r'^rest-auth/', include('rest_auth.urls')),
     url(r'^otp/', include('otp.urls')),

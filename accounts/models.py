@@ -43,7 +43,7 @@ class UserManager(BaseUserManager):
 
 class User(AbstractUser):
     """User model."""
-    username = None
+
     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="The phone number entered is not valid")
     phone_number = models.CharField(validators=[phone_regex], max_length=10, blank=False, unique=True)
     email = models.EmailField(_('email address'),blank=True)
@@ -60,7 +60,7 @@ class User(AbstractUser):
     user_type = models.PositiveSmallIntegerField(choices=USER_TYPE_CHOICES, default = '6', null=True)
 
     USERNAME_FIELD = 'phone_number'
-    REQUIRED_FIELDS = ['email']
+    REQUIRED_FIELDS = ['username']
     objects = UserManager()
 
     def __str__(self):

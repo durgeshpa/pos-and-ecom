@@ -48,16 +48,9 @@ INSTALLED_APPS = [
     'rest_auth.registration',
     'accounts',
     'otp',
-    'drfpasswordless',
-
 
 ]
 
-PASSWORDLESS_AUTH = {
-
-   'PASSWORDLESS_AUTH_TYPES': ['EMAIL'],
-
-}
 
 SITE_ID = 1
 
