@@ -1,3 +1,4 @@
 .env
 retailer_backend.sock
 env/
+venv/
