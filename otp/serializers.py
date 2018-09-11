@@ -13,3 +13,33 @@ class PhoneOTPValidateSerializer(serializers.ModelSerializer):
             'phone_number',
             'otp'
         )
+
+class ResendSmsOTPSerializer(serializers.ModelSerializer):
+    """
+    Resend OTP SMS to number
+    """
+    class Meta:
+        model = PhoneOTP
+        fields = (
+            'phone_number',
+        )
+
+class ResendVoiceOTPSerializer(serializers.ModelSerializer):
+    """
+    Resend OTP voice call to number
+    """
+    class Meta:
+        model = PhoneOTP
+        fields = (
+            'phone_number',
+        )
+
+class RevokeOTPSerializer(serializers.ModelSerializer):
+    """
+    Recreate the OTP for user
+    """
+    class Meta:
+        model = PhoneOTP
+        fields = (
+            'phone_number',
+        )

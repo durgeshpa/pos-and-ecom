@@ -27,7 +27,9 @@ class SendSms(object):
                 'format':'text'
                 }
             req = requests.get('https://enterprise.smsgupshup.com/GatewayAPI/rest', params=query)
-            return req.status_code
+            import pdb
+            #pdb.set_trace()
+            return req.status_code, req.text
         except:
             if not self.fail_silently:
                 raise
@@ -62,12 +64,12 @@ class SendVoiceSms(object):
                 'text':message,
                 'userid': config('SMS_USER_ID'),
                 'password': config('SMS_PWD'),
-                'speed':'4',
+                'speed':'2',
                 'repeat':'5',
                 'authkey': config('SMS_AUTH_KEY'),
                 }
             req = requests.get('http://products.smsgupshup.com/FreeSpeech/incoming.php', params=query)
-            return req.status_code
+            return req.status_code, req.text
         except:
             if not self.fail_silently:
                 raise

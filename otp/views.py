@@ -6,9 +6,11 @@ from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
 from django.conf import settings
 
-
+import requests, datetime
+from .sms import SendSms, SendVoiceSms
 from .models import PhoneOTP
-from .serializers import PhoneOTPValidateSerializer
+from .serializers import PhoneOTPValidateSerializer, ResendSmsOTPSerializer, ResendVoiceOTPSerializer, RevokeOTPSerializer
+from django.utils import timezone
 
 class ValidateOTP(CreateAPIView):
     queryset = PhoneOTP.objects.all()
@@ -40,7 +42,6 @@ class ValidateOTP(CreateAPIView):
             {'reason': ser.errors}, status=status.HTTP_406_NOT_ACCEPTABLE)
 
     def expired(self, user):
-        import datetime
         current_time = datetime.datetime.now()
         expiry_time = datetime.timedelta(seconds=user.expires_in)
         created_time = user.created_at
@@ -78,3 +79,149 @@ class ValidateOTP(CreateAPIView):
             reason = "OTP doesn't matched"
             status_code = status.HTTP_406_NOT_ACCEPTABLE
             return reason, status_code
+
+class ResendSmsOTP(CreateAPIView):
+    queryset = PhoneOTP.objects.all()
+    serializer_class = ResendSmsOTPSerializer
+
+    def post(self, request, format=None):
+        ser = self.serializer_class(
+            data=request.data, context={'request': request}
+        )
+        if ser.is_valid():
+            number = request.data.get("phone_number")
+            try:
+                user = PhoneOTP.objects.get(phone_number=number)
+                if user:
+                    if self.just_now(user):
+                        reason = self.waiting()
+                        return Response(
+                            {'reason': reason},
+                            status=status.HTTP_406_NOT_ACCEPTABLE
+                        )
+                    else:
+                        otp = user.otp
+                        message = SendSms(phone=number,
+                                          body="%s is the OTP for your GramFactory Account." % (otp))
+                        status_code, reason = message.send()
+                        if 'success' in reason:
+                            user.last_otp = timezone.now()
+                            user.save()
+                        if status_code == requests.codes.ok:
+                            return Response(
+                                {'reason': reason},
+                                status=status.HTTP_200_OK
+                            )
+                        else:
+                            return Response(
+                                {'reason': reason},
+                                status=status.HTTP_406_NOT_ACCEPTABLE
+                            )
+            except ObjectDoesNotExist:
+                return Response(
+                    {'reason': 'User does not exist'},
+                    status=status.HTTP_406_NOT_ACCEPTABLE
+                )
+        return Response(
+            {'reason': ser.errors}, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+    def just_now(self, user):
+        self.last_otp_time = user.last_otp
+        self.current_time = datetime.datetime.now()
+        self.resend_in = datetime.timedelta(seconds=user.resend_in)
+        self.time_dif = self.current_time - self.last_otp_time
+        if self.time_dif <= self.resend_in:
+            return True
+        else:
+            return False
+
+    def waiting(self):
+        waiting_time = self.resend_in - self.time_dif
+        seconds = str(waiting_time.total_seconds()).split('.')[0]
+        return "You can resend OTP after %s seconds" % (seconds)
+
+class ResendVoiceOTP(CreateAPIView):
+    queryset = PhoneOTP.objects.all()
+    serializer_class = ResendVoiceOTPSerializer
+
+    def post(self, request, format=None):
+        ser = self.serializer_class(
+            data=request.data, context={'request': request}
+        )
+        if ser.is_valid():
+            number = request.data.get("phone_number")
+            try:
+                user = PhoneOTP.objects.get(phone_number=number)
+                if user:
+                    if self.just_now(user):
+                        reason = self.waiting()
+                        return Response(
+                            {'reason': reason},
+                            status=status.HTTP_406_NOT_ACCEPTABLE
+                        )
+                    else:
+                        otp = user.otp
+                        message = SendVoiceSms(phone=number,
+                                          body="OTP for your GramFactory account is %s" % (otp))
+                        status_code, reason = message.send()
+                        if status_code == requests.codes.ok:
+                            if 'success' in reason:
+                                user.last_otp = timezone.now()
+                                user.save()
+                            return Response(
+                                {'reason': reason},
+                                status=status.HTTP_200_OK
+                            )
+                        else:
+                            return Response(
+                                {'reason': reason},
+                                status=status.HTTP_406_NOT_ACCEPTABLE
+                            )
+            except ObjectDoesNotExist:
+                return Response(
+                    {'reason': 'User does not exist'},
+                    status=status.HTTP_406_NOT_ACCEPTABLE
+                )
+        return Response(
+            {'reason': ser.errors}, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+    def just_now(self, user):
+        self.last_otp_time = user.last_otp
+        self.current_time = datetime.datetime.now()
+        self.resend_in = datetime.timedelta(seconds=user.resend_in + 30)
+        self.time_dif = self.current_time - self.last_otp_time
+        if self.time_dif <= self.resend_in:
+            return True
+        else:
+            return False
+
+    def waiting(self):
+        waiting_time = self.resend_in - self.time_dif
+        seconds = str(waiting_time.total_seconds()).split('.')[0]
+        return "You can resend OTP after %s seconds" % (seconds)
+
+class RevokeOTP(CreateAPIView):
+    queryset = PhoneOTP.objects.all()
+    serializer_class = RevokeOTPSerializer
+
+    def post(self, request, format=None):
+        ser = self.serializer_class(
+            data=request.data, context={'request': request}
+        )
+        if ser.is_valid():
+            number = request.data.get("phone_number")
+            try:
+                user = PhoneOTP.objects.get(phone_number=number)
+                if user:
+                    PhoneOTP.update_otp_for_number(number)
+                    return Response(
+                        {'reason': 'OTP sent'},
+                        status=status.HTTP_200_OK
+                    )
+            except ObjectDoesNotExist:
+                return Response(
+                    {'reason': 'User does not exist'},
+                    status=status.HTTP_406_NOT_ACCEPTABLE
+                )
+        return Response(
+            {'reason': ser.errors}, status=status.HTTP_406_NOT_ACCEPTABLE)

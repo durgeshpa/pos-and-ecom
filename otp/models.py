@@ -11,6 +11,8 @@ from django.utils.translation import ugettext_lazy as _
 from django.core.validators import RegexValidator
 from django.utils.crypto import get_random_string
 from .sms import SendSms, SendVoiceSms
+from django.utils import timezone
+
 
 class PhoneOTP(models.Model):
     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="The phone number entered is not valid")
@@ -19,8 +21,9 @@ class PhoneOTP(models.Model):
     is_verified = models.BooleanField(default=False)
     attempts = models.IntegerField(default = 0)
     expires_in = models.IntegerField(default = 300) #in seconds
-    created_at = models.DateTimeField(auto_now=True)
-    resend_in = models.IntegerField(default = 60) #in seconds
+    created_at = models.DateTimeField(default=timezone.now)
+    last_otp = models.DateTimeField(default=timezone.now)
+    resend_in = models.IntegerField(default = getattr(settings, 'OTP_RESEND_IN', 30)) #in seconds
 
     class Meta:
         verbose_name = "Phone OTP"
@@ -39,6 +42,22 @@ class PhoneOTP(models.Model):
                           body="%s is the OTP for your GramFactory Account." % (otp))
         message.send()
         return phone_otp
+
+    @classmethod
+    def update_otp_for_number(cls, number):
+        otp = cls.generate_otp(length=getattr(settings, 'OTP_LENGTH', 6),
+                               allowed_chars=getattr(settings, 'OTP_CHARS', '0123456789')
+                               )
+        user = PhoneOTP.objects.get(phone_number=number)
+        user.otp = otp
+        user.attempts = 0
+        user.created_at = timezone.now()
+        user.last_otp = timezone.now()
+        user.save()
+        message = SendSms(phone=number,
+                          body="%s is the OTP for your GramFactory Account." % (otp))
+        message.send()
+        return user
 
     @classmethod
     def generate_otp(cls, length=6, allowed_chars='0123456789'):

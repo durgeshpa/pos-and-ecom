@@ -169,6 +169,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, "static/")
 OTP_LENGTH = 6
 OTP_CHARS = '0123456789'
 OTP_ATTEMPTS = 5
+OTP_RESEND_IN = 30
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
