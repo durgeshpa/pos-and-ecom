@@ -9,7 +9,7 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import ugettext_lazy as _
 from django.views.decorators.debug import sensitive_post_parameters
 
-from rest_framework import status
+from rest_framework import status, authentication, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.generics import GenericAPIView, RetrieveUpdateAPIView
@@ -103,7 +103,7 @@ class LogoutView(APIView):
 
     Accepts/Returns nothing.
     """
-    permission_classes = (AllowAny,)
+    authentication_classes = (authentication.TokenAuthentication,)
 
     def get(self, request, *args, **kwargs):
         if getattr(settings, 'ACCOUNT_LOGOUT_ON_GET', False):
@@ -118,6 +118,7 @@ class LogoutView(APIView):
 
     def logout(self, request):
         try:
+            print("logout")
             request.user.auth_token.delete()
         except (AttributeError, ObjectDoesNotExist):
             pass

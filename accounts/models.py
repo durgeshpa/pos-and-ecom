@@ -43,7 +43,7 @@ class UserManager(BaseUserManager):
 
 class User(AbstractUser):
     """User model."""
-
+    username = None
     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="The phone number entered is not valid")
     phone_number = models.CharField(validators=[phone_regex], max_length=10, blank=False, unique=True)
     email = models.EmailField(_('email address'),blank=True)
@@ -60,7 +60,6 @@ class User(AbstractUser):
     user_type = models.PositiveSmallIntegerField(choices=USER_TYPE_CHOICES, default = '6', null=True)
 
     USERNAME_FIELD = 'phone_number'
-    REQUIRED_FIELDS = ['username']
     objects = UserManager()
 
     def __str__(self):
@@ -75,3 +74,16 @@ from otp.models import PhoneOTP
 def create_phone_otp(sender, instance=None, created=False, **kwargs):
     if created:
         PhoneOTP.create_otp_for_number(instance)
+#@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+#def set_inactive(sender, instance=None, created=False, **kwargs):
+#    if created:
+#        user = User.objects.get(phone_number = instance)
+#        user.is_active = False
+#        user.save()
+
+#from allauth.account.signals import user_signed_up, email_confirmed
+#@receiver(user_signed_up)
+#def user_signed_up_(request, user, **kwargs):
+    #user.is_active = False
+    #user.save()
+    #print(user , "user signed up and set as inactive")

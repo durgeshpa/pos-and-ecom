@@ -11,8 +11,10 @@ from .sms import SendSms, SendVoiceSms
 from .models import PhoneOTP
 from .serializers import PhoneOTPValidateSerializer, ResendSmsOTPSerializer, ResendVoiceOTPSerializer, RevokeOTPSerializer
 from django.utils import timezone
+from rest_framework.permissions import AllowAny
 
 class ValidateOTP(CreateAPIView):
+    permission_classes = (AllowAny,)
     queryset = PhoneOTP.objects.all()
     serializer_class = PhoneOTPValidateSerializer
 
@@ -81,6 +83,7 @@ class ValidateOTP(CreateAPIView):
             return reason, status_code
 
 class ResendSmsOTP(CreateAPIView):
+    permission_classes = (AllowAny,)
     queryset = PhoneOTP.objects.all()
     serializer_class = ResendSmsOTPSerializer
 
@@ -141,6 +144,7 @@ class ResendSmsOTP(CreateAPIView):
         return "You can resend OTP after %s seconds" % (seconds)
 
 class ResendVoiceOTP(CreateAPIView):
+    permission_classes = (AllowAny,)
     queryset = PhoneOTP.objects.all()
     serializer_class = ResendVoiceOTPSerializer
 
@@ -201,6 +205,7 @@ class ResendVoiceOTP(CreateAPIView):
         return "You can resend OTP after %s seconds" % (seconds)
 
 class RevokeOTP(CreateAPIView):
+    permission_classes = (AllowAny,)
     queryset = PhoneOTP.objects.all()
     serializer_class = RevokeOTPSerializer
 

@@ -16,6 +16,7 @@ except ImportError:
 
 from rest_framework import serializers
 from requests.exceptions import HTTPError
+UserModel = get_user_model()
 
 class SocialAccountSerializer(serializers.ModelSerializer):
     """
