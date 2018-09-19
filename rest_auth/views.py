@@ -83,15 +83,16 @@ class LoginView(GenericAPIView):
         else:
             serializer = serializer_class(instance=self.token,
                                           context={'request': self.request})
-
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response({'is_success': True,
+                        'message':['Successfully logged in'],
+                        'response_data':{'access_token':[serializer.data['key']]}},
+                        status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
         self.request = request
         self.serializer = self.get_serializer(data=self.request.data,
                                               context={'request': request})
         self.serializer.is_valid(raise_exception=True)
-
         self.login()
         return self.get_response()
 
@@ -118,14 +119,15 @@ class LogoutView(APIView):
 
     def logout(self, request):
         try:
-            print("logout")
             request.user.auth_token.delete()
         except (AttributeError, ObjectDoesNotExist):
             pass
 
         django_logout(request)
 
-        return Response({"detail": _("Successfully logged out.")},
+        return Response({'is_success': True,
+                        'message':['Successfully logged out'],
+                        'response_data': None},
                         status=status.HTTP_200_OK)
 
 

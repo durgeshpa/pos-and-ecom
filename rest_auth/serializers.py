@@ -17,7 +17,7 @@ UserModel = get_user_model()
 
 
 class LoginSerializer(serializers.Serializer):
-    username = serializers.CharField(required=False, allow_blank=True)
+    username = serializers.CharField(required=True)
     email = serializers.EmailField(required=False, allow_blank=True)
     password = serializers.CharField(style={'input_type': 'password'})
 
@@ -28,7 +28,9 @@ class LoginSerializer(serializers.Serializer):
             user = authenticate(email=email, password=password)
         else:
             msg = _('Must include "email" and "password".')
-            raise exceptions.ValidationError(msg)
+            raise serializers.ValidationError({'is_success': False,
+                                              'message':msg,
+                                              'response_data': None})
 
         return user
 
@@ -39,8 +41,9 @@ class LoginSerializer(serializers.Serializer):
             user = authenticate(username=username, password=password)
         else:
             msg = _('Must include "username" and "password".')
-            raise exceptions.ValidationError(msg)
-
+            raise serializers.ValidationError({'is_success': False,
+                                              'message':msg,
+                                              'response_data': None})
         return user
 
     def _validate_username_email(self, username, email, password):
@@ -52,8 +55,9 @@ class LoginSerializer(serializers.Serializer):
             user = authenticate(username=username, password=password)
         else:
             msg = _('Must include either "username" or "email" and "password".')
-            raise exceptions.ValidationError(msg)
-
+            raise serializers.ValidationError({'is_success': False,
+                                              'message':msg,
+                                              'response_data': None})
         return user
 
     def validate(self, attrs):
@@ -95,8 +99,10 @@ class LoginSerializer(serializers.Serializer):
                 msg = _('User account is disabled.')
                 raise exceptions.ValidationError(msg)
         else:
-            msg = _('Unable to log in with provided credentials.')
-            raise exceptions.ValidationError(msg)
+            msg = _('Invalid username or password.')
+            raise serializers.ValidationError({'is_success': False,
+                                               'message': msg,
+                                               'response_data': None})
 
         # If required, is the email verified?
         if 'rest_auth.registration' in settings.INSTALLED_APPS:
@@ -105,7 +111,7 @@ class LoginSerializer(serializers.Serializer):
                 email_address = user.emailaddress_set.get(email=user.email)
                 if not email_address.verified:
                     raise serializers.ValidationError(_('E-mail is not verified.'))
-                    
+
         from otp.models import PhoneOTP
         phone_number = PhoneOTP.objects.get(phone_number=username)
         if not phone_number.is_verified:
