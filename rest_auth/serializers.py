@@ -97,7 +97,9 @@ class LoginSerializer(serializers.Serializer):
         if user:
             if not user.is_active:
                 msg = _('User account is disabled.')
-                raise exceptions.ValidationError(msg)
+                raise serializers.ValidationError({'is_success': False,
+                                                   'message': msg,
+                                                   'response_data': None})
         else:
             msg = _('Invalid username or password.')
             raise serializers.ValidationError({'is_success': False,
