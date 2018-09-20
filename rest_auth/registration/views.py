@@ -62,12 +62,29 @@ class RegisterView(CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(self.get_response_data(user),
-                        status=status.HTTP_201_CREATED,
-                        headers=headers)
+        if serializer.is_valid():
+            user = self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            msg = {'is_success': True,
+                    'message': ["Signed up! Please verify mobile number to login"],
+                    'response_data':[{'access_token':self.get_response_data(user)['key']}] }
+            return Response(msg,
+                            status=status.HTTP_201_CREATED,
+                            headers=headers)
+        else:
+            errors = []
+            for field in serializer.errors:
+                for error in serializer.errors[field]:
+                    if 'non_field_errors' in field:
+                        result = error
+                    else:
+                        result = ''.join('{} : {}'.format(field,error))
+                    errors.append(result)
+            msg = {'is_success': False,
+                    'message': errors,
+                    'response_data': None }
+            return Response(msg,
+                            status=status.HTTP_406_NOT_ACCEPTABLE)
 
     def perform_create(self, serializer):
         user = serializer.save(self.request)

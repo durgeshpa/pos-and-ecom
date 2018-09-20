@@ -15,7 +15,7 @@ from django.utils import timezone
 
 
 class PhoneOTP(models.Model):
-    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="The phone number entered is not valid")
+    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
     phone_number = models.CharField(validators=[phone_regex], max_length=10, blank=False)
     otp = models.CharField(max_length=10)
     is_verified = models.BooleanField(default=False)
@@ -48,7 +48,8 @@ class PhoneOTP(models.Model):
         otp = cls.generate_otp(length=getattr(settings, 'OTP_LENGTH', 6),
                                allowed_chars=getattr(settings, 'OTP_CHARS', '0123456789')
                                )
-        user = PhoneOTP.objects.get(phone_number=number)
+        user = PhoneOTP.objects.filter(phone_number=number)
+        user = user.last()
         user.otp = otp
         user.attempts = 0
         user.created_at = timezone.now()

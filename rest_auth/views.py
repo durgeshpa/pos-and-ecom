@@ -9,11 +9,16 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import ugettext_lazy as _
 from django.views.decorators.debug import sensitive_post_parameters
 
-from rest_framework import status, authentication, permissions
+from rest_framework import status, authentication, permissions, serializers, exceptions
+from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.generics import GenericAPIView, RetrieveUpdateAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from django.http import JsonResponse
+import json
+
+
 
 from .app_settings import (
     TokenSerializer, UserDetailsSerializer, LoginSerializer,
@@ -43,6 +48,7 @@ class LoginView(GenericAPIView):
     permission_classes = (AllowAny,)
     serializer_class = LoginSerializer
     token_model = TokenModel
+    queryset = TokenModel.objects.all()
 
     @sensitive_post_parameters_m
     def dispatch(self, *args, **kwargs):
@@ -92,9 +98,25 @@ class LoginView(GenericAPIView):
         self.request = request
         self.serializer = self.get_serializer(data=self.request.data,
                                               context={'request': request})
-        self.serializer.is_valid(raise_exception=True)
-        self.login()
-        return self.get_response()
+
+        if self.serializer.is_valid():
+            self.login()
+            return self.get_response()
+        else:
+            errors = []
+            for field in self.serializer.errors:
+                for error in self.serializer.errors[field]:
+                    if 'non_field_errors' in field:
+                        result = error
+                    else:
+                        result = ''.join('{} : {}'.format(field,error))
+                    errors.append(result)
+            msg = {'is_success': False,
+                    'message': errors,
+                    'response_data': None }
+            return Response(msg,
+                            status=status.HTTP_406_NOT_ACCEPTABLE)
+
 
 
 class LogoutView(APIView):

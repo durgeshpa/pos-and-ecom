@@ -44,7 +44,7 @@ class UserManager(BaseUserManager):
 class User(AbstractUser):
     """User model."""
     username = None
-    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="The phone number entered is not valid")
+    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
     phone_number = models.CharField(validators=[phone_regex], max_length=10, blank=False, unique=True)
     email = models.EmailField(_('email address'),blank=True)
     USER_TYPE_CHOICES = (

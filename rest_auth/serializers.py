@@ -5,6 +5,19 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_decode as uid_decoder
 from django.utils.translation import ugettext_lazy as _
 from django.utils.encoding import force_text
+from django.core.validators import RegexValidator
+
+try:
+    from allauth.account import app_settings as allauth_settings
+    from allauth.utils import (email_address_exists,
+                               get_username_max_length)
+    from allauth.account.adapter import get_adapter
+    from allauth.account.utils import setup_user_email
+    from allauth.socialaccount.helpers import complete_social_login
+    from allauth.socialaccount.models import SocialAccount
+    from allauth.socialaccount.providers.base import AuthProcess
+except ImportError:
+    raise ImportError("allauth needs to be added to INSTALLED_APPS.")
 
 from rest_framework import serializers, exceptions
 from rest_framework.exceptions import ValidationError
@@ -15,9 +28,16 @@ from .utils import import_callable
 # Get the UserModel
 UserModel = get_user_model()
 
+from django.utils.translation import ugettext
 
 class LoginSerializer(serializers.Serializer):
-    username = serializers.CharField(required=True)
+    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
+    username = serializers.CharField(
+        validators = [phone_regex],
+        max_length=get_username_max_length(),
+        min_length=allauth_settings.USERNAME_MIN_LENGTH,
+        required=True
+    )
     email = serializers.EmailField(required=False, allow_blank=True)
     password = serializers.CharField(style={'input_type': 'password'})
 
@@ -28,9 +48,7 @@ class LoginSerializer(serializers.Serializer):
             user = authenticate(email=email, password=password)
         else:
             msg = _('Must include "email" and "password".')
-            raise serializers.ValidationError({'is_success': False,
-                                              'message':msg,
-                                              'response_data': None})
+            raise serializers.ValidationError(msg)
 
         return user
 
@@ -41,10 +59,9 @@ class LoginSerializer(serializers.Serializer):
             user = authenticate(username=username, password=password)
         else:
             msg = _('Must include "username" and "password".')
-            raise serializers.ValidationError({'is_success': False,
-                                              'message':msg,
-                                              'response_data': None})
+            raise serializers.ValidationError(msg)
         return user
+
 
     def _validate_username_email(self, username, email, password):
         user = None
@@ -55,9 +72,7 @@ class LoginSerializer(serializers.Serializer):
             user = authenticate(username=username, password=password)
         else:
             msg = _('Must include either "username" or "email" and "password".')
-            raise serializers.ValidationError({'is_success': False,
-                                              'message':msg,
-                                              'response_data': None})
+            raise serializers.ValidationError(msg)
         return user
 
     def validate(self, attrs):
@@ -97,14 +112,10 @@ class LoginSerializer(serializers.Serializer):
         if user:
             if not user.is_active:
                 msg = _('User account is disabled.')
-                raise serializers.ValidationError({'is_success': False,
-                                                   'message': msg,
-                                                   'response_data': None})
+                raise serializers.ValidationError(msg)
         else:
             msg = _('Invalid username or password.')
-            raise serializers.ValidationError({'is_success': False,
-                                               'message': msg,
-                                               'response_data': None})
+            raise exceptions.ValidationError(msg)
 
         # If required, is the email verified?
         if 'rest_auth.registration' in settings.INSTALLED_APPS:
