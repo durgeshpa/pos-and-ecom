@@ -49,6 +49,9 @@ INSTALLED_APPS = [
     'accounts',
     'otp',
     'api',
+    'category',
+    'adminsortable',
+    'mptt',
 
 ]
 
