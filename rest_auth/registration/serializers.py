@@ -168,7 +168,7 @@ class RegisterSerializer(serializers.Serializer):
         min_length=allauth_settings.USERNAME_MIN_LENGTH,
         required=allauth_settings.USERNAME_REQUIRED
     )
-    email = serializers.EmailField(required=allauth_settings.EMAIL_REQUIRED)
+    email = serializers.EmailField(required=allauth_settings.EMAIL_REQUIRED, allow_blank=True)
     password1 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
     password2 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
 
