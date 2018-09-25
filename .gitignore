@@ -39,3 +39,5 @@ var/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
+.idea/
+*.DS_Store
