@@ -33,12 +33,12 @@ class BannerPosition(SortableMixin):
         ordering = ['banner_position_order']
 
 class BannerData(SortableMixin):
-    banner = SortableForeignKey(BannerPosition,related_name='ban_data',null=True,blank=True, on_delete=models.CASCADE)
-    banner_data = models.ForeignKey(Banner,related_name='banner_posation_data',null=True,blank=True, on_delete=models.CASCADE)
+    slot = SortableForeignKey(BannerPosition,related_name='ban_data',null=True,blank=True, on_delete=models.CASCADE)
+    banner_data = models.ForeignKey(Banner,related_name='banner_position_data',null=True,blank=True, on_delete=models.CASCADE)
     banner_data_order = models.PositiveIntegerField(default=0, editable=False, db_index=True)
 
     def __str__(self):
-        return self.banner.position_name
+        return self.slot.position_name
 
     class Meta:
         ordering = ['banner_data_order']

@@ -15,11 +15,12 @@ class BannerPositionAdmin(NonSortableParentAdmin):
 admin.site.register(BannerPosition, BannerPositionAdmin)
 
 class BannerAdmin(admin.ModelAdmin):
-    fields = ('name', 'created_at','updated_at','status', 'Type')
-    list_display = ('name', 'created_at','updated_at','status')
+    fields = ('name','status', 'Type')
+    list_display = ('id','name', 'created_at','updated_at','status')
     list_filter = ('name', 'created_at','updated_at')
+    search_fields= ('name', 'created_at','updated_at')
 
-admin.site.register(Banner)
+admin.site.register(Banner,BannerAdmin)
 
 # from mptt.admin import DraggableMPTTAdmin
 #

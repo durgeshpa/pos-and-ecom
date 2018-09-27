@@ -24,5 +24,6 @@ urlpatterns = [
     url(r'^otp/', include('otp.urls')),
     url(r'^api/', include('api.urls')),
     url(r'^rest-auth/registration/', include('rest_auth.registration.urls')),
+    url(r'^bannerapi/', include('banner.urls')),
     path('admin/', admin.site.urls),
 ]

@@ -1,20 +1,92 @@
 from django.shortcuts import render
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.generics import CreateAPIView, DestroyAPIView, ListAPIView, RetrieveAPIView, UpdateAPIView
+from rest_framework.generics import ListCreateAPIView,RetrieveUpdateDestroyAPIView
+from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import CategoriesSerializer
-from category.models import Categories
+from .serializers import BannerSerializer, BannerPositionSerializer, BannerSlotSerializer
+from banner.models import Banner, BannerPosition,BannerData
 from rest_framework import viewsets
 from rest_framework.decorators import list_route
 
-class GetAllBannerListView(viewsets.ModelViewSet):
+class GetAllBannerListView(ListCreateAPIView):
     queryset = Banner.objects.filter(status=True)
     serializer_class = BannerSerializer
 
     @list_route
     def roots(self, request):
-        queryset = Banner.objects.filter(status=True)
+        queryset = BannerPosition.objects.filter(status=True)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+
+class GetSlotBannerListView(ListCreateAPIView):
+    queryset = BannerData.objects.all().order_by('banner_data_id')
+    serializer_class = BannerPositionSerializer
+    @list_route
+    def roots(self, request):
+        queryset = BannerData.objects.all().order_by('banner_data_id')
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+
+class GetSlotBannerListView1(APIView):
+
+    # queryset = BannerData.objects.filter(slot__position_name=pos_name).order_by('banner_data_id')
+    # serializer_class = BannerPositionSerializer
+
+    def get(self,*args,**kwargs):
+        pos_name = self.kwargs.get('slot_position_name')
+        print(pos_name)
+        data = BannerData.objects.filter(slot__position_name=pos_name).order_by('banner_data_id')
+        #serializer_class = BannerPositionSerializer
+        serializer = BannerPositionSerializer(data,many=True)
+        return Response(serializer.data)
+        
+
+@api_view(['GET', 'POST'])
+def all_slot_list_view(request):
+    """
+    Retrieve, update or delete a code banner.
+    """
+    if request.method == 'GET':
+        slots = BannerPosition.objects.all()
+        serializer = BannerSlotSerializer(slots, many=True)
+        return Response(serializer.data)
+
+    elif request.method == 'POST':
+        serializer = BannerSlotSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+def slot_detail_view(request,pk):
+    """
+    Retrieve, update or delete a code banner.
+    """
+    try:
+        position = BannerPosition.objects.get(pk=pk)
+    except Banner.DoesNotExist:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        serializer = BannerSlotSerializer(position)
+        return Response(serializer.data)
+
+    elif request.method == 'PUT':
+        serializer = BannerSlotSerializer(position, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'DELETE':
+        banner.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
