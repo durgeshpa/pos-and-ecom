@@ -67,7 +67,7 @@ class RegisterView(CreateAPIView):
         if serializer.is_valid():
             number = request.data.get('username')
             user_otp = PhoneOTP.objects.filter(phone_number=number).last()
-            if user_otp.is_verified:
+            if user_otp and user_otp.is_verified:
                 user = self.perform_create(serializer)
                 headers = self.get_success_headers(serializer.data)
                 msg = {'is_success': True,
