@@ -27,12 +27,12 @@ class SendSms(object):
                 'format':'text'
                 }
             req = requests.get('https://enterprise.smsgupshup.com/GatewayAPI/rest', params=query)
-            import pdb
-            #pdb.set_trace()
             return req.status_code, req.text
         except:
-            if not self.fail_silently:
-                raise
+            error = "Something went wrong! Please try again"
+            status_code = "400"
+            return status_code, error
+
 
 class ValidatePhone(object):
     """To check if number is valid"""
@@ -64,12 +64,13 @@ class SendVoiceSms(object):
                 'text':message,
                 'userid': config('SMS_USER_ID'),
                 'password': config('SMS_PWD'),
-                'speed':'2',
+                'speed':'3',
                 'repeat':'5',
                 'authkey': config('SMS_AUTH_KEY'),
                 }
             req = requests.get('http://products.smsgupshup.com/FreeSpeech/incoming.php', params=query)
             return req.status_code, req.text
         except:
-            if not self.fail_silently:
-                raise
+            error = "Something went wrong! Please try again"
+            status_code = "400"
+            return status_code, error

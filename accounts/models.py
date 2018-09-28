@@ -69,11 +69,11 @@ class User(AbstractUser):
 def create_auth_token(sender, instance=None, created=False, **kwargs):
     if created:
         Token.objects.create(user=instance)
-from otp.models import PhoneOTP
-@receiver(post_save, sender=settings.AUTH_USER_MODEL)
-def create_phone_otp(sender, instance=None, created=False, **kwargs):
-    if created:
-        PhoneOTP.create_otp_for_number(instance)
+#from otp.models import PhoneOTP
+#@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+#def create_phone_otp(sender, instance=None, created=False, **kwargs):
+#    if created:
+#        PhoneOTP.create_otp_for_number(instance)
 #@receiver(post_save, sender=settings.AUTH_USER_MODEL)
 #def set_inactive(sender, instance=None, created=False, **kwargs):
 #    if created:

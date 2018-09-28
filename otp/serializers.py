@@ -14,6 +14,16 @@ class PhoneOTPValidateSerializer(serializers.ModelSerializer):
             'otp'
         )
 
+class SendSmsOTPSerializer(serializers.ModelSerializer):
+    """
+    Send OTP SMS to number
+    """
+    class Meta:
+        model = PhoneOTP
+        fields = (
+            'phone_number',
+        )
+
 class ResendSmsOTPSerializer(serializers.ModelSerializer):
     """
     Resend OTP SMS to number

@@ -124,12 +124,6 @@ class LoginSerializer(serializers.Serializer):
                 email_address = user.emailaddress_set.get(email=user.email)
                 if not email_address.verified:
                     raise serializers.ValidationError(_('E-mail is not verified.'))
-
-        from otp.models import PhoneOTP
-        phone_number = PhoneOTP.objects.get(phone_number=username)
-        if not phone_number.is_verified:
-            raise serializers.ValidationError(_('Phone number is not verified.'))
-
         attrs['user'] = user
         return attrs
 
