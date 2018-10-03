@@ -2,6 +2,8 @@ from django.db import models
 from adminsortable.fields import SortableForeignKey
 from adminsortable.models import SortableMixin
 from mptt.models import TreeForeignKey
+from django.utils import timezone
+
 
 # Create your models here.
 YES = 'Y'

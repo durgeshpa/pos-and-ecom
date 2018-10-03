@@ -10,11 +10,13 @@ from .serializers import BannerSerializer, BannerPositionSerializer, BannerSlotS
 from banner.models import Banner, BannerPosition,BannerData
 from rest_framework import viewsets
 from rest_framework.decorators import list_route
+import datetime
+
 
 class GetAllBannerListView(ListCreateAPIView):
-    queryset = Banner.objects.filter(status=True)
+    startdate = datetime.datetime.now()
+    queryset = Banner.objects.filter(status= True, banner_start_date__lte= startdate, banner_end_date__gte= startdate)
     serializer_class = BannerSerializer
-
     @list_route
     def roots(self, request):
         queryset = BannerPosition.objects.filter(status=True)
@@ -40,11 +42,12 @@ class GetSlotBannerListView(APIView):
     # serializer_class = BannerPositionSerializer
 
     def get(self,*args,**kwargs):
+        startdate = datetime.datetime.now()
         pos_name = self.kwargs.get('slot_position_name')
         if pos_name:
-            data = BannerData.objects.filter(slot__position_name=pos_name)
+            data = BannerData.objects.filter(banner_data__status=True, slot__position_name=pos_name, banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate )
         else:
-            data = BannerData.objects.all()
+            data = BannerData.objects.filter(banner_data__status=True, banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate)
         is_success = True if data else False
         serializer = BannerDataSerializer(data,many=True)
 
@@ -67,6 +70,7 @@ def all_slot_list_view(request):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 @api_view(['GET', 'PUT', 'DELETE'])
