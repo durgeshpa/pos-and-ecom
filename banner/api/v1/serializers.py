@@ -13,12 +13,20 @@ class BannerSerializer(serializers.ModelSerializer):
         model = Banner
         fields = '__all__'
 
+
 class BannerPositionSerializer(serializers.ModelSerializer):
-    cat_parent = RecursiveSerializer(many=True, read_only=True)
 
     class Meta:
-        model = BannerData
+        model = BannerPosition
         fields = '__all__'
+
+
+class BannerDataSerializer(serializers.ModelSerializer):
+    banner_data = BannerSerializer(read_only=True)
+    slot = BannerPositionSerializer(read_only=True)
+    class Meta:
+        model = BannerData
+        fields = ('id','slot','banner_data','banner_data_order')
 
 class BannerSlotSerializer(serializers.ModelSerializer):
     cat_parent = RecursiveSerializer(many=True, read_only=True)

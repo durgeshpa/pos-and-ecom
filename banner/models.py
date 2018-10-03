@@ -11,16 +11,21 @@ CHOICES = (
     (NO, 'No'),
   )
 class Banner(models.Model):
-    name = models.FileField()
+    name= models.CharField(max_length=20, blank=True, null=True)
+    image = models.FileField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at= models.DateTimeField(auto_now=True)
+    banner_start_date= models.DateTimeField()
+    banner_end_date= models.DateTimeField()
     status = models.BooleanField(('Status'),help_text=('Designates whether the banner is to be displayed or not.'),default=True)
+    alt_text= models.CharField(max_length=20, blank=True, null=True)
+    text_below_image= models.CharField(max_length=20, blank=True, null=True)
     Type = models.CharField(('Type'),help_text=('Designates the type of the banner.'), max_length=2,
                                       choices=CHOICES,
                                       default=YES)
 
     def __str__(self):
-        return '{}'.format(self.name)
+        return '{}'.format(self.image)
 
 class BannerPosition(SortableMixin):
     position_name = models.CharField(max_length=255)

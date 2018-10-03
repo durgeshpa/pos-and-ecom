@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'adminsortable',
     'mptt',
     'banner',
+    'brand',
 
 ]
 

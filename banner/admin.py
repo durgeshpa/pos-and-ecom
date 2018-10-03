@@ -15,9 +15,9 @@ class BannerPositionAdmin(NonSortableParentAdmin):
 admin.site.register(BannerPosition, BannerPositionAdmin)
 
 class BannerAdmin(admin.ModelAdmin):
-    fields = ('name','status', 'Type')
-    list_display = ('id','name', 'created_at','updated_at','status')
-    list_filter = ('name', 'created_at','updated_at')
+    fields = ('name','image','status','banner_start_date','banner_end_date', 'Type','alt_text','text_below_image')
+    list_display = ('id','name','image', 'created_at','updated_at','status')
+    list_filter = ('name','image', 'created_at','updated_at')
     search_fields= ('name', 'created_at','updated_at')
 
 admin.site.register(Banner,BannerAdmin)

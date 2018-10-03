@@ -6,7 +6,7 @@ from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import BannerSerializer, BannerPositionSerializer, BannerSlotSerializer
+from .serializers import BannerSerializer, BannerPositionSerializer, BannerSlotSerializer, BannerDataSerializer
 from banner.models import Banner, BannerPosition,BannerData
 from rest_framework import viewsets
 from rest_framework.decorators import list_route
@@ -22,32 +22,36 @@ class GetAllBannerListView(ListCreateAPIView):
         return Response(serializer.data)
 
 
-class GetSlotBannerListView(ListCreateAPIView):
-    queryset = BannerData.objects.all().order_by('banner_data_id')
-    serializer_class = BannerPositionSerializer
+'''class GetSlotBannerListView(ListCreateAPIView):
+    queryset = BannerData.objects.all().order_by('banner_data_order')
+    serializer_class = BannerDataSerializer
     @list_route
     def roots(self, request):
-        queryset = BannerData.objects.all().order_by('banner_data_id')
+        queryset = BannerData.objects.all().order_by('banner_data_order')
         serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
+        is_success = True if queryset else False
+        return Response({"message":"", "response_data": serializer.data ,"is_success": is_success})
+       '''
 
 
-
-class GetSlotBannerListView1(APIView):
+class GetSlotBannerListView(APIView):
 
     # queryset = BannerData.objects.filter(slot__position_name=pos_name).order_by('banner_data_id')
     # serializer_class = BannerPositionSerializer
 
     def get(self,*args,**kwargs):
         pos_name = self.kwargs.get('slot_position_name')
-        print(pos_name)
-        data = BannerData.objects.filter(slot__position_name=pos_name).order_by('banner_data_id')
-        #serializer_class = BannerPositionSerializer
-        serializer = BannerPositionSerializer(data,many=True)
-        return Response(serializer.data)
-        
+        if pos_name:
+            data = BannerData.objects.filter(slot__position_name=pos_name)
+        else:
+            data = BannerData.objects.all()
+        is_success = True if data else False
+        serializer = BannerDataSerializer(data,many=True)
 
-@api_view(['GET', 'POST'])
+        return Response({"message":"", "response_data": serializer.data ,"is_success": is_success})
+
+
+'''@api_view(['GET', 'POST'])
 def all_slot_list_view(request):
     """
     Retrieve, update or delete a code banner.
@@ -63,7 +67,6 @@ def all_slot_list_view(request):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 @api_view(['GET', 'PUT', 'DELETE'])
@@ -90,3 +93,4 @@ def slot_detail_view(request,pk):
     elif request.method == 'DELETE':
         banner.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+       '''
