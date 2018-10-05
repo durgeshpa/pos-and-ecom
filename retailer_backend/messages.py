@@ -1,8 +1,8 @@
 VALIDATION_ERROR_MESSAGES = {
     'INVALID_MOBILE_NUMBER': 'Mobile Number is not valid',
     'INVALID_NAME': 'Name is not valid',
-    'OTP_ATTEMPTS_EXCEEDED': 'You have exceeded maximum attempts',
-    'OTP_EXPIRED': 'OTP expired! Please request a new OTP',
+    'OTP_ATTEMPTS_EXCEEDED': 'Exceeded maximum attempts! Please enter the new OTP',
+    'OTP_EXPIRED': 'OTP expired! Please enter the new OTP',
     'OTP_NOT_MATCHED': 'OTP does not match',
     'USER_NOT_EXIST': 'Invalid data',
 

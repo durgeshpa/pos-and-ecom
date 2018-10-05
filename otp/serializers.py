@@ -43,13 +43,3 @@ class ResendVoiceOTPSerializer(serializers.ModelSerializer):
         fields = (
             'phone_number',
         )
-
-class RevokeOTPSerializer(serializers.ModelSerializer):
-    """
-    Recreate the OTP for user
-    """
-    class Meta:
-        model = PhoneOTP
-        fields = (
-            'phone_number',
-        )
