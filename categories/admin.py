@@ -12,7 +12,13 @@ class CategoryPosationAdmin(NonSortableParentAdmin):
     inlines = [CategoryDataInline]
 
 admin.site.register(CategoryPosation, CategoryPosationAdmin)
-admin.site.register(Category)
+
+
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ['category_name', 'category_slug']
+    prepopulated_fields = {'category_slug': ('category_name',)}
+
+admin.site.register(Category,CategoryAdmin)
 
 # from mptt.admin import DraggableMPTTAdmin
 #

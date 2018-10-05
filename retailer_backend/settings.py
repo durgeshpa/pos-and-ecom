@@ -52,6 +52,9 @@ INSTALLED_APPS = [
     'categories',
     'adminsortable',
     'mptt',
+    'addresses',
+    'products',
+    'shops',
 
 ]
 

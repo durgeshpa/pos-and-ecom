@@ -4,7 +4,6 @@ from adminsortable.fields import SortableForeignKey
 from adminsortable.models import SortableMixin
 from mptt.models import TreeForeignKey
 
-
 # Create your models here.
 class Category(models.Model):
     """
@@ -58,6 +57,7 @@ class CategoryData(SortableMixin):
     category_pos = SortableForeignKey(CategoryPosation,related_name='cat_data',null=True,blank=True, on_delete=models.CASCADE)
     category_data = models.ForeignKey(Category,related_name='category_posation_data',null=True,blank=True, on_delete=models.CASCADE)
     category_data_order = models.PositiveIntegerField(default=0, editable=False, db_index=True)
+
 
     def __str__(self):
         return self.category_pos.posation_name
