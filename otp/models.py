@@ -36,29 +36,20 @@ class PhoneOTP(models.Model):
         otp = cls.generate_otp(length=getattr(settings, 'OTP_LENGTH', 6),
                                allowed_chars=getattr(settings, 'OTP_CHARS', '0123456789')
                                )
-        phone_otp = PhoneOTP(phone_number=number, otp=otp)
-        phone_otp.save()
-        message = SendSms(phone=number,
-                          body="%s is the OTP for your GramFactory Account." % (otp))
-        message.send()
-        return phone_otp
+        phone_otp = PhoneOTP.objects.create(phone_number=number, otp=otp)
+        return phone_otp, otp
 
     @classmethod
     def update_otp_for_number(cls, number):
         otp = cls.generate_otp(length=getattr(settings, 'OTP_LENGTH', 6),
                                allowed_chars=getattr(settings, 'OTP_CHARS', '0123456789')
                                )
-        user = PhoneOTP.objects.filter(phone_number=number)
-        user = user.last()
+        user = PhoneOTP.objects.filter(phone_number=number).last()
         user.otp = otp
         user.attempts = 0
         user.created_at = timezone.now()
-        user.last_otp = timezone.now()
         user.save()
-        message = SendSms(phone=number,
-                          body="%s is the OTP for your GramFactory Account." % (otp))
-        message.send()
-        return user
+        return user, otp
 
     @classmethod
     def generate_otp(cls, length=6, allowed_chars='0123456789'):

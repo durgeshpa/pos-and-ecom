@@ -20,3 +20,5 @@ requests-oauthlib==1.0.0
 six==1.11.0
 urllib3==1.23
 uWSGI==2.0.17.1
+psycopg2
+psycopg2-binary
