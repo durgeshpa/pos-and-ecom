@@ -25,6 +25,8 @@ from rest_framework.exceptions import ValidationError
 from .models import TokenModel
 from .utils import import_callable
 
+from otp.models import PhoneOTP
+
 # Get the UserModel
 UserModel = get_user_model()
 
@@ -168,38 +170,26 @@ class JWTSerializer(serializers.Serializer):
         return user_data
 
 
-class PasswordResetSerializer(serializers.Serializer):
+class PasswordResetSerializer(serializers.ModelSerializer):
     """
-    Serializer for requesting a password reset e-mail.
+    Serializer for requesting an OTP for password reset.
     """
-    email = serializers.EmailField()
+    class Meta:
+        model = PhoneOTP
+        fields = (
+            'phone_number',
+        )
 
-    password_reset_form_class = PasswordResetForm
-
-    def get_email_options(self):
-        """Override this method to change default e-mail options"""
-        return {}
-
-    def validate_email(self, value):
-        # Create PasswordResetForm with the serializer
-        self.reset_form = self.password_reset_form_class(data=self.initial_data)
-        if not self.reset_form.is_valid():
-            raise serializers.ValidationError(self.reset_form.errors)
-
-        return value
-
-    def save(self):
-        request = self.context.get('request')
-        # Set some values to trigger the send_email method.
-        opts = {
-            'use_https': request.is_secure(),
-            'from_email': getattr(settings, 'DEFAULT_FROM_EMAIL'),
-            'request': request,
-        }
-
-        opts.update(self.get_email_options())
-        self.reset_form.save(**opts)
-
+class PasswordResetValidateSerializer(serializers.ModelSerializer):
+    """
+    Validate the otp send to mobile number for password reset
+    """
+    class Meta:
+        model = PhoneOTP
+        fields = (
+            'phone_number',
+            'otp'
+        )
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
     """

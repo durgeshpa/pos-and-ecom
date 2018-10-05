@@ -22,3 +22,4 @@ urllib3==1.23
 uWSGI==2.0.17.1
 psycopg2
 psycopg2-binary
+django-rest-swagger

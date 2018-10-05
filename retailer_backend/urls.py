@@ -16,6 +16,10 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from django.conf.urls import include, url
+from rest_framework.documentation import include_docs_urls
+from rest_framework_swagger.views import get_swagger_view
+
+schema_view = get_swagger_view(title='GramFactory API')
 
 
 urlpatterns = [
@@ -23,6 +27,7 @@ urlpatterns = [
     url(r'^rest-auth/', include('rest_auth.urls')),
     url(r'^otp/', include('otp.urls')),
     url(r'^api/', include('api.urls')),
+    url(r'^$', schema_view),
     url(r'^rest-auth/registration/', include('rest_auth.registration.urls')),
     path('admin/', admin.site.urls),
 ]

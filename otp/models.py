@@ -12,10 +12,10 @@ from django.core.validators import RegexValidator
 from django.utils.crypto import get_random_string
 from .sms import SendSms, SendVoiceSms
 from django.utils import timezone
-
+from retailer_backend.messages import *
 
 class PhoneOTP(models.Model):
-    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
+    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message=VALIDATION_ERROR_MESSAGES['INVALID_MOBILE_NUMBER'])
     phone_number = models.CharField(validators=[phone_regex], max_length=10, blank=False)
     otp = models.CharField(max_length=10)
     is_verified = models.BooleanField(default=False)

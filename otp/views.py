@@ -14,7 +14,7 @@ from .serializers import PhoneOTPValidateSerializer, ResendSmsOTPSerializer, \
                          SendSmsOTPSerializer
 from django.utils import timezone
 from rest_framework.permissions import AllowAny
-
+from retailer_backend.messages import *
 from otp.models import PhoneOTP
 
 UserModel = get_user_model()
@@ -40,7 +40,7 @@ class ValidateOTP(CreateAPIView):
                 )
             else:
                 msg = {'is_success': False,
-                        'message': ['User does not exist'],
+                        'message': [VALIDATION_ERROR_MESSAGES['USER_NOT_EXIST']],
                         'response_data': None }
                 return Response(msg,
                     status=status.HTTP_406_NOT_ACCEPTABLE
@@ -81,19 +81,19 @@ class ValidateOTP(CreateAPIView):
                 user.is_verified = 1
                 user.save()
                 msg = {'is_success': True,
-                        'message': ['User verified'],
+                        'message': [SUCCESS_MESSAGES['MOBILE_NUMBER_VERIFIED']],
                         'response_data': None }
                 status_code=status.HTTP_200_OK
                 return msg, status_code
             elif self.max_attempts(user, 5):
                 msg = {'is_success': False,
-                        'message': ['You have exceeded maximum attempts'],
+                        'message': [VALIDATION_ERROR_MESSAGES['OTP_ATTEMPTS_EXCEEDED']],
                         'response_data': None }
                 status_code = status.HTTP_406_NOT_ACCEPTABLE
                 return msg, status_code
             elif self.expired(user):
                 msg = {'is_success': False,
-                        'message': ['OTP expired! Please request a new OTP'],
+                        'message': [VALIDATION_ERROR_MESSAGES['OTP_EXPIRED']],
                         'response_data': None }
                 status_code = status.HTTP_406_NOT_ACCEPTABLE
                 return msg, status_code
@@ -101,13 +101,13 @@ class ValidateOTP(CreateAPIView):
         else:
             if self.max_attempts(user, 5):
                 msg = {'is_success': False,
-                        'message': ['You have exceeded maximum attempts'],
+                        'message': [VALIDATION_ERROR_MESSAGES['OTP_ATTEMPTS_EXCEEDED']],
                         'response_data': None }
                 status_code = status.HTTP_406_NOT_ACCEPTABLE
                 return msg, status_code
             elif self.expired(user):
                 msg = {'is_success': False,
-                        'message': ['OTP expired! Please request a new OTP'],
+                        'message': [VALIDATION_ERROR_MESSAGES['OTP_EXPIRED']],
                         'response_data': None }
                 status_code = status.HTTP_406_NOT_ACCEPTABLE
                 return msg, status_code
@@ -115,7 +115,7 @@ class ValidateOTP(CreateAPIView):
             user.save()
             reason = "OTP doesn't matched"
             msg = {'is_success': False,
-                    'message': ["OTP doesn't matched"],
+                    'message': [VALIDATION_ERROR_MESSAGES['OTP_NOT_MATCHED']],
                     'response_data': None }
             status_code = status.HTTP_406_NOT_ACCEPTABLE
             return msg, status_code
@@ -134,7 +134,7 @@ class SendSmsOTP(CreateAPIView):
             user = UserModel.objects.filter(phone_number=number)
             if user.exists():
                 msg = {'is_success': True,
-                        'message': ['User already exists! Please login'],
+                        'message': [SUCCESS_MESSAGES['USER_ALREADY_EXISTS']],
                         'response_data': None,
                         'user_exists': True }
                 return Response(msg,
@@ -228,7 +228,7 @@ class ResendSmsOTP(CreateAPIView):
                         )
             else:
                 msg = {'is_success': False,
-                        'message': ['User does not exist'],
+                        'message': [VALIDATION_ERROR_MESSAGES['USER_NOT_EXIST']],
                         'response_data': None }
                 return Response(msg,
                     status=status.HTTP_406_NOT_ACCEPTABLE
@@ -306,7 +306,7 @@ class ResendVoiceOTP(CreateAPIView):
                         )
             else:
                 msg = {'is_success': False,
-                        'message': ['User does not exist'],
+                        'message': [VALIDATION_ERROR_MESSAGES['USER_NOT_EXIST']],
                         'response_data': None }
                 return Response(msg,
                     status=status.HTTP_406_NOT_ACCEPTABLE
@@ -379,7 +379,7 @@ class RevokeOTP(CreateAPIView):
                     )
             else:
                 msg = {'is_success': False,
-                        'message': ['User does not exist'],
+                        'message': [VALIDATION_ERROR_MESSAGES['USER_NOT_EXIST']],
                         'response_data': None }
                 return Response(msg,
                     status=status.HTTP_406_NOT_ACCEPTABLE

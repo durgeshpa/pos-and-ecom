@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'accounts',
     'otp',
     'api',
+    'rest_framework_swagger'
 
 ]
 
@@ -91,10 +92,7 @@ WSGI_APPLICATION = 'retailer_backend.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'OPTIONS': {
-            'sql_mode': 'traditional',
-        },
+        'ENGINE': 'django.db.backends.postgresql',
         'NAME': config('DB_NAME'),
         'USER': config('DB_USER'),
         'PASSWORD': config('DB_PASSWORD'),
@@ -181,3 +179,6 @@ EMAIL_USE_TLS = True
 EMAIL_PORT = 587
 EMAIL_HOST_USER = config('EMAIL_USER')
 EMAIL_HOST_PASSWORD = config('EMAIL_PWD')
+
+OLD_PASSWORD_FIELD_ENABLED = True
+LOGOUT_ON_PASSWORD_CHANGE = True
