@@ -49,7 +49,13 @@ INSTALLED_APPS = [
     'accounts',
     'otp',
     'api',
-    'rest_framework_swagger'
+    'rest_framework_swagger',
+    'categories',
+    'adminsortable',
+    'mptt',
+    'addresses',
+    'products',
+    'shops',
 
 ]
 
@@ -92,7 +98,10 @@ WSGI_APPLICATION = 'retailer_backend.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': 'django.db.backends.mysql',
+        'OPTIONS': {
+            'sql_mode': 'traditional',
+        },
         'NAME': config('DB_NAME'),
         'USER': config('DB_USER'),
         'PASSWORD': config('DB_PASSWORD'),

@@ -27,6 +27,7 @@ urlpatterns = [
     url(r'^rest-auth/', include('rest_auth.urls')),
     url(r'^otp/', include('otp.urls')),
     url(r'^api/', include('api.urls')),
+    url(r'^category/', include('categories.urls')),
     url(r'^$', schema_view),
     url(r'^rest-auth/registration/', include('rest_auth.registration.urls')),
     path('admin/', admin.site.urls),
