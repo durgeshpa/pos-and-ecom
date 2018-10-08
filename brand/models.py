@@ -3,6 +3,7 @@ from adminsortable.fields import SortableForeignKey
 from adminsortable.models import SortableMixin
 from mptt.models import TreeForeignKey
 from django.core.exceptions import ValidationError
+#from page.models import Page
 # Create your models here.
 CHOICES = (
     (1, 'Active'),
@@ -11,8 +12,8 @@ CHOICES = (
 
 def validate_image(image):
     file_size = image.file.size
-    if file_size > 200 * 200:
-        raise ValidationError("Max size of file is 200 * 200" )
+    if file_size > 300 * 300:
+        raise ValidationError("Max size of file is 300 * 300" )
 
     #limit_mb = 8
     #if file_size > limit_mb * 1024 * 1024:
@@ -32,6 +33,7 @@ class Brand(models.Model):
         return '{}'.format(self.brand_name)
 
 class BrandPosition(SortableMixin):
+    #page = models.ForeignKey(Page,on_delete=models.CASCADE, null=True)
     position_name = models.CharField(max_length=255)
     brand_position_order = models.PositiveIntegerField(default=0, editable=False, db_index=True)
 

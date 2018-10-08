@@ -7,13 +7,34 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .serializers import BannerSerializer, BannerPositionSerializer, BannerSlotSerializer, BannerDataSerializer
-from banner.models import Banner, BannerPosition,BannerData
+from banner.models import Banner, BannerPosition,BannerData, BannerSlot,Page
 from rest_framework import viewsets
 from rest_framework.decorators import list_route
 import datetime
 
+class GetSlotBannerListView(APIView):
 
-class GetAllBannerListView(ListCreateAPIView):
+    # queryset = BannerData.objects.filter(slot__position_name=pos_name).order_by('banner_data_id')
+    # serializer_class = BannerPositionSerializer
+
+    def get(self,*args,**kwargs):
+
+        startdate = datetime.datetime.now()
+        position_name= self.kwargs.get('page_name')
+        pos_name = self.kwargs.get('banner_slot')
+        print(position_name,pos_name)
+
+        if pos_name and position_name:
+            data = BannerData.objects.filter(banner_data__status=True, slot__page__name=position_name,slot__bannerslot__name=pos_name, banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate )
+        #else:
+            #data = BannerData.objects.filter(banner_data__status=True, banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate)
+        is_success = True if data else False
+        serializer = BannerDataSerializer(data,many=True)
+
+        return Response({"message":"", "response_data": serializer.data ,"is_success": is_success})
+
+
+'''class GetAllBannerListView(ListCreateAPIView):
     startdate = datetime.datetime.now()
     queryset = Banner.objects.filter(status= True, banner_start_date__lte= startdate, banner_end_date__gte= startdate)
     serializer_class = BannerSerializer
@@ -22,7 +43,7 @@ class GetAllBannerListView(ListCreateAPIView):
         queryset = BannerPosition.objects.filter(status=True)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
-
+'''
 
 '''class GetSlotBannerListView(ListCreateAPIView):
     queryset = BannerData.objects.all().order_by('banner_data_order')
@@ -36,23 +57,24 @@ class GetAllBannerListView(ListCreateAPIView):
        '''
 
 
-class GetSlotBannerListView(APIView):
+
+'''class GetPageBannerListView(APIView):
 
     # queryset = BannerData.objects.filter(slot__position_name=pos_name).order_by('banner_data_id')
     # serializer_class = BannerPositionSerializer
 
     def get(self,*args,**kwargs):
         startdate = datetime.datetime.now()
-        pos_name = self.kwargs.get('slot_position_name')
+        pos_name = self.kwargs.get('pages')
         if pos_name:
-            data = BannerData.objects.filter(banner_data__status=True, slot__position_name=pos_name, banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate )
+            data = BannerData.objects.filter(banner_data__status=True, slot__page__name=pos_name, banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate )
         else:
             data = BannerData.objects.filter(banner_data__status=True, banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate)
         is_success = True if data else False
         serializer = BannerDataSerializer(data,many=True)
 
         return Response({"message":"", "response_data": serializer.data ,"is_success": is_success})
-
+'''
 
 '''@api_view(['GET', 'POST'])
 def all_slot_list_view(request):

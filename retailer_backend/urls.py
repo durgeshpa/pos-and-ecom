@@ -27,4 +27,5 @@ urlpatterns = [
     url(r'^bannerapi/', include('banner.urls')),
     url(r'^brandapi/', include('brand.urls')),
     path('admin/', admin.site.urls),
+    
 ]

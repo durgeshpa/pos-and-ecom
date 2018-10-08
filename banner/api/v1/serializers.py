@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from banner.models import Banner,BannerPosition,BannerData
+from banner.models import Banner,BannerPosition,BannerData,BannerSlot
 
 class RecursiveSerializer(serializers.Serializer):
     def to_representation(self, value):
@@ -13,7 +13,12 @@ class BannerSerializer(serializers.ModelSerializer):
         model = Banner
         fields = '__all__'
 
+'''class BannerSlotSerializer(serializers.ModelSerializer):
 
+    class Meta:
+        model = BannerSlot
+        fields = '__all__'
+'''
 class BannerPositionSerializer(serializers.ModelSerializer):
 
     class Meta:
