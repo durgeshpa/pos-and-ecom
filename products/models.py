@@ -1,6 +1,6 @@
 from django.db import models
 from retailer_backend.validators import NameValidator,ProductNameValidator,EanCodeValidator,ValueValidator,UnitNameValidator
-from addresses.models import Country,State,City
+from addresses.models import Country,State,City,Area
 from categories.models import Category
 from shops.models import ShopType
 
@@ -18,6 +18,7 @@ class Color(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
+
 
 class Fragrance(models.Model):
     fragrance_name = models.CharField(max_length=255, validators=[NameValidator])
@@ -86,11 +87,12 @@ class ProductHistory(models.Model):
 
 class ProductPrice(models.Model):
     product = models.ForeignKey(Product,related_name='product_pro_price',on_delete=models.CASCADE)
-    country = models.ForeignKey(Country,related_name='country_pro_price',null=True,blank=True,on_delete=models.CASCADE)
-    state = models.ForeignKey(Country,related_name='state_pro_price',null=True,blank=True,on_delete=models.CASCADE)
-    city = models.ForeignKey(Country,related_name='city_pro_price',null=True,blank=True,on_delete=models.CASCADE)
-    pincode_from = models.PositiveIntegerField(default=0,null=True,blank=True)
-    pincode_to = models.PositiveIntegerField(default=0,null=True,blank=True)
+    #country = models.ForeignKey(Country,related_name='country_pro_price',null=True,blank=True,on_delete=models.CASCADE)
+    #state = models.ForeignKey(Country,related_name='state_pro_price',null=True,blank=True,on_delete=models.CASCADE)
+    city = models.ForeignKey(City,related_name='city_pro_price',null=True,blank=True,on_delete=models.CASCADE)
+    area = models.ForeignKey(Area,related_name='area_pro_price',null=True,blank=True,on_delete=models.CASCADE)
+    #pincode_from = models.PositiveIntegerField(default=0,null=True,blank=True)
+    #pincode_to = models.PositiveIntegerField(default=0,null=True,blank=True)
     mrp = models.FloatField(default=0,null=True,blank=True)
     # price_to_service_partner = models.FloatField(default=0,null=True,blank=True)
     # price_to_retailer = models.FloatField(default=0,null=True,blank=True)

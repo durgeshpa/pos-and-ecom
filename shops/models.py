@@ -11,8 +11,8 @@ SHOP_TYPE_CHOICES = (
 
 class RetailerType(models.Model):
     retailer_type_name = models.CharField(max_length=255)
-    is_created = models.DateTimeField(auto_now_add=True)
-    is_modified = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
     def __str__(self):
@@ -21,8 +21,8 @@ class RetailerType(models.Model):
 class ShopType(models.Model):
     shop_type = models.CharField(max_length=50, choices=SHOP_TYPE_CHOICES, default='r')
     shop_sub_type = models.ForeignKey(RetailerType, related_name='shop_sub_type_shop', null=True, blank=True,on_delete=models.CASCADE)
-    is_created = models.DateTimeField(auto_now_add=True)
-    is_modified = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
     def __str__(self):
@@ -34,8 +34,8 @@ class Shop(models.Model):
     shop_shipping_address = models.ForeignKey(Address,related_name='shipping_add_shop',on_delete=models.CASCADE)
     shop_billing_address = models.ForeignKey(Address,related_name='billing_add_shop',on_delete=models.CASCADE)
     shop_type = models.ForeignKey(ShopType,related_name='shop_tyoe_shop',on_delete=models.CASCADE)
-    is_created = models.DateTimeField(auto_now_add=True)
-    is_modified = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
     def __str__(self):
@@ -44,3 +44,6 @@ class Shop(models.Model):
 class SpRetailerMapping(models.Model):
     service_partner = models.ForeignKey(Shop,related_name='sp_mapping',on_delete=models.CASCADE)
     retailer = models.ForeignKey(Shop,related_name='retiler_mapping',on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
