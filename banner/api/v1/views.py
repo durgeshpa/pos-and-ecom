@@ -58,14 +58,14 @@ class GetSlotBannerListView(APIView):
 
 
 
-'''class GetPageBannerListView(APIView):
+class GetPageBannerListView(APIView):
 
     # queryset = BannerData.objects.filter(slot__position_name=pos_name).order_by('banner_data_id')
     # serializer_class = BannerPositionSerializer
 
     def get(self,*args,**kwargs):
         startdate = datetime.datetime.now()
-        pos_name = self.kwargs.get('pages')
+        pos_name = self.kwargs.get('page_name')
         if pos_name:
             data = BannerData.objects.filter(banner_data__status=True, slot__page__name=pos_name, banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate )
         else:
@@ -74,7 +74,7 @@ class GetSlotBannerListView(APIView):
         serializer = BannerDataSerializer(data,many=True)
 
         return Response({"message":"", "response_data": serializer.data ,"is_success": is_success})
-'''
+
 
 '''@api_view(['GET', 'POST'])
 def all_slot_list_view(request):

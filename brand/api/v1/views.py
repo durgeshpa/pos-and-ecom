@@ -13,8 +13,7 @@ from rest_framework.decorators import list_route
 
 class GetSlotBrandListView(APIView):
 
-    # queryset =
-    # serializer_class = BannerPositionSerializer
+    
 
     def get(self,*args,**kwargs):
 

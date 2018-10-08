@@ -3,7 +3,6 @@ from adminsortable.fields import SortableForeignKey
 from adminsortable.models import SortableMixin
 from mptt.models import TreeForeignKey
 from django.core.exceptions import ValidationError
-#from page.models import Page
 # Create your models here.
 CHOICES = (
     (1, 'Active'),

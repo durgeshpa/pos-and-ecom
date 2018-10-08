@@ -1,5 +1,5 @@
 from django.contrib import admin
-#from .forms import BannerForm
+
 # Register your models here.
 from adminsortable.admin import NonSortableParentAdmin, SortableStackedInline
 
@@ -10,7 +10,7 @@ class BannerDataInline(SortableStackedInline):
 
 class BannerPositionAdmin(NonSortableParentAdmin):
     inlines = [BannerDataInline]
-    #form = BannerForm
+
 
 
 admin.site.register(BannerPosition, BannerPositionAdmin)
@@ -35,13 +35,3 @@ class PageAdmin(admin.ModelAdmin):
     field = ('name')
 
 admin.site.register(Page,PageAdmin)
-
-
-# from mptt.admin import DraggableMPTTAdmin
-#
-# class CategoriesAdmin(DraggableMPTTAdmin):
-#     mptt_indent_field = "category_name"
-#     list_display = ('category_name', 'category_parent','is_created', 'status')
-#     list_display_links = ('category_name',)
-#
-# admin.site.register(Categories,CategoriesAdmin)

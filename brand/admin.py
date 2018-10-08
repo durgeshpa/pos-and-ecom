@@ -21,12 +21,3 @@ class BrandAdmin(admin.ModelAdmin):
     search_fields= ('brand_name','brand_code')
 
 admin.site.register(Brand,BrandAdmin)
-
-# from mptt.admin import DraggableMPTTAdmin
-#
-# class CategoriesAdmin(DraggableMPTTAdmin):
-#     mptt_indent_field = "category_name"
-#     list_display = ('category_name', 'category_parent','is_created', 'status')
-#     list_display_links = ('category_name',)
-#
-# admin.site.register(Categories,CategoriesAdmin)
