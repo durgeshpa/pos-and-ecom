@@ -13,9 +13,16 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path
 from django.conf.urls import include, url
+from rest_framework.documentation import include_docs_urls
+from rest_framework_swagger.views import get_swagger_view
+from decouple import config, Csv
+from django.conf import settings
+
+schema_view = get_swagger_view(title='GramFactory API')
 
 
 urlpatterns = [
@@ -23,9 +30,14 @@ urlpatterns = [
     url(r'^rest-auth/', include('rest_auth.urls')),
     url(r'^otp/', include('otp.urls')),
     url(r'^api/', include('api.urls')),
+    url(r'^category/', include('categories.urls')),
     url(r'^rest-auth/registration/', include('rest_auth.registration.urls')),
     url(r'^bannerapi/', include('banner.urls')),
     url(r'^brandapi/', include('brand.urls')),
     path('admin/', admin.site.urls),
     
 ]
+urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+if settings.DEBUG:
+    urlpatterns += [url(r'^$', schema_view)]

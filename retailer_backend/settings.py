@@ -53,7 +53,13 @@ INSTALLED_APPS = [
     'mptt',
     'banner',
     'brand',
-
+    'rest_framework_swagger',
+    'categories',
+    'adminsortable',
+    'mptt',
+    'addresses',
+    'products',
+    'shops',
 
 ]
 
@@ -174,7 +180,14 @@ ACCOUNT_USERNAME_MIN_LENGTH = 10
 # https://docs.djangoproject.com/en/2.1/howto/static-files/
 
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, "static/")
+#STATIC_ROOT = os.path.join(BASE_DIR, "static/")
+STATIC_ROOT = os.path.join(BASE_DIR, "static_root")
+STATICFILES_DIRS = ( os.path.join(BASE_DIR, "static"),)
+
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_URL = '/media/'
+
+
 
 OTP_LENGTH = 6
 OTP_CHARS = '0123456789'
@@ -187,3 +200,6 @@ EMAIL_USE_TLS = True
 EMAIL_PORT = 587
 EMAIL_HOST_USER = config('EMAIL_USER')
 EMAIL_HOST_PASSWORD = config('EMAIL_PWD')
+
+OLD_PASSWORD_FIELD_ENABLED = True
+LOGOUT_ON_PASSWORD_CHANGE = True

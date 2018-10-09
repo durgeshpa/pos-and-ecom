@@ -8,6 +8,16 @@ from rest_framework.authtoken.models import Token
 from django.core.validators import RegexValidator
 from django.utils.crypto import get_random_string
 
+USER_TYPE_CHOICES = (
+        (1, 'Administrator'),
+        (2, 'Distributor Executive'),
+        (3, 'Distributor Manager'),
+        (4, 'Operation Executive'),
+        (5, 'Operation Manager'),
+        (6, 'Sales Executive'),
+        (7, 'Sales Manager'),
+    )
+
 
 class UserManager(BaseUserManager):
     """Define a model manager for User model with no username field."""
@@ -47,16 +57,6 @@ class User(AbstractUser):
     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
     phone_number = models.CharField(validators=[phone_regex], max_length=10, blank=False, unique=True)
     email = models.EmailField(_('email address'),blank=True)
-    USER_TYPE_CHOICES = (
-        (1, 'Administrator'),
-        (2, 'Distributor Executive'),
-        (3, 'Distributor Manager'),
-        (4, 'Operation Executive'),
-        (5, 'Operation Manager'),
-        (6, 'Sales Executive'),
-        (7, 'Sales Manager'),
-    )
-
     user_type = models.PositiveSmallIntegerField(choices=USER_TYPE_CHOICES, default = '6', null=True)
 
     USERNAME_FIELD = 'phone_number'
@@ -69,11 +69,11 @@ class User(AbstractUser):
 def create_auth_token(sender, instance=None, created=False, **kwargs):
     if created:
         Token.objects.create(user=instance)
-from otp.models import PhoneOTP
-@receiver(post_save, sender=settings.AUTH_USER_MODEL)
-def create_phone_otp(sender, instance=None, created=False, **kwargs):
-    if created:
-        PhoneOTP.create_otp_for_number(instance)
+#from otp.models import PhoneOTP
+#@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+#def create_phone_otp(sender, instance=None, created=False, **kwargs):
+#    if created:
+#        PhoneOTP.create_otp_for_number(instance)
 #@receiver(post_save, sender=settings.AUTH_USER_MODEL)
 #def set_inactive(sender, instance=None, created=False, **kwargs):
 #    if created:

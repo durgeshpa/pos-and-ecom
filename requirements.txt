@@ -20,3 +20,10 @@ requests-oauthlib==1.0.0
 six==1.11.0
 urllib3==1.23
 uWSGI==2.0.17.1
+psycopg2
+psycopg2-binary
+django-rest-swagger
+django-admin-sortable==2.1.8
+django-js-asset==1.1.0
+django-mptt==0.9.1
+Pillow==5.3.0

@@ -168,7 +168,9 @@ class RegisterSerializer(serializers.Serializer):
         min_length=allauth_settings.USERNAME_MIN_LENGTH,
         required=allauth_settings.USERNAME_REQUIRED
     )
-    email = serializers.EmailField(required=allauth_settings.EMAIL_REQUIRED)
+    email = serializers.EmailField(required=allauth_settings.EMAIL_REQUIRED, allow_blank=True)
+    first_name = serializers.CharField(required=True, write_only=True)
+    last_name = serializers.CharField(required=False, allow_blank=True, write_only=True)
     password1 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
     password2 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
 
@@ -199,7 +201,9 @@ class RegisterSerializer(serializers.Serializer):
         return {
             'username': self.validated_data.get('username', ''),
             'password1': self.validated_data.get('password1', ''),
-            'email': self.validated_data.get('email', '')
+            'email': self.validated_data.get('email', ''),
+            'first_name': self.validated_data.get('first_name', ''),
+            'last_name': self.validated_data.get('last_name', '')
         }
 
     def save(self, request):

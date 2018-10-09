@@ -3,7 +3,6 @@ from adminsortable.fields import SortableForeignKey
 from adminsortable.models import SortableMixin
 from mptt.models import TreeForeignKey
 from django.utils import timezone
-from smart_selects.db_fields import ChainedForeignKey
 
 
 # Create your models here.
@@ -23,11 +22,13 @@ class Banner(models.Model):
     def __str__(self):
         return '{}'.format(self.image)
 
+
 class Page(models.Model):
     name = models.CharField(max_length=255)
 
     def __str__(self):
         return self.name
+
 
 class BannerSlot(models.Model):
     page= models.ForeignKey(Page,on_delete=models.CASCADE, null =True)

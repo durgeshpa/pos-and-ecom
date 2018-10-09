@@ -12,10 +12,10 @@ from django.core.validators import RegexValidator
 from django.utils.crypto import get_random_string
 from .sms import SendSms, SendVoiceSms
 from django.utils import timezone
-
+from retailer_backend.messages import *
 
 class PhoneOTP(models.Model):
-    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
+    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message=VALIDATION_ERROR_MESSAGES['INVALID_MOBILE_NUMBER'])
     phone_number = models.CharField(validators=[phone_regex], max_length=10, blank=False)
     otp = models.CharField(max_length=10)
     is_verified = models.BooleanField(default=False)
@@ -36,29 +36,20 @@ class PhoneOTP(models.Model):
         otp = cls.generate_otp(length=getattr(settings, 'OTP_LENGTH', 6),
                                allowed_chars=getattr(settings, 'OTP_CHARS', '0123456789')
                                )
-        phone_otp = PhoneOTP(phone_number=number, otp=otp)
-        phone_otp.save()
-        message = SendSms(phone=number,
-                          body="%s is the OTP for your GramFactory Account." % (otp))
-        message.send()
-        return phone_otp
+        phone_otp = PhoneOTP.objects.create(phone_number=number, otp=otp)
+        return phone_otp, otp
 
     @classmethod
     def update_otp_for_number(cls, number):
         otp = cls.generate_otp(length=getattr(settings, 'OTP_LENGTH', 6),
                                allowed_chars=getattr(settings, 'OTP_CHARS', '0123456789')
                                )
-        user = PhoneOTP.objects.filter(phone_number=number)
-        user = user.last()
+        user = PhoneOTP.objects.filter(phone_number=number).last()
         user.otp = otp
         user.attempts = 0
         user.created_at = timezone.now()
-        user.last_otp = timezone.now()
         user.save()
-        message = SendSms(phone=number,
-                          body="%s is the OTP for your GramFactory Account." % (otp))
-        message.send()
-        return user
+        return user, otp
 
     @classmethod
     def generate_otp(cls, length=6, allowed_chars='0123456789'):

@@ -13,12 +13,6 @@ class BannerSerializer(serializers.ModelSerializer):
         model = Banner
         fields = '__all__'
 
-'''class BannerSlotSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = BannerSlot
-        fields = '__all__'
-'''
 class BannerPositionSerializer(serializers.ModelSerializer):
 
     class Meta:

@@ -32,6 +32,8 @@ from rest_auth.utils import jwt_encode
 from rest_auth.views import LoginView
 from .app_settings import RegisterSerializer, register_permission_classes
 
+from otp.models import PhoneOTP
+
 sensitive_post_parameters_m = method_decorator(
     sensitive_post_parameters('password1', 'password2')
 )
@@ -63,14 +65,24 @@ class RegisterView(CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            user = self.perform_create(serializer)
-            headers = self.get_success_headers(serializer.data)
-            msg = {'is_success': True,
-                    'message': ["Signed up! Please verify mobile number to login"],
-                    'response_data':[{'access_token':self.get_response_data(user)['key']}] }
-            return Response(msg,
-                            status=status.HTTP_201_CREATED,
-                            headers=headers)
+            number = request.data.get('username')
+            user_otp = PhoneOTP.objects.filter(phone_number=number).last()
+            if user_otp and user_otp.is_verified:
+                user = self.perform_create(serializer)
+                headers = self.get_success_headers(serializer.data)
+                msg = {'is_success': True,
+                        'message': ['Successfully signed up!'],
+                        'response_data':[{'access_token':self.get_response_data(user)['key']}] }
+                return Response(msg,
+                                status=status.HTTP_201_CREATED,
+                                headers=headers)
+            else:
+                msg = {'is_success': False,
+                        'message': ['Please verify your mobile number first!'],
+                        'response_data': None }
+                return Response(msg,
+                                status=status.HTTP_406_NOT_ACCEPTABLE)
+
         else:
             errors = []
             for field in serializer.errors:
@@ -81,7 +93,7 @@ class RegisterView(CreateAPIView):
                         result = ''.join('{} : {}'.format(field,error))
                     errors.append(result)
             msg = {'is_success': False,
-                    'message': errors,
+                    'message': [error for error in errors],
                     'response_data': None }
             return Response(msg,
                             status=status.HTTP_406_NOT_ACCEPTABLE)
