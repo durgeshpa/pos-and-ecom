@@ -2,6 +2,8 @@ from django.contrib import admin
 from .models import (Size,Fragrance,Flavor,Color,PackageSize,ProductOption,
                      Product,ProductHistory,ProductCategory,ProductCategoryHistory,ProductImage,ProductPrice,
                      ProductSurcharge,Tax,Weight,ProductTaxMapping)
+from import_export.admin import ImportExportModelAdmin
+from import_export import resources
 
 #from categories.models import Category
 

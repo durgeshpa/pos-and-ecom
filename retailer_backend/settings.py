@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'addresses',
     'products',
     'shops',
+    'import_export',
 
 ]
 
