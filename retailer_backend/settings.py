@@ -49,8 +49,6 @@ INSTALLED_APPS = [
     'accounts',
     'otp',
     'api',
-    'adminsortable',
-    'mptt',
     'banner',
     'brand',
     'rest_framework_swagger',
