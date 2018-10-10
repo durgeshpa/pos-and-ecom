@@ -32,4 +32,4 @@ class GetCategoryListBySlot(APIView):
             category_data = CategoryData.objects.all()
         category_data_serializer = CategoryDataSerializer(category_data,many=True)
         is_success = True if category_data else False
-        return Response({ "message":"","response_data": category_data_serializer.data,"is_success":is_success})
+        return Response({ "message":[""],"response_data": category_data_serializer.data,"is_success":is_success})
