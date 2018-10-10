@@ -3,6 +3,8 @@ from retailer_backend.validators import NameValidator,ProductNameValidator,EanCo
 from addresses.models import Country,State,City,Area
 from categories.models import Category
 from shops.models import ShopType
+from django.conf import settings
+from django.contrib.sites.shortcuts import get_current_site
 
 class Size(models.Model):
     size_name = models.CharField(max_length=255, validators=[NameValidator])
@@ -154,5 +156,46 @@ class ProductSurcharge(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
+class ProductCSV(models.Model):
+    file = models.FileField(upload_to='products/')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def file_full_path(self, fileurl):
+        return ''.join(['http://', get_current_site(request).domain,fileurl])
+
+    def read_csv(self, path):
+        with open(path, 'r') as f:
+            reader = csv.reader(f,  delimiter=',')
+            first_row = next(reader)
+            for row in reader:
+                product_name = row[0]
+                product_slug = row[1]
+                product_short_description = row[2]
+                product_long_description = row[3]
+                product_sku = row[4]
+                product_ean_code = row[5]
+                product_status = row[6]
+                p_cat_id = row[7]
+                p_size_id = row[8]
+                p_color_id = row[9]
+                p_fragrance_id = row[10]
+                p_flavor_id = row[11]
+                p_weight_id = row[12]
+                p_package_size_id = row[13]
+                p_tax_id = row[14]
+                p_surcharge_name = row[15]
+                p_surcharge_start_at = row[16]
+                p_surcharge_status = row[17]
+                print(product_name,product_slug,product_short_description,\
+        product_long_description,product_sku,product_ean_code,\
+        product_status,p_cat_id,p_size_id,p_color_id,p_fragrance_id,\
+        p_flavor_id,p_weight_id,p_package_size_id,p_tax_id,\
+        p_surcharge_name,p_surcharge_start_at,\
+        p_surcharge_status)
 
 
+    def save(self, *args, **kwargs):
+        super(ProductCSV, self).save(*args, **kwargs)
+        filename = self.file.url
+        self.read_csv(filename)
+        print("##############################")

@@ -1,10 +1,10 @@
 from django.contrib import admin
 from .models import (Size,Fragrance,Flavor,Color,PackageSize,ProductOption,
                      Product,ProductHistory,ProductCategory,ProductCategoryHistory,ProductImage,ProductPrice,
-                     ProductSurcharge,Tax,Weight,ProductTaxMapping)
+                     ProductSurcharge,Tax,Weight,ProductTaxMapping, ProductCSV)
 from import_export.admin import ImportExportModelAdmin
 from import_export import resources
-
+from .forms import ProductCSVForm
 #from categories.models import Category
 
 # Register your models here.
@@ -15,6 +15,9 @@ admin.site.register(Color)
 admin.site.register(PackageSize)
 admin.site.register(Weight)
 admin.site.register(Tax)
+
+class ProductCSVAdmin(admin.ModelAdmin):
+    form = ProductCSVForm
 
 class ProductOptionAdmin(admin.TabularInline):
     model = ProductOption
@@ -52,3 +55,4 @@ class ProductAdmin(admin.ModelAdmin):
 #     inlines = [OrderItemInline
 
 admin.site.register(Product,ProductAdmin)
+admin.site.register(ProductCSV, ProductCSVAdmin)
