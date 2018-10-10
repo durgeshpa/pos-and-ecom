@@ -10,11 +10,12 @@ from .serializers import BrandSerializer, BrandPositionSerializer, BrandDataSeri
 from brand.models import Brand, BrandPosition,BrandData
 from rest_framework import viewsets
 from rest_framework.decorators import list_route
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 class GetSlotBrandListView(APIView):
 
 
-
+    permission_classes = (AllowAny,)
     def get(self,*args,**kwargs):
 
         pos_name = self.kwargs.get('slot_position_name')

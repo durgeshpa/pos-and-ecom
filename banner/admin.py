@@ -25,7 +25,7 @@ admin.site.register(Banner,BannerAdmin)
 
 class BannerSlotAdmin(admin.ModelAdmin):
     fields = ('page','name')
-    list_display = ('id','name','page')
+    list_display = ('name','page')
     list_filter = ('page','name')
     search_fields= ('page','name')
 
