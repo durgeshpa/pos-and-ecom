@@ -14,7 +14,7 @@ class Category(models.Model):
     category_desc = models.TextField(null=True,blank=True)
     category_parent = models.ForeignKey('self', related_name='cat_parent', null=True, blank=True,on_delete=models.CASCADE)
     category_sku_part = models.CharField(max_length=2,unique=True)
-    category_image = models.ImageField(upload_to='category_img',null=True,blank=True)
+    category_image = models.FileField(upload_to='category_img_file',null=True,blank=True)
     is_created = models.DateTimeField(auto_now_add=True)
     is_modified = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
