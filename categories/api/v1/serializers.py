@@ -22,7 +22,7 @@ class CategoryPosSerializer(serializers.ModelSerializer):
 
 class CategoryDataSerializer(serializers.ModelSerializer):
     category_pos = CategoryPosSerializer()
-    category = Category()
+    category_data = CategorySerializer()
     class Meta:
         model = CategoryData
         fields = ('id','category_pos','category_data','category_data_order')

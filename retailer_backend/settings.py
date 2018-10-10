@@ -56,6 +56,9 @@ INSTALLED_APPS = [
     'addresses',
     'products',
     'shops',
+    'storages',
+    #'order',
+    #'autocomplete_light',
 
 ]
 
@@ -196,3 +199,16 @@ EMAIL_HOST_PASSWORD = config('EMAIL_PWD')
 
 OLD_PASSWORD_FIELD_ENABLED = True
 LOGOUT_ON_PASSWORD_CHANGE = True
+
+
+# S3 Bucket
+AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME')
+AWS_S3_CUSTOM_DOMAIN = '%s.s3.amazonaws.com' % AWS_STORAGE_BUCKET_NAME
+AWS_S3_OBJECT_PARAMETERS = {
+    'CacheControl': 'max-age=86400',
+}
+MEDIAFILES_LOCATION = 'media'
+DEFAULT_FILE_STORAGE = 'retailer_backend.storage.MediaStorage'
+
