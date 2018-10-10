@@ -49,6 +49,8 @@ INSTALLED_APPS = [
     'accounts',
     'otp',
     'api',
+    'banner',
+    'brand',
     'rest_framework_swagger',
     'categories',
     'adminsortable',
@@ -141,12 +143,13 @@ REST_FRAMEWORK = {
             'rest_framework.parsers.MultiPartParser'
         )
     ),
+
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.BasicAuthentication'
     ),
     'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticated',
+        #'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,

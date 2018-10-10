@@ -32,7 +32,10 @@ urlpatterns = [
     url(r'^api/', include('api.urls')),
     url(r'^category/', include('categories.urls')),
     url(r'^rest-auth/registration/', include('rest_auth.registration.urls')),
+    url(r'^bannerapi/', include('banner.urls')),
+    url(r'^brandapi/', include('brand.urls')),
     path('admin/', admin.site.urls),
+    
 ]
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
