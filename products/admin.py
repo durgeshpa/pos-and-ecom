@@ -31,6 +31,7 @@ class ProductSurchargeAdmin(admin.TabularInline):
 
 class ProductAdmin(admin.ModelAdmin):
     list_display = ['product_name', 'product_slug']
+    search_fields = ('prodcut_name','id',)
     prepopulated_fields = {'product_slug': ('product_name',)}
     inlines = [ProductCategoryAdmin,ProductOptionAdmin,ProductImageAdmin,ProductTaxMappingAdmin,ProductSurchargeAdmin]
 
