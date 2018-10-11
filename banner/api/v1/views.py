@@ -32,8 +32,7 @@ class GetSlotBannerListView(APIView):
         is_success = True if data else False
         banner_data_serializer = BannerDataSerializer(data,many=True)
 
-        return Response({"message":[""], "response_data": banner_data_serializer.data ,"is_success": is_success})
-
+        return Response({ "message":[""],"response_data": banner_data_serializer.data ,"is_success": is_success})
 
 '''class GetAllBannerListView(ListCreateAPIView):
     startdate = datetime.datetime.now()
