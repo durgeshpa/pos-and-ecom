@@ -12,6 +12,48 @@ NameValidator = RegexValidator(
     message=VALIDATION_ERROR_MESSAGES['INVALID_NAME'],
     code='INVALID_NAME'
 )
+#alphabets + numbers + only -
+SlugValidator = RegexValidator(
+    regex='^[a-z0-9]+(?:-[a-z0-9]+)*$',
+    message=VALIDATION_ERROR_MESSAGES['INVALID_SLUG'],
+    code='INVALID_SLUG'
+)
+
+#12BBPRG00000121
+SKUValidator = RegexValidator(
+    regex='^[\d]{2}[A-Z]{5}[\d]{8}$',
+    message=VALIDATION_ERROR_MESSAGES['INVALID_SKU'],
+    code='INVALID_SKU'
+)
+
+#status validator either 0 or 1
+StatusValidator = RegexValidator(
+    regex='^(1|0)$',
+    message=VALIDATION_ERROR_MESSAGES['INVALID_STATUS'],
+    code='INVALID_STATUS'
+)
+
+#only numeric digits allowed
+IDValidator = RegexValidator(
+    regex='^[\d]*$',
+    message=VALIDATION_ERROR_MESSAGES['INVALID_ID'],
+    code='INVALID_ID'
+)
+
+#YYYY-MM-DD HH:MM:SS (24time)
+DateTimeValidator = RegexValidator(
+    regex='^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$',
+    message=VALIDATION_ERROR_MESSAGES['INVALID_DATETIME'],
+    code='INVALID_DATETIME'
+)
+
+#positive float numbers without %
+PercentageValidator = RegexValidator(
+    regex='^(?=.+)(?:[1-9]\d*|0)?(?:\.\d+)?$',
+    message=VALIDATION_ERROR_MESSAGES['INVALID_PERCENTAGE'],
+    code='INVALID_PERCENTAGE'
+)
+
 #for only numeric values
 ValueValidator = RegexValidator(
     regex='^[0-9 ]+$',
@@ -26,7 +68,7 @@ UnitNameValidator = RegexValidator(
 )
 #for alphabets + numeric + special characters (-, ., $, "",)
 ProductNameValidator = RegexValidator(
-    regex='^[ \w\$_,@./#&+-]*$',
+    regex='^[ \w\$\_\,\@\.\/\#\&\+\-\(\)]*$',
     message=VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_NAME'],
     code='INVALID_PRODUCT_NAME'
 )

@@ -8,8 +8,10 @@ from .serializers import CategorySerializer,CategoryDataSerializer
 from categories.models import Category,CategoryData,CategoryPosation
 from rest_framework import viewsets
 from rest_framework.decorators import list_route
+from rest_framework.permissions import (AllowAny,IsAuthenticated)
 
 class GetAllSubCategoryListView(viewsets.ModelViewSet):
+    permission_classes = (AllowAny,)
     queryset = Category.objects.filter(category_parent=None)
     serializer_class = CategorySerializer
 
@@ -20,6 +22,7 @@ class GetAllSubCategoryListView(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 class GetCategoryListBySlot(APIView):
+    permission_classes = (AllowAny,)
 
     def get(self,*args,**kwargs):
         slot_name = self.kwargs.get("slot_name")
@@ -29,4 +32,4 @@ class GetCategoryListBySlot(APIView):
             category_data = CategoryData.objects.all()
         category_data_serializer = CategoryDataSerializer(category_data,many=True)
         is_success = True if category_data else False
-        return Response({ "message":"","response_data": category_data_serializer.data,"is_success":is_success})
+        return Response({ "message":[""],"response_data": category_data_serializer.data,"is_success":is_success})
