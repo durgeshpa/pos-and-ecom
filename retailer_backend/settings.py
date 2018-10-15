@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'shops',
     'storages',
     #'order',
+    'gram_to_brand',
     #'autocomplete_light',
 
 ]
@@ -82,7 +83,7 @@ ROOT_URLCONF = 'retailer_backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, "templates")],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -214,4 +215,7 @@ AWS_S3_OBJECT_PARAMETERS = {
 }
 MEDIAFILES_LOCATION = 'media'
 DEFAULT_FILE_STORAGE = 'retailer_backend.storage.MediaStorage'
+
+order_gram_to_brand_group = 'gram_to_brand_order_group'
+grn_gram_to_brand_group = 'grn_brand_to_gram_group'
 
