@@ -3,6 +3,7 @@ from .models import Order,Cart,CartProductMapping,GRNOrder,GRNOrderProductMappin
 from products.models import Product
 from django import forms
 from django.db.models import Sum
+from django.utils.html import format_html
 
 
 class CartProductMappingAdmin(admin.TabularInline):
@@ -73,6 +74,15 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     model = GRNOrderProductMapping
     exclude = ('last_modified_by',)
 
+    def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
+        order_id = request.GET.get('odr')
+
+        if db_field.name == 'product':
+            kwargs['queryset'] = Product.objects.filter(product_order_item__order__id=order_id)
+
+        return super(GRNOrderProductMappingAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
+
+
 class OrderItemAdmin(admin.ModelAdmin):
     search_fields = ('order__id','order__order_no')
     list_display = ('order','ordered_product','ordered_qty','item_status','total_delivered_qty','total_returned_qty','total_damaged_qty',)
@@ -81,7 +91,19 @@ class GRNOrderAdmin(admin.ModelAdmin):
     inlines = [GRNOrderProductMappingAdmin]
     autocomplete_fields = ('order',)
     exclude = ('order_item','grn_id','last_modified_by',)
-    list_display = ('order','invoice_no','grn_id','created_at')
+    #list_display_links = None
+    list_display = ('order','invoice_no','grn_id','created_at','edit_grn_link')
+
+
+    def edit_grn_link(self, obj):
+        #return format_html("<ul class ='object-tools'><li><a href = '/admin/gram_to_brand/grnorder/add/?brand=%s' class ='addlink' > Add order</a></li></ul>"% (obj.id))
+        return format_html("<a href = '/admin/gram_to_brand/grnorder/16/change/?order=%s&odr=%s' class ='addlink' > Edit GRN</a>"% (obj.id,obj.id))
+
+    edit_grn_link.short_description = 'Edit GRN'
+    
+    def __init__(self, *args, **kwargs):
+        super(GRNOrderAdmin, self).__init__(*args, **kwargs)
+        self.list_display_links = None
 
     def get_form(self, request, obj=None, **kwargs):
         #request.current_object = obj
@@ -130,15 +152,18 @@ class GRNOrderAdmin(admin.ModelAdmin):
             order.order_status = 'partially_delivered' if order_item.filter(item_status='partially_delivered').count()>0 else 'delivered'
             order.save()
 
-
-
-
         formset.save_m2m()
 
 
 class OrderAdmin(admin.ModelAdmin):
     search_fields = ('id','order_no')
-    list_display = ('order_no','order_status','ordered_by','created_at',)
+    list_display = ('order_no','order_status','ordered_by','created_at','add_grn_link')
+
+    def add_grn_link(self, obj):
+        #return format_html("<ul class ='object-tools'><li><a href = '/admin/gram_to_brand/grnorder/add/?brand=%s' class ='addlink' > Add order</a></li></ul>"% (obj.id))
+        return format_html("<a href = '/admin/gram_to_brand/grnorder/add/?order=%s&odr=%s' class ='addlink' > Add GRN</a>"% (obj.id,obj.id))
+
+    add_grn_link.short_description = 'Do GRN'
 
 admin.site.register(Order,OrderAdmin)
 admin.site.register(OrderItem, OrderItemAdmin)
