@@ -9,11 +9,11 @@ class Category(models.Model):
     """
     We define Category and Sub Category in this model
     """
-    category_name = models.CharField(max_length=255)
-    category_slug = models.SlugField()
+    category_name = models.CharField(max_length=255,unique=True)
+    category_slug = models.SlugField(unique=True)
     category_desc = models.TextField(null=True,blank=True)
     category_parent = models.ForeignKey('self', related_name='cat_parent', null=True, blank=True,on_delete=models.CASCADE)
-    category_sku_part = models.CharField(max_length=2,unique=True)
+    category_sku_part = models.CharField(max_length=2,unique=True,help_text="Please enter two character for SKU")
     category_image = models.FileField(upload_to='category_img_file',null=True,blank=True)
     is_created = models.DateTimeField(auto_now_add=True)
     is_modified = models.DateTimeField(auto_now=True)
@@ -29,13 +29,13 @@ class Category(models.Model):
 
         return ' -> '.join(full_path[::-1])
 
-    def save(self, *args,**kwargs):
-        super(Category, self).save()
-        if self.pk and int(self.pk) >= 1 and int(self.pk) < 10:
-            self.category_sku_part = "0%s"%(self.pk)
-        else:
-            self.category_sku_part = "%s"%(self.pk)
-        super(Category, self).save()
+    # def save(self, *args,**kwargs):
+    #     super(Category, self).save()
+    #     if self.pk and int(self.pk) >= 1 and int(self.pk) < 10:
+    #         self.category_sku_part = "0%s"%(self.pk)
+    #     else:
+    #         self.category_sku_part = "%s"%(self.pk)
+    #     super(Category, self).save()
 
     class Meta:
         unique_together = ('category_slug', 'category_parent',)

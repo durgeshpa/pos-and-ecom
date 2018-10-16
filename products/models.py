@@ -3,6 +3,7 @@ from retailer_backend.validators import NameValidator,ProductNameValidator,EanCo
 from addresses.models import Country,State,City,Area
 from categories.models import Category
 from shops.models import ShopType
+from brand.models import Brand
 
 class Size(models.Model):
     size_name = models.CharField(max_length=255, validators=[NameValidator])
@@ -60,9 +61,24 @@ class Product(models.Model):
     product_long_description = models.TextField(null=True,blank=True)
     product_sku = models.CharField(max_length=255, null=True,blank=True)
     product_ean_code = models.CharField(max_length=255, null=True,blank=True,validators=[EanCodeValidator])
+    product_brand = models.ForeignKey(Brand,related_name='prodcut_brand_product',null=True,blank=True,on_delete=models.CASCADE)
+    #hsn_code = models.PositiveIntegerField(null=True,blank=True,validators=[EanCodeValidator])
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.product_name
+
+    @classmethod
+    def _product_list(cls):
+        id = threadlocals.get_current_product()
+        if id is not None:
+            return [id]
+        else:
+            return Product.objects.all().values('pk').query
+    def get_my_id(self):
+        return self.id
 
 class ProductOption(models.Model):
     product = models.ForeignKey(Product, related_name='product_opt_product', on_delete=models.CASCADE)
