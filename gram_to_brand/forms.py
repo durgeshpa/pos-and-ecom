@@ -1,4 +1,6 @@
 from django import forms
+from gram_to_brand.models import Order,GRNOrder
+
 # from gram_to_brand.models import OrderShipment,CarOrderShipmentMapping
 #
 # class OrderShipmentFrom(forms.ModelForm):
@@ -24,3 +26,27 @@ from django import forms
 #
 #     # here we only need to define the field we want to be editable
 #     ordered_shipment = forms.ModelMultipleChoiceField(queryset=CarOrderShipmentMapping.objects.all(), required=False)
+
+
+# class OrderSearch(forms.ModelForm):
+#     def clean_order_no(self):
+#         order_no = self.cleaned_data.get('order',None)
+#         print(order_no)
+#
+#     class Meta:
+#         model = GRNOrder
+#         fields = ('order','order_item',)
+#
+#     def __init__(self, *args, **kwargs):
+#         super(OrderSearch, self).__init__(*args, **kwargs)
+#         #choices = [self.fields['order'].choices.__iter__().next()]
+#         print(self.fields['order'])
+
+
+# class OrderSearch(forms.ModelForm):
+#   order = forms.ModelChoiceField(queryset=Order.objects.all(),label=u"order",required=False)
+#
+#   class Meta:
+#     fields = '__all__'
+#     model = GRNOrder
+
