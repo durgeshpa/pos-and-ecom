@@ -1,9 +1,15 @@
 from django.db import models
-from retailer_backend.validators import NameValidator,ProductNameValidator,EanCodeValidator,ValueValidator,UnitNameValidator
+from retailer_backend.validators import *
 from addresses.models import Country,State,City,Area
 from categories.models import Category
-from shops.models import ShopType
+from shops.models import Shop
+from django.conf import settings
+from django.contrib.sites.shortcuts import get_current_site
+import urllib.request
+import csv
+import codecs
 from brand.models import Brand
+
 
 class Size(models.Model):
     size_name = models.CharField(max_length=255, validators=[NameValidator])
@@ -110,7 +116,10 @@ class ProductPrice(models.Model):
     #pincode_from = models.PositiveIntegerField(default=0,null=True,blank=True)
     #pincode_to = models.PositiveIntegerField(default=0,null=True,blank=True)
     mrp = models.FloatField(default=0,null=True,blank=True)
-    shop_type = models.ForeignKey(ShopType,related_name='shop_type_product_price', null=True,blank=True,on_delete=models.CASCADE)
+    # price_to_service_partner = models.FloatField(default=0,null=True,blank=True)
+    # price_to_retailer = models.FloatField(default=0,null=True,blank=True)
+    # price_to_super_retailer = models.FloatField(default=0,null=True,blank=True)
+    shop = models.ForeignKey(Shop,related_name='shop_product_price', null=True,blank=True,on_delete=models.CASCADE)
     #price = models.FloatField(default=0)
     price_to_service_partner = models.FloatField(default=0,null=True,blank=True)
     price_to_retailer = models.FloatField(default=0,null=True,blank=True)
@@ -170,5 +179,20 @@ class ProductSurcharge(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
+class ProductCSV(models.Model):
+    file = models.FileField(upload_to='products/')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return '%s' % (self.file)
 
+class ProductPriceCSV(models.Model):
+    file = models.FileField(upload_to='products/price/')
+    country = models.ForeignKey(Country,null=True,blank=True, on_delete=models.CASCADE)
+    states = models.ForeignKey(State, null=True,blank=True, on_delete=models.CASCADE)
+    city = models.ForeignKey(City, null=True,blank=True, on_delete=models.CASCADE)
+    area = models.ForeignKey(Area,null=True,blank=True,on_delete=models.CASCADE)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return '%s' % (self.file)

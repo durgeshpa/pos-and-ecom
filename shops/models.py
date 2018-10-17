@@ -1,5 +1,5 @@
 from django.db import models
-from addresses.models import Address
+from addresses.models import Address, City, Area
 from django.contrib.auth import get_user_model
 
 
@@ -31,9 +31,11 @@ class ShopType(models.Model):
 class Shop(models.Model):
     shop_name = models.CharField(max_length=255)
     shop_owner = models.ForeignKey(get_user_model(), related_name='shop_owner_shop',on_delete=models.CASCADE)
+    city = models.ForeignKey(City,related_name='city_shop',null=True,blank=True,on_delete=models.CASCADE)
+    area = models.ForeignKey(Area,related_name='area_shop',null=True,blank=True,on_delete=models.CASCADE)
     shop_shipping_address = models.ForeignKey(Address,related_name='shipping_add_shop',on_delete=models.CASCADE)
     shop_billing_address = models.ForeignKey(Address,related_name='billing_add_shop',on_delete=models.CASCADE)
-    shop_type = models.ForeignKey(ShopType,related_name='shop_tyoe_shop',on_delete=models.CASCADE)
+    shop_type = models.ForeignKey(ShopType,related_name='shop_type_shop',on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)

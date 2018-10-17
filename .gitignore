@@ -42,4 +42,4 @@ __pycache__/
 .idea/
 *.DS_Store
 static_root
-media
+media/

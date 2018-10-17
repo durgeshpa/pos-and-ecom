@@ -10,11 +10,12 @@ from .serializers import BrandSerializer, BrandPositionSerializer, BrandDataSeri
 from brand.models import Brand, BrandPosition,BrandData
 from rest_framework import viewsets
 from rest_framework.decorators import list_route
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 class GetSlotBrandListView(APIView):
 
-    
 
+    permission_classes = (AllowAny,)
     def get(self,*args,**kwargs):
 
         pos_name = self.kwargs.get('slot_position_name')
@@ -26,8 +27,8 @@ class GetSlotBrandListView(APIView):
             data = BrandData.objects.filter(brand_data__active_status='1')
         is_success = True if data else False
         #serializer_class = BannerPositionSerializer
-        serializer = BrandDataSerializer(data,many=True)
-        return Response({"message":"", "response_data": serializer.data ,"is_success": is_success})
+        brand_data_serializer = BrandDataSerializer(data,many=True)
+        return Response({"message":[""], "response_data": brand_data_serializer.data ,"is_success": is_success})
 
 '''class GetAllBrandListView(ListCreateAPIView):
     queryset = Brand.objects.filter(active_status='1')
