@@ -10,7 +10,6 @@ from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from retailer_backend.validators import *
 from categories.models import Category
-
 # Register your models here.
 admin.site.register(Size)
 admin.site.register(Fragrance)
@@ -21,7 +20,6 @@ admin.site.register(Weight)
 admin.site.register(Tax)
 
 class ProductCSVForm(forms.ModelForm):
-
     class Meta:
         model = ProductCSV
         fields = ('file', )
@@ -29,7 +27,6 @@ class ProductCSVForm(forms.ModelForm):
 class ProductCSVAdmin(admin.ModelAdmin):
     form = ProductCSVForm
     list_display = ['file']
-
 
     def save_model(self, request, obj, form, change):
         file = form.cleaned_data['file']
@@ -238,8 +235,90 @@ class ProductSurchargeAdmin(admin.TabularInline):
 
 class ProductAdmin(admin.ModelAdmin):
     list_display = ['product_name', 'product_slug']
+    search_fields = ('prodcut_name','id',)
     prepopulated_fields = {'product_slug': ('product_name',)}
     inlines = [ProductCategoryAdmin,ProductOptionAdmin,ProductImageAdmin,ProductTaxMappingAdmin,ProductSurchargeAdmin]
 
 admin.site.register(Product,ProductAdmin)
 admin.site.register(ProductCSV, ProductCSVAdmin)
+
+class ProductPriceCSVAdmin(admin.ModelAdmin):
+    model = ProductPriceCSV
+    fields = ['country','states','city','file']
+
+    def save_model(self, request, obj, form, change):
+        import pdb
+        #pdb.set_trace()
+        file = form.cleaned_data['file']
+        errors = self.read_csv(file,request)
+        if not errors:
+            messages.set_level(request, messages.SUCCESS)
+            messages.success(request,"Products uploaded successfully!")
+            super(ProductPriceCSVAdmin, self).save_model(request, obj, form, change)
+
+    def read_csv(self, path,request):
+        reader = csv.reader(codecs.iterdecode(path, 'utf-8'))
+        first_row = next(reader)
+        errors = []
+        error_rows = {}
+        for id,row in enumerate(reader):
+            error_rows[id] = []
+
+            try:
+                IDValidator(row[0])
+            except:
+                error_rows[id].append(row[0])
+
+            try:
+                ProductNameValidator(row[1])
+            except:
+                error_rows[id].append(row[1])
+
+            try:
+                PriceValidator(row[2])
+            except:
+                error_rows[id].append(row[3])
+
+            try:
+                PriceValidator(row[3])
+            except:
+                error_rows[id].append(row[3])
+
+            try:
+                PriceValidator(row[4])
+            except:
+                error_rows[id].append(row[4])
+
+        for k,v in error_rows.items():
+            if v:
+                errors.append(v)
+                messages.set_level(request, messages.ERROR)
+                messages.error(request,"You have errors at row[%s] in values %s"%(str(k+2), [str(i) for i in v]))
+        if not errors:
+            reader = csv.reader(codecs.iterdecode(path, 'utf-8'))
+            first_row = next(reader)
+            for row in reader:
+                self.create_product_price(product_id = row[0],\
+                product_name = row[1],\
+                service_partner_price = row[2],\
+                super_retailer_price = row[3],\
+                retailer_price = row[4])
+        return errors
+
+    def create_product_price(self, **kwargs):
+        product = Product.objects.get(id=kwargs.get('product_id'),\
+                  product_name=kwargs.get('product_name'))
+        try:
+            product_price = ProductPrice.objects.get(product=product)
+            if product_price:
+                ProductPrice.objects.update(product=product,\
+                         price_to_retailer=kwargs.get('retailer_price'),\
+                         price_to_super_retailer=kwargs.get('super_retailer_price'),\
+                         price_to_service_partner=kwargs.get('service_partner_price'))
+        except:
+            product_price = ProductPrice.objects.create(product=product,\
+                     price_to_retailer=kwargs.get('retailer_price'),\
+                     price_to_super_retailer=kwargs.get('super_retailer_price'),\
+                     price_to_service_partner=kwargs.get('service_partner_price'))
+
+admin.site.register(ProductPriceCSV, ProductPriceCSVAdmin)

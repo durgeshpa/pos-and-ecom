@@ -49,8 +49,6 @@ INSTALLED_APPS = [
     'accounts',
     'otp',
     'api',
-    'banner',
-    'brand',
     'rest_framework_swagger',
     'categories',
     'adminsortable',
@@ -58,12 +56,24 @@ INSTALLED_APPS = [
     'addresses',
     'products',
     'shops',
+<<<<<<< HEAD
     'import_export',
+||||||| merged common ancestors
+=======
+    'brand',
+    'banner',
+>>>>>>> product-process
     'storages',
     #'order',
+    'gram_to_brand',
     #'autocomplete_light',
+<<<<<<< HEAD
 
 
+||||||| merged common ancestors
+
+=======
+>>>>>>> product-process
 ]
 
 
@@ -84,7 +94,7 @@ ROOT_URLCONF = 'retailer_backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, "templates")],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -145,13 +155,12 @@ REST_FRAMEWORK = {
             'rest_framework.parsers.MultiPartParser'
         )
     ),
-
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.BasicAuthentication'
     ),
     'DEFAULT_PERMISSION_CLASSES': (
-        #'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,
@@ -205,14 +214,15 @@ EMAIL_HOST_PASSWORD = config('EMAIL_PWD')
 OLD_PASSWORD_FIELD_ENABLED = True
 LOGOUT_ON_PASSWORD_CHANGE = True
 
-
-# S3 Bucket
 AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
 AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME')
 AWS_S3_CUSTOM_DOMAIN = '%s.s3.amazonaws.com' % AWS_STORAGE_BUCKET_NAME
 AWS_S3_OBJECT_PARAMETERS = {
-    'CacheControl': 'max-age=86400',
+  'CacheControl': 'max-age=86400',
 }
 MEDIAFILES_LOCATION = 'media'
 DEFAULT_FILE_STORAGE = 'retailer_backend.storage.MediaStorage'
+
+order_gram_to_brand_group = 'gram_to_brand_order_group'
+grn_gram_to_brand_group = 'grn_brand_to_gram_group'

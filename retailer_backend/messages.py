@@ -15,7 +15,8 @@ VALIDATION_ERROR_MESSAGES = {
     'INVALID_ID': 'Invalid ID. It should be numeric',
     'INVALID_SKU': 'Invalid slug.(eg: 12BBPRG00000121)',
     'INVALID_PERCENTAGE': 'Invalid percentage. Only positive value is accepted without %(eg: 10,10.5).',
-    'INVALID_DATETIME': 'Invalid datetime. It should be of format YYYY-MM-DD HH:MM:SS(eg: 2018-10-11 13:06:56)'
+    'INVALID_DATETIME': 'Invalid datetime. It should be of format YYYY-MM-DD HH:MM:SS(eg: 2018-10-11 13:06:56)',
+    'INVALID_PRICE': 'Invalid price.(eg: 1000, 200.50)',
 
 }
 

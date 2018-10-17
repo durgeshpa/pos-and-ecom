@@ -90,3 +90,9 @@ PhoneNumberValidator = RegexValidator(
     message=VALIDATION_ERROR_MESSAGES['INVALID_MOBILE_NUMBER'],
     code='INVALID_MOBILE_NUMBER'
 )
+
+PriceValidator = RegexValidator(
+    regex='^\d{0,8}(\.\d{1,4})?$',
+    message=VALIDATION_ERROR_MESSAGES['INVALID_PRICE'],
+    code='INVALID_PRICE'
+)
