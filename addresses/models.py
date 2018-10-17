@@ -44,6 +44,8 @@ class Area(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
+    def __str__(self):
+        return self.area_name
 
 class Address(models.Model):
     nick_name = models.CharField(max_length=255,validators=[NameValidator],null=True,blank=True)
@@ -62,4 +64,3 @@ class Address(models.Model):
 
     def __str__(self):
         return self.nick_name
-
