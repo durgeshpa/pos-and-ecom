@@ -31,9 +31,10 @@ class GetSlotBannerListView(APIView):
         #else:
             #data = BannerData.objects.filter(banner_data__status=True, banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate)
             is_success = True if data else False
+            message = "" if is_success else "Banners are currently not available"
             serializer = BannerDataSerializer(data,many=True)
 
-            return Response({"message":[""], "response_data": serializer.data ,"is_success": is_success})
+            return Response({"message":[message], "response_data": serializer.data ,"is_success": is_success})
         else:
             return Response({"message":["Banners are currently not available"], "response_data": [] ,"is_success": False})
 
