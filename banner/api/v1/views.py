@@ -11,6 +11,7 @@ from banner.models import Banner, BannerPosition,BannerData, BannerSlot,Page
 from rest_framework import viewsets
 from rest_framework.decorators import list_route
 import datetime
+from django.db.models import Q
 
 class GetSlotBannerListView(APIView):
 
@@ -25,13 +26,16 @@ class GetSlotBannerListView(APIView):
         print(position_name,pos_name)
 
         if pos_name and position_name:
-            data = BannerData.objects.filter(banner_data__status=True, slot__page__name=position_name,slot__bannerslot__name=pos_name, banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate )
+            #data = BannerData.objects.filter(banner_data__status=True, slot__page__name=position_name,slot__bannerslot__name=pos_name, banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate )
+            data = BannerData.objects.filter(banner_data__status=True, slot__page__name=position_name,slot__bannerslot__name=pos_name).filter(Q(banner_data__banner_start_date__isnull=True) | Q(banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate))
         #else:
             #data = BannerData.objects.filter(banner_data__status=True, banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate)
-        is_success = True if data else False
-        serializer = BannerDataSerializer(data,many=True)
+            is_success = True if data else False
+            serializer = BannerDataSerializer(data,many=True)
 
-        return Response({"message":"", "response_data": serializer.data ,"is_success": is_success})
+            return Response({"message":[""], "response_data": serializer.data ,"is_success": is_success})
+        else:
+            return Response({"message":["Banners are currently not available"], "response_data": [] ,"is_success": False})
 
 
 '''class GetAllBannerListView(ListCreateAPIView):
