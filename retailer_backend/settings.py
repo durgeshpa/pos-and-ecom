@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'addresses',
     'products',
     'shops',
+    'import_export',
     'brand',
     'banner',
     'storages',
@@ -214,4 +215,3 @@ DEFAULT_FILE_STORAGE = 'retailer_backend.storage.MediaStorage'
 
 order_gram_to_brand_group = 'gram_to_brand_order_group'
 grn_gram_to_brand_group = 'grn_brand_to_gram_group'
-
