@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'gram_to_brand',
     'sp_to_gram',
     #'autocomplete_light',
+    'retailer_to_sp',
 ]
 
 
