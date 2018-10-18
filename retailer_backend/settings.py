@@ -62,7 +62,7 @@ INSTALLED_APPS = [
     'storages',
     #'order',
     'gram_to_brand',
-    #'sp_to_gram',
+    'sp_to_gram',
     #'autocomplete_light',
 ]
 

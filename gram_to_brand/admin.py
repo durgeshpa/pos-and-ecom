@@ -97,7 +97,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
 
     def edit_grn_link(self, obj):
         #return format_html("<ul class ='object-tools'><li><a href = '/admin/gram_to_brand/grnorder/add/?brand=%s' class ='addlink' > Add order</a></li></ul>"% (obj.id))
-        return format_html("<a href = '/admin/gram_to_brand/grnorder/16/change/?order=%s&odr=%s' class ='addlink' > Edit GRN</a>"% (obj.id,obj.id))
+        return format_html("<a href = '/admin/gram_to_brand/grnorder/%s/change/?order=%s&odr=%s' class ='addlink' > Edit GRN</a>"% (obj.id,obj.id,obj.id))
 
     edit_grn_link.short_description = 'Edit GRN'
     
