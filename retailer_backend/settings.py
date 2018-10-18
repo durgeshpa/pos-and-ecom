@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     #'order',
     'gram_to_brand',
     #'autocomplete_light',
+    'retailer_to_sp',
 ]
 
 
