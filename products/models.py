@@ -19,6 +19,9 @@ class Size(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
+    def __str__(self):
+        return self.size_name
+
 class Color(models.Model):
     color_name = models.CharField(max_length=255, validators=[NameValidator])
     color_code = models.CharField(max_length=255, null=True, blank=True)
@@ -26,6 +29,8 @@ class Color(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
+    def __str__(self):
+        return self.color_name
 
 class Fragrance(models.Model):
     fragrance_name = models.CharField(max_length=255, validators=[NameValidator])
@@ -34,12 +39,18 @@ class Fragrance(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
+    def __str__(self):
+        return self.fragrance_name
+
 class Flavor(models.Model):
     flavor_name = models.CharField(max_length=255, validators=[NameValidator])
     flavor_code = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.flavor_name
 
 class Weight(models.Model):
     weight_name = models.CharField(max_length=255, validators=[NameValidator])
@@ -48,6 +59,9 @@ class Weight(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.weight_name
 
 class PackageSize(models.Model):
     pack_size_name = models.CharField(max_length=255, validators=[NameValidator])
@@ -59,6 +73,9 @@ class PackageSize(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.pack_size_name
 
 class Product(models.Model):
     product_name = models.CharField(max_length=255,validators=[ProductNameValidator])
@@ -130,6 +147,7 @@ class ProductPrice(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
+
 class ProductCategory(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_category',on_delete=models.CASCADE)
     category = models.ForeignKey(Category, related_name='category_pro_category',on_delete=models.CASCADE)
@@ -161,6 +179,9 @@ class Tax(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.tax_name
 
 class ProductTaxMapping(models.Model):
     product = models.ForeignKey(Product,related_name='product_pro_tax',on_delete=models.CASCADE)

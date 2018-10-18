@@ -24,6 +24,32 @@ class ProductCSVForm(forms.ModelForm):
         model = ProductCSV
         fields = ('file', )
 
+class ProductOptionAdmin(admin.TabularInline):
+    model = ProductOption
+
+class ProductCategoryAdmin(admin.TabularInline):
+    model = ProductCategory
+
+class ProductImageAdmin(admin.TabularInline):
+    model = ProductImage
+
+class ProductTaxMappingAdmin(admin.TabularInline):
+    model = ProductTaxMapping
+
+class ProductSurchargeAdmin(admin.TabularInline):
+    model = ProductSurcharge
+
+class ProductAdmin(admin.ModelAdmin):
+    list_display = ['product_name', 'product_slug']
+    search_fields = ('prodcut_name','id',)
+    prepopulated_fields = {'product_slug': ('product_name',)}
+    inlines = [ProductCategoryAdmin,ProductOptionAdmin,ProductImageAdmin,ProductTaxMappingAdmin,ProductSurchargeAdmin]
+
+admin.site.register(Product,ProductAdmin)
+
+admin.site.register(ProductPrice)
+
+
 class ProductCSVAdmin(admin.ModelAdmin):
     form = ProductCSVForm
     list_display = ['file']
@@ -218,28 +244,6 @@ class ProductCSVAdmin(admin.ModelAdmin):
                   surcharge_end_at=kwargs.get('p_surcharge_end_at'), \
                   status = kwargs.get('p_surcharge_percentage'))
 
-class ProductOptionAdmin(admin.TabularInline):
-    model = ProductOption
-
-class ProductCategoryAdmin(admin.TabularInline):
-    model = ProductCategory
-
-class ProductImageAdmin(admin.TabularInline):
-    model = ProductImage
-
-class ProductTaxMappingAdmin(admin.TabularInline):
-    model = ProductTaxMapping
-
-class ProductSurchargeAdmin(admin.TabularInline):
-    model = ProductSurcharge
-
-class ProductAdmin(admin.ModelAdmin):
-    list_display = ['product_name', 'product_slug']
-    search_fields = ('prodcut_name','id',)
-    prepopulated_fields = {'product_slug': ('product_name',)}
-    inlines = [ProductCategoryAdmin,ProductOptionAdmin,ProductImageAdmin,ProductTaxMappingAdmin,ProductSurchargeAdmin]
-
-admin.site.register(Product,ProductAdmin)
 admin.site.register(ProductCSV, ProductCSVAdmin)
 
 class ProductPriceCSVAdmin(admin.ModelAdmin):
