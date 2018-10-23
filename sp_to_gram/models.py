@@ -21,6 +21,8 @@ ITEM_STATUS = (
 class Cart(models.Model):
     order_id = models.CharField(max_length=255,null=True,blank=True)
     shop = models.ForeignKey(Shop,related_name='sp_shop_cart',null=True,blank=True,on_delete=models.CASCADE)
+    billing_address = models.ForeignKey(Address, related_name='sp_billing_address_cart', null=True, blank=True,on_delete=models.CASCADE)
+    shipping_address = models.ForeignKey(Address, related_name='sp_shipping_address_cart', null=True, blank=True,on_delete=models.CASCADE)
     cart_status = models.CharField(max_length=200,choices=ORDER_STATUS,null=True,blank=True)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='sp_last_modified_user_cart', null=True,blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -82,6 +84,9 @@ class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(OrderedProduct,related_name='sp_order_product_order_product_mapping',null=True,blank=True,on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='sp_product_order_product',null=True,blank=True, on_delete=models.CASCADE)
     shipped_qty = models.PositiveIntegerField(default=0)
+    available_qty = models.PositiveIntegerField(default=0)
+    ordered_qty = models.PositiveIntegerField(default=0)
+    reserved_qty = models.PositiveIntegerField(default=0)
     delivered_qty = models.PositiveIntegerField(default=0)
     returned_qty = models.PositiveIntegerField(default=0)
     damaged_qty = models.PositiveIntegerField(default=0)

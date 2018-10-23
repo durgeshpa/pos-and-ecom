@@ -72,7 +72,7 @@ admin.site.register(Cart,CartAdmin)
 
 class GRNOrderProductMappingAdmin(admin.TabularInline):
     model = GRNOrderProductMapping
-    exclude = ('last_modified_by',)
+    exclude = ('last_modified_by','available_qty',)
 
     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
         order_id = request.GET.get('odr')
@@ -144,6 +144,8 @@ class GRNOrderAdmin(admin.ModelAdmin):
                 instance.grn_order.order.order_status='partially_delivered'
                 instance.grn_order.order.save()
                 order_id = instance.grn_order.order.id
+
+                #instance.available_qty = instance.delivered_qty
                 instance.save()
             #Update Order
         if order_id!= 0 and OrderItem.objects.filter(order=order_id).exists():
