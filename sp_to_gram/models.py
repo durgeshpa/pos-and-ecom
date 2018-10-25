@@ -6,6 +6,7 @@ from brand.models import Brand
 from django.contrib.auth import get_user_model
 from addresses.models import Address
 from products.models import Product
+from retailer_to_sp.models import Cart,CartProductMapping
 
 ORDER_STATUS = (
     ("ordered_to_gram","Ordered To Gramfactory"),
@@ -83,6 +84,8 @@ class OrderedProduct(models.Model):
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(OrderedProduct,related_name='sp_order_product_order_product_mapping',null=True,blank=True,on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='sp_product_order_product',null=True,blank=True, on_delete=models.CASCADE)
+    manufacture_date = models.DateField(null=True, blank=True)
+    expiry_date = models.DateField(null=True, blank=True)
     shipped_qty = models.PositiveIntegerField(default=0)
     available_qty = models.PositiveIntegerField(default=0)
     ordered_qty = models.PositiveIntegerField(default=0)
@@ -93,4 +96,14 @@ class OrderedProductMapping(models.Model):
     last_modified_by = models.ForeignKey(get_user_model(), related_name='sp_last_modified_user_order_product', null=True,blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+class OrderedProductReserved(models.Model):
+    ordered_product = models.ForeignKey(OrderedProduct, related_name='sp_order_product_order_product_reserved',null=True, blank=True, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, related_name='sp_product_order_product_reserved', null=True, blank=True,on_delete=models.CASCADE)
+    cart = models.ForeignKey(Cart, related_name='sp_ordered_retailer_cart',null=True,blank=True,on_delete=models.CASCADE)
+    reserved_qty = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+
 

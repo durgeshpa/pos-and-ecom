@@ -8,6 +8,9 @@ from addresses.models import Address
 from products.models import Product
 
 ORDER_STATUS = (
+    ("active","Active"),
+    ("pending","Pending"),
+    ("deleted","Deleted"),
     ("ordered_to_sp","Ordered To Service Partner"),
     ("order_shipped","Order Shipped From Service Partner"),
     ("partially_delivered","Partially Delivered"),
@@ -20,7 +23,8 @@ ITEM_STATUS = (
 
 class Cart(models.Model):
     order_id = models.CharField(max_length=255,null=True,blank=True)
-    shop = models.ForeignKey(Shop,related_name='rt_shop_cart',null=True,blank=True,on_delete=models.CASCADE)
+    user = models.ForeignKey(get_user_model(),related_name='rt_user_cart',null=True,blank=True,on_delete=models.CASCADE)
+    #shop = models.ForeignKey(Shop,related_name='rt_shop_cart',null=True,blank=True,on_delete=models.CASCADE)
     cart_status = models.CharField(max_length=200,choices=ORDER_STATUS,null=True,blank=True)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='rt_last_modified_user_cart', null=True,blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -30,7 +34,6 @@ class Cart(models.Model):
         return self.order_id
 
     def save(self, *args,**kwargs):
-        self.cart_status = 'ordered_to_sp'
         super(Cart, self).save()
         self.order_id = "SP/ORDER/%s"%(self.pk)
         super(Cart, self).save()
@@ -39,11 +42,15 @@ class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='rt_cart_list',on_delete=models.CASCADE)
     cart_product = models.ForeignKey(Product, related_name='rt_cart_product_mapping', on_delete=models.CASCADE)
     qty = models.PositiveIntegerField(default=0)
+    qty_error_msg = models.CharField(max_length=255,null=True,blank=True,editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.cart_product.product_name
 
 class Order(models.Model):
+    user = models.ForeignKey(get_user_model(), related_name='rt_user_order', null=True, blank=True,on_delete=models.CASCADE)
     seller_shop = models.ForeignKey(Shop, related_name='rt_seller_shop_order',null=True,blank=True,on_delete=models.CASCADE)
     buyer_shop = models.ForeignKey(Shop, related_name='rt_buyer_shop_order',null=True,blank=True,on_delete=models.CASCADE)
     ordered_cart = models.ForeignKey(Cart,related_name='rt_order_cart_mapping',on_delete=models.CASCADE)
