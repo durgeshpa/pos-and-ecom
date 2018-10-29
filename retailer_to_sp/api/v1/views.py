@@ -101,17 +101,18 @@ class AddToCart(APIView):
                 msg['message'] = ["Product not Found"]
                 return Response(msg, status=status.HTTP_200_OK)
 
-            if not qty and qty < 0:
-                msg['message']="Please enter the quantity greater than zero"
+            if not qty or int(qty) < 0:
+                msg['message']= ["Please enter the quantity greater than zero"]
                 return Response(msg, status=status.HTTP_400_BAD_REQUEST)
 
-            if qty == 0:
+
+            if int(qty) == 0:
                 if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
                     CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
 
             else:
                 cart_mapping,_ =CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
-                cart_mapping.qty = F('qty') + qty
+                cart_mapping.qty = qty
                 cart_mapping.save()
 
             #serializer = CartProductMappingSerializer(CartProductMapping.objects.get(id=cart_mapping.id))
