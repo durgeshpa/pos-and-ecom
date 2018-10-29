@@ -6,7 +6,9 @@ from brand.models import Brand
 from django.contrib.auth import get_user_model
 from addresses.models import Address
 from products.models import Product
-from retailer_to_sp.models import Cart,CartProductMapping
+from datetime import datetime, timedelta
+from django.utils import timezone
+from django.conf import settings
 
 ORDER_STATUS = (
     ("ordered_to_gram","Ordered To Gramfactory"),
@@ -102,6 +104,9 @@ class OrderedProductReserved(models.Model):
     product = models.ForeignKey(Product, related_name='sp_product_order_product_reserved', null=True, blank=True,on_delete=models.CASCADE)
     cart = models.ForeignKey(Cart, related_name='sp_ordered_retailer_cart',null=True,blank=True,on_delete=models.CASCADE)
     reserved_qty = models.PositiveIntegerField(default=0)
+    order_reserve_start_time = models.DateTimeField(auto_now_add=True)
+    order_reserve_end_time = models.DateTimeField(default=timezone.now() + timedelta(minutes=settings.BLOCKING_TIME_IN_MINUTS))
+    order_reserve_status = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
