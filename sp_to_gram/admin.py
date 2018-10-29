@@ -64,7 +64,8 @@ admin.site.register(Order,OrderAdmin)
 
 class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping
-    exclude = ('last_modified_by',)
+    exclude = ('last_modified_by','ordered_qty','available_qty','reserved_qty')
+
 
 class OrderedProductAdmin(admin.ModelAdmin):
     inlines = [OrderedProductMappingAdmin]
@@ -72,4 +73,21 @@ class OrderedProductAdmin(admin.ModelAdmin):
     exclude = ('shipped_by','received_by','last_modified_by',)
     autocomplete_fields = ('order',)
 
+    def save_formset(self, request, form, formset, change):
+        import datetime
+        today = datetime.date.today()
+        instances = formset.save(commit=False)
+        for instance in instances:
+
+            instance.available_qty = instance.delivered_qty
+            instance.save()
+
+        formset.save_m2m()
+
 admin.site.register(OrderedProduct,OrderedProductAdmin)
+
+
+class OrderedProductMappingAdmin2(admin.ModelAdmin):
+    list_display = ('ordered_product','product','ordered_qty','available_qty','reserved_qty',)
+
+admin.site.register(OrderedProductMapping,OrderedProductMappingAdmin2)

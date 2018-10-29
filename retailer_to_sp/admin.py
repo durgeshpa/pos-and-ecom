@@ -63,7 +63,7 @@ admin.site.register(Order,OrderAdmin)
 
 class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping
-    exclude = ('last_modified_by',)
+    exclude = ('', 'last_modified_by',)
 
 class OrderedProductAdmin(admin.ModelAdmin):
     inlines = [OrderedProductMappingAdmin]
