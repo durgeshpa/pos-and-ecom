@@ -89,7 +89,6 @@ class AddToCart(APIView):
         if Shop.objects.filter(shop_owner=request.user).exists():
             if Cart.objects.filter(user=self.request.user, cart_status__in=['active', 'pending']).exists():
                 cart = Cart.objects.filter(user=self.request.user, cart_status__in=['active', 'pending']).last()
-                print(cart)
                 cart.cart_status = 'active'
                 cart.save()
             else:
@@ -102,13 +101,18 @@ class AddToCart(APIView):
                 msg['message'] = ["Product not Found"]
                 return Response(msg, status=status.HTTP_200_OK)
 
-            if not qty and qty <=0:
+            if not qty and qty < 0:
                 msg['message']="Please enter the quantity greater than zero"
                 return Response(msg, status=status.HTTP_400_BAD_REQUEST)
 
-            cart_mapping,_ =CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
-            cart_mapping.qty = F('qty') + qty
-            cart_mapping.save()
+            if qty == 0:
+                if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
+                    CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
+
+            else:
+                cart_mapping,_ =CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
+                cart_mapping.qty = F('qty') + qty
+                cart_mapping.save()
 
             #serializer = CartProductMappingSerializer(CartProductMapping.objects.get(id=cart_mapping.id))
             serializer = CartSerializer(Cart.objects.get(id=cart.id))
