@@ -23,6 +23,8 @@ class ValidateOTP(CreateAPIView):
     queryset = PhoneOTP.objects.all()
     serializer_class = PhoneOTPValidateSerializer
 
+    def validate(self, data):
+        import pdb; pdb.set_trace()
     def post(self, request, format=None):
         serializer = self.serializer_class(
             data=request.data, context={'request': request}

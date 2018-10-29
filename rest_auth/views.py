@@ -15,6 +15,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.generics import GenericAPIView, RetrieveUpdateAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.authentication import TokenAuthentication
+
 from django.http import JsonResponse
 import json, datetime
 from django.utils import timezone
@@ -176,6 +178,7 @@ class UserDetailsView(RetrieveUpdateAPIView):
     """
     serializer_class = UserDetailsSerializer
     permission_classes = (IsAuthenticated,)
+    authentication_classes = (TokenAuthentication,)
 
     def get_object(self):
         return self.request.user
@@ -187,6 +190,7 @@ class UserDetailsView(RetrieveUpdateAPIView):
         https://github.com/Tivix/django-rest-auth/issues/275
         """
         return get_user_model().objects.none()
+        
 
 
 class PasswordResetView(GenericAPIView):
