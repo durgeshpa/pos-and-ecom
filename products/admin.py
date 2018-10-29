@@ -47,7 +47,11 @@ class ProductAdmin(admin.ModelAdmin):
 
 admin.site.register(Product,ProductAdmin)
 
-admin.site.register(ProductPrice)
+class ProductPriceAdmin(admin.ModelAdmin):
+    list_display = ['product','mrp','price_to_service_partner','price_to_retailer','price_to_super_retailer','start_date','end_date','status']
+
+
+admin.site.register(ProductPrice,ProductPriceAdmin)
 
 
 class ProductCSVAdmin(admin.ModelAdmin):

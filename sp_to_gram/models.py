@@ -6,6 +6,9 @@ from brand.models import Brand
 from django.contrib.auth import get_user_model
 from addresses.models import Address
 from products.models import Product
+from datetime import datetime, timedelta
+from django.utils import timezone
+from django.conf import settings
 
 ORDER_STATUS = (
     ("ordered_to_gram","Ordered To Gramfactory"),
@@ -21,6 +24,8 @@ ITEM_STATUS = (
 class Cart(models.Model):
     order_id = models.CharField(max_length=255,null=True,blank=True)
     shop = models.ForeignKey(Shop,related_name='sp_shop_cart',null=True,blank=True,on_delete=models.CASCADE)
+    billing_address = models.ForeignKey(Address, related_name='sp_billing_address_cart', null=True, blank=True,on_delete=models.CASCADE)
+    shipping_address = models.ForeignKey(Address, related_name='sp_shipping_address_cart', null=True, blank=True,on_delete=models.CASCADE)
     cart_status = models.CharField(max_length=200,choices=ORDER_STATUS,null=True,blank=True)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='sp_last_modified_user_cart', null=True,blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -81,11 +86,29 @@ class OrderedProduct(models.Model):
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(OrderedProduct,related_name='sp_order_product_order_product_mapping',null=True,blank=True,on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='sp_product_order_product',null=True,blank=True, on_delete=models.CASCADE)
+    manufacture_date = models.DateField(null=True, blank=True)
+    expiry_date = models.DateField(null=True, blank=True)
     shipped_qty = models.PositiveIntegerField(default=0)
+    available_qty = models.PositiveIntegerField(default=0)
+    ordered_qty = models.PositiveIntegerField(default=0)
+    reserved_qty = models.PositiveIntegerField(default=0)
     delivered_qty = models.PositiveIntegerField(default=0)
     returned_qty = models.PositiveIntegerField(default=0)
     damaged_qty = models.PositiveIntegerField(default=0)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='sp_last_modified_user_order_product', null=True,blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+class OrderedProductReserved(models.Model):
+    ordered_product = models.ForeignKey(OrderedProduct, related_name='sp_order_product_order_product_reserved',null=True, blank=True, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, related_name='sp_product_order_product_reserved', null=True, blank=True,on_delete=models.CASCADE)
+    cart = models.ForeignKey(Cart, related_name='sp_ordered_retailer_cart',null=True,blank=True,on_delete=models.CASCADE)
+    reserved_qty = models.PositiveIntegerField(default=0)
+    order_reserve_start_time = models.DateTimeField(auto_now_add=True)
+    order_reserve_end_time = models.DateTimeField(default=timezone.now() + timedelta(minutes=settings.BLOCKING_TIME_IN_MINUTS))
+    order_reserve_status = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+
 
