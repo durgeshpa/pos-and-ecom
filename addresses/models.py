@@ -1,5 +1,6 @@
 from django.db import models
-from retailer_backend.validators import NameValidator, AddressNameValidator
+from retailer_backend.validators import (NameValidator, AddressNameValidator,
+        MobileNumberValidator, PinCodeValidator)
 
 address_type_choices = (
     ("billing","Billing"),
@@ -50,12 +51,12 @@ class Area(models.Model):
 class Address(models.Model):
     nick_name = models.CharField(max_length=255,validators=[NameValidator],null=True,blank=True)
     address_line1 = models.CharField(max_length=255,validators=[AddressNameValidator])
-    #address_line2 = models.CharField(max_length=255,validators=[AddressNameValidator],null=True,blank=True)
-    #locality = models.CharField(max_length=255,validators=[AddressNameValidator],null=True,blank=True)
-    #country = models.ForeignKey(Country, related_name='country_address', null=True, blank=True, on_delete=models.CASCADE)
-    #state = models.ForeignKey(State, related_name='state_address', on_delete=models.CASCADE)
+    address_contact_name = models.CharField(max_length=255,null=True,blank=True)
+    address_contact_number = models.CharField(validators=[MobileNumberValidator], max_length=10, blank=True)
+    pincode = models.CharField(validators=[PinCodeValidator], max_length=6, blank=True)
+    state = models.ForeignKey(State, related_name='state_address', on_delete=models.CASCADE, blank=True, null=True)
     city = models.ForeignKey(City, related_name='city_address', on_delete=models.CASCADE)
-    address_type = models.CharField(max_length=255,choices=address_type_choices,default='billing')
+    address_type = models.CharField(max_length=255,choices=address_type_choices,default='shipping')
     latitude = models.FloatField(default=0,null=True,blank=True)
     longitude = models.FloatField(default=0, null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -17,6 +17,7 @@ VALIDATION_ERROR_MESSAGES = {
     'INVALID_PERCENTAGE': 'Invalid percentage. Only positive value is accepted without %(eg: 10,10.5).',
     'INVALID_DATETIME': 'Invalid datetime. It should be of format YYYY-MM-DD HH:MM:SS(eg: 2018-10-11 13:06:56)',
     'INVALID_PRICE': 'Invalid price.(eg: 1000, 200.50)',
+    'INVALID_PINCODE': 'Invalid Pincode',
 
 }
 
@@ -24,4 +25,5 @@ SUCCESS_MESSAGES = {
     'USER_IMPORT_SUCCESSFULLY': 'User Import Successfully.',
     'MOBILE_NUMBER_VERIFIED': 'Your mobile number verified successfully',
     'USER_ALREADY_EXISTS': 'User already exists! Please login',
+    'USER_SHOP_ADDED': 'Shop added successfully'
 }
