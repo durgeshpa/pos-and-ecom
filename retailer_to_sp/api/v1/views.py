@@ -87,12 +87,12 @@ class AddToCart(APIView):
         msg = {'is_success': False,'message': ['Sorry no any mapping with any shop!'],'response_data': None}
 
         if Shop.objects.filter(shop_owner=request.user).exists():
-            if Cart.objects.filter(user=self.request.user, cart_status__in=['active', 'pending']).exists():
-                cart = Cart.objects.filter(user=self.request.user, cart_status__in=['active', 'pending']).last()
+            if Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).exists():
+                cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
                 cart.cart_status = 'active'
                 cart.save()
             else:
-                cart = Cart(user=self.request.user,cart_status='active')
+                cart = Cart(last_modified_by=self.request.user,cart_status='active')
                 cart.save()
 
             try:
@@ -127,8 +127,8 @@ class AddToCart(APIView):
 class CartDetail(APIView):
 
     def get(self,request,*args,**kwargs):
-        if Cart.objects.filter(user=self.request.user, cart_status__in=['active', 'pending']).exists():
-            cart = Cart.objects.filter(user=self.request.user, cart_status__in=['active', 'pending']).last()
+        if Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).exists():
+            cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
             serializer = CartSerializer(Cart.objects.get(id=cart.id))
             msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
             return Response(msg, status=status.HTTP_200_OK)
@@ -140,8 +140,8 @@ class CartDetail(APIView):
 class ReservedOrder(generics.ListAPIView):
 
     def post(self, request):
-        if Cart.objects.filter(user=self.request.user, cart_status__in=['active', 'pending']).exists():
-            cart = Cart.objects.filter(user=self.request.user, cart_status__in=['active', 'pending']).last()
+        if Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).exists():
+            cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
             cart_products = CartProductMapping.objects.filter(cart=cart).values('cart_product','qty')
             error = []
             msg = []
@@ -197,8 +197,8 @@ class CreateOrder(generics.ListAPIView):
         billing_address_id = self.request.POST.get('billing_address_id')
         shipping_address_id = self.request.POST.get('shipping_address_id')
         msg = {'is_success': False, 'message': ['Cart is none'], 'response_data': None}
-        if Cart.objects.filter(user=self.request.user,id=order_id).exists():
-            cart = Cart.objects.get(user=self.request.user,id=order_id)
+        if Cart.objects.filter(last_modified_by=self.request.user,id=order_id).exists():
+            cart = Cart.objects.get(last_modified_by=self.request.user,id=order_id)
             cart_products = CartProductMapping.objects.filer(cart=cart).values('cart_product', 'qty')
 
             if OrderedProductReserved.objects.filter(cart=cart).exists():
@@ -209,7 +209,7 @@ class CreateOrder(generics.ListAPIView):
 
                 serializer = CartSerializer(Cart.objects.get(id=cart.id))
                 # billing_address =
-                order = Order(user=request.user,ordered_cart=cart,order_no=cart.order_id)
+                order = Order(last_modified_by=request.user,ordered_cart=cart,order_no=cart.order_id)
                 order.billing_address = Address.objects.get(id=billing_address_id)
                 order.shipping_address = Address.objects.get(id=shipping_address_id)
                 order.last_modified_by = self.request.user

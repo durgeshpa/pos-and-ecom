@@ -23,7 +23,7 @@ ITEM_STATUS = (
 
 class Cart(models.Model):
     order_id = models.CharField(max_length=255,null=True,blank=True)
-    user = models.ForeignKey(get_user_model(),related_name='rt_user_cart',null=True,blank=True,on_delete=models.CASCADE)
+    #user = models.ForeignKey(get_user_model(),related_name='rt_user_cart',null=True,blank=True,on_delete=models.CASCADE)
     #shop = models.ForeignKey(Shop,related_name='rt_shop_cart',null=True,blank=True,on_delete=models.CASCADE)
     cart_status = models.CharField(max_length=200,choices=ORDER_STATUS,null=True,blank=True)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='rt_last_modified_user_cart', null=True,blank=True, on_delete=models.CASCADE)
