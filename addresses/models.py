@@ -1,6 +1,7 @@
 from django.db import models
 from retailer_backend.validators import (NameValidator, AddressNameValidator,
         MobileNumberValidator, PinCodeValidator)
+from shops.models import Shop
 
 address_type_choices = (
     ("billing","Billing"),
@@ -50,6 +51,7 @@ class Area(models.Model):
 
 class Address(models.Model):
     nick_name = models.CharField(max_length=255,validators=[NameValidator],null=True,blank=True)
+    shop_name = models.ForeignKey(Shop, related_name='shop_name_address_mapping', on_delete=models.CASCADE, null=True, blank=True)
     address_line1 = models.CharField(max_length=255,validators=[AddressNameValidator])
     address_contact_name = models.CharField(max_length=255,null=True,blank=True)
     address_contact_number = models.CharField(validators=[MobileNumberValidator], max_length=10, blank=True)

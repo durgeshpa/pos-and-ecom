@@ -22,10 +22,9 @@ class RetailerTypeView(generics.ListAPIView):
     def list(self, request):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
         msg = {'is_success': True,
                 'message': None,
-                'response_data': [serializer.data]}
+                'response_data': serializer.data}
         return Response(msg,
                         status=status.HTTP_200_OK)
 
@@ -39,7 +38,7 @@ class ShopTypeView(generics.ListAPIView):
         serializer = self.get_serializer(queryset, many=True)
         msg = {'is_success': True,
                 'message': None,
-                'response_data': [serializer.data]}
+                'response_data': serializer.data}
         return Response(msg,
                         status=status.HTTP_200_OK)
 
@@ -50,8 +49,12 @@ class ShopPhotoView(generics.ListCreateAPIView):
     parser_classes = (FormParser, MultiPartParser)
 
     def get_queryset(self):
-        user = self.request.user
-        return ShopPhoto.objects.all()
+        user_shops = Shop.objects.filter(shop_owner=self.request.user)
+        queryset = ShopPhoto.objects.filter(shop_name__in=user_shops)
+        shop_id = self.request.query_params.get('shop_id', None)
+        if shop_id is not None:
+            queryset = queryset.filter(shop_name=shop_id)
+        return queryset
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -76,13 +79,13 @@ class ShopPhotoView(generics.ListCreateAPIView):
                     'response_data': None }
             return Response(msg,
                             status=status.HTTP_406_NOT_ACCEPTABLE)
-                            
+
     def list(self, request):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
         msg = {'is_success': True,
                 'message': ["%s objects found" % (queryset.count())],
-                'response_data': [serializer.data]}
+                'response_data': serializer.data}
         return Response(msg,
                         status=status.HTTP_200_OK)
 
@@ -92,13 +95,45 @@ class ShopDocumentView(generics.ListCreateAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        shops = Shop.objects.filter(shop_owner=self.request.user)
-        #return ShopDocument.objects.filter(shop_name__in=shops.values_list('id', flat=True))
-        return ShopDocument.objects.all()
+        user_shops = Shop.objects.filter(shop_owner=self.request.user)
+        queryset = ShopDocument.objects.filter(shop_name__in=user_shops)
+        shop_id = self.request.query_params.get('shop_id', None)
+        if shop_id is not None:
+            queryset = queryset.filter(shop_name=shop_id)
+        return queryset
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            msg = {'is_success': True,
+                    'message': ["Images uploaded successfully"],
+                    'response_data': None}
+            return Response(msg,
+                            status=status.HTTP_200_OK)
+        else:
+            errors = []
+            for field in serializer.errors:
+                for error in serializer.errors[field]:
+                    if 'non_field_errors' in field:
+                        result = error
+                    else:
+                        result = ''.join('{} : {}'.format(field,error))
+                    errors.append(result)
+            msg = {'is_success': False,
+                    'message': [error for error in errors],
+                    'response_data': None }
+            return Response(msg,
+                            status=status.HTTP_406_NOT_ACCEPTABLE)
+
     def list(self, request):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
+        msg = {'is_success': True,
+                'message': ["%s objects found" % (queryset.count())],
+                'response_data': serializer.data}
+        return Response(msg,
+                        status=status.HTTP_200_OK)
 
 class ShopView(generics.ListCreateAPIView):
     serializer_class = ShopSerializer

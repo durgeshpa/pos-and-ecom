@@ -7,6 +7,10 @@ from addresses.models import Country, State, City, Area, Address
 from .serializers import (CountrySerializer, StateSerializer, CitySerializer,
         AreaSerializer, AddressSerializer)
 from rest_framework import generics
+from rest_framework import status
+from rest_framework import permissions, authentication
+from shops.models import Shop
+
 
 class CountryView(generics.ListAPIView):
     queryset = Country.objects.all()
@@ -15,8 +19,12 @@ class CountryView(generics.ListAPIView):
 
     def list(self, request):
         queryset = self.get_queryset()
-        serializer = CountrySerializer(queryset, many=True)
-        return Response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        msg = {'is_success': True,
+                'message': None,
+                'response_data': serializer.data}
+        return Response(msg,
+                        status=status.HTTP_200_OK)
 
 class StateView(generics.ListAPIView):
     serializer_class = StateSerializer
@@ -31,8 +39,12 @@ class StateView(generics.ListAPIView):
 
     def list(self, request):
         queryset = self.get_queryset()
-        serializer = StateSerializer(queryset, many=True)
-        return Response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        msg = {'is_success': True,
+                'message': None,
+                'response_data': serializer.data}
+        return Response(msg,
+                        status=status.HTTP_200_OK)
 
 class CityView(generics.ListAPIView):
     queryset = City.objects.all()
@@ -48,8 +60,12 @@ class CityView(generics.ListAPIView):
 
     def list(self, request):
         queryset = self.get_queryset()
-        serializer = CitySerializer(queryset, many=True)
-        return Response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        msg = {'is_success': True,
+                'message': None,
+                'response_data': serializer.data}
+        return Response(msg,
+                        status=status.HTTP_200_OK)
 
 class AreaView(generics.ListCreateAPIView):
     queryset = Area.objects.all()
@@ -58,15 +74,79 @@ class AreaView(generics.ListCreateAPIView):
 
     def list(self, request):
         queryset = self.get_queryset()
-        serializer = AreaSerializer(queryset, many=True)
-        return Response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        msg = {'is_success': True,
+                'message': None,
+                'response_data': serializer.data}
+        return Response(msg,
+                        status=status.HTTP_200_OK)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            msg = {'is_success': True,
+                    'message': ["Area added"],
+                    'response_data': None}
+            return Response(msg,
+                            status=status.HTTP_200_OK)
+        else:
+            errors = []
+            for field in serializer.errors:
+                for error in serializer.errors[field]:
+                    if 'non_field_errors' in field:
+                        result = error
+                    else:
+                        result = ''.join('{} : {}'.format(field,error))
+                    errors.append(result)
+            msg = {'is_success': False,
+                    'message': [error for error in errors],
+                    'response_data': None }
+            return Response(msg,
+                            status=status.HTTP_406_NOT_ACCEPTABLE)
 
 class AddressView(generics.ListCreateAPIView):
-    queryset = Address.objects.all()
     serializer_class = AddressSerializer
-    permission_classes = (AllowAny,)
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        user_shops = Shop.objects.filter(shop_owner=self.request.user)
+        queryset = Address.objects.filter(shop_name__in=user_shops)
+        shop_id = self.request.query_params.get('shop_id', None)
+        if shop_id is not None:
+            queryset = queryset.filter(shop_name=shop_id)
+        return queryset
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            msg = {'is_success': True,
+                    'message': ["Address added successfully"],
+                    'response_data': None}
+            return Response(msg,
+                            status=status.HTTP_200_OK)
+        else:
+            errors = []
+            for field in serializer.errors:
+                for error in serializer.errors[field]:
+                    if 'non_field_errors' in field:
+                        result = error
+                    else:
+                        result = ''.join('{} : {}'.format(field,error))
+                    errors.append(result)
+            msg = {'is_success': False,
+                    'message': [error for error in errors],
+                    'response_data': None }
+            return Response(msg,
+                            status=status.HTTP_406_NOT_ACCEPTABLE)
 
     def list(self, request):
         queryset = self.get_queryset()
-        serializer = AddressSerializer(queryset, many=True)
-        return Response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        msg = {'is_success': True,
+                'message': ["%s objects found" % (queryset.count())],
+                'response_data': serializer.data}
+        return Response(msg,
+                        status=status.HTTP_200_OK)

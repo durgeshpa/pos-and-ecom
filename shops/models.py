@@ -1,16 +1,15 @@
 from django.db import models
-from addresses.models import Address, City, Area
 from django.contrib.auth import get_user_model
 from django.utils.safestring import mark_safe
 
 
-SHOP_TYPE_CHOICES = (
+RETAILER_TYPE_CHOICES = (
     ("sp","Service Partner"),
     ("r","Retailer"),
     ("sr","Super Retailer"),
 )
 
-RETAILER_TYPE_CHOICES = (
+SHOP_TYPE_CHOICES = (
     ("gm", "General Merchant"),
     ("ps", "Pan Shop"),
 )
@@ -23,7 +22,7 @@ SHOP_DOCUMENTS_TYPE_CHOICES = (
 )
 
 class RetailerType(models.Model):
-    retailer_type_name = models.CharField(max_length=100, choices=RETAILER_TYPE_CHOICES, default='gm')
+    retailer_type_name = models.CharField(max_length=100, choices=RETAILER_TYPE_CHOICES, default='r')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
@@ -32,7 +31,7 @@ class RetailerType(models.Model):
         return self.retailer_type_name
 
 class ShopType(models.Model):
-    shop_type = models.CharField(max_length=50, choices=SHOP_TYPE_CHOICES, default='r')
+    shop_type = models.CharField(max_length=50, choices=SHOP_TYPE_CHOICES, default='gm')
     shop_sub_type = models.ForeignKey(RetailerType, related_name='shop_sub_type_shop', null=True, blank=True,on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -51,16 +50,6 @@ class Shop(models.Model):
 
     def __str__(self):
         return "%s - %s"%(self.shop_name, self.shop_type.get_shop_type_display())
-
-class ShopAddressMapping(models.Model):
-    shop_name = models.ForeignKey(Shop, related_name='shop_name_address_mapping', on_delete=models.CASCADE)
-    shop_address = models.ForeignKey(Address, related_name='shop_address_address_mapping', on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
-    status = models.BooleanField(default=False)
-
-    def __str__(self):
-        return "%s"%(self.shop_name)
 
 class ShopPhoto(models.Model):
     shop_name = models.ForeignKey(Shop, related_name='shop_name_photos', on_delete=models.CASCADE)
