@@ -1,6 +1,13 @@
 from django.core.validators import RegexValidator
 from .messages import VALIDATION_ERROR_MESSAGES
 
+
+PinCodeValidator = RegexValidator(
+    regex='^[1-9][0-9]{5}$',
+    message=VALIDATION_ERROR_MESSAGES['INVALID_PINCODE'],
+    code='INVALID_PINCODE'
+)
+
 MobileNumberValidator = RegexValidator(
     regex='^[6-9]\d{9}$',
     message=VALIDATION_ERROR_MESSAGES['INVALID_MOBILE_NUMBER'],
