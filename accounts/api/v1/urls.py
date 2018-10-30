@@ -1,6 +1,6 @@
 from django.conf.urls import url
 from django.urls import path
-from accounts.api.v1.views import UserID
+from accounts.api.v1.views import UserDetail
 urlpatterns = [
-    path('user-id/', UserID.as_view(), name='get_user_id', ),
+    path('user/', UserDetail.as_view(), name='user', ),
 ]
