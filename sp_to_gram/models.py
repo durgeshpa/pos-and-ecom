@@ -105,10 +105,15 @@ class OrderedProductReserved(models.Model):
     cart = models.ForeignKey(Cart, related_name='sp_ordered_retailer_cart',null=True,blank=True,on_delete=models.CASCADE)
     reserved_qty = models.PositiveIntegerField(default=0)
     order_reserve_start_time = models.DateTimeField(auto_now_add=True)
-    order_reserve_end_time = models.DateTimeField(default=timezone.now() + timedelta(minutes=settings.BLOCKING_TIME_IN_MINUTS))
+    order_reserve_end_time = models.DateTimeField(null=True,blank=True,editable=False)
     order_reserve_status = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    def save(self):
+        self.order_reserve_end_time = timezone.now() + timedelta(minutes=settings.BLOCKING_TIME_IN_MINUTS)
+        super(OrderedProductReserved, self).save()
+
 
 
 

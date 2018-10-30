@@ -1,5 +1,5 @@
 from django.conf.urls import include, url
-from .views import ProductsList, GramGRNProductsList,AddToCart,CartDetail,ReservedOrder,CreateOrder,OrderList,OrderDetail
+from .views import ProductsList, GramGRNProductsList,AddToCart,CartDetail,ReservedOrder,CreateOrder,OrderList,OrderDetail,DownloadInvoice
 
 urlpatterns = [
     url('^search/(?P<product_name>.+)/$', ProductsList.as_view()),
@@ -11,5 +11,5 @@ urlpatterns = [
     url('^create-order/$', CreateOrder.as_view(), name='reserved_order'),
     url('^order-list/$', OrderList.as_view(), name='order_list'),
     url('^order-detail/$', OrderDetail.as_view(), name='order_detail'),
-
+    url('^download-invoice/(?P<pk>\d+)/$', DownloadInvoice.as_view(), name='download_invoice'),
 ]

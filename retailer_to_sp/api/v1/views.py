@@ -1,7 +1,7 @@
 from rest_framework import generics
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,OrderSerializer)
 from products.models import Product, ProductPrice, ProductOption
-from sp_to_gram.models import OrderedProductMapping,OrderedProductReserved
+from sp_to_gram.models import OrderedProductMapping,OrderedProductReserved,OrderedProduct
 
 
 from gram_to_brand.models import GRNOrderProductMapping, Address
@@ -14,6 +14,8 @@ from retailer_to_sp.models import Cart,CartProductMapping,Order
 from shops.models import Shop
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F,Sum
+from wkhtmltopdf.views import PDFTemplateResponse
+from django.shortcuts import get_object_or_404, get_list_or_404
 
 class ProductsList(generics.ListCreateAPIView):
     permission_classes = (AllowAny,)
@@ -238,6 +240,23 @@ class OrderDetail(generics.RetrieveAPIView):
         queryset = Order.objects.filter(user=self.request.user)
         return queryset
 
+class DownloadInvoice(APIView):
+    permission_classes = (AllowAny,)
+    """
+    PDF Download object
+    """
+
+    filename = 'invoice.pdf'
+    template_name = 'admin/invoice/invoice.html'
+
+    def get(self, request, *args, **kwargs):
+        order_obj = get_object_or_404(OrderedProduct, pk=self.kwargs.get('pk'))
+        data = {"object": order_obj, }
+        cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
+                      "no-stop-slow-scripts": True, "quiet": True}
+        response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
+                                       context=data, show_content_in_browser=False, cmd_options=cmd_option)
+        return response
 
 
 

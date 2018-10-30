@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping
+from .models import Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping,OrderedProductReserved
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
 
@@ -91,3 +91,4 @@ class OrderedProductMappingAdmin2(admin.ModelAdmin):
     list_display = ('ordered_product','product','ordered_qty','available_qty','reserved_qty',)
 
 admin.site.register(OrderedProductMapping,OrderedProductMappingAdmin2)
+admin.site.register(OrderedProductReserved)

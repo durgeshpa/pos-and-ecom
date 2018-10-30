@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     'sp_to_gram',
     #'autocomplete_light',
     'retailer_to_sp',
+    'wkhtmltopdf',
 ]
 
 
@@ -218,3 +219,8 @@ DEFAULT_FILE_STORAGE = 'retailer_backend.storage.MediaStorage'
 order_gram_to_brand_group = 'gram_to_brand_order_group'
 grn_gram_to_brand_group = 'grn_brand_to_gram_group'
 BLOCKING_TIME_IN_MINUTS = 2
+
+WKHTMLTOPDF_CMD = '/usr/local/bin/wkhtmltopdf'
+WKHTMLTOPDF_CMD_OPTIONS = {
+    'quiet': True,
+}
