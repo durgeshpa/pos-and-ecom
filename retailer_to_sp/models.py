@@ -35,7 +35,7 @@ class Cart(models.Model):
 
     def save(self, *args,**kwargs):
         super(Cart, self).save()
-        self.order_id = "SP/ORDER/%s"%(self.pk)
+        self.order_id = "RT/ORDER/%s"%(self.pk)
         super(Cart, self).save()
 
 class CartProductMapping(models.Model):

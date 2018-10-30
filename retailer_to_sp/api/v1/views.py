@@ -1,5 +1,6 @@
 from rest_framework import generics
-from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,OrderSerializer)
+from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,
+                          OrderSerializer,OrderSerializer)
 from products.models import Product, ProductPrice, ProductOption
 from sp_to_gram.models import OrderedProductMapping,OrderedProductReserved
 
@@ -205,7 +206,7 @@ class CreateOrder(generics.ListAPIView):
         billing_address_id = self.request.POST.get('billing_address_id')
         shipping_address_id = self.request.POST.get('shipping_address_id')
         msg = {'is_success': False, 'message': ['Cart is none'], 'response_data': None}
-        #print(Cart.objects.filter(last_modified_by=self.request.user,id=cart_id).query)
+
         if Cart.objects.filter(last_modified_by=self.request.user,id=cart_id).exists():
             cart = Cart.objects.get(last_modified_by=self.request.user,id=cart_id)
             cart_products = CartProductMapping.objects.filter(cart=cart).values('cart_product', 'qty')
@@ -217,12 +218,28 @@ class CreateOrder(generics.ListAPIView):
                     ordered_reserve.order_product_reserved.save()
 
                 serializer = CartSerializer(Cart.objects.get(id=cart.id))
-                # billing_address =
+
                 order = Order(last_modified_by=request.user,ordered_cart=cart,order_no=cart.order_id)
-                #order.billing_address = Address.objects.get(id=billing_address_id)
-                #order.shipping_address = Address.objects.get(id=shipping_address_id)
+
+                try:
+                    billing_address = Address.objects.get(id=billing_address_id)
+                except ObjectDoesNotExist:
+                    msg['message']=['Billing address not found']
+                    return Response(msg, status=status.HTTP_200_OK)
+
+                try:
+                    shipping_address = Address.objects.get(id=shipping_address_id)
+                except ObjectDoesNotExist:
+                    msg['message']=['Billing address not found']
+                    return Response(msg, status=status.HTTP_200_OK)
+
+                order.billing_address = billing_address
+                order.shipping_address = shipping_address
                 order.last_modified_by = self.request.user
                 order.save()
+
+                serializer = OrderSerializer(order)
+                #serializer = CartSerializer(Cart.objects.get(id=cart.id))
                 msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
             else:
                 msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
