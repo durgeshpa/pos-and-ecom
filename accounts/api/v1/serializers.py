@@ -15,3 +15,5 @@ class UserSerializer(serializers.ModelSerializer):
             'user_photo': {'required': True},
             }
         read_only_fields = ('phone_number',)
+        fields = ('pk')
+        read_only_fields = ('pk',)
