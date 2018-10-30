@@ -1,7 +1,7 @@
 from rest_framework import generics
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,OrderSerializer)
 from products.models import Product, ProductPrice, ProductOption
-from sp_to_gram.models import OrderedProductMapping,OrderedProductReserved,OrderedProduct
+from sp_to_gram.models import OrderedProductMapping,OrderedProductReserved
 
 
 from gram_to_brand.models import GRNOrderProductMapping, Address
@@ -10,7 +10,7 @@ from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
-from retailer_to_sp.models import Cart,CartProductMapping,Order
+from retailer_to_sp.models import Cart,CartProductMapping,Order,OrderedProduct
 from shops.models import Shop
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F,Sum
@@ -144,42 +144,47 @@ class ReservedOrder(generics.ListAPIView):
     def post(self, request):
         if Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).exists():
             cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
-            cart_products = CartProductMapping.objects.filter(cart=cart).values('cart_product','qty')
+            #cart_products = CartProductMapping.objects.filter(cart=cart).values('cart_product','qty')
+            cart_products = CartProductMapping.objects.filter(cart=cart)
             error = []
             msg = []
             for cart_product in cart_products:
+                print(cart_product)
                 #print(cart_product['cart_product'])
 
-                ordered_product_details = OrderedProductMapping.objects.filter(product=cart_product['cart_product']).order_by('-expiry_date').aggregate(available_qty_sum=Sum('available_qty'))
+                ordered_product_details = OrderedProductMapping.objects.filter(product=cart_product.cart_product).order_by('-expiry_date')
+                ordered_product_sum = ordered_product_details.aggregate(available_qty_sum=Sum('available_qty'))
                 #available_qty = product_details['available_qty'] if product_details['available_qty'] < cart_product['qty'] else cart_product['qty']
                 #error[cart_product['cart_product']] = '' if product_details['available_qty'] < cart_product['qty'] else 'Product is not avilable of that much quantity'
                 #cart_product['qty'] = available_qty
 
                 #print(ordered_product_details)
-                print(ordered_product_details['available_qty_sum'])
+                #print(ordered_product_details['available_qty_sum'])
 
-                if ordered_product_details['available_qty_sum'] is not None:
-                    if int(ordered_product_details['available_qty_sum']) < int(cart_product['qty']):
-                        available_qty = ordered_product_details['available_qty']
-                        cart_product['qty_error_msg'] ='Product is not available of that much quantity'
-                        cart_product['qty'] = ordered_product_details['available_qty']
+                if ordered_product_sum['available_qty_sum'] is not None:
+                    if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty):
+                        available_qty = int(ordered_product_sum['available_qty_sum'])
+                        cart_product.qty_error_msg ='Product is not available of that much quantity'
+                        cart_product.qty = available_qty
 
                     else:
-                        available_qty = cart_product['qty']
+                        available_qty = int(cart_product.qty)
                         #cart_product['qty'] = product_details['available_qty']
 
                     for product_detail in ordered_product_details:
                         if available_qty <=0:
                             break
 
-                        print(product_detail.available_qty)
-                        print(product_detail.reserved_qty)
-                        product_detail.reserved_qty = product_detail.available_qty
-                        available_qty = available_qty - product_detail.reserved_qty
+                        if available_qty > product_detail.available_qty:
+                            product_detail.reserved_qty = product_detail.available_qty
+                            available_qty = available_qty - product_detail.reserved_qty
+                        else:
+                            product_detail.reserved_qty = available_qty
 
                         product_detail.save()
-
-                        order_product_reserved = OrderedProductReserved(ordered_product=product_detail,product=product_detail.product, cart=cart,reserved_qty=available_qty)
+                        order_product_reserved = OrderedProductReserved(product=product_detail.product, reserved_qty=available_qty)
+                        order_product_reserved.order_product_reserved = product_detail
+                        order_product_reserved.cart = cart
                         order_product_reserved.save()
 
                     cart_product.save()
@@ -194,26 +199,28 @@ class ReservedOrder(generics.ListAPIView):
 class CreateOrder(generics.ListAPIView):
 
     def post(self, request,*args, **kwargs):
-        order_id = self.kwargs.get('order_id')
+        print(self.kwargs)
+        cart_id = self.kwargs.get('cart_id')
         buyer_shop_id = self.request.POST.get('buyer_shop_id')
         billing_address_id = self.request.POST.get('billing_address_id')
         shipping_address_id = self.request.POST.get('shipping_address_id')
         msg = {'is_success': False, 'message': ['Cart is none'], 'response_data': None}
-        if Cart.objects.filter(last_modified_by=self.request.user,id=order_id).exists():
-            cart = Cart.objects.get(last_modified_by=self.request.user,id=order_id)
-            cart_products = CartProductMapping.objects.filer(cart=cart).values('cart_product', 'qty')
+        #print(Cart.objects.filter(last_modified_by=self.request.user,id=cart_id).query)
+        if Cart.objects.filter(last_modified_by=self.request.user,id=cart_id).exists():
+            cart = Cart.objects.get(last_modified_by=self.request.user,id=cart_id)
+            cart_products = CartProductMapping.objects.filter(cart=cart).values('cart_product', 'qty')
 
             if OrderedProductReserved.objects.filter(cart=cart).exists():
-                for ordered_pro_reserve in OrderedProductReserved.objects.filter(cart=cart):
-                    ordered_pro_reserve.ordered_product.available_qty = F(ordered_pro_reserve.ordered_product.available_qty)  - ordered_pro_reserve.ordered_product.reserved_qty
-                    ordered_pro_reserve.ordered_product.reserved_qty = 0
-                    ordered_pro_reserve.ordered_product.save()
+                for ordered_reserve in OrderedProductReserved.objects.filter(cart=cart):
+                    ordered_reserve.order_product_reserved.available_qty = int(ordered_reserve.order_product_reserved.available_qty) - int(ordered_reserve.order_product_reserved.reserved_qty)
+                    ordered_reserve.order_product_reserved.reserved_qty = 0
+                    ordered_reserve.order_product_reserved.save()
 
                 serializer = CartSerializer(Cart.objects.get(id=cart.id))
                 # billing_address =
                 order = Order(last_modified_by=request.user,ordered_cart=cart,order_no=cart.order_id)
-                order.billing_address = Address.objects.get(id=billing_address_id)
-                order.shipping_address = Address.objects.get(id=shipping_address_id)
+                #order.billing_address = Address.objects.get(id=billing_address_id)
+                #order.shipping_address = Address.objects.get(id=shipping_address_id)
                 order.last_modified_by = self.request.user
                 order.save()
                 msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}

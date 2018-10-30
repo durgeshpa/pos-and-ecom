@@ -9,6 +9,7 @@ from products.models import Product
 from datetime import datetime, timedelta
 from django.utils import timezone
 from django.conf import settings
+from retailer_to_sp.models import Cart as RetailerCart
 
 ORDER_STATUS = (
     ("ordered_to_gram","Ordered To Gramfactory"),
@@ -100,9 +101,9 @@ class OrderedProductMapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
 class OrderedProductReserved(models.Model):
-    ordered_product = models.ForeignKey(OrderedProduct, related_name='sp_order_product_order_product_reserved',null=True, blank=True, on_delete=models.CASCADE)
+    order_product_reserved = models.ForeignKey(OrderedProductMapping, related_name='sp_order_product_order_product_reserved',null=True, blank=True, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='sp_product_order_product_reserved', null=True, blank=True,on_delete=models.CASCADE)
-    cart = models.ForeignKey(Cart, related_name='sp_ordered_retailer_cart',null=True,blank=True,on_delete=models.CASCADE)
+    cart = models.ForeignKey(RetailerCart, related_name='sp_ordered_retailer_cart',null=True,blank=True,on_delete=models.CASCADE)
     reserved_qty = models.PositiveIntegerField(default=0)
     order_reserve_start_time = models.DateTimeField(auto_now_add=True)
     order_reserve_end_time = models.DateTimeField(null=True,blank=True,editable=False)
