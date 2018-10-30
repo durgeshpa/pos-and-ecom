@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import User
+from .models import User, UserDocument
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.utils.translation import ugettext_lazy as _
 
@@ -12,7 +12,7 @@ class UserAdmin(DjangoUserAdmin):
     """Define admin model for custom User model with no email field."""
 
     fieldsets = (
-        (_('Personal info'), {'fields': ('first_name', 'last_name',
+        (_('Personal info'), {'fields': ('user_photo','first_name', 'last_name',
                                          'phone_number', 'email',
                                          'password')}),
         (_('Permissions'), {'fields': ('user_type', 'is_active', 'is_staff', 'is_superuser',
@@ -27,4 +27,11 @@ class UserAdmin(DjangoUserAdmin):
     )
     list_display = ('phone_number', 'email', 'first_name', 'last_name')
     search_fields = ('phone_number','email', 'first_name', 'last_name')
+    readonly_fields = ('user_photo_thumbnail',)
     ordering = ('email',)
+
+@admin.register(UserDocument)
+class UserDocumentAdmin(admin.ModelAdmin):
+    model = UserDocument
+    fields = ( 'user_document_type','user_document_number','user_document_photo','user_document_photo_thumbnail', )
+    readonly_fields = ('user_document_photo_thumbnail',)
