@@ -11,6 +11,11 @@ class RetailerTypeSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class ShopTypeSerializer(serializers.ModelSerializer):
+    shop_type = serializers.SerializerMethodField()
+
+    def get_shop_type(self, obj):
+        return obj.get_shop_type_display()
+
     class Meta:
         model = ShopType
         fields = '__all__'
@@ -23,8 +28,7 @@ class ShopTypeSerializer(serializers.ModelSerializer):
         response['shop_sub_type'] = RetailerTypeSerializer(instance.shop_sub_type).data
         return response
 
-    def get_shop_type(self, obj):
-        return obj.get_shop_type_display()
+
 
 class ShopSerializer(serializers.ModelSerializer):
     shop_id = serializers.SerializerMethodField('my_shop_id')
