@@ -23,6 +23,9 @@ class ShopTypeSerializer(serializers.ModelSerializer):
         response['shop_sub_type'] = RetailerTypeSerializer(instance.shop_sub_type).data
         return response
 
+    def get_shop_type(self, obj):
+        return obj.get_shop_type_display()
+
 class ShopSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shop
