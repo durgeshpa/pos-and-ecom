@@ -27,9 +27,14 @@ class ShopTypeSerializer(serializers.ModelSerializer):
         return obj.get_shop_type_display()
 
 class ShopSerializer(serializers.ModelSerializer):
+    shop_id = serializers.SerializerMethodField('my_shop_id')
+
+    def my_shop_id(self, obj):
+        return obj.id
+
     class Meta:
         model = Shop
-        fields = ('pk','shop_name','shop_type')
+        fields = ('id','shop_name','shop_type','shop_id')
 
 class ShopPhotoSerializer(serializers.ModelSerializer):
     class Meta:
