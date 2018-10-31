@@ -161,6 +161,7 @@ class ShopView(generics.ListCreateAPIView):
                 'message': [SUCCESS_MESSAGES['USER_SHOP_ADDED']],
                 'response_data': [{
                                     "id": shop.pk,
+                                    "shop_id": shop.pk,
                                     "shop_name": shop.shop_name,
                                     }]}
         return Response(msg,

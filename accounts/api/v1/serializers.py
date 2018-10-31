@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from products.models import Product
 from django.contrib.auth import get_user_model
+from accounts.models import UserDocument
 
 User =  get_user_model()
 
@@ -15,5 +16,11 @@ class UserSerializer(serializers.ModelSerializer):
             'user_photo': {'required': True},
             }
         read_only_fields = ('phone_number',)
-        #fields = ('pk')
-        #read_only_fields = ('pk',)
+
+class UserDocumentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserDocument
+        fields = ('user_document_type','user_document_photo','user_document_number')
+        extra_kwargs = {
+            'user_document_type': {'required': True},
+            }
