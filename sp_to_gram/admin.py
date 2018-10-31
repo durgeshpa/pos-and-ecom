@@ -88,7 +88,7 @@ admin.site.register(OrderedProduct,OrderedProductAdmin)
 
 
 class OrderedProductMappingAdmin2(admin.ModelAdmin):
-    list_display = ('ordered_product','product','ordered_qty','available_qty','reserved_qty',)
+    list_display = ('ordered_product','product','ordered_qty','available_qty',)
 
 admin.site.register(OrderedProductMapping,OrderedProductMappingAdmin2)
 admin.site.register(OrderedProductReserved)

@@ -17,6 +17,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F,Sum
 from wkhtmltopdf.views import PDFTemplateResponse
 from django.shortcuts import get_object_or_404, get_list_or_404
+from datetime import datetime, timedelta
+from django.utils import timezone
 
 class ProductsList(generics.ListCreateAPIView):
     permission_classes = (AllowAny,)
@@ -177,10 +179,12 @@ class ReservedOrder(generics.ListAPIView):
                             break
 
                         if available_qty > product_detail.available_qty:
-                            product_detail.reserved_qty = product_detail.available_qty
-                            available_qty = available_qty - product_detail.reserved_qty
+                            product_detail.available_qty = 0
+                            available_qty = available_qty - int(product_detail.available_qty)
+
                         else:
-                            product_detail.reserved_qty = available_qty
+                            product_detail.available_qty = int(product_detail.available_qty) - int(available_qty)
+                            available_qty = available_qty - int(product_detail.available_qty)
 
                         product_detail.save()
                         order_product_reserved = OrderedProductReserved(product=product_detail.product, reserved_qty=available_qty)
@@ -200,7 +204,7 @@ class ReservedOrder(generics.ListAPIView):
 class CreateOrder(generics.ListAPIView):
 
     def post(self, request,*args, **kwargs):
-        print(self.kwargs)
+        #print(self.kwargs)
         cart_id = self.kwargs.get('cart_id')
         buyer_shop_id = self.request.POST.get('buyer_shop_id')
         billing_address_id = self.request.POST.get('billing_address_id')
@@ -212,13 +216,6 @@ class CreateOrder(generics.ListAPIView):
             cart_products = CartProductMapping.objects.filter(cart=cart).values('cart_product', 'qty')
 
             if OrderedProductReserved.objects.filter(cart=cart).exists():
-                for ordered_reserve in OrderedProductReserved.objects.filter(cart=cart):
-                    ordered_reserve.order_product_reserved.available_qty = int(ordered_reserve.order_product_reserved.available_qty) - int(ordered_reserve.order_product_reserved.reserved_qty)
-                    ordered_reserve.order_product_reserved.reserved_qty = 0
-                    ordered_reserve.order_product_reserved.save()
-
-                serializer = CartSerializer(Cart.objects.get(id=cart.id))
-
                 order = Order(last_modified_by=request.user,ordered_cart=cart,order_no=cart.order_id)
 
                 try:
@@ -235,11 +232,14 @@ class CreateOrder(generics.ListAPIView):
 
                 order.billing_address = billing_address
                 order.shipping_address = shipping_address
-                order.last_modified_by = self.request.user
+                order.order_status = 'ordered_to_sp'
                 order.save()
 
+                # Remove Data From OrderedProductReserved
+                for ordered_reserve in OrderedProductReserved.objects.filter(cart=cart):
+                    ordered_reserve.delete()
+
                 serializer = OrderSerializer(order)
-                #serializer = CartSerializer(Cart.objects.get(id=cart.id))
                 msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
             else:
                 msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
@@ -254,14 +254,15 @@ class OrderList(generics.ListAPIView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = Order.objects.filter(user=self.request.user)
+        queryset = Order.objects.filter(ordered_by=self.request.user)
         return queryset
 
 class OrderDetail(generics.RetrieveAPIView):
     serializer_class = OrderSerializer
 
-    def get_queryset(self):
-        queryset = Order.objects.filter(user=self.request.user)
+    def get_queryset(self,*args,**kwargs):
+        self.kwargs.get('')
+        queryset = Order.objects.filter(ordered_by=self.request.user)
         return queryset
 
 class DownloadInvoice(APIView):
@@ -269,7 +270,6 @@ class DownloadInvoice(APIView):
     """
     PDF Download object
     """
-
     filename = 'invoice.pdf'
     template_name = 'admin/invoice/invoice.html'
 
@@ -281,6 +281,20 @@ class DownloadInvoice(APIView):
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         return response
+
+class CronToDeleteOrderedProductReserved(APIView):
+
+    permission_classes = (AllowAny,)
+
+    def get(self):
+        if OrderedProductReserved.objects.filter(order_reserve_end_time__gt=timezone.now()).exists():
+            for ordered_reserve in OrderedProductReserved.objects.filter(order_reserve_end_time__gt=timezone.now()):
+                ordered_reserve.order_product_reserved.available_qty = int(ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
+                ordered_reserve.order_product_reserved.save()
+                print("%s id will deleted and added %s qty in available_qty of OrderedProductMapping %s id"%(ordered_reserve.id,ordered_reserve.order_product_reserved.available_qty,ordered_reserve.order_product_reserved.id))
+                ordered_reserve.delete()
+
+
 
 
 

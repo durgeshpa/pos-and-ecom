@@ -50,7 +50,7 @@ class CartProductMapping(models.Model):
         return self.cart_product.product_name
 
 class Order(models.Model):
-    user = models.ForeignKey(get_user_model(), related_name='rt_user_order', null=True, blank=True,on_delete=models.CASCADE)
+    #user = models.ForeignKey(get_user_model(), related_name='rt_user_order', null=True, blank=True,on_delete=models.CASCADE)
     seller_shop = models.ForeignKey(Shop, related_name='rt_seller_shop_order',null=True,blank=True,on_delete=models.CASCADE)
     buyer_shop = models.ForeignKey(Shop, related_name='rt_buyer_shop_order',null=True,blank=True,on_delete=models.CASCADE)
     ordered_cart = models.ForeignKey(Cart,related_name='rt_order_cart_mapping',on_delete=models.CASCADE)

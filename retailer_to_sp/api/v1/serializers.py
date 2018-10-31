@@ -57,16 +57,18 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
 
 
 class CartSerializer(serializers.ModelSerializer):
-    #rt_cart_list = serializers.RelatedField(many=True,read_only=True)
     rt_cart_list = CartProductMappingSerializer(many=True)
+    last_modified_by = UserSerializer()
 
     class Meta:
         model = Cart
         fields = ('id','order_id','cart_status','last_modified_by','created_at','modified_at','rt_cart_list')
 
-
 class OrderSerializer(serializers.ModelSerializer):
     ordered_cart = CartSerializer()
+    ordered_by = UserSerializer()
+    last_modified_by = UserSerializer()
+
     class Meta:
         model=Order
         fields = ('id','ordered_cart','order_no','billing_address','shipping_address','total_mrp','total_discount_amount',
