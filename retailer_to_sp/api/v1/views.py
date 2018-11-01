@@ -69,7 +69,7 @@ class GramGRNProductsList(APIView):
             pack_size = product_option.package_size.pack_size_name
             weight = product_option.weight.weight_name
             if name.startswith(request.data['product_name']):
-                p_list.append({"name":name, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "weight":weight})
+                p_list.append({"name":name, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "weight":weight, "id":id})
         if not p_list:
             msg = {'is_success': False,
                     'message': ['Sorry no product found!'],
