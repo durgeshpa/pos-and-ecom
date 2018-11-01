@@ -71,7 +71,7 @@ class GramGRNProductsList(APIView):
                 return Response(msg, status=400)
 
             try:
-                product_option = ProductOption.objects.get(product=product)
+                product_option = ProductOption.objects.filter(product=product)[0]
             except ObjectDoesNotExist:
                 msg['message'] = ['Product id %s  and name %s have product_option not found '%(product.id, product.product_name)]
                 return Response(msg, status=400)
