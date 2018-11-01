@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping
+from .models import Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping,Note
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
 
@@ -63,7 +63,7 @@ admin.site.register(Order,OrderAdmin)
 
 class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping
-    exclude = ('', 'last_modified_by',)
+    exclude = ('last_modified_by',)
 
 class OrderedProductAdmin(admin.ModelAdmin):
     inlines = [OrderedProductMappingAdmin]
@@ -72,3 +72,10 @@ class OrderedProductAdmin(admin.ModelAdmin):
     autocomplete_fields = ('order',)
 
 admin.site.register(OrderedProduct,OrderedProductAdmin)
+
+class NoteAdmin(admin.ModelAdmin):
+    list_display = ('order','ordered_product','note_type', 'amount', 'created_at')
+
+admin.site.register(Note,NoteAdmin)
+
+

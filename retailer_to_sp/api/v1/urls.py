@@ -1,6 +1,6 @@
 from django.conf.urls import include, url
 from .views import (ProductsList, GramGRNProductsList,AddToCart,CartDetail,ReservedOrder,CreateOrder,OrderList,OrderDetail,DownloadInvoice,
-                    CronToDeleteOrderedProductReserved)
+                    CronToDeleteOrderedProductReserved,DownloadNote)
 
 urlpatterns = [
     url('^search/(?P<product_name>.+)/$', ProductsList.as_view()),
@@ -12,7 +12,8 @@ urlpatterns = [
     url('^create-order/(?P<cart_id>\d+)/$', CreateOrder.as_view(), name='reserved_order'),
     url('^order-list/$', OrderList.as_view(), name='order_list'),
     url('^order-detail/(?P<pk>\d+)/$', OrderDetail.as_view(), name='order_detail'),
-    url('^download-invoice/(?P<pk>\d+)/$', DownloadInvoice.as_view(), name='download_invoice'),
+    url('^download-invoice/(?P<pk>\d+)/invoice/$', DownloadInvoice.as_view(), name='download_invoice'),
+    url('^download-note/(?P<pk>\d+)/note/$', DownloadNote.as_view(), name='download_note'),
 
     #cron
     url('^delete-ordered-product-reserved/$', CronToDeleteOrderedProductReserved.as_view(), name='delete_ordered_product_reserved'),

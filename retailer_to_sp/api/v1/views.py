@@ -89,9 +89,11 @@ class AddToCart(APIView):
     def post(self,request):
         cart_product = self.request.POST.get('cart_product')
         qty = self.request.POST.get('qty')
+        shop_id = self.request.POST.get('shop_id')
         msg = {'is_success': False,'message': ['Sorry no any mapping with any shop!'],'response_data': None}
 
         if Shop.objects.filter(shop_owner=request.user).exists():
+
             if Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).exists():
                 cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
                 cart.cart_status = 'active'
@@ -100,6 +102,7 @@ class AddToCart(APIView):
                 cart = Cart(last_modified_by=self.request.user,cart_status='active')
                 cart.save()
 
+            # get Product
             try:
                 product = Product.objects.get(id=cart_product)
             except ObjectDoesNotExist:
@@ -201,16 +204,29 @@ class CreateOrder(generics.ListAPIView):
     def post(self, request,*args, **kwargs):
         #print(self.kwargs)
         cart_id = self.kwargs.get('cart_id')
-        buyer_shop_id = self.request.POST.get('buyer_shop_id')
         billing_address_id = self.request.POST.get('billing_address_id')
         shipping_address_id = self.request.POST.get('shipping_address_id')
+
+        total_mrp = self.request.POST.get('total_mrp')
+        total_tax_amount = self.request.POST.get('total_tax_amount')
+        total_final_amount = self.request.POST.get('total_final_amount')
+
+        shop_id = self.request.POST.get('shop_id')
         msg = {'is_success': False, 'message': ['Cart is none'], 'response_data': None}
+
+        #get shop
+        try:
+            shop = Shop.objects.get(id=shop_id)
+        except ObjectDoesNotExist:
+            msg['message'] = ["Shop not Found"]
+            return Response(msg, status=status.HTTP_200_OK)
 
         if Cart.objects.filter(last_modified_by=self.request.user,id=cart_id).exists():
             cart = Cart.objects.get(last_modified_by=self.request.user,id=cart_id)
             cart.cart_status = 'ordered_to_sp'
             cart.save()
-            cart_products = CartProductMapping.objects.filter(cart=cart).values('cart_product', 'qty')
+
+            #cart_products = CartProductMapping.objects.filter(cart=cart).values('cart_product', 'qty')
 
             if OrderedProductReserved.objects.filter(cart=cart).exists():
                 order = Order(last_modified_by=request.user,ordered_cart=cart,order_no=cart.order_id)
@@ -229,6 +245,12 @@ class CreateOrder(generics.ListAPIView):
 
                 order.billing_address = billing_address
                 order.shipping_address = shipping_address
+                order.buyer_shop = shop
+
+                order.total_mrp = float(total_mrp)
+                order.total_tax_amount = float(total_tax_amount)
+                order.total_final_amount = float(total_final_amount)
+
                 order.order_status = 'ordered_to_sp'
                 order.save()
 
@@ -280,6 +302,25 @@ class DownloadInvoice(APIView):
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         return response
+
+class DownloadNote(APIView):
+    permission_classes = (AllowAny,)
+    """
+    PDF Download object
+    """
+    filename = 'note.pdf'
+    template_name = 'admin/invoice/note.html'
+
+    def get(self, request, *args, **kwargs):
+        order_obj = get_object_or_404(OrderedProduct, pk=self.kwargs.get('pk'))
+        data = {"object": order_obj, }
+        cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
+                      "no-stop-slow-scripts": True, "quiet": True}
+        response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
+                                       context=data, show_content_in_browser=False, cmd_options=cmd_option)
+        return response
+
+
 
 class CronToDeleteOrderedProductReserved(APIView):
 

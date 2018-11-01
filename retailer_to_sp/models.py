@@ -80,6 +80,10 @@ class Order(models.Model):
     ordered_by = models.ForeignKey(get_user_model(), related_name='rt_ordered_by_user', null=True, blank=True,on_delete=models.CASCADE)
     received_by = models.ForeignKey(get_user_model(), related_name='rt_received_by_user', null=True, blank=True,on_delete=models.CASCADE)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='rt_order_modified_user', null=True,blank=True, on_delete=models.CASCADE)
+    payment_mode = models.CharField(max_length=255, choices=PAYMENT_MODE_CHOICES)
+    reference_no = models.CharField(max_length=255, null=True, blank=True)
+    payment_amount = models.FloatField(default=0)
+    payment_status = models.CharField(max_length=255, choices=PAYMENT_STATUS,null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -101,6 +105,9 @@ class OrderedProduct(models.Model):
         self.invoice_no = "RT/INVOICE/%s"%(self.pk)
         super(OrderedProduct, self).save()
 
+    def __str__(self):
+        return self.invoice_no or self.id
+
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(OrderedProduct,related_name='rt_order_product_order_product_mapping',null=True,blank=True,on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='rt_product_order_product',null=True,blank=True, on_delete=models.CASCADE)
@@ -121,13 +128,5 @@ class Note(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-class RetailerPayment(models.Model):
-    order = models.ForeignKey(Order, related_name='rt_order_retailer_payment', null=True, blank=True,on_delete=models.CASCADE)
-    payment_mode = models.CharField(max_length=255,choices=PAYMENT_MODE_CHOICES)
-    reference_no = models.CharField(max_length=255,null=True,blank=True)
-    amount = models.FloatField(default=0)
-    payment_status = models.CharField(max_length=255, choices=PAYMENT_STATUS,default='done')
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
 
 
