@@ -55,7 +55,7 @@ class CityView(generics.ListAPIView):
         queryset = City.objects.all()
         state_id = self.request.query_params.get('state_id', None)
         if state_id is not None:
-            queryset = queryset.filter(country=state_id)
+            queryset = queryset.filter(state__id=state_id)
         return queryset
 
     def list(self, request):

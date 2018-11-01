@@ -21,6 +21,21 @@ ITEM_STATUS = (
     ("delivered","Delivered"),
 )
 
+NOTE_TYPE_CHOICES = (
+    ("debit_note","Debit Note"),
+    ("credit_note","Credit Note"),
+)
+
+PAYMENT_MODE_CHOICES = (
+    ("cash_in_delivery","Cash In Delivery"),
+    ("neft","NEFT"),
+)
+
+PAYMENT_STATUS = (
+    ("done","Done"),
+    ("pending","Pending"),
+)
+
 class Cart(models.Model):
     order_id = models.CharField(max_length=255,null=True,blank=True)
     #user = models.ForeignKey(get_user_model(),related_name='rt_user_cart',null=True,blank=True,on_delete=models.CASCADE)
@@ -96,4 +111,23 @@ class OrderedProductMapping(models.Model):
     last_modified_by = models.ForeignKey(get_user_model(), related_name='rt_last_modified_user_order_product', null=True,blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+class Note(models.Model):
+    order = models.ForeignKey(Order, related_name='rt_order_note',null=True,blank=True,on_delete=models.CASCADE)
+    ordered_product = models.ForeignKey(OrderedProduct, related_name='rt_order_product_note',null=True, blank=True, on_delete=models.CASCADE)
+    note_type = models.CharField(max_length=255,choices=NOTE_TYPE_CHOICES)
+    amount = models.FloatField(default=0)
+    last_modified_by = models.ForeignKey(get_user_model(), related_name='rt_last_modified_user_note',null=True, blank=True, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+class RetailerPayment(models.Model):
+    order = models.ForeignKey(Order, related_name='rt_order_retailer_payment', null=True, blank=True,on_delete=models.CASCADE)
+    payment_mode = models.CharField(max_length=255,choices=PAYMENT_MODE_CHOICES)
+    reference_no = models.CharField(max_length=255,null=True,blank=True)
+    amount = models.FloatField(default=0)
+    payment_status = models.CharField(max_length=255, choices=PAYMENT_STATUS,default='done')
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
 

@@ -149,20 +149,14 @@ class ReservedOrder(generics.ListAPIView):
             cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
             #cart_products = CartProductMapping.objects.filter(cart=cart).values('cart_product','qty')
             cart_products = CartProductMapping.objects.filter(cart=cart)
+            serializer = CartSerializer(cart)
             error = []
-            msg = []
+            msg = {'is_success': False, 'message': ['No any product available ins this cart'], 'response_data': None}
+
             for cart_product in cart_products:
-                print(cart_product)
-                #print(cart_product['cart_product'])
 
                 ordered_product_details = OrderedProductMapping.objects.filter(product=cart_product.cart_product).order_by('-expiry_date')
                 ordered_product_sum = ordered_product_details.aggregate(available_qty_sum=Sum('available_qty'))
-                #available_qty = product_details['available_qty'] if product_details['available_qty'] < cart_product['qty'] else cart_product['qty']
-                #error[cart_product['cart_product']] = '' if product_details['available_qty'] < cart_product['qty'] else 'Product is not avilable of that much quantity'
-                #cart_product['qty'] = available_qty
-
-                #print(ordered_product_details)
-                #print(ordered_product_details['available_qty_sum'])
 
                 if ordered_product_sum['available_qty_sum'] is not None:
                     if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty):
@@ -172,34 +166,35 @@ class ReservedOrder(generics.ListAPIView):
 
                     else:
                         available_qty = int(cart_product.qty)
-                        #cart_product['qty'] = product_details['available_qty']
+
+
+                    if int(available_qty) == 0:
+                        cart_product.delete()
+                    else:
+                        cart_product.save()
 
                     for product_detail in ordered_product_details:
                         if available_qty <=0:
                             break
 
-                        if available_qty > product_detail.available_qty:
-                            product_detail.available_qty = 0
-                            available_qty = available_qty - int(product_detail.available_qty)
-
-                        else:
-                            product_detail.available_qty = int(product_detail.available_qty) - int(available_qty)
-                            available_qty = available_qty - int(product_detail.available_qty)
-
+                        product_detail.available_qty = 0 if available_qty > product_detail.available_qty else int(product_detail.available_qty) - int(available_qty)
                         product_detail.save()
-                        order_product_reserved = OrderedProductReserved(product=product_detail.product, reserved_qty=available_qty)
+
+                        order_product_reserved = OrderedProductReserved(product=product_detail.product,reserved_qty=available_qty)
                         order_product_reserved.order_product_reserved = product_detail
                         order_product_reserved.cart = cart
                         order_product_reserved.save()
 
-                    cart_product.save()
+                        available_qty = available_qty - int(product_detail.available_qty)
 
-                    serializer = CartSerializer(Cart.objects.get(id=cart.id))
                     msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                 else:
                     msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
                     return Response(msg, status=status.HTTP_200_OK)
-            return Response(msg, status=status.HTTP_200_OK)
+            if CartProductMapping.objects.filter(cart=cart).count()<=0:
+                msg = {'is_success': False, 'message': ['No any product available ins this cart'],'response_data': None}
+
+        return Response(msg, status=status.HTTP_200_OK)
 
 class CreateOrder(generics.ListAPIView):
 
@@ -213,6 +208,8 @@ class CreateOrder(generics.ListAPIView):
 
         if Cart.objects.filter(last_modified_by=self.request.user,id=cart_id).exists():
             cart = Cart.objects.get(last_modified_by=self.request.user,id=cart_id)
+            cart.cart_status = 'ordered_to_sp'
+            cart.save()
             cart_products = CartProductMapping.objects.filter(cart=cart).values('cart_product', 'qty')
 
             if OrderedProductReserved.objects.filter(cart=cart).exists():
@@ -227,7 +224,7 @@ class CreateOrder(generics.ListAPIView):
                 try:
                     shipping_address = Address.objects.get(id=shipping_address_id)
                 except ObjectDoesNotExist:
-                    msg['message']=['Billing address not found']
+                    msg['message']=['Shipping address not found']
                     return Response(msg, status=status.HTTP_200_OK)
 
                 order.billing_address = billing_address
@@ -237,6 +234,8 @@ class CreateOrder(generics.ListAPIView):
 
                 # Remove Data From OrderedProductReserved
                 for ordered_reserve in OrderedProductReserved.objects.filter(cart=cart):
+                    ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
+                    ordered_reserve.order_product_reserved.save()
                     ordered_reserve.delete()
 
                 serializer = OrderSerializer(order)
@@ -261,8 +260,8 @@ class OrderDetail(generics.RetrieveAPIView):
     serializer_class = OrderSerializer
 
     def get_queryset(self,*args,**kwargs):
-        self.kwargs.get('')
-        queryset = Order.objects.filter(ordered_by=self.request.user)
+        pk = self.kwargs.get('pk')
+        queryset = Order.objects.filter(ordered_by=self.request.user,id=pk)
         return queryset
 
 class DownloadInvoice(APIView):
@@ -286,13 +285,22 @@ class CronToDeleteOrderedProductReserved(APIView):
 
     permission_classes = (AllowAny,)
 
-    def get(self):
-        if OrderedProductReserved.objects.filter(order_reserve_end_time__gt=timezone.now()).exists():
-            for ordered_reserve in OrderedProductReserved.objects.filter(order_reserve_end_time__gt=timezone.now()):
+    def get(self, request):
+        if OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()).exists():
+            for ordered_reserve in OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()):
                 ordered_reserve.order_product_reserved.available_qty = int(ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
                 ordered_reserve.order_product_reserved.save()
+
+                # Saving Cart as pending
+                ordered_reserve.cart.cart_status = 'pending'
+                ordered_reserve.cart.save()
+
+                # Deleted Cart
                 print("%s id will deleted and added %s qty in available_qty of OrderedProductMapping %s id"%(ordered_reserve.id,ordered_reserve.order_product_reserved.available_qty,ordered_reserve.order_product_reserved.id))
                 ordered_reserve.delete()
+        else:
+            print(OrderedProductReserved.objects.filter(order_reserve_end_time__gt=timezone.now()).query)
+            print("nothing found")
 
 
 

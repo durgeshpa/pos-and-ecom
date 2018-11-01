@@ -92,7 +92,6 @@ class OrderedProductMapping(models.Model):
     shipped_qty = models.PositiveIntegerField(default=0)
     available_qty = models.PositiveIntegerField(default=0)
     ordered_qty = models.PositiveIntegerField(default=0)
-    #reserved_qty = models.PositiveIntegerField(default=0)
     delivered_qty = models.PositiveIntegerField(default=0)
     returned_qty = models.PositiveIntegerField(default=0)
     damaged_qty = models.PositiveIntegerField(default=0)
@@ -112,8 +111,11 @@ class OrderedProductReserved(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     def save(self):
-        self.order_reserve_end_time = timezone.now() + timedelta(minutes=settings.BLOCKING_TIME_IN_MINUTS)
+        self.order_reserve_end_time = timezone.now() + timedelta(minutes=int(settings.BLOCKING_TIME_IN_MINUTS))
         super(OrderedProductReserved, self).save()
+
+    def __str__(self):
+        return str(self.order_reserve_end_time)
 
 
 

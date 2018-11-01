@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from products.models import Product,ProductPrice,ProductImage,Tax,ProductTaxMapping
-from retailer_to_sp.models import CartProductMapping,Cart,Order
+from retailer_to_sp.models import CartProductMapping,Cart,Order,OrderedProduct
 from accounts.api.v1.serializers import UserSerializer
+from django.urls import reverse
 from gram_to_brand.models import GRNOrderProductMapping
 
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -64,13 +65,27 @@ class CartSerializer(serializers.ModelSerializer):
         model = Cart
         fields = ('id','order_id','cart_status','last_modified_by','created_at','modified_at','rt_cart_list')
 
+
+class OrderedProductAdmin(serializers.ModelSerializer):
+    invoice_link = serializers.SerializerMethodField('invoice_link_id')
+
+    def invoice_link_id(self, obj):
+        request = self.context.get("request")
+        return "{0}{1}".format(request.get_host(),reverse('download_invoice', args=[obj.pk]))
+
+    class Meta:
+        model = OrderedProduct
+        fields = ('order','invoice_no','vehicle_no','shipped_by','received_by','last_modified_by','created_at','modified_at','invoice_link')
+
 class OrderSerializer(serializers.ModelSerializer):
     ordered_cart = CartSerializer()
     ordered_by = UserSerializer()
     last_modified_by = UserSerializer()
+    rt_order_order_product = OrderedProductAdmin(many=True)
+
 
     class Meta:
         model=Order
         fields = ('id','ordered_cart','order_no','billing_address','shipping_address','total_mrp','total_discount_amount',
                   'total_tax_amount','total_final_amount','order_status','ordered_by','received_by','last_modified_by',
-                  'created_at','modified_at',)
+                  'created_at','modified_at','rt_order_order_product')
