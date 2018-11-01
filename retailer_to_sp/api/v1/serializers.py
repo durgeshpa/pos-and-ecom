@@ -1,8 +1,11 @@
 from rest_framework import serializers
-from products.models import Product,ProductPrice,ProductImage,Tax,ProductTaxMapping
+from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMapping,ProductOption,
+                             Size,Color,Fragrance,Flavor,Weight,PackageSize)
 from retailer_to_sp.models import CartProductMapping,Cart,Order,OrderedProduct,Note
+from sp_to_gram.models import OrderedProductMapping
 from accounts.api.v1.serializers import UserSerializer
 from django.urls import reverse
+from django.db.models import F,Sum
 from gram_to_brand.models import GRNOrderProductMapping
 
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -26,16 +29,59 @@ class ProductTaxMappingSerializer(serializers.ModelSerializer):
         model = ProductTaxMapping
         fields = '__all__'
 
+class SizeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Size
+        fields = '__all__'
+
+class PackageSizeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PackageSize
+        fields = '__all__'
+
+class ColorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Color
+        fields = '__all__'
+
+class FragranceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Fragrance
+        fields = '__all__'
+
+class FlavorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Flavor
+        fields = '__all__'
+
+class WeightSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Weight
+        fields = '__all__'
+
+class ProductOptionSerializer(serializers.ModelSerializer):
+    size = SizeSerializer()
+    package_size = PackageSizeSerializer()
+    color = ColorSerializer()
+    fragrance = FragranceSerializer()
+    flavor = FlavorSerializer()
+    weight = WeightSerializer()
+    class Meta:
+        model = ProductOption
+        fields = ('size','package_size','color','fragrance','flavor','weight')
+
+
 class ProductsSearchSerializer(serializers.ModelSerializer):
     product_pro_price = ProductPriceSerializer(many=True)
     product_pro_image = ProductImageSerializer(many=True)
     product_pro_tax = ProductTaxMappingSerializer(many=True)
+    product_opt_product = ProductOptionSerializer(many=True)
 
     class Meta:
         model = Product
         fields = ('id','product_name','product_slug','product_short_description','product_long_description','product_sku',
                   'product_ean_code','product_brand','created_at','modified_at','status','product_pro_price','product_pro_image',
-                  'product_pro_tax',)
+                  'product_pro_tax','product_opt_product')
 
 
 class GramGRNProductsSearchSerializer(serializers.Serializer):
@@ -51,10 +97,16 @@ class CartProductSerializer(serializers.ModelSerializer):
 class CartProductMappingSerializer(serializers.ModelSerializer):
     cart_product = ProductsSearchSerializer()
     cart = CartProductSerializer()
+    is_available = serializers.SerializerMethodField('is_available_id')
+
+    def is_available_id(self,obj):
+        ordered_product_sum = OrderedProductMapping.objects.filter(product=obj.cart_product).aggregate(available_qty_sum=Sum('available_qty'))
+        self.is_available = True if int(ordered_product_sum['available_qty_sum'])>0 else False
+        return self.is_available
 
     class Meta:
         model = CartProductMapping
-        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg')
+        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg','is_available')
 
 
 class CartSerializer(serializers.ModelSerializer):
