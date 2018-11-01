@@ -101,7 +101,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
 
     def is_available_id(self,obj):
         ordered_product_sum = OrderedProductMapping.objects.filter(product=obj.cart_product).aggregate(available_qty_sum=Sum('available_qty'))
-        self.is_available = True if int(ordered_product_sum['available_qty_sum'])>0 else False
+        self.is_available = True if ordered_product_sum['available_qty_sum'] and int(ordered_product_sum['available_qty_sum'])>0 else False
         return self.is_available
 
     class Meta:
