@@ -28,7 +28,7 @@ from sp_to_gram.models import OrderedProductMapping,OrderedProductReserved
 #             print(OrderedProductReserved.objects.filter(order_reserve_end_time__gt=timezone.now()).query)
 #             print("nothing found")
 
-def cron_to_delete_ordered_product_reserved(self, request):
+def cron_to_delete_ordered_product_reserved(request):
     if OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()).exists():
         for ordered_reserve in OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()):
             ordered_reserve.order_product_reserved.available_qty = int(ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
