@@ -50,7 +50,8 @@ class GramGRNProductsList(APIView):
     serializer_class = GramGRNProductsSearchSerializer
 
     def post(self, request, format=None):
-        grn = GRNOrderProductMapping.objects.all()
+        #grn = GRNOrderProductMapping.objects.all()
+        grn = OrderedProductMapping.objects.all()
         p_id_list = []
         for p in grn:
             product = p.product
@@ -71,11 +72,8 @@ class GramGRNProductsList(APIView):
             if name.startswith(request.data['product_name']):
                 p_list.append({"name":name, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "weight":weight, "id":id})
         if not p_list:
-            msg = {'is_success': False,
-                    'message': ['Sorry no product found!'],
-                    'response_data': None }
-            return Response(msg,
-                            status=400)
+            msg = {'is_success': False,'message': ['Sorry no product found!'],'response_data': None }
+            return Response(msg,status=400)
 
         msg = {'is_success': True,
                 'message': ['Products found'],
