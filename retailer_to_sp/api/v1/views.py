@@ -67,12 +67,19 @@ class GramGRNProductsList(APIView):
             try:
                 product_price = ProductPrice.objects.get(product=product)
             except ObjectDoesNotExist:
-                msg['message'] = ['Product id %s  have price not found '%(product.id)]
+                msg['message'] = ['Product id %s  and name %s have price not found '%(product.id, product.product_name)]
                 return Response(msg, status=400)
+
+            try:
+                product_option = ProductOption.objects.get(product=product)
+            except ObjectDoesNotExist:
+                msg['message'] = ['Product id %s  and name %s have product_option not found '%(product.id, product.product_name)]
+                return Response(msg, status=400)
+
             mrp = product_price.mrp
             ptr = product_price.price_to_retailer
             status = product_price.status
-            product_option = ProductOption.objects.get(product=product)
+
             pack_size = product_option.package_size.pack_size_name
             weight = product_option.weight.weight_name
             if name.startswith(request.data['product_name']):
