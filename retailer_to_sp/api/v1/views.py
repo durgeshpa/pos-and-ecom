@@ -59,10 +59,16 @@ class GramGRNProductsList(APIView):
             p_id_list.append(id)
         products = Product.objects.filter(pk__in=p_id_list)
         p_list = []
+        msg = {'is_success': False, 'message': ['Sorry no product found!'], 'response_data': None}
         for product in products:
             id = product.pk
             name = product.product_name
-            product_price = ProductPrice.objects.get(product=product)
+
+            try:
+                product_price = ProductPrice.objects.get(product=product)
+            except ObjectDoesNotExist:
+                msg['message'] = ['Product id %s  have price not found '%(product.id)]
+                return Response(msg, status=400)
             mrp = product_price.mrp
             ptr = product_price.price_to_retailer
             status = product_price.status
@@ -72,7 +78,6 @@ class GramGRNProductsList(APIView):
             if name.startswith(request.data['product_name']):
                 p_list.append({"name":name, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "weight":weight, "id":id})
         if not p_list:
-            msg = {'is_success': False,'message': ['Sorry no product found!'],'response_data': None }
             return Response(msg,status=400)
 
         msg = {'is_success': True,
