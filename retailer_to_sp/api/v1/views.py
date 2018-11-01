@@ -162,17 +162,16 @@ class ReservedOrder(generics.ListAPIView):
                 if ordered_product_sum['available_qty_sum'] is not None:
                     if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty):
                         available_qty = int(ordered_product_sum['available_qty_sum'])
-                        cart_product.qty_error_msg ='Product is not available of that much quantity'
+                        cart_product.qty_error_msg ='available quantity of this item is %s'%(available_qty)
                         cart_product.qty = available_qty
 
                     else:
                         available_qty = int(cart_product.qty)
 
-
-                    if int(available_qty) == 0:
-                        cart_product.delete()
-                    else:
-                        cart_product.save()
+                    # if int(available_qty) == 0:
+                    #     cart_product.delete()
+                    # else:
+                    cart_product.save()
 
                     for product_detail in ordered_product_details:
                         if available_qty <=0:
