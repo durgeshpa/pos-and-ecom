@@ -331,28 +331,6 @@ class DownloadNote(APIView):
 
 
 
-class CronToDeleteOrderedProductReserved(APIView):
-
-    permission_classes = (AllowAny,)
-
-    def get(self, request):
-        if OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()).exists():
-            for ordered_reserve in OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()):
-                ordered_reserve.order_product_reserved.available_qty = int(ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
-                ordered_reserve.order_product_reserved.save()
-
-                # Saving Cart as pending
-                ordered_reserve.cart.cart_status = 'pending'
-                ordered_reserve.cart.save()
-
-                # Deleted Cart
-                print("%s id will deleted and added %s qty in available_qty of OrderedProductMapping %s id"%(ordered_reserve.id,ordered_reserve.order_product_reserved.available_qty,ordered_reserve.order_product_reserved.id))
-                ordered_reserve.delete()
-        else:
-            print(OrderedProductReserved.objects.filter(order_reserve_end_time__gt=timezone.now()).query)
-            print("nothing found")
-
-
 
 
 
