@@ -63,7 +63,7 @@ class Order(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.order_no or str(self.id)
+        return str(self.order_no) or str(self.id)
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order,related_name='order_order_item',on_delete=models.CASCADE)
