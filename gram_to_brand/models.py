@@ -62,8 +62,8 @@ class Order(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-    # def __str__(self):
-    #     return str(self.order_no) or str(self.id)
+    def __str__(self):
+        return str(self.order_no) or str(self.id)
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order,related_name='order_order_item',on_delete=models.CASCADE)
@@ -128,8 +128,8 @@ class OrderHistory(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-    # def __str__(self):
-    #     return self.order_no or str(self.id)
+    def __str__(self):
+        return self.order_no or str(self.id)
 
 class GRNOrderProductHistory(models.Model):
     order = models.ForeignKey(Order, related_name='order_grn_order_history', on_delete=models.CASCADE, null=True, blank=True)
