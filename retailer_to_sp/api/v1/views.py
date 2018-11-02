@@ -1,7 +1,7 @@
 from rest_framework import generics
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,
                           OrderSerializer,OrderSerializer)
-from products.models import Product, ProductPrice, ProductOption
+from products.models import Product, ProductPrice, ProductOption,ProductImage
 from sp_to_gram.models import OrderedProductMapping,OrderedProductReserved
 
 
@@ -76,6 +76,12 @@ class GramGRNProductsList(APIView):
                 msg['message'] = ['Product id %s  and name %s have product_option not found '%(product.id, product.product_name)]
                 return Response(msg, status=400)
 
+            try:
+                product_image = ProductImage.objects.filter(product=product)[0]
+            except ObjectDoesNotExist:
+                msg['message'] = ['Product id %s  and name %s have product_image not found '%(product.id, product.product_name)]
+                return Response(msg, status=400)
+
             mrp = product_price.mrp
             ptr = product_price.price_to_retailer
             status = product_price.status
@@ -84,9 +90,12 @@ class GramGRNProductsList(APIView):
             weight_value = product_option.weight.weight_value
             weight_unit = product_option.weight.weight_unit
             weight = product_option.weight.weight_name
+
+            image = product_image.image.url
+
             if name.startswith(request.data['product_name']):
                 p_list.append({"name":name, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "weight":weight, "id":id,
-                               "weight_value":weight_value,"weight_unit":weight_unit})
+                               "weight_value":weight_value,"weight_unit":weight_unit,"image":image})
         if not p_list:
             return Response(msg,status=400)
 
