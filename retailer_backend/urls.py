@@ -21,6 +21,7 @@ from rest_framework.documentation import include_docs_urls
 from rest_framework_swagger.views import get_swagger_view
 from decouple import config, Csv
 from django.conf import settings
+from retailer_backend.cron import CronToDeleteOrderedProductReserved,cron_to_delete_ordered_product_reserved
 
 schema_view = get_swagger_view(title='GramFactory API')
 
@@ -39,6 +40,8 @@ urlpatterns = [
     url(r'^brandapi/', include('brand.urls')),
     url(r'^service-partner/', include('sp_to_gram.urls')),
     url(r'^retailer/sp/', include('retailer_to_sp.urls')),
+    url('^delete-ordered-product-reserved/$', CronToDeleteOrderedProductReserved.as_view(), name='delete_ordered_product_reserved'),
+    url('^delete-ordered-product-reserved1/$', cron_to_delete_ordered_product_reserved, name='delete_ordered_product_reserved'),
     path('admin/', admin.site.urls),
 
 ]

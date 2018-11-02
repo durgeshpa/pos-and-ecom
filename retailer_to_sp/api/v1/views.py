@@ -216,9 +216,9 @@ class CreateOrder(generics.ListAPIView):
         billing_address_id = self.request.POST.get('billing_address_id')
         shipping_address_id = self.request.POST.get('shipping_address_id')
 
-        total_mrp = self.request.POST.get('total_mrp')
-        total_tax_amount = self.request.POST.get('total_tax_amount')
-        total_final_amount = self.request.POST.get('total_final_amount')
+        total_mrp = self.request.POST.get('total_mrp',0)
+        total_tax_amount = self.request.POST.get('total_tax_amount',0)
+        total_final_amount = self.request.POST.get('total_final_amount',0)
 
         shop_id = self.request.POST.get('shop_id')
         msg = {'is_success': False, 'message': ['Cart is none'], 'response_data': None}

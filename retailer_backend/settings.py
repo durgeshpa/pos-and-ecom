@@ -231,5 +231,5 @@ WKHTMLTOPDF_CMD_OPTIONS = {
 # ]
 
 CRONJOBS = [
-    ('*/1 * * * *', 'retailer_backend.cron.cron_to_delete_ordered_product_reserved', '>> /var/log/nginx/cron.log')
+    ('* * * * *', 'retailer_backend.cron.CronToDeleteOrderedProductReserved', '>> /var/log/nginx/cron.log')
 ]
