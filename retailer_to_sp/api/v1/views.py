@@ -212,7 +212,8 @@ class CreateOrder(generics.ListAPIView):
 
     def post(self, request,*args, **kwargs):
         #print(self.kwargs)
-        cart_id = self.kwargs.get('cart_id')
+        #cart_id = self.kwargs.get('cart_id')
+        cart_id = self.request.POST.get('cart_id')
         billing_address_id = self.request.POST.get('billing_address_id')
         shipping_address_id = self.request.POST.get('shipping_address_id')
 
