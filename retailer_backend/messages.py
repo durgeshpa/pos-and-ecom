@@ -5,7 +5,7 @@ VALIDATION_ERROR_MESSAGES = {
     'OTP_EXPIRED': 'OTP expired! Please enter the new OTP',
     'OTP_NOT_MATCHED': 'OTP does not match',
     'USER_NOT_EXIST': 'Invalid data',
-    'INVALID_UNIT_NAME': 'Invalid unit name (eg: 10 kg, 5litres)',
+    'INVALID_UNIT_NAME': 'Invalid unit name (eg: kg, litres)',
     'INVALID_VALUE': 'Invalid value. Only numbers are allowed',
     'INVALID_PRODUCT_NAME': 'Invalid product name. Special characters allowed are _ , @ . / # & + -',
     'INVALID_ADDRESS': 'Invalid address. Special characters allowed are # - , / . ( ) &',

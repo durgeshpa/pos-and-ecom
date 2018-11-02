@@ -69,7 +69,7 @@ ValueValidator = RegexValidator(
 )
 #for numeric + alphabets
 UnitNameValidator = RegexValidator(
-    regex='^\d+(\S|\s)[a-zA-Z]+$',
+    regex='^[a-zA-Z]+$',
     message=VALIDATION_ERROR_MESSAGES['INVALID_UNIT_NAME'],
     code='INVALID_UNIT_NAME'
 )
