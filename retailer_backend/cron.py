@@ -42,5 +42,5 @@ def cron_to_delete_ordered_product_reserved(request):
             print("%s id will deleted and added %s qty in available_qty of OrderedProductMapping %s id"%(ordered_reserve.id,ordered_reserve.order_product_reserved.available_qty,ordered_reserve.order_product_reserved.id))
             ordered_reserve.delete()
     else:
-        print(OrderedProductReserved.objects.filter(order_reserve_end_time__gt=timezone.now()).query)
+        print(OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()).query)
         print("nothing found")

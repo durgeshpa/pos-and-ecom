@@ -91,4 +91,8 @@ class OrderedProductMappingAdmin2(admin.ModelAdmin):
     list_display = ('ordered_product','product','ordered_qty','available_qty',)
 
 admin.site.register(OrderedProductMapping,OrderedProductMappingAdmin2)
-admin.site.register(OrderedProductReserved)
+
+class OrderedProductReservedAdmin(admin.ModelAdmin):
+    list_display = ('order_product_reserved','product','cart','reserved_qty','order_reserve_end_time','created_at')
+
+admin.site.register(OrderedProductReserved,OrderedProductReservedAdmin)

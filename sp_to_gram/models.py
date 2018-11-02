@@ -38,7 +38,7 @@ class Cart(models.Model):
     def save(self, *args,**kwargs):
         self.cart_status = 'ordered_to_gram'
         super(Cart, self).save()
-        self.order_id = "GRAM/ORDER/%s"%(self.pk)
+        self.order_id = "SP/ORDER/%s"%(self.pk)
         super(Cart, self).save()
 
 class CartProductMapping(models.Model):
