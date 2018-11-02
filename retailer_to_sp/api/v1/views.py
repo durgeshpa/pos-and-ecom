@@ -91,11 +91,11 @@ class GramGRNProductsList(APIView):
             weight_unit = product_option.weight.weight_unit
             weight = product_option.weight.weight_name
 
-            image = product_image[0].image.url
+            #image = product_image.image.url
 
             if name.startswith(request.data['product_name']):
                 p_list.append({"name":name, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "weight":weight, "id":id,
-                               "weight_value":weight_value,"weight_unit":weight_unit,"image":image})
+                               "weight_value":weight_value,"weight_unit":weight_unit})
         if not p_list:
             return Response(msg,status=400)
 
