@@ -155,3 +155,28 @@ class AddressView(generics.ListCreateAPIView):
                                 'billing_address':billing_serializer.data}}
         return Response(msg,
                         status=status.HTTP_200_OK)
+
+class DefaultAddressView(generics.ListCreateAPIView):
+    serializer_class = AddressSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        default = self.kwargs.get(self.lookup_url_kwarg)
+        user_shops = Shop.objects.filter(shop_owner=self.request.user)
+        address_list = []
+        for shop in user_shops:
+            shop_address = Address.objects.filter(shop_name=shop).order_by('created_at').first()
+            if shop_address is not None:
+                address_list.append(shop_address)
+        queryset = address_list
+        return queryset
+
+    def list(self, request):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        msg = {'is_success': True,
+                'message': None,
+                'response_data': serializer.data}
+        return Response(msg,
+                        status=status.HTTP_200_OK)
