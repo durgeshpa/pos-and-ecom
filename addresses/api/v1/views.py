@@ -144,9 +144,14 @@ class AddressView(generics.ListCreateAPIView):
 
     def list(self, request):
         queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
+        shipping_queryset = queryset.filter(address_type='shipping')
+        billing_queryset = queryset.filter(address_type='billing')
+        shipping_serializer = self.get_serializer(shipping_queryset, many=True)
+        billing_serializer = self.get_serializer(billing_queryset, many=True)
+
         msg = {'is_success': True,
                 'message': ["%s objects found" % (queryset.count())],
-                'response_data': serializer.data}
+                'response_data': {'shipping_address':shipping_serializer.data,
+                                'billing_address':billing_serializer.data}}
         return Response(msg,
                         status=status.HTTP_200_OK)
