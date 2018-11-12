@@ -7,6 +7,8 @@ SHOP_TYPE_CHOICES = (
     ("sp","Service Partner"),
     ("r","Retailer"),
     ("sr","Super Retailer"),
+    ("b","Brand"),
+    ("gf","Gram Factory"),
 )
 
 RETAILER_TYPE_CHOICES = (

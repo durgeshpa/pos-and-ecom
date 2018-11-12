@@ -16,6 +16,7 @@ class CartAdmin(admin.ModelAdmin):
     exclude = ('order_id', 'shop', 'cart_status','last_modified_by')
     autocomplete_fields = ('brand',)
     list_display = ('order_id', 'cart_status')
+    search_fields = ('brand__brand_name','state__state_name','supplier__shop_owner__first_name')
 
 
     def save_formset(self, request, form, formset, change):
@@ -84,7 +85,8 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
 
 
 class OrderItemAdmin(admin.ModelAdmin):
-    search_fields = ('order__id','order__order_no')
+    search_fields = ('order__id','order__order_no','ordered_qty')
+    date_hierarchy = 'created_at'
     list_display = ('order','ordered_product','ordered_qty','item_status','total_delivered_qty','total_returned_qty','total_damaged_qty',)
 
 class GRNOrderAdmin(admin.ModelAdmin):
@@ -93,7 +95,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
     exclude = ('order_item','grn_id','last_modified_by',)
     #list_display_links = None
     list_display = ('order','invoice_no','grn_id','created_at','edit_grn_link')
-
+    search_fields = ('order__order_no','invoice_no','grn_id')
 
     def edit_grn_link(self, obj):
         #return format_html("<ul class ='object-tools'><li><a href = '/admin/gram_to_brand/grnorder/add/?brand=%s' class ='addlink' > Add order</a></li></ul>"% (obj.id))

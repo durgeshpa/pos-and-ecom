@@ -4,7 +4,7 @@ from products.models import Product
 from shops.models import Shop
 from brand.models import Brand
 from django.contrib.auth import get_user_model
-from addresses.models import Address,City
+from addresses.models import Address,City,State
 
 ORDER_STATUS = (
     ("ordered_to_brand","Ordered To Brand"),
@@ -18,8 +18,8 @@ ITEM_STATUS = (
 
 class Cart(models.Model):
     brand = models.ForeignKey(Brand, related_name='brand_order', on_delete=models.CASCADE)
-    city = models.ForeignKey(City, related_name='city_cart',null=True, blank=True,on_delete=models.CASCADE)
-    buyer_shop = models.ForeignKey(Shop, related_name='buyer_shop_order', null=True, blank=True,on_delete=models.CASCADE)
+    state = models.ForeignKey(State, related_name='state_cart',null=True, blank=True,on_delete=models.CASCADE)
+    supplier = models.ForeignKey(Shop, related_name='buyer_shop_order', null=True, blank=True,on_delete=models.CASCADE)
     shipping_address = models.ForeignKey(Address, related_name='shipping_address_cart', null=True, blank=True,on_delete=models.CASCADE)
     billing_address = models.ForeignKey(Address, related_name='billing_address_cart', null=True, blank=True,on_delete=models.CASCADE)
     order_id = models.CharField(max_length=255,null=True,blank=True)
@@ -28,6 +28,9 @@ class Cart(models.Model):
     last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_user_cart', null=True,blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "PO Generation"
 
     def save(self, *args,**kwargs):
         self.cart_status = 'ordered_to_brand'
@@ -40,6 +43,9 @@ class CartProductMapping(models.Model):
     cart_product = models.ForeignKey(Product, related_name='cart_product_mapping', on_delete=models.CASCADE)
     qty = models.PositiveIntegerField(default=0)
     price = models.FloatField(default=0)
+
+    class Meta:
+        verbose_name = "PO Generation Mapping"
 
     def __str__(self):
         return self.cart_product.product_name
