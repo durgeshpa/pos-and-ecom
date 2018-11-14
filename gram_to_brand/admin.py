@@ -4,7 +4,57 @@ from products.models import Product
 from django import forms
 from django.db.models import Sum
 from django.utils.html import format_html
+from django_select2.forms import Select2MultipleWidget,ModelSelect2Widget
+from dal import autocomplete
 
+from brand.models import Brand
+from addresses.models import State,Address
+from shops.models import Shop
+
+class POGenerationForm(forms.ModelForm):
+    brand = forms.ModelChoiceField(
+        queryset=Brand.objects.all(),
+        widget=autocomplete.ModelSelect2(url='brand-autocomplete',)
+    )
+    state = forms.ModelChoiceField(
+        queryset=State.objects.all(),
+        widget=autocomplete.ModelSelect2(url='state-autocomplete',)
+    )
+    supplier = forms.ModelChoiceField(
+        queryset=Shop.objects.all(),
+        widget=autocomplete.ModelSelect2(url='supplier-autocomplete',forward=('state','brand'))
+    )
+    shipping_address = forms.ModelChoiceField(
+        queryset=Address.objects.filter(shop_name__shop_type__shop_type='gf'),
+        widget=autocomplete.ModelSelect2(url='shipping-address-autocomplete', forward=('state',))
+    )
+    billing_address = forms.ModelChoiceField(
+        queryset=Address.objects.filter(shop_name__shop_type__shop_type='gf'),
+        widget=autocomplete.ModelSelect2(url='billing-address-autocomplete', forward=('state',))
+    )
+
+    # country = forms.ModelChoiceField(
+    #     queryset=Country.objects.all(),
+    #     widget=autocomplete.ModelSelect2(url='country-autocomplete'))
+    # city = forms.ModelChoiceField(
+    #     queryset=City.objects.all(),
+    #     widget=autocomplete.ModelSelect2(
+    #
+    #     # attrs={
+    #     #     'data-placeholder': 'Autocomplete ...',
+    #     #     'data-minimum-input-length': 3,
+    #     # },
+    #     url='city-autocomplete',
+    #     forward=('country',)))
+
+    class Media:
+        pass
+        #css = {'all': ('pretty.css',)}
+        #js = ('/static/assets/js/custom.js',)
+
+    class Meta:
+        model = Cart
+        fields = ('brand','state','supplier','shipping_address','billing_address')
 
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
@@ -17,7 +67,7 @@ class CartAdmin(admin.ModelAdmin):
     autocomplete_fields = ('brand',)
     list_display = ('order_id', 'cart_status')
     search_fields = ('brand__brand_name','state__state_name','supplier__shop_owner__first_name')
-
+    form = POGenerationForm
 
     def save_formset(self, request, form, formset, change):
         import datetime
