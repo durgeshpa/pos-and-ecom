@@ -191,6 +191,7 @@ class ReservedOrder(generics.ListAPIView):
 
                     else:
                         available_qty = int(cart_product.qty)
+                        cart_product.qty_error_msg = ''
 
                     # if int(available_qty) == 0:
                     #     cart_product.delete()
