@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     'retailer_to_sp',
     'wkhtmltopdf',
     'django_crontab',
+    'daterange_filter',
 ]
 
 
