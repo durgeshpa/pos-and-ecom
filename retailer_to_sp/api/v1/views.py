@@ -174,7 +174,7 @@ class ReservedOrder(generics.ListAPIView):
             cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
             #cart_products = CartProductMapping.objects.filter(cart=cart).values('cart_product','qty')
             cart_products = CartProductMapping.objects.filter(cart=cart)
-            serializer = CartSerializer(cart)
+
             error = []
             msg = {'is_success': False, 'message': ['No any product available ins this cart'], 'response_data': None}
 
@@ -212,7 +212,8 @@ class ReservedOrder(generics.ListAPIView):
                         order_product_reserved.save()
 
                         available_qty = available_qty - int(product_detail.available_qty)
-
+                        
+                    serializer = CartSerializer(cart)
                     msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                 else:
                     msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
