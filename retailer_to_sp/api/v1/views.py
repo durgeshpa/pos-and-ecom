@@ -187,7 +187,7 @@ class ReservedOrder(generics.ListAPIView):
                     #print("%s %s %s" %(int(ordered_product_sum['available_qty_sum']), int(cart_product.qty), str(cart_product.cart_product.id)))
                     if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty):
                         available_qty = int(ordered_product_sum['available_qty_sum'])
-                        cart_product.qty_error_msg ='available quantity of this item is %s'%(available_qty)
+                        cart_product.qty_error_msg ='Available Quantity : %s'%(available_qty)
                         #cart_product.qty = available_qty
 
                     else:
