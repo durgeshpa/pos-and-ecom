@@ -10,6 +10,7 @@ from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from retailer_backend.validators import *
 from categories.models import Category
+from .views import sp_sr_productprice, load_cities, load_sp_sr, export
 # Register your models here.
 admin.site.register(Size)
 admin.site.register(Fragrance)
@@ -40,6 +41,21 @@ class ProductSurchargeAdmin(admin.TabularInline):
     model = ProductSurcharge
 
 class ProductAdmin(admin.ModelAdmin):
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(ProductAdmin, self).get_urls()
+        # Note that custom urls get pushed to the list (not appended)
+        # This doesn't work with urls += ...
+        urls = [
+            url(r'^sp-sr-productprice/$', self.admin_site.admin_view(sp_sr_productprice), name="sp_sr_productprice"),
+            url(r'^ajax/load-cities/$', self.admin_site.admin_view(load_cities), name='ajax_load_cities'),
+            url(r'^ajax/load-sp-sr/$', self.admin_site.admin_view(load_sp_sr), name='ajax_load_sp_sr'),
+            url(r'^products-export/$', self.admin_site.admin_view(export), name='products-export'),
+
+        ] + urls
+        return urls
+
     list_display = ['product_name', 'product_slug']
     search_fields = ('prodcut_name','id',)
     prepopulated_fields = {'product_slug': ('product_name',)}
@@ -253,6 +269,20 @@ admin.site.register(ProductCSV, ProductCSVAdmin)
 class ProductPriceCSVAdmin(admin.ModelAdmin):
     model = ProductPriceCSV
     fields = ['country','states','city','file']
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(ProductPriceCSVAdmin, self).get_urls()
+        # Note that custom urls get pushed to the list (not appended)
+        # This doesn't work with urls += ...
+        urls = [
+            url(r'^sp-sr-productprice/$', self.admin_site.admin_view(sp_sr_productprice), name="sp_sr_productprice"),
+            url(r'^ajax/load-cities/$', self.admin_site.admin_view(load_cities), name='ajax_load_cities'),
+            url(r'^ajax/load-sp-sr/$', self.admin_site.admin_view(load_sp_sr), name='ajax_load_sp_sr'),
+            url(r'^products-export/$', self.admin_site.admin_view(export), name='products-export'),
+
+        ] + urls
+        return urls
 
     def save_model(self, request, obj, form, change):
         import pdb

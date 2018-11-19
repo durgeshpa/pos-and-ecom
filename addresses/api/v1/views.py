@@ -10,6 +10,7 @@ from rest_framework import generics
 from rest_framework import status
 from rest_framework import permissions, authentication
 from shops.models import Shop
+from django.http import Http404
 
 
 class CountryView(generics.ListAPIView):
@@ -124,7 +125,7 @@ class AddressView(generics.ListCreateAPIView):
             serializer.save()
             msg = {'is_success': True,
                     'message': ["Address added successfully"],
-                    'response_data': None}
+                    'response_data': serializer.data}
             return Response(msg,
                             status=status.HTTP_200_OK)
         else:
@@ -155,6 +156,59 @@ class AddressView(generics.ListCreateAPIView):
                                 'billing_address':billing_serializer.data}}
         return Response(msg,
                         status=status.HTTP_200_OK)
+
+class AddressDetail(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    
+    def get_object(self, pk):
+        try:
+            return Address.objects.get(pk=pk)
+        except Address.DoesNotExist:
+            raise Http404
+
+    def get(self, request, pk, format=None):
+        address = self.get_object(pk)
+        serializer = AddressSerializer(address)
+        msg = {'is_success': True,
+                'message': ["shop address"],
+                'response_data': serializer.data}
+        return Response(msg,
+                        status=status.HTTP_200_OK)
+
+    def put(self, request, pk, format=None):
+        address = self.get_object(pk)
+        serializer = AddressSerializer(address, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            msg = {'is_success': True,
+                    'message': ["Address updated!"],
+                    'response_data': serializer.data}
+            return Response(msg,
+                            status=status.HTTP_200_OK)
+        else:
+            errors = []
+            for field in serializer.errors:
+                for error in serializer.errors[field]:
+                    if 'non_field_errors' in field:
+                        result = error
+                    else:
+                        result = ''.join('{} : {}'.format(field,error))
+                    errors.append(result)
+            msg = {'is_success': False,
+                    'message': [error for error in errors],
+                    'response_data': None }
+            return Response(msg,
+                            status=status.HTTP_406_NOT_ACCEPTABLE)
+
+    def delete(self, request, pk, format=None):
+        address = self.get_object(pk)
+        address.delete()
+        msg = {'is_success': True,
+                'message': ["shop address deleted successfully"],
+                'response_data': None }
+        return Response(msg, status=status.HTTP_204_NO_CONTENT)
+
 
 class DefaultAddressView(generics.ListCreateAPIView):
     serializer_class = AddressSerializer
