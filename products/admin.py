@@ -10,7 +10,7 @@ from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from retailer_backend.validators import *
 from categories.models import Category
-from .views import sp_sr_productprice, load_cities, load_sp_sr, export
+from .views import sp_sr_productprice, load_cities, load_sp_sr, export, load_brands, ProductsFilterView
 # Register your models here.
 admin.site.register(Size)
 admin.site.register(Fragrance)
@@ -48,11 +48,12 @@ class ProductAdmin(admin.ModelAdmin):
         # Note that custom urls get pushed to the list (not appended)
         # This doesn't work with urls += ...
         urls = [
+            url(r'^productsfilter/$', self.admin_site.admin_view(ProductsFilterView), name="productsfilter"),
             url(r'^sp-sr-productprice/$', self.admin_site.admin_view(sp_sr_productprice), name="sp_sr_productprice"),
             url(r'^ajax/load-cities/$', self.admin_site.admin_view(load_cities), name='ajax_load_cities'),
             url(r'^ajax/load-sp-sr/$', self.admin_site.admin_view(load_sp_sr), name='ajax_load_sp_sr'),
             url(r'^products-export/$', self.admin_site.admin_view(export), name='products-export'),
-
+            url(r'^ajax/load-brands/$', self.admin_site.admin_view(load_brands), name='ajax_load_brands'),
         ] + urls
         return urls
 

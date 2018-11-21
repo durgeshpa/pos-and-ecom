@@ -6,6 +6,9 @@ import datetime, csv, codecs, re
 from retailer_backend.validators import *
 from django.core.exceptions import ValidationError
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
+from products.models import ProductCategory
+from brand.models import Brand
+from categories.models import Category
 
 class ProductPriceForm(forms.Form):
     state = forms.ModelChoiceField(queryset=State.objects.order_by('state_name'))
@@ -60,13 +63,13 @@ class ProductPriceForm(forms.Form):
 
         self.fields['start_date_time'].label = 'Starts at'
         self.fields['start_date_time'].widget.attrs={
-            'class':'form-control',
+            'class':'form-control datetimepicker-input',
             'required':None,
             }
 
         self.fields['end_date_time'].label = 'Ends at'
         self.fields['end_date_time'].widget.attrs={
-            'class':'form-control',
+            'class':'form-control datetimepicker-input',
             'required':None,
 
             }
@@ -91,7 +94,23 @@ class ProductPriceForm(forms.Form):
                 raise ValidationError("Row["+str(id+1)+"] | "+first_row[5]+":"+row[5]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
         return self.cleaned_data['file']
 
-    def read_csv(self):
-        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
-        id = "jaggi"
-        IDValidator(id)
+class ProductsFilterForm(forms.Form):
+    category = forms.ModelMultipleChoiceField(queryset=Category.objects.order_by('category_name'))
+    brand = forms.ModelMultipleChoiceField(queryset=Brand.objects.none())
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['category'].widget.attrs={
+            'class':'form-control',
+            'size':15,
+            }
+        self.fields['brand'].widget.attrs={
+            'class':'form-control',
+            'size':15,
+            }
+        if 'category' in self.data:
+            try:
+                category_id = int(self.data.get('category'))
+                self.fields['brand'].queryset = Brand.objects.all()
+            except (ValueError, TypeError):
+                pass  # invalid input from the client; ignore and fallback to empty City queryset
