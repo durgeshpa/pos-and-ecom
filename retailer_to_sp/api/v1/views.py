@@ -174,7 +174,7 @@ class ReservedOrder(generics.ListAPIView):
             cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
             #cart_products = CartProductMapping.objects.filter(cart=cart).values('cart_product','qty')
             cart_products = CartProductMapping.objects.filter(cart=cart)
-            serializer = CartSerializer(cart)
+
             error = []
             msg = {'is_success': False, 'message': ['No any product available ins this cart'], 'response_data': None}
 
@@ -184,13 +184,15 @@ class ReservedOrder(generics.ListAPIView):
                 ordered_product_sum = ordered_product_details.aggregate(available_qty_sum=Sum('available_qty'))
 
                 if ordered_product_sum['available_qty_sum'] is not None:
+                    #print("%s %s %s" %(int(ordered_product_sum['available_qty_sum']), int(cart_product.qty), str(cart_product.cart_product.id)))
                     if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty):
                         available_qty = int(ordered_product_sum['available_qty_sum'])
-                        cart_product.qty_error_msg ='available quantity of this item is %s'%(available_qty)
-                        cart_product.qty = available_qty
+                        cart_product.qty_error_msg ='Available Quantity : %s'%(available_qty)
+                        #cart_product.qty = available_qty
 
                     else:
                         available_qty = int(cart_product.qty)
+                        cart_product.qty_error_msg = ''
 
                     # if int(available_qty) == 0:
                     #     cart_product.delete()
@@ -210,7 +212,8 @@ class ReservedOrder(generics.ListAPIView):
                         order_product_reserved.save()
 
                         available_qty = available_qty - int(product_detail.available_qty)
-
+                        
+                    serializer = CartSerializer(cart)
                     msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                 else:
                     msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}

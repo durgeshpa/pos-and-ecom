@@ -64,3 +64,4 @@ urllib3==1.23
 uWSGI==2.0.17.1
 xlrd==1.1.0
 xlwt==1.3.0
+django-tempus-dominus==5.0.1.4

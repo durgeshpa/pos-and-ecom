@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     'retailer_to_sp',
     'wkhtmltopdf',
     'django_crontab',
+    'tempus_dominus',
     'daterange_filter',
 ]
 
@@ -228,6 +229,8 @@ WKHTMLTOPDF_CMD = '/usr/local/bin/wkhtmltopdf'
 WKHTMLTOPDF_CMD_OPTIONS = {
     'quiet': True,
 }
+
+TEMPUS_DOMINUS_INCLUDE_ASSETS=False
 
 # CRONJOBS = [
 #     ('* * * * *', 'retailer_backend.cron.cron_to_delete_ordered_product_reserved')

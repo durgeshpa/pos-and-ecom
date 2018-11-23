@@ -18,6 +18,7 @@ from daterange_filter.filter import DateRangeFilter
 
 
 
+from .views import sp_sr_productprice, load_cities, load_sp_sr, export, load_brands, ProductsFilterView
 # Register your models here.
 admin.site.register(Size)
 admin.site.register(Fragrance)
@@ -27,45 +28,45 @@ admin.site.register(PackageSize)
 admin.site.register(Weight)
 admin.site.register(Tax)
 
-# class BrandSearch(InputFilter):
-#     parameter_name = 'product_brand'
-#     title = 'Brand'
-#
-#     def queryset(self, request, queryset):
-#         if self.value() is not None:
-#             product_brand = self.value()
-#             if product_brand is None:
-#                 return
-#             return queryset.filter(
-#                 Q(product_brand__brand_name__icontains=product_brand)
-#             )
-#
-#
-# class CategorySearch(InputFilter):
-#     parameter_name = 'qty'
-#     title = 'Category'
-#
-#     def queryset(self, request, queryset):
-#         if self.value() is not None:
-#             qty = self.value()
-#             if qty is None:
-#                 return
-#             return queryset.filter(
-#                 Q(ordered_qty__icontains=qty)
-#             )
-#
-# class ProductSearch(InputFilter):
-#     parameter_name = 'product_sku'
-#     title = 'Product (Id or SKU)'
-#
-#     def queryset(self, request, queryset):
-#         if self.value() is not None:
-#             product_sku = self.value()
-#             if product_sku is None:
-#                 return
-#             return queryset.filter(
-#                 Q(product_sku__icontains=product_sku)
-#             )
+class BrandSearch(InputFilter):
+    parameter_name = 'product_brand'
+    title = 'Brand'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            product_brand = self.value()
+            if product_brand is None:
+                return
+            return queryset.filter(
+                Q(product_brand__brand_name__icontains=product_brand)
+            )
+
+
+class CategorySearch(InputFilter):
+    parameter_name = 'qty'
+    title = 'Category'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            qty = self.value()
+            if qty is None:
+                return
+            return queryset.filter(
+                Q(ordered_qty__icontains=qty)
+            )
+
+class ProductSearch(InputFilter):
+    parameter_name = 'product_sku'
+    title = 'Product (Id or SKU)'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            product_sku = self.value()
+            if product_sku is None:
+                return
+            return queryset.filter(
+                Q(product_sku__icontains=product_sku)
+            )
 #
 
 class ProductCSVForm(forms.ModelForm):
@@ -89,9 +90,25 @@ class ProductSurchargeAdmin(admin.TabularInline):
     model = ProductSurcharge
 
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ['product_sku','product_name', 'product_short_description','get_product_brand']
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(ProductAdmin, self).get_urls()
+        # Note that custom urls get pushed to the list (not appended)
+        # This doesn't work with urls += ...
+        urls = [
+            url(r'^productsfilter/$', self.admin_site.admin_view(ProductsFilterView), name="productsfilter"),
+            url(r'^sp-sr-productprice/$', self.admin_site.admin_view(sp_sr_productprice), name="sp_sr_productprice"),
+            url(r'^ajax/load-cities/$', self.admin_site.admin_view(load_cities), name='ajax_load_cities'),
+            url(r'^ajax/load-sp-sr/$', self.admin_site.admin_view(load_sp_sr), name='ajax_load_sp_sr'),
+            url(r'^products-export/$', self.admin_site.admin_view(export), name='products-export'),
+            url(r'^ajax/load-brands/$', self.admin_site.admin_view(load_brands), name='ajax_load_brands'),
+        ] + urls
+        return urls
+
+    list_display = ['product_sku', 'product_name', 'product_short_description', 'get_product_brand']
     search_fields = ('prodcut_name','id',)
-    #list_filter = [BrandSearch, CategorySearch,ProductSearch]
+    list_filter = [BrandSearch, CategorySearch,ProductSearch]
     prepopulated_fields = {'product_slug': ('product_name',)}
     inlines = [ProductCategoryAdmin,ProductOptionAdmin,ProductImageAdmin,ProductTaxMappingAdmin,ProductSurchargeAdmin]
 
@@ -309,6 +326,20 @@ admin.site.register(ProductCSV, ProductCSVAdmin)
 class ProductPriceCSVAdmin(admin.ModelAdmin):
     model = ProductPriceCSV
     fields = ['country','states','city','file']
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(ProductPriceCSVAdmin, self).get_urls()
+        # Note that custom urls get pushed to the list (not appended)
+        # This doesn't work with urls += ...
+        urls = [
+            url(r'^sp-sr-productprice/$', self.admin_site.admin_view(sp_sr_productprice), name="sp_sr_productprice"),
+            url(r'^ajax/load-cities/$', self.admin_site.admin_view(load_cities), name='ajax_load_cities'),
+            url(r'^ajax/load-sp-sr/$', self.admin_site.admin_view(load_sp_sr), name='ajax_load_sp_sr'),
+            url(r'^products-export/$', self.admin_site.admin_view(export), name='products-export'),
+
+        ] + urls
+        return urls
 
     def save_model(self, request, obj, form, change):
         import pdb
