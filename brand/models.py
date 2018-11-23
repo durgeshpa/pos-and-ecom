@@ -18,18 +18,29 @@ def validate_image(image):
     #if file_size > limit_mb * 1024 * 1024:
     #    raise ValidationError("Max size of file is %s MB" % limit_mb)
 
-
 class Brand(models.Model):
-    brand_name= models.CharField(max_length=20)
-    brand_logo = models.FileField(validators=[validate_image], blank=False)
-    brand_description= models.CharField(max_length=30)
-    brand_code= models.CharField(max_length=2)
+    brand_name = models.CharField(max_length=20)
+    #brand_slug = models.SlugField(unique=True)
+    brand_logo = models.FileField(validators=[validate_image], blank=False,null=True)
+    brand_parent = models.ForeignKey('self', related_name='brnd_parent', null=True, blank=True,on_delete=models.CASCADE)
+    brand_description = models.TextField(null=True, blank=True)
+    brand_code = models.CharField(max_length=3,help_text="Please enter three character for SKU")
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at= models.DateTimeField(auto_now=True)
+    updated_at = models.DateTimeField(auto_now=True)
     active_status = models.PositiveSmallIntegerField(('Active Status'),choices=CHOICES,default='1')
 
     def __str__(self):
-        return '{}'.format(self.brand_name)
+        full_path = [self.brand_name]
+        k = self.brand_parent
+
+        while k is not None:
+            full_path.append(k.brand_name)
+            k = k.brand_parent
+
+        return ' -> '.join(full_path[::-1])
+
+    # class Meta:
+    #     unique_together = ('brand_name', 'brand_slug',)
 
 class BrandPosition(SortableMixin):
     #page = models.ForeignKey(Page,on_delete=models.CASCADE, null=True)

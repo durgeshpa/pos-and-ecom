@@ -1,5 +1,6 @@
 
-from .views import SupplierAutocomplete,ShippingAddressAutocomplete,BillingAddressAutocomplete,BrandAutocomplete,StateAutocomplete
+from .views import (SupplierAutocomplete,ShippingAddressAutocomplete,BillingAddressAutocomplete,BrandAutocomplete,StateAutocomplete,
+                    OrderAutocomplete,ProductAutocomplete)
 from django.conf.urls import url,include
 
 urlpatterns = [
@@ -9,4 +10,7 @@ urlpatterns = [
 
     url(r'^brand-autocomplete/$',BrandAutocomplete.as_view(),name='brand-autocomplete',),
     url(r'^state-autocomplete/$',StateAutocomplete.as_view(),name='state-autocomplete',),
+    url(r'^order-autocomplete/$',OrderAutocomplete.as_view(),name='order-autocomplete',),
+    url(r'^product-autocomplete/$', ProductAutocomplete.as_view(), name='product-autocomplete', ),
+
 ]

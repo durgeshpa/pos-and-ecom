@@ -297,7 +297,7 @@ class OrderList(generics.ListAPIView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = Order.objects.filter(ordered_by=self.request.user)
+        queryset = Order.objects.filter(last_modified_by=self.request.user)
         return queryset
 
 class OrderDetail(generics.RetrieveAPIView):
@@ -305,7 +305,7 @@ class OrderDetail(generics.RetrieveAPIView):
 
     def get_queryset(self,*args,**kwargs):
         pk = self.kwargs.get('pk')
-        queryset = Order.objects.filter(ordered_by=self.request.user,id=pk)
+        queryset = Order.objects.filter(last_modified_by=self.request.user,id=pk)
         return queryset
 
 class DownloadInvoice(APIView):
