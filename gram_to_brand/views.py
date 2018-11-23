@@ -15,11 +15,18 @@ class SupplierAutocomplete(autocomplete.Select2QuerySetView):
 
         qs = Shop.objects.all()
 
-        state = self.forwarded.get('state', None)
+        state = self.forwarded.get('supplier_state', None)
         brand = self.forwarded.get('brand', None)
 
+        print(state)
+        print(brand)
+        # if state:
+        #     state_shops = Address.objects.filter(state__id=state).values('shop_name')
+        #     qs = qs.filter(id__in=[state_shops])
+
         if state and brand:
-            qs = qs.filter(shop_type__shop_type='b')
+            state_shops = Address.objects.filter(state__id=state).values('shop_name')
+            qs = qs.filter(id__in=[state_shops],shop_type__shop_type='b',brand__id=brand)
 
         if self.q:
             qs = qs.filter(shop_name__startswith=self.q)

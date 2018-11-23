@@ -167,15 +167,15 @@ class POGenerationForm(forms.ModelForm):
     )
     supplier_name = forms.ModelChoiceField(
         queryset=Shop.objects.all(),
-        widget=autocomplete.ModelSelect2(url='supplier-autocomplete',forward=('state','brand'))
+        widget=autocomplete.ModelSelect2(url='supplier-autocomplete',forward=('supplier_state','brand'))
     )
     gf_shipping_address = forms.ModelChoiceField(
         queryset=Address.objects.filter(shop_name__shop_type__shop_type='gf'),
-        widget=autocomplete.ModelSelect2(url='shipping-address-autocomplete', forward=('state',))
+        widget=autocomplete.ModelSelect2(url='shipping-address-autocomplete', forward=('supplier_state',))
     )
     gf_billing_address = forms.ModelChoiceField(
         queryset=Address.objects.filter(shop_name__shop_type__shop_type='gf'),
-        widget=autocomplete.ModelSelect2(url='billing-address-autocomplete', forward=('state',))
+        widget=autocomplete.ModelSelect2(url='billing-address-autocomplete', forward=('supplier_state',))
     )
 
     # country = forms.ModelChoiceField(
@@ -300,7 +300,7 @@ class GRNOrderProductForm(forms.ModelForm):
 
     class Meta:
         model = GRNOrderProductMapping
-        fields = ('product','product_invoice_price','manufacture_date','expiry_date','available_qty','ordered_qty','delivered_qty','returned_qty','damaged_qty')
+        fields = ('product','product_invoice_price','manufacture_date','expiry_date','product_invoice_qty','available_qty','delivered_qty','returned_qty')
         readonly_fields = ('product')
 
     # data = {

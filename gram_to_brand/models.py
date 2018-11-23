@@ -54,7 +54,7 @@ class CartProductMapping(models.Model):
     cart_product = models.ForeignKey(Product, related_name='cart_product_mapping', on_delete=models.CASCADE)
     qty = models.PositiveIntegerField(default=0)
     scheme = models.FloatField(default=0,null=True,blank=True,help_text='data into percentage %')
-    price = models.FloatField(default=0, verbose_name='Gram To Brand Price')
+    price = models.FloatField(default=0, verbose_name='Brand To Gram Price')
 
     class Meta:
         verbose_name = "Select Product"
