@@ -20,7 +20,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='brand',
             name='brand_slug',
-            field=models.SlugField(default=datetime.datetime(2018, 11, 22, 17, 26, 20, 967752), unique=True),
+            field=models.SlugField(blank=True, null=True),
             preserve_default=False,
         ),
         migrations.AlterField(
