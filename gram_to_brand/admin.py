@@ -69,7 +69,7 @@ class OrderSearch(InputFilter):
 
 class QuantitySearch(InputFilter):
     parameter_name = 'qty'
-    title = 'Qty'
+    title = 'Ordered Qty'
 
     def queryset(self, request, queryset):
         if self.value() is not None:
@@ -416,7 +416,7 @@ class OrderItemAdmin(admin.ModelAdmin):
     #search_fields = ('order__id','order__order_no','ordered_qty')
     list_filter = [OrderSearch , QuantitySearch, PORaisedBy ,('order__ordered_cart__po_creation_date', DateRangeFilter)]
     #date_hierarchy = 'created_at'
-    list_display = ('order','ordered_product','ordered_qty','item_status','total_delivered_qty','total_damaged_qty','po_creation_date')
+    list_display = ('order','ordered_product','ordered_qty','total_delivered_qty','total_damaged_qty','po_creation_date','item_status')
 
     def po_creation_date(self, obj):
         return "%s" % (obj.order.ordered_cart.po_creation_date)
