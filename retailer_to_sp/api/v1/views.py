@@ -1,6 +1,6 @@
 from rest_framework import generics
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,
-                          OrderSerializer)
+                          OrderSerializer, CustomerCareSerializer, OrderNumberSerializer)
 from products.models import Product, ProductPrice, ProductOption,ProductImage
 from sp_to_gram.models import OrderedProductMapping,OrderedProductReserved
 
@@ -389,3 +389,43 @@ class DownloadDebitNote(APIView):
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         return response
+
+class CustomerCareApi(APIView):
+
+    def get(self, request):
+        queryset = CustomerCare.objects.all()
+        serializer = CustomerCareSerializer(queryset, many=True)
+        msg = {'is_success': True, 'message': ['All Messages'], 'response_data': serializer.data}
+        return Response(msg, status=status.HTTP_201_CREATED)
+
+
+    def post(self,request):
+        #import pdb; pdb.set_trace()
+        #msg = {'is_success': False,'message': ['Sorry no message entered!'],'response_data': None}
+        order_id=self.request.POST.get('order_id')
+        select_issue=self.request.POST.get('select_issue')
+        complaint_detail=self.request.POST.get('complaint_detail')
+        msg = {'is_success': False,'message': [''],'response_data': None}
+
+        try:
+            order = Order.objects.get(id=order_id)
+        except ObjectDoesNotExist:
+            msg['message'] = ["No order with this name"]
+            return Response(msg, status=status.HTTP_200_OK)
+
+        if not select_issue :
+            msg['message']= ["Please select the issue"]
+            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+
+        if not complaint_detail :
+            msg['message']= ["Please typle the complaint_detail"]
+            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+
+        print(request.data)
+        serializer = CustomerCareSerializer(data=request.data)
+        if serializer.is_valid():
+            print("mmk")
+            serializer.save()
+            msg = {'is_success': True, 'message': ['Message Sent'], 'response_data': serializer.data}
+            return Response( msg, status=status.HTTP_201_CREATED)
+        #return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

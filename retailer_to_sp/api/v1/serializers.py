@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMapping,ProductOption,
                              Size,Color,Fragrance,Flavor,Weight,PackageSize)
-from retailer_to_sp.models import CartProductMapping,Cart,Order,OrderedProduct,Note
+from retailer_to_sp.models import CartProductMapping,Cart,Order,OrderedProduct,Note, CustomerCare
 from sp_to_gram.models import OrderedProductMapping
 from accounts.api.v1.serializers import UserSerializer
 from django.urls import reverse
@@ -185,3 +185,19 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = ('id','ordered_cart','order_no','billing_address','shipping_address','total_mrp','total_discount_amount',
                   'total_tax_amount','total_final_amount','order_status','ordered_by','received_by','last_modified_by',
                   'created_at','modified_at','rt_order_order_product')
+
+
+class OrderNumberSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model=Order
+        fields=('id','order_no',)
+
+
+
+class CustomerCareSerializer(serializers.ModelSerializer):
+    #order_id=OrderNumberSerializer(read_only=True)
+    class Meta:
+        model=CustomerCare
+        fields=('name','email_us','contact_us','order_id', 'order_status', 'select_issue','complaint_detail')
+        read_only_fields=('name','email_us','contact_us','order_status')
