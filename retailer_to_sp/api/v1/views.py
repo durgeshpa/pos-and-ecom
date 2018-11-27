@@ -429,3 +429,15 @@ class CustomerCareApi(APIView):
             msg = {'is_success': True, 'message': ['Message Sent'], 'response_data': serializer.data}
             return Response( msg, status=status.HTTP_201_CREATED)
         #return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class CustomerOrdersList(APIView):
+
+    def get(self, request):
+        #msg = {'is_success': True, 'message': ['No Orders of the logged in user'], 'response_data': None}
+        #if request.user.is_authenticated:
+            queryset = Order.objects.filter(ordered_by=request.user)
+            serializer = OrderNumberSerializer(queryset, many=True)
+            msg = {'is_success': True, 'message': ['All Orders of the logged in user'], 'response_data': serializer.data}
+            return Response(msg, status=status.HTTP_201_CREATED)
+        #else:
+            #return Response(msg, status=status.HTTP_201_CREATED)
