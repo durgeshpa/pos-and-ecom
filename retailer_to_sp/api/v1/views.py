@@ -302,7 +302,7 @@ class OrderList(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        return Order.objects.filter(ordered_by=user)
+        return Order.objects.filter(last_modified_by=user)
 
     def list(self, request):
         queryset = self.get_queryset()
@@ -337,6 +337,7 @@ class OrderDetail(generics.ListAPIView):
             msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
         return Response(msg,
                         status=status.HTTP_200_OK)
+                        
 class DownloadInvoice(APIView):
     permission_classes = (AllowAny,)
     """
