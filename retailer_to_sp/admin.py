@@ -1,10 +1,68 @@
 from django.contrib import admin
-from .models import Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping,Note
+from .models import Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping,Note, CustomerCare
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
 from django.utils.html import format_html
 from django.urls import reverse
+from .forms import CustomerCareForm
+from django_select2.forms import Select2MultipleWidget,ModelSelect2Widget
+from dal import autocomplete
+from retailer_backend.admin import InputFilter
+from django.db.models import Q
+
 # Register your models here.
+class NameSearch(InputFilter):
+    parameter_name = 'name'
+    title = 'Name'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            name = self.value()
+            if name is None:
+                return
+            return queryset.filter(
+                Q(name__icontains=name)
+            )
+
+class OrderIdSearch(InputFilter):
+    parameter_name = 'order_id'
+    title = 'Order Id'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            order_id = self.value()
+            if order_id is None:
+                return
+            return queryset.filter(
+                Q(order_id__order_no__icontains=order_id)
+            )
+
+class OrderStatusSearch(InputFilter):
+    parameter_name = 'order_status'
+    title = 'Order Status'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            order_status = self.value()
+            if order_status is None:
+                return
+            return queryset.filter(
+                Q(order_status__icontains=order_status)
+            )
+
+class IssueSearch(InputFilter):
+    parameter_name = 'select_issue'
+    title = 'Issue'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            select_issue = self.value()
+            if select_issue is None:
+                return
+            return queryset.filter(
+                Q(select_issue__icontains=select_issue)
+            )
+
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
     autocomplete_fields = ('cart_product',)
@@ -84,3 +142,15 @@ class NoteAdmin(admin.ModelAdmin):
     list_display = ('order','ordered_product','note_type', 'amount', 'created_at')
 
 admin.site.register(Note,NoteAdmin)
+
+class CustomerCareAdmin(admin.ModelAdmin):
+    model=CustomerCare
+    form = CustomerCareForm
+    fields=('email_us','contact_us','order_id','order_status','select_issue','complaint_detail')
+    exclude = ('name',)
+    list_display=('name','order_id', 'order_status','select_issue')
+    autocomplete_fields = ('order_id',)
+    search_fields = ('name',)
+    list_filter = [NameSearch, OrderIdSearch, OrderStatusSearch,IssueSearch]
+
+admin.site.register(CustomerCare,CustomerCareAdmin)
