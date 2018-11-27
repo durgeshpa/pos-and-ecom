@@ -212,7 +212,7 @@ class ReservedOrder(generics.ListAPIView):
                         order_product_reserved.save()
 
                         available_qty = available_qty - int(product_detail.available_qty)
-                        
+
                     serializer = CartSerializer(cart)
                     msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                 else:
@@ -333,7 +333,15 @@ class DownloadInvoice(APIView):
 
     def get(self, request, *args, **kwargs):
         order_obj = get_object_or_404(OrderedProduct, pk=self.kwargs.get('pk'))
-        data = {"object": order_obj, }
+
+        #order_obj1= get_object_or_404(OrderedProductMapping)
+        pk=self.kwargs.get('pk')
+        a = OrderedProduct.objects.get(pk=pk)
+        print(a)
+
+        products = a.rt_order_product_order_product_mapping.all()
+        data = {"object": order_obj,"order": order_obj.order,"products":products }
+
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
@@ -357,10 +365,27 @@ class DownloadNote(APIView):
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         return response
 
+class DownloadDebitNote(APIView):
+    permission_classes = (AllowAny,)
+    """
+    PDF Download object
+    """
+
+    filename = 'debitnote.pdf'
+    template_name = 'admin/debitnote/debit_note.html'
+
+    def get(self, request, *args, **kwargs):
+        order_obj = get_object_or_404(OrderedProduct, pk=self.kwargs.get('pk'))
 
 
+        #order_obj1= get_object_or_404(OrderedProductMapping)
+        pk=self.kwargs.get('pk')
+        a = OrderedProduct.objects.get(pk=pk)
+        products = a.rt_order_product_order_product_mapping.all()
+        data = {"object": order_obj,"order": order_obj.order,"products":products }
 
-
-
-
-
+        cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
+                      "no-stop-slow-scripts": True, "quiet": True}
+        response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
+                                       context=data, show_content_in_browser=False, cmd_options=cmd_option)
+        return response

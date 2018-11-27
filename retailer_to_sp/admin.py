@@ -2,7 +2,8 @@ from django.contrib import admin
 from .models import Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping,Note
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
-
+from django.utils.html import format_html
+from django.urls import reverse
 # Register your models here.
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
@@ -67,9 +68,15 @@ class OrderedProductMappingAdmin(admin.TabularInline):
 
 class OrderedProductAdmin(admin.ModelAdmin):
     inlines = [OrderedProductMappingAdmin]
-    list_display = ('invoice_no','vehicle_no','shipped_by','received_by')
+    list_display = ('invoice_no','vehicle_no','shipped_by','received_by','download_invoice')
     exclude = ('shipped_by','received_by','last_modified_by',)
     autocomplete_fields = ('order',)
+    search_fields=('invoice_no','vehicle_no')
+
+    def download_invoice(self,obj):
+        #request = self.context.get("request")
+        return format_html("<a href= '%s' >Download</a>"%(reverse('download_invoice', args=[obj.pk])))
+    download_invoice.short_description = 'Download Invoice'
 
 admin.site.register(OrderedProduct,OrderedProductAdmin)
 
@@ -77,5 +84,3 @@ class NoteAdmin(admin.ModelAdmin):
     list_display = ('order','ordered_product','note_type', 'amount', 'created_at')
 
 admin.site.register(Note,NoteAdmin)
-
-
