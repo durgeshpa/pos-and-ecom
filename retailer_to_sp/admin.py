@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping,Note, CustomerCare
+from .models import Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping,Note, CustomerCare, Payment
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
 from django.utils.html import format_html
@@ -62,6 +62,20 @@ class IssueSearch(InputFilter):
             return queryset.filter(
                 Q(select_issue__icontains=select_issue)
             )
+
+class PaymentChoiceSearch(InputFilter):
+    parameter_name = 'payment_choice'
+    title = 'Payment Mode'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            payment_choice = self.value()
+            if payment_choice is None:
+                return
+            return queryset.filter(
+                Q(payment_choice__icontains=payment_choice)
+            )
+
 
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
@@ -154,3 +168,15 @@ class CustomerCareAdmin(admin.ModelAdmin):
     list_filter = [NameSearch, OrderIdSearch, OrderStatusSearch,IssueSearch]
 
 admin.site.register(CustomerCare,CustomerCareAdmin)
+
+
+class PaymentAdmin(admin.ModelAdmin):
+    model= Payment
+    fields= ('order_id', 'paid_amount','payment_choice', 'neft_reference_number')
+    exclude = ('name',)
+    list_display=('name','order_id', 'paid_amount', 'payment_choice', 'neft_reference_number')
+    autocomplete_fields = ('order_id',)
+    search_fields = ('name',)
+    list_filter = (NameSearch, OrderIdSearch, PaymentChoiceSearch)
+
+admin.site.register(Payment,PaymentAdmin)

@@ -158,3 +158,20 @@ class CustomerCare(models.Model):
 
     def __str__(self):
         return self.name
+
+class Payment(models.Model):
+    order_id= models.ForeignKey(Order,related_name= 'rt_payment', on_delete=models.CASCADE, null=True)
+    name=models.CharField(max_length=255,null=True,blank=True)
+    #order_amount= models.ForeignKey(Order, related_name= 'rt_amount', on_delete=models.CASCADE, null=True)
+    paid_amount=models.DecimalField(max_digits=20,decimal_places=4,default=('0.0000'))
+    payment_choice = models.CharField(max_length=30, choices=PAYMENT_MODE_CHOICES, null=True)
+    neft_reference_number= models.CharField(max_length=20, null=True)
+
+    def save(self, *args,**kwargs):
+        super(Payment, self).save()
+        self.name = "Payment/%s"%(self.pk)
+        super(Payment, self).save()
+
+
+    def __str__(self):
+        return self.name
