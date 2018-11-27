@@ -43,11 +43,13 @@
       </div>
     </nav>
     <div class="alert alert-primary text-center" role="alert">
-      <a href="{% url 'admin:productsfilter' %}" class="btn btn-link" target="_blank">click here to download products list</a>
-</div>
+      <a href="{% url 'admin:sp_sr_productprice' %}" target="_blank" class="btn btn-info">Upload products Price</a>
+      <a href="{% url 'admin:productsfilter' %}" target="_blank" class="btn btn-info">Get products list</a>
+
+    </div>
     <div class="container">
 
-      <form action={% url 'admin:sp_sr_productprice' %} method="post" enctype="multipart/form-data" id="ProductForm" data-cities-url="{% url 'admin:ajax_load_cities' %}" data-sp-sr-url="{% url 'admin:ajax_load_sp_sr' %}">
+      <form action={% url 'admin:productspricefilter' %} method="post" enctype="multipart/form-data" id="ProductForm" data-cities-url="{% url 'admin:ajax_load_cities' %}" data-sp-sr-url="{% url 'admin:ajax_load_sp_sr' %}">
         {% csrf_token %}
 
         <div class="row">
@@ -74,40 +76,20 @@
         <div class="container text-center">
 
           <div class="row">
-            <div class="col-3">
-              {{form.start_date_time.label}}:
-              {{form.start_date_time}}
+            <div class="col-4">
             </div>
 
-              <div class="col-3">
-                {{form.end_date_time.label}}:
-                {{form.end_date_time}}
+            <div class="col-4">
+              <button type="submit" class="btn btn-primary btn-lg">Download CSV</button>
               </div>
 
-            <div class="col-6">
-                Please select product csv file
-              <div class="custom-file">
-                {{form.file}}
-                <label class="custom-file-label" for="customFile">Choose file</label>
+              <div class="col-4">
               </div>
-
             </div>
 
           </div>
         </form>
-        </br>
-          <div class="row">
-            <div class="col-4">
-            </div>
 
-            <div class="col-4">
-              <button type="submit" class="btn btn-primary btn-lg">Upload</button>
-            </div>
-
-            <div class="col-4">
-            </div>
-
-          </div>
 
         </div>
 

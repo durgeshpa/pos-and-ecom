@@ -14,7 +14,7 @@ class ProductPriceForm(forms.Form):
     state = forms.ModelChoiceField(queryset=State.objects.order_by('state_name'))
     city = forms.ModelChoiceField(queryset=City.objects.all())
     sp_sr_choice = forms.ModelChoiceField(queryset=ShopType.objects.filter(shop_type__in=['sp','sr']))
-    sp_sr_list = forms.ModelMultipleChoiceField(queryset=Shop.objects.all())
+    sp_sr_list = forms.ModelMultipleChoiceField(queryset=Shop.objects.none())
     start_date_time = forms.DateTimeField(
     widget=DateTimePicker(
         options={
@@ -74,6 +74,14 @@ class ProductPriceForm(forms.Form):
 
             }
 
+        if 'state' and 'city' in self.data:
+            try:
+                state_id = int(self.data.get('state'))
+                city_id = int(self.data.get('city'))
+                self.fields['sp_sr_list'].queryset = Shop.objects.all()
+            except (ValueError, TypeError):
+                pass  # invalid input from the client; ignore and fallback to empty City queryset
+
     def clean_file(self):
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only csv file accepted")
@@ -93,6 +101,43 @@ class ProductPriceForm(forms.Form):
             if not row[5] or not re.match("^\d{0,8}(\.\d{1,4})?$", row[5]):
                 raise ValidationError("Row["+str(id+1)+"] | "+first_row[5]+":"+row[5]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
         return self.cleaned_data['file']
+
+class ProductsPriceFilterForm(forms.Form):
+    state = forms.ModelChoiceField(queryset=State.objects.order_by('state_name'))
+    city = forms.ModelChoiceField(queryset=City.objects.all())
+    sp_sr_choice = forms.ModelChoiceField(queryset=ShopType.objects.filter(shop_type__in=['sp','sr']))
+    sp_sr_list = forms.ModelMultipleChoiceField(queryset=Shop.objects.none())
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields['state'].label = 'Select State'
+        self.fields['state'].widget.attrs={
+            'class':'custom-select custom-select-lg mb-3',
+            }
+
+        self.fields['city'].label = 'Select City'
+        self.fields['city'].widget.attrs={
+            'class':'custom-select custom-select-lg mb-3',
+            }
+
+        self.fields['sp_sr_choice'].label = 'Select SP/SR'
+        self.fields['sp_sr_choice'].widget.attrs={
+            'class':'custom-select custom-select-lg mb-3',
+            }
+        self.fields['sp_sr_list'].widget.attrs={
+            'class':'form-control',
+            'size':15,
+            }
+
+        if 'state' and 'city' in self.data:
+            try:
+                state_id = int(self.data.get('state'))
+                city_id = int(self.data.get('city'))
+                self.fields['sp_sr_list'].queryset = Shop.objects.all()
+            except (ValueError, TypeError):
+                pass  # invalid input from the client; ignore and fallback to empty City queryset
+
 
 class ProductsFilterForm(forms.Form):
     category = forms.ModelMultipleChoiceField(queryset=Category.objects.order_by('category_name'))
