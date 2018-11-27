@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     'django_crontab',
     'tempus_dominus',
     'daterange_filter',
+    'retailer_to_gram',
 ]
 
 

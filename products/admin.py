@@ -12,6 +12,14 @@ from retailer_backend.validators import *
 from categories.models import Category
 from .views import (sp_sr_productprice, load_cities, load_sp_sr, export,
             load_brands, ProductsFilterView, ProductsPriceFilterView, ProductsUploadSample)
+
+from dal import autocomplete
+from retailer_backend.admin import InputFilter
+from django.db.models import Q
+from daterange_filter.filter import DateRangeFilter
+
+
+
 # Register your models here.
 admin.site.register(Size)
 admin.site.register(Fragrance)
@@ -20,6 +28,47 @@ admin.site.register(Color)
 admin.site.register(PackageSize)
 admin.site.register(Weight)
 admin.site.register(Tax)
+
+class BrandSearch(InputFilter):
+    parameter_name = 'product_brand'
+    title = 'Brand'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            product_brand = self.value()
+            if product_brand is None:
+                return
+            return queryset.filter(
+                Q(product_brand__brand_name__icontains=product_brand)
+            )
+
+
+class CategorySearch(InputFilter):
+    parameter_name = 'qty'
+    title = 'Category'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            qty = self.value()
+            if qty is None:
+                return
+            return queryset.filter(
+                Q(ordered_qty__icontains=qty)
+            )
+
+class ProductSearch(InputFilter):
+    parameter_name = 'product_sku'
+    title = 'Product (Id or SKU)'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            product_sku = self.value()
+            if product_sku is None:
+                return
+            return queryset.filter(
+                Q(product_sku__icontains=product_sku)
+            )
+#
 
 class ProductCSVForm(forms.ModelForm):
     class Meta:
@@ -60,10 +109,17 @@ class ProductAdmin(admin.ModelAdmin):
         ] + urls
         return urls
 
-    list_display = ['product_name', 'product_slug']
+    list_display = ['product_sku', 'product_name', 'product_short_description', 'get_product_brand']
     search_fields = ('prodcut_name','id',)
+    list_filter = [BrandSearch, CategorySearch,ProductSearch]
     prepopulated_fields = {'product_slug': ('product_name',)}
     inlines = [ProductCategoryAdmin,ProductOptionAdmin,ProductImageAdmin,ProductTaxMappingAdmin,ProductSurchargeAdmin]
+
+    def get_product_brand(self, obj):
+        return "%s" % (obj.product_brand.brand_name if obj.product_brand else '-')
+
+    get_product_brand.short_description = 'Product Brand'
+
 
 admin.site.register(Product,ProductAdmin)
 
