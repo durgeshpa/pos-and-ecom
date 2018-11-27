@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMapping,ProductOption,
                              Size,Color,Fragrance,Flavor,Weight,PackageSize)
-from retailer_to_sp.models import CartProductMapping,Cart,Order,OrderedProduct,Note, CustomerCare
+from retailer_to_sp.models import CartProductMapping,Cart,Order,OrderedProduct,Note, CustomerCare, Payment
 from sp_to_gram.models import OrderedProductMapping
 from accounts.api.v1.serializers import UserSerializer
 from django.urls import reverse
@@ -201,3 +201,15 @@ class CustomerCareSerializer(serializers.ModelSerializer):
         model=CustomerCare
         fields=('name','email_us','contact_us','order_id', 'order_status', 'select_issue','complaint_detail')
         read_only_fields=('name','email_us','contact_us','order_status')
+
+class PaymentCodSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model= Payment
+        fields=('order_id','paid_amount')
+
+class PaymentNeftSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model= Payment
+        fields=('order_id','paid_amount','neft_reference_number')
