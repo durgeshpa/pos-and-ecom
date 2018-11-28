@@ -201,10 +201,26 @@ class POGenerationForm(forms.ModelForm):
         model = Cart
         fields = ('brand','supplier_state','supplier_name','gf_shipping_address','gf_billing_address','po_validity_date','payment_term','delivery_term')
 
+class CartProductMappingFormset(forms.models.BaseInlineFormSet):
+    def clean(self):
+        count = 0
+        for form in self.forms:
+            try:
+                if form.cleaned_data:
+                    count += 1
+            except AttributeError:
+                # annoyingly, if a subform is invalid Django explicity raises
+                # an AttributeError for cleaned_data
+                pass
+        if count < 1:
+            raise forms.ValidationError('You must have at least one product')
+
+
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
     #readonly_fields = ('get_edit_link',)
     autocomplete_fields = ('cart_product',)
+    formset = CartProductMappingFormset
 
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
@@ -225,7 +241,7 @@ class CartAdmin(admin.ModelAdmin):
 
             instance.last_modified_by = request.user
             instance.save()
-            print(instance.cart)
+            #print(instance.cart)
             #Save Order
             #order,_ = Order.objects.get_or_create(ordered_cart=instance.cart)
             order,_ = Order.objects.get_or_create(ordered_cart=instance.cart,order_no=instance.cart.po_no)
@@ -390,13 +406,18 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     # def get_formset(self, request, obj=None, **kwargs):
     #     initial = []
     #     print(request.method)
-    #     if request.method == "GET":
-    #         initial.append({
-    #             'label': 'product',
-    #         })
+    #     # if request.method == "GET":
+    #     #     initial.append({
+    #     #         'label': 'product',
+    #     #     })
+    #     ArticleFormSet = formset_factory(GRNOrderProductForm, extra=1)
+    #     formset = ArticleFormSet(initial=[{'product_invoice_price': '10'}])
+
+
+    #     #self.initial = [{'product_invoice_price':1},{'product_invoice_price':1,}]
     #     #self.fields['product'] = Product.objects.get(id=4)
-    #     formset = super(GRNOrderProductMappingAdmin, self).get_formset(request, obj, **kwargs)
-    #     formset.__init__ = curry(formset.__init__, initial=initial)
+    #     #formset = super(GRNOrderProductMappingAdmin, self).get_formset(request, obj, **kwargs)
+    #     #formset.__init__ = curry(formset.__init__, initial=initial)
     #     return formset
 
     # def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
@@ -438,19 +459,23 @@ class GRNOrderAdmin(admin.ModelAdmin):
 
     edit_grn_link.short_description = 'Edit GRN'
     
-    def __init__(self, *args, **kwargs):
-        super(GRNOrderAdmin, self).__init__(*args, **kwargs)
-        self.list_display_links = None
+    # def __init__(self, *args, **kwargs):
+    #     super(GRNOrderAdmin, self).__init__(*args, **kwargs)
+    #     self.list_display_links = None
 
-    def get_form(self, request, obj=None, **kwargs):
-        #request.current_object = obj
-        return super(GRNOrderAdmin, self).get_form(request, obj, **kwargs)
+    # def get_form(self, request, obj=None, **kwargs):
+    #     #request.current_object = obj
+    #     return super(GRNOrderAdmin, self).get_form(request, obj, **kwargs)
 
     def save_formset(self, request, form, formset, change):
         import datetime
         today = datetime.date.today()
         instances = formset.save(commit=False)
         order_id = 0
+
+        print(instances)
+        print(instances.count())
+
         for instance in instances:
             #GRNOrderProductMapping
             #Save OrderItem
