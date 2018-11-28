@@ -10,6 +10,8 @@ from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from retailer_backend.validators import *
 from categories.models import Category
+from .views import (sp_sr_productprice, load_cities, load_sp_sr, export,
+            load_brands, ProductsFilterView, ProductsPriceFilterView, ProductsUploadSample)
 
 from dal import autocomplete
 from retailer_backend.admin import InputFilter
@@ -18,7 +20,6 @@ from daterange_filter.filter import DateRangeFilter
 
 
 
-from .views import sp_sr_productprice, load_cities, load_sp_sr, export, load_brands, ProductsFilterView
 # Register your models here.
 admin.site.register(Size)
 admin.site.register(Fragrance)
@@ -98,6 +99,8 @@ class ProductAdmin(admin.ModelAdmin):
         # This doesn't work with urls += ...
         urls = [
             url(r'^productsfilter/$', self.admin_site.admin_view(ProductsFilterView), name="productsfilter"),
+            url(r'^productspricefilter/$', self.admin_site.admin_view(ProductsPriceFilterView), name="productspricefilter"),
+            url(r'^productsuploadsample/$', self.admin_site.admin_view(ProductsUploadSample), name="productsuploadsample"),
             url(r'^sp-sr-productprice/$', self.admin_site.admin_view(sp_sr_productprice), name="sp_sr_productprice"),
             url(r'^ajax/load-cities/$', self.admin_site.admin_view(load_cities), name='ajax_load_cities'),
             url(r'^ajax/load-sp-sr/$', self.admin_site.admin_view(load_sp_sr), name='ajax_load_sp_sr'),
@@ -129,7 +132,8 @@ admin.site.register(ProductPrice,ProductPriceAdmin)
 
 class ProductCSVAdmin(admin.ModelAdmin):
     form = ProductCSVForm
-    list_display = ['file']
+    list_display = ['file', 'sample_file']
+    readonly_fields = ['sample_file']
 
     def save_model(self, request, obj, form, change):
         file = form.cleaned_data['file']
@@ -326,20 +330,6 @@ admin.site.register(ProductCSV, ProductCSVAdmin)
 class ProductPriceCSVAdmin(admin.ModelAdmin):
     model = ProductPriceCSV
     fields = ['country','states','city','file']
-
-    def get_urls(self):
-        from django.conf.urls import url
-        urls = super(ProductPriceCSVAdmin, self).get_urls()
-        # Note that custom urls get pushed to the list (not appended)
-        # This doesn't work with urls += ...
-        urls = [
-            url(r'^sp-sr-productprice/$', self.admin_site.admin_view(sp_sr_productprice), name="sp_sr_productprice"),
-            url(r'^ajax/load-cities/$', self.admin_site.admin_view(load_cities), name='ajax_load_cities'),
-            url(r'^ajax/load-sp-sr/$', self.admin_site.admin_view(load_sp_sr), name='ajax_load_sp_sr'),
-            url(r'^products-export/$', self.admin_site.admin_view(export), name='products-export'),
-
-        ] + urls
-        return urls
 
     def save_model(self, request, obj, form, change):
         import pdb

@@ -4,7 +4,7 @@ from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializ
 from products.models import Product, ProductPrice, ProductOption,ProductImage
 from sp_to_gram.models import OrderedProductMapping,OrderedProductReserved
 
-
+from rest_framework import permissions, authentication
 from gram_to_brand.models import GRNOrderProductMapping, Address
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import JSONParser
@@ -212,7 +212,7 @@ class ReservedOrder(generics.ListAPIView):
                         order_product_reserved.save()
 
                         available_qty = available_qty - int(product_detail.available_qty)
-                        
+
                     serializer = CartSerializer(cart)
                     msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                 else:
@@ -295,34 +295,49 @@ class CreateOrder(generics.ListAPIView):
 
 #OrderedProductMapping.objects.filter()
 
-class OrderList(APIView):
-    paginate_by = 10
-    #serializer_class = OrderSerializer
-
-    def get(self,request,*args, **kwargs):
-        msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
-        try:
-            queryset = Order.objects.filter(ordered_by=self.request.user)
-            response_data = OrderSerializer(queryset,many=True)
-            msg = {'is_success': True, 'message': [''], 'response_data': response_data}
-            return Response(msg, status=status.HTTP_200_OK)
-        except ObjectDoesNotExist:
-            return Response(msg, status=status.HTTP_200_OK)
+class OrderList(generics.ListAPIView):
+    serializer_class = OrderSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        queryset = Order.objects.filter(last_modified_by=self.request.user)
-        return queryset
-    #
+        user = self.request.user
+        return Order.objects.filter(last_modified_by=user)
 
+    def list(self, request):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        if serializer.data:
+            msg = {'is_success': True,
+                    'message': None,
+                    'response_data': serializer.data}
+        else:
+            msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
+        return Response(msg,
+                        status=status.HTTP_200_OK)
 
-class OrderDetail(generics.RetrieveAPIView):
+class OrderDetail(generics.ListAPIView):
     serializer_class = OrderSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self,*args,**kwargs):
         pk = self.kwargs.get('pk')
         queryset = Order.objects.filter(last_modified_by=self.request.user,id=pk)
         return queryset
 
+    def list(self, request, pk):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        if serializer.data:
+            msg = {'is_success': True,
+                    'message': None,
+                    'response_data': serializer.data}
+        else:
+            msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
+        return Response(msg,
+                        status=status.HTTP_200_OK)
+                        
 class DownloadInvoice(APIView):
     permission_classes = (AllowAny,)
     """
@@ -356,11 +371,3 @@ class DownloadNote(APIView):
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         return response
-
-
-
-
-
-
-
-

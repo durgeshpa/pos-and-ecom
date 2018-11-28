@@ -9,6 +9,7 @@ import urllib.request
 import csv
 import codecs
 from brand.models import Brand
+from django.utils.safestring import mark_safe
 
 
 class Size(models.Model):
@@ -206,6 +207,11 @@ class ProductCSV(models.Model):
 
     def __str__(self):
         return '%s' % (self.file)
+
+    def sample_file(self):
+        return mark_safe("<a href='%s'>Download</a>" % ("/admin/products/product/productsuploadsample/"))
+
+    sample_file.allow_tags = True
 
 class ProductPriceCSV(models.Model):
     file = models.FileField(upload_to='products/price/')

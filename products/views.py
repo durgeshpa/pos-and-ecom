@@ -6,7 +6,7 @@ from django.template import RequestContext, loader
 from django.shortcuts import render, redirect
 from .models import ProductImage, Product, ProductPrice
 from shops.models import Shop, ShopType
-from .forms import ProductPriceForm, ProductsFilterForm
+from .forms import ProductPriceForm, ProductsFilterForm, ProductsPriceFilterForm
 from addresses.models import City, State, Address
 from django.contrib import messages
 import csv, codecs, datetime
@@ -53,7 +53,7 @@ def sp_sr_productprice(request):
     if request.method == 'POST':
         form = ProductPriceForm(request.POST, request.FILES)
         if form.errors:
-            return render(request, 'admin/products/index.html', {'form':form})
+            return render(request, 'admin/products/productpriceupload.html', {'form':form})
         if form.is_valid():
             file = form.cleaned_data['file']
             city = form.cleaned_data['city'].id
@@ -91,11 +91,10 @@ def sp_sr_productprice(request):
 
                     except:
                         raise ValidationError("Something went wrong!")
-            #return render(request, 'admin/products/index.html', {'form':form})
 
     else:
         form = ProductPriceForm(initial = {'sp_sr_list': Shop.objects.none()})
-    return render(request, 'admin/products/index.html', {
+    return render(request, 'admin/products/productpriceupload.html', {
                                             'form':form,
                                             }
                 )
@@ -124,6 +123,44 @@ def ProductsFilterView(request):
                                             'filter_form':filter_form}
                 )
 
+def ProductsPriceFilterView(request):
+    if request.method == 'POST':
+        form = ProductsPriceFilterForm(request.POST, request.FILES)
+        if form.errors:
+            return render(request, 'admin/products/productpricefilter.html', {'form':form})
+        if form.is_valid():
+            city = form.cleaned_data['city'].id
+            sp_sr = form.cleaned_data['sp_sr_choice'].shop_type
+            shops = form.cleaned_data['sp_sr_list']
+            dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
+            filename = str(dt)+"product_price_list.csv"
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+            writer = csv.writer(response)
+            if sp_sr == "sp":
+                writer.writerow(['product_id','product_name', 'mrp', 'ptsp', 'ptr', 'price_start_date', 'price_end_date', 'sp_name'])
+                for shop in shops:
+                    products = ProductPrice.objects.filter(shop=shop).order_by('product','-created_at').distinct('product')
+                    for product in products:
+                        writer.writerow([product.product.id,product.product.product_name,product.mrp,product.price_to_service_partner,product.price_to_retailer,product.start_date,product.end_date,product.shop.shop_name])
+            if sp_sr == "sr":
+                writer.writerow(['product_id','product_name', 'mrp', 'ptr', 'price_start_date', 'price_end_date', 'sr_name'])
+                for shop in shops:
+                    products = ProductPrice.objects.filter(shop=shop).order_by('product','-created_at').distinct('product')
+                    for product in products:
+                        writer.writerow([product.product.id,product.product.product_name,product.mrp,product.price_to_retailer,product.start_date,product.end_date,product.shop.shop_name])
+            return response
+
+
+
+
+    else:
+        form = ProductsPriceFilterForm()
+    return render(request, 'admin/products/productpricefilter.html', {
+                                            'form':form,
+                                            }
+                )
+
 def export(request):
     dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
     filename = str(dt)+"product_list.csv"
@@ -134,4 +171,13 @@ def export(request):
     products = Product.objects.values_list('id','product_name')
     for product in products:
         writer.writerow([product[0],product[1],'','','',''])
+    return response
+
+def ProductsUploadSample(request):
+    filename = "products_upload_sample.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(['product_name','product_slug','product_short_description','product_long_description','product_sku','product_ean_code','product_status','p_cat_id','p_cat_status','p_size_id','p_color_id','p_fragrance_id','p_flavor_id','p_weight_id','p_package_size_id','p_tax_id','p_tax_status','p_surcharge_name','p_surcharge_percentage','p_surcharge_start_at','p_surcharge_end_at','p_surcharge_status'])
+    writer.writerow(['fortune sunflowers oil','fortune-sunflower-refined-oil','Fortune Sun Lite Refined Sunflower Oil is a healthy','Fortune Sun Lite Refined Sunflower Oil is a healthy, light and nutritious oil that is simple to digest. Rich in natural vitamins, it consists mostly of poly-unsaturated fatty acids (PUFA) and is low in soaked fats. It is strong and makes you feel light and active level after heavy food.','12BBPRG00000121','1234567890123','1','1','1','1','1','1','1','1','1','1','1','oilsubcharge','1','2012-09-04 06:00:00','2012-09-04 06:00:00','0'])
     return response
