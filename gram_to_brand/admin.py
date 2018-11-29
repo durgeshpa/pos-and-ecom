@@ -490,7 +490,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
         order_id = 0
 
         print(instances)
-        print(instances.count())
+        #print(instances.count())
 
         for instance in instances:
             #GRNOrderProductMapping
