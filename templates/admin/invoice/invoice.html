@@ -212,7 +212,7 @@ Addistro Technologies Pvt Ltd (Delhi) 1st Floor, 241, Pocket 8, Rohini Sector 24
 
   {% for product in products %}
 <tr>
-	<td>{{ product.id }}</td>
+	<td>{{ forloop.counter }}</td>
 	<td>{{product.product.product_short_description}}</td>
     {% for tax in product.product.product_pro_tax.all %}
 	     <td>{{tax.tax.tax_percentage}}%</td>

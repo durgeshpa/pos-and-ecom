@@ -147,7 +147,7 @@ class OrderedProductAdmin(admin.ModelAdmin):
 
     def download_invoice(self,obj):
         #request = self.context.get("request")
-        return format_html("<a href= '%s' >Download</a>"%(reverse('download_invoice', args=[obj.pk])))
+        return format_html("<a href= '%s' >Download Invoice</a>"%(reverse('download_invoice', args=[obj.pk])))
     download_invoice.short_description = 'Download Invoice'
 
 admin.site.register(OrderedProduct,OrderedProductAdmin)
