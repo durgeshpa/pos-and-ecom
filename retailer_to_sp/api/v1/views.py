@@ -19,6 +19,7 @@ from wkhtmltopdf.views import PDFTemplateResponse
 from django.shortcuts import get_object_or_404, get_list_or_404
 from datetime import datetime, timedelta
 from django.utils import timezone
+from products.models import ProductCategory
 
 class ProductsList(generics.ListCreateAPIView):
     permission_classes = (AllowAny,)
@@ -45,66 +46,154 @@ class ProductsList(generics.ListCreateAPIView):
             weight = product_option.weight.weight_name
             return name, mrp, ptr, status, pack_size, weight
 
+# class GramGRNProductsList(APIView):
+#     permission_classes = (AllowAny,)
+#     serializer_class = GramGRNProductsSearchSerializer
+#
+#     def post(self, request, format=None):
+#         import pdb; pdb.set_trace()
+#         grn = GRNOrderProductMapping.objects.all()
+#         #grn = OrderedProductMapping.objects.all()
+#         p_id_list = []
+#         for p in grn:
+#             product = p.product
+#             id = product.pk
+#             p_id_list.append(id)
+#         products = Product.objects.filter(pk__in=p_id_list)
+#         p_list = []
+#         msg = {'is_success': False, 'message': ['Sorry no product found!'], 'response_data': None}
+#         for product in products:
+#             id = product.pk
+#             name = product.product_name
+#
+#             try:
+#                 product_price = ProductPrice.objects.get(product=product)
+#             except ObjectDoesNotExist:
+#                 msg['message'] = ['Product id %s  and name %s have price not found '%(product.id, product.product_name)]
+#                 return Response(msg, status=400)
+#
+#             try:
+#                 product_option = ProductOption.objects.filter(product=product)[0]
+#             except ObjectDoesNotExist:
+#                 msg['message'] = ['Product id %s  and name %s have product_option not found '%(product.id, product.product_name)]
+#                 return Response(msg, status=400)
+#
+#             try:
+#                 product_image = ProductImage.objects.filter(product=product)
+#             except ObjectDoesNotExist:
+#                 msg['message'] = ['Product id %s  and name %s have product_image not found '%(product.id, product.product_name)]
+#                 return Response(msg, status=400)
+#
+#             mrp = product_price.mrp
+#             ptr = product_price.price_to_retailer
+#             status = product_price.status
+#
+#             pack_size = product_option.package_size.pack_size_name
+#             weight_value = product_option.weight.weight_value
+#             weight_unit = product_option.weight.weight_unit
+#             weight = product_option.weight.weight_name
+#
+#             #image = product_image.image.url
+#
+#             if name.startswith(request.data['product_name']):
+#                 p_list.append({"name":name, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "weight":weight, "id":id,
+#                                "weight_value":weight_value,"weight_unit":weight_unit})
+#         if not p_list:
+#             return Response(msg,status=400)
+#
+#         msg = {'is_success': True,
+#                 'message': ['Products found'],
+#                 'response_data':p_list }
+#         return Response(msg,
+#                         status=200)
+
 class GramGRNProductsList(APIView):
     permission_classes = (AllowAny,)
     serializer_class = GramGRNProductsSearchSerializer
 
     def post(self, request, format=None):
-        #grn = GRNOrderProductMapping.objects.all()
-        grn = OrderedProductMapping.objects.all()
-        p_id_list = []
-        for p in grn:
-            product = p.product
-            id = product.pk
-            p_id_list.append(id)
-        products = Product.objects.filter(pk__in=p_id_list)
         p_list = []
-        msg = {'is_success': False, 'message': ['Sorry no product found!'], 'response_data': None}
-        for product in products:
-            id = product.pk
-            name = product.product_name
+        product_images = []
+        grn = GRNOrderProductMapping.objects.values('product_id')
+        products_price = ProductPrice.objects.filter(product__in=grn).order_by('product','-created_at').distinct('product')
 
-            try:
-                product_price = ProductPrice.objects.get(product=product)
-            except ObjectDoesNotExist:
-                msg['message'] = ['Product id %s  and name %s have price not found '%(product.id, product.product_name)]
-                return Response(msg, status=400)
+        if 'brands' in request.data and request.data['brands'] and not request.data['categories']:
+            products = Product.objects.filter(pk__in=grn, product_brand__in=request.data['brands']).values_list('pk')
+            products_price = ProductPrice.objects.filter(product__in=products).order_by('product','-created_at').distinct('product')
 
-            try:
-                product_option = ProductOption.objects.filter(product=product)[0]
-            except ObjectDoesNotExist:
-                msg['message'] = ['Product id %s  and name %s have product_option not found '%(product.id, product.product_name)]
-                return Response(msg, status=400)
+        if 'categories' in request.data and request.data['categories'] and not request.data['brands']:
+            products = ProductCategory.objects.filter(product__in=grn, category__in=request.data['categories']).values_list('product_id')
+            products_price = ProductPrice.objects.filter(product__in=products).order_by('product','-created_at').distinct('product')
 
-            try:
-                product_image = ProductImage.objects.filter(product=product)
-            except ObjectDoesNotExist:
-                msg['message'] = ['Product id %s  and name %s have product_image not found '%(product.id, product.product_name)]
-                return Response(msg, status=400)
+        if 'categories' and 'brands' in request.data:
+            if request.data['brands'] and request.data['categories']:
+                products_by_brand = Product.objects.filter(pk__in=grn, product_brand__in=request.data['brands']).values_list('pk')
+                products_by_category = products = ProductCategory.objects.filter(product__in=grn, category__in=request.data['categories']).values_list('product_id')
+                from itertools import chain
+                products = list(chain(products_by_brand,products_by_category))
+                products_price = ProductPrice.objects.filter(product__in=products).order_by('product','-created_at').distinct('product')
 
-            mrp = product_price.mrp
-            ptr = product_price.price_to_retailer
-            status = product_price.status
+        if 'sort_by_price' in request.data and request.data['sort_by_price'] == 'low':
+            products_price = products_price.order_by('price_to_retailer').distinct()
 
-            pack_size = product_option.package_size.pack_size_name
-            weight_value = product_option.weight.weight_value
-            weight_unit = product_option.weight.weight_unit
-            weight = product_option.weight.weight_name
+        if 'sort_by_price' in request.data and request.data['sort_by_price'] == 'high':
+            products_price = products_price.order_by('-price_to_retailer').distinct()
 
-            #image = product_image.image.url
+        if request.user.is_authenticated:
+            carts = Cart.objects.filter(cart_status='active', last_modified_by=request.user)
+            cart_products = CartProductMapping.objects.filter(cart__in=carts)
 
-            if name.startswith(request.data['product_name']):
-                p_list.append({"name":name, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "weight":weight, "id":id,
-                               "weight_value":weight_value,"weight_unit":weight_unit})
-        if not p_list:
-            return Response(msg,status=400)
+            for p in products_price:
+                user_selected_qty = None
+                for c_p in cart_products:
+                    if c_p.cart_product_id == p.product_id:
+                        user_selected_qty = c_p.qty
+                id = p.product_id
+                name = p.product.product_name
+                mrp = p.mrp
+                ptr = p.price_to_retailer
+                status = p.product.status
+                product_opt = p.product.product_opt_product.all()
+                for p_o in product_opt:
+                    pack_size = p_o.package_size.pack_size_name
+                    weight_value = p_o.weight.weight_value
+                    weight_unit = p_o.weight.weight_unit
+                product_img = p.product.product_pro_image.all()
+                for p_i in product_img:
+                    product_images.append({"image_name":p_i.image_name,"image_alt":p_i.image_alt_text,"image_url":p_i.image.url})
+
+                if name.startswith(request.data['product_name']):
+                    p_list.append({"name":name, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "id":id,
+                                    "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":user_selected_qty})
+        else:
+            for p in products_price:
+                user_selected_qty = None
+                id = p.product_id
+                name = p.product.product_name
+                mrp = None
+                ptr = None
+                status = p.product.status
+                product_opt = p.product.product_opt_product.all()
+                for p_o in product_opt:
+                    pack_size = p_o.package_size.pack_size_name
+                    weight_value = p_o.weight.weight_value
+                    weight_unit = p_o.weight.weight_unit
+                product_img = p.product.product_pro_image.all()
+                for p_i in product_img:
+                    product_images.append({"image_name":p_i.image_name,"image_alt":p_i.image_alt_text,"image_url":p_i.image.url})
+                if name.startswith(request.data['product_name']):
+                    p_list.append({"name":name, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "id":id,
+                                "weight_value":weight_value,"weight_unit":weight_unit, "product_iamges":product_images,"user_selected_qty":user_selected_qty})
 
         msg = {'is_success': True,
-                'message': ['Products found'],
-                'response_data':p_list }
+                 'message': ['Products found'],
+                 'response_data':p_list }
+        if not p_list:
+            msg = {'is_success': False,
+                     'message': ['Sorry! No product found'],
+                     'response_data':None }
         return Response(msg,
-                        status=200)
-
+                         status=200)
 
 class AddToCart(APIView):
 
@@ -152,7 +241,6 @@ class AddToCart(APIView):
             #return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response(msg,status=status.HTTP_200_OK)
-
 
 class CartDetail(APIView):
 
@@ -337,7 +425,7 @@ class OrderDetail(generics.ListAPIView):
             msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
         return Response(msg,
                         status=status.HTTP_200_OK)
-                        
+
 class DownloadInvoice(APIView):
     permission_classes = (AllowAny,)
     """

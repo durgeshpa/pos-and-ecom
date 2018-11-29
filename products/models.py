@@ -13,7 +13,7 @@ from django.utils.safestring import mark_safe
 
 
 class Size(models.Model):
-    size_name = models.CharField(max_length=255, validators=[NameValidator])
+    size_name = models.CharField(max_length=255, validators=[ProductNameValidator])
     size_value = models.CharField(max_length=255, validators=[ValueValidator], null=True, blank=True)
     size_unit = models.CharField(max_length=255, validators=[UnitNameValidator], null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -24,7 +24,7 @@ class Size(models.Model):
         return self.size_name
 
 class Color(models.Model):
-    color_name = models.CharField(max_length=255, validators=[NameValidator])
+    color_name = models.CharField(max_length=255, validators=[ProductNameValidator])
     color_code = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -34,7 +34,7 @@ class Color(models.Model):
         return self.color_name
 
 class Fragrance(models.Model):
-    fragrance_name = models.CharField(max_length=255, validators=[NameValidator])
+    fragrance_name = models.CharField(max_length=255, validators=[ProductNameValidator])
     fragrance_code = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -44,7 +44,7 @@ class Fragrance(models.Model):
         return self.fragrance_name
 
 class Flavor(models.Model):
-    flavor_name = models.CharField(max_length=255, validators=[NameValidator])
+    flavor_name = models.CharField(max_length=255, validators=[ProductNameValidator])
     flavor_code = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -54,7 +54,7 @@ class Flavor(models.Model):
         return self.flavor_name
 
 class Weight(models.Model):
-    weight_name = models.CharField(max_length=255, validators=[NameValidator])
+    weight_name = models.CharField(max_length=255, validators=[ProductNameValidator])
     weight_value = models.CharField(max_length=255, null=True, blank=True)
     weight_unit = models.CharField(max_length=255, validators=[UnitNameValidator], null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -65,7 +65,7 @@ class Weight(models.Model):
         return self.weight_name
 
 class PackageSize(models.Model):
-    pack_size_name = models.CharField(max_length=255, validators=[NameValidator])
+    pack_size_name = models.CharField(max_length=255, validators=[ProductNameValidator])
     pack_size_value = models.CharField(max_length=255, null=True, blank=True)
     pack_size_unit = models.CharField(max_length=255, validators=[UnitNameValidator], null=True, blank=True)
     pack_length = models.CharField(max_length=255, validators=[UnitNameValidator], null=True, blank=True)
