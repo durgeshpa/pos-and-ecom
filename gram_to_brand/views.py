@@ -8,6 +8,10 @@ from brand.models import Brand
 from gram_to_brand.models import Order,CartProductMapping
 from brand.models import Vendor
 from products.models import ProductVendorMapping
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.response import Response
+
 # Create your views here.
 
 class SupplierAutocomplete(autocomplete.Select2QuerySetView):
@@ -96,3 +100,13 @@ class VendorProductAutocomplete(autocomplete.Select2QuerySetView):
             qs = qs.filter(id__in=[product_id])
 
         return qs
+
+class VendorProductPrice(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self,*args,**kwargs):
+        supplier_id = self.request.GET.get('supplier_id')
+        product_id = self.request.GET.get('product_id')
+        price = ProductVendorMapping.objects.get(vendor__id=supplier_id,product__id=product_id)
+        return Response({"message": [""], "response_data": price.product_price, "success": True})
+
