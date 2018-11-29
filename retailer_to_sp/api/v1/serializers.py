@@ -86,6 +86,10 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
 
 class GramGRNProductsSearchSerializer(serializers.Serializer):
     product_name = serializers.CharField(required=True, write_only=True)
+    categories = serializers.CharField(write_only=True)
+    brands = serializers.CharField(write_only=True)
+    sort_by_price = serializers.CharField(write_only=True)
+
 
 class CartProductSerializer(serializers.ModelSerializer):
     last_modified_by = UserSerializer()
