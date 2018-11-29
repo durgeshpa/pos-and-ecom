@@ -1,14 +1,11 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils.safestring import mark_safe
-from brand.models import Brand
 
 SHOP_TYPE_CHOICES = (
     ("sp","Service Partner"),
     ("r","Retailer"),
     ("sr","Super Retailer"),
-    ("b","Brand"),
-    ("gf","Gram Factory"),
 )
 
 RETAILER_TYPE_CHOICES = (
@@ -46,7 +43,6 @@ class Shop(models.Model):
     shop_name = models.CharField(max_length=255)
     shop_owner = models.ForeignKey(get_user_model(), related_name='shop_owner_shop',on_delete=models.CASCADE)
     shop_type = models.ForeignKey(ShopType,related_name='shop_type_shop',on_delete=models.CASCADE)
-    brand = models.ForeignKey(Brand,related_name='shop_brand',null=True,blank=True ,on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=False)
@@ -82,3 +78,4 @@ class SpRetailerMapping(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
+

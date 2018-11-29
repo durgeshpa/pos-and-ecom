@@ -2,7 +2,7 @@ from django.db import models
 from products.models import Product
 
 from shops.models import Shop
-from brand.models import Brand
+from brand.models import Brand, Vendor
 from django.contrib.auth import get_user_model
 from addresses.models import Address,City,State
 
@@ -23,8 +23,8 @@ NOTE_TYPE_CHOICES = (
 
 class Cart(models.Model):
     brand = models.ForeignKey(Brand, related_name='brand_order', on_delete=models.CASCADE)
-    state = models.ForeignKey(State, related_name='state_cart',null=True, blank=True,on_delete=models.CASCADE)
-    supplier_name = models.ForeignKey(Shop, related_name='buyer_shop_order', null=True, blank=True,on_delete=models.CASCADE)
+    supplier_state = models.ForeignKey(State, related_name='state_cart',null=True, blank=True,on_delete=models.CASCADE)
+    supplier_name = models.ForeignKey(Vendor, related_name='buyer_vendor_order', null=True, blank=True,on_delete=models.CASCADE)
     gf_shipping_address = models.ForeignKey(Address, related_name='shipping_address_cart', null=True, blank=True,on_delete=models.CASCADE)
     gf_billing_address = models.ForeignKey(Address, related_name='billing_address_cart', null=True, blank=True,on_delete=models.CASCADE)
     po_no = models.CharField(max_length=255,null=True,blank=True)
