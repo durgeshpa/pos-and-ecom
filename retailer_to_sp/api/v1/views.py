@@ -112,8 +112,6 @@ class GramGRNProductsList(APIView):
     serializer_class = GramGRNProductsSearchSerializer
 
     def post(self, request, format=None):
-        p_list = []
-        product_images = []
         grn = GRNOrderProductMapping.objects.values('product_id')
         products_price = ProductPrice.objects.filter(product__in=grn).order_by('product','-created_at').distinct('product')
 
@@ -140,10 +138,12 @@ class GramGRNProductsList(APIView):
             products_price = products_price.order_by('-price_to_retailer').distinct()
 
         if request.user.is_authenticated:
+            p_list = []
             carts = Cart.objects.filter(cart_status='active', last_modified_by=request.user)
             cart_products = CartProductMapping.objects.filter(cart__in=carts)
 
             for p in products_price:
+                product_images = []
                 user_selected_qty = None
                 for c_p in cart_products:
                     if c_p.cart_product_id == p.product_id:
@@ -154,6 +154,9 @@ class GramGRNProductsList(APIView):
                 ptr = p.price_to_retailer
                 status = p.product.status
                 product_opt = p.product.product_opt_product.all()
+                pack_size = None
+                weight_value = None
+                weight_unit = None
                 for p_o in product_opt:
                     pack_size = p_o.package_size.pack_size_name
                     weight_value = p_o.weight.weight_value
@@ -161,12 +164,15 @@ class GramGRNProductsList(APIView):
                 product_img = p.product.product_pro_image.all()
                 for p_i in product_img:
                     product_images.append({"image_name":p_i.image_name,"image_alt":p_i.image_alt_text,"image_url":p_i.image.url})
-
+                if not product_images:
+                    product_images=None
                 if name.startswith(request.data['product_name']):
                     p_list.append({"name":name, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "id":id,
                                     "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":user_selected_qty})
         else:
+            p_list = []
             for p in products_price:
+                product_images = []
                 user_selected_qty = None
                 id = p.product_id
                 name = p.product.product_name
@@ -174,6 +180,9 @@ class GramGRNProductsList(APIView):
                 ptr = None
                 status = p.product.status
                 product_opt = p.product.product_opt_product.all()
+                pack_size = None
+                weight_value = None
+                weight_unit = None
                 for p_o in product_opt:
                     pack_size = p_o.package_size.pack_size_name
                     weight_value = p_o.weight.weight_value
@@ -181,9 +190,11 @@ class GramGRNProductsList(APIView):
                 product_img = p.product.product_pro_image.all()
                 for p_i in product_img:
                     product_images.append({"image_name":p_i.image_name,"image_alt":p_i.image_alt_text,"image_url":p_i.image.url})
+                if not product_images:
+                    product_images=None
                 if name.startswith(request.data['product_name']):
                     p_list.append({"name":name, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "id":id,
-                                "weight_value":weight_value,"weight_unit":weight_unit, "product_iamges":product_images,"user_selected_qty":user_selected_qty})
+                                "weight_value":weight_value,"weight_unit":weight_unit, "product_images":product_images,"user_selected_qty":user_selected_qty})
 
         msg = {'is_success': True,
                  'message': ['Products found'],
