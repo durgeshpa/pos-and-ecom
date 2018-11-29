@@ -5,12 +5,18 @@ from dal import autocomplete
 #from shops.models import Shop
 from addresses.models import Address,State
 from brand.models import Brand
+
+from gram_to_brand.models import Order,CartProductMapping, OrderItem, Cart
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from django.shortcuts import get_object_or_404, get_list_or_404
+from wkhtmltopdf.views import PDFTemplateResponse
+
+
 from gram_to_brand.models import Order,CartProductMapping
 from brand.models import Vendor
 from products.models import ProductVendorMapping
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.response import Response
 
 # Create your views here.
 
@@ -89,6 +95,34 @@ class ProductAutocomplete(autocomplete.Select2QuerySetView):
 
         return qs
 
+
+class DownloadPurchaseOrder(APIView):
+    permission_classes = (AllowAny,)
+    """
+    PDF Download object
+    """
+    filename = 'purchase_order.pdf'
+    template_name = 'admin/purchase_order/purchase_order.html'
+
+    def get(self, request, *args, **kwargs):
+        order_obj = get_object_or_404(Cart, pk=self.kwargs.get('pk'))
+
+        #order_obj1= get_object_or_404(OrderedProductMapping)
+        pk=self.kwargs.get('pk')
+        a = Cart.objects.get(pk=pk)
+        shop =a
+        products = a.cart_list.all()
+        data = {"object": order_obj,"products":products, "shop":shop }
+        # for m in products:
+        #     data = {"object": order_obj,"products":products,"amount_inline": m.qty * m.price }
+        #     print (data)
+
+        cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
+                      "no-stop-slow-scripts": True, "quiet": True}
+        response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
+                                       context=data, show_content_in_browser=False, cmd_options=cmd_option)
+        return response
+
 class VendorProductAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self,*args,**kwargs):
         #qs = Product.objects.all()
@@ -102,11 +136,10 @@ class VendorProductAutocomplete(autocomplete.Select2QuerySetView):
         return qs
 
 class VendorProductPrice(APIView):
-    permission_classes = (AllowAny,)
+   permission_classes = (AllowAny,)
 
-    def get(self,*args,**kwargs):
-        supplier_id = self.request.GET.get('supplier_id')
-        product_id = self.request.GET.get('product_id')
-        price = ProductVendorMapping.objects.get(vendor__id=supplier_id,product__id=product_id)
-        return Response({"message": [""], "response_data": price.product_price, "success": True})
-
+   def get(self,*args,**kwargs):
+       supplier_id = self.request.GET.get('supplier_id')
+       product_id = self.request.GET.get('product_id')
+       price = ProductVendorMapping.objects.get(vendor__id=supplier_id,product__id=product_id)
+       return Response({"message": [""], "response_data": price.product_price, "success": True})
