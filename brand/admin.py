@@ -3,8 +3,8 @@ from django.contrib import admin
 # Register your models here.
 from adminsortable.admin import NonSortableParentAdmin, SortableStackedInline
 
-from .models import Brand, BrandData,BrandPosition
-
+from .models import Brand, BrandData,BrandPosition,Vendor
+from products.models import ProductVendorMapping
 
 class BrandDataInline(SortableStackedInline):
     model = BrandData
@@ -21,3 +21,12 @@ class BrandAdmin(admin.ModelAdmin):
     search_fields= ('brand_name','brand_code')
 
 admin.site.register(Brand,BrandAdmin)
+
+class ProductAdmin(admin.TabularInline):
+    model = ProductVendorMapping
+    #fields = ('brand_name',)
+
+class VendorAdmin(admin.ModelAdmin):
+    inlines = [ProductAdmin]
+
+admin.site.register(Vendor,VendorAdmin)

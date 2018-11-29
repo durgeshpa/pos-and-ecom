@@ -8,9 +8,8 @@ from django.contrib.sites.shortcuts import get_current_site
 import urllib.request
 import csv
 import codecs
-from brand.models import Brand
+from brand.models import Brand,Vendor
 from django.utils.safestring import mark_safe
-
 
 class Size(models.Model):
     size_name = models.CharField(max_length=255, validators=[NameValidator])
@@ -223,3 +222,8 @@ class ProductPriceCSV(models.Model):
 
     def __str__(self):
         return '%s' % (self.file)
+
+class ProductVendorMapping(models.Model):
+    vendor = models.ForeignKey(Vendor,related_name='vendor_brand_mapping',on_delete=models.CASCADE)
+    product = models.ForeignKey(Product,related_name='product_vendor_mapping',on_delete=models.CASCADE)
+    product_price = models.FloatField(default=0,verbose_name='Brand To Gram Price')

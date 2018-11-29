@@ -11,6 +11,7 @@ from django.db.models import Q
 
 from brand.models import Brand
 from addresses.models import State,Address
+from brand.models import Vendor
 from shops.models import Shop
 from daterange_filter.filter import DateRangeFilter
 
@@ -29,7 +30,7 @@ class BrandSearch(InputFilter):
             )
 
 class StateSearch(InputFilter):
-    parameter_name = 'state'
+    parameter_name = 'supplier_state'
     title = 'State'
 
     def queryset(self, request, queryset):
@@ -38,7 +39,7 @@ class StateSearch(InputFilter):
             if state is None:
                 return
             return queryset.filter(
-                Q(state__state_name__icontains=state)
+                Q(supplier_state__state_name__icontains=state)
             )
 
 class SupplierSearch(InputFilter):
@@ -166,7 +167,7 @@ class POGenerationForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='state-autocomplete',)
     )
     supplier_name = forms.ModelChoiceField(
-        queryset=Shop.objects.all(),
+        queryset=Vendor.objects.all(),
         widget=autocomplete.ModelSelect2(url='supplier-autocomplete',forward=('supplier_state','brand'))
     )
     gf_shipping_address = forms.ModelChoiceField(
@@ -195,13 +196,26 @@ class POGenerationForm(forms.ModelForm):
     class Media:
         pass
         #css = {'all': ('pretty.css',)}
-        #js = ('/static/assets/js/custom.js',)
+        js = ('/static/admin/js/po_generation_form.js',)
 
     class Meta:
         model = Cart
         fields = ('brand','supplier_state','supplier_name','gf_shipping_address','gf_billing_address','po_validity_date','payment_term','delivery_term')
 
+class CartProductMappingForm(forms.ModelForm):
+
+    cart_product = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(url='vendor-product-autocomplete', forward=('supplier_name',))
+    )
+
+    class Meta:
+        model = CartProductMapping
+        fields = ('cart_product','qty','scheme','price',)
+
+
 class CartProductMappingFormset(forms.models.BaseInlineFormSet):
+
     def clean(self):
         count = 0
         for form in self.forms:
@@ -221,12 +235,14 @@ class CartProductMappingAdmin(admin.TabularInline):
     #readonly_fields = ('get_edit_link',)
     autocomplete_fields = ('cart_product',)
     formset = CartProductMappingFormset
+    form = CartProductMappingForm
+
 
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     exclude = ('po_no', 'shop', 'po_status','last_modified_by')
     autocomplete_fields = ('brand',)
-    list_display = ('po_no','brand','state','supplier_name', 'po_creation_date','po_validity_date','po_amount','po_raised_by','po_status')
+    list_display = ('po_no','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_amount','po_raised_by','po_status')
     #search_fields = ('brand__brand_name','state__state_name','supplier__shop_owner__first_name')
     list_filter = [BrandSearch,StateSearch ,SupplierSearch,('po_creation_date', DateRangeFilter),('po_validity_date', DateRangeFilter),POAmountSearch,PORaisedBy]
     form = POGenerationForm
