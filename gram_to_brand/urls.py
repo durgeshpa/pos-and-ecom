@@ -1,9 +1,9 @@
 
 from .views import (SupplierAutocomplete,ShippingAddressAutocomplete,BillingAddressAutocomplete,BrandAutocomplete,StateAutocomplete,
 
-                    OrderAutocomplete,ProductAutocomplete,VendorProductAutocomplete, DownloadPurchaseOrder)
 
-                    
+                    OrderAutocomplete,ProductAutocomplete,VendorProductAutocomplete,VendorProductPrice, DownloadPurchaseOrder)
+
 
 from django.conf.urls import url,include
 
@@ -18,5 +18,6 @@ urlpatterns = [
     url(r'^product-autocomplete/$', ProductAutocomplete.as_view(), name='product-autocomplete', ),
     url('^download-purchase-order/(?P<pk>\d+)/purchase_order/$', DownloadPurchaseOrder.as_view(), name='download_purchase_order'),
     url(r'^vendor-product-autocomplete/$', VendorProductAutocomplete.as_view(), name='vendor-product-autocomplete', ),
+    url(r'^vendor-product-price/$', VendorProductPrice.as_view(), name='vendor-product-price', ),
 
 ]
