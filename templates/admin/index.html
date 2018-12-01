@@ -48,6 +48,9 @@
             </tr>
               {% if app.name == "Products" %}
                   {% if model.name == "Weights" %}
+                  <tr>
+                <th scope="row"><a href="{% url 'admin:productscsvupload' %}">Upload Products CSV</a></th>
+                  </tr>
                     <tr>
                   <th scope="row"><a href="{% url 'admin:sp_sr_productprice' %}">Upload Products Price</a></th>
                     </tr>
