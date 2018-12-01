@@ -13,7 +13,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import get_object_or_404, get_list_or_404
 from wkhtmltopdf.views import PDFTemplateResponse
 
-
+from .serializers import CartProductMappingSerializer
 from gram_to_brand.models import Order,CartProductMapping
 from brand.models import Vendor
 from products.models import ProductVendorMapping
@@ -143,3 +143,65 @@ class VendorProductPrice(APIView):
        product_id = self.request.GET.get('product_id')
        price = ProductVendorMapping.objects.get(vendor__id=supplier_id,product__id=product_id)
        return Response({"message": [""], "response_data": price.product_price, "success": True})
+
+class GRNProductAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self,*args,**kwargs):
+        #qs = Product.objects.all()
+        order_id = self.forwarded.get('order_no', None)
+        if order_id:
+            qs = Product.objects.all()
+            product_ids = CartProductMapping.objects.filter(cart__id=order_id).values('cart_product')
+            qs = qs.filter(id__in=[product_ids])
+
+        return qs
+
+
+
+class GRNProductPriceMappingData(APIView):
+    permission_classes =(AllowAny, )
+    def get(self,*args,**kwargs):
+        order_id =self.request.GET.get('order_id')
+        cart_product_id= self.request.GET.get('cart_product_id')
+        po_product_price = CartProductMapping.objects.get( cart__id=order_id,cart_product__id=cart_product_id)
+        return Response({"message": [""], "response_data": po_product_price.price, "success": True})
+
+class GRNProductMappingData(APIView):
+    permission_classes =(AllowAny, )
+    def get(self,*args,**kwargs):
+        order_id =self.request.GET.get('order_id')
+        cart_product_id= self.request.GET.get('cart_product_id')
+        po_product_quantity = CartProductMapping.objects.get( cart__id=order_id,cart_product__id=cart_product_id)
+        return Response({"message": [""], "response_data": po_product_quantity.qty, "success": True})
+
+class GRNOrderAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self,*args,**kwargs):
+        #qs = Product.objects.all()
+        order_id = self.forwarded.get('order_no', None)
+        if order_id:
+            #qs = Product.objects.all()
+            qs = CartProductMapping.objects.filter(cart__id=order_id)
+            #qs = qs.filter(id__in=[product_ids])
+
+        return qs
+
+class GRNProduct1MappingData(APIView):
+    permission_classes =(AllowAny, )
+    def get(self,*args,**kwargs):
+        order_id =self.request.GET.get('order_id')
+        #cart_product_id= self.request.GET.get('cart_product_id')
+        data = CartProductMapping.objects.filter( cart__id=order_id)
+        serializer= CartProductMappingSerializer(data, many=True)
+        print (serializer.data)
+
+        return Response({"message": [""], "response_data": serializer.data , "success": True})
+
+
+'''class GRNedProductData(APIView):
+    permission_classes =(AllowAny, )
+    def get(self,*args,**kwargs):
+        order_id =self.request.GET.get('order_id')
+        product_id= self.request.GET.get('product_id')
+        #already_grned_product = CartProductMapping.objects.get( cart__id=order_id,cart_product__id=cart_product_id)
+        already_grned_product= GRNOrderProductMapping.obejcts.filter(product__id=product_id).aggregate
+        return Response({"message": [""], "response_data": po_product_quantity.qty, "success": True})
+'''

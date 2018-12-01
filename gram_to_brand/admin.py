@@ -341,8 +341,14 @@ class GRNOrderProductForm(forms.ModelForm):
 
     class Meta:
         model = GRNOrderProductMapping
-        fields = ('product','product_invoice_price','manufacture_date','expiry_date','product_invoice_qty','available_qty','delivered_qty','returned_qty')
+        fields = ('product','po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date','expiry_date','product_invoice_qty','available_qty','delivered_qty','returned_qty')
         readonly_fields = ('product')
+
+    class Media:
+        pass
+        #css = {'all': ('pretty.css',)}
+        js = ('/static/admin/js/grn_generation_form.js',)
+
 
     # data = {
     #     'subject': 'hello',
@@ -424,9 +430,9 @@ def get_product(self,*args,**kwargs):
 
 class GRNOrderProductMappingAdmin(admin.TabularInline):
     model = GRNOrderProductMapping
-    form = GRNOrderProductForm
-    #fields = [get_product]
+    form = GRNOrderProductForm    #fields = [get_product]
     exclude = ('last_modified_by','available_qty',)
+    #readonly_fields= ('po_product_price', 'po_product_quantity')
 
     # def get_formset(self, request, obj=None, **kwargs):
     #     initial = []
@@ -480,6 +486,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
     list_filter = [ OrderSearch, InvoiceNoSearch, GRNSearch, ('created_at', DateRangeFilter),]
     form = GRNOrderForm
 
+
     def edit_grn_link(self, obj):
         #return format_html("<ul class ='object-tools'><li><a href = '/admin/gram_to_brand/grnorder/add/?brand=%s' class ='addlink' > Add order</a></li></ul>"% (obj.id))
         return format_html("<a href = '/admin/gram_to_brand/grnorder/%s/change/?order=%s&odr=%s' class ='addlink' > Edit GRN</a>"% (obj.id,obj.id,obj.id))
@@ -487,9 +494,9 @@ class GRNOrderAdmin(admin.ModelAdmin):
     edit_grn_link.short_description = 'Edit GRN'
 
 
-    def __init__(self, *args, **kwargs):
-        super(GRNOrderAdmin, self).__init__(*args, **kwargs)
-        self.list_display_links = None
+    # def __init__(self, *args, **kwargs):
+    #     super(GRNOrderAdmin, self).__init__(*args, **kwargs)
+    #     self.list_display_links = None
 
 
     # def __init__(self, *args, **kwargs):
@@ -508,7 +515,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
         order_id = 0
 
         print(instances)
-        print(instances.count())
+        #print(instances.count())
 
         for instance in instances:
             #GRNOrderProductMapping

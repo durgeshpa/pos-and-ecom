@@ -11,7 +11,7 @@ from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
-from retailer_to_sp.models import Cart,CartProductMapping,Order,OrderedProduct, Payment
+from retailer_to_sp.models import Cart,CartProductMapping,Order,OrderedProduct, Payment, CustomerCare
 from shops.models import Shop
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F,Sum

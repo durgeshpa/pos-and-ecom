@@ -111,18 +111,25 @@ class GRNOrder(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        verbose_name = "Add Edit GRN Order"
+
     def save(self, *args,**kwargs):
         super(GRNOrder, self).save()
         self.grn_id = "BRAND/GRN/%s"%(self.pk)
         super(GRNOrder, self).save()
 
-    class Meta:
-        verbose_name = "Add Edit GRN Order"
+    def __str__(self):
+        return self.grn_id
+
 
 
 class GRNOrderProductMapping(models.Model):
     grn_order = models.ForeignKey(GRNOrder,related_name='grn_order_grn_order_product',null=True,blank=True,on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='product_grn_order_product',null=True,blank=True, on_delete=models.CASCADE)
+    po_product_quantity= models.PositiveIntegerField(default=0, verbose_name='PO Product Quantity',blank=True )
+    po_product_price= models.FloatField(default=0, verbose_name='PO Product Price',blank=True )
+    already_grned_product= models.PositiveIntegerField(default=0, verbose_name='Already GRNed Product Quantity')
     product_invoice_price = models.FloatField(default=0)
     product_invoice_qty = models.PositiveIntegerField(default=0)
     manufacture_date = models.DateField(null=True,blank=True)
