@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Shop,ShopType,RetailerType,SpRetailerMapping,ShopPhoto,ShopDocument
+from .models import Shop,ShopType,RetailerType,ParentRetailerMapping,ShopPhoto,ShopDocument
 from addresses.models import Address
 
 class ShopPhotosAdmin(admin.TabularInline):
@@ -20,7 +20,7 @@ class ShopAdmin(admin.ModelAdmin):
     inlines = [ShopPhotosAdmin, ShopDocumentsAdmin,AddressAdmin]
     list_display = ('shop_name','shop_owner','shop_type','status')
 
-admin.site.register(SpRetailerMapping)
+admin.site.register(ParentRetailerMapping)
 admin.site.register(ShopType)
 admin.site.register(RetailerType)
 admin.site.register(Shop,ShopAdmin)

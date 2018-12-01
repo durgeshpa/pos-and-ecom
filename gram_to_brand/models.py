@@ -5,6 +5,10 @@ from shops.models import Shop
 from brand.models import Brand, Vendor
 from django.contrib.auth import get_user_model
 from addresses.models import Address,City,State
+from datetime import datetime, timedelta
+from django.utils import timezone
+from retailer_to_gram.models import Cart as GramMapperRetialerCart,Order as GramMapperRetialerOrder
+from django.conf import settings
 
 ORDER_STATUS = (
     ("ordered_to_brand","Ordered To Brand"),
@@ -187,13 +191,37 @@ class BrandNote(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-    # def __init__(self, *args, **kwargs):
-    #     super(OrderShipment, self).__init__(*args, **kwargs)
-    #     self.__total__ = None
 
+class OrderedProductReserved(models.Model):
+    order_product_reserved = models.ForeignKey(GRNOrderProductMapping, related_name='retiler_order_product_order_product_reserved',null=True, blank=True, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, related_name='retiler_product_order_product_reserved', null=True, blank=True,on_delete=models.CASCADE)
+    cart = models.ForeignKey(GramMapperRetialerCart, related_name='retiler_ordered_retailer_cart',null=True,blank=True,on_delete=models.CASCADE)
+    reserved_qty = models.PositiveIntegerField(default=0)
+    order_reserve_end_time = models.DateTimeField(null=True,blank=True,editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
+    def save(self):
+        self.order_reserve_end_time = timezone.now() + timedelta(minutes=int(settings.BLOCKING_TIME_IN_MINUTS))
+        super(OrderedProductReserved, self).save()
 
-# class Shipment(models.Model):
-#     order = models.ForeignKey(Order,related_name='order_shipment')
-#     cart = models.ForeignKey(Cart,related_name='cart_shipment')
-#     order_shipment = models.ForeignKey(OrderShipment,related_name='order_shipment')
+    def __str__(self):
+        return str(self.order_reserve_end_time)
+
+class PickList(models.Model):
+    order = models.ForeignKey(GramMapperRetialerOrder, related_name='pick_list_order',null=True,blank=True,on_delete=models.CASCADE)
+    cart = models.ForeignKey(GramMapperRetialerCart, related_name='pick_list_cart', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=False)
+
+class PickListItems(models.Model):
+    pick_list = models.ForeignKey(PickList, related_name='pick_list_items_pick_list',on_delete=models.CASCADE)
+    grn_order = models.ForeignKey(GRNOrder, related_name='pick_list_cart', on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, related_name='pick_product', null=True, blank=True,on_delete=models.CASCADE)
+    pick_qty = models.PositiveIntegerField(default=0)
+    return_qty = models.PositiveIntegerField(default=0)
+    damage_qty = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+

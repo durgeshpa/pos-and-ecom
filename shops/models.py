@@ -6,6 +6,7 @@ SHOP_TYPE_CHOICES = (
     ("sp","Service Partner"),
     ("r","Retailer"),
     ("sr","Super Retailer"),
+    ("gf","Gram Factory"),
 )
 
 RETAILER_TYPE_CHOICES = (
@@ -72,10 +73,12 @@ class ShopDocument(models.Model):
     def __str__(self):
         return "%s - %s"%(self.shop_document_number, self.shop_document_photo.url)
 
-class SpRetailerMapping(models.Model):
-    service_partner = models.ForeignKey(Shop,related_name='sp_mapping',on_delete=models.CASCADE)
+class ParentRetailerMapping(models.Model):
+    parent = models.ForeignKey(Shop,related_name='parrent_mapping',on_delete=models.CASCADE)
     retailer = models.ForeignKey(Shop,related_name='retiler_mapping',on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-    status = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ('parent', 'retailer',)
 
