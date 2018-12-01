@@ -340,8 +340,12 @@ class CartDetail(APIView):
             if Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).exists():
                 cart = Cart.objects.filter(last_modified_by=self.request.user,
                                            cart_status__in=['active', 'pending']).last()
-                serializer = CartSerializer(Cart.objects.get(id=cart.id))
-                msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
+                if cart.rt_cart_list.count() <= 0:
+                    msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
+                           'response_data': None}
+                else:
+                    serializer = CartSerializer(Cart.objects.get(id=cart.id))
+                    msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
             else:
                 msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
@@ -354,8 +358,11 @@ class CartDetail(APIView):
                                              cart_status__in=['active', 'pending']).exists():
                 cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,
                                                      cart_status__in=['active', 'pending']).last()
-                serializer = GramMappedCartSerializer(GramMappedCart.objects.get(id=cart.id))
-                msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
+                if cart.rt_cart_list.count()<=0:
+                    msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],'response_data': None}
+                else:
+                    serializer = GramMappedCartSerializer(GramMappedCart.objects.get(id=cart.id))
+                    msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
             else:
                 msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
