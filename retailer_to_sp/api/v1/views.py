@@ -259,11 +259,6 @@ class AddToCart(APIView):
                     cart = Cart(last_modified_by=self.request.user, cart_status='active')
                     cart.save()
 
-                if cart.rt_cart_list.count() <= 0:
-                    msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
-                               'response_data': None}
-                    return Response(msg, status=status.HTTP_200_OK)
-
                 if int(qty) == 0:
                     if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
                         CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
@@ -273,8 +268,11 @@ class AddToCart(APIView):
                     cart_mapping.qty = qty
                     cart_mapping.save()
 
-                serializer = CartSerializer(Cart.objects.get(id=cart.id))
-                msg = {'is_success': True, 'message': ['Data added to cart'], 'response_data': serializer.data}
+                if cart.rt_cart_list.count() <= 0:
+                    msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],'response_data': None}
+                else:
+                    serializer = CartSerializer(Cart.objects.get(id=cart.id))
+                    msg = {'is_success': True, 'message': ['Data added to cart'], 'response_data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
 
             #  if shop mapped with gf
@@ -289,11 +287,6 @@ class AddToCart(APIView):
                     cart = GramMappedCart(last_modified_by=self.request.user, cart_status='active')
                     cart.save()
 
-                if cart.rt_cart_list.count() <= 0:
-                    msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
-                               'response_data': None}
-                    return Response(msg, status=status.HTTP_200_OK)
-
                 if int(qty) == 0:
                     if GramMappedCartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
                         GramMappedCartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
@@ -304,8 +297,11 @@ class AddToCart(APIView):
                     cart_mapping.qty = qty
                     cart_mapping.save()
 
-                serializer = GramMappedCartSerializer(GramMappedCart.objects.get(id=cart.id))
-                msg = {'is_success': True, 'message': ['Data added to cart'], 'response_data': serializer.data}
+                if cart.rt_cart_list.count() <= 0:
+                    msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],'response_data': None}
+                else:
+                    serializer = GramMappedCartSerializer(GramMappedCart.objects.get(id=cart.id))
+                    msg = {'is_success': True, 'message': ['Data added to cart'], 'response_data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
 
             else:
