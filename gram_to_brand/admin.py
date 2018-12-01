@@ -536,6 +536,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
                         order_item.item_status = 'partially_delivered'
 
                 order_item.save()
+                instance.available_qty = int(instance.delivered_qty)
                 instance.grn_order.order.order_status='partially_delivered'
                 instance.grn_order.order.save()
                 order_id = instance.grn_order.order.id
