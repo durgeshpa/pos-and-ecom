@@ -11,22 +11,30 @@ from django.http import HttpResponse
 from retailer_backend.validators import *
 from categories.models import Category
 from .views import (sp_sr_productprice, load_cities, load_sp_sr, export,
-            load_brands, ProductsFilterView, ProductsPriceFilterView, ProductsUploadSample)
+            load_brands, ProductsFilterView, ProductsPriceFilterView,
+            ProductsUploadSample, ProductsCSVUploadView)
 
 from dal import autocomplete
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
 from daterange_filter.filter import DateRangeFilter
 
+class SizeAdmin(admin.ModelAdmin):
+    prepopulated_fields = {'size_name': ('size_value','size_unit')}
+admin.site.register(Size, SizeAdmin)
 
-
-# Register your models here.
-admin.site.register(Size)
 admin.site.register(Fragrance)
 admin.site.register(Flavor)
 admin.site.register(Color)
-admin.site.register(PackageSize)
-admin.site.register(Weight)
+
+class PackageSizeAdmin(admin.ModelAdmin):
+    prepopulated_fields = {'pack_size_name': ('pack_size_value','pack_size_unit')}
+admin.site.register(PackageSize, PackageSizeAdmin)
+
+class WeightAdmin(admin.ModelAdmin):
+    prepopulated_fields = {'weight_name': ('weight_value','weight_unit')}
+admin.site.register(Weight, WeightAdmin)
+
 admin.site.register(Tax)
 
 class BrandSearch(InputFilter):
@@ -87,8 +95,6 @@ class ProductImageAdmin(admin.TabularInline):
 class ProductTaxMappingAdmin(admin.TabularInline):
     model = ProductTaxMapping
 
-class ProductSurchargeAdmin(admin.TabularInline):
-    model = ProductSurcharge
 
 class ProductAdmin(admin.ModelAdmin):
 
@@ -98,7 +104,9 @@ class ProductAdmin(admin.ModelAdmin):
         # Note that custom urls get pushed to the list (not appended)
         # This doesn't work with urls += ...
         urls = [
+
             url(r'^productsfilter/$', self.admin_site.admin_view(ProductsFilterView), name="productsfilter"),
+            url(r'^productscsvupload/$', self.admin_site.admin_view(ProductsCSVUploadView), name="productscsvupload"),
             url(r'^productspricefilter/$', self.admin_site.admin_view(ProductsPriceFilterView), name="productspricefilter"),
             url(r'^productsuploadsample/$', self.admin_site.admin_view(ProductsUploadSample), name="productsuploadsample"),
             url(r'^sp-sr-productprice/$', self.admin_site.admin_view(sp_sr_productprice), name="sp_sr_productprice"),
@@ -113,7 +121,7 @@ class ProductAdmin(admin.ModelAdmin):
     search_fields = ('prodcut_name','id',)
     list_filter = [BrandSearch, CategorySearch,ProductSearch]
     prepopulated_fields = {'product_slug': ('product_name',)}
-    inlines = [ProductCategoryAdmin,ProductOptionAdmin,ProductImageAdmin,ProductTaxMappingAdmin,ProductSurchargeAdmin]
+    inlines = [ProductCategoryAdmin,ProductOptionAdmin,ProductImageAdmin,ProductTaxMappingAdmin]
 
     def get_product_brand(self, obj):
         return "%s" % (obj.product_brand.brand_name if obj.product_brand else '-')

@@ -6,14 +6,15 @@ from django.template import RequestContext, loader
 from django.shortcuts import render, redirect
 from .models import ProductImage, Product, ProductPrice
 from shops.models import Shop, ShopType
-from .forms import ProductPriceForm, ProductsFilterForm, ProductsPriceFilterForm
+from .forms import ProductPriceForm, ProductsFilterForm, ProductsPriceFilterForm, ProductsCSVUploadForm
 from addresses.models import City, State, Address
 from django.contrib import messages
 import csv, codecs, datetime
 from django.http import HttpResponse
 from brand.models import Brand
 from categories.models import Category
-from products.models import Product, ProductCategory
+from products.models import Product, ProductCategory, ProductOption, ProductTaxMapping
+from django.core.exceptions import ValidationError
 
 def load_cities(request):
     state_id = request.GET.get('state')
@@ -63,9 +64,9 @@ def sp_sr_productprice(request):
             shops = form.cleaned_data['sp_sr_list']
             reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
             first_row = next(reader)
-            for row in reader:
-                for shop in shops:
-                    try:
+            try:
+                for row in reader:
+                    for shop in shops:
                         if sp_sr == "sp":
                             product_price = ProductPrice.objects.create(
                             product_id=row[0],
@@ -86,11 +87,12 @@ def sp_sr_productprice(request):
                             price_to_super_retailer=row[4],
                             start_date=start_date,
                             end_date=end_date)
-                            messages.success(request, 'Price uploaded successfully')
-                            return redirect('admin:sp_sr_productprice')
+                messages.success(request, 'Price uploaded successfully')
 
-                    except:
-                        raise ValidationError("Something went wrong!")
+            except:
+                messages.error("Something went wrong!")
+            return redirect('admin:sp_sr_productprice')
+
 
     else:
         form = ProductPriceForm(initial = {'sp_sr_list': Shop.objects.none()})
@@ -161,6 +163,49 @@ def ProductsPriceFilterView(request):
                                             }
                 )
 
+def ProductsCSVUploadView(request):
+
+    if request.method == 'POST':
+        form = ProductsCSVUploadForm(request.POST, request.FILES)
+        if form.errors:
+            return render(request, 'admin/products/productscsvupload.html', {'form':form})
+        if form.is_valid():
+            file = form.cleaned_data['file']
+            reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+            first_row = next(reader)
+            try:
+                for row in reader:
+                    product = Product.objects.create(product_name=row[0],\
+                              product_short_description=row[1],\
+                              product_long_description = row[2],\
+                              product_sku = row[3],\
+                              product_ean_code = row[4],\
+                              product_brand_id=row[5],\
+                              product_inner_case_size=row[14],\
+                              product_case_size=row[15])
+
+                    product_category = ProductCategory.objects.bulk_create([ProductCategory(product=product,\
+                              category_id=c.strip()) for c in row[6].split(',') if c is not ''])
+
+                    productoptions = ProductOption.objects.create(product=product,size_id=row[8] if row[8] else None,\
+                            color_id=row[9] if row[9] else None,fragrance_id=row[10] if row[10] else None,\
+                            flavor_id=row[11] if row[11] else None,weight_id=row[12] if row[12] else None,\
+                            package_size_id=row[13] if row[13] else None)
+
+                    producttax = ProductTaxMapping.objects.bulk_create([ProductTaxMapping(product=product,\
+                                tax_id=t.strip()) for t in row[7].split(',') if t is not ''])
+                messages.success(request, 'Products uploaded successfully')
+            except:
+                messages.error(request,"Something went wrong!")
+            return redirect('admin:productscsvupload')
+    else:
+        form = ProductsCSVUploadForm()
+    return render(request, 'admin/products/productscsvupload.html', {
+                                            'form':form,
+                                            }
+                )
+
+
 def export(request):
     dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
     filename = str(dt)+"product_list.csv"
@@ -178,6 +223,14 @@ def ProductsUploadSample(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(['product_name','product_slug','product_short_description','product_long_description','product_sku','product_ean_code','product_status','p_cat_id','p_cat_status','p_size_id','p_color_id','p_fragrance_id','p_flavor_id','p_weight_id','p_package_size_id','p_tax_id','p_tax_status','p_surcharge_name','p_surcharge_percentage','p_surcharge_start_at','p_surcharge_end_at','p_surcharge_status'])
-    writer.writerow(['fortune sunflowers oil','fortune-sunflower-refined-oil','Fortune Sun Lite Refined Sunflower Oil is a healthy','Fortune Sun Lite Refined Sunflower Oil is a healthy, light and nutritious oil that is simple to digest. Rich in natural vitamins, it consists mostly of poly-unsaturated fatty acids (PUFA) and is low in soaked fats. It is strong and makes you feel light and active level after heavy food.','12BBPRG00000121','1234567890123','1','1','1','1','1','1','1','1','1','1','1','oilsubcharge','1','2012-09-04 06:00:00','2012-09-04 06:00:00','0'])
+    writer.writerow(['product_name','product_short_description','product_long_description','product_sku','product_ean_code','p_brand_id','p_cat_id','p_tax_id','p_size_id','p_color_id','p_fragrance_id','p_flavor_id','p_weight_id','p_package_size_id','p_inner_case_size','p_case_size'])
+    writer.writerow(['fortune sunflowers oil','Fortune Sun Lite Refined Sunflower Oil is a healthy','Fortune Sun Lite Refined Sunflower Oil is a healthy, light and nutritious oil that is simple to digest. Rich in natural vitamins, it consists mostly of poly-unsaturated fatty acids (PUFA) and is low in soaked fats. It is strong and makes you feel light and active level after heavy food.','12BBPRG00000121','1234567890123','1','1','1','1','1','1','1','1','1','4','2'])
+    return response
+
+def NameIDCSV(request):
+    filename = "name_id.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(['BRAND NAME','BRAND ID','CATEGORY NAME','CATEGORY ID','TAX NAME','TAX ID','SIZE NAME','SIZE ID','COLOR NAME','COLOR ID','FRAGRANCE NAME','FRAGRANCE ID','FLAVOR NAME','FLAVOR ID','WEIGHT NAME','WEIGHT ID','PACKSIZE NAME','PACKSIZE ID'])
     return response
