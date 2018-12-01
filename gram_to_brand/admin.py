@@ -8,6 +8,8 @@ from django_select2.forms import Select2MultipleWidget,ModelSelect2Widget
 from dal import autocomplete
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
+from django.utils.html import format_html
+from django.urls import reverse
 
 from brand.models import Brand
 from addresses.models import State,Address
@@ -242,10 +244,16 @@ class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     exclude = ('po_no', 'shop', 'po_status','last_modified_by')
     autocomplete_fields = ('brand',)
-    list_display = ('po_no','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_amount','po_raised_by','po_status')
+
+    list_display = ('po_no','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_amount','po_raised_by','po_status', 'download_purchase_order')
+
     #search_fields = ('brand__brand_name','state__state_name','supplier__shop_owner__first_name')
     list_filter = [BrandSearch,StateSearch ,SupplierSearch,('po_creation_date', DateRangeFilter),('po_validity_date', DateRangeFilter),POAmountSearch,PORaisedBy]
     form = POGenerationForm
+    def download_purchase_order(self,obj):
+        #request = self.context.get("request")
+        return format_html("<a href= '%s' >Download PO</a>"%(reverse('download_purchase_order', args=[obj.pk])))
+    download_purchase_order.short_description = 'Download Purchase Order'
 
     def save_formset(self, request, form, formset, change):
         import datetime
@@ -296,6 +304,7 @@ class CartAdmin(admin.ModelAdmin):
         #         new_order.order_status = 'delivered'
         #     new_order.save()
         formset.save_m2m()
+
 
 admin.site.register(Cart,CartAdmin)
 
@@ -453,12 +462,14 @@ class OrderItemAdmin(admin.ModelAdmin):
     #search_fields = ('order__id','order__order_no','ordered_qty')
     list_filter = [OrderSearch , QuantitySearch, PORaisedBy ,('order__ordered_cart__po_creation_date', DateRangeFilter)]
     #date_hierarchy = 'created_at'
-    list_display = ('order','ordered_product','ordered_qty','total_delivered_qty','total_damaged_qty','po_creation_date','item_status')
+    list_display = ('order','ordered_product','ordered_qty','total_delivered_qty','total_damaged_qty','po_creation_date','item_status',)
 
     def po_creation_date(self, obj):
         return "%s" % (obj.order.ordered_cart.po_creation_date)
 
     po_creation_date.short_description = 'Po Creation Date'
+
+
 
 class GRNOrderAdmin(admin.ModelAdmin):
     inlines = [GRNOrderProductMappingAdmin]
@@ -474,10 +485,17 @@ class GRNOrderAdmin(admin.ModelAdmin):
         return format_html("<a href = '/admin/gram_to_brand/grnorder/%s/change/?order=%s&odr=%s' class ='addlink' > Edit GRN</a>"% (obj.id,obj.id,obj.id))
 
     edit_grn_link.short_description = 'Edit GRN'
-    
+
+
+    def __init__(self, *args, **kwargs):
+        super(GRNOrderAdmin, self).__init__(*args, **kwargs)
+        self.list_display_links = None
+
+
     # def __init__(self, *args, **kwargs):
     #     super(GRNOrderAdmin, self).__init__(*args, **kwargs)
     #     self.list_display_links = None
+
 
     # def get_form(self, request, obj=None, **kwargs):
     #     #request.current_object = obj
@@ -490,7 +508,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
         order_id = 0
 
         print(instances)
-        print(instances.count())
+        #print(instances.count())
 
         for instance in instances:
             #GRNOrderProductMapping
@@ -556,8 +574,3 @@ from django.forms import formset_factory
 from django.forms import BaseFormSet
 from django.forms.models import BaseModelFormSet ,BaseInlineFormSet
 #from .forms import OrderShipmentFrom
-
-
-
-
-

@@ -1,6 +1,6 @@
 from rest_framework import generics
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,
-                          OrderSerializer)
+                          OrderSerializer, CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,PaymentNeftSerializer)
 from products.models import Product, ProductPrice, ProductOption,ProductImage
 from sp_to_gram.models import OrderedProductMapping,OrderedProductReserved
 
@@ -11,7 +11,7 @@ from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
-from retailer_to_sp.models import Cart,CartProductMapping,Order,OrderedProduct
+from retailer_to_sp.models import Cart,CartProductMapping,Order,OrderedProduct, Payment
 from shops.models import Shop
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F,Sum
@@ -447,7 +447,15 @@ class DownloadInvoice(APIView):
 
     def get(self, request, *args, **kwargs):
         order_obj = get_object_or_404(OrderedProduct, pk=self.kwargs.get('pk'))
-        data = {"object": order_obj, }
+
+        #order_obj1= get_object_or_404(OrderedProductMapping)
+        pk=self.kwargs.get('pk')
+        a = OrderedProduct.objects.get(pk=pk)
+        print(a)
+
+        products = a.rt_order_product_order_product_mapping.all()
+        data = {"object": order_obj,"order": order_obj.order,"products":products }
+
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
@@ -470,3 +478,149 @@ class DownloadNote(APIView):
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         return response
+
+
+class DownloadDebitNote(APIView):
+    permission_classes = (AllowAny,)
+    """
+    PDF Download object
+    """
+
+    filename = 'debitnote.pdf'
+    template_name = 'admin/debitnote/debit_note.html'
+
+    def get(self, request, *args, **kwargs):
+        order_obj = get_object_or_404(OrderedProduct, pk=self.kwargs.get('pk'))
+
+
+        #order_obj1= get_object_or_404(OrderedProductMapping)
+        pk=self.kwargs.get('pk')
+        a = OrderedProduct.objects.get(pk=pk)
+        products = a.rt_order_product_order_product_mapping.all()
+        data = {"object": order_obj,"order": order_obj.order,"products":products }
+
+        cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
+                      "no-stop-slow-scripts": True, "quiet": True}
+        response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
+                                       context=data, show_content_in_browser=False, cmd_options=cmd_option)
+        return response
+
+class CustomerCareApi(APIView):
+
+    def get(self, request):
+        queryset = CustomerCare.objects.all()
+        serializer = CustomerCareSerializer(queryset, many=True)
+        msg = {'is_success': True, 'message': ['All Messages'], 'response_data': serializer.data}
+        return Response(msg, status=status.HTTP_201_CREATED)
+
+
+    def post(self,request):
+        #import pdb; pdb.set_trace()
+        #msg = {'is_success': False,'message': ['Sorry no message entered!'],'response_data': None}
+        order_id=self.request.POST.get('order_id')
+        select_issue=self.request.POST.get('select_issue')
+        complaint_detail=self.request.POST.get('complaint_detail')
+        msg = {'is_success': False,'message': [''],'response_data': None}
+
+        try:
+            order = Order.objects.get(id=order_id)
+        except ObjectDoesNotExist:
+            msg['message'] = ["No order with this name"]
+            return Response(msg, status=status.HTTP_200_OK)
+
+        if not select_issue :
+            msg['message']= ["Please select the issue"]
+            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+
+        if not complaint_detail :
+            msg['message']= ["Please typle the complaint_detail"]
+            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+
+        print(request.data)
+        serializer = CustomerCareSerializer(data=request.data)
+        if serializer.is_valid():
+            print("mmk")
+            serializer.save()
+            msg = {'is_success': True, 'message': ['Message Sent'], 'response_data': serializer.data}
+            return Response( msg, status=status.HTTP_201_CREATED)
+        #return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class CustomerOrdersList(APIView):
+
+    def get(self, request):
+        #msg = {'is_success': True, 'message': ['No Orders of the logged in user'], 'response_data': None}
+        #if request.user.is_authenticated:
+            queryset = Order.objects.filter(ordered_by=request.user)
+            serializer = OrderNumberSerializer(queryset, many=True)
+            msg = {'is_success': True, 'message': ['All Orders of the logged in user'], 'response_data': serializer.data}
+            return Response(msg, status=status.HTTP_201_CREATED)
+        #else:
+            #return Response(msg, status=status.HTTP_201_CREATED)
+
+class PaymentCodApi(APIView):
+
+    def get(self, request):
+        queryset = Payment.objects.filter(payment_choice='cash_on_delivery')
+        serializer = PaymentCodSerializer(queryset, many=True)
+        msg = {'is_success': True, 'message': ['All Payments'], 'response_data': serializer.data}
+        return Response(msg, status=status.HTTP_201_CREATED)
+
+    def post(self,request):
+
+        order_id=self.request.POST.get('order_id')
+        paid_amount=self.request.POST.get('paid_amount')
+        #payment_choice=self.request.POST.get('payment_choice')
+        msg = {'is_success': False,'message': [''],'response_data': None}
+
+        try:
+            order = Order.objects.get(id=order_id)
+        except ObjectDoesNotExist:
+            msg['message'] = ["No order with this name"]
+            return Response(msg, status=status.HTTP_200_OK)
+
+        if not paid_amount :
+            msg['message']= ["Please enter the amount to be paid"]
+            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+
+        #print(request.data)
+        serializer = PaymentCodSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(payment_choice='cash_on_delivery')
+            msg = {'is_success': True, 'message': ['Payment Sent'], 'response_data': serializer.data}
+            return Response( msg, status=status.HTTP_201_CREATED)
+
+class PaymentNeftApi(APIView):
+
+    def get(self, request):
+        queryset = Payment.objects.filter(payment_choice='neft')
+        serializer = PaymentNeftSerializer(queryset, many=True)
+        msg = {'is_success': True, 'message': ['All Payments'], 'response_data': serializer.data}
+        return Response(msg, status=status.HTTP_201_CREATED)
+
+    def post(self,request):
+
+        order_id=self.request.POST.get('order_id')
+        paid_amount=self.request.POST.get('paid_amount')
+        #payment_choice=self.request.POST.get('payment_choice')
+        neft_reference_number=self.request.POST.get('neft_reference_number')
+        msg = {'is_success': False,'message': [''],'response_data': None}
+
+        try:
+            order = Order.objects.get(id=order_id)
+        except ObjectDoesNotExist:
+            msg['message'] = ["No order with this name"]
+            return Response(msg, status=status.HTTP_200_OK)
+        if not paid_amount :
+            msg['message']= ["Please enter the amount to be paid"]
+            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+        if not neft_reference_number:
+            msg['message']= ["Please select the NEFT reference numner"]
+            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+
+        #print(request.data)
+        serializer = PaymentNeftSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(payment_choice='neft')
+            msg = {'is_success': True, 'message': ['Payment Sent'], 'response_data': serializer.data}
+            return Response( msg, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

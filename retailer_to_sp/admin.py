@@ -1,9 +1,82 @@
 from django.contrib import admin
-from .models import Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping,Note
+from .models import Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping,Note, CustomerCare, Payment
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
+from django.utils.html import format_html
+from django.urls import reverse
+from .forms import CustomerCareForm
+from django_select2.forms import Select2MultipleWidget,ModelSelect2Widget
+from dal import autocomplete
+from retailer_backend.admin import InputFilter
+from django.db.models import Q
 
 # Register your models here.
+class NameSearch(InputFilter):
+    parameter_name = 'name'
+    title = 'Name'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            name = self.value()
+            if name is None:
+                return
+            return queryset.filter(
+                Q(name__icontains=name)
+            )
+
+class OrderIdSearch(InputFilter):
+    parameter_name = 'order_id'
+    title = 'Order Id'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            order_id = self.value()
+            if order_id is None:
+                return
+            return queryset.filter(
+                Q(order_id__order_no__icontains=order_id)
+            )
+
+class OrderStatusSearch(InputFilter):
+    parameter_name = 'order_status'
+    title = 'Order Status'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            order_status = self.value()
+            if order_status is None:
+                return
+            return queryset.filter(
+                Q(order_status__icontains=order_status)
+            )
+
+class IssueSearch(InputFilter):
+    parameter_name = 'select_issue'
+    title = 'Issue'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            select_issue = self.value()
+            if select_issue is None:
+                return
+            return queryset.filter(
+                Q(select_issue__icontains=select_issue)
+            )
+
+class PaymentChoiceSearch(InputFilter):
+    parameter_name = 'payment_choice'
+    title = 'Payment Mode'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            payment_choice = self.value()
+            if payment_choice is None:
+                return
+            return queryset.filter(
+                Q(payment_choice__icontains=payment_choice)
+            )
+
+
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
     autocomplete_fields = ('cart_product',)
@@ -67,9 +140,15 @@ class OrderedProductMappingAdmin(admin.TabularInline):
 
 class OrderedProductAdmin(admin.ModelAdmin):
     inlines = [OrderedProductMappingAdmin]
-    list_display = ('invoice_no','vehicle_no','shipped_by','received_by')
+    list_display = ('invoice_no','vehicle_no','shipped_by','received_by','download_invoice')
     exclude = ('shipped_by','received_by','last_modified_by',)
     autocomplete_fields = ('order',)
+    search_fields=('invoice_no','vehicle_no')
+
+    def download_invoice(self,obj):
+        #request = self.context.get("request")
+        return format_html("<a href= '%s' >Download Invoice</a>"%(reverse('download_invoice', args=[obj.pk])))
+    download_invoice.short_description = 'Download Invoice'
 
 admin.site.register(OrderedProduct,OrderedProductAdmin)
 
@@ -78,4 +157,26 @@ class NoteAdmin(admin.ModelAdmin):
 
 admin.site.register(Note,NoteAdmin)
 
+class CustomerCareAdmin(admin.ModelAdmin):
+    model=CustomerCare
+    form = CustomerCareForm
+    fields=('email_us','contact_us','order_id','order_status','select_issue','complaint_detail')
+    exclude = ('name',)
+    list_display=('name','order_id', 'order_status','select_issue')
+    autocomplete_fields = ('order_id',)
+    search_fields = ('name',)
+    list_filter = [NameSearch, OrderIdSearch, OrderStatusSearch,IssueSearch]
 
+admin.site.register(CustomerCare,CustomerCareAdmin)
+
+
+class PaymentAdmin(admin.ModelAdmin):
+    model= Payment
+    fields= ('order_id', 'paid_amount','payment_choice', 'neft_reference_number')
+    exclude = ('name',)
+    list_display=('name','order_id', 'paid_amount', 'payment_choice', 'neft_reference_number')
+    autocomplete_fields = ('order_id',)
+    search_fields = ('name',)
+    list_filter = (NameSearch, OrderIdSearch, PaymentChoiceSearch)
+
+admin.site.register(Payment,PaymentAdmin)

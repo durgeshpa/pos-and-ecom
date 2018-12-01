@@ -36,6 +36,16 @@ PAYMENT_STATUS = (
     ("pending","Pending"),
 )
 
+MESSAGE_STATUS = (
+    ("pending","Pending"),
+    ("resolved","Resolved"),
+)
+SELECT_ISSUE= (
+    ("cancellation"," Cancellation"),
+    ("return","Return"),
+    ("others","Others")
+)
+
 class Cart(models.Model):
     order_id = models.CharField(max_length=255,null=True,blank=True)
     #user = models.ForeignKey(get_user_model(),related_name='rt_user_cart',null=True,blank=True,on_delete=models.CASCADE)
@@ -129,4 +139,39 @@ class Note(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
 
+class CustomerCare(models.Model):
+    order_id = models.ForeignKey(Order,on_delete=models.CASCADE, null=True)
+    name=models.CharField(max_length=255,null=True,blank=True)
+    email_us = models.URLField(default='info@grmafactory.com')
+    contact_us =models.CharField(max_length=10, default='7607846774')
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    order_status = models.CharField(max_length=20,choices=MESSAGE_STATUS,default='pending', null=True)
+    select_issue= models.CharField(verbose_name="Issue", max_length=100,choices=SELECT_ISSUE, null=True)
+    complaint_detail = models.CharField(max_length=2000, null=True)
 
+    def save(self, *args,**kwargs):
+        super(CustomerCare, self).save()
+        self.name = "CustomerCare/Message/%s"%(self.pk)
+        super(CustomerCare, self).save()
+
+
+    def __str__(self):
+        return self.name
+
+class Payment(models.Model):
+    order_id= models.ForeignKey(Order,related_name= 'rt_payment', on_delete=models.CASCADE, null=True)
+    name=models.CharField(max_length=255,null=True,blank=True)
+    #order_amount= models.ForeignKey(Order, related_name= 'rt_amount', on_delete=models.CASCADE, null=True)
+    paid_amount=models.DecimalField(max_digits=20,decimal_places=4,default=('0.0000'))
+    payment_choice = models.CharField(max_length=30, choices=PAYMENT_MODE_CHOICES, null=True)
+    neft_reference_number= models.CharField(max_length=20, null=True)
+
+    def save(self, *args,**kwargs):
+        super(Payment, self).save()
+        self.name = "Payment/%s"%(self.pk)
+        super(Payment, self).save()
+
+
+    def __str__(self):
+        return self.name
