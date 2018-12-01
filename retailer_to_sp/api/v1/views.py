@@ -336,7 +336,7 @@ class CartDetail(APIView):
             return Response(msg, status=status.HTTP_200_OK)
 
         # if shop mapped with sp
-        if parent_mapping.parent.shop_type == 'sp':
+        if parent_mapping.parent.shop_type.shop_type == 'sp':
             if Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).exists():
                 cart = Cart.objects.filter(last_modified_by=self.request.user,
                                            cart_status__in=['active', 'pending']).last()
@@ -349,7 +349,7 @@ class CartDetail(APIView):
                 return Response(msg, status=status.HTTP_200_OK)
 
         # if shop mapped with gf
-        elif parent_mapping.parent.shop_type == 'gf':
+        elif parent_mapping.parent.shop_type.shop_type == 'gf':
             if GramMappedCart.objects.filter(last_modified_by=self.request.user,
                                              cart_status__in=['active', 'pending']).exists():
                 cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,
