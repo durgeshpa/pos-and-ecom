@@ -11,8 +11,8 @@ ORDER_STATUS = (
     ("active","Active"),
     ("pending","Pending"),
     ("deleted","Deleted"),
-    ("ordered_to_sp","Ordered To Service Partner"),
-    ("order_shipped","Order Shipped From Service Partner"),
+    ("ordered","Ordered"),
+    ("order_shipped","Order Shipped"),
     ("partially_delivered","Partially Delivered"),
     ("delivered","Delivered"),
 )
@@ -38,8 +38,6 @@ PAYMENT_STATUS = (
 
 class Cart(models.Model):
     order_id = models.CharField(max_length=255,null=True,blank=True)
-    #user = models.ForeignKey(get_user_model(),related_name='rt_user_cart',null=True,blank=True,on_delete=models.CASCADE)
-    #shop = models.ForeignKey(Shop,related_name='rt_shop_cart',null=True,blank=True,on_delete=models.CASCADE)
     cart_status = models.CharField(max_length=200,choices=ORDER_STATUS,null=True,blank=True)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='rtg_last_modified_user_cart', null=True,blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -54,7 +52,7 @@ class Cart(models.Model):
         super(Cart, self).save()
 
 class CartProductMapping(models.Model):
-    cart = models.ForeignKey(Cart,related_name='rtg_cart_list',on_delete=models.CASCADE)
+    cart = models.ForeignKey(Cart,related_name='rt_cart_list',on_delete=models.CASCADE)
     cart_product = models.ForeignKey(Product, related_name='rtg_cart_product_mapping', on_delete=models.CASCADE)
     qty = models.PositiveIntegerField(default=0)
     qty_error_msg = models.CharField(max_length=255,null=True,blank=True,editable=False)

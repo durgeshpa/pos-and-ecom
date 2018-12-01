@@ -6,9 +6,10 @@ import datetime, csv, codecs, re
 from retailer_backend.validators import *
 from django.core.exceptions import ValidationError
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
-from products.models import ProductCategory
+from products.models import ProductCategory, Tax, Size, Color, Fragrance, Weight, Flavor, PackageSize
 from brand.models import Brand
 from categories.models import Category
+from django.utils.translation import gettext_lazy as _
 
 class ProductPriceForm(forms.Form):
     state = forms.ModelChoiceField(queryset=State.objects.order_by('state_name'))
@@ -159,3 +160,116 @@ class ProductsFilterForm(forms.Form):
                 self.fields['brand'].queryset = Brand.objects.all()
             except (ValueError, TypeError):
                 pass  # invalid input from the client; ignore and fallback to empty City queryset
+
+class ProductsCSVUploadForm(forms.Form):
+    file = forms.FileField()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields['file'].label = 'Choose File'
+        self.fields['file'].widget.attrs={
+            'class':'custom-file-input',
+            }
+
+    def clean_file(self):
+        if not self.cleaned_data['file'].name[-4:] in ('.csv'):
+            raise forms.ValidationError("Sorry! Only csv file accepted")
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        first_row = next(reader)
+        for id,row in enumerate(reader):
+            if not row[0] or not re.match("^[ \w\$\_\,\@\.\/\#\&\+\-\(\)]*$", row[0]):
+                raise ValidationError(_("INVALID_PRODUCT_NAME at Row[%(value)s]. Special characters allowed are _ , @ . / # & + -"), params={'value': id+1},)
+
+            if not row[1] or not re.match("^[ \w\$\_\,\@\.\/\#\&\+\-\(\)]*$", row[1]):
+                raise ValidationError(_("INVALID_SHORT_DESCRIPTION at Row[%(value)s]. Special characters allowed are _ , @ . / # & + -"), params={'value': id+1},)
+
+            if not row[2] or not re.match("^[ \w\$\_\,\@\.\/\#\&\+\-\(\)]*$", row[2]):
+                raise ValidationError(_("INVALID_LONG_DESCRIPTION at Row[%(value)s]. Special characters allowed are _ , @ . / # & + -"), params={'value': id+1},)
+
+            if not row[3] or not re.match("^[\d]{2}[A-Z]{5}[\d]{8}$", row[3]):
+                raise ValidationError(_("INVALID_PRODUCT_SKU at Row[%(value)s]. (eg: 12BBPRG00000121)"), params={'value': id+1},)
+
+            if not row[4] or not re.match("^\d{13}$", row[4]):
+                raise ValidationError(_("INVALID_PRODUCT_EAN_CODE at Row[%(value)s]. Exactly 13 numbers required"), params={'value': id+1},)
+
+            if not row[5] or not re.match("^[\d]*$", row[5]):
+                raise ValidationError(_('INVALID_BRAND_ID at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
+            if row[5]:
+                try:
+                    Brand.objects.get(pk=row[5])
+                except:
+                    raise ValidationError(_('No brand found with given BRAND_ID at Row[%(value)s]'), params={'value': id+1},)
+
+            if not row[6] or not re.match("^[\d\,]*$", row[6]):
+                raise ValidationError(_('INVALID_CATEGORY_ID/IDs at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
+            if row[6]:
+                try:
+                    for c in row[6].split(','):
+                        if c is not '':
+                            Category.objects.get(pk=c.strip())
+                except:
+                    raise ValidationError(_('No category found with given CATEGORY_ID/IDs at Row[%(value)s]'), params={'value': id+1},)
+
+            if not row[7] or not re.match("^[\d\,]*$", row[7]):
+                raise ValidationError(_('INVALID_TAX_ID/IDs at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
+            if row[7]:
+                try:
+                    for t in row[7].split(','):
+                        if t is not '':
+                            Tax.objects.get(pk=t.strip())
+                except:
+                    raise ValidationError(_('No tax found with given TAX_ID/IDs at Row[%(value)s]'), params={'value': id+1},)
+
+            if row[8] and not re.match("^[\d\,]*$", row[8]):
+                raise ValidationError(_('INVALID_SIZE_ID at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
+            if row[8]:
+                try:
+                    Size.objects.get(pk=row[8])
+                except:
+                    raise ValidationError(_('No size found with given SIZE_ID at Row[%(value)s]'), params={'value': id+1},)
+
+            if row[9] and not re.match("^[\d\,]*$", row[9]):
+                raise ValidationError(_('INVALID_COLOR_ID at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
+            if row[9]:
+                try:
+                    Color.objects.get(pk=row[9])
+                except:
+                    raise ValidationError(_('No color found with given COLOR_ID at Row[%(value)s]'), params={'value': id+1},)
+
+            if row[10] and not re.match("^[\d\,]*$", row[10]):
+                raise ValidationError(_('INVALID_FRAGRANCE_ID at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
+            if row[10]:
+                try:
+                    Fragrance.objects.get(pk=row[10])
+                except:
+                    raise ValidationError(_('No fragrance found with given FRAGRANCE_ID at Row[%(value)s]'), params={'value': id+1},)
+
+            if row[11] and not re.match("^[\d\,]*$", row[11]):
+                raise ValidationError(_('INVALID_FLAVOR_ID at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
+            if row[11]:
+                try:
+                    Flavor.objects.get(pk=row[11])
+                except:
+                    raise ValidationError(_('No flavor found with given FLAVOR_ID at Row[%(value)s]'), params={'value': id+1},)
+
+            if row[12] and not re.match("^[\d\,]*$", row[12]):
+                raise ValidationError(_('INVALID_WEIGHT_ID at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
+            if row[12]:
+                try:
+                    Weight.objects.get(pk=row[12])
+                except:
+                    raise ValidationError(_('No weight found with given WEIGHT_ID at Row[%(value)s]'), params={'value': id+1},)
+
+            if row[13] and not re.match("^[\d\,]*$", row[13]):
+                raise ValidationError(_('INVALID_PACKAGE_SIZE_ID at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
+            if row[13]:
+                try:
+                    PackageSize.objects.get(pk=row[13])
+                except:
+                    raise ValidationError(_('No package size found with given PACKAGE_SIZE_ID at Row[%(value)s]'), params={'value': id+1},)
+            if not row[14] or not re.match("^[\d]*$", row[14]):
+                raise ValidationError(_('INVALID_INNER_CASE_SIZE at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
+            if not row[15] or not re.match("^[\d]*$", row[15]):
+                raise ValidationError(_('INVALID_CASE_SIZE at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
+        return self.cleaned_data['file']

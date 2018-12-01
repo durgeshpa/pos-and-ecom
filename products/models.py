@@ -10,11 +10,25 @@ import csv
 import codecs
 from brand.models import Brand,Vendor
 from django.utils.safestring import mark_safe
+from django.utils.text import slugify
+
+SIZE_UNIT_CHOICES = (
+        ('mm', 'Millimeter'),
+        ('cm', 'Centimeter'),
+        ('dm', 'Decimeter'),
+        ('m', 'Meter'),
+    )
+
+WEIGHT_UNIT_CHOICES = (
+        ('kg', 'Kilogram'),
+        ('gm', 'Gram'),
+        ('mg', 'Milligram'),
+    )
 
 class Size(models.Model):
-    size_name = models.CharField(max_length=255, validators=[ProductNameValidator])
     size_value = models.CharField(max_length=255, validators=[ValueValidator], null=True, blank=True)
-    size_unit = models.CharField(max_length=255, validators=[UnitNameValidator], null=True, blank=True)
+    size_unit = models.CharField(max_length=255, validators=[UnitNameValidator], choices=SIZE_UNIT_CHOICES, default = 'mm')
+    size_name = models.SlugField(unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
@@ -53,9 +67,9 @@ class Flavor(models.Model):
         return self.flavor_name
 
 class Weight(models.Model):
-    weight_name = models.CharField(max_length=255, validators=[ProductNameValidator])
     weight_value = models.CharField(max_length=255, null=True, blank=True)
-    weight_unit = models.CharField(max_length=255, validators=[UnitNameValidator], null=True, blank=True)
+    weight_unit = models.CharField(max_length=255, validators=[UnitNameValidator],choices=WEIGHT_UNIT_CHOICES, default = 'kg')
+    weight_name = models.SlugField(unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
@@ -64,9 +78,9 @@ class Weight(models.Model):
         return self.weight_name
 
 class PackageSize(models.Model):
-    pack_size_name = models.CharField(max_length=255, validators=[ProductNameValidator])
     pack_size_value = models.CharField(max_length=255, null=True, blank=True)
-    pack_size_unit = models.CharField(max_length=255, validators=[UnitNameValidator], null=True, blank=True)
+    pack_size_unit = models.CharField(max_length=255, validators=[UnitNameValidator], choices=SIZE_UNIT_CHOICES, default = 'mm')
+    pack_size_name = models.SlugField(unique=True)
     pack_length = models.CharField(max_length=255, validators=[UnitNameValidator], null=True, blank=True)
     pack_width = models.CharField(max_length=255, validators=[UnitNameValidator], null=True, blank=True)
     pack_height = models.CharField(max_length=255, validators=[UnitNameValidator], null=True, blank=True)
@@ -82,13 +96,19 @@ class Product(models.Model):
     product_slug = models.SlugField()
     product_short_description = models.CharField(max_length=255,validators=[ProductNameValidator],null=True,blank=True)
     product_long_description = models.TextField(null=True,blank=True)
-    product_sku = models.CharField(max_length=255, null=True,blank=True)
-    product_ean_code = models.CharField(max_length=255, null=True,blank=True,validators=[EanCodeValidator])
-    product_brand = models.ForeignKey(Brand,related_name='prodcut_brand_product',null=True,blank=True,on_delete=models.CASCADE)
+    product_sku = models.CharField(max_length=255,blank=False)
+    product_ean_code = models.CharField(max_length=255, blank=False,validators=[EanCodeValidator])
+    product_brand = models.ForeignKey(Brand,related_name='prodcut_brand_product',blank=False,on_delete=models.CASCADE)
     #hsn_code = models.PositiveIntegerField(null=True,blank=True,validators=[EanCodeValidator])
+    product_inner_case_size = models.CharField(max_length=255,blank=True)
+    product_case_size = models.CharField(max_length=255,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
+
+    def save(self, *args, **kwargs):
+        self.product_slug = slugify(self.product_name)
+        super(Product, self).save(*args, **kwargs)
 
     def __str__(self):
         return self.product_name
@@ -147,7 +167,6 @@ class ProductPrice(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
-
 class ProductCategory(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_category',on_delete=models.CASCADE)
     category = models.ForeignKey(Category, related_name='category_pro_category',on_delete=models.CASCADE)
@@ -172,7 +191,7 @@ class ProductImage(models.Model):
     status = models.BooleanField(default=True)
 
 class Tax(models.Model):
-    tax_name = models.CharField(max_length=255,validators=[NameValidator])
+    tax_name = models.CharField(max_length=255,validators=[ProductNameValidator])
     tax_percentage = models.FloatField(default=0)
     tax_start_at = models.DateTimeField(null=True,blank=True)
     tax_end_at = models.DateTimeField(null=True,blank=True)
@@ -190,15 +209,15 @@ class ProductTaxMapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
-class ProductSurcharge(models.Model):
-    product = models.ForeignKey(Product, related_name='product_pro_surcharge',on_delete=models.CASCADE)
-    surcharge_name = models.CharField(max_length=255, validators=[NameValidator])
-    surcharge_percentage = models.FloatField(default=0)
-    surcharge_start_at = models.DateTimeField(null=True, blank=True)
-    surcharge_end_at = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
-    status = models.BooleanField(default=True)
+# class ProductSurcharge(models.Model):
+#     product = models.ForeignKey(Product, related_name='product_pro_surcharge',on_delete=models.CASCADE)
+#     surcharge_name = models.CharField(max_length=255, validators=[NameValidator])
+#     surcharge_percentage = models.FloatField(default=0)
+#     surcharge_start_at = models.DateTimeField(null=True, blank=True)
+#     surcharge_end_at = models.DateTimeField(null=True, blank=True)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     modified_at = models.DateTimeField(auto_now=True)
+#     status = models.BooleanField(default=True)
 
 class ProductCSV(models.Model):
     file = models.FileField(upload_to='products/')

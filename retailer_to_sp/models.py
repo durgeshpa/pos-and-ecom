@@ -11,8 +11,8 @@ ORDER_STATUS = (
     ("active","Active"),
     ("pending","Pending"),
     ("deleted","Deleted"),
-    ("ordered_to_sp","Ordered To Service Partner"),
-    ("order_shipped","Order Shipped From Service Partner"),
+    ("ordered","Ordered"),
+    ("order_shipped","Order Shipped"),
     ("partially_delivered","Partially Delivered"),
     ("delivered","Delivered"),
 )

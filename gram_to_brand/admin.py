@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Order,Cart,CartProductMapping,GRNOrder,GRNOrderProductMapping,OrderItem,BrandNote
+from .models import Order,Cart,CartProductMapping,GRNOrder,GRNOrderProductMapping,OrderItem,BrandNote,PickList,PickListItems
 from products.models import Product
 from django import forms
 from django.db.models import Sum
@@ -459,10 +459,10 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     #
     #     return super(GRNOrderProductMappingAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
 
-class BrandNoteAdmin(admin.TabularInline):
+class BrandNoteAdmin(admin.ModelAdmin):
     model = BrandNote
-    exclude = ('order','last_modified_by')
-    extra = 0
+    list_display = ('order','grn_order', 'note_type', 'amount')
+    exclude = ('last_modified_by',)
 
 class OrderItemAdmin(admin.ModelAdmin):
     #search_fields = ('order__id','order__order_no','ordered_qty')
@@ -474,7 +474,6 @@ class OrderItemAdmin(admin.ModelAdmin):
         return "%s" % (obj.order.ordered_cart.po_creation_date)
 
     po_creation_date.short_description = 'Po Creation Date'
-
 
 
 class GRNOrderAdmin(admin.ModelAdmin):
@@ -573,6 +572,15 @@ class OrderAdmin(admin.ModelAdmin):
 admin.site.register(Order,OrderAdmin)
 admin.site.register(OrderItem, OrderItemAdmin)
 admin.site.register(GRNOrder,GRNOrderAdmin)
+admin.site.register(BrandNote,BrandNoteAdmin)
+
+class PickListItemAdmin(admin.TabularInline):
+    model = PickListItems
+
+class PickListAdmin(admin.ModelAdmin):
+    inlines = [PickListItemAdmin]
+
+admin.site.register(PickList,PickListAdmin)
 
 
 from django.utils.functional import curry

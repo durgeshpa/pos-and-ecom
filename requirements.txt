@@ -13,6 +13,7 @@ django-admin-sortable==2.1.8
 django-allauth==0.38.0
 django-appconf==1.0.2
 django-autocomplete-light==3.3.2
+django-autoslug-iplweb==1.9.4
 django-crispy-forms==1.7.2
 django-crontab==0.7.1
 django-daterange-filter==1.3.0
@@ -25,6 +26,7 @@ django-registration==3.0
 django-rest-swagger==2.2.0
 django-select2==6.3.1
 django-storages==1.7.1
+django-tempus-dominus==5.0.1.4
 django-wkhtmltopdf==3.2.0
 djangorestframework==3.8.2
 docutils==0.14
@@ -64,4 +66,3 @@ urllib3==1.23
 uWSGI==2.0.17.1
 xlrd==1.1.0
 xlwt==1.3.0
-django-tempus-dominus==5.0.1.4
