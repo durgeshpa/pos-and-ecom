@@ -259,6 +259,11 @@ class AddToCart(APIView):
                     cart = Cart(last_modified_by=self.request.user, cart_status='active')
                     cart.save()
 
+                if cart.rt_cart_list.count() <= 0:
+                    msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
+                               'response_data': None}
+                    return Response(msg, status=status.HTTP_200_OK)
+
                 if int(qty) == 0:
                     if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
                         CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
@@ -283,6 +288,11 @@ class AddToCart(APIView):
                 else:
                     cart = GramMappedCart(last_modified_by=self.request.user, cart_status='active')
                     cart.save()
+
+                if cart.rt_cart_list.count() <= 0:
+                    msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
+                               'response_data': None}
+                    return Response(msg, status=status.HTTP_200_OK)
 
                 if int(qty) == 0:
                     if GramMappedCartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
