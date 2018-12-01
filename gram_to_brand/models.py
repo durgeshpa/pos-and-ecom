@@ -217,7 +217,7 @@ class PickList(models.Model):
 
 class PickListItems(models.Model):
     pick_list = models.ForeignKey(PickList, related_name='pick_list_items_pick_list',on_delete=models.CASCADE)
-    grn_order = models.ForeignKey(GRNOrder, related_name='pick_list_cart', on_delete=models.CASCADE)
+    grn_order = models.ForeignKey(GRNOrder, related_name='pick_list_cart', on_delete=models.CASCADE, verbose_name='GRN No')
     product = models.ForeignKey(Product, related_name='pick_product', null=True, blank=True,on_delete=models.CASCADE)
     pick_qty = models.PositiveIntegerField(default=0)
     return_qty = models.PositiveIntegerField(default=0)
