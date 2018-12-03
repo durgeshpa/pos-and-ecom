@@ -12,7 +12,7 @@ from retailer_backend.validators import *
 from categories.models import Category
 from .views import (sp_sr_productprice, load_cities, load_sp_sr, export,
             load_brands, ProductsFilterView, ProductsPriceFilterView,
-            ProductsUploadSample, ProductsCSVUploadView)
+            ProductsUploadSample, ProductsCSVUploadView, GFProductPrice, load_gf)
 
 from dal import autocomplete
 from retailer_backend.admin import InputFilter
@@ -110,10 +110,13 @@ class ProductAdmin(admin.ModelAdmin):
             url(r'^productspricefilter/$', self.admin_site.admin_view(ProductsPriceFilterView), name="productspricefilter"),
             url(r'^productsuploadsample/$', self.admin_site.admin_view(ProductsUploadSample), name="productsuploadsample"),
             url(r'^sp-sr-productprice/$', self.admin_site.admin_view(sp_sr_productprice), name="sp_sr_productprice"),
+            url(r'^gf-productprice/$', self.admin_site.admin_view(GFProductPrice), name="gf_productprice"),
             url(r'^ajax/load-cities/$', self.admin_site.admin_view(load_cities), name='ajax_load_cities'),
             url(r'^ajax/load-sp-sr/$', self.admin_site.admin_view(load_sp_sr), name='ajax_load_sp_sr'),
             url(r'^products-export/$', self.admin_site.admin_view(export), name='products-export'),
             url(r'^ajax/load-brands/$', self.admin_site.admin_view(load_brands), name='ajax_load_brands'),
+            url(r'^ajax/load-gf/$', self.admin_site.admin_view(load_gf), name='ajax_load_gf'),
+
         ] + urls
         return urls
 

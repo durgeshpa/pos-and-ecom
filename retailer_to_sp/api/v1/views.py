@@ -122,7 +122,7 @@ class GramGRNProductsList(APIView):
     def post(self, request, format=None):
         grn = GRNOrderProductMapping.objects.values('product_id')
         products_price = ProductPrice.objects.filter(product__in=grn).order_by('product','-created_at').distinct('product')
-
+        msg = {'is_success': False,'message': ['Sorry no any mapping with any shop!'],'response_data': None}
         if 'brands' in request.data and request.data['brands'] and not request.data['categories']:
             products = Product.objects.filter(pk__in=grn, product_brand__in=request.data['brands']).values_list('pk')
             products_price = ProductPrice.objects.filter(product__in=products).order_by('product','-created_at').distinct('product')
@@ -146,9 +146,59 @@ class GramGRNProductsList(APIView):
             products_price = products_price.order_by('-price_to_retailer').distinct()
 
         if request.user.is_authenticated:
+            # get shop
+            try:
+                if not 'shop_id' in request.data:
+                    msg['message'] = ["Shop ID is required"]
+                    return Response(msg, status=200)
+                else:
+                    try:
+                        shop_id = int(request.data['shop_id'])
+                    except ValueError:
+                        msg['message'] = ["shop_id should be an integer value"]
+                        return Response(msg, status=200)
+                shop = Shop.objects.get(id=request.data['shop_id'])
+            except ObjectDoesNotExist:
+                msg['message'] = ["Shop not Found"]
+                return Response(msg, status=200)
+
+            # get parent mapping
+            try:
+                parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id)
+            except ObjectDoesNotExist:
+                msg['message'] = ["Shop Mapping Not Found"]
+                return Response(msg, status=200)
+
+            # if shop mapped with sp
+            if parent_mapping.parent.shop_type.shop_type == 'sp':
+                if Cart.objects.filter(last_modified_by=self.request.user, cart_status='active').exists():
+                    cart = Cart.objects.filter(last_modified_by=self.request.user,
+                                               cart_status='active').last()
+                    cart_products = CartProductMapping.objects.filter(cart__in=carts)
+
+                else:
+                    msg = {'is_success': False, 'message': ['Sorry no product yet added to cart'],
+                           'response_data': None}
+                    return Response(msg, status=200)
+
+            # if shop mapped with gf
+            elif parent_mapping.parent.shop_type.shop_type == 'gf':
+                if GramMappedCart.objects.filter(last_modified_by=self.request.user,
+                                                 cart_status='active').exists():
+                    cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,
+                                                         cart_status='active').last()
+                    cart_products = GramMappedCartProductMapping.objects.filter(cart__in=carts)
+
+                else:
+                    msg = {'is_success': False, 'message': ['Sorry no product yet added to cart'],
+                           'response_data': None}
+                    return Response(msg, status=200)
+
+            else:
+                msg = {'is_success': False, 'message': ['Sorry shop is not associated with any Gramfactory or any SP'],'response_data': None}
+                return Response(msg, status=200)
+
             p_list = []
-            carts = Cart.objects.filter(cart_status='active', last_modified_by=request.user)
-            cart_products = CartProductMapping.objects.filter(cart__in=carts)
 
             for p in products_price:
                 product_images = []
@@ -162,13 +212,12 @@ class GramGRNProductsList(APIView):
                 ptr = p.price_to_retailer
                 status = p.product.status
                 product_opt = p.product.product_opt_product.all()
-                pack_size = None
+                pack_size = p.product.product_inner_case_size if p.product.product_inner_case_size else None
                 weight_value = None
                 weight_unit = None
                 for p_o in product_opt:
-                    pack_size = p_o.package_size.pack_size_name
-                    weight_value = p_o.weight.weight_value
-                    weight_unit = p_o.weight.weight_unit
+                    weight_value = p_o.weight.weight_value if p_o.weight.weight_value else None
+                    weight_unit = p_o.weight.weight_unit if p_o.weight.weight_unit else None
                 product_img = p.product.product_pro_image.all()
                 for p_i in product_img:
                     product_images.append({"image_name":p_i.image_name,"image_alt":p_i.image_alt_text,"image_url":p_i.image.url})
@@ -188,13 +237,12 @@ class GramGRNProductsList(APIView):
                 ptr = None
                 status = p.product.status
                 product_opt = p.product.product_opt_product.all()
-                pack_size = None
+                pack_size = p.product.product_inner_case_size if p.product.product_inner_case_size else None
                 weight_value = None
                 weight_unit = None
                 for p_o in product_opt:
-                    pack_size = p_o.package_size.pack_size_name
-                    weight_value = p_o.weight.weight_value
-                    weight_unit = p_o.weight.weight_unit
+                    weight_value = p_o.weight.weight_value if p_o.weight.weight_value else None
+                    weight_unit = p_o.weight.weight_unit if p_o.weight.weight_unit else None
                 product_img = p.product.product_pro_image.all()
                 for p_i in product_img:
                     product_images.append({"image_name":p_i.image_name,"image_alt":p_i.image_alt_text,"image_url":p_i.image.url})

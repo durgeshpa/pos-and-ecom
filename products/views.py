@@ -6,7 +6,7 @@ from django.template import RequestContext, loader
 from django.shortcuts import render, redirect
 from .models import ProductImage, Product, ProductPrice
 from shops.models import Shop, ShopType
-from .forms import ProductPriceForm, ProductsFilterForm, ProductsPriceFilterForm, ProductsCSVUploadForm
+from .forms import GFProductPriceForm,ProductPriceForm, ProductsFilterForm, ProductsPriceFilterForm, ProductsCSVUploadForm
 from addresses.models import City, State, Address
 from django.contrib import messages
 import csv, codecs, datetime
@@ -31,6 +31,18 @@ def load_sp_sr(request):
     if sp_sr and city_id and state_id:
         shops_id = Address.objects.filter(city=city_id).values_list('shop_name', flat=True)
         shops = Shop.objects.filter(pk__in=shops_id, shop_type=sp_sr).order_by('shop_name')
+        return render(request, 'admin/products/shop_dropdown_list_options.html', {'shops': shops})
+    else:
+        shops = Shop.objects.none()
+        return render(request, 'admin/products/shop_dropdown_list_options.html', {'shops': shops})
+
+def load_gf(request):
+    state_id = request.GET.get('state_id')
+    city_id = request.GET.get('city_id')
+    if city_id and state_id:
+        shops_id = Address.objects.filter(city=city_id).values_list('shop_name', flat=True)
+        shoptype = ShopType.objects.filter(shop_type="gf")
+        shops = Shop.objects.filter(pk__in=shops_id, shop_type__in=shoptype).order_by('shop_name')
         return render(request, 'admin/products/shop_dropdown_list_options.html', {'shops': shops})
     else:
         shops = Shop.objects.none()
@@ -101,6 +113,46 @@ def sp_sr_productprice(request):
                                             }
                 )
 
+def GFProductPrice(request):
+    if request.method == 'POST':
+        form = GFProductPriceForm(request.POST, request.FILES)
+        if form.errors:
+            return render(request, 'admin/products/gfproductpriceupload.html', {'form':form})
+        if form.is_valid():
+            file = form.cleaned_data['file']
+            city = form.cleaned_data['city'].id
+            start_date = form.cleaned_data['start_date_time']
+            end_date = form.cleaned_data['end_date_time']
+            shops = form.cleaned_data['gf_list']
+            reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+            first_row = next(reader)
+            try:
+                for row in reader:
+                    for shop in shops:
+                        product_price = ProductPrice.objects.create(
+                        product_id=row[0],
+                        city_id = city,
+                        mrp = row[2],
+                        shop_id = shop.id,
+                        price_to_retailer=row[5],
+                        price_to_service_partner=row[3],
+                        price_to_super_retailer=row[4],
+                        start_date=start_date,
+                        end_date=end_date)
+
+                messages.success(request, 'Price uploaded successfully')
+
+            except:
+                messages.error("Something went wrong!")
+            return redirect('admin:gf_productprice')
+
+
+    else:
+        form = GFProductPriceForm(initial = {'gf_list': Shop.objects.none()})
+    return render(request, 'admin/products/gfproductpriceupload.html', {
+                                            'form':form,
+                                            }
+                )
 
 def ProductsFilterView(request):
     if request.method == 'POST':
@@ -151,6 +203,12 @@ def ProductsPriceFilterView(request):
                     products = ProductPrice.objects.filter(shop=shop).order_by('product','-created_at').distinct('product')
                     for product in products:
                         writer.writerow([product.product.id,product.product.product_name,product.mrp,product.price_to_retailer,product.start_date,product.end_date,product.shop.shop_name])
+            if sp_sr == "gf":
+                writer.writerow(['product_id','product_name', 'mrp', 'ptsp','ptsr','ptr', 'price_start_date', 'price_end_date', 'sr_name'])
+                for shop in shops:
+                    products = ProductPrice.objects.filter(shop=shop).order_by('product','-created_at').distinct('product')
+                    for product in products:
+                        writer.writerow([product.product.id,product.product.product_name,product.mrp,product.price_to_service_partner,product.price_to_super_retailer,product.price_to_retailer,product.start_date,product.end_date,product.shop.shop_name])
             return response
 
 
