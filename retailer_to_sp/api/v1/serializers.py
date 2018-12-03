@@ -123,7 +123,7 @@ class GramGRNProductsSearchSerializer(serializers.Serializer):
     categories = serializers.CharField(write_only=True)
     brands = serializers.CharField(write_only=True)
     sort_by_price = serializers.CharField(write_only=True)
-
+    shop_id = serializers.CharField(write_only=True)
 
 class CartDataSerializer(serializers.ModelSerializer):
     last_modified_by = UserSerializer()
@@ -335,4 +335,3 @@ class GramMappedOrderSerializer(serializers.ModelSerializer):
         fields = ('id','ordered_cart','order_no','billing_address','shipping_address','total_mrp','total_discount_amount',
                   'total_tax_amount','total_final_amount','order_status','ordered_by','received_by','last_modified_by',
                   'created_at','modified_at','rt_order_order_product')
-
