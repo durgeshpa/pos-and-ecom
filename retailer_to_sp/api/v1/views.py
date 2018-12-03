@@ -746,7 +746,7 @@ class OrderList(generics.ListAPIView):
             msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
         return Response(msg,status=status.HTTP_200_OK)
 
-class OrderDetail(generics.ListAPIView):
+class OrderDetail(generics.RetrieveAPIView):
     serializer_class = OrderSerializer
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
@@ -776,7 +776,7 @@ class OrderDetail(generics.ListAPIView):
             return GramMappedOrder.objects.filter(last_modified_by=self.request.user)
 
 
-    def list(self, request, pk):
+    def retrieve(self, request, pk):
         queryset = self.get_queryset()
         shop_id = self.request.GET.get('shop_id')
         msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
@@ -795,9 +795,9 @@ class OrderDetail(generics.ListAPIView):
             return Response(msg, status=status.HTTP_200_OK)
 
         if parent_mapping.parent.shop_type.shop_type == 'sp':
-            serializer = OrderSerializer(queryset, many=True)
+            serializer = OrderSerializer(queryset)
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
-            serializer = GramMappedOrderSerializer(queryset, many=True)
+            serializer = GramMappedOrderSerializer(queryset)
 
         if serializer.data:
             msg = {'is_success': True,
