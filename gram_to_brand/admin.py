@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import Order,Cart,CartProductMapping,GRNOrder,GRNOrderProductMapping,OrderItem,BrandNote,PickList,PickListItems
+from .models import (Order,Cart,CartProductMapping,GRNOrder,GRNOrderProductMapping,OrderItem,BrandNote,PickList,PickListItems,
+                     OrderedProductReserved)
 from products.models import Product
 from django import forms
 from django.db.models import Sum
@@ -576,6 +577,10 @@ class PickListAdmin(admin.ModelAdmin):
 
 admin.site.register(PickList,PickListAdmin)
 
+class OrderedProductReservedAdmin(admin.ModelAdmin):
+    list_display = ('order_product_reserved','product','cart','reserved_qty','order_reserve_end_time','created_at')
+
+admin.site.register(OrderedProductReserved,OrderedProductReservedAdmin)
 
 from django.utils.functional import curry
 from django.forms import formset_factory
