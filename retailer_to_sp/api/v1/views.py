@@ -603,8 +603,8 @@ class CreateOrder(APIView):
 
         # if shop mapped with gf
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
-            if GramMappedCart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).exists():
-                cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,cart_status__in=['active', 'pending']).last()
+            if GramMappedCart.objects.filter(last_modified_by=self.request.user, id=cart_id).exists():
+                cart = GramMappedCart.objects.get(last_modified_by=self.request.user,id=cart_id)
                 cart.cart_status = 'ordered'
                 cart.save()
 
