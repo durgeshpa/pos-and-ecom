@@ -192,9 +192,10 @@ class GramGRNProductsList(APIView):
             for p in products_price:
                 product_images = []
                 user_selected_qty = None
-                for c_p in cart_products:
-                    if c_p.cart_product_id == p.product_id:
-                        user_selected_qty = c_p.qty
+                if cart_products.count() > 0:
+                    for c_p in cart_products:
+                        if c_p.cart_product_id == p.product_id:
+                            user_selected_qty = c_p.qty
                 id = p.product_id
                 name = p.product.product_name
                 mrp = p.mrp
