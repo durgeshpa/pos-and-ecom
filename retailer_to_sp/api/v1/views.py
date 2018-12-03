@@ -718,7 +718,27 @@ class OrderList(generics.ListAPIView):
 
     def list(self, request):
         queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
+        shop_id = self.request.GET.get('shop_id')
+        msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
+        # get shop
+        try:
+            shop = Shop.objects.get(id=shop_id)
+        except ObjectDoesNotExist:
+            msg['message'] = ["Shop not Found"]
+            return Response(msg, status=status.HTTP_200_OK)
+
+        # get parent mapping
+        try:
+            parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id)
+        except ObjectDoesNotExist:
+            msg['message'] = ["Shop Mapping Not Found"]
+            return Response(msg, status=status.HTTP_200_OK)
+
+        if parent_mapping.parent.shop_type.shop_type == 'sp':
+            serializer = OrderSerializer(queryset, many=True)
+        elif parent_mapping.parent.shop_type.shop_type == 'gf':
+            serializer = GramMappedOrderSerializer(queryset, many=True)
+
         if serializer.data:
             msg = {'is_success': True,
                     'message': None,
@@ -759,7 +779,27 @@ class OrderDetail(generics.ListAPIView):
 
     def list(self, request, pk):
         queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
+        shop_id = self.request.GET.get('shop_id')
+        msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
+        # get shop
+        try:
+            shop = Shop.objects.get(id=shop_id)
+        except ObjectDoesNotExist:
+            msg['message'] = ["Shop not Found"]
+            return Response(msg, status=status.HTTP_200_OK)
+
+        # get parent mapping
+        try:
+            parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id)
+        except ObjectDoesNotExist:
+            msg['message'] = ["Shop Mapping Not Found"]
+            return Response(msg, status=status.HTTP_200_OK)
+
+        if parent_mapping.parent.shop_type.shop_type == 'sp':
+            serializer = OrderSerializer(queryset, many=True)
+        elif parent_mapping.parent.shop_type.shop_type == 'gf':
+            serializer = GramMappedOrderSerializer(queryset, many=True)
+
         if serializer.data:
             msg = {'is_success': True,
                     'message': None,

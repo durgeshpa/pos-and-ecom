@@ -4,6 +4,7 @@ from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMap
 from retailer_to_sp.models import CartProductMapping,Cart,Order,OrderedProduct,Note, CustomerCare, Payment
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
                                       OrderedProduct as GramMappedOrderedProduct)
+from addresses.models import Address,City,State,Country
 
 from gram_to_brand.models import GRNOrderProductMapping
 
@@ -63,6 +64,34 @@ class WeightSerializer(serializers.ModelSerializer):
     class Meta:
         model = Weight
         fields = '__all__'
+
+
+class CountrySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Country
+        fields = '__all__'
+
+class StateSerializer(serializers.ModelSerializer):
+    country = CountrySerializer()
+    class Meta:
+        model = State
+        fields = '__all__'
+
+class CitySerializer(serializers.ModelSerializer):
+    country = CountrySerializer()
+    state = StateSerializer()
+    class Meta:
+        model = City
+        fields = '__all__'
+
+class AddressSerializer(serializers.ModelSerializer):
+    state = StateSerializer()
+    city = CitySerializer()
+
+    class Meta:
+        model = Address
+        fields = '__all__'
+
 
 class ProductOptionSerializer(serializers.ModelSerializer):
     size = SizeSerializer()
@@ -187,6 +216,8 @@ class OrderSerializer(serializers.ModelSerializer):
     ordered_by = UserSerializer()
     last_modified_by = UserSerializer()
     rt_order_order_product = OrderedProductSerializer(many=True)
+    billing_address = AddressSerializer()
+    shipping_address = AddressSerializer()
 
     class Meta:
         model=Order
@@ -200,7 +231,6 @@ class OrderNumberSerializer(serializers.ModelSerializer):
     class Meta:
         model=Order
         fields=('id','order_no',)
-
 
 
 class CustomerCareSerializer(serializers.ModelSerializer):
@@ -297,6 +327,8 @@ class GramMappedOrderSerializer(serializers.ModelSerializer):
     ordered_by = UserSerializer()
     last_modified_by = UserSerializer()
     rt_order_order_product = GramMappedOrderedProductSerializer(many=True)
+    billing_address = AddressSerializer()
+    shipping_address = AddressSerializer()
 
     class Meta:
         model = GramMappedOrder
