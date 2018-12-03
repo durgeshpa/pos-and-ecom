@@ -89,7 +89,7 @@ class Order(models.Model):
         return self.order_no or str(self.id)
 
 class OrderedProduct(models.Model):
-    order = models.ForeignKey(Order,related_name='rtg_order_order_product',on_delete=models.CASCADE,null=True,blank=True)
+    order = models.ForeignKey(Order,related_name='rt_order_order_product',on_delete=models.CASCADE,null=True,blank=True)
     invoice_no = models.CharField(max_length=255,null=True,blank=True)
     vehicle_no = models.CharField(max_length=255,null=True,blank=True)
     shipped_by = models.ForeignKey(get_user_model(), related_name='rtg_shipped_product_ordered_by_user', null=True, blank=True,on_delete=models.CASCADE)
