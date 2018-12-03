@@ -774,9 +774,9 @@ class OrderDetail(generics.RetrieveAPIView):
             return Response(msg, status=status.HTTP_200_OK)
 
         if parent_mapping.parent.shop_type.shop_type == 'sp':
-            return Order.objects.filter(last_modified_by=self.request.user)
+            return Order.objects.get(id=pk)
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
-            return GramMappedOrder.objects.filter(last_modified_by=self.request.user)
+            return GramMappedOrder.objects.get(id=pk)
 
 
     def retrieve(self, request, pk):
