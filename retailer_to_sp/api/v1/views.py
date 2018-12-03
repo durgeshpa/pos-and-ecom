@@ -169,19 +169,21 @@ class GramGRNProductsList(APIView):
                 msg['message'] = ["Shop Mapping Not Found"]
                 return Response(msg, status=200)
             # if shop mapped with sp
+            cart_check = False
             if parent_mapping.parent.shop_type.shop_type == 'sp':
                 if Cart.objects.filter(last_modified_by=self.request.user, cart_status='active').exists():
                     cart = Cart.objects.filter(last_modified_by=self.request.user,
                                                cart_status='active').last()
-                    cart_products = CartProductMapping.objects.filter(cart__in=carts)
-
+                    cart_products = CartProductMapping.objects.filter(cart=cart)
+                    cart_check = True
             # if shop mapped with gf
             elif parent_mapping.parent.shop_type.shop_type == 'gf':
                 if GramMappedCart.objects.filter(last_modified_by=self.request.user,
                                                  cart_status='active').exists():
                     cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,
                                                          cart_status='active').last()
-                    cart_products = GramMappedCartProductMapping.objects.filter(cart__in=carts)
+                    cart_products = GramMappedCartProductMapping.objects.filter(cart=cart)
+                    cart_check = True
 
             else:
                 msg = {'is_success': False, 'message': ['Sorry shop is not associated with any Gramfactory or any SP'],'response_data': None}
@@ -192,9 +194,10 @@ class GramGRNProductsList(APIView):
             for p in products_price:
                 product_images = []
                 user_selected_qty = None
-                for c_p in cart_products:
-                    if c_p.cart_product_id == p.product_id:
-                        user_selected_qty = c_p.qty
+                if cart_check == True:
+                    for c_p in cart_products:
+                        if c_p.cart_product_id == p.product_id:
+                            user_selected_qty = c_p.qty
                 id = p.product_id
                 name = p.product.product_name
                 mrp = p.mrp
