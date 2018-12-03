@@ -95,8 +95,6 @@ class ProductImageAdmin(admin.TabularInline):
 class ProductTaxMappingAdmin(admin.TabularInline):
     model = ProductTaxMapping
 
-class ProductPriceAdmin(admin.TabularInline):
-    model = ProductPrice
 
 class ProductAdmin(admin.ModelAdmin):
 
@@ -126,7 +124,7 @@ class ProductAdmin(admin.ModelAdmin):
     search_fields = ('prodcut_name','id',)
     list_filter = [BrandSearch, CategorySearch,ProductSearch]
     prepopulated_fields = {'product_slug': ('product_name',)}
-    inlines = [ProductCategoryAdmin,ProductOptionAdmin,ProductImageAdmin,ProductTaxMappingAdmin,ProductPriceAdmin]
+    inlines = [ProductCategoryAdmin,ProductOptionAdmin,ProductImageAdmin,ProductTaxMappingAdmin]
 
     def get_product_brand(self, obj):
         return "%s" % (obj.product_brand.brand_name if obj.product_brand else '-')
