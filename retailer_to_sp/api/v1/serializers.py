@@ -13,6 +13,7 @@ from accounts.api.v1.serializers import UserSerializer
 from django.urls import reverse
 from django.db.models import F,Sum
 from gram_to_brand.models import GRNOrderProductMapping
+from addresses.api.v1.serializers import AddressSerializer
 
 class ProductImageSerializer(serializers.ModelSerializer):
    class Meta:
@@ -64,34 +65,6 @@ class WeightSerializer(serializers.ModelSerializer):
     class Meta:
         model = Weight
         fields = '__all__'
-
-
-class CountrySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Country
-        fields = '__all__'
-
-class StateSerializer(serializers.ModelSerializer):
-    country = CountrySerializer()
-    class Meta:
-        model = State
-        fields = '__all__'
-
-class CitySerializer(serializers.ModelSerializer):
-    country = CountrySerializer()
-    state = StateSerializer()
-    class Meta:
-        model = City
-        fields = '__all__'
-
-class AddressSerializer(serializers.ModelSerializer):
-    state = StateSerializer()
-    city = CitySerializer()
-
-    class Meta:
-        model = Address
-        fields = '__all__'
-
 
 class ProductOptionSerializer(serializers.ModelSerializer):
     size = SizeSerializer()
