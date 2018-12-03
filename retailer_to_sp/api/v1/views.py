@@ -563,8 +563,8 @@ class CreateOrder(APIView):
         # if shop mapped with sp
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             #self.sp_mapping_order_reserve()
-            if Cart.objects.filter(last_modified_by=self.request.user, cart_status='active').exists():
-                cart = Cart.objects.get(last_modified_by=self.request.user, cart_status='active')
+            if Cart.objects.filter(last_modified_by=self.request.user, id=cart_id).exists():
+                cart = Cart.objects.get(last_modified_by=self.request.user, id=cart_id)
                 cart.cart_status = 'ordered'
                 cart.save()
 
