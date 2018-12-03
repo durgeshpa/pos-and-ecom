@@ -174,7 +174,7 @@ class GramGRNProductsList(APIView):
                 if Cart.objects.filter(last_modified_by=self.request.user, cart_status='active').exists():
                     cart = Cart.objects.filter(last_modified_by=self.request.user,
                                                cart_status='active').last()
-                    cart_products = CartProductMapping.objects.filter(cart__in=cart)
+                    cart_products = CartProductMapping.objects.filter(cart=cart)
                     cart_check = True
             # if shop mapped with gf
             elif parent_mapping.parent.shop_type.shop_type == 'gf':
@@ -182,7 +182,7 @@ class GramGRNProductsList(APIView):
                                                  cart_status='active').exists():
                     cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,
                                                          cart_status='active').last()
-                    cart_products = GramMappedCartProductMapping.objects.filter(cart__in=cart)
+                    cart_products = GramMappedCartProductMapping.objects.filter(cart=cart)
                     cart_check = True
 
             else:
