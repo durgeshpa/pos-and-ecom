@@ -2,7 +2,7 @@
 from .views import (SupplierAutocomplete,ShippingAddressAutocomplete,BillingAddressAutocomplete,BrandAutocomplete,StateAutocomplete,
 
 
-                    OrderAutocomplete,ProductAutocomplete,VendorProductAutocomplete,VendorProductPrice, DownloadPurchaseOrder, GRNProductPriceMappingData,GRNProductAutocomplete,GRNProductMappingData,GRNProduct1MappingData,GRNOrderAutocomplete)
+                    OrderAutocomplete,ProductAutocomplete,VendorProductAutocomplete,VendorProductPrice, DownloadPurchaseOrder, GRNProductPriceMappingData,GRNProductAutocomplete,GRNProductMappingData,GRNProduct1MappingData,GRNProduct2MappingData,GRNOrderAutocomplete,GRNedProductData)
 
 
 from django.conf.urls import url,include
@@ -24,5 +24,7 @@ urlpatterns = [
     url(r'^po-product-quantity/$', GRNProductMappingData.as_view(), name='po-product-quantity', ),
     url(r'^po-product/$', GRNProduct1MappingData.as_view(), name='po-product', ),
     url(r'^order-autocomplete/$', GRNOrderAutocomplete.as_view(), name='order-autocomplete', ),
+    url(r'^po-grned/$', GRNedProductData.as_view(), name='po-grned', ),
+    url(r'^po-grned1/$', GRNProduct2MappingData.as_view(), name='po-grned1', ),
 
 ]

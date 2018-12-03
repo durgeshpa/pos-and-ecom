@@ -6,7 +6,7 @@ from dal import autocomplete
 from addresses.models import Address,State
 from brand.models import Brand
 
-from gram_to_brand.models import Order,CartProductMapping, OrderItem, Cart
+from gram_to_brand.models import Order,CartProductMapping, OrderItem, Cart, GRNOrder, GRNOrderProductMapping
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -17,6 +17,7 @@ from .serializers import CartProductMappingSerializer
 from gram_to_brand.models import Order,CartProductMapping
 from brand.models import Vendor
 from products.models import ProductVendorMapping
+from django.db.models import F,Sum,Count
 
 # Create your views here.
 
@@ -112,11 +113,23 @@ class DownloadPurchaseOrder(APIView):
         a = Cart.objects.get(pk=pk)
         shop =a
         products = a.cart_list.all()
-        data = {"object": order_obj,"products":products, "shop":shop }
+        order= shop.order_cart_mapping.get(pk=pk)
+        order_id= order.order_no
+        sum_qty=0
+        sum_amount=0
+        tax_inline=0
+        for m in products:
+            sum_qty=sum_qty + m.qty
+            sum_amount = sum_amount + (m.qty * m.price)
+            for n in m.cart_product.product_pro_tax.all():
+                tax_inline = tax_inline + ((n.tax.tax_percentage/100)* m.price)
+        total_amount = sum_amount + tax_inline
+        print(sum_amount)
+        print (tax_inline)
+        data = {"object": order_obj,"products":products, "shop":shop,"sum_qty":sum_qty, "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" , "tax_inline":tax_inline, "total_amount":total_amount,"order_id":order_id}
         # for m in products:
         #     data = {"object": order_obj,"products":products,"amount_inline": m.qty * m.price }
         #     print (data)
-
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
@@ -189,19 +202,48 @@ class GRNProduct1MappingData(APIView):
     def get(self,*args,**kwargs):
         order_id =self.request.GET.get('order_id')
         #cart_product_id= self.request.GET.get('cart_product_id')
-        data = CartProductMapping.objects.filter( cart__id=order_id)
-        serializer= CartProductMappingSerializer(data, many=True)
-        print (serializer.data)
+        data = CartProductMapping.objects.filter( cart__id=order_id).values_list('cart_product')
+        products = Product.objects.filter(id__in=CartProductMapping.objects.filter( cart__id=order_id).values_list('cart_product')).values('product_name')
 
-        return Response({"message": [""], "response_data": serializer.data , "success": True})
+        # delivered_qty = []
+        # grn_by_order_id = GRNOrder.objects.filter(order_id=order_id)
+        # products_grn_by_order = GRNOrderProductMapping.objects.filter(grn_order__in=grn_by_order_id)
+        # for product in products_grn_by_order:
+        #     if product.product_id == int(product_id):
+        #         delivered_qty.append(product.delivered_qty)
+        # delivered_qty_sum = sum(delivered_qty)
+        product_count = Product.objects.annotate(product_no=Count('product_grn_order_product'))
 
+        return Response({"products": products, "product_qty": data.values_list('qty'),"product_price": data.values_list('price'),"already_grned_pro":product_count, "success": True})
+        #return Response(products)
+        #data1= CartProductMapping.objects.filter( cart__id=order_id).values_list('qty')
+        #print (serializer.data)
 
-'''class GRNedProductData(APIView):
+        #return Response({"message": [""], "response_data": serializer.data , "success": True})
+class GRNProduct2MappingData(APIView):
+    permission_classes =(AllowAny, )
+    def get(self,*args,**kwargs):
+        order_id =self.request.GET.get('order_id')
+        #cart_product_id= self.request.GET.get('cart_product_id')
+        data= CartProductMapping.objects.filter( cart__id=order_id).values_list('qty')
+        #products = Product.objects.filter(id__in=CartProductMapping.objects.filter( cart__id=order_id).values_list('cart_product')).values('product_name')
+        return Response(data)
+
+class GRNedProductData(APIView):
     permission_classes =(AllowAny, )
     def get(self,*args,**kwargs):
         order_id =self.request.GET.get('order_id')
         product_id= self.request.GET.get('product_id')
+        delivered_qty = []
+        grn_by_order_id = GRNOrder.objects.filter(order_id=order_id)
+        products_grn_by_order = GRNOrderProductMapping.objects.filter(grn_order__in=grn_by_order_id)
+        for product in products_grn_by_order:
+            if product.product_id == int(product_id):
+                delivered_qty.append(product.delivered_qty)
+        delivered_qty_sum = sum(delivered_qty)
         #already_grned_product = CartProductMapping.objects.get( cart__id=order_id,cart_product__id=cart_product_id)
-        already_grned_product= GRNOrderProductMapping.obejcts.filter(product__id=product_id).aggregate
-        return Response({"message": [""], "response_data": po_product_quantity.qty, "success": True})
-'''
+
+        #a= GRNOrder.objects.get(order__id=order_id)
+        #b= a.grn_order_grn_order_product.get(product__id=product_id)
+        #already_grned_product = b.already_grned_product + int(b.delivered_qty)
+        return Response({"message": [""], "response_data": delivered_qty_sum, "success": True})

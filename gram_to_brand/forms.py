@@ -48,5 +48,19 @@ from gram_to_brand.models import Order,GRNOrder
 #
 #   class Meta:
 #     fields = '__all__'
-#     model = GRNOrder
+#     model = GRNOrderclass ItemForm(ModelForm):
 
+
+# class GRNOrderProductMappingForm(ModelForm):
+#     def __init__(self, *args, **kwargs):
+#         super(GRNOrderProductMappingForm, self).__init__(*args, **kwargs)
+#         instance = getattr(self, 'instance', None)
+#         if instance and instance.pk:
+#             self.fields['already_grned_product'].widget.attrs['readonly'] = True
+#
+#     def clean_sku(self):
+#         instance = getattr(self, 'instance', None)
+#         if instance and instance.pk:
+#             return instance.already_grned_product
+#         else:
+#             return self.cleaned_data['already_grned_product']

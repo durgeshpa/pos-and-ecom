@@ -1,402 +1,284 @@
 {% load i18n %}
-{% load staticfiles %}
-{% load app_filters %}
+{% load static %}
+{% load app_filters%}
 
-<!doctype html>
 <html>
-<head>
+
+	<head>
 <meta charset="UTF-8">
+<title>purchase order</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Untitled Document</title>
-	<!--[if lte IE 8]>
-<link rel="stylesheet" media="print" href="/print.css" type="text/css" />
-<![endif]-->
+	<link href="{{scheme}}://{{url}}/static/admin/css/bootstrap.css" rel="stylesheet" id="bootstrap-css">
+   <link rel="stylesheet" type="text/css" href="{{scheme}}://{{url}}/static/admin/css/style.css">
+
 	<style>
 
-
-
-	table { border: 2px single black; }
-td { border: thin single black collapse; table-layout:auto;padding:2px}
-
-
-
-	body,td,th {
-	font-family: "Gill Sans", "Gill Sans MT", "Myriad Pro", "DejaVu Sans Condensed", Helvetica, Arial, sans-serif;
-	color: #686767; font-size:10px;
-	;
-}
-	 table tr td{ width:auto; overflow: hidden; word-wrap: break-word; height: auto;}
-
-
-
-	@media print {
-     body{
-         width: 21cm;
-         height: 29.7cm;
-
-         /* change the margins as you want them to be. */
-    }
- }
-    </style>
-
+	</style>
 </head>
 
+
+
 <body>
-	<table border="1" cellpadding="0" cellspacing="0"  align="center" width="100%" heigh="842px">
-<!-- Row A -->
-<tr>
+    <div class="container-fluid">
+    <div class="row">
+        <div class="col-xs-12">
+    		<div class="invoice-title">
+    			<h4 class="invoice">Purchase Order No:- <span class="invoice_no"> <strong>{{shop.po_no}}</strong></span></h4><h4 class="pull-right order_id">Order Id: <span class="order_id_no"><strong>{{ order_id }}</strong></span></h4>
+    		</div>
 
-    <td colspan="3" rowspan="3" align="left" valign="top">Addistro Technologies Pvt Ltd (Delhi)
-1st Floor, 241, Pocket 8, Rohini Sector 24, North W est Delhi, Delhi, 110085
-Delhi - 110085, India
-GSTIN/UIN: 07AAQCA9570J1Z0</td>
-    <td colspan="3"> Credit Note No. e-Way Bill No.
-C.N/10034/18-19</td>
-    <td colspan="3" align="left" valign="bottom" nowrap="nowrap"><h4><strong>Dated</strong> </h4> 17-Oct-2018</td>
+    		<div class="row">
+    			<div class="col-xs-6">
+    				<address>
+    				<strong>{{shop.gf_billing_address.shop_name}}</strong><br>
+    				{{shop.gf_billing_address.nick_name}}, {{shop.gf_billing_address.address_line1}}, {{shop.gf_billing_address.city}}<br>
+						<strong>GSTIN/UIN:</strong> <span>dfsfds</span><br>
+						<strong>State Name:</strong> <span>{{shop.gf_billing_address.state}} </span><strong>Code:</strong> <span>{{shop.gf_billing_address.pincode}}</span><br>
+						<strong>CIN:</strong> <span>09AAQCA9570J1ZW</span>
+    				</address>
 
-
-</tr>
-<!-- Row B -->
-<tr>
-    <td colspan="3"> 2</td>
-	<td colspan="3" align="left" valign="bottom"> Mode/Terms of Payment<br> <strong>1 Days</strong></td>
-
-
-</tr>
-<!-- Row C -->
-
-	<tr>
-   <td colspan="3" align="left" valign="middle"><strong>Buyer's Ref.</strong> <br> ADT/07/10041 dt. 17-Oct-2018</td>
-    <td colspan="3" align="left" valign="top"> Other Reference(s)</td>
-
-
-</tr>
-<!-- Row D -->
-
-<tr>
-
-    <td colspan="3" rowspan="5" align="left" valign="top">
-
-<table border="0" cellpadding="0" cellspacing="0" width="100%" align="left"  >
-
-	<tr>
-
-	<td  align="left"><h4>Despatch To:</h4></td>
-
-			</tr>
-		<tr>
-
-	<td  align="left"><h3>{{shop.gf_shipping_address.shop_name}}</h3></td>
-
-
-			</tr>
-
-			<tr>
-	<td ><h4>{{shop.gf_shipping_address}}, {{shop.gf_shipping_address.nick_name}}, {{shop.gf_shipping_address.city}}, {{shop.gf_shipping_address.state}}, {{shop.gf_shipping_address.pincode}}</h4></td>
-
-
-			</tr>
-			<tr>
-	<td colspan="3"><h4>GSTIN/UIN :</h4></td>
-    <td colspan="3"><h4>{{shop.gf_shipping_address.address_contact_name}}</h4></td>
-
-
-
-			</tr>
-
-			<tr>
-	<td colspan="3"><h4>PAN/IT No :</h4></td>
-    <td colspan="3">2</td>
-
-
-
-			</tr>
-
-			<tr>
-	<td colspan="3"><h4>State Name :</h4></td>
-    <td colspan="3"><h4>{{shop.gf_shipping_address.state}}</h4></td>
-
-
-
-			</tr>
-
-			<tr>
-	<td colspan="3"><h4>Place of Supply :</h4></td>
-    <td colspan="3"><h4>{{shop.gf_shipping_address.city}},{{shop.gf_shipping_address.state}} </h4></td>
-
-
-
-			</tr>
-			<tr>
-	<td colspan="3"><h4>Contact person :<h4></td>
-    <td colspan="3"><h4>{{shop.gf_shipping_address.address_contact_name}}</h4></td>
-
-
-
-			</tr>
-			<tr>
-	<td colspan="3"><h4>Contact :</h4></td>
-    <td colspan="3"><h4>{{shop.gf_shipping_address.address_contact_number}}</h4></td>
-
-
-
-			</tr>
-			<tr>
-	<td colspan="3">Fax :</td>
-    <td colspan="3">2</td>
-
-
-
-			</tr>
-<tr>
-	<td colspan="3">E-Mail :</td>
-    <td colspan="3">2</td>
-
-
-
-			</tr>
-		</table>
-
-	</td>
-	<td colspan="4" height="0"></td>
-
-</tr>
-
-
-
-		<tr>
-
-    <td colspan="3" align="left" valign="top"><h3>Buyer's Order No:- {{shop.po_no}}</h3></td>
-    <td colspan="3" align="left" valign="top"><h3>Dated:- {{shop.created_at}}</h3></td>
-
-
-
-</tr>
-<!-- Row E -->
-<tr>
-    <td colspan="3" align="left" valign="top">Despatch Document No.</td>
-    <td colspan="3">3</td>
-
-
-
-</tr>
-<tr>
-    <td colspan="3" align="left" valign="top">Despatched through</td>
-    <td colspan="3" align="left" valign="top">Destination</td>
-
-
-
-</tr>
-		<tr>
-    <td colspan="6" align="left" valign="top">Terms of Delivery<br>
-Addistro Technologies Pvt Ltd (Delhi) 1st Floor, 241, Pocket 8, Rohini Sector 24, North W est Delhi, Delhi, 110085 Delhi - 110085, India GSTIN/UIN: 07AAQCA9570J1Z0Addistro Technologies Pvt Ltd (Delhi) 1st Floor, 241, Pocket 8, Rohini Sector 24, North W est Delhi, Delhi, 110085 Delhi - 110085, India GSTIN/UIN: 07AAQCA9570J1Z0
-
-</td>
-
-
-
-
-</tr>
-		<tr>
-
-    <td colspan="3" rowspan="5" align="left" valign="top">
-
-<table border="0" cellpadding="0" cellspacing="0" width="100%" align="left"  >
-
-	<tr>
-
-	<td  align="left"><h4>Supplier:</h4></td>
-
-
-
-			</tr>
-		<tr>
-
-	<td  align="left"><h3>{{shop.supplier_name}}</h3></td>
-
-
-			</tr>
-
-			<tr>
-	<td >GF, Property No. 39, Village Naharpur, Near Saini, Chopal, Sector-7, Rohini,Delhi, Delhi - 110085, India</td>
-
-
-			</tr>
-			<tr>
-	<td colspan="3">GSTIN/UIN :</td>
-    <td colspan="3">2</td>
-
-
-
-			</tr>
-
-			<tr>
-	<td colspan="3">PAN/IT No :</td>
-    <td colspan="3">2</td>
-
-
-
-			</tr>
-
-			<tr>
-	<td colspan="3">State Name :</td>
-    <td colspan="3">2</td>
-
-
-
-			</tr>
-
-			<tr>
-	<td colspan="3">Place of Supply :</td>
-    <td colspan="3">2</td>
-
-
-
-			</tr>
-			<tr>
-	<td colspan="3">Contact person :</td>
-    <td colspan="3">2</td>
-
-
-
-			</tr>
-			<tr>
-	<td colspan="3">Contact :</td>
-    <td colspan="3">2</td>
-
-
-
-			</tr>
-			<tr>
-	<td colspan="3">Fax :</td>
-    <td colspan="3">2</td>
-
-
-
-			</tr>
-<tr>
-	<td colspan="3">E-Mail :</td>
-    <td colspan="3">2</td>
-
-
-
-			</tr>
-		</table>
-
-	</td>
-	<td colspan="4" height="0"></td>
-
-</tr>
-		<tr colspan="6"></tr>
-		<tr colspan="6"></tr>
-		<tr colspan="6"></tr>
-		<tr colspan="6"></tr>
-
-
-		<tr>
-			<td colspan="8">
-		<table width="100%"  cellspacing="0" cellpadding="0" border="1" align="left">
-		<tr>
-    <th>SI NO.</th>
-    <th >Description of Goods</th>
-
-    <th >HSN/SAC</th>
-			<th >GST Rate</th>
-    <th >Quantity</th>
-	<th>Rate</th>
-			<th >Per</th>
-    <th  colspan="2">Amount</th>
-
-
-
-</tr>
-{% for m in products %}
-<tr>
-    <td><h3>{{ forloop.counter }}</h3></td>
-    <td><h3>({{ m.cart_product.product_sku }}) {{ m.cart_product.product_short_description }}</h3></td>
-    <td><h3>{{ m.cart_product.product_ean_code }}</h3></td>
-    {% for n in m.cart_product.product_pro_tax.all %}
-    <td><h3>{{ n.tax.tax_percentage }}%</h3></td>
-    {% endfor %}
-    <td><h3>{{ m.qty }}</h3></td>
-	  <td><h3>{{ m.price }}/-</h3></td>
-    <td><h3>PCS</h3></td>
-		   {{ m.qty | qty }}
-    <td  colspan="2"><h3>{{ m.price | price}}/-</h3></td>
-
-</tr>
-{% endfor %}
-			</table>
-			</td>
-		</tr>
-
-
-    <tr>
-    	<td colspan="8">
-    		<table width="100%" height="100%" cellspacing="0" cellpadding="0" border="1" align="left">
-    		<td ><h3>Total Amount: </h3> </td>
-    	    <td ><h3>{{f}}</h3></td>
-
-
-    		</table>
-    	</td>
-    		</tr>
-
-<tr>
-	<td colspan="8">
-		<table width="100%" height="100%" cellspacing="0" cellpadding="0" border="1" align="left">
-		<td>Amount Chargeable (in words) </td>
-	    <td>E. & O.E </td>
-		<tr><td colspan="8">INR Twenty Thousand Five Hundred Forty Six and Five paise Only</td></tr>
-
-
-		</table>
-	</td>
-		</tr>
-		<tr>
-			<td colspan="8">
-			<table width="100%"  cellspacing="0" cellpadding="0" border="1" align="left">
-
-
-    <td colspan="2">Central Tax</td>
-    <td colspan="2">State Tax</td>
-    <td colspan="2" rowspan="2">Total Tax Amount</td>
-
-
-				<tr>
-	<td colspan="10">
-		<table width="100%" cellspacing="0" cellpadding="0" border="1" align="left">
-					<tr>
-						<td colspan="2">Tax Amount (in words) :</td>
-						<td colspan="6"> INR Three Thousand One Hundred Thirty Four and Sixteen paise Only</td></tr>
-		<td colspan="6" >
-		<table>
-		 <tr>
-			<td>Party's Service Tax No. :</td>
-			<td> NA</td>
-			</tr>
-		 <tr>
-			<td>Company's PAN  :</td>
-			<td>AAQCA9570J</td>
-			</tr>
-
-		 </table>
-
-			</td>
-	    <td>E. & O.E </td>
-
-
-		</table>
-	</td>
-		</tr>
-
-				</table>
-			</td>
-
-</tr>
-</table>
-
-
-
-</body>
-</html>
+					<address>
+    				<strong>{{shop.gf_shipping_address.shop_name}}</strong><br>
+    				{{shop.gf_shipping_address.nick_name}}, {{shop.gf_shipping_address.address_line1}}, {{shop.gf_shipping_address.city}}<br>
+						<strong>GSTIN/UIN:</strong> <span>09AAQCA9570J1ZW</span><br>
+						<strong>State Name:</strong> <span>{{shop.gf_shipping_address.state}} </span><strong>Code:</strong> <span>{{shop.gf_shipping_address.pincode}}</span><br>
+						<strong>CIN:</strong> <span>09AAQCA9570J1ZW</span>
+    				</address>
+					<address>
+    				<strong>{{shop.supplier_name.vendor_name}}</strong><br>
+    				{{shop.supplier_name.company_name}}, {{shop.supplier_name.city}}<br>
+						<strong>GSTIN/UIN:</strong> <span>{{shop.supplier_name.GST_number}}</span><br>
+						<strong>State Name:</strong> <span>{{shop.supplier_name.state}} </span><strong>Code:</strong> <span>{{shop.supplier_name.pincode}}</span><br>
+						<strong>CIN:</strong> <span>09AAQCA9570J1ZW</span>
+    				</address>
+    			</div>
+    			<div class="col-xs-6 text-right">
+    				<div class="table">
+    					<table class="table table-bordered">
+
+                                <tr>
+
+        							<td class="text-center"><strong>Voucher No.</strong><br>
+									<span>{{shop.po_no}}</span>
+									</td>
+        							<td class="text-center"><strong>Dated <br>
+{{shop.po_creation_date}}</strong></td>
+
+
+                                </tr>
+    						 <tr>
+
+
+        							<td class="text-center"></td>
+
+        					<td class="text-center"><strong>Mode/Terms of Payment</strong><br>
+								 <span>1 Days</span>
+								 </td>
+
+
+                                </tr>
+
+						</table>
+    			</div>
+					<div class="table">
+    					<table class="table table-bordered">
+
+                                <tr>
+
+        							<td class="text-center"><strong>Supplier's Ref./Order No.</strong><br><span>{{shop.po_no}}</span></td>
+        							<td class="text-center"><strong>Delivery Note Date <br>
+1 Days</strong></td>
+
+
+                                </tr>
+    						 <tr>
+
+        							<td class="text-center"><strong>Despatched through</strong></td>
+        							<td class="text-center"><strong>Destination</strong></td>
+
+
+                                </tr>
+							 <tr>
+
+        							<td class="text-center" colspan="2"><strong>Terms of Delivery</strong><br>
+
+
+								 </td>
+
+
+
+                                </tr>
+
+						</table>
+    			</div>
+    		</div>
+			</div>
+
+    	</div>
+    </div>
+
+    <div class="row">
+    	<div class="col-md-12">
+    		<div class="panel panel-default">
+    			<div class="panel-heading">
+    				<h3 class="panel-title"><strong>Order summary</strong></h3>
+    			</div>
+    			<div class="panel-body">
+    				<div class="table">
+    					<table class="table table-condensed">
+    						<thead>
+                      <tr>
+        							<td><strong>Serial No.</strong></td>
+        							<td class="text-center"><strong>Description of Goods</strong></td>
+        							<td class="text-center"><strong>HSN/SAC</strong></td>
+
+									    <td class="text-center"><strong>GST Rate</strong></td>
+									    <td class="text-center"><strong>Quantity</strong></td>
+        							<td class="text-center"><strong>Rate</strong></td>
+        							<td class="text-center"><strong>Per</strong></td>
+        							<td class="text-right"><strong>Amount</strong></td>
+                      </tr>
+    						</thead>
+    						<tbody>
+    							<!-- foreach ($order->lineItems as $line) or some such thing here -->
+    							<tr>
+                    {% for m in products %}
+    								<td><strong>{{forloop.counter}}</strong></td>
+    								<td class="text-center">({{ m.cart_product.product_sku}}), {{ m.cart_product.product_short_description}}</td>
+    								<td class="text-center">{{ m.cart_product.product_ean_code}}</td>
+										   {% for n in m.cart_product.product_pro_tax.all %}
+		    								<td class="text-center">{{n.tax.tax_percentage}}%</td>
+												{% endfor %}
+									<td class="text-center">{{m.qty}}</td>
+    								<td class="text-center">{{m.price}}</td>
+    								<td class="text-center">PCS</td>
+                        {{m.qty |qty}}
+    								<td class="text-right">{{m.price| price }}</td>
+    							</tr>
+									{% endfor %}
+
+    							<tr>
+									<td></td>
+									<td></td>
+									<td></td>
+									<td></td>
+
+								  <td class="thick-line text-center"><strong>{{sum_qty}} PCS</strong></td>
+    								<td class="thick-line"></td>
+    								<td class="thick-line text-center"><strong></strong></td>
+    								<td class="thick-line text-right"><strong>₹{{sum_amount}}/-</strong></td>
+    							</tr>
+    							<tr>
+    								<td class="no-line"></td>
+    								<td class="no-line"></td>
+									<td class="no-line"></td>
+    								<td class="no-line"></td>
+    								<td class="no-line"></td>
+    								<td class="no-line"></td>
+    								<td class="no-line text-center"><strong>CGST</strong></td>
+    								<td class="no-line text-right"><strong>₹{{tax_inline}}/-</strong></td>
+    							</tr>
+								<tr>
+    								<td class="no-line"></td>
+    								<td class="no-line"></td>
+									<td class="no-line"></td>
+    								<td class="no-line"></td>
+    								<td class="no-line"></td>
+    								<td class="no-line"></td>
+    								<td class="no-line text-center"><strong>SGST</strong></td>
+    								<td class="no-line text-right">₹ 0.0/-</td>
+    							</tr>
+								<tr>
+									<td class="no-line"></td>
+    								<td class="no-line"></td>
+									<td class="no-line"></td>
+    								<td class="no-line"></td>
+    								<td class="no-line"></td>
+    								<td class="no-line"></td>
+    								<td class="no-line text-center"><strong>Cess</strong></td>
+    								<td class="no-line text-right">₹ 0.0/-</td>
+    							</tr>
+    							<tr>
+									<td class="no-line"></td>
+    								<td class="no-line"></td>
+									<td class="no-line"></td>
+    								<td class="no-line"></td>
+    								<td class="no-line"></td>
+    								<td class="no-line"></td>
+    								<td class="no-line text-center"><strong>Total</strong></td>
+    								<td class="no-line text-right"><strong>₹ {{total_amount}}/- </strong></td>
+    							</tr>
+
+								<tr>
+								<td colspan="8"></td>
+								</tr>
+								<tr>
+        							<td colspan="7" class="no-line"><strong>Amount Chargeable (in words)</strong></td>
+        							<td class="no-line">E . &amp; O . E</td>
+                                </tr>
+								<tr>
+        							<td colspan="8"><strong>{{total_amount | amount}}</strong></td>
+
+                                </tr>
+    						</tbody>
+    					</table>
+
+    				</div>
+
+    				<div class="table">
+
+
+						<div class="table">
+    					<table class="table table-bordered">
+    						<thead>
+
+								<tr>
+
+        							<td class="text-left" colspan="8">
+
+
+						<strong>Supplier's Service Tax No:</strong> <span>NA</span><br>
+										<strong>Company's PAN:</strong> <span>09AAQCA9570J1ZW</span><br>
+
+									</td>
+
+
+
+                                </tr>
+
+							</thead>
+
+							</table>
+    				</div>
+						<div class="table">
+    					<table class="table table-bordered">
+    						<thead>
+
+								<tr>
+
+        							<td class="text-left" colspan="4">
+								<strong>Declaration</strong> <br>
+We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.
+									</td>
+        							<td class="text-right" colspan="4" height="100">
+
+										<strong>For Addistro Technologies Pvt Ltd</strong> <br>
+ Authorised Signatory
+									</td>
+
+
+                                </tr>
+
+							</thead>
+
+							</table>
+    				</div>
+    			</div>
+    		</div>
+    	</div>
+    </div>
+
+</div>
+	</div>
+
+
+</body></html>

@@ -133,7 +133,7 @@ class GRNOrderProductMapping(models.Model):
     product = models.ForeignKey(Product, related_name='product_grn_order_product',null=True,blank=True, on_delete=models.CASCADE)
     po_product_quantity= models.PositiveIntegerField(default=0, verbose_name='PO Product Quantity',blank=True )
     po_product_price= models.FloatField(default=0, verbose_name='PO Product Price',blank=True )
-    already_grned_product= models.PositiveIntegerField(default=0, verbose_name='Already GRNed Product Quantity')
+    already_grned_product= models.PositiveIntegerField(default=0, verbose_name='Already GRNed Product Quantity',blank=True)
     product_invoice_price = models.FloatField(default=0)
     product_invoice_qty = models.PositiveIntegerField(default=0)
     manufacture_date = models.DateField(null=True,blank=True)
@@ -231,4 +231,3 @@ class PickListItems(models.Model):
     damage_qty = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-

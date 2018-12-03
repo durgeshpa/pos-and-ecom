@@ -2,6 +2,7 @@
 
 from django import template
 from datetime import date, timedelta
+import inflect
 
 register = template.Library()
 
@@ -16,3 +17,9 @@ def price(value, *args, **kwargs):
     result = value*qty_list[0]
     qty_list.clear()
     return result
+
+@register.filter(name='amount')
+def amount(value, *args, **kwargs):
+    p = inflect.engine()
+    q= p.number_to_words(value)
+    return q

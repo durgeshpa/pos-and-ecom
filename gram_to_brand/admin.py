@@ -334,10 +334,10 @@ class GRNOrderForm(forms.ModelForm):
     #     super(GRNOrderForm, self).__init__(*args, **kwargs)
 
 class GRNOrderProductForm(forms.ModelForm):
-    product = forms.ModelChoiceField(
-        queryset=Product.objects.all(),
-        widget=autocomplete.ModelSelect2(url='product-autocomplete',forward=('order',))
-    )
+    # product = forms.ModelChoiceField(
+    #     queryset=Product.objects.all(),
+    #     widget=autocomplete.ModelSelect2(url='product-autocomplete',forward=('order',))
+    # )
 
     class Meta:
         model = GRNOrderProductMapping
@@ -347,7 +347,8 @@ class GRNOrderProductForm(forms.ModelForm):
     class Media:
         pass
         #css = {'all': ('pretty.css',)}
-        js = ('/static/admin/js/grn_generation_form.js',)
+        js = ('/static/admin/js/grn_form.js',)
+
 
 
     # data = {
@@ -432,7 +433,8 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     model = GRNOrderProductMapping
     form = GRNOrderProductForm    #fields = [get_product]
     exclude = ('last_modified_by','available_qty',)
-    #readonly_fields= ('po_product_price', 'po_product_quantity')
+
+    #readonly_fields= ('po_product_price', 'po_product_quantity', 'already_grned_product')
 
     # def get_formset(self, request, obj=None, **kwargs):
     #     initial = []

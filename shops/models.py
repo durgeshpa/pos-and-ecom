@@ -81,4 +81,3 @@ class ParentRetailerMapping(models.Model):
 
     class Meta:
         unique_together = ('parent', 'retailer',)
-
