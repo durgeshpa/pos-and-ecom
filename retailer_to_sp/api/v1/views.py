@@ -316,8 +316,11 @@ class AddToCart(APIView):
                     cart_mapping.qty = qty
                     cart_mapping.save()
 
-                serializer = CartSerializer(Cart.objects.get(id=cart.id))
-                msg = {'is_success': True, 'message': ['Data added to cart'], 'response_data': serializer.data}
+                if cart.rt_cart_list.count() <= 0:
+                    msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],'response_data': None}
+                else:
+                    serializer = CartSerializer(Cart.objects.get(id=cart.id))
+                    msg = {'is_success': True, 'message': ['Data added to cart'], 'response_data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
 
             #  if shop mapped with gf
@@ -342,8 +345,11 @@ class AddToCart(APIView):
                     cart_mapping.qty = qty
                     cart_mapping.save()
 
-                serializer = GramMappedCartSerializer(GramMappedCart.objects.get(id=cart.id))
-                msg = {'is_success': True, 'message': ['Data added to cart'], 'response_data': serializer.data}
+                if cart.rt_cart_list.count() <= 0:
+                    msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],'response_data': None}
+                else:
+                    serializer = GramMappedCartSerializer(GramMappedCart.objects.get(id=cart.id))
+                    msg = {'is_success': True, 'message': ['Data added to cart'], 'response_data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
 
             else:
@@ -384,12 +390,16 @@ class CartDetail(APIView):
             return Response(msg, status=status.HTTP_200_OK)
 
         # if shop mapped with sp
-        if parent_mapping.parent.shop_type == 'sp':
+        if parent_mapping.parent.shop_type.shop_type == 'sp':
             if Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).exists():
                 cart = Cart.objects.filter(last_modified_by=self.request.user,
                                            cart_status__in=['active', 'pending']).last()
-                serializer = CartSerializer(Cart.objects.get(id=cart.id))
-                msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
+                if cart.rt_cart_list.count() <= 0:
+                    msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
+                           'response_data': None}
+                else:
+                    serializer = CartSerializer(Cart.objects.get(id=cart.id))
+                    msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
             else:
                 msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
@@ -397,13 +407,16 @@ class CartDetail(APIView):
                 return Response(msg, status=status.HTTP_200_OK)
 
         # if shop mapped with gf
-        elif parent_mapping.parent.shop_type == 'gf':
+        elif parent_mapping.parent.shop_type.shop_type == 'gf':
             if GramMappedCart.objects.filter(last_modified_by=self.request.user,
                                              cart_status__in=['active', 'pending']).exists():
                 cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,
                                                      cart_status__in=['active', 'pending']).last()
-                serializer = GramMappedCartSerializer(GramMappedCart.objects.get(id=cart.id))
-                msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
+                if cart.rt_cart_list.count()<=0:
+                    msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],'response_data': None}
+                else:
+                    serializer = GramMappedCartSerializer(GramMappedCart.objects.get(id=cart.id))
+                    msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
             else:
                 msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
@@ -520,11 +533,11 @@ class ReservedOrder(generics.ListAPIView):
                                 product_detail.available_qty) - int(available_qty)
                             product_detail.save()
 
-                            order_product_reserved = GramOrderedProductReserved(product=product_detail.product,
+                            order_product_reserved_dt = GramOrderedProductReserved(product=product_detail.product,
                                                                                 reserved_qty=available_qty)
-                            order_product_reserved.order_product_reserved = product_detail
-                            order_product_reserved.cart = cart
-                            order_product_reserved.save()
+                            order_product_reserved_dt.order_product_reserved = product_detail
+                            order_product_reserved_dt.cart = cart
+                            order_product_reserved_dt.save()
 
                             pick_list_item = PickListItems(pick_list=pick_list, grn_order=product_detail.grn_order,
                                                            pick_qty=available_qty)
@@ -598,8 +611,8 @@ class CreateOrder(APIView):
         # if shop mapped with sp
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             #self.sp_mapping_order_reserve()
-            if Cart.objects.filter(last_modified_by=self.request.user, cart_status='active').exists():
-                cart = Cart.objects.get(last_modified_by=self.request.user, cart_status='active')
+            if Cart.objects.filter(last_modified_by=self.request.user, id=cart_id).exists():
+                cart = Cart.objects.get(last_modified_by=self.request.user, id=cart_id)
                 cart.cart_status = 'ordered'
                 cart.save()
 
@@ -638,8 +651,8 @@ class CreateOrder(APIView):
 
         # if shop mapped with gf
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
-            if GramMappedCart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).exists():
-                cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,cart_status__in=['active', 'pending']).last()
+            if GramMappedCart.objects.filter(last_modified_by=self.request.user, id=cart_id).exists():
+                cart = GramMappedCart.objects.get(last_modified_by=self.request.user,id=cart_id)
                 cart.cart_status = 'ordered'
                 cart.save()
 
