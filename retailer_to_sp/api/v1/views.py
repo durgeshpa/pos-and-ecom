@@ -168,18 +168,12 @@ class GramGRNProductsList(APIView):
             except ObjectDoesNotExist:
                 msg['message'] = ["Shop Mapping Not Found"]
                 return Response(msg, status=200)
-
             # if shop mapped with sp
             if parent_mapping.parent.shop_type.shop_type == 'sp':
                 if Cart.objects.filter(last_modified_by=self.request.user, cart_status='active').exists():
                     cart = Cart.objects.filter(last_modified_by=self.request.user,
                                                cart_status='active').last()
                     cart_products = CartProductMapping.objects.filter(cart__in=carts)
-
-                else:
-                    msg = {'is_success': False, 'message': ['Sorry no product yet added to cart'],
-                           'response_data': None}
-                    return Response(msg, status=200)
 
             # if shop mapped with gf
             elif parent_mapping.parent.shop_type.shop_type == 'gf':
@@ -188,11 +182,6 @@ class GramGRNProductsList(APIView):
                     cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,
                                                          cart_status='active').last()
                     cart_products = GramMappedCartProductMapping.objects.filter(cart__in=carts)
-
-                else:
-                    msg = {'is_success': False, 'message': ['Sorry no product yet added to cart'],
-                           'response_data': None}
-                    return Response(msg, status=200)
 
             else:
                 msg = {'is_success': False, 'message': ['Sorry shop is not associated with any Gramfactory or any SP'],'response_data': None}
