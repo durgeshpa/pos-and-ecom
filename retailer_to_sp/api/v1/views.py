@@ -485,11 +485,11 @@ class ReservedOrder(generics.ListAPIView):
                                 product_detail.available_qty) - int(available_qty)
                             product_detail.save()
 
-                            order_product_reserved = GramOrderedProductReserved(product=product_detail.product,
+                            order_product_reserved_dt = GramOrderedProductReserved(product=product_detail.product,
                                                                                 reserved_qty=available_qty)
-                            order_product_reserved.order_product_reserved = product_detail
-                            order_product_reserved.cart = cart
-                            order_product_reserved.save()
+                            order_product_reserved_dt.order_product_reserved = product_detail
+                            order_product_reserved_dt.cart = cart
+                            order_product_reserved_dt.save()
 
                             pick_list_item = PickListItems(pick_list=pick_list, grn_order=product_detail.grn_order,
                                                            pick_qty=available_qty)
