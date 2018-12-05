@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils.safestring import mark_safe
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 SHOP_TYPE_CHOICES = (
     ("sp","Service Partner"),
@@ -78,7 +80,7 @@ class ParentRetailerMapping(models.Model):
     retailer = models.ForeignKey(Shop,related_name='retiler_mapping',on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
 
-    class Meta:
-        unique_together = ('parent', 'retailer',)
-
+    def __str__(self):
+        return "%s --mapped to-- %s(%s)(%s)"%(self.retailer.shop_name,self.parent.shop_name,self.parent.shop_type,"Active" if self.status else "Inactive")

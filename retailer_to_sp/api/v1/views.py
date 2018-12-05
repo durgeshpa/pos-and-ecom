@@ -164,7 +164,7 @@ class GramGRNProductsList(APIView):
 
             # get parent mapping
             try:
-                parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id)
+                parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
             except ObjectDoesNotExist:
                 msg['message'] = ["Shop Mapping Not Found"]
                 return Response(msg, status=200)

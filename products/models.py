@@ -100,7 +100,7 @@ class Product(models.Model):
     product_ean_code = models.CharField(max_length=255, blank=False,validators=[EanCodeValidator])
     product_brand = models.ForeignKey(Brand,related_name='prodcut_brand_product',blank=False,on_delete=models.CASCADE)
     #hsn_code = models.PositiveIntegerField(null=True,blank=True,validators=[EanCodeValidator])
-    product_inner_case_size = models.CharField(max_length=255,blank=True)
+    product_inner_case_size = models.CharField(max_length=255,blank=False, default=1)
     product_case_size = models.CharField(max_length=255,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
