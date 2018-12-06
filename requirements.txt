@@ -33,6 +33,7 @@ docutils==0.14
 et-xmlfile==1.0.1
 gunicorn==19.9.0
 idna==2.7
+inflect
 itypes==1.1.0
 jdcal==1.4
 Jinja2==2.10

@@ -16,6 +16,9 @@ from addresses.models import State,Address
 from brand.models import Vendor
 from shops.models import Shop
 from daterange_filter.filter import DateRangeFilter
+from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
+
 
 class BrandSearch(InputFilter):
     parameter_name = 'brand'
@@ -213,7 +216,9 @@ class CartProductMappingForm(forms.ModelForm):
 
     class Meta:
         model = CartProductMapping
-        fields = ('cart_product','qty','scheme','price',)
+        fields = ('cart_product','case_size', 'number_of_cases','scheme','price','total_price',)
+        search_fields=('cart_product',)
+        exclude = ('qty',)
 
 
 class CartProductMappingFormset(forms.models.BaseInlineFormSet):
@@ -236,6 +241,7 @@ class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
     #readonly_fields = ('get_edit_link',)
     autocomplete_fields = ('cart_product',)
+    search_fields =('cart_product',)
     formset = CartProductMappingFormset
     form = CartProductMappingForm
 
@@ -280,7 +286,7 @@ class CartAdmin(admin.ModelAdmin):
 
             order_item = OrderItem()
             order_item.ordered_product = instance.cart_product
-            order_item.ordered_qty = instance.qty
+            order_item.ordered_qty = instance.number_of_cases * instance.case_size
             order_item.ordered_price = instance.price
 
             order_item.order = order
@@ -334,22 +340,20 @@ class GRNOrderForm(forms.ModelForm):
     #     super(GRNOrderForm, self).__init__(*args, **kwargs)
 
 class GRNOrderProductForm(forms.ModelForm):
-    # product = forms.ModelChoiceField(
-    #     queryset=Product.objects.all(),
-    #     widget=autocomplete.ModelSelect2(url='product-autocomplete',forward=('order',))
-    # )
-
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(url='product-autocomplete',forward=('order',))
+    )
     class Meta:
         model = GRNOrderProductMapping
         fields = ('product','po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date','expiry_date','product_invoice_qty','available_qty','delivered_qty','returned_qty')
         readonly_fields = ('product')
+        autocomplete_fields = ('product',)
 
     class Media:
         pass
         #css = {'all': ('pretty.css',)}
         js = ('/static/admin/js/grn_form.js',)
-
-
 
     # data = {
     #     'subject': 'hello',
@@ -431,7 +435,9 @@ def get_product(self,*args,**kwargs):
 
 class GRNOrderProductMappingAdmin(admin.TabularInline):
     model = GRNOrderProductMapping
-    form = GRNOrderProductForm    #fields = [get_product]
+    form = GRNOrderProductForm
+
+    extra= 10   #fields = [get_product]
     exclude = ('last_modified_by','available_qty',)
 
     #readonly_fields= ('po_product_price', 'po_product_quantity', 'already_grned_product')
@@ -562,7 +568,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
 
 
 class OrderAdmin(admin.ModelAdmin):
-    search_fields = ('id','order_no')
+    search_fields = ['order_no',]
     list_display = ('order_no','order_status','ordered_by','created_at','add_grn_link')
 
     def add_grn_link(self, obj):

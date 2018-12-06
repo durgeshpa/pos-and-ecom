@@ -13,13 +13,15 @@
                 opt = 0;
                 for (index = 0; index < response.product_qty.length; index++) {
                    opt++;
-                   console.log(response.product_qty);
-                  $('#id_grn_order_grn_order_product-'+index+'-product option:eq('+opt+')').prop('selected', true);
-                  $('#id_grn_order_grn_order_product-'+index+'-po_product_quantity').val(response.product_qty[index]);
-                  $('#id_grn_order_grn_order_product-'+index+'-po_product_price').val(response.product_price[index]);
+
+                  $('#id_grn_order_grn_order_product-'+index+'-product option:eq('+opt+')').prop('selected', true).prop('readonly', true);
+                  $('#id_grn_order_grn_order_product-'+index+'-po_product_quantity').val(response.product_qty[index]).prop('readonly', true);
+                  $('#id_grn_order_grn_order_product-'+index+'-po_product_price').val(response.product_price[index]).prop('readonly', true);
+                  //$('#id_grn_order_grn_order_product-'+index+'-already_grned_product').val(response.product_count[index]);
+
                 }
-                  // var row_id = present_id.closest(".form-row").attr("id");
-                   //var row_no = row_id.match(/(\d+)/g);
+                //$('#id_grn_order_grn_order_product-0-already_grned_product').val(response.agq).prop('readonly', true);
+
 
               },
               error: function (request, status, error) {
@@ -28,6 +30,8 @@
           });
       }
   });
+
+
 
   // $(document).on('change', '.select2-hidden-accessible', function(index){
   //     if ($(this).data("autocomplete-light-url") == '/gram/brand/order-autocomplete/'){

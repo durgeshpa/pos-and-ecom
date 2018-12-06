@@ -897,7 +897,7 @@ class PaymentNeftApi(APIView):
             msg['message']= ["Please enter the amount to be paid"]
             return Response(msg, status=status.HTTP_400_BAD_REQUEST)
         if not neft_reference_number:
-            msg['message']= ["Please select the NEFT reference numner"]
+            msg['message']= ["Please enter the NEFT reference numner"]
             return Response(msg, status=status.HTTP_400_BAD_REQUEST)
 
         #print(request.data)

@@ -9,7 +9,7 @@
         return c;
      }
 })
-    $(document).on('change', '.select2-hidden-accessible', function(index){
+   $(document).on('change', '.select2-hidden-accessible', function(index){
         if ($(this).data("autocomplete-light-url") == '/gram/brand/vendor-product-autocomplete/'){
             var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '')+'/';
             var supplier_id = $('#id_supplier_name').val();
@@ -22,9 +22,11 @@
                      var row_id = present_id.closest(".form-row").attr("id");
                      var row_no = row_id.match(/(\d+)/g);
                      if(response['success']) {
-                        $('#id_cart_list-'+row_no+'-price').val(response['response_data']);
+                        $('#id_cart_list-'+row_no+'-price').val(response.price);
+                        $('#id_cart_list-'+row_no+'-case_size').val(response.case_size);
                      }else{
                         $('#id_cart_list-'+row_no+'-price').val(0);
+                        $('#id_cart_list-'+row_no+'-case_size').val(0);
                      }
                 },
                 error: function (request, status, error) {
@@ -33,5 +35,26 @@
             });
         }
     });
+
+    $("#id_cart_list-0-case_size,#id_cart_list-0-number_of_cases").keyup(function () {
+
+    $('#id_cart_list-0-total_price').val($('#id_cart_list-0-case_size').val() * $('#id_cart_list-0-number_of_cases').val());
+
+    });
+
+   // function calculate() {
+  	// 	var case_size = document.getElementById('id_cart_list-0-case_size').value;
+  	// 	var number_of_cases = document.getElementById('id_cart_list-0-number_of_cases').value;
+   //    var price = document.getElementById('id_cart_list-0-price').value;
+  	// 	var total_price = document.getElementById('id_cart_list-0-total_price');
+  	// 	var multiply = myBox1 * myBox2 * myBox3;
+  	// 	result.value = multiply;
+
+
+  	//}
+
+
+
+
 
 })(django.jQuery);

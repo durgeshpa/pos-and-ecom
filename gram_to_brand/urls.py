@@ -2,7 +2,7 @@
 from .views import (SupplierAutocomplete,ShippingAddressAutocomplete,BillingAddressAutocomplete,BrandAutocomplete,StateAutocomplete,
 
 
-                    OrderAutocomplete,ProductAutocomplete,VendorProductAutocomplete,VendorProductPrice, DownloadPurchaseOrder, GRNProductPriceMappingData,GRNProductAutocomplete,GRNProductMappingData,GRNProduct1MappingData,GRNProduct2MappingData,GRNOrderAutocomplete,GRNedProductData)
+                    OrderAutocomplete,ProductAutocomplete,VendorProductAutocomplete,VendorProductPrice, DownloadPurchaseOrder, GRNProductPriceMappingData,GRNProductAutocomplete,GRNProductMappingData,GRNProduct1MappingData,GRNOrderAutocomplete,GRNedProductData)
 
 
 from django.conf.urls import url,include
@@ -19,12 +19,13 @@ urlpatterns = [
     url('^download-purchase-order/(?P<pk>\d+)/purchase_order/$', DownloadPurchaseOrder.as_view(), name='download_purchase_order'),
     url(r'^vendor-product-autocomplete/$', VendorProductAutocomplete.as_view(), name='vendor-product-autocomplete', ),
     url(r'^vendor-product-price/$', VendorProductPrice.as_view(), name='vendor-product-price', ),
+    #url(r'^vendor-product1-price/$', VendorProduct1Price.as_view(), name='vendor-product1-price', ),
     url(r'^product-autocomplete/$', GRNProductAutocomplete.as_view(), name='product-autocomplete', ),
     url(r'^po-product-price/$', GRNProductPriceMappingData.as_view(), name='po-product-price', ),
     url(r'^po-product-quantity/$', GRNProductMappingData.as_view(), name='po-product-quantity', ),
     url(r'^po-product/$', GRNProduct1MappingData.as_view(), name='po-product', ),
     url(r'^order-autocomplete/$', GRNOrderAutocomplete.as_view(), name='order-autocomplete', ),
     url(r'^po-grned/$', GRNedProductData.as_view(), name='po-grned', ),
-    url(r'^po-grned1/$', GRNProduct2MappingData.as_view(), name='po-grned1', ),
+    #url(r'^po-grned1/$', GRNProduct2MappingData.as_view(), name='po-grned1', ),
 
 ]
