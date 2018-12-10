@@ -6,7 +6,7 @@ from django.utils.translation import gettext_lazy as _
 class ParentRetailerMappingForm(forms.ModelForm):
     class Meta:
         Model = ParentRetailerMapping
-        fields = ('parent','retailer',)
+        fields = ('parent','retailer','status')
 
     def __init__(self, *args, **kwargs):
         super(ParentRetailerMappingForm, self).__init__(*args, **kwargs)
