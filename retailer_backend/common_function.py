@@ -8,13 +8,15 @@ from rest_framework.response import Response
 def checkShop(shop_id):
     try:
         shop = Shop.objects.get(id=shop_id,status=True)
+        print(shop)
         return True
     except ObjectDoesNotExist:
         return False
 
 def checkShopMapping(shop_id):
     try:
-        parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id)
+        parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id,status=True)
+        print(parent_mapping)
         return True
     except ObjectDoesNotExist:
         return False
@@ -25,7 +27,6 @@ def checkNotShopAndMapping(shop_id):
     else:
         return True
 
-
 def getShop(shop_id):
     try:
         shop = Shop.objects.get(id=shop_id,status=True)
@@ -35,11 +36,8 @@ def getShop(shop_id):
 
 def getShopMapping(shop_id):
     try:
-        parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id)
+        parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id,status=True)
         return parent_mapping
     except ObjectDoesNotExist:
         return None
-
-def getShopMappingType(shop_id):
-    pass
 
