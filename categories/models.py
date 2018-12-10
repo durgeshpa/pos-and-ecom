@@ -3,6 +3,7 @@ from django.db import models
 from adminsortable.fields import SortableForeignKey
 from adminsortable.models import SortableMixin
 from mptt.models import TreeForeignKey
+from retailer_backend.validators import CapitalAlphabets
 
 # Create your models here.
 class Category(models.Model):
@@ -12,8 +13,8 @@ class Category(models.Model):
     category_name = models.CharField(max_length=255,unique=True)
     category_slug = models.SlugField(unique=True)
     category_desc = models.TextField(null=True,blank=True)
-    category_parent = models.ForeignKey('self', related_name='cat_parent', null=True, blank=True,on_delete=models.CASCADE)
-    category_sku_part = models.CharField(max_length=2,unique=True,help_text="Please enter two character for SKU")
+    category_parent = models.ForeignKey('self', related_name='cat_parent', blank=True, null=True, on_delete=models.CASCADE)
+    category_sku_part = models.CharField(max_length=3,unique=True,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
     category_image = models.FileField(upload_to='category_img_file',null=True,blank=True)
     is_created = models.DateTimeField(auto_now_add=True)
     is_modified = models.DateTimeField(auto_now=True)
