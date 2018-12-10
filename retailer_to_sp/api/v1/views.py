@@ -28,6 +28,7 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 from products.models import ProductCategory
 from addresses.models import Address
+from retailer_backend.common_function import getShopMapping,checkNotShopAndMapping
 
 class ProductsList(generics.ListCreateAPIView):
     permission_classes = (AllowAny,)
@@ -273,18 +274,12 @@ class AddToCart(APIView):
                 msg['message'] = ["Product not Found"]
                 return Response(msg, status=status.HTTP_200_OK)
 
-            # get parent mapping
-            try:
-                parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id)
-            except ObjectDoesNotExist:
-                msg['message'] = ["Shop Mapping Not Found"]
+            if checkNotShopAndMapping(shop_id):
                 return Response(msg, status=status.HTTP_200_OK)
 
-            # if qty not found or less then zero then
-            if not qty or int(qty) < 0:
-                msg['message'] = ["Please enter the quantity greater than zero"]
-                return Response(msg, status=status.HTTP_400_BAD_REQUEST)
-            print("anc1")
+            parent_mapping = getShopMapping(shop_id)
+            if parent_mapping is None:
+                return Response(msg, status=status.HTTP_200_OK)
 
             #  if shop mapped with SP
 
@@ -365,20 +360,13 @@ class CartDetail(APIView):
 
     def get(self,request,*args,**kwargs):
         shop_id = self.request.GET.get('shop_id')
-        msg = {'is_success': False, 'message': ['Sorry card detail not found'], 'response_data': None}
+        msg = {'is_success': False, 'message': ['Sorry shop or shop mapping not found'], 'response_data': None}
 
-        # get shop
-        try:
-            shop = Shop.objects.get(id=shop_id)
-        except ObjectDoesNotExist:
-            msg['message'] = ["Shop Not Found"]
+        if checkNotShopAndMapping(shop_id):
             return Response(msg, status=status.HTTP_200_OK)
 
-        # get parent mapping
-        try:
-            parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id)
-        except ObjectDoesNotExist:
-            msg['message'] = ["Shop Mapping Not Found"]
+        parent_mapping = getShopMapping(shop_id)
+        if parent_mapping is None:
             return Response(msg, status=status.HTTP_200_OK)
 
         # if shop mapped with sp
@@ -405,9 +393,9 @@ class CartDetail(APIView):
                 cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,
                                                      cart_status__in=['active', 'pending']).last()
                 if cart.rt_cart_list.count()<=0:
-                    msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],'response_data': None}
+                    msg =  {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],'response_data': None}
                 else:
-                    serializer = GramMappedCartSerializer(GramMappedCart.objects.get(id=cart.id))
+                    serializer = GramMappedCartSerializer(GramMappedCart.objects.get(id=cart.id),context={'parent_mapping': parent_mapping})
                     msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
             else:
