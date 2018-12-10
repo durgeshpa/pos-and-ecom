@@ -120,9 +120,7 @@ class GramGRNProductsList(APIView):
     permission_classes = (AllowAny,)
     serializer_class = GramGRNProductsSearchSerializer
 
-    def products_without_price(self, product_name,message):
-        grn = GRNOrderProductMapping.objects.values('product_id')
-        products = Product.objects.filter(pk__in=grn).order_by('product_name')
+    def products_without_price(self, products, product_name,message):
         p_list = []
         for p in products:
             product_images = []
@@ -162,23 +160,28 @@ class GramGRNProductsList(APIView):
 
     def post(self, request, format=None):
         grn = GRNOrderProductMapping.objects.values('product_id')
+        products = Product.objects.filter(pk__in=grn).order_by('product_name')
         products_price = ProductPrice.objects.filter(product__in=grn).order_by('product','-created_at').distinct('product')
         msg = {'is_store_active': False, 'is_success': False,'message': ['Sorry no any mapping with any shop!'],'response_data': None}
         if 'brands' in request.data and request.data['brands'] and not request.data['categories']:
-            products = Product.objects.filter(pk__in=grn, product_brand__in=request.data['brands']).values_list('pk')
-            products_price = ProductPrice.objects.filter(product__in=products).order_by('product','-created_at').distinct('product')
+            product_ids = Product.objects.filter(pk__in=grn, product_brand__in=request.data['brands']).values_list('pk')
+            products_price = ProductPrice.objects.filter(product__in=product_ids).order_by('product','-created_at').distinct('product')
+            products = Product.objects.filter(pk__in=product_ids).order_by('product_name')
 
         if 'categories' in request.data and request.data['categories'] and not request.data['brands']:
-            products = ProductCategory.objects.filter(product__in=grn, category__in=request.data['categories']).values_list('product_id')
-            products_price = ProductPrice.objects.filter(product__in=products).order_by('product','-created_at').distinct('product')
+            product_ids = ProductCategory.objects.filter(product__in=grn, category__in=request.data['categories']).values_list('product_id')
+            products_price = ProductPrice.objects.filter(product__in=product_ids).order_by('product','-created_at').distinct('product')
+            products = Product.objects.filter(pk__in=product_ids).order_by('product_name')
 
         if 'categories' and 'brands' in request.data:
             if request.data['brands'] and request.data['categories']:
                 products_by_brand = Product.objects.filter(pk__in=grn, product_brand__in=request.data['brands']).values_list('pk')
-                products_by_category = products = ProductCategory.objects.filter(product__in=grn, category__in=request.data['categories']).values_list('product_id')
+                products_by_category = ProductCategory.objects.filter(product__in=grn, category__in=request.data['categories']).values_list('product_id')
                 from itertools import chain
-                products = list(chain(products_by_brand,products_by_category))
-                products_price = ProductPrice.objects.filter(product__in=products).order_by('product','-created_at').distinct('product')
+                product_ids = list(chain(products_by_brand,products_by_category))
+                products_price = ProductPrice.objects.filter(product__in=product_ids).order_by('product','-created_at').distinct('product')
+                products = Product.objects.filter(pk__in=[p[0] for p in product_ids]).order_by('product_name')
+
 
         if 'sort_by_price' in request.data and request.data['sort_by_price'] == 'low':
             products_price = products_price.order_by('price_to_retailer').distinct()
@@ -198,13 +201,13 @@ class GramGRNProductsList(APIView):
                     except ValueError:
                         product_name=request.data['product_name']
                         message = "shop_id should be an integer value"
-                        result = self.products_without_price(product_name,message)
+                        result = self.products_without_price(products,product_name,message)
                         return result
                 shop = Shop.objects.get(id=request.data['shop_id'],status=True)
             except ObjectDoesNotExist:
                 product_name=request.data['product_name']
                 message = "Shop not active or does not exists"
-                result = self.products_without_price(product_name,message)
+                result = self.products_without_price(products,product_name,message)
                 return result
 
             # get parent mapping
@@ -213,7 +216,7 @@ class GramGRNProductsList(APIView):
             except ObjectDoesNotExist:
                 product_name=request.data['product_name']
                 message = "Shop Mapping Not Found"
-                result = self.products_without_price(product_name,message)
+                result = self.products_without_price(products,product_name,message)
                 return result
             # if shop mapped with sp
             cart_check = False
@@ -235,7 +238,7 @@ class GramGRNProductsList(APIView):
             else:
                 product_name=request.data['product_name']
                 message = "Sorry shop is not associated with any Gramfactory or any SP"
-                result = self.products_without_price(product_name,message)
+                result = self.products_without_price(products,product_name,message)
                 return result
 
             p_list = []
@@ -282,7 +285,7 @@ class GramGRNProductsList(APIView):
         else:
             product_name=request.data['product_name']
             message = "User not logged in!"
-            result = self.products_without_price(product_name,message)
+            result = self.products_without_price(products,product_name,message)
             return result
 
 class AddToCart(APIView):
