@@ -70,7 +70,7 @@ class CartProductMapping(models.Model):
 
     def clean(self):
          self.total_price= self.case_size * self.number_of_cases * self.price
-         self.qty = self.case_size * self.number_of_cases
+         self.qty = self.case_size * self.number
 
     def __str__(self):
         return self.cart_product.product_name

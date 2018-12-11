@@ -221,6 +221,7 @@ class CartProductMappingForm(forms.ModelForm):
         exclude = ('qty',)
 
 
+
 class CartProductMappingFormset(forms.models.BaseInlineFormSet):
 
     def clean(self):
@@ -343,7 +344,7 @@ class GRNOrderProductForm(forms.ModelForm):
     product = forms.ModelChoiceField(
         queryset=Product.objects.all(),
         widget=autocomplete.ModelSelect2(url='product-autocomplete',forward=('order',))
-    )
+     )
     class Meta:
         model = GRNOrderProductMapping
         fields = ('product','po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date','expiry_date','product_invoice_qty','available_qty','delivered_qty','returned_qty')
@@ -354,6 +355,14 @@ class GRNOrderProductForm(forms.ModelForm):
         pass
         #css = {'all': ('pretty.css',)}
         js = ('/static/admin/js/grn_form.js',)
+
+    # def __init__(self, exp = None, *args, **kwargs):
+    #     super(GRNOrderProductForm, self).__init__(*args, **kwargs)
+    #     #order_id= self.request.GET.get('order_id')
+    #     cart_products = CartProductMapping.objects.filter(cart__id='17').values_list('cart_product').order_by('product_order_item')
+    #     products = Product.objects.filter(pk__in=cart_products)
+    #     self.fields["product"].queryset = products
+
 
     # data = {
     #     'subject': 'hello',
