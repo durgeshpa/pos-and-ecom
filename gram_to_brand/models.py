@@ -9,6 +9,8 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 from retailer_to_gram.models import Cart as GramMapperRetialerCart,Order as GramMapperRetialerOrder
 from django.conf import settings
+from django.dispatch import receiver
+from django.db.models.signals import pre_save
 
 ORDER_STATUS = (
     ("ordered_to_brand","Ordered To Brand"),
@@ -47,11 +49,14 @@ class Cart(models.Model):
     class Meta:
         verbose_name = "PO Generation"
 
-    def save(self, *args,**kwargs):
-        self.cart_status = 'ordered_to_brand'
-        super(Cart, self).save()
-        self.po_no = "BRAND/ORDER/%s"%(self.pk)
-        super(Cart, self).save()
+@receiver(pre_save, sender=Cart)
+def create_po_no(sender, instance=None, created=False, **kwargs):
+    last_cart = Cart.objects.last()
+    if last_cart:
+        last_cart_po_no_increment = str(int(last_cart.po_no.rsplit('/', 1)[-1]) + 1).zfill(len(last_cart.po_no.rsplit('/', 1)[-1]))
+    else:
+        last_cart_po_no_increment = '00001'
+    instance.po_no = "ADT/PO/07/%s"%(last_cart_po_no_increment)
 
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='cart_list',on_delete=models.CASCADE)
@@ -115,13 +120,24 @@ class GRNOrder(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-    def save(self, *args,**kwargs):
-        super(GRNOrder, self).save()
-        self.grn_id = "BRAND/GRN/%s"%(self.pk)
-        super(GRNOrder, self).save()
+    def __str__(self):
+        return str(self.grn_id)
+        
+@receiver(pre_save, sender=GRNOrder)
+def create_grn_id(sender, instance=None, created=False, **kwargs):
+    import datetime
+    current_year = datetime.date.today().strftime('%y')
+    next_year = str(int(current_year) + 1)
+    last_grn_order = GRNOrder.objects.last()
+    if last_grn_order:
+        last_grn_order_id_increment = str(int(last_grn_order.grn_id.rsplit('/', 1)[-1])+1)
+    else:
+        last_grn_order_id_increment = '1'
+    instance.grn_id = "%s-%s/%s"%(current_year,next_year,last_grn_order_id_increment)
 
     class Meta:
         verbose_name = "Add Edit GRN Order"
+
 
 
 class GRNOrderProductMapping(models.Model):
@@ -183,6 +199,7 @@ class GRNOrderProductHistory(models.Model):
 
 
 class BrandNote(models.Model):
+    brand_note_id = models.CharField(max_length=255, null=True, blank=True)
     order = models.ForeignKey(Order, related_name='order_brand_note',null=True,blank=True,on_delete=models.CASCADE)
     grn_order = models.ForeignKey(GRNOrder, related_name='grn_order_brand_note', null=True, blank=True,on_delete=models.CASCADE)
     note_type = models.CharField(max_length=255,choices=NOTE_TYPE_CHOICES)
@@ -191,6 +208,31 @@ class BrandNote(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+
+    def __str__(self):
+        return self.brand_note_id
+
+@receiver(pre_save, sender=BrandNote)
+def create_brand_note_id(sender, instance=None, created=False, **kwargs):
+    import datetime
+    current_year = datetime.date.today().strftime('%y')
+    next_year = str(int(current_year) + 1)
+    today_date = datetime.date.today().strftime('%d%m%y')
+    if instance.note_type == 'debit_note':
+        last_brand_note = BrandNote.objects.filter(note_type="debit_note").last()
+        if last_brand_note:
+            last_brand_note_id_increment = str(int(last_brand_note.brand_note_id.rsplit('/', 1)[-1])+1)
+        else:
+            last_brand_note_id_increment = '1'
+        instance.brand_note_id = "%s/%s"%(today_date,last_brand_note_id_increment)
+
+    elif instance.note_type == 'credit_note':
+        last_brand_note = BrandNote.objects.filter(note_type="credit_note").last()
+        if last_brand_note:
+            last_brand_note_id_increment = str(int(last_brand_note.brand_note_id.rsplit('/', 1)[-1]) + 1).zfill(len(last_brand_note.brand_note_id.rsplit('/', 1)[-1]))
+        else:
+            last_brand_note_id_increment = '00001'
+        instance.brand_note_id = "ADT/CN/%s"%(last_brand_note_id_increment)
 
 class OrderedProductReserved(models.Model):
     order_product_reserved = models.ForeignKey(GRNOrderProductMapping, related_name='retiler_order_product_order_product_reserved',null=True, blank=True, on_delete=models.CASCADE)
@@ -224,4 +266,3 @@ class PickListItems(models.Model):
     damage_qty = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-
