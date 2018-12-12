@@ -268,7 +268,7 @@ class GramGRNProductsList(APIView):
                 weight_unit = None
                 pack_size = None
                 try:
-                    pack_size = p.product_inner_case_size if p.product_inner_case_size else None
+                    pack_size = p.product.product_inner_case_size if p.product.product_inner_case_size else None
                 except:
                     pack_size = None
                 try:
