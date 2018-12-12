@@ -131,12 +131,20 @@ class GramGRNProductsList(APIView):
             ptr = None
             status = p.status
             product_opt = p.product_opt_product.all()
-            pack_size = p.product_inner_case_size if p.product_inner_case_size else None
             weight_value = None
             weight_unit = None
-            for p_o in product_opt:
-                weight_value = p_o.weight.weight_value if p_o.weight.weight_value else None
-                weight_unit = p_o.weight.weight_unit if p_o.weight.weight_unit else None
+            pack_size = None
+            try:
+                pack_size = p.product_inner_case_size if p.product_inner_case_size else None
+            except:
+                pack_size = None
+            try:
+                for p_o in product_opt:
+                    weight_value = p_o.weight.weight_value if p_o.weight.weight_value else None
+                    weight_unit = p_o.weight.weight_unit if p_o.weight.weight_unit else None
+            except:
+                weight_value = None
+                weight_unit = None
             product_img = p.product_pro_image.all()
             for p_i in product_img:
                 product_images.append({"image_name":p_i.image_name,"image_alt":p_i.image_alt_text,"image_url":p_i.image.url})
@@ -256,12 +264,20 @@ class GramGRNProductsList(APIView):
                 ptr = p.price_to_retailer
                 status = p.product.status
                 product_opt = p.product.product_opt_product.all()
-                pack_size = p.product.product_inner_case_size if p.product.product_inner_case_size else None
                 weight_value = None
                 weight_unit = None
-                for p_o in product_opt:
-                    weight_value = p_o.weight.weight_value if p_o.weight.weight_value else None
-                    weight_unit = p_o.weight.weight_unit if p_o.weight.weight_unit else None
+                pack_size = None
+                try:
+                    pack_size = p.product_inner_case_size if p.product_inner_case_size else None
+                except:
+                    pack_size = None
+                try:
+                    for p_o in product_opt:
+                        weight_value = p_o.weight.weight_value if p_o.weight.weight_value else None
+                        weight_unit = p_o.weight.weight_unit if p_o.weight.weight_unit else None
+                except:
+                    weight_value = None
+                    weight_unit = None
                 product_img = p.product.product_pro_image.all()
                 for p_i in product_img:
                     product_images.append({"image_name":p_i.image_name,"image_alt":p_i.image_alt_text,"image_url":p_i.image.url})
