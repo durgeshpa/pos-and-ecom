@@ -12,7 +12,7 @@ from brand.models import Brand,Vendor
 from django.utils.safestring import mark_safe
 from django.utils.text import slugify
 from django.dispatch import receiver
-from django.db.models.signals import pre_save
+from django.db.models.signals import pre_save, post_save
 
 SIZE_UNIT_CHOICES = (
         ('mm', 'Millimeter'),
@@ -254,6 +254,17 @@ class ProductVendorMapping(models.Model):
     vendor = models.ForeignKey(Vendor,related_name='vendor_brand_mapping',on_delete=models.CASCADE)
     product = models.ForeignKey(Product,related_name='product_vendor_mapping',on_delete=models.CASCADE)
     product_price = models.FloatField(default=0,verbose_name='Brand To Gram Price')
+
+    def __str__(self):
+        return '%s <-- %s at Rs%s' % (self.product, self.vendor, self.product_price)
+
+@receiver(post_save, sender=Vendor)
+def create_product_vendor_mapping(sender, instance=None, created=False, **kwargs):
+    vendor = instance
+    file = instance.vendor_products_csv
+    reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+    first_row = next(reader)
+    ProductVendorMapping.objects.bulk_create([ProductVendorMapping(vendor=vendor, product_id = row[0], product_price=row[2]) for row in reader if row[2]])
 
 @receiver(pre_save, sender=ProductCategory)
 def create_product_sku(sender, instance=None, created=False, **kwargs):

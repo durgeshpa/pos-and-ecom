@@ -276,6 +276,18 @@ def export(request):
         writer.writerow([product[0],product[1],'','','',''])
     return response
 
+def products_export_for_vendor(request):
+    dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
+    filename = str(dt)+"product_list.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(['id','product_name', 'brand_to_gram_price'])
+    products = Product.objects.values_list('id','product_name')
+    for product in products:
+        writer.writerow([product[0],product[1],''])
+    return response
+
 def ProductsUploadSample(request):
     filename = "products_upload_sample.csv"
     response = HttpResponse(content_type='text/csv')

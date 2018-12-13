@@ -12,12 +12,17 @@ from retailer_backend.validators import *
 from categories.models import Category
 from .views import (sp_sr_productprice, load_cities, load_sp_sr, export,
             load_brands, ProductsFilterView, ProductsPriceFilterView,
-            ProductsUploadSample, ProductsCSVUploadView, GFProductPrice, load_gf)
+            ProductsUploadSample, ProductsCSVUploadView, GFProductPrice, load_gf, products_export_for_vendor)
 
 from dal import autocomplete
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
 from daterange_filter.filter import DateRangeFilter
+
+class ProductVendorMappingAdmin(admin.ModelAdmin):
+    fields = ('vendor','product','product_price')
+    list_display = ('vendor','product','product_price')
+admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)
 
 class SizeAdmin(admin.ModelAdmin):
     prepopulated_fields = {'size_name': ('size_value','size_unit')}
@@ -160,6 +165,8 @@ class ProductAdmin(admin.ModelAdmin):
             url(r'^products-export/$', self.admin_site.admin_view(export), name='products-export'),
             url(r'^ajax/load-brands/$', self.admin_site.admin_view(load_brands), name='ajax_load_brands'),
             url(r'^ajax/load-gf/$', self.admin_site.admin_view(load_gf), name='ajax_load_gf'),
+            url(r'^products-export-for-vendor/$', self.admin_site.admin_view(products_export_for_vendor), name='products_export_for_vendor'),
+
 
         ] + urls
         return urls

@@ -43,8 +43,16 @@ class Cart(models.Model):
     payment_term = models.TextField(null=True,blank=True)
     delivery_term = models.TextField(null=True,blank=True)
     po_amount = models.FloatField(default=0)
+    cart_product_mapping_csv = models.FileField(upload_to='gram/brand/cart_product_mapping_csv', blank=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def products_sample_file(self):
+        if self.cart_product_mapping_csv and hasattr(self.cart_product_mapping_csv, 'url'):
+            return None
+        url="""<h3><a href="%s" target="_blank">Download Products List</a></h3>"""%(reverse('admin:products_export_for_vendor'))
+        return url
 
     class Meta:
         verbose_name = "PO Generation"
@@ -122,7 +130,7 @@ class GRNOrder(models.Model):
 
     def __str__(self):
         return str(self.grn_id)
-        
+
 @receiver(pre_save, sender=GRNOrder)
 def create_grn_id(sender, instance=None, created=False, **kwargs):
     import datetime

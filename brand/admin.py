@@ -5,7 +5,7 @@ from adminsortable.admin import NonSortableParentAdmin, SortableStackedInline
 
 from .models import Brand, BrandData,BrandPosition,Vendor
 from products.models import ProductVendorMapping
-
+from .forms import VendorForm
 class BrandDataInline(SortableStackedInline):
     model = BrandData
 
@@ -27,6 +27,6 @@ class ProductAdmin(admin.TabularInline):
     #fields = ('brand_name',)
 
 class VendorAdmin(admin.ModelAdmin):
-    inlines = [ProductAdmin]
+    form = VendorForm
 
 admin.site.register(Vendor,VendorAdmin)

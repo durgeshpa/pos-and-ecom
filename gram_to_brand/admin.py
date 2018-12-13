@@ -17,6 +17,7 @@ from addresses.models import State,Address
 from brand.models import Vendor
 from shops.models import Shop
 from daterange_filter.filter import DateRangeFilter
+from .forms import POGenerationForm
 
 class BrandSearch(InputFilter):
     parameter_name = 'brand'
@@ -142,68 +143,6 @@ class PORaisedBy(InputFilter):
                     Q(po_raised_by__last_name__icontains=name)
                 )
             return queryset.filter(any_name)
-
-
-# class UserFilter(InputFilter):
-#     parameter_name = 'user'
-#     title = _('User')
-#     def queryset(self, request, queryset):
-#         term = self.value()
-#         if term is None:
-#             return
-#         any_name = Q()
-#         for bit in term.split():
-#             any_name &= (
-#                 Q(user__first_name__icontains=bit) |
-#                 Q(user__last_name__icontains=bit)
-#             )
-#         return queryset.filter(any_name)
-
-
-class POGenerationForm(forms.ModelForm):
-    brand = forms.ModelChoiceField(
-        queryset=Brand.objects.all(),
-        widget=autocomplete.ModelSelect2(url='brand-autocomplete',)
-    )
-    supplier_state = forms.ModelChoiceField(
-        queryset=State.objects.all(),
-        widget=autocomplete.ModelSelect2(url='state-autocomplete',)
-    )
-    supplier_name = forms.ModelChoiceField(
-        queryset=Vendor.objects.all(),
-        widget=autocomplete.ModelSelect2(url='supplier-autocomplete',forward=('supplier_state','brand'))
-    )
-    gf_shipping_address = forms.ModelChoiceField(
-        queryset=Address.objects.filter(shop_name__shop_type__shop_type='gf'),
-        widget=autocomplete.ModelSelect2(url='shipping-address-autocomplete', forward=('supplier_state',))
-    )
-    gf_billing_address = forms.ModelChoiceField(
-        queryset=Address.objects.filter(shop_name__shop_type__shop_type='gf'),
-        widget=autocomplete.ModelSelect2(url='billing-address-autocomplete', forward=('supplier_state',))
-    )
-
-    # country = forms.ModelChoiceField(
-    #     queryset=Country.objects.all(),
-    #     widget=autocomplete.ModelSelect2(url='country-autocomplete'))
-    # city = forms.ModelChoiceField(
-    #     queryset=City.objects.all(),
-    #     widget=autocomplete.ModelSelect2(
-    #
-    #     # attrs={
-    #     #     'data-placeholder': 'Autocomplete ...',
-    #     #     'data-minimum-input-length': 3,
-    #     # },
-    #     url='city-autocomplete',
-    #     forward=('country',)))
-
-    class Media:
-        pass
-        #css = {'all': ('pretty.css',)}
-        js = ('/static/admin/js/po_generation_form.js',)
-
-    class Meta:
-        model = Cart
-        fields = ('brand','supplier_state','supplier_name','gf_shipping_address','gf_billing_address','po_validity_date','payment_term','delivery_term')
 
 class CartProductMappingForm(forms.ModelForm):
 

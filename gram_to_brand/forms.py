@@ -1,52 +1,58 @@
 from django import forms
-from gram_to_brand.models import Order,GRNOrder
+from gram_to_brand.models import Order,GRNOrder, Cart
+from brand.models import Brand
+from dal import autocomplete
+from django_select2.forms import Select2MultipleWidget,ModelSelect2Widget
+from addresses.models import State,Address
+from brand.models import Vendor
+from django.urls import reverse
 
-# from gram_to_brand.models import OrderShipment,CarOrderShipmentMapping
-#
-# class OrderShipmentFrom(forms.ModelForm):
-#     #cart_product_ship = forms.ModelChoiceField(queryset=CartProductMapping.objects.all())
-#     #car_order_shipment_mapping = forms.ModelChoiceField(queryset=CarOrderShipmentMapping.objects.all())
-#     delivered_qty = forms.IntegerField()
-#     changed_price = forms.FloatField(min_value=0)
-#     manufacture_date = forms.DateField()
-#     expiry_date = forms.DateField()
-#
-#     class Meta:
-#         model = OrderShipment
-#         fields = ('delivered_qty','changed_price','manufacture_date','expiry_date',)
-#
-#     def __init__(self):
-#         print("fgfdgfd")
-#
-# from django import forms
-# from .models import Order
-#
-#
-# class OrderMappingForm(forms.ModelForm):
-#
-#     # here we only need to define the field we want to be editable
-#     ordered_shipment = forms.ModelMultipleChoiceField(queryset=CarOrderShipmentMapping.objects.all(), required=False)
+class POGenerationForm(forms.ModelForm):
+    brand = forms.ModelChoiceField(
+        queryset=Brand.objects.all(),
+        widget=autocomplete.ModelSelect2(url='brand-autocomplete',)
+    )
+    supplier_state = forms.ModelChoiceField(
+        queryset=State.objects.all(),
+        widget=autocomplete.ModelSelect2(url='state-autocomplete',)
+    )
+    supplier_name = forms.ModelChoiceField(
+        queryset=Vendor.objects.all(),
+        widget=autocomplete.ModelSelect2(url='supplier-autocomplete',forward=('supplier_state','brand'))
+    )
+    gf_shipping_address = forms.ModelChoiceField(
+        queryset=Address.objects.filter(shop_name__shop_type__shop_type='gf'),
+        widget=autocomplete.ModelSelect2(url='shipping-address-autocomplete', forward=('supplier_state',))
+    )
+    gf_billing_address = forms.ModelChoiceField(
+        queryset=Address.objects.filter(shop_name__shop_type__shop_type='gf'),
+        widget=autocomplete.ModelSelect2(url='billing-address-autocomplete', forward=('supplier_state',))
+    )
 
+    class Media:
+        pass
+        js = ('/static/admin/js/po_generation_form.js',)
 
-# class OrderSearch(forms.ModelForm):
-#     def clean_order_no(self):
-#         order_no = self.cleaned_data.get('order',None)
-#         print(order_no)
-#
-#     class Meta:
-#         model = GRNOrder
-#         fields = ('order','order_item',)
-#
-#     def __init__(self, *args, **kwargs):
-#         super(OrderSearch, self).__init__(*args, **kwargs)
-#         #choices = [self.fields['order'].choices.__iter__().next()]
-#         print(self.fields['order'])
+    class Meta:
+        model = Cart
+        fields = ('brand','supplier_state','supplier_name','gf_shipping_address','gf_billing_address','po_validity_date','payment_term','delivery_term','cart_product_mapping_csv')
 
+    def __init__(self, *args, **kwargs):
+        super(POGenerationForm, self).__init__(*args, **kwargs)
+        self.fields['cart_product_mapping_csv'].help_text = """<h3><a href="%s" target="_blank">Download Vendor products list</a></h3>"""%(reverse('admin:products_export_for_vendor'))
 
-# class OrderSearch(forms.ModelForm):
-#   order = forms.ModelChoiceField(queryset=Order.objects.all(),label=u"order",required=False)
-#
-#   class Meta:
-#     fields = '__all__'
-#     model = GRNOrder
-
+    def clean_vendor_products_csv(self):
+        if not self.cleaned_data['vendor_products_csv'].name[-4:] in ('.csv'):
+            raise forms.ValidationError("Sorry! Only csv file accepted")
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['vendor_products_csv'], 'utf-8'))
+        first_row = next(reader)
+        for id,row in enumerate(reader):
+            try:
+                Product.objects.get(pk=row[0])
+            except:
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product does not exist with this ID")
+            if not row[0]:
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product ID cannot be empty")
+            if row[2] and not re.match("^\d{0,8}(\.\d{1,4})?$", row[2]):
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[2]+":"+row[2]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
+        return self.cleaned_data['vendor_products_csv']
