@@ -1,11 +1,11 @@
 from django.db import models
-
-# Create your models here.
 from shops.models import Shop
 from brand.models import Brand
 from django.contrib.auth import get_user_model
 from addresses.models import Address
 from products.models import Product
+from django.dispatch import receiver
+from django.db.models.signals import pre_save
 
 ORDER_STATUS = (
     ("active","Active"),
@@ -56,10 +56,14 @@ class Cart(models.Model):
     def __str__(self):
         return self.order_id
 
-    def save(self, *args,**kwargs):
-        super(Cart, self).save()
-        self.order_id = "RTG/ORDER/%s"%(self.pk)
-        super(Cart, self).save()
+@receiver(pre_save, sender=Cart)
+def create_order_id(sender, instance=None, created=False, **kwargs):
+    last_cart = Cart.objects.last()
+    if last_cart:
+        last_cart_order_id_increment = str(int(last_cart.order_id.rsplit('/', 1)[-1]) + 1).zfill(len(last_cart.order_id.rsplit('/', 1)[-1]))
+    else:
+        last_cart_order_id_increment = '00001'
+    instance.order_id = "ADT/07/%s"%(last_cart_order_id_increment)
 
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='rt_cart_list',on_delete=models.CASCADE)
@@ -99,7 +103,7 @@ class Order(models.Model):
         return self.order_no or str(self.id)
 
 class OrderedProduct(models.Model):
-    order = models.ForeignKey(Order,related_name='rtg_order_order_product',on_delete=models.CASCADE,null=True,blank=True)
+    order = models.ForeignKey(Order,related_name='rt_order_order_product',on_delete=models.CASCADE,null=True,blank=True)
     invoice_no = models.CharField(max_length=255,null=True,blank=True)
     vehicle_no = models.CharField(max_length=255,null=True,blank=True)
     shipped_by = models.ForeignKey(get_user_model(), related_name='rtg_shipped_product_ordered_by_user', null=True, blank=True,on_delete=models.CASCADE)
@@ -108,13 +112,22 @@ class OrderedProduct(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-    def save(self, *args,**kwargs):
-        super(OrderedProduct, self).save()
-        self.invoice_no = "RTG/INVOICE/%s"%(self.pk)
-        super(OrderedProduct, self).save()
+    # def save(self, *args,**kwargs):
+    #     super(OrderedProduct, self).save()
+    #     self.invoice_no = "RTG/INVOICE/%s"%(self.pk)
+    #     super(OrderedProduct, self).save()
 
     def __str__(self):
         return self.invoice_no or self.id
+
+@receiver(pre_save, sender=OrderedProduct)
+def create_order_id(sender, instance=None, created=False, **kwargs):
+    last_ordered_product = OrderedProduct.objects.last()
+    if last_ordered_product:
+        last_invoice_no_increment = str(int(last_ordered_product.invoice_no.rsplit('/', 1)[-1]) + 1).zfill(len(last_ordered_product.invoice_no.rsplit('/', 1)[-1]))
+    else:
+        last_invoice_no_increment = '00001'
+    instance.invoice_no = "ADT/07/%s"%(last_invoice_no_increment)
 
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(OrderedProduct,related_name='rtg_order_product_order_product_mapping',null=True,blank=True,on_delete=models.CASCADE)

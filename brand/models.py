@@ -6,6 +6,9 @@ from mptt.models import TreeForeignKey
 from django.core.exceptions import ValidationError
 from addresses.models import City,State
 from retailer_backend.validators import ( AddressNameValidator, PinCodeValidator)
+from django.core.validators import RegexValidator
+from retailer_backend.validators import CapitalAlphabets
+
 
 VENDOR_REG_PAYMENT = (
     ("paid","Paid"),
@@ -62,7 +65,7 @@ class Brand(models.Model):
     brand_logo = models.FileField(validators=[validate_image], blank=False,null=True)
     brand_parent = models.ForeignKey('self', related_name='brnd_parent', null=True, blank=True,on_delete=models.CASCADE)
     brand_description = models.TextField(null=True, blank=True)
-    brand_code = models.CharField(max_length=3,help_text="Please enter three character for SKU")
+    brand_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three character for SKU")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     active_status = models.PositiveSmallIntegerField(('Active Status'),choices=CHOICES,default='1')

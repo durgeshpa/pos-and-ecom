@@ -11,6 +11,8 @@ import codecs
 from brand.models import Brand,Vendor
 from django.utils.safestring import mark_safe
 from django.utils.text import slugify
+from django.dispatch import receiver
+from django.db.models.signals import pre_save
 
 SIZE_UNIT_CHOICES = (
         ('mm', 'Millimeter'),
@@ -100,7 +102,7 @@ class Product(models.Model):
     product_ean_code = models.CharField(max_length=255, blank=False,validators=[EanCodeValidator])
     product_brand = models.ForeignKey(Brand,related_name='prodcut_brand_product',blank=False,on_delete=models.CASCADE)
     #hsn_code = models.PositiveIntegerField(null=True,blank=True,validators=[EanCodeValidator])
-    product_inner_case_size = models.CharField(max_length=255,blank=True)
+    product_inner_case_size = models.CharField(max_length=255,blank=False, default=1)
     product_case_size = models.CharField(max_length=255,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -122,6 +124,12 @@ class Product(models.Model):
             return Product.objects.all().values('pk').query
     def get_my_id(self):
         return self.id
+
+class ProductSKUGenerator(models.Model):
+    parent_cat_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
+    cat_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
+    brand_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
+    last_auto_increment = models.CharField(max_length=8)
 
 class ProductOption(models.Model):
     product = models.ForeignKey(Product, related_name='product_opt_product', on_delete=models.CASCADE)
@@ -246,3 +254,18 @@ class ProductVendorMapping(models.Model):
     vendor = models.ForeignKey(Vendor,related_name='vendor_brand_mapping',on_delete=models.CASCADE)
     product = models.ForeignKey(Product,related_name='product_vendor_mapping',on_delete=models.CASCADE)
     product_price = models.FloatField(default=0,verbose_name='Brand To Gram Price')
+
+@receiver(pre_save, sender=ProductCategory)
+def create_product_sku(sender, instance=None, created=False, **kwargs):
+    cat_sku_code = instance.category.category_sku_part
+    parent_cat_sku_code = instance.category.category_parent.category_sku_part if instance.category.category_parent else cat_sku_code
+    brand_sku_code = instance.product.product_brand.brand_code
+    last_sku = ProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code,brand_sku_code=brand_sku_code).last()
+    if last_sku:
+        last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
+    else:
+        last_sku_increment = '00000001'
+    ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code,brand_sku_code=brand_sku_code,last_auto_increment=last_sku_increment)
+    product = Product.objects.get(pk=instance.product_id)
+    product.product_sku="%s%s%s%s"%(cat_sku_code,parent_cat_sku_code,brand_sku_code,last_sku_increment)
+    product.save()

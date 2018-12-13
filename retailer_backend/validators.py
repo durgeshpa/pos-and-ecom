@@ -33,6 +33,8 @@ SKUValidator = RegexValidator(
     code='INVALID_SKU'
 )
 
+CapitalAlphabets = RegexValidator(r'^[A-Z]{3}$', 'Only three capital alphates allowed')
+
 #status validator either 0 or 1
 StatusValidator = RegexValidator(
     regex='^(1|0)$',

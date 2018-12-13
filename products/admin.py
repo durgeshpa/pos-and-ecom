@@ -12,7 +12,7 @@ from retailer_backend.validators import *
 from categories.models import Category
 from .views import (sp_sr_productprice, load_cities, load_sp_sr, export,
             load_brands, ProductsFilterView, ProductsPriceFilterView,
-            ProductsUploadSample, ProductsCSVUploadView)
+            ProductsUploadSample, ProductsCSVUploadView, GFProductPrice, load_gf)
 
 from dal import autocomplete
 from retailer_backend.admin import InputFilter
@@ -35,21 +35,34 @@ class CategoryFilter(AutocompleteFilter):
 
 class SizeAdmin(admin.ModelAdmin):
     prepopulated_fields = {'size_name': ('size_value','size_unit')}
+    search_fields = ['size_name']
 admin.site.register(Size, SizeAdmin)
 
-admin.site.register(Fragrance)
-admin.site.register(Flavor)
-admin.site.register(Color)
+class FragranceAdmin(admin.ModelAdmin):
+    search_fields = ['fragrance_name']
+admin.site.register(Fragrance, FragranceAdmin)
+
+class FlavorAdmin(admin.ModelAdmin):
+    search_fields = ['flavor_name']
+admin.site.register(Flavor,FlavorAdmin)
+
+class ColorAdmin(admin.ModelAdmin):
+    search_fields = ['color_name']
+admin.site.register(Color,ColorAdmin)
 
 class PackageSizeAdmin(admin.ModelAdmin):
     prepopulated_fields = {'pack_size_name': ('pack_size_value','pack_size_unit')}
+    search_fields = ['pack_size_name']
 admin.site.register(PackageSize, PackageSizeAdmin)
 
 class WeightAdmin(admin.ModelAdmin):
     prepopulated_fields = {'weight_name': ('weight_value','weight_unit')}
+    search_fields = ['weight_name']
 admin.site.register(Weight, WeightAdmin)
 
-admin.site.register(Tax)
+class TaxAdmin(admin.ModelAdmin):
+    search_fields = ['tax_name']
+admin.site.register(Tax,TaxAdmin)
 
 class CategorySearch(InputFilter):
     parameter_name = 'qty'
@@ -86,21 +99,55 @@ class ProductCSVForm(forms.ModelForm):
 
 class ProductOptionAdmin(admin.TabularInline):
     model = ProductOption
+    extra = 1
+    autocomplete_fields = ['size','weight','color','flavor','fragrance','package_size']
 
-class ProductCategoryAdmin(admin.TabularInline):
+# One form required
+from django.core.exceptions import ValidationError
+from django.forms.models import BaseInlineFormSet
+
+class AtLeastOneFormSet(BaseInlineFormSet):
+    def clean(self):
+        super(AtLeastOneFormSet, self).clean()
+        non_empty_forms = 0
+        for form in self:
+            if form.cleaned_data:
+                non_empty_forms += 1
+        if non_empty_forms - len(self.deleted_forms) < 1:
+            raise ValidationError("Please fill at least one form.")
+
+from django.forms.models import BaseInlineFormSet
+class RequiredInlineFormSet(BaseInlineFormSet):
+    def _construct_form(self, i, **kwargs):
+        form = super(RequiredInlineFormSet, self)._construct_form(i, **kwargs)
+        if i < 1:
+            form.empty_permitted = False
+        return form
+
+from django.contrib.admin import TabularInline
+class ProductCategoryAdmin(TabularInline):
     model = ProductCategory
+    autocomplete_fields = ['category']
+    formset = RequiredInlineFormSet # or AtLeastOneFormSet
+
 
 class ProductImageAdmin(admin.TabularInline):
     model = ProductImage
 
 class ProductTaxMappingAdmin(admin.TabularInline):
     model = ProductTaxMapping
+    extra = 5
+    autocomplete_fields = ['tax']
 
 
-class ProductAdmin(admin.ModelAdmin):
+
 
     class Media:
             pass
+
+
+class ProductAdmin(admin.ModelAdmin):
+    exclude = ('product_sku',)
 
     def get_urls(self):
         from django.conf.urls import url
@@ -114,16 +161,19 @@ class ProductAdmin(admin.ModelAdmin):
             url(r'^productspricefilter/$', self.admin_site.admin_view(ProductsPriceFilterView), name="productspricefilter"),
             url(r'^productsuploadsample/$', self.admin_site.admin_view(ProductsUploadSample), name="productsuploadsample"),
             url(r'^sp-sr-productprice/$', self.admin_site.admin_view(sp_sr_productprice), name="sp_sr_productprice"),
+            url(r'^gf-productprice/$', self.admin_site.admin_view(GFProductPrice), name="gf_productprice"),
             url(r'^ajax/load-cities/$', self.admin_site.admin_view(load_cities), name='ajax_load_cities'),
             url(r'^ajax/load-sp-sr/$', self.admin_site.admin_view(load_sp_sr), name='ajax_load_sp_sr'),
             url(r'^products-export/$', self.admin_site.admin_view(export), name='products-export'),
             url(r'^ajax/load-brands/$', self.admin_site.admin_view(load_brands), name='ajax_load_brands'),
+            url(r'^ajax/load-gf/$', self.admin_site.admin_view(load_gf), name='ajax_load_gf'),
+
         ] + urls
         return urls
 
-    list_display = ['product_sku', 'product_name', 'product_short_description', 'get_product_brand']
-    search_fields = ('prodcut_name','id',)
-    list_filter = [BrandFilter,CategorySearch, ProductSearch]
+    list_display = ['product_sku','product_name', 'product_short_description', 'get_product_brand']
+    search_fields = ['product_name','id','productoptin_size']
+    list_filter = [BrandFilter, CategorySearch,ProductSearch]
     prepopulated_fields = {'product_slug': ('product_name',)}
     inlines = [ProductCategoryAdmin,ProductOptionAdmin,ProductImageAdmin,ProductTaxMappingAdmin]
 

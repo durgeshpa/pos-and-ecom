@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import Order,Cart,CartProductMapping,GRNOrder,GRNOrderProductMapping,OrderItem,BrandNote,PickList,PickListItems
+from .models import (Order,Cart,CartProductMapping,GRNOrder,GRNOrderProductMapping,OrderItem,BrandNote,PickList,PickListItems,
+                     OrderedProductReserved)
 from products.models import Product
 from django import forms
 from django.db.models import Sum
@@ -455,8 +456,8 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
 
 class BrandNoteAdmin(admin.ModelAdmin):
     model = BrandNote
-    list_display = ('order','grn_order', 'note_type', 'amount')
-    exclude = ('last_modified_by',)
+    list_display = ('brand_note_id','order','grn_order', 'note_type', 'amount')
+    exclude = ('brand_note_id','last_modified_by',)
 
 class OrderItemAdmin(admin.ModelAdmin):
     #search_fields = ('order__id','order__order_no','ordered_qty')
@@ -537,6 +538,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
                         order_item.item_status = 'partially_delivered'
 
                 order_item.save()
+                instance.available_qty = int(instance.delivered_qty)
                 instance.grn_order.order.order_status='partially_delivered'
                 instance.grn_order.order.save()
                 order_id = instance.grn_order.order.id
@@ -576,6 +578,10 @@ class PickListAdmin(admin.ModelAdmin):
 
 admin.site.register(PickList,PickListAdmin)
 
+class OrderedProductReservedAdmin(admin.ModelAdmin):
+    list_display = ('order_product_reserved','product','cart','reserved_qty','order_reserve_end_time','created_at')
+
+admin.site.register(OrderedProductReserved,OrderedProductReservedAdmin)
 
 from django.utils.functional import curry
 from django.forms import formset_factory
