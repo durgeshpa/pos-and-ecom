@@ -212,7 +212,7 @@ class ReservedOrder(generics.ListAPIView):
                         order_product_reserved.save()
 
                         available_qty = available_qty - int(product_detail.available_qty)
-                        
+
                     serializer = CartSerializer(cart)
                     msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                 else:
@@ -356,11 +356,3 @@ class DownloadNote(APIView):
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         return response
-
-
-
-
-
-
-
-

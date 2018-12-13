@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     'tempus_dominus',
     'daterange_filter',
     'retailer_to_gram',
+    'admin_auto_filters',
 ]
 
 

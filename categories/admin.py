@@ -17,6 +17,7 @@ admin.site.register(CategoryPosation, CategoryPosationAdmin)
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ['category_name', 'category_slug']
     prepopulated_fields = {'category_slug': ('category_name',)}
+    search_fields = ('category_name',)
 
 admin.site.register(Category,CategoryAdmin)
 

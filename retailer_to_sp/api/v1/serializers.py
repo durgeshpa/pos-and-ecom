@@ -1,9 +1,9 @@
 from rest_framework import serializers
 from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMapping,ProductOption,
                              Size,Color,Fragrance,Flavor,Weight,PackageSize)
-from retailer_to_sp.models import CartProductMapping,Cart,Order,OrderedProduct,Note, CustomerCare, Payment
+from retailer_to_sp.models import CartProductMapping,Cart,Order,OrderedProduct,Note
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
-                                      OrderedProduct as GramMappedOrderedProduct)
+                                      OrderedProduct as GramMappedOrderedProduct, CustomerCare, Payment)
 
 from gram_to_brand.models import GRNOrderProductMapping
 
@@ -198,7 +198,7 @@ class OrderSerializer(serializers.ModelSerializer):
 class OrderNumberSerializer(serializers.ModelSerializer):
 
     class Meta:
-        model=Order
+        model=GramMappedOrder
         fields=('id','order_no',)
 
 
@@ -214,13 +214,13 @@ class PaymentCodSerializer(serializers.ModelSerializer):
 
     class Meta:
         model= Payment
-        fields=('order_id','paid_amount')
+        fields=('order_id',)
 
 class PaymentNeftSerializer(serializers.ModelSerializer):
 
     class Meta:
         model= Payment
-        fields=('order_id','paid_amount','neft_reference_number')
+        fields=('order_id','neft_reference_number')
 
 class GramMappedCartDataSerializer(serializers.ModelSerializer):
     last_modified_by = UserSerializer()
@@ -303,4 +303,3 @@ class GramMappedOrderSerializer(serializers.ModelSerializer):
         fields = ('id','ordered_cart','order_no','billing_address','shipping_address','total_mrp','total_discount_amount',
                   'total_tax_amount','total_final_amount','order_status','ordered_by','received_by','last_modified_by',
                   'created_at','modified_at','rt_order_order_product')
-

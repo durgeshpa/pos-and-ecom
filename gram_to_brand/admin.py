@@ -18,47 +18,23 @@ from shops.models import Shop
 from daterange_filter.filter import DateRangeFilter
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
+from admin_auto_filters.filters import AutocompleteFilter
 
 
-class BrandSearch(InputFilter):
-    parameter_name = 'brand'
-    #title = _('Brand')
-    title = 'Brand'
+class BrandFilter(AutocompleteFilter):
+    title = 'Brand' # display title
+    field_name = 'brand' # name of the foreign key field
 
-    def queryset(self, request, queryset):
-        if self.value() is not None:
-            brand = self.value()
-            if brand is None:
-                return
-            return queryset.filter(
-                Q(brand__brand_name__icontains=brand)
-            )
 
-class StateSearch(InputFilter):
-    parameter_name = 'supplier_state'
-    title = 'State'
+class StateFilter(AutocompleteFilter):
+    title = 'State' # display title
+    field_name = 'supplier_state' # name of the foreign key field
 
-    def queryset(self, request, queryset):
-        if self.value() is not None:
-            state = self.value()
-            if state is None:
-                return
-            return queryset.filter(
-                Q(supplier_state__state_name__icontains=state)
-            )
 
-class SupplierSearch(InputFilter):
-    parameter_name = 'supplier'
-    title = 'Supplier'
+class SupplierFilter(AutocompleteFilter):
+    title = 'Supplier' # display title
+    field_name = 'supplier_name' # name of the foreign key field
 
-    def queryset(self, request, queryset):
-        if self.value() is not None:
-            supplier = self.value()
-            if supplier is None:
-                return
-            return queryset.filter(
-                Q(supplier__shop_name__icontains=supplier)
-            )
 
 class OrderSearch(InputFilter):
     parameter_name = 'order'
@@ -251,11 +227,9 @@ class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     exclude = ('po_no', 'shop', 'po_status','last_modified_by')
     autocomplete_fields = ('brand',)
-
     list_display = ('po_no','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_amount','po_raised_by','po_status', 'download_purchase_order')
-
     #search_fields = ('brand__brand_name','state__state_name','supplier__shop_owner__first_name')
-    list_filter = [BrandSearch,StateSearch ,SupplierSearch,('po_creation_date', DateRangeFilter),('po_validity_date', DateRangeFilter),POAmountSearch,PORaisedBy]
+    list_filter = [BrandFilter,StateFilter ,SupplierFilter,('po_creation_date', DateRangeFilter),('po_validity_date', DateRangeFilter),POAmountSearch,PORaisedBy]
     form = POGenerationForm
     def download_purchase_order(self,obj):
         #request = self.context.get("request")
@@ -311,6 +285,9 @@ class CartAdmin(admin.ModelAdmin):
         #         new_order.order_status = 'delivered'
         #     new_order.save()
         formset.save_m2m()
+
+    class Media:
+            pass
 
 
 admin.site.register(Cart,CartAdmin)
