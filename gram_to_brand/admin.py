@@ -456,8 +456,8 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
 
 class BrandNoteAdmin(admin.ModelAdmin):
     model = BrandNote
-    list_display = ('order','grn_order', 'note_type', 'amount')
-    exclude = ('last_modified_by',)
+    list_display = ('brand_note_id','order','grn_order', 'note_type', 'amount')
+    exclude = ('brand_note_id','last_modified_by',)
 
 class OrderItemAdmin(admin.ModelAdmin):
     #search_fields = ('order__id','order__order_no','ordered_qty')
