@@ -138,36 +138,31 @@ class CartSerializer(serializers.ModelSerializer):
     last_modified_by = UserSerializer()
 
     items_count = serializers.SerializerMethodField('items_count_id')
-    total_tax = serializers.SerializerMethodField('total_tax_id')
     total_amount = serializers.SerializerMethodField('total_amount_id')
     sub_total = serializers.SerializerMethodField('sub_total_id')
 
-    def total_amount_id(self,obj):
+    def total_amount_id(self, obj):
         self.total_amount = 0
         self.items_count = 0
         for cart_pro in obj.rt_cart_list.all():
             self.items_count = self.items_count + int(cart_pro.qty)
-            pro_price = ProductPrice.objects.filter(product=cart_pro.cart_product)[0]
-            self.total_amount = float(self.total_amount) + (float(pro_price.price_to_retailer) * float(cart_pro.qty))
+            shop_id = self.context.get("parent_mapping_id", None)
+            pro_price = ProductPrice.objects.filter(shop__id=shop_id, product=cart_pro.cart_product).last()
+            if pro_price and pro_price.price_to_retailer:
+                self.total_amount = float(self.total_amount) + (float(pro_price.price_to_retailer) * float(cart_pro.qty))
+            else:
+                self.total_amount = float(self.total_amount) + 0
         return self.total_amount
 
-    def total_tax_id(self,obj):
-        self.total_tax = 0
-        for cart_pro in obj.rt_cart_list.all():
-            pro_price = ProductPrice.objects.filter(product=cart_pro.cart_product)[0]
-            for product_tax in ProductTaxMapping.objects.filter(product=cart_pro.cart_product):
-                self.total_tax = float(self.total_tax) + (float(pro_price.price_to_retailer) * float(product_tax.tax.tax_percentage)/100)
-        return self.total_tax
+    def sub_total_id(self, obj):
+        return self.total_amount
 
-    def sub_total_id(self,obj):
-        return self.total_amount + self.total_tax
-
-    def items_count_id(self,obj):
+    def items_count_id(self, obj):
         return self.items_count
 
     class Meta:
         model = Cart
-        fields = ('id','order_id','cart_status','last_modified_by','created_at','modified_at','rt_cart_list','total_amount','total_tax','sub_total','items_count')
+        fields = ('id','order_id','cart_status','last_modified_by','created_at','modified_at','rt_cart_list','total_amount','sub_total','items_count')
 
 class NoteSerializer(serializers.ModelSerializer):
     note_link = serializers.SerializerMethodField('note_link_id')
@@ -211,13 +206,11 @@ class OrderSerializer(serializers.ModelSerializer):
                   'total_tax_amount','total_final_amount','order_status','ordered_by','received_by','last_modified_by',
                   'created_at','modified_at','rt_order_order_product')
 
-
 class OrderNumberSerializer(serializers.ModelSerializer):
 
     class Meta:
         model=Order
         fields=('id','order_no',)
-
 
 class CustomerCareSerializer(serializers.ModelSerializer):
     #order_id=OrderNumberSerializer(read_only=True)
@@ -268,7 +261,6 @@ class GramMappedCartSerializer(serializers.ModelSerializer):
     last_modified_by = UserSerializer()
 
     items_count = serializers.SerializerMethodField('items_count_id')
-    total_tax = serializers.SerializerMethodField('total_tax_id')
     total_amount = serializers.SerializerMethodField('total_amount_id')
     sub_total = serializers.SerializerMethodField('sub_total_id')
 
@@ -277,27 +269,23 @@ class GramMappedCartSerializer(serializers.ModelSerializer):
         self.items_count = 0
         for cart_pro in obj.rt_cart_list.all():
             self.items_count = self.items_count + int(cart_pro.qty)
-            pro_price = ProductPrice.objects.filter(product=cart_pro.cart_product)[0]
-            self.total_amount = float(self.total_amount) + (float(pro_price.price_to_retailer) * float(cart_pro.qty))
+            shop_id = self.context.get("parent_mapping_id", None)
+            pro_price = ProductPrice.objects.filter(shop__id=shop_id,product=cart_pro.cart_product).last()
+            if pro_price and pro_price.price_to_retailer:
+                self.total_amount = float(self.total_amount) + (float(pro_price.price_to_retailer) * float(cart_pro.qty))
+            else:
+                self.total_amount = float(self.total_amount) + 0
         return self.total_amount
 
-    def total_tax_id(self,obj):
-        self.total_tax = 0
-        for cart_pro in obj.rt_cart_list.all():
-            pro_price = ProductPrice.objects.filter(product=cart_pro.cart_product)[0]
-            for product_tax in ProductTaxMapping.objects.filter(product=cart_pro.cart_product):
-                self.total_tax = float(self.total_tax) + (float(pro_price.price_to_retailer) * float(product_tax.tax.tax_percentage)/100)
-        return self.total_tax
-
     def sub_total_id(self,obj):
-        return self.total_amount + self.total_tax
+        return self.total_amount
 
     def items_count_id(self,obj):
         return self.items_count
 
     class Meta:
         model = GramMappedCart
-        fields = ('id','order_id','cart_status','last_modified_by','created_at','modified_at','rt_cart_list','total_amount','total_tax','sub_total','items_count')
+        fields = ('id','order_id','cart_status','last_modified_by','created_at','modified_at','rt_cart_list','total_amount','items_count','sub_total')
 
 class GramMappedOrderedProductSerializer(serializers.ModelSerializer):
     invoice_link = serializers.SerializerMethodField('invoice_link_id')
