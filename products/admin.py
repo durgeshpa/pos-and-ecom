@@ -18,6 +18,20 @@ from dal import autocomplete
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
 from daterange_filter.filter import DateRangeFilter
+from admin_auto_filters.filters import AutocompleteFilter
+
+
+class BrandFilter(AutocompleteFilter):
+    title = 'Brand' # display title
+    field_name = 'product_brand' # name of the foreign key field
+
+class CategoryFilter(AutocompleteFilter):
+    title = 'Category' # display title
+    field_name = 'category_name' # name of the foreign key field
+
+# class SKUFilter(AutocompleteFilter):
+#     title = 'ID ' # display title
+#     field_name = 'category_name' # name of the foreign key field
 
 class SizeAdmin(admin.ModelAdmin):
     prepopulated_fields = {'size_name': ('size_value','size_unit')}
@@ -50,20 +64,6 @@ class TaxAdmin(admin.ModelAdmin):
     search_fields = ['tax_name']
 admin.site.register(Tax,TaxAdmin)
 
-class BrandSearch(InputFilter):
-    parameter_name = 'product_brand'
-    title = 'Brand'
-
-    def queryset(self, request, queryset):
-        if self.value() is not None:
-            product_brand = self.value()
-            if product_brand is None:
-                return
-            return queryset.filter(
-                Q(product_brand__brand_name__icontains=product_brand)
-            )
-
-
 class CategorySearch(InputFilter):
     parameter_name = 'qty'
     title = 'Category'
@@ -76,6 +76,7 @@ class CategorySearch(InputFilter):
             return queryset.filter(
                 Q(ordered_qty__icontains=qty)
             )
+
 
 class ProductSearch(InputFilter):
     parameter_name = 'product_sku'
@@ -140,8 +141,14 @@ class ProductTaxMappingAdmin(admin.TabularInline):
 
 
 
+
+    class Media:
+            pass
+
+
 class ProductAdmin(admin.ModelAdmin):
     exclude = ('product_sku',)
+
     def get_urls(self):
         from django.conf.urls import url
         urls = super(ProductAdmin, self).get_urls()
@@ -166,7 +173,7 @@ class ProductAdmin(admin.ModelAdmin):
 
     list_display = ['product_sku','product_name', 'product_short_description', 'get_product_brand']
     search_fields = ['product_name','id','productoptin_size']
-    list_filter = [BrandSearch, CategorySearch,ProductSearch]
+    list_filter = [BrandFilter, CategorySearch,ProductSearch]
     prepopulated_fields = {'product_slug': ('product_name',)}
     inlines = [ProductCategoryAdmin,ProductOptionAdmin,ProductImageAdmin,ProductTaxMappingAdmin]
 

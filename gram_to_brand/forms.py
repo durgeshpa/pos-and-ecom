@@ -1,5 +1,24 @@
-from django import forms
-from gram_to_brand.models import Order,GRNOrder
+# from django import forms
+# from gram_to_brand.models import Order,GRNOrder
+# from django import forms
+# from django.forms import ModelForm
+# from sp_to_gram.models import CartProductMapping
+# from gram_to_brand.models import GRNOrderProductMapping
+# from products.models import Product
+#
+# class CartProductMappingForm(forms.ModelForm):
+#
+#     class Meta:
+#         model= CartProductMapping
+#         fields= ('cart_product','qty',)
+#
+#     def __init__(self, exp = None, *args, **kwargs):
+#         super(CartProductMappingForm, self).__init__(*args, **kwargs)
+#         grn = GRNOrderProductMapping.objects.filter(delivered_qty__gt=0).values_list('product')
+#         products = Product.objects.filter(pk__in=grn)
+#         self.fields["cart_product"].queryset = products
+# forms.py
+
 
 # from gram_to_brand.models import OrderShipment,CarOrderShipmentMapping
 #
@@ -48,5 +67,19 @@ from gram_to_brand.models import Order,GRNOrder
 #
 #   class Meta:
 #     fields = '__all__'
-#     model = GRNOrder
+#     model = GRNOrderclass ItemForm(ModelForm):
 
+
+# class GRNOrderProductMappingForm(ModelForm):
+#     def __init__(self, *args, **kwargs):
+#         super(GRNOrderProductMappingForm, self).__init__(*args, **kwargs)
+#         instance = getattr(self, 'instance', None)
+#         if instance and instance.pk:
+#             self.fields['already_grned_product'].widget.attrs['readonly'] = True
+#
+#     def clean_sku(self):
+#         instance = getattr(self, 'instance', None)
+#         if instance and instance.pk:
+#             return instance.already_grned_product
+#         else:
+#             return self.cleaned_data['already_grned_product']

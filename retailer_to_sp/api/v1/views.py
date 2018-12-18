@@ -14,7 +14,9 @@ from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
-from retailer_to_sp.models import Cart,CartProductMapping,Order,OrderedProduct, Payment
+
+from retailer_to_sp.models import Cart,CartProductMapping,Order,OrderedProduct, Payment, CustomerCare
+
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
                                       OrderedProduct as GramOrderedProduct)
 
@@ -853,7 +855,7 @@ class CustomerCareApi(APIView):
         msg = {'is_success': False,'message': [''],'response_data': None}
 
         try:
-            order = Order.objects.get(id=order_id)
+            order = GramMappedOrder.objects.get(id=order_id)
         except ObjectDoesNotExist:
             msg['message'] = ["No order with this name"]
             return Response(msg, status=status.HTTP_200_OK)
@@ -880,7 +882,7 @@ class CustomerOrdersList(APIView):
     def get(self, request):
         #msg = {'is_success': True, 'message': ['No Orders of the logged in user'], 'response_data': None}
         #if request.user.is_authenticated:
-            queryset = Order.objects.filter(ordered_by=request.user)
+            queryset = GramMappedOrder.objects.filter(ordered_by=request.user)
             serializer = OrderNumberSerializer(queryset, many=True)
             msg = {'is_success': True, 'message': ['All Orders of the logged in user'], 'response_data': serializer.data}
             return Response(msg, status=status.HTTP_201_CREATED)
@@ -896,23 +898,13 @@ class PaymentCodApi(APIView):
         return Response(msg, status=status.HTTP_201_CREATED)
 
     def post(self,request):
-
         order_id=self.request.POST.get('order_id')
-        paid_amount=self.request.POST.get('paid_amount')
-        #payment_choice=self.request.POST.get('payment_choice')
         msg = {'is_success': False,'message': [''],'response_data': None}
-
         try:
-            order = Order.objects.get(id=order_id)
+            order = GramMappedOrder.objects.get(id=order_id)
         except ObjectDoesNotExist:
             msg['message'] = ["No order with this name"]
             return Response(msg, status=status.HTTP_200_OK)
-
-        if not paid_amount :
-            msg['message']= ["Please enter the amount to be paid"]
-            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
-
-        #print(request.data)
         serializer = PaymentCodSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save(payment_choice='cash_on_delivery')
@@ -928,26 +920,17 @@ class PaymentNeftApi(APIView):
         return Response(msg, status=status.HTTP_201_CREATED)
 
     def post(self,request):
-
         order_id=self.request.POST.get('order_id')
-        paid_amount=self.request.POST.get('paid_amount')
-        #payment_choice=self.request.POST.get('payment_choice')
         neft_reference_number=self.request.POST.get('neft_reference_number')
         msg = {'is_success': False,'message': [''],'response_data': None}
-
         try:
-            order = Order.objects.get(id=order_id)
+            order = GramMappedOrder.objects.get(id=order_id)
         except ObjectDoesNotExist:
             msg['message'] = ["No order with this name"]
             return Response(msg, status=status.HTTP_200_OK)
-        if not paid_amount :
-            msg['message']= ["Please enter the amount to be paid"]
-            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
         if not neft_reference_number:
-            msg['message']= ["Please select the NEFT reference numner"]
+            msg['message']= ["Please enter the NEFT reference numner"]
             return Response(msg, status=status.HTTP_400_BAD_REQUEST)
-
-        #print(request.data)
         serializer = PaymentNeftSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save(payment_choice='neft')

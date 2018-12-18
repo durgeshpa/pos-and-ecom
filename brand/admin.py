@@ -28,5 +28,6 @@ class ProductAdmin(admin.TabularInline):
 
 class VendorAdmin(admin.ModelAdmin):
     inlines = [ProductAdmin]
+    search_fields= ('vendor_name',)
 
 admin.site.register(Vendor,VendorAdmin)

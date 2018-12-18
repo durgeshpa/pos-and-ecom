@@ -9,8 +9,11 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 from retailer_to_gram.models import Cart as GramMapperRetialerCart,Order as GramMapperRetialerOrder
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
 from django.dispatch import receiver
 from django.db.models.signals import pre_save
+
 
 ORDER_STATUS = (
     ("ordered_to_brand","Ordered To Brand"),
@@ -61,12 +64,19 @@ def create_po_no(sender, instance=None, created=False, **kwargs):
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='cart_list',on_delete=models.CASCADE)
     cart_product = models.ForeignKey(Product, related_name='cart_product_mapping', on_delete=models.CASCADE)
-    qty = models.PositiveIntegerField(default=0)
+    case_size= models.PositiveIntegerField(default=0)
+    number_of_cases = models.PositiveIntegerField(default=0)
+    qty= models.PositiveIntegerField(default=0)
     scheme = models.FloatField(default=0,null=True,blank=True,help_text='data into percentage %')
     price = models.FloatField(default=0, verbose_name='Brand To Gram Price')
+    total_price= models.PositiveIntegerField(default=0)
 
     class Meta:
         verbose_name = "Select Product"
+
+    def clean(self):
+         self.total_price= self.case_size * self.number_of_cases * self.price
+         self.qty = self.case_size * self.number_of_cases
 
     def __str__(self):
         return self.cart_product.product_name
@@ -122,7 +132,7 @@ class GRNOrder(models.Model):
 
     def __str__(self):
         return str(self.grn_id)
-        
+
 @receiver(pre_save, sender=GRNOrder)
 def create_grn_id(sender, instance=None, created=False, **kwargs):
     import datetime
@@ -135,14 +145,19 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
         last_grn_order_id_increment = '1'
     instance.grn_id = "%s-%s/%s"%(current_year,next_year,last_grn_order_id_increment)
 
-    class Meta:
-        verbose_name = "Add Edit GRN Order"
+
+    def __str__(self):
+        return self.grn_id
+
 
 
 
 class GRNOrderProductMapping(models.Model):
     grn_order = models.ForeignKey(GRNOrder,related_name='grn_order_grn_order_product',null=True,blank=True,on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='product_grn_order_product',null=True,blank=True, on_delete=models.CASCADE)
+    po_product_quantity= models.PositiveIntegerField(default=0, verbose_name='PO Product Quantity',blank=True )
+    po_product_price= models.FloatField(default=0, verbose_name='PO Product Price',blank=True )
+    already_grned_product= models.PositiveIntegerField(default=0, verbose_name='Already GRNed Product Quantity',blank=True)
     product_invoice_price = models.FloatField(default=0)
     product_invoice_qty = models.PositiveIntegerField(default=0)
     manufacture_date = models.DateField(null=True,blank=True)
@@ -155,6 +170,15 @@ class GRNOrderProductMapping(models.Model):
     last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_user_grn_order_product', null=True,blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+         sum= self.delivered_qty + self.returned_qty
+         if self.product_invoice_qty <= self.po_product_quantity:
+             if self.product_invoice_qty < sum:
+               raise ValidationError(_('Product invoice quantity cannot be less than the sum of delivered quantity and returned quantity'))
+         else:
+             raise ValidationError(_('Product invoice quantity cannot be greater than PO product quantity'))
+
 
 class OrderHistory(models.Model):
     #shop = models.ForeignKey(Shop, related_name='shop_order',null=True,blank=True,on_delete=models.CASCADE)
