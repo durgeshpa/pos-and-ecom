@@ -27,7 +27,7 @@ class BrandFilter(AutocompleteFilter):
     field_name = 'brand' # name of the foreign key field
 
 
-class StateFilter(AutocompleteFilter):
+class SupplierStateFilter(AutocompleteFilter):
     title = 'State' # display title
     field_name = 'supplier_state' # name of the foreign key field
 
@@ -230,7 +230,7 @@ class CartAdmin(admin.ModelAdmin):
     autocomplete_fields = ('brand',)
     list_display = ('po_no','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_amount','po_raised_by','po_status', 'download_purchase_order')
     #search_fields = ('brand__brand_name','state__state_name','supplier__shop_owner__first_name')
-    list_filter = [BrandFilter,StateFilter ,SupplierFilter,('po_creation_date', DateRangeFilter),('po_validity_date', DateRangeFilter),POAmountSearch,PORaisedBy]
+    list_filter = [BrandFilter,SupplierStateFilter ,SupplierFilter,('po_creation_date', DateRangeFilter),('po_validity_date', DateRangeFilter),POAmountSearch,PORaisedBy]
     form = POGenerationForm
     def download_purchase_order(self,obj):
         #request = self.context.get("request")
