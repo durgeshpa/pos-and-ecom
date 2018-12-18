@@ -6,6 +6,10 @@ from addresses.models import Address
 from products.models import Product
 from django.dispatch import receiver
 from django.db.models.signals import pre_save
+from django.db.models.signals import post_save
+from otp.sms import SendSms
+import datetime
+
 
 ORDER_STATUS = (
     ("active","Active"),
@@ -185,3 +189,14 @@ class Payment(models.Model):
 
     def __str__(self):
         return self.name
+
+@receiver(post_save, sender=Payment)
+def order_notification(sender, instance=None, created=False, **kwargs):
+    otp = '123546'
+    date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
+    time = datetime.datetime.now().strftime("%I:%M %p")
+    message = SendSms(phone='7607846774',
+                      body="%s is your One Time Password for GramFactory Account."\
+                           " Request time is %s, %s IST." % (otp,date,time))
+
+    message.send()

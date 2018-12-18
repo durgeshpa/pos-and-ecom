@@ -81,6 +81,7 @@ class CartProductMapping(models.Model):
     def __str__(self):
         return self.cart_product.product_name
 
+
 class Order(models.Model):
     shop = models.ForeignKey(Shop, related_name='shop_order',null=True,blank=True,on_delete=models.CASCADE)
     ordered_cart = models.ForeignKey(Cart,related_name='order_cart_mapping',on_delete=models.CASCADE)

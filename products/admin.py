@@ -147,6 +147,8 @@ class ProductTaxMappingAdmin(admin.TabularInline):
 
 
 class ProductAdmin(admin.ModelAdmin):
+    class Media:
+            pass
     exclude = ('product_sku',)
 
     def get_urls(self):

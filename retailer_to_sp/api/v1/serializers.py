@@ -16,6 +16,7 @@ from django.urls import reverse
 from django.db.models import F,Sum
 from gram_to_brand.models import GRNOrderProductMapping
 from addresses.api.v1.serializers import AddressSerializer
+from brand.api.v1.serializers import BrandSerializer
 
 class ProductImageSerializer(serializers.ModelSerializer):
    class Meta:
@@ -85,12 +86,19 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
     product_pro_image = ProductImageSerializer(many=True)
     product_pro_tax = ProductTaxMappingSerializer(many=True)
     product_opt_product = ProductOptionSerializer(many=True)
+    product_brand = BrandSerializer(read_only=True)
 
     class Meta:
         model = Product
         fields = ('id','product_name','product_slug','product_short_description','product_long_description','product_sku',
                   'product_ean_code','product_brand','created_at','modified_at','status','product_pro_price','product_pro_image',
                   'product_pro_tax','product_opt_product')
+
+class ProductDetailSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model= Product
+        fields = ('id','product_name',)
 
 
 class GramGRNProductsSearchSerializer(serializers.Serializer):
