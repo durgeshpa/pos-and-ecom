@@ -53,7 +53,7 @@ class Vendor(models.Model):
     GST_document = models.FileField(upload_to='vendor/gst_doc')
     pan_card = models.FileField(upload_to='vendor/pan_card')
     cancelled_cheque = models.FileField(upload_to='vendor/cancelled_cheque')
-    list_of_sku_in_NPI_formate = models.FileField(upload_to='vendor/slu_list_in_npi')
+    list_of_sku_in_NPI_formate = models.FileField(upload_to='vendor/slu_list_in_npi',null=True,blank=True)
     vendor_form = models.FileField(upload_to='vendor/vendor_form',null=True,blank=True)
 
     def __str__(self):
