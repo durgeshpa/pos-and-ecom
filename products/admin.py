@@ -12,12 +12,27 @@ from retailer_backend.validators import *
 from categories.models import Category
 from .views import (sp_sr_productprice, load_cities, load_sp_sr, export,
             load_brands, ProductsFilterView, ProductsPriceFilterView,
-            ProductsUploadSample, ProductsCSVUploadView, GFProductPrice, load_gf, products_export_for_vendor)
+            ProductsUploadSample, ProductsCSVUploadView, GFProductPrice,
+            load_gf, products_export_for_vendor, products_vendor_mapping)
 
 from dal import autocomplete
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
 from daterange_filter.filter import DateRangeFilter
+from admin_auto_filters.filters import AutocompleteFilter
+
+
+class BrandFilter(AutocompleteFilter):
+    title = 'Brand' # display title
+    field_name = 'product_brand' # name of the foreign key field
+
+class CategoryFilter(AutocompleteFilter):
+    title = 'Category' # display title
+    field_name = 'category_name' # name of the foreign key field
+
+# class SKUFilter(AutocompleteFilter):
+#     title = 'ID ' # display title
+#     field_name = 'category_name' # name of the foreign key field
 
 class ProductVendorMappingAdmin(admin.ModelAdmin):
     fields = ('vendor','product','product_price')
@@ -55,20 +70,6 @@ class TaxAdmin(admin.ModelAdmin):
     search_fields = ['tax_name']
 admin.site.register(Tax,TaxAdmin)
 
-class BrandSearch(InputFilter):
-    parameter_name = 'product_brand'
-    title = 'Brand'
-
-    def queryset(self, request, queryset):
-        if self.value() is not None:
-            product_brand = self.value()
-            if product_brand is None:
-                return
-            return queryset.filter(
-                Q(product_brand__brand_name__icontains=product_brand)
-            )
-
-
 class CategorySearch(InputFilter):
     parameter_name = 'qty'
     title = 'Category'
@@ -82,6 +83,7 @@ class CategorySearch(InputFilter):
                 Q(ordered_qty__icontains=qty)
             )
 
+
 class ProductSearch(InputFilter):
     parameter_name = 'product_sku'
     title = 'Product (Id or SKU)'
@@ -94,7 +96,6 @@ class ProductSearch(InputFilter):
             return queryset.filter(
                 Q(product_sku__icontains=product_sku)
             )
-#
 
 class ProductCSVForm(forms.ModelForm):
     class Meta:
@@ -145,8 +146,17 @@ class ProductTaxMappingAdmin(admin.TabularInline):
 
 
 
+
+    class Media:
+            pass
+
+
 class ProductAdmin(admin.ModelAdmin):
+    class Media:
+            pass
+
     exclude = ('product_sku',)
+
     def get_urls(self):
         from django.conf.urls import url
         urls = super(ProductAdmin, self).get_urls()
@@ -166,14 +176,14 @@ class ProductAdmin(admin.ModelAdmin):
             url(r'^ajax/load-brands/$', self.admin_site.admin_view(load_brands), name='ajax_load_brands'),
             url(r'^ajax/load-gf/$', self.admin_site.admin_view(load_gf), name='ajax_load_gf'),
             url(r'^products-export-for-vendor/$', self.admin_site.admin_view(products_export_for_vendor), name='products_export_for_vendor'),
-
+            url(r'^products-vendor-mapping/(?P<pk>\d+)/$', self.admin_site.admin_view(products_vendor_mapping), name='products_vendor_mapping'),
 
         ] + urls
         return urls
 
     list_display = ['product_sku','product_name', 'product_short_description', 'get_product_brand']
     search_fields = ['product_name','id','productoptin_size']
-    list_filter = [BrandSearch, CategorySearch,ProductSearch]
+    list_filter = [BrandFilter, CategorySearch,ProductSearch]
     prepopulated_fields = {'product_slug': ('product_name',)}
     inlines = [ProductCategoryAdmin,ProductOptionAdmin,ProductImageAdmin,ProductTaxMappingAdmin]
 

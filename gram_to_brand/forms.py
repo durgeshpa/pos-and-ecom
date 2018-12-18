@@ -6,6 +6,9 @@ from django_select2.forms import Select2MultipleWidget,ModelSelect2Widget
 from addresses.models import State,Address
 from brand.models import Vendor
 from django.urls import reverse
+from products.models import Product, ProductVendorMapping
+from django.core.exceptions import ValidationError
+import datetime, csv, codecs, re
 
 class POGenerationForm(forms.ModelForm):
     brand = forms.ModelChoiceField(
@@ -22,7 +25,7 @@ class POGenerationForm(forms.ModelForm):
     )
     gf_shipping_address = forms.ModelChoiceField(
         queryset=Address.objects.filter(shop_name__shop_type__shop_type='gf'),
-        widget=autocomplete.ModelSelect2(url='shipping-address-autocomplete', forward=('supplier_state',))
+        widget=autocomplete.ModelSelect2(url='shipping-address-autocomplete', forward=('supplier_name','supplier_state',))
     )
     gf_billing_address = forms.ModelChoiceField(
         queryset=Address.objects.filter(shop_name__shop_type__shop_type='gf'),
@@ -39,20 +42,29 @@ class POGenerationForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(POGenerationForm, self).__init__(*args, **kwargs)
-        self.fields['cart_product_mapping_csv'].help_text = """<h3><a href="%s" target="_blank">Download Vendor products list</a></h3>"""%(reverse('admin:products_export_for_vendor'))
+        self.fields['cart_product_mapping_csv'].help_text = self.instance.products_sample_file
 
-    def clean_vendor_products_csv(self):
-        if not self.cleaned_data['vendor_products_csv'].name[-4:] in ('.csv'):
-            raise forms.ValidationError("Sorry! Only csv file accepted")
-        reader = csv.reader(codecs.iterdecode(self.cleaned_data['vendor_products_csv'], 'utf-8'))
-        first_row = next(reader)
-        for id,row in enumerate(reader):
-            try:
-                Product.objects.get(pk=row[0])
-            except:
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product does not exist with this ID")
-            if not row[0]:
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product ID cannot be empty")
-            if row[2] and not re.match("^\d{0,8}(\.\d{1,4})?$", row[2]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[2]+":"+row[2]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
-        return self.cleaned_data['vendor_products_csv']
+    def clean(self):
+        if self.cleaned_data['cart_product_mapping_csv']:
+            if not self.cleaned_data['cart_product_mapping_csv'].name[-4:] in ('.csv'):
+                raise forms.ValidationError("Sorry! Only csv file accepted")
+            reader = csv.reader(codecs.iterdecode(self.cleaned_data['cart_product_mapping_csv'], 'utf-8'))
+            first_row = next(reader)
+            for id,row in enumerate(reader):
+                try:
+                    product = Product.objects.get(pk=row[0])
+                except:
+                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product does not exist with this ID")
+                if not row[0]:
+                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product ID cannot be empty")
+                if not row[2] and not re.match("^\d+$", row[2]):
+                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[2]+":"+row[2]+" | Case size should be integer and cannot be empty")
+                if not product.product_case_size == row[2]:
+                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[2]+":"+row[2]+" | Case size does not matched with original product's case size")
+                if row[3] and not re.match("^\d+$", row[3]):
+                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[3]+":"+row[3]+" | No. of cases should be integer value")
+                vendor_product = ProductVendorMapping.objects.filter(vendor=self.cleaned_data['supplier_name'], product=product).order_by('product','-created_at').distinct('product')
+                for p in vendor_product:
+                    if not p.product_price == float(row[5]):
+                        raise ValidationError("Row["+str(id+1)+"] | "+first_row[5]+":"+row[5]+" | Price does not matched with original product's brand to gram price")
+            return self.cleaned_data

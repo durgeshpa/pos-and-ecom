@@ -103,7 +103,7 @@ class Product(models.Model):
     product_brand = models.ForeignKey(Brand,related_name='prodcut_brand_product',blank=False,on_delete=models.CASCADE)
     #hsn_code = models.PositiveIntegerField(null=True,blank=True,validators=[EanCodeValidator])
     product_inner_case_size = models.CharField(max_length=255,blank=False, default=1)
-    product_case_size = models.CharField(max_length=255,blank=True)
+    product_case_size = models.CharField(max_length=255,blank=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
@@ -254,17 +254,19 @@ class ProductVendorMapping(models.Model):
     vendor = models.ForeignKey(Vendor,related_name='vendor_brand_mapping',on_delete=models.CASCADE)
     product = models.ForeignKey(Product,related_name='product_vendor_mapping',on_delete=models.CASCADE)
     product_price = models.FloatField(default=0,verbose_name='Brand To Gram Price')
-
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
     def __str__(self):
-        return '%s <-- %s at Rs%s' % (self.product, self.vendor, self.product_price)
+        return '%s' % (self.vendor)
 
 @receiver(post_save, sender=Vendor)
 def create_product_vendor_mapping(sender, instance=None, created=False, **kwargs):
     vendor = instance
     file = instance.vendor_products_csv
-    reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
-    first_row = next(reader)
-    ProductVendorMapping.objects.bulk_create([ProductVendorMapping(vendor=vendor, product_id = row[0], product_price=row[2]) for row in reader if row[2]])
+    if file:
+        reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+        first_row = next(reader)
+        ProductVendorMapping.objects.bulk_create([ProductVendorMapping(vendor=vendor, product_id = row[0], product_price=row[2]) for row in reader if row[2]])
 
 @receiver(pre_save, sender=ProductCategory)
 def create_product_sku(sender, instance=None, created=False, **kwargs):

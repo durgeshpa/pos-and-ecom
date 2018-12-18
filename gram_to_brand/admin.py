@@ -17,47 +17,26 @@ from addresses.models import State,Address
 from brand.models import Vendor
 from shops.models import Shop
 from daterange_filter.filter import DateRangeFilter
+from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
+from admin_auto_filters.filters import AutocompleteFilter
 from .forms import POGenerationForm
 
-class BrandSearch(InputFilter):
-    parameter_name = 'brand'
-    #title = _('Brand')
-    title = 'Brand'
 
-    def queryset(self, request, queryset):
-        if self.value() is not None:
-            brand = self.value()
-            if brand is None:
-                return
-            return queryset.filter(
-                Q(brand__brand_name__icontains=brand)
-            )
+class BrandFilter(AutocompleteFilter):
+    title = 'Brand' # display title
+    field_name = 'brand' # name of the foreign key field
 
-class StateSearch(InputFilter):
-    parameter_name = 'supplier_state'
-    title = 'State'
 
-    def queryset(self, request, queryset):
-        if self.value() is not None:
-            state = self.value()
-            if state is None:
-                return
-            return queryset.filter(
-                Q(supplier_state__state_name__icontains=state)
-            )
+class StateFilter(AutocompleteFilter):
+    title = 'State' # display title
+    field_name = 'supplier_state' # name of the foreign key field
 
-class SupplierSearch(InputFilter):
-    parameter_name = 'supplier'
-    title = 'Supplier'
 
-    def queryset(self, request, queryset):
-        if self.value() is not None:
-            supplier = self.value()
-            if supplier is None:
-                return
-            return queryset.filter(
-                Q(supplier__shop_name__icontains=supplier)
-            )
+class SupplierFilter(AutocompleteFilter):
+    title = 'Supplier' # display title
+    field_name = 'supplier_name' # name of the foreign key field
+
 
 class OrderSearch(InputFilter):
     parameter_name = 'order'
@@ -153,7 +132,10 @@ class CartProductMappingForm(forms.ModelForm):
 
     class Meta:
         model = CartProductMapping
-        fields = ('cart_product','qty','scheme','price',)
+        fields = ('cart_product','case_size', 'number_of_cases','scheme','price','total_price',)
+        search_fields=('cart_product',)
+        exclude = ('qty',)
+
 
 
 class CartProductMappingFormset(forms.models.BaseInlineFormSet):
@@ -176,7 +158,8 @@ class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
     #readonly_fields = ('get_edit_link',)
     autocomplete_fields = ('cart_product',)
-    formset = CartProductMappingFormset
+    search_fields =('cart_product',)
+    #formset = CartProductMappingFormset
     form = CartProductMappingForm
 
 
@@ -184,66 +167,67 @@ class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     exclude = ('po_no', 'shop', 'po_status','last_modified_by')
     autocomplete_fields = ('brand',)
-
     list_display = ('po_no','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_amount','po_raised_by','po_status', 'download_purchase_order')
-
     #search_fields = ('brand__brand_name','state__state_name','supplier__shop_owner__first_name')
-    list_filter = [BrandSearch,StateSearch ,SupplierSearch,('po_creation_date', DateRangeFilter),('po_validity_date', DateRangeFilter),POAmountSearch,PORaisedBy]
+    list_filter = [BrandFilter,StateFilter ,SupplierFilter,('po_creation_date', DateRangeFilter),('po_validity_date', DateRangeFilter),POAmountSearch,PORaisedBy]
     form = POGenerationForm
     def download_purchase_order(self,obj):
         #request = self.context.get("request")
         return format_html("<a href= '%s' >Download PO</a>"%(reverse('download_purchase_order', args=[obj.pk])))
     download_purchase_order.short_description = 'Download Purchase Order'
 
-    def save_formset(self, request, form, formset, change):
-        import datetime
-        today = datetime.date.today()
-        instances = formset.save(commit=False)
-        flag = 0
-        new_order = ''
-        for instance in instances:
+    # def save_formset(self, request, form, formset, change):
+    #     import datetime
+    #     today = datetime.date.today()
+    #     instances = formset.save(commit=False)
+    #     flag = 0
+    #     new_order = ''
+    #     for instance in instances:
+    #
+    #         instance.last_modified_by = request.user
+    #         instance.save()
+    #         #print(instance.cart)
+    #         #Save Order
+    #         #order,_ = Order.objects.get_or_create(ordered_cart=instance.cart)
+    #         order,_ = Order.objects.get_or_create(ordered_cart=instance.cart,order_no=instance.cart.po_no)
+    #         order.ordered_by=request.user
+    #         order.order_status='ordered_to_brand'
+    #         order.last_modified_by=request.user
+    #         order.save()
+    #
+    #         #Save OrderItem
+    #         if OrderItem.objects.filter(order=order,ordered_product=instance.cart_product).exists():
+    #             OrderItem.objects.filter(order=order,ordered_product=instance.cart_product).delete()
+    #
+    #         order_item = OrderItem()
+    #         order_item.ordered_product = instance.cart_product
+    #         order_item.ordered_qty = instance.number_of_cases * instance.case_size
+    #         order_item.ordered_price = instance.price
+    #
+    #         order_item.order = order
+    #         order_item.last_modified_by = request.user
+    #         order_item.save()
+    #
+    #         #instance.order_brand.ordered_by = request.user
+    #         #instance.order_brand.order_status = 'ordered_to_brand'
+    #         #nstance.order_brand.brand_order_id = 'BRAND/ORDER/' + str(instance.order_brand.id)
+    #         #new_order = instance.order_brand
+    #
+    #         #Order.objects.get_or_create('ordered_cart'=instance.cart_list)
+    #         #instance.order_brand.save()
+    #         #instance.cart_id = 'BRAND-' + "{%Y%m%d}".format(today) + "-" + instance.id
+    #         #instance.shop = Shop.objects.get(name='Gramfactory')
+    #
+    #     # if request.user.groups.filter(name='grn_brand_to_gram_group').exists():
+    #     #     if new_order and CartToBrand.objects.filter(order_brand=new_order):
+    #     #         new_order.order_status = 'partially_delivered'
+    #     #     elif new_order:
+    #     #         new_order.order_status = 'delivered'
+    #     #     new_order.save()
+    #     formset.save_m2m()
 
-            instance.last_modified_by = request.user
-            instance.save()
-            #print(instance.cart)
-            #Save Order
-            #order,_ = Order.objects.get_or_create(ordered_cart=instance.cart)
-            order,_ = Order.objects.get_or_create(ordered_cart=instance.cart,order_no=instance.cart.po_no)
-            order.ordered_by=request.user
-            order.order_status='ordered_to_brand'
-            order.last_modified_by=request.user
-            order.save()
-
-            #Save OrderItem
-            if OrderItem.objects.filter(order=order,ordered_product=instance.cart_product).exists():
-                OrderItem.objects.filter(order=order,ordered_product=instance.cart_product).delete()
-
-            order_item = OrderItem()
-            order_item.ordered_product = instance.cart_product
-            order_item.ordered_qty = instance.qty
-            order_item.ordered_price = instance.price
-
-            order_item.order = order
-            order_item.last_modified_by = request.user
-            order_item.save()
-
-            #instance.order_brand.ordered_by = request.user
-            #instance.order_brand.order_status = 'ordered_to_brand'
-            #nstance.order_brand.brand_order_id = 'BRAND/ORDER/' + str(instance.order_brand.id)
-            #new_order = instance.order_brand
-
-            #Order.objects.get_or_create('ordered_cart'=instance.cart_list)
-            #instance.order_brand.save()
-            #instance.cart_id = 'BRAND-' + "{%Y%m%d}".format(today) + "-" + instance.id
-            #instance.shop = Shop.objects.get(name='Gramfactory')
-
-        # if request.user.groups.filter(name='grn_brand_to_gram_group').exists():
-        #     if new_order and CartToBrand.objects.filter(order_brand=new_order):
-        #         new_order.order_status = 'partially_delivered'
-        #     elif new_order:
-        #         new_order.order_status = 'delivered'
-        #     new_order.save()
-        formset.save_m2m()
+    class Media:
+            pass
 
 
 admin.site.register(Cart,CartAdmin)
@@ -277,12 +261,25 @@ class GRNOrderProductForm(forms.ModelForm):
     product = forms.ModelChoiceField(
         queryset=Product.objects.all(),
         widget=autocomplete.ModelSelect2(url='product-autocomplete',forward=('order',))
-    )
-
+     )
     class Meta:
         model = GRNOrderProductMapping
-        fields = ('product','product_invoice_price','manufacture_date','expiry_date','product_invoice_qty','available_qty','delivered_qty','returned_qty')
+        fields = ('product','po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date','expiry_date','product_invoice_qty','available_qty','delivered_qty','returned_qty')
         readonly_fields = ('product')
+        autocomplete_fields = ('product',)
+
+    class Media:
+        pass
+        #css = {'all': ('pretty.css',)}
+        js = ('/static/admin/js/grn_form.js',)
+
+    # def __init__(self, exp = None, *args, **kwargs):
+    #     super(GRNOrderProductForm, self).__init__(*args, **kwargs)
+    #     #order_id= self.request.GET.get('order_id')
+    #     cart_products = CartProductMapping.objects.filter(cart__id='17').values_list('cart_product').order_by('product_order_item')
+    #     products = Product.objects.filter(pk__in=cart_products)
+    #     self.fields["product"].queryset = products
+
 
     # data = {
     #     'subject': 'hello',
@@ -365,8 +362,11 @@ def get_product(self,*args,**kwargs):
 class GRNOrderProductMappingAdmin(admin.TabularInline):
     model = GRNOrderProductMapping
     form = GRNOrderProductForm
-    #fields = [get_product]
+
+    extra= 10   #fields = [get_product]
     exclude = ('last_modified_by','available_qty',)
+
+    #readonly_fields= ('po_product_price', 'po_product_quantity', 'already_grned_product')
 
     # def get_formset(self, request, obj=None, **kwargs):
     #     initial = []
@@ -419,6 +419,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
     list_filter = [ OrderSearch, InvoiceNoSearch, GRNSearch, ('created_at', DateRangeFilter),]
     form = GRNOrderForm
 
+
     def edit_grn_link(self, obj):
         #return format_html("<ul class ='object-tools'><li><a href = '/admin/gram_to_brand/grnorder/add/?brand=%s' class ='addlink' > Add order</a></li></ul>"% (obj.id))
         return format_html("<a href = '/admin/gram_to_brand/grnorder/%s/change/?order=%s&odr=%s' class ='addlink' > Edit GRN</a>"% (obj.id,obj.id,obj.id))
@@ -426,9 +427,9 @@ class GRNOrderAdmin(admin.ModelAdmin):
     edit_grn_link.short_description = 'Edit GRN'
 
 
-    def __init__(self, *args, **kwargs):
-        super(GRNOrderAdmin, self).__init__(*args, **kwargs)
-        self.list_display_links = None
+    # def __init__(self, *args, **kwargs):
+    #     super(GRNOrderAdmin, self).__init__(*args, **kwargs)
+    #     self.list_display_links = None
 
 
     # def __init__(self, *args, **kwargs):
@@ -494,7 +495,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
 
 
 class OrderAdmin(admin.ModelAdmin):
-    search_fields = ('id','order_no')
+    search_fields = ['order_no',]
     list_display = ('order_no','order_status','ordered_by','created_at','add_grn_link')
 
     def add_grn_link(self, obj):

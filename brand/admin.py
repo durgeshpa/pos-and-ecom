@@ -28,5 +28,6 @@ class ProductAdmin(admin.TabularInline):
 
 class VendorAdmin(admin.ModelAdmin):
     form = VendorForm
+    inlines = [ProductAdmin]
 
 admin.site.register(Vendor,VendorAdmin)

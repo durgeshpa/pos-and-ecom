@@ -82,5 +82,9 @@ class ParentRetailerMapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
+
+    class Meta:
+        unique_together = ('parent', 'retailer',)
+
     def __str__(self):
         return "%s --mapped to-- %s(%s)(%s)"%(self.retailer.shop_name,self.parent.shop_name,self.parent.shop_type,"Active" if self.status else "Inactive")

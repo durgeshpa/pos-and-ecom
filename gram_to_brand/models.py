@@ -9,8 +9,13 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 from retailer_to_gram.models import Cart as GramMapperRetialerCart,Order as GramMapperRetialerOrder
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
 from django.dispatch import receiver
-from django.db.models.signals import pre_save
+from django.db.models.signals import pre_save, post_save
+from django.urls import reverse
+import datetime, csv, codecs, re
+
 
 ORDER_STATUS = (
     ("ordered_to_brand","Ordered To Brand"),
@@ -43,15 +48,16 @@ class Cart(models.Model):
     payment_term = models.TextField(null=True,blank=True)
     delivery_term = models.TextField(null=True,blank=True)
     po_amount = models.FloatField(default=0)
-    cart_product_mapping_csv = models.FileField(upload_to='gram/brand/cart_product_mapping_csv', blank=False)
+    cart_product_mapping_csv = models.FileField(upload_to='gram/brand/cart_product_mapping_csv', null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
     @property
     def products_sample_file(self):
         if self.cart_product_mapping_csv and hasattr(self.cart_product_mapping_csv, 'url'):
-            return None
-        url="""<h3><a href="%s" target="_blank">Download Products List</a></h3>"""%(reverse('admin:products_export_for_vendor'))
+            url = """<h3><a href="%s" target="_blank">Download Products List</a></h3>""" % (reverse('admin:products_vendor_mapping',args=(self.supplier_name_id,)))
+        else:
+            url="""<h3><a href="#">Download Products List</a></h3>"""
         return url
 
     class Meta:
@@ -69,15 +75,32 @@ def create_po_no(sender, instance=None, created=False, **kwargs):
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='cart_list',on_delete=models.CASCADE)
     cart_product = models.ForeignKey(Product, related_name='cart_product_mapping', on_delete=models.CASCADE)
-    qty = models.PositiveIntegerField(default=0)
+    case_size= models.PositiveIntegerField(default=0)
+    number_of_cases = models.PositiveIntegerField(default=0)
+    qty= models.PositiveIntegerField(default=0)
     scheme = models.FloatField(default=0,null=True,blank=True,help_text='data into percentage %')
     price = models.FloatField(default=0, verbose_name='Brand To Gram Price')
+    total_price= models.PositiveIntegerField(default=0)
 
     class Meta:
         verbose_name = "Select Product"
 
+    def clean(self):
+         self.total_price= self.case_size * self.number_of_cases * self.price
+         self.qty = self.case_size * self.number_of_cases
+
     def __str__(self):
         return self.cart_product.product_name
+
+@receiver(post_save, sender=Cart)
+def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
+    if instance.cart_product_mapping_csv:
+        reader = csv.reader(codecs.iterdecode(instance.cart_product_mapping_csv, 'utf-8'))
+        first_row = next(reader)
+        for id,row in enumerate(reader):
+            CartProductMapping.objects.bulk_create([CartProductMapping(cart=instance,
+             cart_product_id = row[0], case_size= int(row[2]), number_of_cases = int(row[3]),
+             scheme = float(row[4]) if row[4] else None, price=float(row[5])) for row in reader if row[3]])
 
 class Order(models.Model):
     shop = models.ForeignKey(Shop, related_name='shop_order',null=True,blank=True,on_delete=models.CASCADE)
@@ -99,6 +122,17 @@ class Order(models.Model):
 
     def __str__(self):
         return str(self.order_no) or str(self.id)
+
+@receiver(post_save, sender=Cart)
+def create_order(sender, instance=None, created=False, **kwargs):
+    import pdb; pdb.set_trace()
+    cart_products = instance.cart_list.all()
+    for p in cart_products:
+        i.cart_product.product_pro_price.all()
+
+    Order.objects.create(ordered_cart=instance, order_no=instance.po_no, billing_address=instance.gf_billing_address,
+    shipping_address=instance.gf_shipping_address)
+
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order,related_name='order_order_item',on_delete=models.CASCADE,verbose_name='po no')
@@ -143,14 +177,16 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
         last_grn_order_id_increment = '1'
     instance.grn_id = "%s-%s/%s"%(current_year,next_year,last_grn_order_id_increment)
 
-    class Meta:
-        verbose_name = "Add Edit GRN Order"
 
-
+    def __str__(self):
+        return self.grn_id
 
 class GRNOrderProductMapping(models.Model):
     grn_order = models.ForeignKey(GRNOrder,related_name='grn_order_grn_order_product',null=True,blank=True,on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='product_grn_order_product',null=True,blank=True, on_delete=models.CASCADE)
+    po_product_quantity= models.PositiveIntegerField(default=0, verbose_name='PO Product Quantity',blank=True )
+    po_product_price= models.FloatField(default=0, verbose_name='PO Product Price',blank=True )
+    already_grned_product= models.PositiveIntegerField(default=0, verbose_name='Already GRNed Product Quantity',blank=True)
     product_invoice_price = models.FloatField(default=0)
     product_invoice_qty = models.PositiveIntegerField(default=0)
     manufacture_date = models.DateField(null=True,blank=True)
@@ -163,6 +199,14 @@ class GRNOrderProductMapping(models.Model):
     last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_user_grn_order_product', null=True,blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+         sum= self.delivered_qty + self.returned_qty
+         if self.product_invoice_qty <= self.po_product_quantity:
+             if self.product_invoice_qty < sum:
+               raise ValidationError(_('Product invoice quantity cannot be less than the sum of delivered quantity and returned quantity'))
+         else:
+             raise ValidationError(_('Product invoice quantity cannot be greater than PO product quantity'))
 
 class OrderHistory(models.Model):
     #shop = models.ForeignKey(Shop, related_name='shop_order',null=True,blank=True,on_delete=models.CASCADE)

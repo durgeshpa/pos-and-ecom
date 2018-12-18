@@ -27,7 +27,7 @@ NOTE_TYPE_CHOICES = (
 )
 
 PAYMENT_MODE_CHOICES = (
-    ("cash_in_delivery","Cash In Delivery"),
+    ("cash_on_delivery","Cash On Delivery"),
     ("neft","NEFT"),
 )
 

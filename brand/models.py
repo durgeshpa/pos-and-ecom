@@ -58,14 +58,7 @@ class Vendor(models.Model):
     cancelled_cheque = models.FileField(upload_to='vendor/cancelled_cheque')
     list_of_sku_in_NPI_formate = models.FileField(upload_to='vendor/slu_list_in_npi')
     vendor_form = models.FileField(upload_to='vendor/vendor_form',null=True,blank=True)
-    vendor_products_csv = models.FileField(upload_to='vendor/vendor_products_csv', blank=False)
-
-    @property
-    def products_sample_file(self):
-        if self.vendor_products_csv and hasattr(self.vendor_products_csv, 'url'):
-            return None
-        url="""<h3><a href="%s" target="_blank">Download Products List</a></h3>"""%(reverse('admin:products_export_for_vendor'))
-        return url
+    vendor_products_csv = models.FileField(upload_to='vendor/vendor_products_csv', null=True,blank=True)
 
     def __str__(self):
         return self.vendor_name

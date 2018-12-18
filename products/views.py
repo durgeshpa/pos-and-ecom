@@ -13,9 +13,8 @@ import csv, codecs, datetime
 from django.http import HttpResponse
 from brand.models import Brand
 from categories.models import Category
-from products.models import Product, ProductCategory, ProductOption, ProductTaxMapping
+from products.models import Product, ProductCategory, ProductOption, ProductTaxMapping, ProductVendorMapping
 from django.core.exceptions import ValidationError
-
 def load_cities(request):
     state_id = request.GET.get('state')
     if state_id:
@@ -286,6 +285,21 @@ def products_export_for_vendor(request):
     products = Product.objects.values_list('id','product_name')
     for product in products:
         writer.writerow([product[0],product[1],''])
+    return response
+
+def products_vendor_mapping(request,pk=None):
+    dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
+    filename = str(dt)+"vendor_product_list.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    try:
+        writer.writerow(['id','product_name','case_size','number_of_cases','scheme','brand_to_gram_price'])
+        vendor_products = ProductVendorMapping.objects.filter(vendor_id=int(pk)).order_by('product','-created_at').distinct('product')
+        for p in vendor_products:
+            writer.writerow([p.product_id,p.product.product_name,p.product.product_case_size,'','',p.product_price])
+    except:
+        writer.writerow(["Make sure you have selected vendor before downloading CSV file"])
     return response
 
 def ProductsUploadSample(request):
