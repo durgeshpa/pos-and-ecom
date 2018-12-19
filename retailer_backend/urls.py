@@ -40,7 +40,6 @@ urlpatterns = [
     url(r'^brandapi/', include('brand.urls')),
     url(r'^service-partner/', include('sp_to_gram.urls')),
     url(r'^retailer/sp/', include('retailer_to_sp.urls')),
-    # url(r'^retailer/gram/', include('retailer_to_gram.urls')),
     url(r'^gram/brand/', include('gram_to_brand.urls')),
     url('^delete-ordered-product-reserved/$', CronToDeleteOrderedProductReserved.as_view(), name='delete_ordered_product_reserved'),
     url('^delete-ordered-product-reserved1/$', cron_to_delete_ordered_product_reserved, name='delete_ordered_product_reserved'),
