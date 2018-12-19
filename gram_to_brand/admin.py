@@ -427,6 +427,10 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
 
     extra= 10   #fields = [get_product]
     exclude = ('last_modified_by','available_qty',)
+    def get_readonly_fields(self, request, obj=None):
+        if obj: # editing an existing object
+            return self.readonly_fields + ('po_product_quantity','po_product_price','already_grned_product',)
+        return self.readonly_fields
 
     #readonly_fields= ('po_product_price', 'po_product_quantity', 'already_grned_product')
 

@@ -64,19 +64,20 @@ def create_po_no(sender, instance=None, created=False, **kwargs):
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='cart_list',on_delete=models.CASCADE)
     cart_product = models.ForeignKey(Product, related_name='cart_product_mapping', on_delete=models.CASCADE)
-    case_size= models.PositiveIntegerField(default=0)
-    number_of_cases = models.PositiveIntegerField(default=0)
-    qty= models.PositiveIntegerField(default=0)
+    case_size= models.PositiveIntegerField()
+    number_of_cases = models.PositiveIntegerField()
+    qty= models.PositiveIntegerField()
     scheme = models.FloatField(default=0,null=True,blank=True,help_text='data into percentage %')
-    price = models.FloatField(default=0, verbose_name='Brand To Gram Price')
+    price = models.FloatField( verbose_name='Brand To Gram Price')
     total_price= models.PositiveIntegerField(default=0)
 
     class Meta:
         verbose_name = "Select Product"
 
     def clean(self):
-         self.total_price= self.case_size * self.number_of_cases * self.price
-         self.qty = self.case_size * self.number_of_cases
+        if self.number_of_cases:
+             self.total_price= self.case_size * self.number_of_cases * self.price
+             self.qty = self.case_size * self.number_of_cases
 
     def __str__(self):
         return self.cart_product.product_name
@@ -122,7 +123,7 @@ class OrderItem(models.Model):
         verbose_name = "Purchase Order Item List"
 
 class GRNOrder(models.Model):
-    order = models.ForeignKey(Order,related_name='order_grn_order',on_delete=models.CASCADE,null=True,blank=True,verbose_name='po no' )
+    order = models.ForeignKey(Order,related_name='order_grn_order',on_delete=models.CASCADE,null=True,blank=True )
     order_item = models.ForeignKey(OrderItem,related_name='order_item_grn_order',on_delete=models.CASCADE,null=True,blank=True)
     invoice_no = models.CharField(max_length=255)
     grn_id = models.CharField(max_length=255,null=True,blank=True)
