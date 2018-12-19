@@ -1,24 +1,24 @@
-# from django import forms
-# from gram_to_brand.models import Order,GRNOrder
-# from django import forms
-# from django.forms import ModelForm
-# from sp_to_gram.models import CartProductMapping
-# from gram_to_brand.models import GRNOrderProductMapping
-# from products.models import Product
+from django import forms
+from gram_to_brand.models import Order
+from django import forms
+from django.forms import ModelForm
+from shops.models import Shop,ShopType
+#from sp_to_gram.models import CartProductMapping
+#from gram_to_brand.models import GRNOrderProductMapping
+#from products.models import Product
 #
-# class CartProductMappingForm(forms.ModelForm):
+class OrderForm(forms.ModelForm):
 #
-#     class Meta:
-#         model= CartProductMapping
-#         fields= ('cart_product','qty',)
+    class Meta:
+        model= Order
+        fields= '__all__'
 #
-#     def __init__(self, exp = None, *args, **kwargs):
-#         super(CartProductMappingForm, self).__init__(*args, **kwargs)
-#         grn = GRNOrderProductMapping.objects.filter(delivered_qty__gt=0).values_list('product')
-#         products = Product.objects.filter(pk__in=grn)
-#         self.fields["cart_product"].queryset = products
+    def __init__(self, exp = None, *args, **kwargs):
+        super(OrderForm, self).__init__(*args, **kwargs)
+        shop_type= ShopType.objects.filter(shop_type__in=['gf'])
+        shops = Shop.objects.filter(shop_type__in=shop_type)
+        self.fields["shop"].queryset = shops
 # forms.py
-
 
 # from gram_to_brand.models import OrderShipment,CarOrderShipmentMapping
 #

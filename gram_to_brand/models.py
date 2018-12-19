@@ -122,7 +122,7 @@ class OrderItem(models.Model):
         verbose_name = "Purchase Order Item List"
 
 class GRNOrder(models.Model):
-    order = models.ForeignKey(Order,related_name='order_grn_order',on_delete=models.CASCADE,null=True,blank=True,verbose_name='po no')
+    order = models.ForeignKey(Order,related_name='order_grn_order',on_delete=models.CASCADE,null=True,blank=True,verbose_name='po no' )
     order_item = models.ForeignKey(OrderItem,related_name='order_item_grn_order',on_delete=models.CASCADE,null=True,blank=True)
     invoice_no = models.CharField(max_length=255)
     grn_id = models.CharField(max_length=255,null=True,blank=True)

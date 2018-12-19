@@ -20,6 +20,7 @@ from daterange_filter.filter import DateRangeFilter
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from admin_auto_filters.filters import AutocompleteFilter
+from gram_to_brand.forms import OrderForm
 
 
 class BrandFilter(AutocompleteFilter):
@@ -480,6 +481,11 @@ class GRNOrderAdmin(admin.ModelAdmin):
     list_filter = [ OrderSearch, InvoiceNoSearch, GRNSearch, ('created_at', DateRangeFilter),]
     form = GRNOrderForm
 
+    def get_readonly_fields(self, request, obj=None):
+        if obj: # editing an existing object
+            return self.readonly_fields + ('order', )
+        return self.readonly_fields
+
 
     def edit_grn_link(self, obj):
         #return format_html("<ul class ='object-tools'><li><a href = '/admin/gram_to_brand/grnorder/add/?brand=%s' class ='addlink' > Add order</a></li></ul>"% (obj.id))
@@ -558,6 +564,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
 class OrderAdmin(admin.ModelAdmin):
     search_fields = ['order_no',]
     list_display = ('order_no','order_status','ordered_by','created_at','add_grn_link')
+    form= OrderForm
 
     def add_grn_link(self, obj):
         #return format_html("<ul class ='object-tools'><li><a href = '/admin/gram_to_brand/grnorder/add/?brand=%s' class ='addlink' > Add order</a></li></ul>"% (obj.id))
