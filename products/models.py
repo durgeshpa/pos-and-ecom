@@ -253,7 +253,7 @@ class ProductPriceCSV(models.Model):
 class ProductVendorMapping(models.Model):
     vendor = models.ForeignKey(Vendor,related_name='vendor_brand_mapping',on_delete=models.CASCADE)
     product = models.ForeignKey(Product,related_name='product_vendor_mapping',on_delete=models.CASCADE)
-    product_price = models.FloatField(default=0,verbose_name='Brand To Gram Price')
+    product_price = models.FloatField(verbose_name='Brand To Gram Price')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     def __str__(self):
