@@ -30,7 +30,7 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 from products.models import ProductCategory
 from addresses.models import Address
-from retailer_backend.common_function import getShopMapping,checkNotShopAndMapping
+from retailer_backend.common_function import getShopMapping,checkNotShopAndMapping,getShop
 
 class ProductsList(generics.ListCreateAPIView):
     permission_classes = (AllowAny,)
@@ -357,7 +357,7 @@ class AddToCart(APIView):
                 if cart.rt_cart_list.count() <= 0:
                     msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],'response_data': None}
                 else:
-                    serializer = CartSerializer(Cart.objects.get(id=cart.id))
+                    serializer = CartSerializer(Cart.objects.get(id=cart.id),context={'parent_mapping_id': parent_mapping.parent.id})
                     msg = {'is_success': True, 'message': ['Data added to cart'], 'response_data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
 
@@ -386,7 +386,8 @@ class AddToCart(APIView):
                 if cart.rt_cart_list.count() <= 0:
                     msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],'response_data': None}
                 else:
-                    serializer = GramMappedCartSerializer(GramMappedCart.objects.get(id=cart.id))
+                    serializer = GramMappedCartSerializer(GramMappedCart.objects.get(id=cart.id),context={'parent_mapping_id': parent_mapping.parent.id})
+
                     msg = {'is_success': True, 'message': ['Data added to cart'], 'response_data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
 
@@ -446,7 +447,7 @@ class CartDetail(APIView):
                 if cart.rt_cart_list.count()<=0:
                     msg =  {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],'response_data': None}
                 else:
-                    serializer = GramMappedCartSerializer(GramMappedCart.objects.get(id=cart.id),context={'parent_mapping': parent_mapping})
+                    serializer = GramMappedCartSerializer(GramMappedCart.objects.get(id=cart.id),context={'parent_mapping_id': parent_mapping.parent.id})
                     msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
             else:
@@ -465,18 +466,12 @@ class ReservedOrder(generics.ListAPIView):
     def post(self, request):
         shop_id = self.request.POST.get('shop_id')
         msg = {'is_success': False, 'message': ['No any product available in this cart'], 'response_data': None}
-        # get shop
-        try:
-            shop = Shop.objects.get(id=shop_id)
-        except ObjectDoesNotExist:
-            msg['message'] = ["Shop Not Found"]
+
+        if checkNotShopAndMapping(shop_id):
             return Response(msg, status=status.HTTP_200_OK)
 
-        # get parent mapping
-        try:
-            parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id)
-        except ObjectDoesNotExist:
-            msg['message'] = ["Shop Mapping Not Found"]
+        parent_mapping = getShopMapping(shop_id)
+        if parent_mapping is None:
             return Response(msg, status=status.HTTP_200_OK)
 
         # if shop mapped with sp
@@ -500,9 +495,6 @@ class ReservedOrder(generics.ListAPIView):
                             available_qty = int(cart_product.qty)
                             cart_product.qty_error_msg = ''
 
-                        # if int(available_qty) == 0:
-                        #     cart_product.delete()
-                        # else:
                         cart_product.save()
 
                         for product_detail in ordered_product_details:
@@ -521,7 +513,7 @@ class ReservedOrder(generics.ListAPIView):
 
                             available_qty = available_qty - int(product_detail.available_qty)
 
-                        serializer = CartSerializer(cart)
+                        serializer = CartSerializer(cart,context={'parent_mapping_id': parent_mapping.parent.id})
                         msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                     else:
                         msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
@@ -576,7 +568,7 @@ class ReservedOrder(generics.ListAPIView):
                             pick_list_item.save()
                             available_qty = available_qty - int(product_detail.available_qty)
 
-                        serializer = GramMappedCartSerializer(cart)
+                        serializer = GramMappedCartSerializer(cart, context={'parent_mapping_id': parent_mapping.parent.id})
                         msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                     else:
                         msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
@@ -609,13 +601,17 @@ class CreateOrder(APIView):
         total_final_amount = self.request.POST.get('total_final_amount',0)
 
         shop_id = self.request.POST.get('shop_id')
-        msg = {'is_success': False, 'message': ['Cart is none'], 'response_data': None}
+        msg = {'is_success': False, 'message': ['Have some error in shop or mapping'], 'response_data': None}
 
-        #get shop
-        try:
-            shop = Shop.objects.get(id=shop_id)
-        except ObjectDoesNotExist:
-            msg['message'] = ["Shop not Found"]
+        if checkNotShopAndMapping(shop_id):
+            return Response(msg, status=status.HTTP_200_OK)
+
+        parent_mapping = getShopMapping(shop_id)
+        if parent_mapping is None:
+            return Response(msg, status=status.HTTP_200_OK)
+
+        shop = getShop(shop_id)
+        if shop is None:
             return Response(msg, status=status.HTTP_200_OK)
 
         # get billing address
@@ -630,13 +626,6 @@ class CreateOrder(APIView):
             shipping_address = Address.objects.get(id=shipping_address_id)
         except ObjectDoesNotExist:
             msg['message'] = ['Shipping address not found']
-            return Response(msg, status=status.HTTP_200_OK)
-
-        # get parent mapping
-        try:
-            parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id)
-        except ObjectDoesNotExist:
-            msg['message'] = ["Shop Mapping Not Found"]
             return Response(msg, status=status.HTTP_200_OK)
 
         # if shop mapped with sp
@@ -661,17 +650,13 @@ class CreateOrder(APIView):
                     order.order_status = 'ordered'
                     order.save()
 
-                    # pick_list = PickList.objects.get(cart=cart)
-                    # pick_list.order = order
-                    # pick_list.save()
-
                     # Remove Data From OrderedProductReserved
                     for ordered_reserve in OrderedProductReserved.objects.filter(cart=cart):
                         ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
                         ordered_reserve.order_product_reserved.save()
                         ordered_reserve.delete()
 
-                    serializer = OrderSerializer(order)
+                    serializer = OrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id})
                     msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                 else:
                     msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
@@ -712,7 +697,7 @@ class CreateOrder(APIView):
                         ordered_reserve.order_product_reserved.save()
                         ordered_reserve.delete()
 
-                    serializer = GramMappedOrderSerializer(order)
+                    serializer = GramMappedOrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id})
                     msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                 else:
                     msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
@@ -732,60 +717,28 @@ class OrderList(generics.ListAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-
-    def get_queryset(self):
-        user = self.request.user
-        shop_id = self.request.GET.get('shop_id')
-        msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
-
-        # get shop
-        try:
-            shop = Shop.objects.get(id=shop_id)
-        except ObjectDoesNotExist:
-            msg['message'] = ["Shop not Found"]
-            return Response(msg, status=status.HTTP_200_OK)
-
-        # get parent mapping
-        try:
-            parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id)
-        except ObjectDoesNotExist:
-            msg['message'] = ["Shop Mapping Not Found"]
-            return Response(msg, status=status.HTTP_200_OK)
-
-        if parent_mapping.parent.shop_type.shop_type == 'sp':
-            return Order.objects.filter(last_modified_by=user)
-        elif parent_mapping.parent.shop_type.shop_type == 'gf':
-            return GramMappedOrder.objects.filter(last_modified_by=user)
-
     def list(self, request):
-        queryset = self.get_queryset()
+        user = self.request.user
+        #queryset = self.get_queryset()
         shop_id = self.request.GET.get('shop_id')
         msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
-        # get shop
-        try:
-            shop = Shop.objects.get(id=shop_id)
-        except ObjectDoesNotExist:
-            msg['message'] = ["Shop not Found"]
+
+        if checkNotShopAndMapping(shop_id):
             return Response(msg, status=status.HTTP_200_OK)
 
-        # get parent mapping
-        try:
-            parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id)
-        except ObjectDoesNotExist:
-            msg['message'] = ["Shop Mapping Not Found"]
+        parent_mapping = getShopMapping(shop_id)
+        if parent_mapping is None:
             return Response(msg, status=status.HTTP_200_OK)
 
         if parent_mapping.parent.shop_type.shop_type == 'sp':
-            serializer = OrderSerializer(queryset, many=True)
+            queryset = Order.objects.filter(last_modified_by=user)
+            serializer = OrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
-            serializer = GramMappedOrderSerializer(queryset, many=True)
+            queryset = GramMappedOrder.objects.filter(last_modified_by=user)
+            serializer = GramMappedOrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id})
 
         if serializer.data:
-            msg = {'is_success': True,
-                    'message': None,
-                    'response_data': serializer.data}
-        else:
-            msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
+            msg = {'is_success': True,'message': None,'response_data': serializer.data}
         return Response(msg,status=status.HTTP_200_OK)
 
 class OrderDetail(generics.RetrieveAPIView):
@@ -793,62 +746,28 @@ class OrderDetail(generics.RetrieveAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def get_queryset(self,*args,**kwargs):
+    def retrieve(self, request, *args,**kwargs):
         pk = self.kwargs.get('pk')
         shop_id = self.request.GET.get('shop_id')
         msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
 
-        # get shop
-        try:
-            shop = Shop.objects.get(id=shop_id)
-        except ObjectDoesNotExist:
-            msg['message'] = ["Shop not Found"]
+        if checkNotShopAndMapping(shop_id):
             return Response(msg, status=status.HTTP_200_OK)
 
-        # get parent mapping
-        try:
-            parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id)
-        except ObjectDoesNotExist:
-            msg['message'] = ["Shop Mapping Not Found"]
+        parent_mapping = getShopMapping(shop_id)
+        if parent_mapping is None:
             return Response(msg, status=status.HTTP_200_OK)
 
         if parent_mapping.parent.shop_type.shop_type == 'sp':
-            return Order.objects.get(id=pk)
+            queryset = Order.objects.get(id=pk)
+            serializer = OrderSerializer(queryset, context={'parent_mapping_id': parent_mapping.parent.id})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
-            return GramMappedOrder.objects.get(id=pk)
-
-
-    def retrieve(self, request, pk):
-        queryset = self.get_queryset()
-        shop_id = self.request.GET.get('shop_id')
-        msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
-        # get shop
-        try:
-            shop = Shop.objects.get(id=shop_id)
-        except ObjectDoesNotExist:
-            msg['message'] = ["Shop not Found"]
-            return Response(msg, status=status.HTTP_200_OK)
-
-        # get parent mapping
-        try:
-            parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id)
-        except ObjectDoesNotExist:
-            msg['message'] = ["Shop Mapping Not Found"]
-            return Response(msg, status=status.HTTP_200_OK)
-
-        if parent_mapping.parent.shop_type.shop_type == 'sp':
-            serializer = OrderSerializer(queryset)
-        elif parent_mapping.parent.shop_type.shop_type == 'gf':
-            serializer = GramMappedOrderSerializer(queryset)
+            queryset = GramMappedOrder.objects.get(id=pk)
+            serializer = GramMappedOrderSerializer(queryset,context={'parent_mapping_id': parent_mapping.parent.id})
 
         if serializer.data:
-            msg = {'is_success': True,
-                    'message': None,
-                    'response_data': serializer.data}
-        else:
-            msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
-        return Response(msg,
-                        status=status.HTTP_200_OK)
+            msg = {'is_success': True,'message': None,'response_data': serializer.data}
+        return Response(msg,status=status.HTTP_200_OK)
 
 class DownloadInvoice(APIView):
     permission_classes = (AllowAny,)
