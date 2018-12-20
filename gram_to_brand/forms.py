@@ -1,11 +1,6 @@
 from django import forms
-from gram_to_brand.models import Order
-from django import forms
 from django.forms import ModelForm
 from shops.models import Shop,ShopType
-#from sp_to_gram.models import CartProductMapping
-#from gram_to_brand.models import GRNOrderProductMapping
-#from products.models import Product
 from gram_to_brand.models import Order,GRNOrder, Cart
 from brand.models import Brand
 from dal import autocomplete
