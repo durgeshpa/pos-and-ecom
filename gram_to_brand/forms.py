@@ -6,7 +6,18 @@ from shops.models import Shop,ShopType
 #from sp_to_gram.models import CartProductMapping
 #from gram_to_brand.models import GRNOrderProductMapping
 #from products.models import Product
-#
+from gram_to_brand.models import Order,GRNOrder, Cart
+from brand.models import Brand
+from dal import autocomplete
+from django_select2.forms import Select2MultipleWidget,ModelSelect2Widget
+from addresses.models import State,Address
+from brand.models import Vendor
+from django.urls import reverse
+from products.models import Product, ProductVendorMapping
+from django.core.exceptions import ValidationError
+import datetime, csv, codecs, re
+
+
 class OrderForm(forms.ModelForm):
 #
     class Meta:
@@ -18,44 +29,7 @@ class OrderForm(forms.ModelForm):
         shop_type= ShopType.objects.filter(shop_type__in=['gf'])
         shops = Shop.objects.filter(shop_type__in=shop_type)
         self.fields["shop"].queryset = shops
-# forms.py
 
-# from gram_to_brand.models import OrderShipment,CarOrderShipmentMapping
-#
-# class OrderShipmentFrom(forms.ModelForm):
-#     #cart_product_ship = forms.ModelChoiceField(queryset=CartProductMapping.objects.all())
-#     #car_order_shipment_mapping = forms.ModelChoiceField(queryset=CarOrderShipmentMapping.objects.all())
-#     delivered_qty = forms.IntegerField()
-#     changed_price = forms.FloatField(min_value=0)
-#     manufacture_date = forms.DateField()
-#     expiry_date = forms.DateField()
-#
-#     class Meta:
-#         model = OrderShipment
-#         fields = ('delivered_qty','changed_price','manufacture_date','expiry_date',)
-#
-#     def __init__(self):
-#         print("fgfdgfd")
-#
-# from django import forms
-# from .models import Order
-#
-#
-# class OrderMappingForm(forms.ModelForm):
-#
-#     # here we only need to define the field we want to be editable
-#     ordered_shipment = forms.ModelMultipleChoiceField(queryset=CarOrderShipmentMapping.objects.all(), required=False)
-
-from gram_to_brand.models import Order,GRNOrder, Cart
-from brand.models import Brand
-from dal import autocomplete
-from django_select2.forms import Select2MultipleWidget,ModelSelect2Widget
-from addresses.models import State,Address
-from brand.models import Vendor
-from django.urls import reverse
-from products.models import Product, ProductVendorMapping
-from django.core.exceptions import ValidationError
-import datetime, csv, codecs, re
 
 class POGenerationForm(forms.ModelForm):
     brand = forms.ModelChoiceField(
