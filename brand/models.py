@@ -8,7 +8,10 @@ from addresses.models import City,State
 from retailer_backend.validators import ( AddressNameValidator, PinCodeValidator)
 from django.core.validators import RegexValidator
 from retailer_backend.validators import CapitalAlphabets
-
+from django.dispatch import receiver
+from django.db.models.signals import post_save
+import datetime, csv, codecs, re
+from django.urls import reverse
 
 VENDOR_REG_PAYMENT = (
     ("paid","Paid"),
@@ -55,6 +58,7 @@ class Vendor(models.Model):
     cancelled_cheque = models.FileField(upload_to='vendor/cancelled_cheque')
     list_of_sku_in_NPI_formate = models.FileField(upload_to='vendor/slu_list_in_npi',null=True,blank=True)
     vendor_form = models.FileField(upload_to='vendor/vendor_form',null=True,blank=True)
+    vendor_products_csv = models.FileField(upload_to='vendor/vendor_products_csv', null=True,blank=True)
 
     def __str__(self):
         return self.vendor_name

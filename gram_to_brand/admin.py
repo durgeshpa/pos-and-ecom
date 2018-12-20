@@ -21,6 +21,8 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from admin_auto_filters.filters import AutocompleteFilter
 from gram_to_brand.forms import OrderForm
+from .forms import POGenerationForm
+
 
 
 class BrandFilter(AutocompleteFilter):
@@ -123,68 +125,6 @@ class PORaisedBy(InputFilter):
                 )
             return queryset.filter(any_name)
 
-
-# class UserFilter(InputFilter):
-#     parameter_name = 'user'
-#     title = _('User')
-#     def queryset(self, request, queryset):
-#         term = self.value()
-#         if term is None:
-#             return
-#         any_name = Q()
-#         for bit in term.split():
-#             any_name &= (
-#                 Q(user__first_name__icontains=bit) |
-#                 Q(user__last_name__icontains=bit)
-#             )
-#         return queryset.filter(any_name)
-
-
-class POGenerationForm(forms.ModelForm):
-    brand = forms.ModelChoiceField(
-        queryset=Brand.objects.all(),
-        widget=autocomplete.ModelSelect2(url='brand-autocomplete',)
-    )
-    supplier_state = forms.ModelChoiceField(
-        queryset=State.objects.all(),
-        widget=autocomplete.ModelSelect2(url='state-autocomplete',)
-    )
-    supplier_name = forms.ModelChoiceField(
-        queryset=Vendor.objects.all(),
-        widget=autocomplete.ModelSelect2(url='supplier-autocomplete',forward=('supplier_state','brand'))
-    )
-    gf_shipping_address = forms.ModelChoiceField(
-        queryset=Address.objects.filter(shop_name__shop_type__shop_type='gf'),
-        widget=autocomplete.ModelSelect2(url='shipping-address-autocomplete', forward=('supplier_state',))
-    )
-    gf_billing_address = forms.ModelChoiceField(
-        queryset=Address.objects.filter(shop_name__shop_type__shop_type='gf'),
-        widget=autocomplete.ModelSelect2(url='billing-address-autocomplete', forward=('supplier_state',))
-    )
-
-    # country = forms.ModelChoiceField(
-    #     queryset=Country.objects.all(),
-    #     widget=autocomplete.ModelSelect2(url='country-autocomplete'))
-    # city = forms.ModelChoiceField(
-    #     queryset=City.objects.all(),
-    #     widget=autocomplete.ModelSelect2(
-    #
-    #     # attrs={
-    #     #     'data-placeholder': 'Autocomplete ...',
-    #     #     'data-minimum-input-length': 3,
-    #     # },
-    #     url='city-autocomplete',
-    #     forward=('country',)))
-
-    class Media:
-        pass
-        #css = {'all': ('pretty.css',)}
-        js = ('/static/admin/js/po_generation_form.js',)
-
-    class Meta:
-        model = Cart
-        fields = ('brand','supplier_state','supplier_name','gf_shipping_address','gf_billing_address','po_validity_date','payment_term','delivery_term')
-
 class CartProductMappingForm(forms.ModelForm):
 
     cart_product = forms.ModelChoiceField(
@@ -221,7 +161,7 @@ class CartProductMappingAdmin(admin.TabularInline):
     #readonly_fields = ('get_edit_link',)
     autocomplete_fields = ('cart_product',)
     search_fields =('cart_product',)
-    formset = CartProductMappingFormset
+    #formset = CartProductMappingFormset
     form = CartProductMappingForm
 
 
@@ -238,55 +178,55 @@ class CartAdmin(admin.ModelAdmin):
         return format_html("<a href= '%s' >Download PO</a>"%(reverse('download_purchase_order', args=[obj.pk])))
     download_purchase_order.short_description = 'Download Purchase Order'
 
-    def save_formset(self, request, form, formset, change):
-        import datetime
-        today = datetime.date.today()
-        instances = formset.save(commit=False)
-        flag = 0
-        new_order = ''
-        for instance in instances:
-
-            instance.last_modified_by = request.user
-            instance.save()
-            #print(instance.cart)
-            #Save Order
-            #order,_ = Order.objects.get_or_create(ordered_cart=instance.cart)
-            order,_ = Order.objects.get_or_create(ordered_cart=instance.cart,order_no=instance.cart.po_no)
-            order.ordered_by=request.user
-            order.order_status='ordered_to_brand'
-            order.last_modified_by=request.user
-            order.save()
-
-            #Save OrderItem
-            if OrderItem.objects.filter(order=order,ordered_product=instance.cart_product).exists():
-                OrderItem.objects.filter(order=order,ordered_product=instance.cart_product).delete()
-
-            order_item = OrderItem()
-            order_item.ordered_product = instance.cart_product
-            order_item.ordered_qty = instance.number_of_cases * instance.case_size
-            order_item.ordered_price = instance.price
-
-            order_item.order = order
-            order_item.last_modified_by = request.user
-            order_item.save()
-
-            #instance.order_brand.ordered_by = request.user
-            #instance.order_brand.order_status = 'ordered_to_brand'
-            #nstance.order_brand.brand_order_id = 'BRAND/ORDER/' + str(instance.order_brand.id)
-            #new_order = instance.order_brand
-
-            #Order.objects.get_or_create('ordered_cart'=instance.cart_list)
-            #instance.order_brand.save()
-            #instance.cart_id = 'BRAND-' + "{%Y%m%d}".format(today) + "-" + instance.id
-            #instance.shop = Shop.objects.get(name='Gramfactory')
-
-        # if request.user.groups.filter(name='grn_brand_to_gram_group').exists():
-        #     if new_order and CartToBrand.objects.filter(order_brand=new_order):
-        #         new_order.order_status = 'partially_delivered'
-        #     elif new_order:
-        #         new_order.order_status = 'delivered'
-        #     new_order.save()
-        formset.save_m2m()
+    # def save_formset(self, request, form, formset, change):
+    #     import datetime
+    #     today = datetime.date.today()
+    #     instances = formset.save(commit=False)
+    #     flag = 0
+    #     new_order = ''
+    #     for instance in instances:
+    #
+    #         instance.last_modified_by = request.user
+    #         instance.save()
+    #         #print(instance.cart)
+    #         #Save Order
+    #         #order,_ = Order.objects.get_or_create(ordered_cart=instance.cart)
+    #         order,_ = Order.objects.get_or_create(ordered_cart=instance.cart,order_no=instance.cart.po_no)
+    #         order.ordered_by=request.user
+    #         order.order_status='ordered_to_brand'
+    #         order.last_modified_by=request.user
+    #         order.save()
+    #
+    #         #Save OrderItem
+    #         if OrderItem.objects.filter(order=order,ordered_product=instance.cart_product).exists():
+    #             OrderItem.objects.filter(order=order,ordered_product=instance.cart_product).delete()
+    #
+    #         order_item = OrderItem()
+    #         order_item.ordered_product = instance.cart_product
+    #         order_item.ordered_qty = instance.number_of_cases * instance.case_size
+    #         order_item.ordered_price = instance.price
+    #
+    #         order_item.order = order
+    #         order_item.last_modified_by = request.user
+    #         order_item.save()
+    #
+    #         #instance.order_brand.ordered_by = request.user
+    #         #instance.order_brand.order_status = 'ordered_to_brand'
+    #         #nstance.order_brand.brand_order_id = 'BRAND/ORDER/' + str(instance.order_brand.id)
+    #         #new_order = instance.order_brand
+    #
+    #         #Order.objects.get_or_create('ordered_cart'=instance.cart_list)
+    #         #instance.order_brand.save()
+    #         #instance.cart_id = 'BRAND-' + "{%Y%m%d}".format(today) + "-" + instance.id
+    #         #instance.shop = Shop.objects.get(name='Gramfactory')
+    #
+    #     # if request.user.groups.filter(name='grn_brand_to_gram_group').exists():
+    #     #     if new_order and CartToBrand.objects.filter(order_brand=new_order):
+    #     #         new_order.order_status = 'partially_delivered'
+    #     #     elif new_order:
+    #     #         new_order.order_status = 'delivered'
+    #     #     new_order.save()
+    #     formset.save_m2m()
 
     class Media:
             pass

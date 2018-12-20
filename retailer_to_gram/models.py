@@ -62,12 +62,13 @@ class Cart(models.Model):
 
 @receiver(pre_save, sender=Cart)
 def create_order_id(sender, instance=None, created=False, **kwargs):
-    last_cart = Cart.objects.last()
-    if last_cart:
-        last_cart_order_id_increment = str(int(last_cart.order_id.rsplit('/', 1)[-1]) + 1).zfill(len(last_cart.order_id.rsplit('/', 1)[-1]))
-    else:
-        last_cart_order_id_increment = '00001'
-    instance.order_id = "ADT/07/%s"%(last_cart_order_id_increment)
+    if instance._state.adding:
+        last_cart = Cart.objects.last()
+        if last_cart:
+            last_cart_order_id_increment = str(int(last_cart.order_id.rsplit('/', 1)[-1]) + 1).zfill(len(last_cart.order_id.rsplit('/', 1)[-1]))
+        else:
+            last_cart_order_id_increment = '00001'
+        instance.order_id = "ADT/07/%s"%(last_cart_order_id_increment)
 
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='rt_cart_list',on_delete=models.CASCADE)
@@ -126,12 +127,13 @@ class OrderedProduct(models.Model):
 
 @receiver(pre_save, sender=OrderedProduct)
 def create_order_id(sender, instance=None, created=False, **kwargs):
-    last_ordered_product = OrderedProduct.objects.last()
-    if last_ordered_product:
-        last_invoice_no_increment = str(int(last_ordered_product.invoice_no.rsplit('/', 1)[-1]) + 1).zfill(len(last_ordered_product.invoice_no.rsplit('/', 1)[-1]))
-    else:
-        last_invoice_no_increment = '00001'
-    instance.invoice_no = "ADT/07/%s"%(last_invoice_no_increment)
+    if instance._state.adding:
+        last_ordered_product = OrderedProduct.objects.last()
+        if last_ordered_product:
+            last_invoice_no_increment = str(int(last_ordered_product.invoice_no.rsplit('/', 1)[-1]) + 1).zfill(len(last_ordered_product.invoice_no.rsplit('/', 1)[-1]))
+        else:
+            last_invoice_no_increment = '00001'
+        instance.invoice_no = "ADT/07/%s"%(last_invoice_no_increment)
 
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(OrderedProduct,related_name='rtg_order_product_order_product_mapping',null=True,blank=True,on_delete=models.CASCADE)
