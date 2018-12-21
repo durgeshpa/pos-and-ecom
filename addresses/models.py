@@ -67,3 +67,17 @@ class Address(models.Model):
 
     def __str__(self):
         return self.address_line1
+
+class InvoiceCityMapping(models.Model):
+
+    """City mapping with code
+
+    This class is created to map city with code names used for invoicesself.
+    ex: ADT/07/000001 (for Delhi) ADT/DS/000001 (for noida)
+    """
+
+    city = models.OneToOneField(City, related_name='invoice_city_code_mapping', on_delete=models.CASCADE)
+    city_code = models.CharField(max_length=255, blank=False, default='07')
+
+    def __str__(self):
+        return self.city_code
