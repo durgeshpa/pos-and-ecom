@@ -30,6 +30,12 @@ NOTE_TYPE_CHOICES = (
     ("credit_note","Credit Note"),
 )
 
+class Po_Message(models.Model):
+    created_by = models.ForeignKey(get_user_model(), related_name='created_by_user_message', null=True,blank=True, on_delete=models.CASCADE)
+    message = models.TextField(max_length=1000,null=True,blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
 class Cart(models.Model):
     brand = models.ForeignKey(Brand, related_name='brand_order', on_delete=models.CASCADE)
     supplier_state = models.ForeignKey(State, related_name='state_cart',null=True, blank=True,on_delete=models.CASCADE)
@@ -43,14 +49,19 @@ class Cart(models.Model):
     last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_user_cart', null=True,blank=True, on_delete=models.CASCADE)
     po_creation_date = models.DateField(auto_now_add=True)
     po_validity_date = models.DateField()
+    po_message = models.ForeignKey(Po_Message, related_name='po_message_dt', on_delete=models.CASCADE,null=True,blank=True)
     payment_term = models.TextField(null=True,blank=True)
     delivery_term = models.TextField(null=True,blank=True)
     po_amount = models.FloatField(default=0)
+    is_approve = models.BooleanField(null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = "PO Generation"
+        permissions = (
+            ("can_approve_and_disapprove", "Can approve and dis-approve"),
+        )
 
 @receiver(pre_save, sender=Cart)
 def create_po_no(sender, instance=None, created=False, **kwargs):
@@ -149,9 +160,6 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
     def __str__(self):
         return self.grn_id
 
-
-
-
 class GRNOrderProductMapping(models.Model):
     grn_order = models.ForeignKey(GRNOrder,related_name='grn_order_grn_order_product',null=True,blank=True,on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='product_grn_order_product',null=True,blank=True, on_delete=models.CASCADE)
@@ -178,7 +186,6 @@ class GRNOrderProductMapping(models.Model):
                raise ValidationError(_('Product invoice quantity cannot be less than the sum of delivered quantity and returned quantity'))
          else:
              raise ValidationError(_('Product invoice quantity cannot be greater than PO product quantity'))
-
 
 class OrderHistory(models.Model):
     #shop = models.ForeignKey(Shop, related_name='shop_order',null=True,blank=True,on_delete=models.CASCADE)

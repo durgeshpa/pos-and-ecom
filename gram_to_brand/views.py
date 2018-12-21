@@ -18,6 +18,8 @@ from gram_to_brand.models import Order,CartProductMapping
 from brand.models import Vendor
 from products.models import ProductVendorMapping
 from django.db.models import F,Sum,Count
+from django.views.generic import View,ListView,UpdateView
+from django.urls import reverse_lazy
 
 # Create your views here.
 
@@ -229,3 +231,43 @@ class GRNedProductData(APIView):
         #b= a.grn_order_grn_order_product.get(product__id=product_id)
         #already_grned_product = b.already_grned_product + int(b.delivered_qty)
         return Response({"message": [""], "response_data": delivered_qty_sum, "success": True})
+
+class ApproveView(UpdateView):
+    permission_classes = (IsAuthenticated,)
+    template_name = 'admin/gram_to_brand/cart/change_form.html'
+    model = Cart
+    fields = ('is_approve',)
+    success_message = "Approve Successfully"
+
+    def get_object(self):
+        cart_obj = get_object_or_404(Cart, pk=self.kwargs.get('pk'))
+        return cart_obj
+
+    def form_valid(self, form):
+        cart_obj = get_object_or_404(Cart, pk=self.kwargs.get('pk'))
+        cart_obj.is_approve = True
+        cart_obj.save()
+        return super(ApproveView, self).form_valid(form)
+
+    def get_success_url(self, **kwargs):
+        return reverse_lazy('approve-account', args=(self.kwargs.get('pk'),))
+
+class DisapproveView(UpdateView):
+    permission_classes = (IsAuthenticated,)
+    template_name = 'admin/gram_to_brand/cart/change_form.html'
+    model = Cart
+    fields = ('is_approve',)
+    success_message = "Dis-approve Successfully"
+
+    def get_object(self):
+        cart_obj = get_object_or_404(Cart, pk=self.kwargs.get('pk'))
+        return cart_obj
+
+    def form_valid(self, form):
+        cart_obj = get_object_or_404(Cart, pk=self.kwargs.get('pk'))
+        cart_obj.is_approve = False
+        cart_obj.save()
+        return super(DisapproveView, self).form_valid(form)
+
+    def get_success_url(self, **kwargs):
+        return reverse_lazy('dis-approve-account', args=(self.kwargs.get('pk'),))

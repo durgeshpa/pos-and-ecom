@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import (Order,Cart,CartProductMapping,GRNOrder,GRNOrderProductMapping,OrderItem,BrandNote,PickList,PickListItems,
-                     OrderedProductReserved)
+                     OrderedProductReserved,Po_Message)
 from products.models import Product
 from django import forms
 from django.db.models import Sum
@@ -20,7 +20,7 @@ from daterange_filter.filter import DateRangeFilter
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from admin_auto_filters.filters import AutocompleteFilter
-
+from django.http import HttpResponse, HttpResponseRedirect
 
 class BrandFilter(AutocompleteFilter):
     title = 'Brand' # display title
@@ -198,7 +198,6 @@ class CartProductMappingForm(forms.ModelForm):
         exclude = ('qty',)
 
 
-
 class CartProductMappingFormset(forms.models.BaseInlineFormSet):
 
     def clean(self):
@@ -223,19 +222,32 @@ class CartProductMappingAdmin(admin.TabularInline):
     formset = CartProductMappingFormset
     form = CartProductMappingForm
 
-
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     exclude = ('po_no', 'shop', 'po_status','last_modified_by')
     autocomplete_fields = ('brand',)
-    list_display = ('po_no','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_amount','po_raised_by','po_status', 'download_purchase_order')
-    #search_fields = ('brand__brand_name','state__state_name','supplier__shop_owner__first_name')
+    list_display = ('edit_link','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_amount','is_approve','po_raised_by','po_status', 'download_purchase_order')
     list_filter = [BrandFilter,StateFilter ,SupplierFilter,('po_creation_date', DateRangeFilter),('po_validity_date', DateRangeFilter),POAmountSearch,PORaisedBy]
     form = POGenerationForm
     def download_purchase_order(self,obj):
-        #request = self.context.get("request")
-        return format_html("<a href= '%s' >Download PO</a>"%(reverse('download_purchase_order', args=[obj.pk])))
+        if obj.is_approve:
+            return format_html("<a href= '%s' >Download PO</a>"%(reverse('download_purchase_order', args=[obj.pk])))
+
     download_purchase_order.short_description = 'Download Purchase Order'
+
+    def __init__(self, *args, **kwargs):
+        super(CartAdmin, self).__init__(*args, **kwargs)
+        print(self.list_display[7].__str__())
+        self.list_display_links = None
+
+    def edit_link(self, obj):
+        if obj.is_approve:
+            return format_html('%s' % (obj.po_no))
+        else:
+            return format_html('<a href="/admin/gram_to_brand/cart/%s/change/">%s</a>' % (obj.id, obj.po_no))
+
+    edit_link.allow_tags = True
+    edit_link.short_description = "po no"
 
     def save_formset(self, request, form, formset, change):
         import datetime
@@ -286,6 +298,26 @@ class CartAdmin(admin.ModelAdmin):
         #         new_order.order_status = 'delivered'
         #     new_order.save()
         formset.save_m2m()
+
+    def response_change(self, request, obj):
+        print(request.GET)
+        if "_approve" in request.POST:
+            if request.POST.get('message'):
+                get_po_msg,_ = Po_Message.objects.get_or_create(message=request.POST.get('message'))
+                obj.po_message = get_po_msg
+            obj.is_approve = True
+            obj.created_by = request.user
+            obj.save()
+            return HttpResponseRedirect(".")
+        elif "_disapprove" in request.POST:
+            if request.POST.get('message'):
+                get_po_msg, _ = Po_Message.objects.get_or_create(message=request.POST.get('message'))
+                obj.po_message = get_po_msg
+            obj.is_approve = False
+            obj.created_by = request.user
+            obj.save()
+            return HttpResponseRedirect("/admin/gram_to_brand/cart/")
+        return super().response_change(request, obj)
 
     class Media:
             pass
@@ -542,6 +574,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
                 instance.grn_order.order.order_status='partially_delivered'
                 instance.grn_order.order.save()
                 order_id = instance.grn_order.order.id
+                order_no = instance.grn_order.order.order_no
 
                 #instance.available_qty = instance.delivered_qty
                 instance.save()
@@ -551,6 +584,10 @@ class GRNOrderAdmin(admin.ModelAdmin):
             order_item = OrderItem.objects.filter(order=order_id)
             order.order_status = 'partially_delivered' if order_item.filter(item_status='partially_delivered').count()>0 else 'delivered'
             order.save()
+
+            cart = Cart.objects.get(po_no=order_no)
+            cart.is_approve = ''
+            cart.save()
 
         formset.save_m2m()
 
