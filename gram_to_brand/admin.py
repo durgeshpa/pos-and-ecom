@@ -539,6 +539,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
         today = datetime.date.today()
         instances = formset.save(commit=False)
         order_id = 0
+        order_no = 0
 
         print(instances)
         #print(instances.count())
@@ -574,7 +575,8 @@ class GRNOrderAdmin(admin.ModelAdmin):
                 instance.grn_order.order.order_status='partially_delivered'
                 instance.grn_order.order.save()
                 order_id = instance.grn_order.order.id
-                order_no = instance.grn_order.order.order_no
+                if  instance.product_invoice_price:
+                    order_no = instance.grn_order.order.order_no
 
                 #instance.available_qty = instance.delivered_qty
                 instance.save()
@@ -585,6 +587,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
             order.order_status = 'partially_delivered' if order_item.filter(item_status='partially_delivered').count()>0 else 'delivered'
             order.save()
 
+        if order_no!=0:
             cart = Cart.objects.get(po_no=order_no)
             cart.is_approve = ''
             cart.save()
