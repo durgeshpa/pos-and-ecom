@@ -161,20 +161,6 @@ class POGenerationForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='billing-address-autocomplete', forward=('supplier_state',))
     )
 
-    # country = forms.ModelChoiceField(
-    #     queryset=Country.objects.all(),
-    #     widget=autocomplete.ModelSelect2(url='country-autocomplete'))
-    # city = forms.ModelChoiceField(
-    #     queryset=City.objects.all(),
-    #     widget=autocomplete.ModelSelect2(
-    #
-    #     # attrs={
-    #     #     'data-placeholder': 'Autocomplete ...',
-    #     #     'data-minimum-input-length': 3,
-    #     # },
-    #     url='city-autocomplete',
-    #     forward=('country',)))
-
     class Media:
         pass
         #css = {'all': ('pretty.css',)}
@@ -226,7 +212,7 @@ class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     exclude = ('po_no', 'shop', 'po_status','last_modified_by')
     autocomplete_fields = ('brand',)
-    list_display = ('edit_link','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_amount','is_approve','po_raised_by','po_status', 'download_purchase_order')
+    list_display = ('po_no','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_amount','is_approve','po_raised_by','po_status', 'download_purchase_order')
     list_filter = [BrandFilter,StateFilter ,SupplierFilter,('po_creation_date', DateRangeFilter),('po_validity_date', DateRangeFilter),POAmountSearch,PORaisedBy]
     form = POGenerationForm
     def download_purchase_order(self,obj):
@@ -235,19 +221,19 @@ class CartAdmin(admin.ModelAdmin):
 
     download_purchase_order.short_description = 'Download Purchase Order'
 
-    def __init__(self, *args, **kwargs):
-        super(CartAdmin, self).__init__(*args, **kwargs)
-        print(self.list_display[7].__str__())
-        self.list_display_links = None
+    # def __init__(self, *args, **kwargs):
+    #     super(CartAdmin, self).__init__(*args, **kwargs)
+    #     print(self.list_display[7].__str__())
+    #     self.list_display_links = None
 
-    def edit_link(self, obj):
-        if obj.is_approve:
-            return format_html('%s' % (obj.po_no))
-        else:
-            return format_html('<a href="/admin/gram_to_brand/cart/%s/change/">%s</a>' % (obj.id, obj.po_no))
-
-    edit_link.allow_tags = True
-    edit_link.short_description = "po no"
+    # def edit_link(self, obj):
+    #     if obj.is_approve:
+    #         return format_html('%s' % (obj.po_no))
+    #     else:
+    #         return format_html('<a href="/admin/gram_to_brand/cart/%s/change/">%s</a>' % (obj.id, obj.po_no))
+    #
+    # edit_link.allow_tags = True
+    # edit_link.short_description = "po no"
 
     def save_formset(self, request, form, formset, change):
         import datetime
@@ -259,9 +245,7 @@ class CartAdmin(admin.ModelAdmin):
 
             instance.last_modified_by = request.user
             instance.save()
-            #print(instance.cart)
-            #Save Order
-            #order,_ = Order.objects.get_or_create(ordered_cart=instance.cart)
+
             order,_ = Order.objects.get_or_create(ordered_cart=instance.cart,order_no=instance.cart.po_no)
             order.ordered_by=request.user
             order.order_status='ordered_to_brand'
@@ -281,26 +265,9 @@ class CartAdmin(admin.ModelAdmin):
             order_item.last_modified_by = request.user
             order_item.save()
 
-            #instance.order_brand.ordered_by = request.user
-            #instance.order_brand.order_status = 'ordered_to_brand'
-            #nstance.order_brand.brand_order_id = 'BRAND/ORDER/' + str(instance.order_brand.id)
-            #new_order = instance.order_brand
-
-            #Order.objects.get_or_create('ordered_cart'=instance.cart_list)
-            #instance.order_brand.save()
-            #instance.cart_id = 'BRAND-' + "{%Y%m%d}".format(today) + "-" + instance.id
-            #instance.shop = Shop.objects.get(name='Gramfactory')
-
-        # if request.user.groups.filter(name='grn_brand_to_gram_group').exists():
-        #     if new_order and CartToBrand.objects.filter(order_brand=new_order):
-        #         new_order.order_status = 'partially_delivered'
-        #     elif new_order:
-        #         new_order.order_status = 'delivered'
-        #     new_order.save()
         formset.save_m2m()
 
     def response_change(self, request, obj):
-        print(request.GET)
         if "_approve" in request.POST:
             if request.POST.get('message'):
                 get_po_msg,_ = Po_Message.objects.get_or_create(message=request.POST.get('message'))
@@ -308,7 +275,7 @@ class CartAdmin(admin.ModelAdmin):
             obj.is_approve = True
             obj.created_by = request.user
             obj.save()
-            return HttpResponseRedirect(".")
+            return HttpResponseRedirect("/admin/gram_to_brand/cart/")
         elif "_disapprove" in request.POST:
             if request.POST.get('message'):
                 get_po_msg, _ = Po_Message.objects.get_or_create(message=request.POST.get('message'))
@@ -317,6 +284,9 @@ class CartAdmin(admin.ModelAdmin):
             obj.created_by = request.user
             obj.save()
             return HttpResponseRedirect("/admin/gram_to_brand/cart/")
+        else:
+            obj.is_approve = ''
+            obj.save()
         return super().response_change(request, obj)
 
     class Media:
@@ -324,7 +294,6 @@ class CartAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Cart,CartAdmin)
-
 
 # testing st
 
@@ -341,14 +310,6 @@ class GRNOrderForm(forms.ModelForm):
         model = GRNOrder
         fields = ('order','invoice_no')
 
-    # def __init__(self, *args, **kwargs):
-    #     #print("mukesh")
-    #     self.initial = [
-    #         {'label': 'first name'},
-    #         {'label': 'last name'},
-    #         {'label': 'job', }
-    #     ]
-    #     super(GRNOrderForm, self).__init__(*args, **kwargs)
 
 class GRNOrderProductForm(forms.ModelForm):
     product = forms.ModelChoiceField(
@@ -456,7 +417,7 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     model = GRNOrderProductMapping
     form = GRNOrderProductForm
 
-    extra= 10   #fields = [get_product]
+    extra= 10
     exclude = ('last_modified_by','available_qty',)
 
     #readonly_fields= ('po_product_price', 'po_product_quantity', 'already_grned_product')
@@ -492,9 +453,7 @@ class BrandNoteAdmin(admin.ModelAdmin):
     exclude = ('brand_note_id','last_modified_by',)
 
 class OrderItemAdmin(admin.ModelAdmin):
-    #search_fields = ('order__id','order__order_no','ordered_qty')
     list_filter = [OrderSearch , QuantitySearch, PORaisedBy ,('order__ordered_cart__po_creation_date', DateRangeFilter)]
-    #date_hierarchy = 'created_at'
     list_display = ('order','ordered_product','ordered_qty','total_delivered_qty','total_damaged_qty','po_creation_date','item_status',)
 
     def po_creation_date(self, obj):
@@ -545,7 +504,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
         #print(instances.count())
 
         for instance in instances:
-            #GRNOrderProductMapping
+
             #Save OrderItem
             if OrderItem.objects.filter(order=instance.grn_order.order,ordered_product=instance.product).exists():
                 order_item = OrderItem.objects.get(order=instance.grn_order.order, ordered_product=instance.product)
@@ -575,10 +534,6 @@ class GRNOrderAdmin(admin.ModelAdmin):
                 instance.grn_order.order.order_status='partially_delivered'
                 instance.grn_order.order.save()
                 order_id = instance.grn_order.order.id
-                if  instance.product_invoice_price:
-                    order_no = instance.grn_order.order.order_no
-
-                #instance.available_qty = instance.delivered_qty
                 instance.save()
             #Update Order
         if order_id!= 0 and OrderItem.objects.filter(order=order_id).exists():
@@ -586,11 +541,6 @@ class GRNOrderAdmin(admin.ModelAdmin):
             order_item = OrderItem.objects.filter(order=order_id)
             order.order_status = 'partially_delivered' if order_item.filter(item_status='partially_delivered').count()>0 else 'delivered'
             order.save()
-
-        if order_no!=0:
-            cart = Cart.objects.get(po_no=order_no)
-            cart.is_approve = ''
-            cart.save()
 
         formset.save_m2m()
 
@@ -600,7 +550,6 @@ class OrderAdmin(admin.ModelAdmin):
     list_display = ('order_no','order_status','ordered_by','created_at','add_grn_link')
 
     def add_grn_link(self, obj):
-        #return format_html("<ul class ='object-tools'><li><a href = '/admin/gram_to_brand/grnorder/add/?brand=%s' class ='addlink' > Add order</a></li></ul>"% (obj.id))
         return format_html("<a href = '/admin/gram_to_brand/grnorder/add/?order=%s&odr=%s' class ='addlink' > Add GRN</a>"% (obj.id,obj.id))
 
     add_grn_link.short_description = 'Do GRN'
