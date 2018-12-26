@@ -58,6 +58,7 @@ class Shop(models.Model):
 
 @receiver(post_save, sender=Shop)
 def shop_addition_notification(sender, instance=None, created=False, **kwargs):
+    
     if instance.status == True:
         otp = '123546'
         date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
