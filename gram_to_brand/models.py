@@ -12,7 +12,9 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.dispatch import receiver
-from django.db.models.signals import pre_save
+from django.db.models.signals import pre_save, post_save
+from django.urls import reverse
+import datetime, csv, codecs, re
 
 
 ORDER_STATUS = (
@@ -53,9 +55,17 @@ class Cart(models.Model):
     payment_term = models.TextField(null=True,blank=True)
     delivery_term = models.TextField(null=True,blank=True)
     po_amount = models.FloatField(default=0)
-    is_approve = models.BooleanField(null=True,blank=True)
+    cart_product_mapping_csv = models.FileField(upload_to='gram/brand/cart_product_mapping_csv', null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def products_sample_file(self):
+        if self.cart_product_mapping_csv and hasattr(self.cart_product_mapping_csv, 'url'):
+            url = """<h3><a href="%s" target="_blank">Download Products List</a></h3>""" % (reverse('admin:products_vendor_mapping',args=(self.supplier_name_id,)))
+        else:
+            url="""<h3><a href="#">Download Products List</a></h3>"""
+        return url
 
     class Meta:
         verbose_name = "PO Generation"
@@ -65,18 +75,19 @@ class Cart(models.Model):
 
 @receiver(pre_save, sender=Cart)
 def create_po_no(sender, instance=None, created=False, **kwargs):
-    last_cart = Cart.objects.last()
-    if last_cart:
-        last_cart_po_no_increment = str(int(last_cart.po_no.rsplit('/', 1)[-1]) + 1).zfill(len(last_cart.po_no.rsplit('/', 1)[-1]))
-    else:
-        last_cart_po_no_increment = '00001'
-    instance.po_no = "ADT/PO/07/%s"%(last_cart_po_no_increment)
+    if instance._state.adding:
+        last_cart = Cart.objects.last()
+        if last_cart:
+            last_cart_po_no_increment = str(int(last_cart.po_no.rsplit('/', 1)[-1]) + 1).zfill(len(last_cart.po_no.rsplit('/', 1)[-1]))
+        else:
+            last_cart_po_no_increment = '00001'
+        instance.po_no = "ADT/PO/07/%s"%(last_cart_po_no_increment)
 
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='cart_list',on_delete=models.CASCADE)
     cart_product = models.ForeignKey(Product, related_name='cart_product_mapping', on_delete=models.CASCADE)
     case_size= models.PositiveIntegerField(default=0)
-    number_of_cases = models.PositiveIntegerField(default=0)
+    number_of_cases = models.PositiveIntegerField()
     qty= models.PositiveIntegerField(default=0)
     scheme = models.FloatField(default=0,null=True,blank=True,help_text='data into percentage %')
     price = models.FloatField(default=0, verbose_name='Brand To Gram Price')
@@ -86,11 +97,25 @@ class CartProductMapping(models.Model):
         verbose_name = "Select Product"
 
     def clean(self):
-         self.total_price= self.case_size * self.number_of_cases * self.price
-         self.qty = self.case_size * self.number_of_cases
+        if self.number_of_cases:
+            self.total_price= self.case_size * self.number_of_cases * self.price
+            self.qty = self.case_size * self.number_of_cases
 
     def __str__(self):
         return self.cart_product.product_name
+
+@receiver(post_save, sender=Cart)
+def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
+    if created:
+        if instance.cart_product_mapping_csv:
+            reader = csv.reader(codecs.iterdecode(instance.cart_product_mapping_csv, 'utf-8'))
+            for id,row in enumerate(reader):
+                for row in reader:
+                    if row[3]:
+                        CartProductMapping.objects.create(cart=instance,cart_product_id = row[0], case_size= int(row[2]),
+                         number_of_cases = int(row[3]),scheme = float(row[4]) if row[4] else None, price=float(row[5])
+                         , total_price = float(row[2])*float(row[3])*float(row[5]))
+
 
 class Order(models.Model):
     shop = models.ForeignKey(Shop, related_name='shop_order',null=True,blank=True,on_delete=models.CASCADE)
@@ -112,6 +137,18 @@ class Order(models.Model):
 
     def __str__(self):
         return str(self.order_no) or str(self.id)
+
+@receiver(post_save, sender=CartProductMapping)
+def create_order(sender, instance=None, created=False, **kwargs):
+    if created:
+        order = Order.objects.filter(ordered_cart=instance.cart)
+        if order.exists():
+            order = order.last()
+            order.total_final_amount = order.total_final_amount+instance.total_price
+            order.save()
+        else:
+            Order.objects.create(ordered_cart=instance.cart, order_no=instance.cart.po_no, billing_address=instance.cart.gf_billing_address,
+            shipping_address=instance.cart.gf_shipping_address, total_final_amount=instance.total_price)
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order,related_name='order_order_item',on_delete=models.CASCADE,verbose_name='po no')
@@ -146,15 +183,16 @@ class GRNOrder(models.Model):
 
 @receiver(pre_save, sender=GRNOrder)
 def create_grn_id(sender, instance=None, created=False, **kwargs):
-    import datetime
-    current_year = datetime.date.today().strftime('%y')
-    next_year = str(int(current_year) + 1)
-    last_grn_order = GRNOrder.objects.last()
-    if last_grn_order:
-        last_grn_order_id_increment = str(int(last_grn_order.grn_id.rsplit('/', 1)[-1])+1)
-    else:
-        last_grn_order_id_increment = '1'
-    instance.grn_id = "%s-%s/%s"%(current_year,next_year,last_grn_order_id_increment)
+    if instance._state.adding:
+        import datetime
+        current_year = datetime.date.today().strftime('%y')
+        next_year = str(int(current_year) + 1)
+        last_grn_order = GRNOrder.objects.last()
+        if last_grn_order:
+            last_grn_order_id_increment = str(int(last_grn_order.grn_id.rsplit('/', 1)[-1])+1)
+        else:
+            last_grn_order_id_increment = '1'
+        instance.grn_id = "%s-%s/%s"%(current_year,next_year,last_grn_order_id_increment)
 
 
     def __str__(self):
@@ -245,25 +283,26 @@ class BrandNote(models.Model):
 
 @receiver(pre_save, sender=BrandNote)
 def create_brand_note_id(sender, instance=None, created=False, **kwargs):
-    import datetime
-    current_year = datetime.date.today().strftime('%y')
-    next_year = str(int(current_year) + 1)
-    today_date = datetime.date.today().strftime('%d%m%y')
-    if instance.note_type == 'debit_note':
-        last_brand_note = BrandNote.objects.filter(note_type="debit_note").last()
-        if last_brand_note:
-            last_brand_note_id_increment = str(int(last_brand_note.brand_note_id.rsplit('/', 1)[-1])+1)
-        else:
-            last_brand_note_id_increment = '1'
-        instance.brand_note_id = "%s/%s"%(today_date,last_brand_note_id_increment)
+    if instance._state.adding:
+        import datetime
+        current_year = datetime.date.today().strftime('%y')
+        next_year = str(int(current_year) + 1)
+        today_date = datetime.date.today().strftime('%d%m%y')
+        if instance.note_type == 'debit_note':
+            last_brand_note = BrandNote.objects.filter(note_type="debit_note").last()
+            if last_brand_note:
+                last_brand_note_id_increment = str(int(last_brand_note.brand_note_id.rsplit('/', 1)[-1])+1)
+            else:
+                last_brand_note_id_increment = '1'
+            instance.brand_note_id = "%s/%s"%(today_date,last_brand_note_id_increment)
 
-    elif instance.note_type == 'credit_note':
-        last_brand_note = BrandNote.objects.filter(note_type="credit_note").last()
-        if last_brand_note:
-            last_brand_note_id_increment = str(int(last_brand_note.brand_note_id.rsplit('/', 1)[-1]) + 1).zfill(len(last_brand_note.brand_note_id.rsplit('/', 1)[-1]))
-        else:
-            last_brand_note_id_increment = '00001'
-        instance.brand_note_id = "ADT/CN/%s"%(last_brand_note_id_increment)
+        elif instance.note_type == 'credit_note':
+            last_brand_note = BrandNote.objects.filter(note_type="credit_note").last()
+            if last_brand_note:
+                last_brand_note_id_increment = str(int(last_brand_note.brand_note_id.rsplit('/', 1)[-1]) + 1).zfill(len(last_brand_note.brand_note_id.rsplit('/', 1)[-1]))
+            else:
+                last_brand_note_id_increment = '00001'
+            instance.brand_note_id = "ADT/CN/%s"%(last_brand_note_id_increment)
 
 class OrderedProductReserved(models.Model):
     order_product_reserved = models.ForeignKey(GRNOrderProductMapping, related_name='retiler_order_product_order_product_reserved',null=True, blank=True, on_delete=models.CASCADE)

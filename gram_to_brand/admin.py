@@ -20,6 +20,7 @@ from daterange_filter.filter import DateRangeFilter
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from admin_auto_filters.filters import AutocompleteFilter
+from .forms import POGenerationForm
 from django.http import HttpResponse, HttpResponseRedirect
 
 class BrandFilter(AutocompleteFilter):
@@ -205,7 +206,7 @@ class CartProductMappingAdmin(admin.TabularInline):
     #readonly_fields = ('get_edit_link',)
     autocomplete_fields = ('cart_product',)
     search_fields =('cart_product',)
-    formset = CartProductMappingFormset
+    #formset = CartProductMappingFormset
     form = CartProductMappingForm
 
 class CartAdmin(admin.ModelAdmin):
@@ -221,51 +222,55 @@ class CartAdmin(admin.ModelAdmin):
 
     download_purchase_order.short_description = 'Download Purchase Order'
 
-    # def __init__(self, *args, **kwargs):
-    #     super(CartAdmin, self).__init__(*args, **kwargs)
-    #     print(self.list_display[7].__str__())
-    #     self.list_display_links = None
-
-    # def edit_link(self, obj):
-    #     if obj.is_approve:
-    #         return format_html('%s' % (obj.po_no))
-    #     else:
-    #         return format_html('<a href="/admin/gram_to_brand/cart/%s/change/">%s</a>' % (obj.id, obj.po_no))
+    # def save_formset(self, request, form, formset, change):
+    #     import datetime
+    #     today = datetime.date.today()
+    #     instances = formset.save(commit=False)
+    #     flag = 0
+    #     new_order = ''
+    #     for instance in instances:
     #
-    # edit_link.allow_tags = True
-    # edit_link.short_description = "po no"
-
-    def save_formset(self, request, form, formset, change):
-        import datetime
-        today = datetime.date.today()
-        instances = formset.save(commit=False)
-        flag = 0
-        new_order = ''
-        for instance in instances:
-
-            instance.last_modified_by = request.user
-            instance.save()
-
-            order,_ = Order.objects.get_or_create(ordered_cart=instance.cart,order_no=instance.cart.po_no)
-            order.ordered_by=request.user
-            order.order_status='ordered_to_brand'
-            order.last_modified_by=request.user
-            order.save()
-
-            #Save OrderItem
-            if OrderItem.objects.filter(order=order,ordered_product=instance.cart_product).exists():
-                OrderItem.objects.filter(order=order,ordered_product=instance.cart_product).delete()
-
-            order_item = OrderItem()
-            order_item.ordered_product = instance.cart_product
-            order_item.ordered_qty = instance.number_of_cases * instance.case_size
-            order_item.ordered_price = instance.price
-
-            order_item.order = order
-            order_item.last_modified_by = request.user
-            order_item.save()
-
-        formset.save_m2m()
+    #         instance.last_modified_by = request.user
+    #         instance.save()
+    #         #print(instance.cart)
+    #         #Save Order
+    #         #order,_ = Order.objects.get_or_create(ordered_cart=instance.cart)
+    #         order,_ = Order.objects.get_or_create(ordered_cart=instance.cart,order_no=instance.cart.po_no)
+    #         order.ordered_by=request.user
+    #         order.order_status='ordered_to_brand'
+    #         order.last_modified_by=request.user
+    #         order.save()
+    #
+    #         #Save OrderItem
+    #         if OrderItem.objects.filter(order=order,ordered_product=instance.cart_product).exists():
+    #             OrderItem.objects.filter(order=order,ordered_product=instance.cart_product).delete()
+    #
+    #         order_item = OrderItem()
+    #         order_item.ordered_product = instance.cart_product
+    #         order_item.ordered_qty = instance.number_of_cases * instance.case_size
+    #         order_item.ordered_price = instance.price
+    #
+    #         order_item.order = order
+    #         order_item.last_modified_by = request.user
+    #         order_item.save()
+    #
+    #         #instance.order_brand.ordered_by = request.user
+    #         #instance.order_brand.order_status = 'ordered_to_brand'
+    #         #nstance.order_brand.brand_order_id = 'BRAND/ORDER/' + str(instance.order_brand.id)
+    #         #new_order = instance.order_brand
+    #
+    #         #Order.objects.get_or_create('ordered_cart'=instance.cart_list)
+    #         #instance.order_brand.save()
+    #         #instance.cart_id = 'BRAND-' + "{%Y%m%d}".format(today) + "-" + instance.id
+    #         #instance.shop = Shop.objects.get(name='Gramfactory')
+    #
+    #     # if request.user.groups.filter(name='grn_brand_to_gram_group').exists():
+    #     #     if new_order and CartToBrand.objects.filter(order_brand=new_order):
+    #     #         new_order.order_status = 'partially_delivered'
+    #     #     elif new_order:
+    #     #         new_order.order_status = 'delivered'
+    #     #     new_order.save()
+    #     formset.save_m2m()
 
     def response_change(self, request, obj):
         if "_approve" in request.POST:
@@ -498,13 +503,12 @@ class GRNOrderAdmin(admin.ModelAdmin):
         today = datetime.date.today()
         instances = formset.save(commit=False)
         order_id = 0
-        order_no = 0
 
         print(instances)
         #print(instances.count())
 
         for instance in instances:
-
+            #GRNOrderProductMapping
             #Save OrderItem
             if OrderItem.objects.filter(order=instance.grn_order.order,ordered_product=instance.product).exists():
                 order_item = OrderItem.objects.get(order=instance.grn_order.order, ordered_product=instance.product)

@@ -9,6 +9,19 @@
         return c;
      }
 })
+function openDetails() {
+  alert('changed')
+}
+
+$(document).on('change', '#id_supplier_name', function(index){
+$('.help').find('a').each(function() {
+  var supplier_id = $('#id_supplier_name').val();
+  var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '')+'/';
+  var csv = host + 'admin/products/product/products-vendor-mapping/'
+  $(this).attr('href',csv + supplier_id);
+});
+});
+
    $(document).on('change', '.select2-hidden-accessible', function(index){
         if ($(this).data("autocomplete-light-url") == '/gram/brand/vendor-product-autocomplete/'){
             var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '')+'/';

@@ -49,15 +49,20 @@ class SupplierAutocomplete(autocomplete.Select2QuerySetView):
 
 
 class ShippingAddressAutocomplete(autocomplete.Select2QuerySetView):
+
     def get_queryset(self,*args,**kwargs):
 
         qs = Address.objects.filter(shop_name__shop_type__shop_type='gf',address_type='shipping')
 
         state_id = self.forwarded.get('state', None)
+        supplier_name = self.forwarded.get('supplier_name', None)
+
+
         if state_id:
             qs = qs.filter(state__id=state_id)
 
         return qs
+
 
 
 class BillingAddressAutocomplete(autocomplete.Select2QuerySetView):
@@ -140,9 +145,8 @@ class DownloadPurchaseOrder(APIView):
 
 class VendorProductAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self,*args,**kwargs):
-        #qs = Product.objects.all()
+        qs = Product.objects.all()
         supplier_id = self.forwarded.get('supplier_name', None)
-        print(supplier_id)
         if supplier_id:
             qs = Product.objects.all()
             product_id = ProductVendorMapping.objects.filter(vendor__id=supplier_id).values('product')
