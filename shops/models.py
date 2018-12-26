@@ -1,8 +1,11 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+#from django.conf import settings
 from django.utils.safestring import mark_safe
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from otp.sms import SendSms
+import datetime
 
 SHOP_TYPE_CHOICES = (
     ("sp","Service Partner"),
@@ -53,6 +56,20 @@ class Shop(models.Model):
     def __str__(self):
         return "%s - %s"%(self.shop_name, self.shop_type.get_shop_type_display())
 
+@receiver(post_save, sender=Shop)
+def shop_addition_notification(sender, instance=None, created=False, **kwargs):
+    
+    if instance.status == True:
+        otp = '123546'
+        date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
+        time = datetime.datetime.now().strftime("%I:%M %p")
+        message = SendSms(phone=instance.shop_owner,
+                          body="%s is your One Time Password for GramFactory Account."\
+                               " Request time is %s, %s IST." % (otp,date,time))
+
+        message.send()
+
+
 class ShopPhoto(models.Model):
     shop_name = models.ForeignKey(Shop, related_name='shop_name_photos', on_delete=models.CASCADE)
     shop_photo = models.FileField(upload_to='shop_photos/shop_name/')
@@ -74,6 +91,7 @@ class ShopDocument(models.Model):
 
     def __str__(self):
         return "%s - %s"%(self.shop_document_number, self.shop_document_photo.url)
+
 
 class ParentRetailerMapping(models.Model):
     parent = models.ForeignKey(Shop,related_name='parrent_mapping',on_delete=models.CASCADE)

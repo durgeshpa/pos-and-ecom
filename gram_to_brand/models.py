@@ -90,7 +90,7 @@ class CartProductMapping(models.Model):
     number_of_cases = models.PositiveIntegerField()
     qty= models.PositiveIntegerField(default=0)
     scheme = models.FloatField(default=0,null=True,blank=True,help_text='data into percentage %')
-    price = models.FloatField(default=0, verbose_name='Brand To Gram Price')
+    price = models.FloatField( verbose_name='Brand To Gram Price')
     total_price= models.PositiveIntegerField(default=0)
 
     class Meta:
@@ -98,8 +98,8 @@ class CartProductMapping(models.Model):
 
     def clean(self):
         if self.number_of_cases:
-            self.total_price= self.case_size * self.number_of_cases * self.price
-            self.qty = self.case_size * self.number_of_cases
+             self.total_price= self.case_size * self.number_of_cases * self.price
+             self.qty = self.case_size * self.number_of_cases
 
     def __str__(self):
         return self.cart_product.product_name
@@ -169,7 +169,7 @@ class OrderItem(models.Model):
         verbose_name = "Purchase Order Item List"
 
 class GRNOrder(models.Model):
-    order = models.ForeignKey(Order,related_name='order_grn_order',on_delete=models.CASCADE,null=True,blank=True,verbose_name='po no')
+    order = models.ForeignKey(Order,related_name='order_grn_order',on_delete=models.CASCADE,null=True,blank=True )
     order_item = models.ForeignKey(OrderItem,related_name='order_item_grn_order',on_delete=models.CASCADE,null=True,blank=True)
     invoice_no = models.CharField(max_length=255)
     grn_id = models.CharField(max_length=255,null=True,blank=True)
@@ -195,8 +195,6 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
         instance.grn_id = "%s-%s/%s"%(current_year,next_year,last_grn_order_id_increment)
 
 
-    def __str__(self):
-        return self.grn_id
 
 class GRNOrderProductMapping(models.Model):
     grn_order = models.ForeignKey(GRNOrder,related_name='grn_order_grn_order_product',null=True,blank=True,on_delete=models.CASCADE)

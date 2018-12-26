@@ -109,7 +109,6 @@ class CartAdmin(admin.ModelAdmin):
             print(instance)
             instance.last_modified_by = request.user
             instance.save()
-            print(instance.cart)
 
             order,_ = Order.objects.get_or_create(ordered_cart=instance.cart,order_no=instance.cart.order_id)
             order.ordered_by=request.user

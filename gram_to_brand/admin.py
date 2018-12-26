@@ -20,6 +20,7 @@ from daterange_filter.filter import DateRangeFilter
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from admin_auto_filters.filters import AutocompleteFilter
+from gram_to_brand.forms import OrderForm
 from .forms import POGenerationForm
 from django.http import HttpResponse, HttpResponseRedirect
 
@@ -28,7 +29,7 @@ class BrandFilter(AutocompleteFilter):
     field_name = 'brand' # name of the foreign key field
 
 
-class StateFilter(AutocompleteFilter):
+class SupplierStateFilter(AutocompleteFilter):
     title = 'State' # display title
     field_name = 'supplier_state' # name of the foreign key field
 
@@ -123,54 +124,6 @@ class PORaisedBy(InputFilter):
                 )
             return queryset.filter(any_name)
 
-
-# class UserFilter(InputFilter):
-#     parameter_name = 'user'
-#     title = _('User')
-#     def queryset(self, request, queryset):
-#         term = self.value()
-#         if term is None:
-#             return
-#         any_name = Q()
-#         for bit in term.split():
-#             any_name &= (
-#                 Q(user__first_name__icontains=bit) |
-#                 Q(user__last_name__icontains=bit)
-#             )
-#         return queryset.filter(any_name)
-
-
-class POGenerationForm(forms.ModelForm):
-    brand = forms.ModelChoiceField(
-        queryset=Brand.objects.all(),
-        widget=autocomplete.ModelSelect2(url='brand-autocomplete',)
-    )
-    supplier_state = forms.ModelChoiceField(
-        queryset=State.objects.all(),
-        widget=autocomplete.ModelSelect2(url='state-autocomplete',)
-    )
-    supplier_name = forms.ModelChoiceField(
-        queryset=Vendor.objects.all(),
-        widget=autocomplete.ModelSelect2(url='supplier-autocomplete',forward=('supplier_state','brand'))
-    )
-    gf_shipping_address = forms.ModelChoiceField(
-        queryset=Address.objects.filter(shop_name__shop_type__shop_type='gf'),
-        widget=autocomplete.ModelSelect2(url='shipping-address-autocomplete', forward=('supplier_state',))
-    )
-    gf_billing_address = forms.ModelChoiceField(
-        queryset=Address.objects.filter(shop_name__shop_type__shop_type='gf'),
-        widget=autocomplete.ModelSelect2(url='billing-address-autocomplete', forward=('supplier_state',))
-    )
-
-    class Media:
-        pass
-        #css = {'all': ('pretty.css',)}
-        js = ('/static/admin/js/po_generation_form.js',)
-
-    class Meta:
-        model = Cart
-        fields = ('brand','supplier_state','supplier_name','gf_shipping_address','gf_billing_address','po_validity_date','payment_term','delivery_term')
-
 class CartProductMappingForm(forms.ModelForm):
 
     cart_product = forms.ModelChoiceField(
@@ -183,6 +136,7 @@ class CartProductMappingForm(forms.ModelForm):
         fields = ('cart_product','case_size', 'number_of_cases','scheme','price','total_price',)
         search_fields=('cart_product',)
         exclude = ('qty',)
+
 
 
 class CartProductMappingFormset(forms.models.BaseInlineFormSet):
@@ -214,7 +168,7 @@ class CartAdmin(admin.ModelAdmin):
     exclude = ('po_no', 'shop', 'po_status','last_modified_by')
     autocomplete_fields = ('brand',)
     list_display = ('po_no','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_amount','is_approve','po_raised_by','po_status', 'download_purchase_order')
-    list_filter = [BrandFilter,StateFilter ,SupplierFilter,('po_creation_date', DateRangeFilter),('po_validity_date', DateRangeFilter),POAmountSearch,PORaisedBy]
+    list_filter = [BrandFilter,SupplierStateFilter ,SupplierFilter,('po_creation_date', DateRangeFilter),('po_validity_date', DateRangeFilter),POAmountSearch,PORaisedBy]
     form = POGenerationForm
     def download_purchase_order(self,obj):
         if obj.is_approve:
@@ -300,6 +254,7 @@ class CartAdmin(admin.ModelAdmin):
 
 admin.site.register(Cart,CartAdmin)
 
+
 # testing st
 
 from django.utils.functional import curry
@@ -315,6 +270,14 @@ class GRNOrderForm(forms.ModelForm):
         model = GRNOrder
         fields = ('order','invoice_no')
 
+    # def __init__(self, *args, **kwargs):
+    #     #print("mukesh")
+    #     self.initial = [
+    #         {'label': 'first name'},
+    #         {'label': 'last name'},
+    #         {'label': 'job', }
+    #     ]
+    #     super(GRNOrderForm, self).__init__(*args, **kwargs)
 
 class GRNOrderProductForm(forms.ModelForm):
     product = forms.ModelChoiceField(
@@ -424,6 +387,10 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
 
     extra= 10
     exclude = ('last_modified_by','available_qty',)
+    def get_readonly_fields(self, request, obj=None):
+        if obj: # editing an existing object
+            return self.readonly_fields + ('po_product_quantity','po_product_price','already_grned_product',)
+        return self.readonly_fields
 
     #readonly_fields= ('po_product_price', 'po_product_quantity', 'already_grned_product')
 
@@ -475,6 +442,11 @@ class GRNOrderAdmin(admin.ModelAdmin):
     list_display = ('grn_id','order','invoice_no','grn_date','edit_grn_link')
     list_filter = [ OrderSearch, InvoiceNoSearch, GRNSearch, ('created_at', DateRangeFilter),]
     form = GRNOrderForm
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj: # editing an existing object
+            return self.readonly_fields + ('order', )
+        return self.readonly_fields
 
 
     def edit_grn_link(self, obj):
@@ -552,6 +524,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
 class OrderAdmin(admin.ModelAdmin):
     search_fields = ['order_no',]
     list_display = ('order_no','order_status','ordered_by','created_at','add_grn_link')
+    form= OrderForm
 
     def add_grn_link(self, obj):
         return format_html("<a href = '/admin/gram_to_brand/grnorder/add/?order=%s&odr=%s' class ='addlink' > Add GRN</a>"% (obj.id,obj.id))
