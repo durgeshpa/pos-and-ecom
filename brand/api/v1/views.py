@@ -6,7 +6,7 @@ from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import BrandSerializer, BrandPositionSerializer, BrandDataSerializer
+from .serializers import BrandSerializer, BrandPositionSerializer, BrandDataSerializer, SubBrandSerializer
 from brand.models import Brand, BrandPosition,BrandData
 from rest_framework import viewsets
 from rest_framework.decorators import list_route
@@ -37,8 +37,8 @@ class GetSubBrandsListView(APIView):
         brand = Brand.objects.get(pk=brand_id)
         data = brand.brnd_parent.all()
         is_success = True if data else False
-        brand_data_serializer = BrandDataSerializer(data,many=True)
-        return Response({"message":[""], "response_data": brand_data_serializer.data ,"is_success": is_success})
+        brand_data_serializer = SubBrandSerializer(brand.brnd_parent.all(),many=True)
+        return Response({"message":[""], "response_data": brand_data_serializer.data ,"is_success":is_success })
 
 '''class GetAllBrandListView(ListCreateAPIView):
     queryset = Brand.objects.filter(active_status='1')
