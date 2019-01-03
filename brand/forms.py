@@ -34,7 +34,7 @@ class VendorForm(forms.ModelForm):
             'data-cities-url': reverse('admin:ajax_load_cities'),
             'style':'width: 25%'
             }
-            
+
         self.fields['vendor_products_csv'].help_text = """<h3><a href="%s" target="_blank">Download Products List</a></h3>""" % (reverse('admin:products_export_for_vendor'))
 
     def clean_vendor_products_csv(self):

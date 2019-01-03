@@ -206,6 +206,7 @@ OTP_RESEND_IN = 30
 DEFAULT_CITY_CODE = '07'
 PO_STARTS_WITH = 'ADT/PO'
 CN_STARTS_WITH = 'ADT/CN'
+INVOICE_STARTS_WITH = 'ADT'
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'

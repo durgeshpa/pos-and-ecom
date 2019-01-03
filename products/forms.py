@@ -10,7 +10,7 @@ from products.models import ProductCategory, Tax, Size, Color, Fragrance, Weight
 from brand.models import Brand
 from categories.models import Category
 from django.utils.translation import gettext_lazy as _
-
+from products.models import Product
 class ProductPriceForm(forms.Form):
     state = forms.ModelChoiceField(queryset=State.objects.order_by('state_name'))
     city = forms.ModelChoiceField(queryset=City.objects.all())
@@ -274,9 +274,12 @@ class ProductsCSVUploadForm(forms.Form):
             if not row[2] or not re.match("^[ \w\$\_\,\@\.\/\#\&\+\-\(\)]*$", row[2]):
                 raise ValidationError(_("INVALID_LONG_DESCRIPTION at Row[%(value)s]. Special characters allowed are _ , @ . / # & + -"), params={'value': id+1},)
 
-            if not row[3] or not re.match("^[\d]{2}[A-Z]{5}[\d]{8}$", row[3]):
-                raise ValidationError(_("INVALID_PRODUCT_SKU at Row[%(value)s]. (eg: 12BBPRG00000121)"), params={'value': id+1},)
-
+            if not row[3]:
+                raise ValidationError(_("PRODUCT_GF_CODE required at Row[%(value)s]."), params={'value': id+1},)
+            if row[3]:
+                product_gf = Product.objects.filter(product_gf_code=row[3])
+                if product_gf:
+                    raise ValidationError(_("PRODUCT_GF_CODE should be unique at Row[%(value)s]."), params={'value': id+1},)
             if not row[4] or not re.match("^\d{13}$", row[4]):
                 raise ValidationError(_("INVALID_PRODUCT_EAN_CODE at Row[%(value)s]. Exactly 13 numbers required"), params={'value': id+1},)
 

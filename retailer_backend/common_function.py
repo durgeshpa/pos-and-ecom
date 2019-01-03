@@ -63,6 +63,20 @@ def po_pattern(city_id,invoice_id):
     ends_with = format(invoice_id,'05d')
     return "%s/%s/%s" % (starts_with,city_code,ends_with)
 
+def order_id_pattern(order_id):
+
+    """ Order ID pattern
+
+    Using 07 as the default city code for the pattern.
+    order id is the id of created instance.
+    """
+
+    starts_with = getattr(settings, 'PO_STARTS_WITH', 'ADT')
+    default_city_code = getattr(settings, 'DEFAULT_CITY_CODE', '07')
+    city_code = default_city_code
+    ends_with = str(order_id).ljust(5, '0')
+    return "%s/%s/%s" % (starts_with,city_code,ends_with)
+
 def grn_pattern(id):
 
     """GRN pattern
@@ -99,3 +113,23 @@ def brand_note_pattern(note_type, id):
         starts_with = getattr(settings, 'CN_STARTS_WITH', 'ADT/CN')
         ends_with = str(id).ljust(5, '0')
         return "%s/%s"%(starts_with,ends_with)
+
+def invoice_pattern(invoice_id, **kwargs):
+
+    """ Invoice pattern
+
+    Getting city code using city_id from InvoiceCityMapping.
+    If city mapping not found, default city code is used.
+    invoice id is the id of created instance.
+    """
+
+    starts_with = getattr(settings, 'INVOICE_STARTS_WITH', 'ADT')
+    default_city_code = getattr(settings, 'DEFAULT_CITY_CODE', '07')
+    city_code = default_city_code
+    if 'city_id' in kwargs:
+        city_id = kwargs.get('city_id')
+        city_code_mapping = InvoiceCityMapping.objects.filter(city_id=city_id)
+        if city_code_mapping.exists():
+            city_code = city_code_mapping.last().city_code
+    ends_with = format(invoice_id,'05d')
+    return "%s/%s/%s" % (starts_with,city_code,ends_with)

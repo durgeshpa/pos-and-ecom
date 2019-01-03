@@ -9,6 +9,7 @@ from django_select2.forms import Select2MultipleWidget,ModelSelect2Widget
 from dal import autocomplete
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
+from django import forms
 
 # Register your models here.
 class NameSearch(InputFilter):
@@ -76,11 +77,31 @@ class PaymentChoiceSearch(InputFilter):
                 Q(payment_choice__icontains=payment_choice)
             )
 
+from django.core.exceptions import ValidationError
+from django.forms.models import BaseInlineFormSet
+
+class AtLeastOneFormSet(BaseInlineFormSet):
+    def clean(self):
+        super(AtLeastOneFormSet, self).clean()
+        non_empty_forms = 0
+        for form in self:
+            if form.cleaned_data:
+                non_empty_forms += 1
+        if non_empty_forms - len(self.deleted_forms) < 1:
+            raise ValidationError("Please add at least one product.")
+
+from django.forms.models import BaseInlineFormSet
+class RequiredInlineFormSet(BaseInlineFormSet):
+    def _construct_form(self, i, **kwargs):
+        form = super(RequiredInlineFormSet, self)._construct_form(i, **kwargs)
+        if i < 1:
+            form.empty_permitted = False
+        return form
 
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
     autocomplete_fields = ('cart_product',)
-
+    formset = AtLeastOneFormSet
     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
         #print(db_field)
         if db_field.name == 'cart_product':
@@ -98,33 +119,33 @@ class CartAdmin(admin.ModelAdmin):
 
     change_form_template = 'admin/sp_to_gram/cart/change_form.html'
 
-    def save_formset(self, request, form, formset, change):
-        import datetime
-        today = datetime.date.today()
-        instances = formset.save(commit=False)
-        flag = 0
-        new_order = ''
-        for instance in instances:
-
-            print(instance)
-            instance.last_modified_by = request.user
-            instance.save()
-            print(instance.cart)
-
-            order,_ = Order.objects.get_or_create(ordered_cart=instance.cart,order_no=instance.cart.order_id)
-            order.ordered_by=request.user
-            order.order_status='ordered_to_gram'
-            order.last_modified_by=request.user
-            order.save()
-
-
-        # if request.user.groups.filter(name='grn_brand_to_gram_group').exists():
-        #     if new_order and CartToBrand.objects.filter(order_brand=new_order):
-        #         new_order.order_status = 'partially_delivered'
-        #     elif new_order:
-        #         new_order.order_status = 'delivered'
-        #     new_order.save()
-        formset.save_m2m()
+    # def save_formset(self, request, form, formset, change):
+    #     import datetime
+    #     today = datetime.date.today()
+    #     instances = formset.save(commit=False)
+    #     flag = 0
+    #     new_order = ''
+    #     for instance in instances:
+    #
+    #         print(instance)
+    #         instance.last_modified_by = request.user
+    #         instance.save()
+    #         print(instance.cart)
+    #
+    #         order,_ = Order.objects.get_or_create(ordered_cart=instance.cart,order_no=instance.cart.order_id)
+    #         order.ordered_by=request.user
+    #         order.order_status='ordered_to_gram'
+    #         order.last_modified_by=request.user
+    #         order.save()
+    #
+    #
+    #     # if request.user.groups.filter(name='grn_brand_to_gram_group').exists():
+    #     #     if new_order and CartToBrand.objects.filter(order_brand=new_order):
+    #     #         new_order.order_status = 'partially_delivered'
+    #     #     elif new_order:
+    #     #         new_order.order_status = 'delivered'
+    #     #     new_order.save()
+    #     formset.save_m2m()
 
 admin.site.register(Cart,CartAdmin)
 
@@ -134,21 +155,55 @@ class OrderAdmin(admin.ModelAdmin):
 
 admin.site.register(Order,OrderAdmin)
 
+from django.forms import formsets
+from django.forms.models import BaseInlineFormSet
+
+class OrderedProductMappingForm( forms.ModelForm ):
+    product = forms.ModelChoiceField(queryset = Product.objects.all())
+    class Meta:
+        model =OrderedProductMapping
+        fields='__all__'
+
 class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping
+    form = OrderedProductMappingForm
     exclude = ('last_modified_by',)
+    class Media:
+        js = ('https://code.jquery.com/jquery-3.2.1.js',
+                'https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/js/select2.min.js')
+        css = {
+            'all': ('https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/css/select2.min.css',)
+            }
 
+from .forms import OrderedProductForm
+from .views import ordered_product_mapping
 class OrderedProductAdmin(admin.ModelAdmin):
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(OrderedProductAdmin, self).get_urls()
+        urls = [
+            url(r'^ajax/load-ordered-products-mapping/$',
+                self.admin_site.admin_view(ordered_product_mapping),
+                name='ajax_ordered_product_mapping'),
+        ] + urls
+        return urls
+
     inlines = [OrderedProductMappingAdmin]
+    form = OrderedProductForm
     list_display = ('invoice_no','vehicle_no','shipped_by','received_by','download_invoice')
-    exclude = ('shipped_by','received_by','last_modified_by',)
-    autocomplete_fields = ('order',)
     search_fields=('invoice_no','vehicle_no')
 
     def download_invoice(self,obj):
         #request = self.context.get("request")
         return format_html("<a href= '%s' >Download Invoice</a>"%(reverse('download_invoice', args=[obj.pk])))
     download_invoice.short_description = 'Download Invoice'
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj:
+            #import pdb; pdb.set_trace()
+            return self.readonly_fields + ('order', )
+        return self.readonly_fields
 
 admin.site.register(OrderedProduct,OrderedProductAdmin)
 
