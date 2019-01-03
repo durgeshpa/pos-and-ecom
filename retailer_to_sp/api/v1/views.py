@@ -905,7 +905,8 @@ class CustomerOrdersList(APIView):
             #return Response(msg, status=status.HTTP_201_CREATED)
 
 class PaymentApi(APIView):
-
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
     def get(self, request):
         queryset = Payment.objects.filter(payment_choice='cash_on_delivery')
         serializer = PaymentCodSerializer(queryset, many=True)
