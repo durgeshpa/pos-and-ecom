@@ -29,20 +29,16 @@ class CartProductMappingAdmin(admin.TabularInline):
 #             #print(Product.objects.filter(product_grn_order_product__delivered_qty__gt=0).product_grn_order_product)
 #             #print(GRNOrderProductMapping.objects.filter(delivered_qty__gt=0).query)
 #         return super(CartProductMappingAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
-#
+
 from dal import autocomplete
 from django import forms
 from addresses.models import State
 from shops.models import Shop,ShopType
 
 class POGenerationForm(forms.ModelForm):
-    state = forms.ModelChoiceField(
-        queryset=State.objects.all(),
-        widget=autocomplete.ModelSelect2(url='state-autocomplete',)
-    )
-    gram_factory = forms.ModelChoiceField(
-        queryset=Shop.objects.filter(shop_type__shop_type='gf'),
-        widget=autocomplete.ModelSelect2(url='gf-shop-autocomplete', forward=('state',))
+    shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
+        widget=autocomplete.ModelSelect2(url='my-shop-autocomplete',)
     )
 
     class Media:
@@ -50,16 +46,14 @@ class POGenerationForm(forms.ModelForm):
 
     class Meta:
         model = Cart
-        fields = ('state','gram_factory','po_validity_date','payment_term','delivery_term')
-
-
+        fields = ('shop','po_validity_date','payment_term','delivery_term')
 
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
-    exclude = ('po_no', 'shop', 'po_status', 'last_modified_by')
-    autocomplete_fields = ('brand',)
-    list_display = ('po_no', 'brand', 'po_creation_date', 'po_validity_date', 'po_amount', 'po_raised_by', 'po_status')
-    list_filter = [BrandFilter, ('po_creation_date', DateRangeFilter),
+    exclude = ('po_no', 'po_status', 'last_modified_by')
+    #autocomplete_fields = ('brand',)
+    list_display = ('po_no', 'po_creation_date', 'po_validity_date', 'po_amount', 'po_raised_by', 'po_status')
+    list_filter = [('po_creation_date', DateRangeFilter),
                    ('po_validity_date', DateRangeFilter), POAmountSearch, PORaisedBy]
     form = POGenerationForm
 
@@ -86,9 +80,51 @@ class OrderedProductMappingAdmin(admin.TabularInline):
 
 class OrderedProductAdmin(admin.ModelAdmin):
     inlines = [OrderedProductMappingAdmin]
-    list_display = ('invoice_no','vehicle_no','shipped_by','received_by')
+    list_display = ('invoice_no','vehicle_no','shipped_by','received_by',)
     exclude = ('shipped_by','received_by','last_modified_by',)
     autocomplete_fields = ('order',)
+
+    warehouse_user_fields = ['order','invoice_no','vehicle_no',]
+    delivery_user_fields = ['order','vehicle_no',]
+
+    warehouse_user_fieldset = ['product', 'manufacture_date', 'expiry_date','shipped_qty',]
+    delivery_user_fieldset = ['product', 'manufacture_date', 'expiry_date','delivered_qty','returned_qty','damaged_qty',]
+
+    # warehouse_user_fieldset = (
+    #     ((None), {'fields': ('product', 'manufacture_date', 'expiry_date','shipped_qty')}),
+    # )
+
+    def get_formsets_with_inlines(self, request, obj=None):
+        for inline in self.get_inline_instances(request, obj):
+            # hide MyInline in the add view
+            if isinstance(inline, OrderedProductMappingAdmin) and obj not in self.warehouse_user_fieldset:
+                yield inline.get_formset(request, obj), inline
+
+    # def get_fieldsets(self, request, obj=None, **kwargs):
+    #     if request.user.is_superuser:
+    #         return self.warehouse_user_fieldset
+    #     return super(OrderedProductAdmin, self).get_fieldsets(request, obj, **kwargs)
+
+    def get_form(self, request, obj=None, **kwargs):
+        self.exclude = []
+
+        if request.user.is_superuser:
+            self.fields = self.warehouse_user_fields
+        elif request.user.has_perm('sp_to_gram.warehouse_shipment'):
+            self.fields = self.warehouse_user_fields
+        elif request.user.has_perm('sp_to_gram.delivery_from_gf'):
+            self.fields = self.delivery_user_fields
+
+        return super(OrderedProductAdmin, self).get_form(request, obj, **kwargs)
+
+    # def get_fieldsets(self, request, obj=None, **kwargs):
+    #     if request.user.has_perm('sp_to_gram.warehouse_shipment'):
+    #         self.fieldsets = self.warehouse_user_fieldset
+    #     elif request.user.has_perm('sp_to_gram.delivery_from_gf'):
+    #         self.fields = self.delivery_user_fieldset
+    #     else:
+    #         self.fields = self.delivery_user_fieldset
+    #     return super(OrderedProductAdmin, self).get_fieldsets(request, obj, **kwargs)
 
     def save_formset(self, request, form, formset, change):
         import datetime

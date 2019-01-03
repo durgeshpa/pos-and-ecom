@@ -37,10 +37,15 @@
         }
     });
 
-    $("#id_cart_list-0-case_size,#id_cart_list-0-number_of_cases").keyup(function () {
+//    $("#id_cart_list-0-case_size,#id_cart_list-0-number_of_cases").keyup(function () {
+//        $('#id_cart_list-0-total_price').val($('#id_cart_list-0-case_size').val() * $('#id_cart_list-0-number_of_cases').val());
+//
+//    });
 
-    $('#id_cart_list-0-total_price').val($('#id_cart_list-0-case_size').val() * $('#id_cart_list-0-number_of_cases').val());
-
+    $(document).on('input', '.vIntegerField', function(index){
+        var row_id = $(this).closest(".form-row").attr("id");
+        var row_no = row_id.match(/(\d+)/g);
+        $('#id_sp_cart_list-'+row_no+'-total_price').val(parseFloat($('#id_sp_cart_list-'+row_no+'-price').val()) * parseFloat($(this).val()))
     });
 
    // function calculate() {

@@ -36,20 +36,20 @@ class CartProductMappingForm(forms.ModelForm):
 
 
 
-class CartProductMappingFormset(forms.models.BaseInlineFormSet):
-
-    def clean(self):
-        count = 0
-        for form in self.forms:
-            try:
-                if form.cleaned_data:
-                    count += 1
-            except AttributeError:
-                # annoyingly, if a subform is invalid Django explicity raises
-                # an AttributeError for cleaned_data
-                pass
-        if count < 1:
-            raise forms.ValidationError('You must have at least one product')
+# class CartProductMappingFormset(forms.models.BaseInlineFormSet):
+#
+#     def clean(self):
+#         count = 0
+#         for form in self.forms:
+#             try:
+#                 if form.cleaned_data:
+#                     count += 1
+#             except AttributeError:
+#                 # annoyingly, if a subform is invalid Django explicity raises
+#                 # an AttributeError for cleaned_data
+#                 pass
+#         if count < 1:
+#             raise forms.ValidationError('You must have at least one product')
 
 
 class CartProductMappingAdmin(admin.TabularInline):

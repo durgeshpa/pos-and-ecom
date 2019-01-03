@@ -1,7 +1,7 @@
 from django.db import models
 
 # Create your models here.
-from shops.models import Shop
+from shops.models import Shop,ParentRetailerMapping
 from brand.models import Brand
 from django.contrib.auth import get_user_model
 from addresses.models import Address
@@ -27,9 +27,7 @@ ITEM_STATUS = (
 )
 
 class Cart(models.Model):
-    brand = models.ForeignKey(Brand, related_name='brand_sp_cart', on_delete=models.CASCADE)
-    gf_state = models.ForeignKey(State, related_name='state_sp_cart', null=True, blank=True,on_delete=models.CASCADE)
-    gf_name = models.ForeignKey(Shop, related_name='buyer_sp_cart', null=True, blank=True,on_delete=models.CASCADE)
+    shop = models.ForeignKey(Shop, related_name='sp_shop_cart',null=True,blank=True,on_delete=models.CASCADE)
     po_no = models.CharField(max_length=255, null=True, blank=True)
     po_status = models.CharField(max_length=200, choices=ORDER_STATUS, null=True, blank=True)
     po_raised_by = models.ForeignKey(get_user_model(), related_name='po_raise_sp_user_cart', null=True, blank=True,on_delete=models.CASCADE)
@@ -72,16 +70,16 @@ class CartProductMapping(models.Model):
     class Meta:
         verbose_name = "Select Product"
 
-    def clean(self):
-        if self.number_of_cases:
-             self.total_price= self.case_size * self.number_of_cases * self.price
-             self.qty = self.case_size * self.number_of_cases
+    # def clean(self):
+    #     if self.number_of_cases:
+    #          self.total_price= self.case_size * self.number_of_cases * self.price
+    #          self.qty = self.case_size * self.number_of_cases
 
     def __str__(self):
         return self.cart_product.product_name
 
 class Order(models.Model):
-    shop = models.ForeignKey(Shop, related_name='sp_shop_order',null=True,blank=True,on_delete=models.CASCADE)
+    #shop = models.ForeignKey(Shop, related_name='sp_shop_order',null=True,blank=True,on_delete=models.CASCADE)
     ordered_cart = models.ForeignKey(Cart,related_name='sp_order_cart_mapping',on_delete=models.CASCADE)
     order_no = models.CharField(max_length=255, null=True, blank=True)
     billing_address = models.ForeignKey(Address,related_name='sp_billing_address_order',null=True,blank=True,on_delete=models.CASCADE)
@@ -109,8 +107,11 @@ def create_order(sender, instance=None, created=False, **kwargs):
             order.total_final_amount = order.total_final_amount+instance.total_price
             order.save()
         else:
-            Order.objects.create(ordered_cart=instance.cart, order_no=instance.cart.po_no, billing_address=instance.cart.gf_billing_address,
-            shipping_address=instance.cart.gf_shipping_address, total_final_amount=instance.total_price)
+            parent_mapping = ParentRetailerMapping.objects.get(retailer=instance.cart.shop)
+            shipping_address = Address.objects.get(shop_name=instance.cart.shop,address_type='shipping')
+            billing_address = Address.objects.get(shop_name=parent_mapping.parent,address_type='billing')
+            Order.objects.create(ordered_cart=instance.cart, order_no=instance.cart.po_no,billing_address=billing_address,
+                 shipping_address=shipping_address,total_final_amount=instance.total_price)
 
 class OrderedProduct(models.Model):
     order = models.ForeignKey(Order,related_name='sp_order_order_product',on_delete=models.CASCADE,null=True,blank=True)
@@ -141,6 +142,12 @@ class OrderedProductMapping(models.Model):
     last_modified_by = models.ForeignKey(get_user_model(), related_name='sp_last_modified_user_order_product', null=True,blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        permissions = (
+            ("delivery_from_gf", "Can Delivery From GF"),
+            ("warehouse_shipment", "Can Warehouse Shipment"),
+        )
 
 class OrderedProductReserved(models.Model):
     order_product_reserved = models.ForeignKey(OrderedProductMapping, related_name='sp_order_product_order_product_reserved',null=True, blank=True, on_delete=models.CASCADE)
