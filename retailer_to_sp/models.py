@@ -6,6 +6,11 @@ from brand.models import Brand
 from django.contrib.auth import get_user_model
 from addresses.models import Address
 from products.models import Product
+from django.dispatch import receiver
+from django.db.models.signals import pre_save
+from django.db.models.signals import post_save
+from otp.sms import SendSms
+import datetime
 
 ORDER_STATUS = (
     ("active","Active"),
@@ -58,10 +63,15 @@ class Cart(models.Model):
     def __str__(self):
         return self.order_id
 
-    def save(self, *args,**kwargs):
-        super(Cart, self).save()
-        self.order_id = "RT/ORDER/%s"%(self.pk)
-        super(Cart, self).save()
+@receiver(pre_save, sender=Cart)
+def create_order_id(sender, instance=None, created=False, **kwargs):
+    last_cart = Cart.objects.last()
+    if last_cart:
+        last_cart_order_id_increment = str(int(last_cart.order_id.rsplit('/', 1)[-1]) + 1).zfill(len(last_cart.order_id.rsplit('/', 1)[-1]))
+    else:
+        last_cart_order_id_increment = '00001'
+    instance.order_id = "ADT/07/%s"%(last_cart_order_id_increment)
+
 
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='rt_cart_list',on_delete=models.CASCADE)
@@ -110,13 +120,17 @@ class OrderedProduct(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-    def save(self, *args,**kwargs):
-        super(OrderedProduct, self).save()
-        self.invoice_no = "RT/INVOICE/%s"%(self.pk)
-        super(OrderedProduct, self).save()
-
     def __str__(self):
         return self.invoice_no or self.id
+
+# @receiver(pre_save, sender=OrderedProduct)
+# def create_order_id(sender, instance=None, created=False, **kwargs):
+#     last_ordered_product = OrderedProduct.objects.last()
+#     if last_ordered_product:
+#         last_invoice_no_increment = str(int(last_ordered_product.invoice_no.rsplit('/', 1)[-1]) + 1).zfill(len(last_ordered_product.invoice_no.rsplit('/', 1)[-1]))
+#     else:
+#         last_invoice_no_increment = '00001'
+#     instance.invoice_no = "ADT/07/%s"%(last_invoice_no_increment)
 
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(OrderedProduct,related_name='rt_order_product_order_product_mapping',null=True,blank=True,on_delete=models.CASCADE)
@@ -175,3 +189,14 @@ class Payment(models.Model):
 
     def __str__(self):
         return self.name
+
+@receiver(post_save, sender=Payment)
+def order_notification(sender, instance=None, created=False, **kwargs):
+    otp = '123546'
+    date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
+    time = datetime.datetime.now().strftime("%I:%M %p")
+    message = SendSms(phone=instance.order_id.ordered_by,
+                      body="%s is your One Time Password for GramFactory Account."\
+                           " Request time is %s, %s IST." % (otp,date,time))
+
+    message.send()

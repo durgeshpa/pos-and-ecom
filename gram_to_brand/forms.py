@@ -1,4 +1,6 @@
 from django import forms
+from django.forms import ModelForm
+from shops.models import Shop,ShopType
 from gram_to_brand.models import Order,GRNOrder, Cart
 from brand.models import Brand
 from dal import autocomplete
@@ -9,6 +11,20 @@ from django.urls import reverse
 from products.models import Product, ProductVendorMapping
 from django.core.exceptions import ValidationError
 import datetime, csv, codecs, re
+
+
+class OrderForm(forms.ModelForm):
+#
+    class Meta:
+        model= Order
+        fields= '__all__'
+#
+    def __init__(self, exp = None, *args, **kwargs):
+        super(OrderForm, self).__init__(*args, **kwargs)
+        shop_type= ShopType.objects.filter(shop_type__in=['gf'])
+        shops = Shop.objects.filter(shop_type__in=shop_type)
+        self.fields["shop"].queryset = shops
+
 
 class POGenerationForm(forms.ModelForm):
     brand = forms.ModelChoiceField(
@@ -35,6 +51,7 @@ class POGenerationForm(forms.ModelForm):
     class Media:
         pass
         js = ('/static/admin/js/po_generation_form.js',)
+
 
     class Meta:
         model = Cart

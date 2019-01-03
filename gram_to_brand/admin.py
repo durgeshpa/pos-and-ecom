@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import (Order,Cart,CartProductMapping,GRNOrder,GRNOrderProductMapping,OrderItem,BrandNote,PickList,PickListItems,
-                     OrderedProductReserved)
+                     OrderedProductReserved,Po_Message)
 from products.models import Product
 from django import forms
 from django.db.models import Sum
@@ -20,15 +20,16 @@ from daterange_filter.filter import DateRangeFilter
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from admin_auto_filters.filters import AutocompleteFilter
+from gram_to_brand.forms import OrderForm
 from .forms import POGenerationForm
-
+from django.http import HttpResponse, HttpResponseRedirect
 
 class BrandFilter(AutocompleteFilter):
     title = 'Brand' # display title
     field_name = 'brand' # name of the foreign key field
 
 
-class StateFilter(AutocompleteFilter):
+class SupplierStateFilter(AutocompleteFilter):
     title = 'State' # display title
     field_name = 'supplier_state' # name of the foreign key field
 
@@ -162,18 +163,17 @@ class CartProductMappingAdmin(admin.TabularInline):
     #formset = CartProductMappingFormset
     form = CartProductMappingForm
 
-
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     exclude = ('po_no', 'shop', 'po_status','last_modified_by')
     autocomplete_fields = ('brand',)
-    list_display = ('po_no','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_amount','po_raised_by','po_status', 'download_purchase_order')
-    #search_fields = ('brand__brand_name','state__state_name','supplier__shop_owner__first_name')
-    list_filter = [BrandFilter,StateFilter ,SupplierFilter,('po_creation_date', DateRangeFilter),('po_validity_date', DateRangeFilter),POAmountSearch,PORaisedBy]
+    list_display = ('po_no','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_amount','is_approve','po_raised_by','po_status', 'download_purchase_order')
+    list_filter = [BrandFilter,SupplierStateFilter ,SupplierFilter,('po_creation_date', DateRangeFilter),('po_validity_date', DateRangeFilter),POAmountSearch,PORaisedBy]
     form = POGenerationForm
     def download_purchase_order(self,obj):
-        #request = self.context.get("request")
-        return format_html("<a href= '%s' >Download PO</a>"%(reverse('download_purchase_order', args=[obj.pk])))
+        if obj.is_approve:
+            return format_html("<a href= '%s' >Download PO</a>"%(reverse('download_purchase_order', args=[obj.pk])))
+
     download_purchase_order.short_description = 'Download Purchase Order'
 
     # def save_formset(self, request, form, formset, change):
@@ -225,6 +225,28 @@ class CartAdmin(admin.ModelAdmin):
     #     #         new_order.order_status = 'delivered'
     #     #     new_order.save()
     #     formset.save_m2m()
+
+    def response_change(self, request, obj):
+        if "_approve" in request.POST:
+            if request.POST.get('message'):
+                get_po_msg,_ = Po_Message.objects.get_or_create(message=request.POST.get('message'))
+                obj.po_message = get_po_msg
+            obj.is_approve = True
+            obj.created_by = request.user
+            obj.save()
+            return HttpResponseRedirect("/admin/gram_to_brand/cart/")
+        elif "_disapprove" in request.POST:
+            if request.POST.get('message'):
+                get_po_msg, _ = Po_Message.objects.get_or_create(message=request.POST.get('message'))
+                obj.po_message = get_po_msg
+            obj.is_approve = False
+            obj.created_by = request.user
+            obj.save()
+            return HttpResponseRedirect("/admin/gram_to_brand/cart/")
+        else:
+            obj.is_approve = ''
+            obj.save()
+        return super().response_change(request, obj)
 
     class Media:
             pass
@@ -363,8 +385,12 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     model = GRNOrderProductMapping
     form = GRNOrderProductForm
 
-    extra= 10   #fields = [get_product]
+    extra= 10
     exclude = ('last_modified_by','available_qty',)
+    def get_readonly_fields(self, request, obj=None):
+        if obj: # editing an existing object
+            return self.readonly_fields + ('po_product_quantity','po_product_price','already_grned_product',)
+        return self.readonly_fields
 
     #readonly_fields= ('po_product_price', 'po_product_quantity', 'already_grned_product')
 
@@ -399,9 +425,7 @@ class BrandNoteAdmin(admin.ModelAdmin):
     exclude = ('brand_note_id','last_modified_by',)
 
 class OrderItemAdmin(admin.ModelAdmin):
-    #search_fields = ('order__id','order__order_no','ordered_qty')
     list_filter = [OrderSearch , QuantitySearch, PORaisedBy ,('order__ordered_cart__po_creation_date', DateRangeFilter)]
-    #date_hierarchy = 'created_at'
     list_display = ('order','ordered_product','ordered_qty','total_delivered_qty','total_damaged_qty','po_creation_date','item_status',)
 
     def po_creation_date(self, obj):
@@ -418,6 +442,11 @@ class GRNOrderAdmin(admin.ModelAdmin):
     list_display = ('grn_id','order','invoice_no','grn_date','edit_grn_link')
     list_filter = [ OrderSearch, InvoiceNoSearch, GRNSearch, ('created_at', DateRangeFilter),]
     form = GRNOrderForm
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj: # editing an existing object
+            return self.readonly_fields + ('order', )
+        return self.readonly_fields
 
 
     def edit_grn_link(self, obj):
@@ -481,8 +510,6 @@ class GRNOrderAdmin(admin.ModelAdmin):
                 instance.grn_order.order.order_status='partially_delivered'
                 instance.grn_order.order.save()
                 order_id = instance.grn_order.order.id
-
-                #instance.available_qty = instance.delivered_qty
                 instance.save()
             #Update Order
         if order_id!= 0 and OrderItem.objects.filter(order=order_id).exists():
@@ -497,9 +524,9 @@ class GRNOrderAdmin(admin.ModelAdmin):
 class OrderAdmin(admin.ModelAdmin):
     search_fields = ['order_no',]
     list_display = ('order_no','order_status','ordered_by','created_at','add_grn_link')
+    form= OrderForm
 
     def add_grn_link(self, obj):
-        #return format_html("<ul class ='object-tools'><li><a href = '/admin/gram_to_brand/grnorder/add/?brand=%s' class ='addlink' > Add order</a></li></ul>"% (obj.id))
         return format_html("<a href = '/admin/gram_to_brand/grnorder/add/?order=%s&odr=%s' class ='addlink' > Add GRN</a>"% (obj.id,obj.id))
 
     add_grn_link.short_description = 'Do GRN'

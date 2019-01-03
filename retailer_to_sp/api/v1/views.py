@@ -2,7 +2,7 @@ from rest_framework import generics
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,
                           OrderSerializer, CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,PaymentNeftSerializer,
 
-                          GramMappedCartSerializer,GramMappedOrderSerializer )
+                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer )
 from products.models import Product, ProductPrice, ProductOption,ProductImage
 from sp_to_gram.models import OrderedProductMapping,OrderedProductReserved
 
@@ -305,6 +305,21 @@ class GramGRNProductsList(APIView):
             message = "User not logged in!"
             result = self.products_without_price(products,product_name,message)
             return result
+
+class ProductDetail(APIView):
+
+    def get(self,*args,**kwargs):
+        pk= self.kwargs.get('pk')
+        msg = {'is_success': False,'message': [''],'response_data': None}
+        try:
+           product = Product.objects.get(id=pk)
+        except ObjectDoesNotExist:
+           msg['message'] = ["Invalid Product name or ID"]
+           return Response(msg, status=status.HTTP_200_OK)
+
+        product_detail= Product.objects.get(id=pk)
+        product_detail_serializer = ProductsSearchSerializer(product_detail)
+        return Response({"message":[''], "response_data": product_detail_serializer.data ,"is_success": True})
 
 class AddToCart(APIView):
     authentication_classes = (authentication.TokenAuthentication,)

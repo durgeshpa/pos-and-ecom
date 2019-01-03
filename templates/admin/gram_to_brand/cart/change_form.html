@@ -1,0 +1,22 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+{% block submit_buttons_bottom %}
+    {% if request.user.is_superuser %}
+        {{ block.super }}
+        <div class="submit-row">
+                <textarea rows="4" name="message" cols="50"></textarea>
+                <input type="submit" value="Approve" name="_approve">
+                <input type="submit" value="Dis-approve" style="background:#ba2121" name="_disapprove">
+        </div>
+    {% else %}
+        {%  if perms.gram_to_brand.can_approve_and_disapprove %}
+        <div class="submit-row">
+                <textarea rows="4" name="message" cols="50"></textarea>
+                <input type="submit" value="Approve" name="_approve">
+                <input type="submit" value="Dis-approve" style="background:#ba2121" name="_disapprove">
+        </div>
+        {% else %}
+            {{ block.super }}
+        {% endif %}
+    {% endif %}
+{% endblock %}
