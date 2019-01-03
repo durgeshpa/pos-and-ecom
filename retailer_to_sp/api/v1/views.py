@@ -915,7 +915,10 @@ class PaymentApi(APIView):
 
     def post(self,request):
         order_id=self.request.POST.get('order_id')
-        payment_type =self.request.POST.get('payment_type')
+        payment_choice =self.request.POST.get('payment_choice')
+        paid_amount =self.request.POST.get('paid_amount')
+        neft_reference_number =self.request.POST.get('neft_reference_number')
+
         # payment_type = neft or cash_on_delivery
         msg = {'is_success': False,'message': [''],'response_data': None}
         try:
@@ -923,9 +926,22 @@ class PaymentApi(APIView):
         except ObjectDoesNotExist:
             msg['message'] = ["No order with this name"]
             return Response(msg, status=status.HTTP_200_OK)
+
+        if not payment_choice:
+            msg['message'] = ["Please enter payment_type"]
+            return Response(msg, status=status.HTTP_200_OK)
+        else:
+            if payment_choice =='neft' and not neft_reference_number:
+                msg['message'] = ["Please enter neft_reference_number"]
+                return Response(msg, status=status.HTTP_200_OK)
+
+        if not paid_amount:
+            msg['message'] = ["Please enter paid_amount"]
+            return Response(msg, status=status.HTTP_200_OK)
+
         serializer = PaymentCodSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save(payment_choice=payment_type)
+            serializer.save(payment_choice=payment_choice)
             msg = {'is_success': True, 'message': ['Payment Sent'], 'response_data': serializer.data}
             return Response( msg, status=status.HTTP_201_CREATED)
 

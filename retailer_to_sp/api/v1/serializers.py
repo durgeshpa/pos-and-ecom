@@ -233,7 +233,7 @@ class PaymentCodSerializer(serializers.ModelSerializer):
 
     class Meta:
         model= Payment
-        fields=('order_id',)
+        fields=('order_id','paid_amount','payment_choice','neft_reference_number')
 
 class PaymentNeftSerializer(serializers.ModelSerializer):
 
