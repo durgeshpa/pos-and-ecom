@@ -904,8 +904,9 @@ class CustomerOrdersList(APIView):
         #else:
             #return Response(msg, status=status.HTTP_201_CREATED)
 
-class PaymentCodApi(APIView):
-
+class PaymentApi(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
     def get(self, request):
         queryset = Payment.objects.filter(payment_choice='cash_on_delivery')
         serializer = PaymentCodSerializer(queryset, many=True)
@@ -914,41 +915,59 @@ class PaymentCodApi(APIView):
 
     def post(self,request):
         order_id=self.request.POST.get('order_id')
+        payment_choice =self.request.POST.get('payment_choice')
+        paid_amount =self.request.POST.get('paid_amount')
+        neft_reference_number =self.request.POST.get('neft_reference_number')
+
+        # payment_type = neft or cash_on_delivery
         msg = {'is_success': False,'message': [''],'response_data': None}
         try:
             order = GramMappedOrder.objects.get(id=order_id)
         except ObjectDoesNotExist:
             msg['message'] = ["No order with this name"]
             return Response(msg, status=status.HTTP_200_OK)
+
+        if not payment_choice:
+            msg['message'] = ["Please enter payment_type"]
+            return Response(msg, status=status.HTTP_200_OK)
+        else:
+            if payment_choice =='neft' and not neft_reference_number:
+                msg['message'] = ["Please enter neft_reference_number"]
+                return Response(msg, status=status.HTTP_200_OK)
+
+        if not paid_amount:
+            msg['message'] = ["Please enter paid_amount"]
+            return Response(msg, status=status.HTTP_200_OK)
+
         serializer = PaymentCodSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save(payment_choice='cash_on_delivery')
+            serializer.save(payment_choice=payment_choice)
             msg = {'is_success': True, 'message': ['Payment Sent'], 'response_data': serializer.data}
             return Response( msg, status=status.HTTP_201_CREATED)
 
-class PaymentNeftApi(APIView):
-
-    def get(self, request):
-        queryset = Payment.objects.filter(payment_choice='neft')
-        serializer = PaymentNeftSerializer(queryset, many=True)
-        msg = {'is_success': True, 'message': ['All Payments'], 'response_data': serializer.data}
-        return Response(msg, status=status.HTTP_201_CREATED)
-
-    def post(self,request):
-        order_id=self.request.POST.get('order_id')
-        neft_reference_number=self.request.POST.get('neft_reference_number')
-        msg = {'is_success': False,'message': [''],'response_data': None}
-        try:
-            order = GramMappedOrder.objects.get(id=order_id)
-        except ObjectDoesNotExist:
-            msg['message'] = ["No order with this name"]
-            return Response(msg, status=status.HTTP_200_OK)
-        if not neft_reference_number:
-            msg['message']= ["Please enter the NEFT reference numner"]
-            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
-        serializer = PaymentNeftSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(payment_choice='neft')
-            msg = {'is_success': True, 'message': ['Payment Sent'], 'response_data': serializer.data}
-            return Response( msg, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+# class PaymentNeftApi(APIView):
+#
+#     def get(self, request):
+#         queryset = Payment.objects.filter(payment_choice='neft')
+#         serializer = PaymentNeftSerializer(queryset, many=True)
+#         msg = {'is_success': True, 'message': ['All Payments'], 'response_data': serializer.data}
+#         return Response(msg, status=status.HTTP_201_CREATED)
+#
+#     def post(self,request):
+#         order_id=self.request.POST.get('order_id')
+#         neft_reference_number=self.request.POST.get('neft_reference_number')
+#         msg = {'is_success': False,'message': [''],'response_data': None}
+#         try:
+#             order = GramMappedOrder.objects.get(id=order_id)
+#         except ObjectDoesNotExist:
+#             msg['message'] = ["No order with this name"]
+#             return Response(msg, status=status.HTTP_200_OK)
+#         if not neft_reference_number:
+#             msg['message']= ["Please enter the NEFT reference numner"]
+#             return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+#         serializer = PaymentNeftSerializer(data=request.data)
+#         if serializer.is_valid():
+#             serializer.save(payment_choice='neft')
+#             msg = {'is_success': True, 'message': ['Payment Sent'], 'response_data': serializer.data}
+#             return Response( msg, status=status.HTTP_201_CREATED)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

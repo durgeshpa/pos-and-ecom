@@ -66,9 +66,7 @@ def shop_addition_notification(sender, instance=None, created=False, **kwargs):
         message = SendSms(phone=instance.shop_owner,
                           body="%s is your One Time Password for GramFactory Account."\
                                " Request time is %s, %s IST." % (otp,date,time))
-
         message.send()
-
 
 class ShopPhoto(models.Model):
     shop_name = models.ForeignKey(Shop, related_name='shop_name_photos', on_delete=models.CASCADE)
@@ -92,7 +90,6 @@ class ShopDocument(models.Model):
     def __str__(self):
         return "%s - %s"%(self.shop_document_number, self.shop_document_photo.url)
 
-
 class ParentRetailerMapping(models.Model):
     parent = models.ForeignKey(Shop,related_name='parrent_mapping',on_delete=models.CASCADE)
     retailer = models.ForeignKey(Shop,related_name='retiler_mapping',on_delete=models.CASCADE)
@@ -100,9 +97,8 @@ class ParentRetailerMapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
-
     class Meta:
         unique_together = ('parent', 'retailer',)
 
     def __str__(self):
-        return "%s --mapped to-- %s(%s)(%s)"%(self.retailer.shop_name,self.parent.shop_name,self.parent.shop_type,"Active" if self.status else "Inactive")
+        return "%s(%s) --mapped to-- %s(%s)(%s)"%(self.retailer.shop_name,self.retailer.shop_type,self.parent.shop_name,self.parent.shop_type,"Active" if self.status else "Inactive")

@@ -57,7 +57,7 @@ class Cart(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.order_id
+        return str(self.id)
 
 @receiver(post_save, sender=Cart)
 def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):

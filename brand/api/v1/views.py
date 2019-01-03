@@ -6,7 +6,7 @@ from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import BrandSerializer, BrandPositionSerializer, BrandDataSerializer
+from .serializers import BrandSerializer, BrandPositionSerializer, BrandDataSerializer, SubBrandSerializer
 from brand.models import Brand, BrandPosition,BrandData
 from rest_framework import viewsets
 from rest_framework.decorators import list_route
@@ -19,7 +19,6 @@ class GetSlotBrandListView(APIView):
     def get(self,*args,**kwargs):
 
         pos_name = self.kwargs.get('slot_position_name')
-        print(kwargs)
         data = BrandData.objects.filter(slot__position_name=pos_name, brand_data__active_status='1').order_by('brand_data_order')
         if pos_name:
             data = BrandData.objects.filter(slot__position_name=pos_name,brand_data__active_status='1')
@@ -29,6 +28,17 @@ class GetSlotBrandListView(APIView):
         #serializer_class = BannerPositionSerializer
         brand_data_serializer = BrandDataSerializer(data,many=True)
         return Response({"message":[""], "response_data": brand_data_serializer.data ,"is_success": is_success})
+
+class GetSubBrandsListView(APIView):
+
+    permission_classes = (AllowAny,)
+    def get(self, *args, **kwargs):
+        brand_id = kwargs.get('brand')
+        brand = Brand.objects.get(pk=brand_id)
+        data = brand.brnd_parent.all()
+        is_success = True if data else False
+        brand_data_serializer = SubBrandSerializer(brand.brnd_parent.all(),many=True)
+        return Response({"message":[""], "response_data": brand_data_serializer.data ,"is_success":is_success })
 
 '''class GetAllBrandListView(ListCreateAPIView):
     queryset = Brand.objects.filter(active_status='1')
@@ -50,3 +60,4 @@ class GetSlotBrandListView(APIView):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 '''
+

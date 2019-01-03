@@ -62,12 +62,6 @@ $('.help').find('a').each(function() {
   	// 	var total_price = document.getElementById('id_cart_list-0-total_price');
   	// 	var multiply = myBox1 * myBox2 * myBox3;
   	// 	result.value = multiply;
-
-
   	//}
-
-
-
-
 
 })(django.jQuery);

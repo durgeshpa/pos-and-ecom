@@ -65,7 +65,7 @@ class Vendor(models.Model):
 
 class Brand(models.Model):
     brand_name = models.CharField(max_length=20)
-    #brand_slug = models.SlugField(unique=True)
+    brand_slug = models.SlugField(blank=True, null=True)
     brand_logo = models.FileField(validators=[validate_image], blank=False,null=True)
     brand_parent = models.ForeignKey('self', related_name='brnd_parent', null=True, blank=True,on_delete=models.CASCADE)
     brand_description = models.TextField(null=True, blank=True)

@@ -12,6 +12,7 @@ class BrandSerializer(serializers.ModelSerializer):
     class Meta:
         model = Brand
         fields = '__all__'
+
 class BrandPositionSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -32,3 +33,8 @@ class BrandSlotSerializer(serializers.ModelSerializer):
     class Meta:
         model = BrandPosition
         fields = '__all__'
+
+class SubBrandSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Brand
+        fields = ('id', "brand_name", "brand_logo", "brand_code")
