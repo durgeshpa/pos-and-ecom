@@ -261,7 +261,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
 
     def save_formset(self, request, form, formset, change):
         import datetime
-        super(GRNOrderAdmin, self).save(*args, **kwargs)
+        super(GRNOrderAdmin, self).save_formset(*args, **kwargs)
         instances = formset.save(commit=False)
         order_id = 0
 
