@@ -1,6 +1,7 @@
 from django.conf.urls import include, url
 from django.contrib import admin
+from .views import ordered_product_mapping
 
 urlpatterns = [
-url(r'^api/', include('retailer_to_gram.api.urls')),
+url(r'^ordered-product-mapping/', ordered_product_mapping, name="ordered_product_mapping"),
 ]

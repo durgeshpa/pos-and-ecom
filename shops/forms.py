@@ -12,7 +12,7 @@ class ParentRetailerMappingForm(forms.ModelForm):
         super(ParentRetailerMappingForm, self).__init__(*args, **kwargs)
         shop_type_gf_sp = ShopType.objects.filter(shop_type__in=['sp','gf'])
         self.fields['parent'].queryset = Shop.objects.filter(shop_type__in=shop_type_gf_sp)
-        shop_type_retailer= ShopType.objects.filter(shop_type='r')
+        shop_type_retailer= ShopType.objects.filter(shop_type__in=['r','sp'])
         self.fields['retailer'].queryset = Shop.objects.filter(shop_type__in=shop_type_retailer)
 
     def clean(self):

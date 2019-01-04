@@ -5,11 +5,10 @@ from django.contrib.auth import get_user_model
 from addresses.models import Address
 from products.models import Product
 from django.dispatch import receiver
-from django.db.models.signals import pre_save
-from django.db.models.signals import post_save
-from otp.sms import SendSms
-import datetime
-
+from django.db.models.signals import pre_save, post_save
+from retailer_backend.common_function import(po_pattern, grn_pattern,
+    brand_note_pattern, order_id_pattern, invoice_pattern)
+from django.core.validators import MinValueValidator
 
 ORDER_STATUS = (
     ("active","Active"),
@@ -58,22 +57,18 @@ class Cart(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.order_id
+        return str(self.id)
 
-@receiver(pre_save, sender=Cart)
-def create_order_id(sender, instance=None, created=False, **kwargs):
-    if instance._state.adding:
-        last_cart = Cart.objects.last()
-        if last_cart:
-            last_cart_order_id_increment = str(int(last_cart.order_id.rsplit('/', 1)[-1]) + 1).zfill(len(last_cart.order_id.rsplit('/', 1)[-1]))
-        else:
-            last_cart_order_id_increment = '00001'
-        instance.order_id = "ADT/07/%s"%(last_cart_order_id_increment)
+@receiver(post_save, sender=Cart)
+def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
+    if created:
+        instance.order_id = order_id_pattern(instance.pk)
+        instance.save()
 
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='rt_cart_list',on_delete=models.CASCADE)
     cart_product = models.ForeignKey(Product, related_name='rtg_cart_product_mapping', on_delete=models.CASCADE)
-    qty = models.PositiveIntegerField(default=0)
+    qty = models.PositiveIntegerField(validators=[MinValueValidator(1)])
     qty_error_msg = models.CharField(max_length=255,null=True,blank=True,editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -107,6 +102,16 @@ class Order(models.Model):
     def __str__(self):
         return self.order_no or str(self.id)
 
+# @receiver(post_save, sender=CartProductMapping)
+# def create_order(sender, instance=None, created=False, **kwargs):
+#     if created:
+#         order = Order.objects.filter(ordered_cart=instance.cart)
+#         if order.exists():
+#             order = order.last()
+#             order.save()
+#         else:
+#             Order.objects.create(ordered_cart=instance.cart, order_no=instance.cart.order_id, order_status='ordered_to_gram')
+
 class OrderedProduct(models.Model):
     order = models.ForeignKey(Order,related_name='rt_order_order_product',on_delete=models.CASCADE,null=True,blank=True)
     invoice_no = models.CharField(max_length=255,null=True,blank=True)
@@ -117,26 +122,21 @@ class OrderedProduct(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-    # def save(self, *args,**kwargs):
-    #     super(OrderedProduct, self).save()
-    #     self.invoice_no = "RTG/INVOICE/%s"%(self.pk)
-    #     super(OrderedProduct, self).save()
-
     def __str__(self):
-        return self.invoice_no or self.id
+        return str(self.invoice_no) or str(self.id)
 
-@receiver(pre_save, sender=OrderedProduct)
-def create_order_id(sender, instance=None, created=False, **kwargs):
-    if instance._state.adding:
-        last_ordered_product = OrderedProduct.objects.last()
-        if last_ordered_product:
-            last_invoice_no_increment = str(int(last_ordered_product.invoice_no.rsplit('/', 1)[-1]) + 1).zfill(len(last_ordered_product.invoice_no.rsplit('/', 1)[-1]))
-        else:
-            last_invoice_no_increment = '00001'
-        instance.invoice_no = "ADT/07/%s"%(last_invoice_no_increment)
+@receiver(post_save, sender=OrderedProduct)
+def create_invoice_no(sender, instance=None, created=False, **kwargs):
+    if created:
+        try:
+            city_id = instance.order.billing_address.city_id
+            instance.invoice_no = invoice_pattern(instance.pk, city_id=city_id)
+        except:
+            instance.invoice_no = invoice_pattern(instance.pk)
+        instance.save()
 
 class OrderedProductMapping(models.Model):
-    ordered_product = models.ForeignKey(OrderedProduct,related_name='rtg_order_product_order_product_mapping',null=True,blank=True,on_delete=models.CASCADE)
+    ordered_product = models.ForeignKey(OrderedProduct, null=True,blank=True,on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='rtg_product_order_product',null=True,blank=True, on_delete=models.CASCADE)
     shipped_qty = models.PositiveIntegerField(default=0)
     delivered_qty = models.PositiveIntegerField(default=0)
