@@ -47,7 +47,7 @@ class Vendor(models.Model):
     pincode = models.CharField(validators=[PinCodeValidator], max_length=6, null=True)
     payment_terms = models.TextField(null=True,blank=True)
     vendor_registion_free = models.CharField(max_length=50,choices=VENDOR_REG_PAYMENT, null=True,blank=True)
-    sku_listing_fee = models.CharField(max_length=50,choices=VENDOR_REG_PAYMENT, null=True,blank=True)
+    sku_listing_free = models.CharField(max_length=50,choices=VENDOR_REG_PAYMENT, null=True,blank=True)
     return_policy = models.TextField(null=True,blank=True)
     GST_number = models.CharField(max_length=100, null=True)
     MSMED_reg_no = models.CharField(max_length=100, null=True, blank=True)
