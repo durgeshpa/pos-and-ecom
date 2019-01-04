@@ -173,6 +173,7 @@ class GRNOrder(models.Model):
     grn_date = models.DateField(auto_now_add=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    products = models.ManyToManyField(Product,through='GRNOrderProductMapping')
 
     def __str__(self):
         return str(self.grn_id)
