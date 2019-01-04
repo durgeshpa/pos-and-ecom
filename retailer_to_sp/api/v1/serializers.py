@@ -1,10 +1,10 @@
 from rest_framework import serializers
 from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMapping,ProductOption,
                              Size,Color,Fragrance,Flavor,Weight,PackageSize)
-from retailer_to_sp.models import CartProductMapping,Cart,Order,OrderedProduct,Note
+from retailer_to_sp.models import CartProductMapping,Cart,Order,OrderedProduct,Note, CustomerCare, Payment
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
 
-                                      OrderedProduct as GramMappedOrderedProduct, CustomerCare, Payment)
+                                      OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment)
 from addresses.models import Address,City,State,Country
 
 
@@ -239,6 +239,19 @@ class PaymentNeftSerializer(serializers.ModelSerializer):
 
     class Meta:
         model= Payment
+        fields=('order_id','neft_reference_number')
+
+
+class GramPaymentCodSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model= GramMappedPayment
+        fields=('order_id',)
+
+class GramPaymentNeftSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model= GramMappedPayment
         fields=('order_id','neft_reference_number')
 
 class GramMappedCartDataSerializer(serializers.ModelSerializer):
