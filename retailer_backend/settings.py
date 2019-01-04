@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     'banner',
     'storages',
     #'order',
+    'django.contrib.humanize',
     'gram_to_brand',
     'sp_to_gram',
     #'autocomplete_light',

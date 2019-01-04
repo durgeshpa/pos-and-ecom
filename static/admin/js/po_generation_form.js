@@ -37,9 +37,12 @@ $('.help').find('a').each(function() {
                      if(response['success']) {
                         $('#id_cart_list-'+row_no+'-price').val(response.price);
                         $('#id_cart_list-'+row_no+'-case_size').val(response.case_size);
+                        $('#id_cart_list-'+row_no+'-inner_case_size').val(response.inner_case_size);
+
                      }else{
                         $('#id_cart_list-'+row_no+'-price').val(0);
                         $('#id_cart_list-'+row_no+'-case_size').val(0);
+                        $('#id_cart_list-'+row_no+'-inner_case_size').val(0);
                      }
                 },
                 error: function (request, status, error) {

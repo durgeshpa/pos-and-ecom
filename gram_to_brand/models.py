@@ -76,6 +76,7 @@ def create_po_no(sender, instance=None, created=False, **kwargs):
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='cart_list',on_delete=models.CASCADE)
     cart_product = models.ForeignKey(Product, related_name='cart_product_mapping', on_delete=models.CASCADE)
+    inner_case_size = models.PositiveIntegerField(default=0)
     case_size= models.PositiveIntegerField(default=0)
     number_of_cases = models.PositiveIntegerField()
     qty= models.PositiveIntegerField(default=0)
@@ -88,8 +89,9 @@ class CartProductMapping(models.Model):
 
     def clean(self):
         if self.number_of_cases:
-             self.total_price= self.case_size * self.number_of_cases * self.price
-             self.qty = self.case_size * self.number_of_cases
+             self.qty = int(self.cart_product.product_inner_case_size) * int(self.case_size) * int(self.number_of_cases)
+             self.total_price= float(self.qty) * self.price
+
 
     def __str__(self):
         return self.cart_product.product_name

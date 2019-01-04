@@ -99,14 +99,15 @@ def create_auth_token(sender, instance=None, created=False, **kwargs):
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
 def user_creation_notification(sender, instance=None, created=False, **kwargs):
-    otp = '123'
-    date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
-    time = datetime.datetime.now().strftime("%I:%M %p")
-    message = SendSms(phone=instance.phone_number,
-                      body="%s is your One Time Password for GramFactory Account."\
-                           " Request time is %s, %s IST." % (otp,date,time))
+    if created:
+        otp = '123'
+        date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
+        time = datetime.datetime.now().strftime("%I:%M %p")
+        message = SendSms(phone=instance.phone_number,
+                          body="%s is your One Time Password for GramFactory Account."\
+                               " Request time is %s, %s IST." % (otp,date,time))
 
-    message.send()
+        message.send()
 
 
 #from otp.models import PhoneOTP
