@@ -188,7 +188,6 @@ class GRNOrderProductForm(forms.ModelForm):
         autocomplete_fields = ('product',)
 
     class Media:
-        pass
         #css = {'all': ('pretty.css',)}
         js = ('/static/admin/js/grn_form.js',)
 
@@ -262,12 +261,9 @@ class GRNOrderAdmin(admin.ModelAdmin):
 
     def save_formset(self, request, form, formset, change):
         import datetime
-        today = datetime.date.today()
-        instances = formset.save(commit=False)
+        instances = formset.save_m2m()
         order_id = 0
 
-        print(instances)
-        #print(instances.count())
 
         for instance in instances:
             #GRNOrderProductMapping
