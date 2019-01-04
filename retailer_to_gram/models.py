@@ -176,12 +176,22 @@ class CustomerCare(models.Model):
         return self.name
 
 class Payment(models.Model):
+    PAYMENT_DONE_APPROVAL_PENDING = "payment_done_approval_pending"
+    CASH_COLLECTED = "cash_collected"
+    APPROVED_BY_FINANCE = "approved_by_finance"
+    PAYMENT_STATUS = (
+        (PAYMENT_DONE_APPROVAL_PENDING, "Payment done approval pending"),
+        (CASH_COLLECTED, "Cash collected"),
+        (APPROVED_BY_FINANCE, "Approved by finance"),
+    )
+
     order_id= models.ForeignKey(Order,related_name= 'rt_payment', on_delete=models.CASCADE, null=True)
     name=models.CharField(max_length=255,null=True,blank=True)
     #order_amount= models.ForeignKey(Order, related_name= 'rt_amount', on_delete=models.CASCADE, null=True)
     paid_amount=models.DecimalField(max_digits=20,decimal_places=4,default=('0.0000'))
     payment_choice = models.CharField(max_length=30, choices=PAYMENT_MODE_CHOICES, null=True)
     neft_reference_number= models.CharField(max_length=20, null=True)
+    payment_status = models.CharField(max_length=50, null=True, blank=True, choices=PAYMENT_STATUS,default=PAYMENT_DONE_APPROVAL_PENDING)
 
     def save(self, *args,**kwargs):
         super(Payment, self).save()
