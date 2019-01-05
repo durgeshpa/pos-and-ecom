@@ -78,6 +78,20 @@ class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping
     exclude = ('last_modified_by','ordered_qty','available_qty','reserved_qty')
 
+    warehouse_user_fieldset = ['product', 'manufacture_date', 'expiry_date','shipped_qty',]
+    delivery_user_fieldset = ['product', 'manufacture_date', 'expiry_date', 'delivered_qty', 'returned_qty',
+                              'damaged_qty', ]
+
+    def get_fieldsets(self, request, obj=None, **kwargs):
+        if request.user.is_superuser:
+            self.fields = self.delivery_user_fieldset
+        elif request.user.has_perm('sp_to_gram.warehouse_shipment'):
+            self.fields = self.warehouse_user_fieldset
+        elif request.user.has_perm('sp_to_gram.delivery_from_gf'):
+            self.fields = self.delivery_user_fieldset
+
+        return super(OrderedProductMappingAdmin, self).get_fieldsets(request, obj, **kwargs)
+
 class OrderedProductAdmin(admin.ModelAdmin):
     inlines = [OrderedProductMappingAdmin]
     list_display = ('invoice_no','vehicle_no','shipped_by','received_by',)
@@ -86,24 +100,6 @@ class OrderedProductAdmin(admin.ModelAdmin):
 
     warehouse_user_fields = ['order','invoice_no','vehicle_no',]
     delivery_user_fields = ['order','vehicle_no',]
-
-    warehouse_user_fieldset = ['product', 'manufacture_date', 'expiry_date','shipped_qty',]
-    delivery_user_fieldset = ['product', 'manufacture_date', 'expiry_date','delivered_qty','returned_qty','damaged_qty',]
-
-    # warehouse_user_fieldset = (
-    #     ((None), {'fields': ('product', 'manufacture_date', 'expiry_date','shipped_qty')}),
-    # )
-
-    def get_formsets_with_inlines(self, request, obj=None):
-        for inline in self.get_inline_instances(request, obj):
-            # hide MyInline in the add view
-            if isinstance(inline, OrderedProductMappingAdmin) and obj not in self.warehouse_user_fieldset:
-                yield inline.get_formset(request, obj), inline
-
-    # def get_fieldsets(self, request, obj=None, **kwargs):
-    #     if request.user.is_superuser:
-    #         return self.warehouse_user_fieldset
-    #     return super(OrderedProductAdmin, self).get_fieldsets(request, obj, **kwargs)
 
     def get_form(self, request, obj=None, **kwargs):
         self.exclude = []
@@ -116,15 +112,6 @@ class OrderedProductAdmin(admin.ModelAdmin):
             self.fields = self.delivery_user_fields
 
         return super(OrderedProductAdmin, self).get_form(request, obj, **kwargs)
-
-    # def get_fieldsets(self, request, obj=None, **kwargs):
-    #     if request.user.has_perm('sp_to_gram.warehouse_shipment'):
-    #         self.fieldsets = self.warehouse_user_fieldset
-    #     elif request.user.has_perm('sp_to_gram.delivery_from_gf'):
-    #         self.fields = self.delivery_user_fieldset
-    #     else:
-    #         self.fields = self.delivery_user_fieldset
-    #     return super(OrderedProductAdmin, self).get_fieldsets(request, obj, **kwargs)
 
     def save_formset(self, request, form, formset, change):
         import datetime

@@ -11,7 +11,6 @@ import datetime
 def checkShop(shop_id):
     try:
         shop = Shop.objects.get(id=shop_id,status=True)
-        print(shop)
         return True
     except ObjectDoesNotExist:
         return False
@@ -19,7 +18,6 @@ def checkShop(shop_id):
 def checkShopMapping(shop_id):
     try:
         parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id,status=True)
-        print(parent_mapping)
         return True
     except ObjectDoesNotExist:
         return False
