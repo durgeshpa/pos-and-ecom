@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import Country,State,City,Address,Area
+from .models import Country,State,City,Address,Area,InvoiceCityMapping
+
 # Register your models here.
 admin.site.register(Country)
 
@@ -11,5 +12,15 @@ class StateAdmin(admin.ModelAdmin):
     search_fields= ('state_name',)
 admin.site.register(State, StateAdmin)
 admin.site.register(City)
-admin.site.register(Address)
 admin.site.register(Area)
+
+from .forms import AddressForm
+class AddressAdmin(admin.ModelAdmin):
+    form = AddressForm
+
+admin.site.register(Address, AddressAdmin)
+
+class InvoiceCityMappingAdmin(admin.ModelAdmin):
+    fields = ('city','city_code')
+    list_display = ('city','city_code')
+admin.site.register(InvoiceCityMapping, InvoiceCityMappingAdmin)

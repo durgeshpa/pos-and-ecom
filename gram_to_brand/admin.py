@@ -30,7 +30,7 @@ class CartProductMappingForm(forms.ModelForm):
 
     class Meta:
         model = CartProductMapping
-        fields = ('cart_product','case_size', 'number_of_cases','scheme','price','total_price',)
+        fields = ('cart_product','inner_case_size','case_size', 'number_of_cases','scheme','price','total_price',)
         search_fields=('cart_product',)
         exclude = ('qty',)
 

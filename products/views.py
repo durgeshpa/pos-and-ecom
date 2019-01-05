@@ -235,14 +235,19 @@ def ProductsCSVUploadView(request):
                     product = Product.objects.create(product_name=row[0],\
                               product_short_description=row[1],\
                               product_long_description = row[2],\
-                              product_sku = row[3],\
+                              product_gf_code = row[3],\
                               product_ean_code = row[4],\
                               product_brand_id=row[5],\
                               product_inner_case_size=row[14],\
                               product_case_size=row[15])
 
-                    product_category = ProductCategory.objects.bulk_create([ProductCategory(product=product,\
-                              category_id=c.strip()) for c in row[6].split(',') if c is not ''])
+                    for c in row[6].split(','):
+                        if c is not '':
+                            ProductCategory.objects.create(product=product,\
+                                      category_id=c.strip())
+
+                    # product_category = ProductCategory.objects.bulk_create([ProductCategory(product=product,\
+                    #           category_id=c.strip()) for c in row[6].split(',') if c is not ''])
 
                     productoptions = ProductOption.objects.create(product=product,size_id=row[8] if row[8] else None,\
                             color_id=row[9] if row[9] else None,fragrance_id=row[10] if row[10] else None,\
@@ -307,7 +312,7 @@ def ProductsUploadSample(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(['product_name','product_short_description','product_long_description','product_sku','product_ean_code','p_brand_id','p_cat_id','p_tax_id','p_size_id','p_color_id','p_fragrance_id','p_flavor_id','p_weight_id','p_package_size_id','p_inner_case_size','p_case_size'])
+    writer.writerow(['product_name','product_short_description','product_long_description','product_gf_code','product_ean_code','p_brand_id','p_cat_id','p_tax_id','p_size_id','p_color_id','p_fragrance_id','p_flavor_id','p_weight_id','p_package_size_id','p_inner_case_size','p_case_size'])
     writer.writerow(['fortune sunflowers oil','Fortune Sun Lite Refined Sunflower Oil is a healthy','Fortune Sun Lite Refined Sunflower Oil is a healthy, light and nutritious oil that is simple to digest. Rich in natural vitamins, it consists mostly of poly-unsaturated fatty acids (PUFA) and is low in soaked fats. It is strong and makes you feel light and active level after heavy food.','12BBPRG00000121','1234567890123','1','1','1','1','1','1','1','1','1','4','2'])
     return response
 

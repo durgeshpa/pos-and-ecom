@@ -98,7 +98,8 @@ class Product(models.Model):
     product_slug = models.SlugField()
     product_short_description = models.CharField(max_length=255,validators=[ProductNameValidator],null=True,blank=True)
     product_long_description = models.TextField(null=True,blank=True)
-    product_sku = models.CharField(max_length=255,blank=False)
+    product_sku = models.CharField(max_length=255, blank=False, unique=True)
+    product_gf_code = models.CharField(max_length=255, blank=False, unique=True)
     product_ean_code = models.CharField(max_length=255, blank=False,validators=[EanCodeValidator])
     product_brand = models.ForeignKey(Brand,related_name='prodcut_brand_product',blank=False,on_delete=models.CASCADE)
     #hsn_code = models.PositiveIntegerField(null=True,blank=True,validators=[EanCodeValidator])
@@ -199,7 +200,14 @@ class ProductImage(models.Model):
     status = models.BooleanField(default=True)
 
 class Tax(models.Model):
+    TAX_CHOICES = (
+            ("cess", "Cess"),
+            ("gst", "GST"),
+            ("surcharge", "Surcharge"),
+        )
+
     tax_name = models.CharField(max_length=255,validators=[ProductNameValidator])
+    tax_type=  models.CharField(max_length=255, choices=TAX_CHOICES, null=True)
     tax_percentage = models.FloatField(default=0)
     tax_start_at = models.DateTimeField(null=True,blank=True)
     tax_end_at = models.DateTimeField(null=True,blank=True)
