@@ -68,7 +68,7 @@ def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='rt_cart_list',on_delete=models.CASCADE)
     cart_product = models.ForeignKey(Product, related_name='rtg_cart_product_mapping', on_delete=models.CASCADE)
-    qty = models.PositiveIntegerField(validators=[MinValueValidator(1)])
+    qty = models.PositiveIntegerField(validators=[MinValueValidator(1)],default=0)
     qty_error_msg = models.CharField(max_length=255,null=True,blank=True,editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
