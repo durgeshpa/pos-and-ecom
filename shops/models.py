@@ -7,6 +7,7 @@ from django.dispatch import receiver
 from otp.sms import SendSms
 import datetime
 
+
 SHOP_TYPE_CHOICES = (
     ("sp","Service Partner"),
     ("r","Retailer"),
@@ -65,18 +66,31 @@ class Shop(models.Model):
     #
     #     return not getattr(instance, status) == old_value
 
+# @receiver(post_save, sender=Shop)
+# def shop_addition_notification(sender, instance=None, created=False, **kwargs):
+#
+#         if created:
+#             otp = '123546'
+#             date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
+#             time = datetime.datetime.now().strftime("%I:%M %p")
+#             message = SendSms(phone=instance.shop_owner,
+#                                               body="%s is your One Time Password for GramFactory Account."\
+#                                                    " Request time is %s, %s IST." % (otp,date,time))
+#
+#             message.send()
+
 
 @receiver(post_save, sender=Shop)
-def shop_addition_notification(sender, instance=None, created=False, **kwargs):
-
+def shop_verification_notification(sender, instance=None, created=False, **kwargs):
         if not created:
             if instance.status ==True:
-                otp = '123546'
-                date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
-                time = datetime.datetime.now().strftime("%I:%M %p")
+
+                shop_owner_first_name = 'Retailer'
+                shop_title= str(instance.shop_name)
                 message = SendSms(phone=instance.shop_owner,
-                                  body="%s is your One Time Password for GramFactory Account."\
-                                       " Request time is %s, %s IST." % (otp,date,time))
+                                  body="Dear %s, Your Shop <Shop_Title> has been approved. Click here to start ordering immediately at GramFactory App."\
+                                      " Thanks,"\
+                                      " Team GramFactory " % (shop_owner_first_name))
 
                 message.send()
 
