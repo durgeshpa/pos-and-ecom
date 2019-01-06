@@ -199,12 +199,11 @@ class Payment(models.Model):
 
 @receiver(post_save, sender=Payment)
 def order_notification(sender, instance=None, created=False, **kwargs):
-    pass
-    # otp = '123546'
-    # date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
-    # time = datetime.datetime.now().strftime("%I:%M %p")
-    # message = SendSms(phone=instance.order_id.ordered_by,
-    #                   body="%s is your One Time Password for GramFactory Account."\
-    #                        " Request time is %s, %s IST." % (otp,date,time))
-    #
-    # message.send()
+    otp = '123546'
+    date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
+    time = datetime.datetime.now().strftime("%I:%M %p")
+    message = SendSms(phone=instance.order_id.ordered_by,
+                      body="%s is your One Time Password for GramFactory Account."\
+                           " Request time is %s, %s IST." % (otp,date,time))
+
+    message.send()
