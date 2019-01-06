@@ -73,13 +73,14 @@ def shop_verification_notification(sender, instance=None, created=False, **kwarg
         if not created:
             if instance.status ==True:
 
+                shop_owner_first_name = 'Retailer'
+                shop_title= str(instance.shop_name)
                 message = SendSms(phone=instance.shop_owner,
-                                  body="Dear <FirstName>, Your Shop <Shop_Title> has been approved. Click here to start ordering immediately at GramFactory App."\
-                                       "Thanks,"\
-                                       "Team GramFactory ")
+                                  body="Dear %s, Your Shop <Shop_Title> has been approved. Click here to start ordering immediately at GramFactory App."\
+                                      " Thanks,"\
+                                      " Team GramFactory " % (shop_owner_first_name))
 
                 message.send()
-                import pdb; pdb.set_trace()
 
 class ShopPhoto(models.Model):
     shop_name = models.ForeignKey(Shop, related_name='shop_name_photos', on_delete=models.CASCADE)

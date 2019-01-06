@@ -100,14 +100,14 @@ def create_auth_token(sender, instance=None, created=False, **kwargs):
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
 def user_creation_notification(sender, instance=None, created=False, **kwargs):
     if created:
-        otp = '123'
-        date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
-        time = datetime.datetime.now().strftime("%I:%M %p")
+        user_first_name = 'Retailer'
         message = SendSms(phone=instance.phone_number,
-                          body="%s is your One Time Password for GramFactory Account."\
-                               " Request time is %s, %s IST." % (otp,date,time))
+                          body="Dear %s, You have successfully signed up in GramFactory, India’s No. 1 Retailers’ App for ordering. Click here <App Shorturk Link> to add your shop."\
+                              " Thanks,"\
+                              " Team GramFactory " % (user_first_name))
 
         message.send()
+        import pdb; pdb.set_trace()
 
 
 #from otp.models import PhoneOTP

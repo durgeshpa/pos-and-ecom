@@ -202,11 +202,16 @@ class Payment(models.Model):
 
 @receiver(post_save, sender=Payment)
 def order_notification(sender, instance=None, created=False, **kwargs):
-    otp = '123546'
-    date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
-    time = datetime.datetime.now().strftime("%I:%M %p")
+    first_name = 'Retailer'
+    order_no = str(instance.order_id)
+    #buyer_shop = str(instance.order_id.buyer_shop)
+    total_amount= str(instance.order_id.total_final_amount)
+    #ordered_items= str(instance.order_id.ordered_cart.rt_cart_list.all())
+
+
     message = SendSms(phone=instance.order_id.ordered_by,
-                      body="%s is your One Time Password for GramFactory Account."\
-                           " Request time is %s, %s IST." % (otp,date,time))
+                      body="Hi %s, We have received your order no. %s with ### items and totalling to %s Rupees for your shop <Shop Name>. We will update you further on shipment of the items."\
+                          " Thanks," \
+                          " Team GramFactory " % (first_name, order_no, total_amount))
 
     message.send()
