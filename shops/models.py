@@ -49,6 +49,7 @@ class Shop(models.Model):
     shop_name = models.CharField(max_length=255)
     shop_owner = models.ForeignKey(get_user_model(), related_name='shop_owner_shop',on_delete=models.CASCADE)
     shop_type = models.ForeignKey(ShopType,related_name='shop_type_shop',on_delete=models.CASCADE)
+    #related_users = models.ManyToManyField(get_user_model(),null=True,blank=True, related_name='related_shop_user')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=False)
@@ -67,7 +68,6 @@ class Shop(models.Model):
 
 @receiver(post_save, sender=Shop)
 def shop_addition_notification(sender, instance=None, created=False, **kwargs):
-
 
         if not created:
             if instance.status ==True:
