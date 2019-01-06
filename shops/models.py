@@ -7,6 +7,7 @@ from django.dispatch import receiver
 from otp.sms import SendSms
 import datetime
 
+
 SHOP_TYPE_CHOICES = (
     ("sp","Service Partner"),
     ("r","Retailer"),
@@ -66,19 +67,19 @@ class Shop(models.Model):
 
 
 @receiver(post_save, sender=Shop)
-def shop_addition_notification(sender, instance=None, created=False, **kwargs):
+def shop_verification_notification(sender, instance=None, created=False, **kwargs):
 
 
         if not created:
             if instance.status ==True:
-                otp = '123546'
-                date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
-                time = datetime.datetime.now().strftime("%I:%M %p")
+
                 message = SendSms(phone=instance.shop_owner,
-                                  body="%s is your One Time Password for GramFactory Account."\
-                                       " Request time is %s, %s IST." % (otp,date,time))
+                                  body="Dear <FirstName>, Your Shop <Shop_Title> has been approved. Click here to start ordering immediately at GramFactory App."\
+                                       "Thanks,"\
+                                       "Team GramFactory ")
 
                 message.send()
+                import pdb; pdb.set_trace()
 
 class ShopPhoto(models.Model):
     shop_name = models.ForeignKey(Shop, related_name='shop_name_photos', on_delete=models.CASCADE)
