@@ -80,12 +80,9 @@ class Shop(models.Model):
 #             message.send()
 
 
-<<<<<<< HEAD
 @receiver(post_save, sender=Shop)
 def shop_verification_notification(sender, instance=None, created=False, **kwargs):
 
-=======
->>>>>>> ab4525063af396d4774128c7c8c38422becf76d8
         if not created:
             if instance.status ==True:
 

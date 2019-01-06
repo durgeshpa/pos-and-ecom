@@ -199,7 +199,7 @@ class Payment(models.Model):
 
 @receiver(post_save, sender=Payment)
 def order_notification(sender, instance=None, created=False, **kwargs):
-<<<<<<< HEAD
+
     if created:
         first_name = 'Retailer'
         order_no = str(instance.order_id)
@@ -214,14 +214,3 @@ def order_notification(sender, instance=None, created=False, **kwargs):
                               " Team GramFactory " % (first_name, order_no, total_amount))
 
         message.send()
-=======
-    pass
-    # otp = '123546'
-    # date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
-    # time = datetime.datetime.now().strftime("%I:%M %p")
-    # message = SendSms(phone=instance.order_id.ordered_by,
-    #                   body="%s is your One Time Password for GramFactory Account."\
-    #                        " Request time is %s, %s IST." % (otp,date,time))
-    #
-    # message.send()
->>>>>>> ab4525063af396d4774128c7c8c38422becf76d8
