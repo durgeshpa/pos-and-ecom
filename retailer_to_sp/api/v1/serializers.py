@@ -88,18 +88,24 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
     product_opt_product = ProductOptionSerializer(many=True)
     product_brand = BrandSerializer(read_only=True)
     product_price = serializers.SerializerMethodField('product_price_dt')
+    product_mrp = serializers.SerializerMethodField('product_mrp_dt')
     product_case_size_picies = serializers.SerializerMethodField('product_case_size_picies_dt')
 
     def product_price_dt(self, obj):
         shop_id = self.context.get("parent_mapping_id",None)
         return '' if obj.product_pro_price.filter(shop__id=shop_id).last() is None else obj.product_pro_price.filter(shop__id=shop_id).last().price_to_retailer
 
+    def product_mrp_dt(self, obj):
+        shop_id = self.context.get("parent_mapping_id",None)
+        return '' if obj.product_pro_price.filter(shop__id=shop_id).last() is None else obj.product_pro_price.filter(shop__id=shop_id).last().mrp
+
+
     def product_case_size_picies_dt(self,obj):
         return str(int(obj.product_inner_case_size)*int(obj.product_case_size))
 
     class Meta:
         model = Product
-        fields = ('id','product_name','product_slug','product_short_description','product_long_description','product_sku',
+        fields = ('id','product_name','product_slug','product_short_description','product_long_description','product_sku','product_mrp',
                   'product_ean_code','product_brand','created_at','modified_at','product_pro_price','status','product_pro_image',
                   'product_pro_tax','product_opt_product','product_price','product_inner_case_size','product_case_size','product_case_size_picies')
 
