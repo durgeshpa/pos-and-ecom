@@ -1,6 +1,6 @@
 from rest_framework import generics
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,
-                          OrderSerializer, CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,PaymentNeftSerializer,
+                          OrderSerializer, CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
 
                           GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer )
 from products.models import Product, ProductPrice, ProductOption,ProductImage
@@ -18,7 +18,7 @@ from rest_framework import status
 from retailer_to_sp.models import Cart,CartProductMapping,Order,OrderedProduct, Payment, CustomerCare
 
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
-                                      OrderedProduct as GramOrderedProduct)
+                                      OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment, CustomerCare as GramMappedCustomerCare )
 
 
 from shops.models import Shop,ParentRetailerMapping
@@ -347,6 +347,9 @@ class AddToCart(APIView):
             if parent_mapping is None:
                 return Response(msg, status=status.HTTP_200_OK)
 
+            if qty is None or qty=='':
+                msg['message'] = ["Qty not Found"]
+                return Response(msg, status=status.HTTP_200_OK)
             #  if shop mapped with SP
 
             if parent_mapping.parent.shop_type.shop_type == 'sp':
@@ -909,7 +912,7 @@ class PaymentApi(APIView):
     permission_classes = (permissions.IsAuthenticated,)
     def get(self, request):
         queryset = Payment.objects.filter(payment_choice='cash_on_delivery')
-        serializer = PaymentCodSerializer(queryset, many=True)
+        serializer = GramPaymentCodSerializer(queryset, many=True)
         msg = {'is_success': True, 'message': ['All Payments'], 'response_data': serializer.data}
         return Response(msg, status=status.HTTP_201_CREATED)
 
@@ -926,7 +929,6 @@ class PaymentApi(APIView):
         except ObjectDoesNotExist:
             msg['message'] = ["No order with this name"]
             return Response(msg, status=status.HTTP_200_OK)
-
         if not payment_choice:
             msg['message'] = ["Please enter payment_type"]
             return Response(msg, status=status.HTTP_200_OK)
@@ -942,6 +944,7 @@ class PaymentApi(APIView):
         serializer = PaymentCodSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save(payment_choice=payment_choice)
+
             msg = {'is_success': True, 'message': ['Payment Sent'], 'response_data': serializer.data}
             return Response( msg, status=status.HTTP_201_CREATED)
 
@@ -949,7 +952,10 @@ class PaymentApi(APIView):
 #
 #     def get(self, request):
 #         queryset = Payment.objects.filter(payment_choice='neft')
+
+#         serializer = GramPaymentNeftSerializer(queryset, many=True)
 #         serializer = PaymentNeftSerializer(queryset, many=True)
+
 #         msg = {'is_success': True, 'message': ['All Payments'], 'response_data': serializer.data}
 #         return Response(msg, status=status.HTTP_201_CREATED)
 #
@@ -965,7 +971,11 @@ class PaymentApi(APIView):
 #         if not neft_reference_number:
 #             msg['message']= ["Please enter the NEFT reference numner"]
 #             return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+
+#         serializer = GramPaymentNeftSerializer(data=request.data)
+
 #         serializer = PaymentNeftSerializer(data=request.data)
+
 #         if serializer.is_valid():
 #             serializer.save(payment_choice='neft')
 #             msg = {'is_success': True, 'message': ['Payment Sent'], 'response_data': serializer.data}

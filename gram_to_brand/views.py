@@ -122,18 +122,48 @@ class DownloadPurchaseOrder(APIView):
         products = a.cart_list.all()
         order= shop.order_cart_mapping.get(pk=pk)
         order_id= order.order_no
-        sum_qty=0
+        sum_qty = 0
         sum_amount=0
         tax_inline=0
+        taxes_list = []
+        gst_tax_list= []
+        cess_tax_list= []
+        surcharge_tax_list=[]
         for m in products:
-            sum_qty=sum_qty + (m.case_size * m.number_of_cases)
-            sum_amount = sum_amount + (m.case_size * m.number_of_cases * m.price)
+
+            sum_qty = sum_qty + m.qty
+            sum_amount = sum_amount + (m.qty * m.price)
+            inline_sum_amount = (m.qty * m.price)
             for n in m.cart_product.product_pro_tax.all():
-                tax_inline = tax_inline + ((n.tax.tax_percentage/100)* m.price)
-        total_amount = sum_amount + tax_inline
+
+                divisor= (1+(n.tax.tax_percentage/100))
+                original_amount= (inline_sum_amount/divisor)
+                tax_amount = inline_sum_amount - original_amount
+                if n.tax.tax_type=='gst':
+                    gst_tax_list.append(tax_amount)
+                if n.tax.tax_type=='cess':
+                    cess_tax_list.append(tax_amount)
+                if n.tax.tax_type=='surcharge':
+                    surcharge_tax_list.append(tax_amount)
+
+                taxes_list.append(tax_amount)
+                igst= sum(gst_tax_list)
+                cgst= (sum(gst_tax_list))/2
+                sgst= (sum(gst_tax_list))/2
+                cess= sum(cess_tax_list)
+                surcharge= sum(surcharge_tax_list)
+                #tax_inline = tax_inline + (inline_sum_amount - original_amount)
+                #tax_inline1 =(tax_inline / 2)
+            print(surcharge_tax_list)
+            print(gst_tax_list)
+            print(cess_tax_list)
+            print(taxes_list)
+
+        total_amount = sum_amount
         print(sum_amount)
-        print (tax_inline)
-        data = {"object": order_obj,"products":products, "shop":shop,"sum_qty":sum_qty, "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" , "tax_inline":tax_inline, "total_amount":total_amount,"order_id":order_id}
+        # print (tax_inline)
+        # print (tax_inline1)
+        data = {"object": order_obj,"products":products, "shop":shop, "sum_qty": sum_qty, "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" , "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,"order_id":order_id}
         # for m in products:
         #     data = {"object": order_obj,"products":products,"amount_inline": m.qty * m.price }
         #     print (data)
@@ -162,7 +192,8 @@ class VendorProductPrice(APIView):
        product_id = self.request.GET.get('product_id')
        price = ProductVendorMapping.objects.get(vendor__id=supplier_id,product__id=product_id)
        case_size = ProductVendorMapping.objects.get(vendor__id=supplier_id,product__id=product_id).product.product_case_size
-       return Response({ "price": price.product_price,"case_size":case_size, "success": True})
+       inner_case_size = ProductVendorMapping.objects.get(vendor__id=supplier_id,product__id=product_id).product.product_inner_case_size
+       return Response({ "price": price.product_price,"case_size":case_size,"inner_case_size":inner_case_size, "success": True})
 
 class GRNProductAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self,*args,**kwargs):

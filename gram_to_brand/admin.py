@@ -30,7 +30,7 @@ class CartProductMappingForm(forms.ModelForm):
 
     class Meta:
         model = CartProductMapping
-        fields = ('cart_product','case_size', 'number_of_cases','scheme','price','total_price',)
+        fields = ('cart_product','inner_case_size','case_size', 'number_of_cases','scheme','price','total_price',)
         search_fields=('cart_product',)
         exclude = ('qty',)
 
@@ -188,7 +188,6 @@ class GRNOrderProductForm(forms.ModelForm):
         autocomplete_fields = ('product',)
 
     class Media:
-        pass
         #css = {'all': ('pretty.css',)}
         js = ('/static/admin/js/grn_form.js',)
 
@@ -260,14 +259,12 @@ class GRNOrderAdmin(admin.ModelAdmin):
     edit_grn_link.short_description = 'Edit GRN'
 
 
-    def save_formset(self, request, form, formset, change):
+    def save_formset(self, request, form, formset, change, *args, **kwargs):
         import datetime
-        today = datetime.date.today()
+        super(GRNOrderAdmin, self).save_formset(request, form, formset, change, *args, **kwargs)
         instances = formset.save(commit=False)
         order_id = 0
 
-        print(instances)
-        #print(instances.count())
 
         for instance in instances:
             #GRNOrderProductMapping
