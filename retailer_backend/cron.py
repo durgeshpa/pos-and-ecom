@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.utils import timezone
 from sp_to_gram.models import OrderedProductMapping,OrderedProductReserved
+from gram_to_brand.models import OrderedProductReserved as GramOrderedProductReserved
 
 
 class CronToDeleteOrderedProductReserved(APIView):
@@ -23,10 +24,23 @@ class CronToDeleteOrderedProductReserved(APIView):
 
                 # Deleted Cart
                 print("%s id will deleted and added %s qty in available_qty of OrderedProductMapping %s id"%(ordered_reserve.id,ordered_reserve.order_product_reserved.available_qty,ordered_reserve.order_product_reserved.id))
-                ordered_reserve.delete()
-        else:
-            print(OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()).query)
-            print("nothing found")
+                ordered_reserve.reserve_status = 'free'
+                ordered_reserve.save()
+
+        if GramOrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()).exists():
+            for ordered_reserve in GramOrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()):
+                ordered_reserve.order_product_reserved.available_qty = int(ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
+                ordered_reserve.order_product_reserved.save()
+
+                # Saving Cart as pending
+                ordered_reserve.cart.cart_status = 'pending'
+                ordered_reserve.cart.save()
+
+                # Deleted Cart
+                print("%s id will deleted and added %s qty in available_qty of OrderedProductMapping %s id"%(ordered_reserve.id,ordered_reserve.order_product_reserved.available_qty,ordered_reserve.order_product_reserved.id))
+                ordered_reserve.reserve_status = 'free'
+                ordered_reserve.save()
+
 
 def cron_to_delete_ordered_product_reserved(request):
     if OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()).exists():
@@ -40,7 +54,25 @@ def cron_to_delete_ordered_product_reserved(request):
 
             # Deleted Cart
             print("%s id will deleted and added %s qty in available_qty of OrderedProductMapping %s id"%(ordered_reserve.id,ordered_reserve.order_product_reserved.available_qty,ordered_reserve.order_product_reserved.id))
-            ordered_reserve.delete()
-    else:
-        print(OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()).query)
-        print("nothing found")
+            #ordered_reserve.delete()
+            ordered_reserve.reserve_status = 'free'
+            ordered_reserve.save()
+
+    if GramOrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()).exists():
+        for ordered_reserve in GramOrderedProductReserved.objects.filter(
+                order_reserve_end_time__lte=timezone.now()):
+            ordered_reserve.order_product_reserved.available_qty = int(
+                ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
+            ordered_reserve.order_product_reserved.save()
+
+            # Saving Cart as pending
+            ordered_reserve.cart.cart_status = 'pending'
+            ordered_reserve.cart.save()
+
+            # Deleted Cart
+            print("%s id will deleted and added %s qty in available_qty of OrderedProductMapping %s id" % (
+            ordered_reserve.id, ordered_reserve.order_product_reserved.available_qty,
+            ordered_reserve.order_product_reserved.id))
+
+            ordered_reserve.reserve_status = 'free'
+            ordered_reserve.save()

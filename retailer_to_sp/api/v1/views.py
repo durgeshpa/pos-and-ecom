@@ -673,7 +673,8 @@ class CreateOrder(APIView):
                     for ordered_reserve in OrderedProductReserved.objects.filter(cart=cart):
                         ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
                         ordered_reserve.order_product_reserved.save()
-                        ordered_reserve.delete()
+                        ordered_reserve.reserve_status = 'ordered'
+                        ordered_reserve.save()
 
                     serializer = OrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id})
                     msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
@@ -715,7 +716,8 @@ class CreateOrder(APIView):
                     for ordered_reserve in GramOrderedProductReserved.objects.filter(cart=cart):
                         ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
                         ordered_reserve.order_product_reserved.save()
-                        ordered_reserve.delete()
+                        ordered_reserve.reserve_status = 'ordered'
+                        ordered_reserve.save()
 
                     serializer = GramMappedOrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id})
                     msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}

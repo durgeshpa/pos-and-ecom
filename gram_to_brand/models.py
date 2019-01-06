@@ -282,6 +282,14 @@ def create_brand_note_id(sender, instance=None, created=False, **kwargs):
         instance.save()
 
 class OrderedProductReserved(models.Model):
+    RESERVED = "reserved"
+    ORDERED = "ordered"
+    FREE = "free"
+    RESERVE_STATUS = (
+        (RESERVED, "Reserved"),
+        (ORDERED, "Ordered"),
+        (FREE, "Free"),
+    )
     order_product_reserved = models.ForeignKey(GRNOrderProductMapping, related_name='retiler_order_product_order_product_reserved',null=True, blank=True, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='retiler_product_order_product_reserved', null=True, blank=True,on_delete=models.CASCADE)
     cart = models.ForeignKey(GramMapperRetialerCart, related_name='retiler_ordered_retailer_cart',null=True,blank=True,on_delete=models.CASCADE)
@@ -289,6 +297,7 @@ class OrderedProductReserved(models.Model):
     order_reserve_end_time = models.DateTimeField(null=True,blank=True,editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    reserve_status = models.CharField(max_length=100,choices=RESERVE_STATUS,default=RESERVED)
 
     def save(self):
         self.order_reserve_end_time = timezone.now() + timedelta(minutes=int(settings.BLOCKING_TIME_IN_MINUTS))
