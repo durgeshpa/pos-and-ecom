@@ -11,6 +11,7 @@ from django.db.models.signals import pre_save
 from django.db.models.signals import post_save
 from otp.sms import SendSms
 import datetime
+from retailer_backend.common_function import order_id_pattern
 
 ORDER_STATUS = (
     ("active","Active"),
@@ -63,15 +64,11 @@ class Cart(models.Model):
     def __str__(self):
         return self.order_id
 
-@receiver(pre_save, sender=Cart)
+@receiver(post_save, sender=Cart)
 def create_order_id(sender, instance=None, created=False, **kwargs):
-    last_cart = Cart.objects.last()
-    if last_cart:
-        last_cart_order_id_increment = str(int(last_cart.order_id.rsplit('/', 1)[-1]) + 1).zfill(len(last_cart.order_id.rsplit('/', 1)[-1]))
-    else:
-        last_cart_order_id_increment = '00001'
-    instance.order_id = "ADT/07/%s"%(last_cart_order_id_increment)
-
+    if created:
+        instance.order_id = order_id_pattern(instance.pk)
+        instance.save()
 
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='rt_cart_list',on_delete=models.CASCADE)

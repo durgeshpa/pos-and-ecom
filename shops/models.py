@@ -65,10 +65,22 @@ class Shop(models.Model):
     #
     #     return not getattr(instance, status) == old_value
 
+# @receiver(post_save, sender=Shop)
+# def shop_addition_notification(sender, instance=None, created=False, **kwargs):
+#
+#         if created:
+#             otp = '123546'
+#             date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
+#             time = datetime.datetime.now().strftime("%I:%M %p")
+#             message = SendSms(phone=instance.shop_owner,
+#                                               body="%s is your One Time Password for GramFactory Account."\
+#                                                    " Request time is %s, %s IST." % (otp,date,time))
+#
+#             message.send()
+
 
 @receiver(post_save, sender=Shop)
 def shop_verification_notification(sender, instance=None, created=False, **kwargs):
-
 
         if not created:
             if instance.status ==True:
