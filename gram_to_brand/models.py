@@ -143,8 +143,16 @@ def create_order(sender, instance=None, created=False, **kwargs):
             order.total_final_amount = order.total_final_amount+instance.total_price
             order.save()
         else:
-            Order.objects.create(ordered_cart=instance.cart, order_no=instance.cart.po_no, billing_address=instance.cart.gf_billing_address,
+            order = Order.objects.create(ordered_cart=instance.cart, order_no=instance.cart.po_no, billing_address=instance.cart.gf_billing_address,
             shipping_address=instance.cart.gf_shipping_address, total_final_amount=instance.total_price)
+
+        if order:
+            if OrderItem.objects.filter(order=order, ordered_product=instance.cart_product).exists():
+                OrderItem.objects.filter(order=order,ordered_product=instance.cart_product).delete()
+            else:
+                qty = int(instance.number_of_cases) * int(instance.case_size)
+                order_item = OrderItem.objects.create(ordered_product=instance.cart_product,ordered_qty=qty, ordered_price=instance.price,order = order)
+                
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order,related_name='order_order_item',on_delete=models.CASCADE,verbose_name='po no')
