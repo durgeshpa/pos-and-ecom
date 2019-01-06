@@ -69,7 +69,7 @@ def order_id_pattern(order_id):
     order id is the id of created instance.
     """
 
-    starts_with = getattr(settings, 'PO_STARTS_WITH', 'ADT')
+    starts_with = getattr(settings, 'INVOICE_STARTS_WITH', 'ADT')
     default_city_code = getattr(settings, 'DEFAULT_CITY_CODE', '07')
     city_code = default_city_code
     ends_with = str(order_id).ljust(5, '0')
