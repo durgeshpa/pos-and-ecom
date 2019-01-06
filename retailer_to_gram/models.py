@@ -10,6 +10,7 @@ from retailer_backend.common_function import(po_pattern, grn_pattern,
     brand_note_pattern, order_id_pattern, invoice_pattern)
 from django.core.validators import MinValueValidator
 <<<<<<< HEAD
+<<<<<<< HEAD
 from otp.sms import SendSms
 import datetime
 =======
@@ -17,6 +18,12 @@ import datetime
 from otp.sms import SendSms
 
 >>>>>>> ab4525063af396d4774128c7c8c38422becf76d8
+=======
+import datetime
+from otp.sms import SendSms
+
+
+>>>>>>> message_template
 
 ORDER_STATUS = (
     ("active","Active"),
@@ -215,6 +222,7 @@ class Payment(models.Model):
 
 @receiver(post_save, sender=Payment)
 def order_notification(sender, instance=None, created=False, **kwargs):
+
     if created:
         first_name = 'Retailer'
         order_no = str(instance.order_id)

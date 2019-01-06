@@ -199,6 +199,7 @@ class Payment(models.Model):
 
 @receiver(post_save, sender=Payment)
 def order_notification(sender, instance=None, created=False, **kwargs):
+
     if created:
         first_name = 'Retailer'
         order_no = str(instance.order_id)
