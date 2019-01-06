@@ -184,7 +184,7 @@ ACCOUNT_AUTHENTICATION_METHOD = 'username'
 ACCOUNT_EMAIL_REQUIRED = False
 ACCOUNT_USER_MODEL_USERNAME_FIELD = 'phone_number'
 ACCOUNT_USERNAME_MIN_LENGTH = 10
-
+ACCOUNT_EMAIL_VERIFICATION = 'none'
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.1/howto/static-files/
