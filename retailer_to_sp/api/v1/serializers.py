@@ -129,6 +129,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
     cart = CartDataSerializer()
     is_available = serializers.SerializerMethodField('is_available_dt')
     no_of_pieces = serializers.SerializerMethodField('no_pieces_dt')
+    product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
 
     def is_available_dt(self,obj):
         ordered_product_sum = OrderedProductMapping.objects.filter(product=obj.cart_product).aggregate(available_qty_sum=Sum('available_qty'))
@@ -138,9 +139,14 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
     def no_pieces_dt(self, obj):
         return int(obj.cart_product.product_inner_case_size) * int(obj.qty)
 
+    def product_sub_total_dt(self,obj):
+        shop_id = self.context.get("parent_mapping_id", None)
+        product_price = 0 if obj.cart_product.product_pro_price.filter(shop__id=shop_id).last() is None else obj.cart_product.product_pro_price.filter(shop__id=shop_id).last().price_to_retailer
+        return float(obj.cart_product.product_inner_case_size)*float(obj.qty)*float(product_price)
+
     class Meta:
         model = CartProductMapping
-        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg','is_available','no_of_pieces')
+        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg','is_available','no_of_pieces','product_sub_total')
 
 
 class CartSerializer(serializers.ModelSerializer):
@@ -159,7 +165,7 @@ class CartSerializer(serializers.ModelSerializer):
             shop_id = self.context.get("parent_mapping_id", None)
             pro_price = ProductPrice.objects.filter(shop__id=shop_id, product=cart_pro.cart_product).last()
             if pro_price and pro_price.price_to_retailer:
-                self.total_amount = float(self.total_amount) + (float(pro_price.price_to_retailer) * float(cart_pro.qty))
+                self.total_amount = float(self.total_amount) + (float(pro_price.price_to_retailer) * float(cart_pro.qty) * float(pro_price.product.product_inner_case_size))
             else:
                 self.total_amount = float(self.total_amount) + 0
         return self.total_amount
@@ -266,6 +272,7 @@ class GramMappedCartProductMappingSerializer(serializers.ModelSerializer):
     cart = GramMappedCartDataSerializer()
     is_available = serializers.SerializerMethodField('is_available_dt')
     no_of_pieces = serializers.SerializerMethodField('no_pieces_dt')
+    product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
 
     def is_available_dt(self,obj):
         ordered_product_sum = GRNOrderProductMapping.objects.filter(product=obj.cart_product).aggregate(available_qty_sum=Sum('available_qty'))
@@ -275,9 +282,14 @@ class GramMappedCartProductMappingSerializer(serializers.ModelSerializer):
     def no_pieces_dt(self,obj):
         return int(obj.cart_product.product_inner_case_size)*int(obj.qty)
 
+    def product_sub_total_dt(self,obj):
+        shop_id = self.context.get("parent_mapping_id", None)
+        product_price = 0 if obj.cart_product.product_pro_price.filter(shop__id=shop_id).last() is None else obj.cart_product.product_pro_price.filter(shop__id=shop_id).last().price_to_retailer
+        return float(obj.cart_product.product_inner_case_size)*float(obj.qty)*float(product_price)
+
     class Meta:
         model = GramMappedCartProductMapping
-        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg','is_available','no_of_pieces')
+        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg','is_available','no_of_pieces','product_sub_total')
 
 class GramMappedCartSerializer(serializers.ModelSerializer):
     rt_cart_list = GramMappedCartProductMappingSerializer(many=True)
@@ -295,7 +307,7 @@ class GramMappedCartSerializer(serializers.ModelSerializer):
             shop_id = self.context.get("parent_mapping_id", None)
             pro_price = ProductPrice.objects.filter(shop__id=shop_id,product=cart_pro.cart_product).last()
             if pro_price and pro_price.price_to_retailer:
-                self.total_amount = float(self.total_amount) + (float(pro_price.price_to_retailer) * float(cart_pro.qty))
+                self.total_amount = float(self.total_amount) + (float(pro_price.price_to_retailer) * float(cart_pro.qty) * float(pro_price.product.product_inner_case_size))
             else:
                 self.total_amount = float(self.total_amount) + 0
         return self.total_amount

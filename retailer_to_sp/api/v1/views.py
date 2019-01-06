@@ -347,6 +347,9 @@ class AddToCart(APIView):
             if parent_mapping is None:
                 return Response(msg, status=status.HTTP_200_OK)
 
+            if qty is None or qty=='':
+                msg['message'] = ["Qty not Found"]
+                return Response(msg, status=status.HTTP_200_OK)
             #  if shop mapped with SP
 
             if parent_mapping.parent.shop_type.shop_type == 'sp':
