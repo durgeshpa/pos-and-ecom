@@ -152,7 +152,7 @@ class GramGRNProductsList(APIView):
                 product_images.append({"image_name":p_i.image_name,"image_alt":p_i.image_alt_text,"image_url":p_i.image.url})
             if not product_images:
                 product_images=None
-            if name.startswith(product_name):
+            if name.lower() in product_name.lower():
                 p_list.append({"name":name, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "id":id,
                             "weight_value":weight_value,"weight_unit":weight_unit, "product_images":product_images,"user_selected_qty":user_selected_qty})
 
@@ -285,7 +285,7 @@ class GramGRNProductsList(APIView):
                     product_images.append({"image_name":p_i.image_name,"image_alt":p_i.image_alt_text,"image_url":p_i.image.url})
                 if not product_images:
                     product_images=None
-                if name.startswith(request.data['product_name']):
+                if name.lower() in request.data['product_name'].lower():
                     p_list.append({"name":name, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "id":id,
                                     "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":user_selected_qty})
 
