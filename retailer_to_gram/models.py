@@ -9,18 +9,27 @@ from django.db.models.signals import pre_save, post_save
 from retailer_backend.common_function import(po_pattern, grn_pattern,
     brand_note_pattern, order_id_pattern, invoice_pattern)
 from django.core.validators import MinValueValidator
+<<<<<<< HEAD
 from otp.sms import SendSms
 import datetime
+=======
+import datetime
+from otp.sms import SendSms
+
+>>>>>>> ab4525063af396d4774128c7c8c38422becf76d8
 
 ORDER_STATUS = (
     ("active","Active"),
     ("pending","Pending"),
     ("deleted","Deleted"),
     ("ordered","Ordered"),
+    ("payment_done_approval_pending","Payment Done Approval Pending"),
     ("order_shipped","Order Shipped"),
+    ("order_cancel","Order Cancel"),
     ("partially_delivered","Partially Delivered"),
     ("delivered","Delivered"),
 )
+
 ITEM_STATUS = (
     ("partially_delivered","Partially Delivered"),
     ("delivered","Delivered"),

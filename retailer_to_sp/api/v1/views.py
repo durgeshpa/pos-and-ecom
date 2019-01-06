@@ -921,14 +921,18 @@ class PaymentApi(APIView):
         payment_choice =self.request.POST.get('payment_choice')
         paid_amount =self.request.POST.get('paid_amount')
         neft_reference_number =self.request.POST.get('neft_reference_number')
+        shop_id = self.request.POST.get('shop_id')
 
         # payment_type = neft or cash_on_delivery
-        msg = {'is_success': False,'message': [''],'response_data': None}
-        try:
-            order = GramMappedOrder.objects.get(id=order_id)
-        except ObjectDoesNotExist:
-            msg['message'] = ["No order with this name"]
+        msg = {'is_success': False, 'message': ['Have some error in shop or mapping'], 'response_data': None}
+
+        if checkNotShopAndMapping(shop_id):
             return Response(msg, status=status.HTTP_200_OK)
+
+        parent_mapping = getShopMapping(shop_id)
+        if parent_mapping is None:
+            return Response(msg, status=status.HTTP_200_OK)
+
         if not payment_choice:
             msg['message'] = ["Please enter payment_type"]
             return Response(msg, status=status.HTTP_200_OK)
@@ -941,12 +945,37 @@ class PaymentApi(APIView):
             msg['message'] = ["Please enter paid_amount"]
             return Response(msg, status=status.HTTP_200_OK)
 
-        serializer = PaymentCodSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(payment_choice=payment_choice)
+        if parent_mapping.parent.shop_type.shop_type == 'sp':
 
-            msg = {'is_success': True, 'message': ['Payment Sent'], 'response_data': serializer.data}
-            return Response( msg, status=status.HTTP_201_CREATED)
+            try:
+                order = Order.objects.get(id=order_id)
+            except ObjectDoesNotExist:
+                msg['message'] = ["No order found"]
+                return Response(msg, status=status.HTTP_200_OK)
+
+            payment = Payment(order_id=order,paid_amount=paid_amount,payment_choice=payment_choice,neft_reference_number=neft_reference_number)
+            payment.save()
+            order.order_status = 'payment_done_approval_pending'
+            order.save()
+            serializer = OrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id})
+
+        elif parent_mapping.parent.shop_type.shop_type == 'gf':
+
+            try:
+                order = GramMappedOrder.objects.get(id=order_id)
+            except ObjectDoesNotExist:
+                msg['message'] = ["No order found"]
+                return Response(msg, status=status.HTTP_200_OK)
+
+            payment = GramMappedPayment(order_id=order,paid_amount=paid_amount,payment_choice=payment_choice,neft_reference_number=neft_reference_number)
+            payment.save()
+            order.order_status = 'payment_done_approval_pending'
+            order.save()
+            serializer = GramMappedOrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id})
+
+        if serializer.data:
+            msg = {'is_success': True,'message': None,'response_data': serializer.data}
+        return Response( msg, status=status.HTTP_200_OK)
 
 # class PaymentNeftApi(APIView):
 #
