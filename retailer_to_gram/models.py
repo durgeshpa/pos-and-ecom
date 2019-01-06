@@ -9,6 +9,8 @@ from django.db.models.signals import pre_save, post_save
 from retailer_backend.common_function import(po_pattern, grn_pattern,
     brand_note_pattern, order_id_pattern, invoice_pattern)
 from django.core.validators import MinValueValidator
+from otp.sms import SendSms
+import datetime
 
 ORDER_STATUS = (
     ("active","Active"),
@@ -204,11 +206,17 @@ class Payment(models.Model):
 
 @receiver(post_save, sender=Payment)
 def order_notification(sender, instance=None, created=False, **kwargs):
-    otp = '123546'
-    date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
-    time = datetime.datetime.now().strftime("%I:%M %p")
-    message = SendSms(phone='7607846774',
-                      body="%s is your One Time Password for GramFactory Account."\
-                           " Request time is %s, %s IST." % (otp,date,time))
+    if created:
+        first_name = 'Retailer'
+        order_no = str(instance.order_id)
+        #buyer_shop = str(instance.order_id.buyer_shop)
+        total_amount= str(instance.order_id.total_final_amount)
+        #ordered_items= str(instance.order_id.ordered_cart.rt_cart_list.all())
 
-    message.send()
+
+        message = SendSms(phone=instance.order_id.ordered_by,
+                          body="Hi %s, We have received your order no. %s with ### items and totalling to %s Rupees for your shop <Shop Name>. We will update you further on shipment of the items."\
+                              " Thanks," \
+                              " Team GramFactory " % (first_name, order_no, total_amount))
+
+        message.send()

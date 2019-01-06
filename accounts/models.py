@@ -107,7 +107,8 @@ def user_creation_notification(sender, instance=None, created=False, **kwargs):
                               " Team GramFactory " % (user_first_name))
 
         message.send()
-        import pdb; pdb.set_trace()
+        
+
 
 
 #from otp.models import PhoneOTP

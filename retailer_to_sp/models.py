@@ -202,16 +202,17 @@ class Payment(models.Model):
 
 @receiver(post_save, sender=Payment)
 def order_notification(sender, instance=None, created=False, **kwargs):
-    first_name = 'Retailer'
-    order_no = str(instance.order_id)
-    #buyer_shop = str(instance.order_id.buyer_shop)
-    total_amount= str(instance.order_id.total_final_amount)
-    #ordered_items= str(instance.order_id.ordered_cart.rt_cart_list.all())
+    if created:
+        first_name = 'Retailer'
+        order_no = str(instance.order_id)
+        #buyer_shop = str(instance.order_id.buyer_shop)
+        total_amount= str(instance.order_id.total_final_amount)
+        #ordered_items= str(instance.order_id.ordered_cart.rt_cart_list.all())
 
 
-    message = SendSms(phone=instance.order_id.ordered_by,
-                      body="Hi %s, We have received your order no. %s with ### items and totalling to %s Rupees for your shop <Shop Name>. We will update you further on shipment of the items."\
-                          " Thanks," \
-                          " Team GramFactory " % (first_name, order_no, total_amount))
+        message = SendSms(phone=instance.order_id.ordered_by,
+                          body="Hi %s, We have received your order no. %s with ### items and totalling to %s Rupees for your shop <Shop Name>. We will update you further on shipment of the items."\
+                              " Thanks," \
+                              " Team GramFactory " % (first_name, order_no, total_amount))
 
-    message.send()
+        message.send()
