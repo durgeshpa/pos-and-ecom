@@ -9,16 +9,22 @@ from django.db.models.signals import pre_save, post_save
 from retailer_backend.common_function import(po_pattern, grn_pattern,
     brand_note_pattern, order_id_pattern, invoice_pattern)
 from django.core.validators import MinValueValidator
+import datetime
+from otp.sms import SendSms
+
 
 ORDER_STATUS = (
     ("active","Active"),
     ("pending","Pending"),
     ("deleted","Deleted"),
     ("ordered","Ordered"),
+    ("payment_done_approval_pending","Payment Done Approval Pending"),
     ("order_shipped","Order Shipped"),
+    ("order_cancel","Order Cancel"),
     ("partially_delivered","Partially Delivered"),
     ("delivered","Delivered"),
 )
+
 ITEM_STATUS = (
     ("partially_delivered","Partially Delivered"),
     ("delivered","Delivered"),
@@ -204,11 +210,12 @@ class Payment(models.Model):
 
 @receiver(post_save, sender=Payment)
 def order_notification(sender, instance=None, created=False, **kwargs):
-    otp = '123546'
-    date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
-    time = datetime.datetime.now().strftime("%I:%M %p")
-    message = SendSms(phone='7607846774',
-                      body="%s is your One Time Password for GramFactory Account."\
-                           " Request time is %s, %s IST." % (otp,date,time))
-
-    message.send()
+    pass
+    # otp = '123546'
+    # date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
+    # time = datetime.datetime.now().strftime("%I:%M %p")
+    # message = SendSms(phone=instance.order_id.ordered_by,
+    #                   body="%s is your One Time Password for GramFactory Account."\
+    #                        " Request time is %s, %s IST." % (otp,date,time))
+    #
+    # message.send()
