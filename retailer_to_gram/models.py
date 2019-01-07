@@ -143,7 +143,7 @@ def create_invoice_no(sender, instance=None, created=False, **kwargs):
         instance.save()
 
 class OrderedProductMapping(models.Model):
-    ordered_product = models.ForeignKey(OrderedProduct, null=True,blank=True,on_delete=models.CASCADE)
+    ordered_product = models.ForeignKey(OrderedProduct,related_name='rtg_order_product_order_product_mapping', null=True,blank=True,on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='rtg_product_order_product',null=True,blank=True, on_delete=models.CASCADE)
     shipped_qty = models.PositiveIntegerField(default=0)
     delivered_qty = models.PositiveIntegerField(default=0)

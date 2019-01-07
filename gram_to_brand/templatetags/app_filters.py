@@ -7,6 +7,7 @@ import inflect
 register = template.Library()
 
 qty_list = []
+shipped_qty_list= []
 # qty_list1 =[]
 
 # @register.filter(name='case_size')
@@ -31,6 +32,16 @@ def qty(value, *args, **kwargs):
 def price(value, *args, **kwargs):
     result = value*qty_list[0]
     qty_list.clear()
+    return result
+
+@register.filter(name='shipped_qty')
+def shipped_qty(value, *args, **kwargs):
+    shipped_qty_list.append(value)
+
+@register.filter(name='price_to_retailer')
+def price_to_retailer(value, *args, **kwargs):
+    result = value*shipped_qty_list[0]
+    shipped_qty_list.clear()
     return result
 
 @register.filter(name='amount')
