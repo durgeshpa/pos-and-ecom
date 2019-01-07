@@ -107,9 +107,8 @@ def create_order(sender, instance=None, created=False, **kwargs):
             order.total_final_amount = order.total_final_amount+instance.total_price
             order.save()
         else:
-            parent_mapping = ParentRetailerMapping.objects.get(retailer=instance.cart.shop)
             shipping_address = Address.objects.get(shop_name=instance.cart.shop,address_type='shipping')
-            billing_address = Address.objects.get(shop_name=parent_mapping.parent,address_type='billing')
+            billing_address = Address.objects.get(shop_name=instance.cart.shop,address_type='billing')
             Order.objects.create(ordered_cart=instance.cart, order_no=instance.cart.po_no,billing_address=billing_address,
                  shipping_address=shipping_address,total_final_amount=instance.total_price)
 
