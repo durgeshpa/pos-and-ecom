@@ -9,9 +9,9 @@ from django.db.models.signals import pre_save, post_save
 from retailer_backend.common_function import(po_pattern, grn_pattern,
     brand_note_pattern, order_id_pattern, invoice_pattern)
 from django.core.validators import MinValueValidator
-import datetime
-from otp.sms import SendSms
 
+from otp.sms import SendSms
+import datetime
 
 
 ORDER_STATUS = (

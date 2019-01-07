@@ -655,12 +655,13 @@ class CreateOrder(APIView):
                 cart.save()
 
                 if OrderedProductReserved.objects.filter(cart=cart).exists():
-                    order = Order.objects.get_or_create(last_modified_by=request.user, ordered_cart=cart, order_no=cart.order_id)
+                    order = Order.objects.get_or_create(last_modified_by=request.user,ordered_by=request.user, ordered_cart=cart, order_no=cart.order_id)
 
                     order.billing_address = billing_address
                     order.shipping_address = shipping_address
                     order.buyer_shop = shop
-
+                    order.seller_shop = parent_mapping.parent
+                    
                     order.total_mrp = float(total_mrp)
                     order.total_tax_amount = float(total_tax_amount)
                     order.total_final_amount = float(total_final_amount)
@@ -672,7 +673,8 @@ class CreateOrder(APIView):
                     for ordered_reserve in OrderedProductReserved.objects.filter(cart=cart):
                         ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
                         ordered_reserve.order_product_reserved.save()
-                        ordered_reserve.delete()
+                        ordered_reserve.reserve_status = 'ordered'
+                        ordered_reserve.save()
 
                     serializer = OrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id})
                     msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
@@ -691,11 +693,12 @@ class CreateOrder(APIView):
                 cart.save()
 
                 if GramOrderedProductReserved.objects.filter(cart=cart).exists():
-                    order,_ = GramMappedOrder.objects.get_or_create(last_modified_by=request.user, ordered_cart=cart, order_no=cart.order_id)
+                    order,_ = GramMappedOrder.objects.get_or_create(last_modified_by=request.user,ordered_by=request.user, ordered_cart=cart, order_no=cart.order_id)
 
                     order.billing_address = billing_address
                     order.shipping_address = shipping_address
                     order.buyer_shop = shop
+                    order.seller_shop = parent_mapping.parent
 
                     order.total_mrp = float(total_mrp)
                     order.total_tax_amount = float(total_tax_amount)
@@ -713,7 +716,8 @@ class CreateOrder(APIView):
                     for ordered_reserve in GramOrderedProductReserved.objects.filter(cart=cart):
                         ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
                         ordered_reserve.order_product_reserved.save()
-                        ordered_reserve.delete()
+                        ordered_reserve.reserve_status = 'ordered'
+                        ordered_reserve.save()
 
                     serializer = GramMappedOrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id})
                     msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
