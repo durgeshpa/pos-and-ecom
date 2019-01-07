@@ -68,6 +68,7 @@ class GramGRNProductsList(APIView):
         keyword = request.data.get('product_name', None)
         shop_id = request.data.get('shop_id')
         cart_check = False
+        is_store_active = True
         sort_preference = request.data.get('sort_by_price')
         grn = GRNOrderProductMapping.objects.values('product_id')
         products = Product.objects.filter(pk__in=grn).order_by('product_name')
@@ -89,14 +90,13 @@ class GramGRNProductsList(APIView):
             shop = Shop.objects.get(id=shop_id,status=True)
         except ObjectDoesNotExist:
             message = "Shop not active or does not exists"
+            is_store_active = False
         else:
             try:
                 parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
             except ObjectDoesNotExist:
-                product_name=request.data['product_name']
                 message = "Shop Mapping Not Found"
-                result = self.products_without_price(products,product_name,message)
-                return result
+                is_store_active = False
             else:
                 products_price = products_price.filter(shop=parent_mapping.parent)
             # if shop mapped with sp
@@ -155,15 +155,16 @@ class GramGRNProductsList(APIView):
                 p_list.append({"name":p.product.product_name, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "id":p.product_id,
                                 "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":user_selected_qty})
             else:
+                is_store_active = False
                 p_list.append({"name":p.product.product_name, "mrp":None, "ptr":None, "status":status, "pack_size":pack_size, "id":p.product_id,
                                 "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":None})
 
-        msg = {'is_store_active': True,
+        msg = {'is_store_active': is_store_active,
                 'is_success': True,
                  'message': ['Products found'],
                  'response_data':p_list }
         if not p_list:
-            msg = {'is_store_active': True,
+            msg = {'is_store_active': is_store_active,
                     'is_success': False,
                      'message': ['Sorry! No product found'],
                      'response_data':None }
