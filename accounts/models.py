@@ -100,13 +100,19 @@ def create_auth_token(sender, instance=None, created=False, **kwargs):
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
 def user_creation_notification(sender, instance=None, created=False, **kwargs):
     if created:
-        user_first_name = 'Retailer'
+        if instance.first_name:
+            username = instance.first_name
+        else:
+            username = instance.phone_number
         message = SendSms(phone=instance.phone_number,
-                          body="Dear %s, You have successfully signed up in GramFactory, India’s No. 1 Retailers’ App for ordering. Click here <App Shorturk Link> to add your shop."\
-                              " Thanks,"\
-                              " Team GramFactory " % (user_first_name))
+                          body = '''\
+                                Dear %s, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Click here 123123 to add your shop.
+Thanks,
+Team GramFactory
+                                ''' % (username))
 
         message.send()
+
 
 
 
