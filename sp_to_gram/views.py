@@ -66,7 +66,7 @@ class SpProductPrice(APIView):
         product_id =self.request.GET.get('product_id')
 
         parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id,status=True)
-        pro_price = ProductPrice.objects.get(product__id=product_id,shop=parent_mapping.parent)
+        pro_price = ProductPrice.objects.filter(product__id=product_id,shop=parent_mapping.parent).last()
         service_partner_price = pro_price.price_to_service_partner
         product_case_size = pro_price.product.product_case_size
         return Response({"service_partner_price": service_partner_price, "product_case_size": product_case_size,"success": True})
