@@ -59,7 +59,7 @@ class CartAdmin(admin.ModelAdmin):
 
     def download_purchase_order(self, obj):
         if obj.is_approve:
-            return format_html("<a href= '%s' >Download PO</a>" % (reverse('download_purchase_order', args=[obj.pk])))
+            return format_html("<a href= '%s' >Download PO</a>" % (reverse('download_purchase_order_sp', args=[obj.pk])))
     download_purchase_order.short_description = 'Download Purchase Order'
 
     class Media:
