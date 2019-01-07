@@ -225,8 +225,8 @@ class GRNOrderProductMapping(models.Model):
     def clean(self):
          if self.manufacture_date > datetime.date.today():
              raise ValidationError(_("Manufactured Date cannot be greater than today's date"))
-         elif self.expiry_date < datetime.date.today():
-             raise ValidationError(_("Expiry Date cannot be less than today's date"))
+         elif self.expiry_date < self.manufacture_date:
+             raise ValidationError(_("Expiry Date cannot be less than manufacture date"))
 
 
 class OrderHistory(models.Model):
