@@ -57,87 +57,80 @@ class ProductsList(generics.ListCreateAPIView):
             weight = product_option.weight.weight_name
             return name, mrp, ptr, status, pack_size, weight
 
-# class GramGRNProductsList(APIView):
-#     permission_classes = (AllowAny,)
-#     serializer_class = GramGRNProductsSearchSerializer
-#
-#     def post(self, request, format=None):
-#         import pdb; pdb.set_trace()
-#         grn = GRNOrderProductMapping.objects.all()
-#         #grn = OrderedProductMapping.objects.all()
-#         p_id_list = []
-#         for p in grn:
-#             product = p.product
-#             id = product.pk
-#             p_id_list.append(id)
-#         products = Product.objects.filter(pk__in=p_id_list)
-#         p_list = []
-#         msg = {'is_success': False, 'message': ['Sorry no product found!'], 'response_data': None}
-#         for product in products:
-#             id = product.pk
-#             name = product.product_name
-#
-#             try:
-#                 product_price = ProductPrice.objects.get(product=product)
-#             except ObjectDoesNotExist:
-#                 msg['message'] = ['Product id %s  and name %s have price not found '%(product.id, product.product_name)]
-#                 return Response(msg, status=400)
-#
-#             try:
-#                 product_option = ProductOption.objects.filter(product=product)[0]
-#             except ObjectDoesNotExist:
-#                 msg['message'] = ['Product id %s  and name %s have product_option not found '%(product.id, product.product_name)]
-#                 return Response(msg, status=400)
-#
-#             try:
-#                 product_image = ProductImage.objects.filter(product=product)
-#             except ObjectDoesNotExist:
-#                 msg['message'] = ['Product id %s  and name %s have product_image not found '%(product.id, product.product_name)]
-#                 return Response(msg, status=400)
-#
-#             mrp = product_price.mrp
-#             ptr = product_price.price_to_retailer
-#             status = product_price.status
-#
-#             pack_size = product_option.package_size.pack_size_name
-#             weight_value = product_option.weight.weight_value
-#             weight_unit = product_option.weight.weight_unit
-#             weight = product_option.weight.weight_name
-#
-#             #image = product_image.image.url
-#
-#             if name.startswith(request.data['product_name']):
-#                 p_list.append({"name":name, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "weight":weight, "id":id,
-#                                "weight_value":weight_value,"weight_unit":weight_unit})
-#         if not p_list:
-#             return Response(msg,status=400)
-#
-#         msg = {'is_success': True,
-#                 'message': ['Products found'],
-#                 'response_data':p_list }
-#         return Response(msg,
-#                         status=200)
 
 class GramGRNProductsList(APIView):
     permission_classes = (AllowAny,)
     serializer_class = GramGRNProductsSearchSerializer
 
-    def products_without_price(self, products, product_name,message):
+    def post(self, request, format=None):
+        brand = request.data.get('brands')
+        category = request.data.get('categories')
+        keyword = request.data.get('product_name', None)
+        shop_id = request.data.get('shop_id')
+        cart_check = False
+        sort_preference = request.data.get('sort_by_price')
+        grn = GRNOrderProductMapping.objects.values('product_id')
+        products = Product.objects.filter(pk__in=grn).order_by('product_name')
+        if brand:
+            products = products.filter(product_brand__in=brand)
+        if category:
+            product_ids = ProductCategory.objects.filter(product__in=grn, category__in=category).values_list('product_id')
+            products = products.filter(pk__in=product_ids)
+        if keyword:
+            products = products.filter(product_name__icontains=keyword)
+        
+        products_price = ProductPrice.objects.filter(product__in=products).order_by('product','-created_at').distinct('product')
+        if sort_preference:
+            if sort_preference == 'low':
+                products_price = products_price.order_by('price_to_retailer').distinct()
+            if sort_preference == 'high':
+                products_price = products_price.order_by('-price_to_retailer').distinct()
+        try:
+            shop = Shop.objects.get(id=shop_id,status=True)
+        except ObjectDoesNotExist:
+            message = "Shop not active or does not exists"
+        else:
+            try:
+                parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
+            except ObjectDoesNotExist:
+                product_name=request.data['product_name']
+                message = "Shop Mapping Not Found"
+                result = self.products_without_price(products,product_name,message)
+                return result
+            else:
+                products_price = products_price.filter(shop=parent_mapping.parent)
+            # if shop mapped with sp
+            if parent_mapping.parent.shop_type.shop_type == 'sp':
+                cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
+                if cart:
+                    cart_products = cart.rt_cart_list.all()
+                    cart_check = True
+            # if shop mapped with gf
+            elif parent_mapping.parent.shop_type.shop_type == 'gf':
+                cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,
+                                                 cart_status__in=['active', 'pending']).last()
+                if cart:
+                    cart_products = cart.rt_cart_list.all()
+                    cart_check = True
+        
         p_list = []
-        for p in products:
-            product_images = []
+
+        for p in products_price:
             user_selected_qty = None
-            id = p.pk
-            name = p.product_name
-            mrp = None
-            ptr = None
-            status = p.status
-            product_opt = p.product_opt_product.all()
+            if cart_check == True:
+                for c_p in cart_products:
+                    if c_p.cart_product_id == p.product_id:
+                        user_selected_qty = c_p.qty
+            name = p.product.product_name
+            mrp = p.mrp
+            ptr = p.price_to_retailer
+            status = p.product.status
+            product_opt = p.product.product_opt_product.all()
             weight_value = None
             weight_unit = None
             pack_size = None
             try:
-                pack_size = p.product_inner_case_size if p.product_inner_case_size else None
+                pack_size = p.product.product_inner_case_size if p.product.product_inner_case_size else None
             except:
                 pack_size = None
             try:
@@ -147,164 +140,38 @@ class GramGRNProductsList(APIView):
             except:
                 weight_value = None
                 weight_unit = None
-            product_img = p.product_pro_image.all()
-            for p_i in product_img:
-                product_images.append({"image_name":p_i.image_name,"image_alt":p_i.image_alt_text,"image_url":p_i.image.url})
+            product_img = p.product.product_pro_image.all()
+            product_images = [
+                                {
+                                    "image_name":p_i.image_name,
+                                    "image_alt":p_i.image_alt_text,
+                                    "image_url":p_i.image.url
+                                } 
+                                for p_i in product_img
+                            ]
             if not product_images:
                 product_images=None
-            if product_name.lower() in name.lower():
-                p_list.append({"name":name, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "id":id,
-                            "weight_value":weight_value,"weight_unit":weight_unit, "product_images":product_images,"user_selected_qty":user_selected_qty})
+            if request.user.is_authenticated:
+                p_list.append({"name":p.product.product_name, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "id":p.product_id,
+                                "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":user_selected_qty})
+            else:
+                p_list.append({"name":p.product.product_name, "mrp":None, "ptr":None, "status":status, "pack_size":pack_size, "id":p.product_id,
+                                "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":None})
 
-        msg = {'is_store_active': False,
+        msg = {'is_store_active': True,
                 'is_success': True,
-                 'message': [message],
+                 'message': ['Products found'],
                  'response_data':p_list }
         if not p_list:
-            msg = {'is_store_active': False,
+            msg = {'is_store_active': True,
                     'is_success': False,
                      'message': ['Sorry! No product found'],
                      'response_data':None }
         return Response(msg,
-                         status=200)
-
-    def post(self, request, format=None):
-        grn = GRNOrderProductMapping.objects.values('product_id')
-        products = Product.objects.filter(pk__in=grn).order_by('product_name')
-        products_price = ProductPrice.objects.filter(product__in=grn).order_by('product','-created_at').distinct('product')
-        msg = {'is_store_active': False, 'is_success': False,'message': ['Sorry no any mapping with any shop!'],'response_data': None}
-        if 'brands' in request.data and request.data['brands'] and not request.data['categories']:
-            product_ids = Product.objects.filter(pk__in=grn, product_brand__in=request.data['brands']).values_list('pk')
-            products_price = ProductPrice.objects.filter(product__in=product_ids).order_by('product','-created_at').distinct('product')
-            products = Product.objects.filter(pk__in=product_ids).order_by('product_name')
-
-        if 'categories' in request.data and request.data['categories'] and not request.data['brands']:
-            product_ids = ProductCategory.objects.filter(product__in=grn, category__in=request.data['categories']).values_list('product_id')
-            products_price = ProductPrice.objects.filter(product__in=product_ids).order_by('product','-created_at').distinct('product')
-            products = Product.objects.filter(pk__in=product_ids).order_by('product_name')
-
-        if 'categories' and 'brands' in request.data:
-            if request.data['brands'] and request.data['categories']:
-                products_by_brand = Product.objects.filter(pk__in=grn, product_brand__in=request.data['brands']).values_list('pk')
-                products_by_category = ProductCategory.objects.filter(product__in=grn, category__in=request.data['categories']).values_list('product_id')
-                from itertools import chain
-                product_ids = list(chain(products_by_brand,products_by_category))
-                products_price = ProductPrice.objects.filter(product__in=product_ids).order_by('product','-created_at').distinct('product')
-                products = Product.objects.filter(pk__in=[p[0] for p in product_ids]).order_by('product_name')
+                         status=200)   
 
 
-        if 'sort_by_price' in request.data and request.data['sort_by_price'] == 'low':
-            products_price = products_price.order_by('price_to_retailer').distinct()
 
-        if 'sort_by_price' in request.data and request.data['sort_by_price'] == 'high':
-            products_price = products_price.order_by('-price_to_retailer').distinct()
-
-        if request.user.is_authenticated:
-            # get shop
-            try:
-                if not 'shop_id' in request.data:
-                    msg['message'] = ["Shop ID is required"]
-                    return Response(msg, status=200)
-                else:
-                    try:
-                        shop_id = int(request.data['shop_id'])
-                    except ValueError:
-                        product_name=request.data['product_name']
-                        message = "shop_id should be an integer value"
-                        result = self.products_without_price(products,product_name,message)
-                        return result
-                shop = Shop.objects.get(id=request.data['shop_id'],status=True)
-            except ObjectDoesNotExist:
-                product_name=request.data['product_name']
-                message = "Shop not active or does not exists"
-                result = self.products_without_price(products,product_name,message)
-                return result
-
-            # get parent mapping
-            try:
-                parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
-            except ObjectDoesNotExist:
-                product_name=request.data['product_name']
-                message = "Shop Mapping Not Found"
-                result = self.products_without_price(products,product_name,message)
-                return result
-            # if shop mapped with sp
-            cart_check = False
-            if parent_mapping.parent.shop_type.shop_type == 'sp':
-                if Cart.objects.filter(last_modified_by=self.request.user, cart_status='active').exists():
-                    cart = Cart.objects.filter(last_modified_by=self.request.user,
-                                               cart_status='active').last()
-                    cart_products = CartProductMapping.objects.filter(cart=cart)
-                    cart_check = True
-            # if shop mapped with gf
-            elif parent_mapping.parent.shop_type.shop_type == 'gf':
-                if GramMappedCart.objects.filter(last_modified_by=self.request.user,
-                                                 cart_status='active').exists():
-                    cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,
-                                                         cart_status='active').last()
-                    cart_products = GramMappedCartProductMapping.objects.filter(cart=cart)
-                    cart_check = True
-
-            else:
-                product_name=request.data['product_name']
-                message = "Sorry shop is not associated with any Gramfactory or any SP"
-                result = self.products_without_price(products,product_name,message)
-                return result
-
-            p_list = []
-
-            for p in products_price:
-                product_images = []
-                user_selected_qty = None
-                if cart_check == True:
-                    for c_p in cart_products:
-                        if c_p.cart_product_id == p.product_id:
-                            user_selected_qty = c_p.qty
-                id = p.product_id
-                name = p.product.product_name
-                mrp = p.mrp
-                ptr = p.price_to_retailer
-                status = p.product.status
-                product_opt = p.product.product_opt_product.all()
-                weight_value = None
-                weight_unit = None
-                pack_size = None
-                try:
-                    pack_size = p.product.product_inner_case_size if p.product.product_inner_case_size else None
-                except:
-                    pack_size = None
-                try:
-                    for p_o in product_opt:
-                        weight_value = p_o.weight.weight_value if p_o.weight.weight_value else None
-                        weight_unit = p_o.weight.weight_unit if p_o.weight.weight_unit else None
-                except:
-                    weight_value = None
-                    weight_unit = None
-                product_img = p.product.product_pro_image.all()
-                for p_i in product_img:
-                    product_images.append({"image_name":p_i.image_name,"image_alt":p_i.image_alt_text,"image_url":p_i.image.url})
-                if not product_images:
-                    product_images=None
-                if request.data['product_name'].lower() in name.lower():
-                    p_list.append({"name":name, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "id":id,
-                                    "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":user_selected_qty})
-
-            msg = {'is_store_active': True,
-                    'is_success': True,
-                     'message': ['Products found'],
-                     'response_data':p_list }
-            if not p_list:
-                msg = {'is_store_active': True,
-                        'is_success': False,
-                         'message': ['Sorry! No product found'],
-                         'response_data':None }
-            return Response(msg,
-                             status=200)
-        else:
-            product_name=request.data['product_name']
-            message = "User not logged in!"
-            result = self.products_without_price(products,product_name,message)
-            return result
 
 class ProductDetail(APIView):
 
