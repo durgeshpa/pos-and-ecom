@@ -787,7 +787,7 @@ class OrderDetail(generics.RetrieveAPIView):
             msg = {'is_success': True,'message': None,'response_data': serializer.data}
         return Response(msg,status=status.HTTP_200_OK)
 
-class DownloadInvoice(APIView):
+class DownloadInvoiceSP(APIView):
     permission_classes = (AllowAny,)
     """
     PDF Download object
@@ -802,15 +802,63 @@ class DownloadInvoice(APIView):
         pk=self.kwargs.get('pk')
         a = OrderedProduct.objects.get(pk=pk)
         print(a)
-
+        shop=a
         products = a.rt_order_product_order_product_mapping.all()
-        data = {"object": order_obj,"order": order_obj.order,"products":products }
+
+        order_id= a.order.order_no
+
+        sum_qty = 0
+        sum_amount=0
+        tax_inline=0
+        taxes_list = []
+        gst_tax_list= []
+        cess_tax_list= []
+        surcharge_tax_list=[]
+        for m in products:
+
+            sum_qty = sum_qty + int(m.product.product_inner_case_size) * int(m.shipped_qty)
+
+            for h in m.product.product_pro_price.all():
+
+                sum_amount = sum_amount + (m.shipped_qty * h.price_to_retailer)
+                inline_sum_amount = (m.shipped_qty * h.price_to_retailer)
+            for n in m.product.product_pro_tax.all():
+
+                divisor= (1+(n.tax.tax_percentage/100))
+                original_amount= (inline_sum_amount/divisor)
+                tax_amount = inline_sum_amount - original_amount
+                if n.tax.tax_type=='gst':
+                    gst_tax_list.append(tax_amount)
+                if n.tax.tax_type=='cess':
+                    cess_tax_list.append(tax_amount)
+                if n.tax.tax_type=='surcharge':
+                    surcharge_tax_list.append(tax_amount)
+
+                taxes_list.append(tax_amount)
+                igst= sum(gst_tax_list)
+                cgst= (sum(gst_tax_list))/2
+                sgst= (sum(gst_tax_list))/2
+                cess= sum(cess_tax_list)
+                surcharge= sum(surcharge_tax_list)
+                #tax_inline = tax_inline + (inline_sum_amount - original_amount)
+                #tax_inline1 =(tax_inline / 2)
+            print(surcharge_tax_list)
+            print(gst_tax_list)
+            print(cess_tax_list)
+            print(taxes_list)
+
+        total_amount = sum_amount
+        print(sum_amount)
+
+
+        data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop, "sum_qty": sum_qty, "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" , "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,"order_id":order_id}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         return response
+
 
 class DownloadNote(APIView):
     permission_classes = (AllowAny,)
