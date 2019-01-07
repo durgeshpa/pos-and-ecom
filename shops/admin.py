@@ -19,7 +19,7 @@ class AddressAdmin(admin.TabularInline):
 class ShopAdmin(admin.ModelAdmin):
     inlines = [ShopPhotosAdmin, ShopDocumentsAdmin,AddressAdmin]
     list_display = ('shop_name','shop_owner','shop_type','status')
-    #filter_horizontal = ('related_users',)
+    filter_horizontal = ('related_users',)
 
 class ParentRetailerMappingAdmin(admin.ModelAdmin):
     form = ParentRetailerMappingForm
