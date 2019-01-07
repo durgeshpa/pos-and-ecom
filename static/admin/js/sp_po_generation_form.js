@@ -12,10 +12,10 @@
    $(document).on('change', '.select2-hidden-accessible', function(index){
         if ($(this).data("autocomplete-light-url") == '/service-partner/gf-product-autocomplete/'){
             var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '')+'/';
-            var gf_id = $('#id_gram_factory').val();
+            var shop_id = $('#id_shop').val();
             var present_id = $(this) ;
 
-            $.ajax({ data: ({'gf_id':gf_id, 'product_id':$(this).val() }) ,
+            $.ajax({ data: ({'shop_id':shop_id, 'product_id':$(this).val() }) ,
                 type: 'GET',
                 dataType: 'json',
                 url: host+'service-partner/sp-product-price/',
