@@ -324,6 +324,11 @@ class GramMappedCartSerializer(serializers.ModelSerializer):
     def items_count_id(self,obj):
         return self.items_count
 
+    def to_representation(self, instance):
+        representation = super(GramMappedCartSerializer, self).to_representation(instance)
+        representation['created_at'] = instance.created_at.strftime("%Y-%m-%d - %H:%M:%S")
+        return representation
+
     class Meta:
         model = GramMappedCart
         fields = ('id','order_id','cart_status','last_modified_by','created_at','modified_at','rt_cart_list','total_amount','items_count','sub_total')
@@ -348,6 +353,12 @@ class GramMappedOrderSerializer(serializers.ModelSerializer):
     rt_order_order_product = GramMappedOrderedProductSerializer(many=True)
     billing_address = AddressSerializer()
     shipping_address = AddressSerializer()
+    order_status = serializers.CharField(source='get_order_status_display')
+
+    def to_representation(self, instance):
+        representation = super(GramMappedOrderSerializer, self).to_representation(instance)
+        representation['created_at'] = instance.created_at.strftime("%Y-%m-%d - %H:%M:%S")
+        return representation
 
     class Meta:
         model = GramMappedOrder
