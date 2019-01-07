@@ -152,7 +152,7 @@ def create_order(sender, instance=None, created=False, **kwargs):
             else:
                 qty = int(instance.number_of_cases) * int(instance.case_size)
                 order_item = OrderItem.objects.create(ordered_product=instance.cart_product,ordered_qty=qty, ordered_price=instance.price,order = order)
-                
+
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order,related_name='order_order_item',on_delete=models.CASCADE,verbose_name='po no')
@@ -213,11 +213,14 @@ class GRNOrderProductMapping(models.Model):
 
     def clean(self):
          sum= self.delivered_qty + self.returned_qty
-         if self.product_invoice_qty <= self.po_product_quantity:
+         diff = self.po_product_quantity - self.already_grned_product
+         if self.product_invoice_qty <= diff:
              if self.product_invoice_qty < sum:
                raise ValidationError(_('Product invoice quantity cannot be less than the sum of delivered quantity and returned quantity'))
+             elif sum < self.product_invoice_qty:
+               raise ValidationError(_('Product invoice quantity must be equal to the sum of delivered quantity and returned quantity'))
          else:
-             raise ValidationError(_('Product invoice quantity cannot be greater than PO product quantity'))
+             raise ValidationError(_('Product invoice quantity cannot be greater than the difference of PO product quantity and already_grned_product'))
 
 class OrderHistory(models.Model):
     #shop = models.ForeignKey(Shop, related_name='shop_order',null=True,blank=True,on_delete=models.CASCADE)
