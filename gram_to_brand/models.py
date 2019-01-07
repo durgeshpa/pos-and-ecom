@@ -222,6 +222,13 @@ class GRNOrderProductMapping(models.Model):
          else:
              raise ValidationError(_('Product invoice quantity cannot be greater than the difference of PO product quantity and already_grned_product'))
 
+    def clean(self):
+         if self.manufacture_date > datetime.date.today():
+             raise ValidationError(_("Manufactured Date cannot be greater than today's date"))
+         elif self.expiry_date < datetime.date.today():
+             raise ValidationError(_("Expiry Date cannot be less than today's date"))
+
+
 class OrderHistory(models.Model):
     #shop = models.ForeignKey(Shop, related_name='shop_order',null=True,blank=True,on_delete=models.CASCADE)
     seller_shop = models.ForeignKey(Shop, related_name='gf_seller_shop_order_history', null=True, blank=True,on_delete=models.CASCADE)
