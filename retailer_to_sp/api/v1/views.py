@@ -63,11 +63,11 @@ class GramGRNProductsList(APIView):
     serializer_class = GramGRNProductsSearchSerializer
 
     def post(self, request, format=None):
-        brand = request.data.get('brand')
-        category = request.data.get('category')
+        brand = request.data.get('brands')
+        category = request.data.get('categories')
         keyword = request.data.get('product_name', None)
         shop_id = request.data.get('shop_id')
-
+        cart_check = False
         sort_preference = request.data.get('sort_by_price')
         grn = GRNOrderProductMapping.objects.values('product_id')
         products = Product.objects.filter(pk__in=grn).order_by('product_name')
@@ -100,7 +100,6 @@ class GramGRNProductsList(APIView):
             else:
                 products_price.filter(shop=parent_mapping.parent)
             # if shop mapped with sp
-            cart_check = False
             if parent_mapping.parent.shop_type.shop_type == 'sp':
                 cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
                 if cart:
