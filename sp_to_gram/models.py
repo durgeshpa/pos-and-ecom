@@ -211,8 +211,3 @@ def create_brand_note_id(sender, instance=None, created=False, **kwargs):
             else:
                 last_brand_note_id_increment = '00001'
             instance.brand_note_id = "ADT/CN/%s"%(last_brand_note_id_increment)
-
-
-
-
-
