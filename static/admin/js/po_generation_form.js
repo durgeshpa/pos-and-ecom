@@ -61,7 +61,7 @@ $('.help').find('a').each(function() {
      $(document).on('input', '.vIntegerField', function(index){
          var row_id = $(this).closest(".form-row").attr("id");
          var row_no = row_id.match(/(\d+)/g);
-         $('#id_cart_list-'+row_no+'-total_price').val(parseFloat($('#id_cart_list-'+row_no+'-price').val())) * val(parseFloat($('#id_cart_list-'+row_no+'-inner_case_size').val())) * val(parseFloat($('#id_cart_list-'+row_no+'-case_size').val())) * parseFloat($(this).val())
+         $('#id_cart_list-'+row_no+'-total_price').val(parseFloat($('#id_cart_list-'+row_no+'-price').val()) * parseFloat($('#id_cart_list-'+row_no+'-inner_case_size').val()) * parseFloat($('#id_cart_list-'+row_no+'-case_size').val()) * parseFloat($(this).val()))
      });
 
    // function calculate() {
