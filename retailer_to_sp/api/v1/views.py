@@ -72,12 +72,12 @@ class GramGRNProductsList(APIView):
         grn = GRNOrderProductMapping.objects.values('product_id')
         products = Product.objects.filter(pk__in=grn).order_by('product_name')
         if brand:
-            products.filter(product_brand__in=brand)
+            products = products.filter(product_brand__in=brand)
         if category:
             product_ids = ProductCategory.objects.filter(product__in=grn, category__in=category).values_list('product_id')
-            products.filter(pk__in=product_ids)
+            products = products.filter(pk__in=product_ids)
         if keyword:
-            products.filter(product_name__icontains=keyword)
+            products = products.filter(product_name__icontains=keyword)
         
         products_price = ProductPrice.objects.filter(product__in=products).order_by('product','-created_at').distinct('product')
         if sort_preference:
@@ -98,7 +98,7 @@ class GramGRNProductsList(APIView):
                 result = self.products_without_price(products,product_name,message)
                 return result
             else:
-                products_price.filter(shop=parent_mapping.parent)
+                products_price = products_price.filter(shop=parent_mapping.parent)
             # if shop mapped with sp
             if parent_mapping.parent.shop_type.shop_type == 'sp':
                 cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
