@@ -62,9 +62,11 @@ class MyShopAutocomplete(autocomplete.Select2QuerySetView):
 class SpProductPrice(APIView):
     permission_classes = (AllowAny,)
     def get(self,*args,**kwargs):
-        gf_id =self.request.GET.get('gf_id')
+        shop_id =self.request.GET.get('shop_id')
         product_id =self.request.GET.get('product_id')
-        pro_price = ProductPrice.objects.get(product=product_id,shop=gf_id)
+
+        parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id,status=True)
+        pro_price = ProductPrice.objects.get(product__id=product_id,shop=parent_mapping.parent)
         service_partner_price = pro_price.price_to_service_partner
         product_case_size = pro_price.product.product_case_size
         return Response({"service_partner_price": service_partner_price, "product_case_size": product_case_size,"success": True})
