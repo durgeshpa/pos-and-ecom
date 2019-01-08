@@ -13,8 +13,8 @@ class CronToDeleteOrderedProductReserved(APIView):
     permission_classes = (AllowAny,)
 
     def get(self, request):
-        if OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()).exists():
-            for ordered_reserve in OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()):
+        if OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()).exclude(reserve_status__in=['ordered']).exists():
+            for ordered_reserve in OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()).exclude(reserve_status__in=['ordered']):
                 ordered_reserve.order_product_reserved.available_qty = int(ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
                 ordered_reserve.order_product_reserved.save()
 
@@ -27,8 +27,8 @@ class CronToDeleteOrderedProductReserved(APIView):
                 ordered_reserve.reserve_status = 'free'
                 ordered_reserve.save()
 
-        if GramOrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()).exists():
-            for ordered_reserve in GramOrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()):
+        if GramOrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()).exclude(reserve_status__in=['ordered']).exists():
+            for ordered_reserve in GramOrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()).exclude(reserve_status__in=['ordered']):
                 ordered_reserve.order_product_reserved.available_qty = int(ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
                 ordered_reserve.order_product_reserved.save()
 
@@ -43,8 +43,8 @@ class CronToDeleteOrderedProductReserved(APIView):
 
 
 def cron_to_delete_ordered_product_reserved(request):
-    if OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()).exists():
-        for ordered_reserve in OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()):
+    if OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()).exclude(reserve_status__in=['ordered']).exists():
+        for ordered_reserve in OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()).exclude(reserve_status__in=['ordered']):
             ordered_reserve.order_product_reserved.available_qty = int(ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
             ordered_reserve.order_product_reserved.save()
 
@@ -58,9 +58,9 @@ def cron_to_delete_ordered_product_reserved(request):
             ordered_reserve.reserve_status = 'free'
             ordered_reserve.save()
 
-    if GramOrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()).exists():
+    if GramOrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now()).exclude(reserve_status__in=['ordered']).exists():
         for ordered_reserve in GramOrderedProductReserved.objects.filter(
-                order_reserve_end_time__lte=timezone.now()):
+                order_reserve_end_time__lte=timezone.now()).exclude(reserve_status__in=['ordered']):
             ordered_reserve.order_product_reserved.available_qty = int(
                 ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
             ordered_reserve.order_product_reserved.save()
