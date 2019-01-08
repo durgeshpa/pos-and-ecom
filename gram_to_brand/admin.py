@@ -181,11 +181,17 @@ class GRNOrderProductForm(forms.ModelForm):
         queryset=Product.objects.all(),
         widget=autocomplete.ModelSelect2(url='product-autocomplete',forward=('order',))
      )
+
     class Meta:
         model = GRNOrderProductMapping
         fields = ('product','po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date','expiry_date','product_invoice_qty','available_qty','delivered_qty','returned_qty')
         readonly_fields = ('product')
         autocomplete_fields = ('product',)
+
+    # def __init__(self, *args, **kwargs):
+    #     super(GRNOrderProductForm, self).__init__(*args, **kwargs)
+    #     self.fields['manufacture_date'].required = True
+    #     self.fields['expiry_date'].required = True
 
     class Media:
         #css = {'all': ('pretty.css',)}
