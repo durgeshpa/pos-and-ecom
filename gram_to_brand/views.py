@@ -175,7 +175,7 @@ class DownloadPurchaseOrder(APIView):
 
 class VendorProductAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self,*args,**kwargs):
-        qs = Product.objects.all()
+        qs = None
         supplier_id = self.forwarded.get('supplier_name', None)
         if supplier_id:
             qs = Product.objects.all()
