@@ -129,29 +129,43 @@ class CartAdmin(admin.ModelAdmin):
                 get_po_msg,_ = Po_Message.objects.get_or_create(message=request.POST.get('message'))
                 obj.po_message = get_po_msg
             obj.is_approve = True
+            obj.po_status = 'finance_approved'
             obj.created_by = request.user
             obj.last_modified_by = request.user
             obj.save()
+
             return HttpResponseRedirect("/admin/gram_to_brand/cart/")
         elif "_disapprove" in request.POST:
             if request.POST.get('message'):
                 get_po_msg, _ = Po_Message.objects.get_or_create(message=request.POST.get('message'))
                 obj.po_message = get_po_msg
             obj.is_approve = False
+            obj.po_status = 'finance_not_approved'
             obj.created_by = request.user
             obj.last_modified_by = request.user
             obj.save()
+
             return HttpResponseRedirect("/admin/gram_to_brand/cart/")
         else:
             obj.is_approve = ''
-            obj.po_status= 'ordered_to_brand'
+            obj.po_status = 'waiting_for_finance_approval'
             obj.po_raised_by= request.user
             obj.last_modified_by= request.user
             obj.save()
+
         return super().response_change(request, obj)
+
+    def save_model(self, request, obj, form, change):
+        if change==False:
+            obj.is_approve = ''
+            obj.po_status = 'waiting_for_finance_approval'
+            obj.po_raised_by = request.user
+            obj.last_modified_by = request.user
+            obj.save()
 
     class Media:
             pass
+
 
 
 admin.site.register(Cart,CartAdmin)

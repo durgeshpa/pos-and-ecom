@@ -58,8 +58,8 @@ class ShippingAddressAutocomplete(autocomplete.Select2QuerySetView):
         supplier_name = self.forwarded.get('supplier_name', None)
 
 
-        if state_id:
-            qs = qs.filter(state__id=state_id)
+        # if state_id:
+        #     qs = qs.filter(state__id=state_id)
 
         return qs
 
@@ -70,8 +70,8 @@ class BillingAddressAutocomplete(autocomplete.Select2QuerySetView):
         qs = Address.objects.filter(shop_name__shop_type__shop_type='gf',address_type='billing')
         state_id = self.forwarded.get('state', None)
 
-        if state_id:
-            qs = qs.filter(state__id=state_id)
+        # if state_id:
+        #     qs = qs.filter(state__id=state_id)
 
         return qs
 
