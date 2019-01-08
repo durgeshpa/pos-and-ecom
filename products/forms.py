@@ -91,7 +91,7 @@ class ProductPriceForm(forms.Form):
         for id,row in enumerate(reader):
             if not row[0] or not re.match("^[\d]*$", row[0]):
                 raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_ID'])
-            if not row[1] or not re.match("^[ \w\$\_\,\@\.\/\#\&\+\-\(\)]*$", row[1]):
+            if not row[1] or not re.match("^[ \w\$\_\,\%\@\.\/\#\&\+\-\(\)]*$", row[1]):
                 raise ValidationError("Row["+str(id+1)+"] | "+first_row[1]+":"+row[1]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_NAME'])
             if not row[2] or not re.match("^\d{0,8}(\.\d{1,4})?$", row[2]):
                 raise ValidationError("Row["+str(id+1)+"] | "+first_row[2]+":"+row[2]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
@@ -178,7 +178,7 @@ class GFProductPriceForm(forms.Form):
         for id,row in enumerate(reader):
             if not row[0] or not re.match("^[\d]*$", row[0]):
                 raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_ID'])
-            if not row[1] or not re.match("^[ \w\$\_\,\@\.\/\#\&\+\-\(\)]*$", row[1]):
+            if not row[1] or not re.match("^[ \w\$\_\,\@\%\.\/\#\&\+\-\(\)]*$", row[1]):
                 raise ValidationError("Row["+str(id+1)+"] | "+first_row[1]+":"+row[1]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_NAME'])
             if not row[2] or not re.match("^\d{0,8}(\.\d{1,4})?$", row[2]):
                 raise ValidationError("Row["+str(id+1)+"] | "+first_row[2]+":"+row[2]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
