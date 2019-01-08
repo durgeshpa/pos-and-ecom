@@ -200,8 +200,8 @@ class GRNOrderProductMapping(models.Model):
     already_grned_product= models.PositiveIntegerField(default=0, verbose_name='Already GRNed Product Quantity',blank=True)
     product_invoice_price = models.FloatField(default=0)
     product_invoice_qty = models.PositiveIntegerField(default=0)
-    manufacture_date = models.DateField(null=True,blank=True)
-    expiry_date = models.DateField(null=True,blank=True)
+    manufacture_date = models.DateField(null=True,blank=False)
+    expiry_date = models.DateField(null=True,blank=False)
     available_qty = models.PositiveIntegerField(default=0)
     ordered_qty = models.PositiveIntegerField(default=0)
     delivered_qty = models.PositiveIntegerField(default=0)
@@ -212,22 +212,24 @@ class GRNOrderProductMapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     def clean(self):
-         sum= self.delivered_qty + self.returned_qty
-         diff = self.po_product_quantity - self.already_grned_product
-         if self.product_invoice_qty <= diff:
-             if self.product_invoice_qty < sum:
-               raise ValidationError(_('Product invoice quantity cannot be less than the sum of delivered quantity and returned quantity'))
-             elif sum < self.product_invoice_qty:
-               raise ValidationError(_('Product invoice quantity must be equal to the sum of delivered quantity and returned quantity'))
-         else:
-             raise ValidationError(_('Product invoice quantity cannot be greater than the difference of PO product quantity and already_grned_product'))
+        sum= self.delivered_qty + self.returned_qty
+        diff = self.po_product_quantity - self.already_grned_product
+        if self.product_invoice_qty <= diff:
+            if self.product_invoice_qty < sum:
+                raise ValidationError(_('Product invoice quantity cannot be less than the sum of delivered quantity and returned quantity'))
+            elif sum < self.product_invoice_qty:
+                raise ValidationError(_('Product invoice quantity must be equal to the sum of delivered quantity and returned quantity'))
+        else:
+            raise ValidationError(_('Product invoice quantity cannot be greater than the difference of PO product quantity and already_grned_product'))
 
     def clean(self):
-         if self.manufacture_date > datetime.date.today():
-             raise ValidationError(_("Manufactured Date cannot be greater than today's date"))
-         elif self.expiry_date < self.manufacture_date:
-             raise ValidationError(_("Expiry Date cannot be less than manufacture date"))
-
+        if self.manufacture_date :
+            if self.manufacture_date >= datetime.date.today():
+                raise ValidationError(_("Manufactured Date cannot be greater than or equal to today's date"))
+            elif self.expiry_date < self.manufacture_date:
+                raise ValidationError(_("Expiry Date cannot be less than manufacture date"))
+        else:
+            raise ValidationError(_("Please enter all the field values"))
 
 class OrderHistory(models.Model):
     #shop = models.ForeignKey(Shop, related_name='shop_order',null=True,blank=True,on_delete=models.CASCADE)
