@@ -265,13 +265,13 @@ class ProductsCSVUploadForm(forms.Form):
         reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
         first_row = next(reader)
         for id,row in enumerate(reader):
-            if not row[0] or not re.match("^[ \w\$\_\,\@\.\/\#\&\+\-\(\)]*$", row[0]):
+            if not row[0] or not re.match("^[ \w\$\_\,\@\.\%\/\#\&\+\-\(\)]*$", row[0]):
                 raise ValidationError(_("INVALID_PRODUCT_NAME at Row[%(value)s]. Special characters allowed are _ , @ . / # & + -"), params={'value': id+1},)
 
-            if not row[1] or not re.match("^[ \w\$\_\,\@\.\/\#\&\+\-\(\)]*$", row[1]):
+            if not row[1] or not re.match("^[ \w\$\_\,\@\.\%\/\#\&\+\-\(\)]*$", row[1]):
                 raise ValidationError(_("INVALID_SHORT_DESCRIPTION at Row[%(value)s]. Special characters allowed are _ , @ . / # & + -"), params={'value': id+1},)
 
-            if not row[2] or not re.match("^[ \w\$\_\,\@\.\/\#\&\+\-\(\)]*$", row[2]):
+            if not row[2] or not re.match("^[ \w\$\_\,\@\.\%\/\#\&\+\-\(\)]*$", row[2]):
                 raise ValidationError(_("INVALID_LONG_DESCRIPTION at Row[%(value)s]. Special characters allowed are _ , @ . / # & + -"), params={'value': id+1},)
 
             if not row[3]:
