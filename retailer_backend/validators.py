@@ -77,7 +77,7 @@ UnitNameValidator = RegexValidator(
 )
 #for alphabets + numeric + special characters (-, ., $, "",)
 ProductNameValidator = RegexValidator(
-    regex='^[ \w\$\_\,\@\.\/\#\&\+\-\(\)]*$',
+    regex='^[ \w\$\_\,\%\@\.\/\#\&\+\-\(\)]*$',
     message=VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_NAME'],
     code='INVALID_PRODUCT_NAME'
 )

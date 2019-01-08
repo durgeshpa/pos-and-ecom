@@ -95,7 +95,7 @@ class PackageSize(models.Model):
 
 class Product(models.Model):
     product_name = models.CharField(max_length=255,validators=[ProductNameValidator])
-    product_slug = models.SlugField()
+    product_slug = models.SlugField(max_length=255)
     product_short_description = models.CharField(max_length=255,validators=[ProductNameValidator],null=True,blank=True)
     product_long_description = models.TextField(null=True,blank=True)
     product_sku = models.CharField(max_length=255, blank=False, unique=True)
