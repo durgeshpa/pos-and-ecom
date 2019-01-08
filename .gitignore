@@ -44,3 +44,4 @@ __pycache__/
 static_root
 media/
 */migrations/
+**/migrations/**
