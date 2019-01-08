@@ -181,8 +181,8 @@ class ProductAdmin(admin.ModelAdmin):
         ] + urls
         return urls
 
-    list_display = ['product_sku','product_name', 'product_short_description', 'get_product_brand']
-    search_fields = ['product_name','id','productoptin_size']
+    list_display = ['product_sku','product_name', 'product_short_description', 'get_product_brand','product_gf_code']
+    search_fields = ['product_name','id','product_gf_code']
     list_filter = [BrandFilter, CategorySearch,ProductSearch]
     prepopulated_fields = {'product_slug': ('product_name',)}
     inlines = [ProductCategoryAdmin,ProductOptionAdmin,ProductImageAdmin,ProductTaxMappingAdmin]
