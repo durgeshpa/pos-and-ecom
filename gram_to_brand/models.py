@@ -20,7 +20,10 @@ from retailer_backend.common_function import(po_pattern, grn_pattern,
 
 
 ORDER_STATUS = (
-    ("ordered_to_brand","Ordered To Brand"),
+    ("send_to_brand","Send To Brand"),
+    ("waiting_for_finance_approval","Waiting For Finance Approval"),
+    ("finance_approved","Finance Approved"),
+    ("finance_not_approved","Finance Not Approved"),
     ("partially_delivered","Partially Delivered"),
     ("delivered","Delivered"),
 )
@@ -113,6 +116,15 @@ def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
                          number_of_cases = int(row[3]),scheme = float(row[4]) if row[4] else None, price=float(row[5])
                          , total_price = float(row[2])*float(row[3])*float(row[5]))
 
+@receiver(post_save, sender=Cart)
+def change_order_status(sender, instance=None, created=False, **kwargs):
+    if not created:
+        order = Order.objects.filter(ordered_cart=instance)
+        if order.exists():
+            order = order.last()
+            order.order_status = instance.po_status
+            order.save()
+
 class Order(models.Model):
     shop = models.ForeignKey(Shop, related_name='shop_order',null=True,blank=True,on_delete=models.CASCADE)
     ordered_cart = models.ForeignKey(Cart,related_name='order_cart_mapping',on_delete=models.CASCADE)
@@ -124,7 +136,7 @@ class Order(models.Model):
     total_discount_amount = models.FloatField(default=0)
     total_tax_amount = models.FloatField(default=0)
     total_final_amount = models.FloatField(default=0)
-    order_status = models.CharField(max_length=50,choices=ORDER_STATUS)
+    order_status = models.CharField(max_length=200,choices=ORDER_STATUS)
     ordered_by = models.ForeignKey(get_user_model(), related_name='brand_order_by_user', null=True, blank=True,on_delete=models.CASCADE)
     received_by = models.ForeignKey(get_user_model(), related_name='brand_received_by_user', null=True, blank=True,on_delete=models.CASCADE)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='brand_order_modified_user', null=True,blank=True, on_delete=models.CASCADE)
@@ -141,10 +153,11 @@ def create_order(sender, instance=None, created=False, **kwargs):
         if order.exists():
             order = order.last()
             order.total_final_amount = order.total_final_amount+instance.total_price
+            order.order_status = instance.cart.po_status
             order.save()
         else:
             order = Order.objects.create(ordered_cart=instance.cart, order_no=instance.cart.po_no, billing_address=instance.cart.gf_billing_address,
-            shipping_address=instance.cart.gf_shipping_address, total_final_amount=instance.total_price,order_status='ordered_to_brand')
+            shipping_address=instance.cart.gf_shipping_address, total_final_amount=instance.total_price,order_status='waiting_for_finance_approval')
 
         if order:
             if OrderItem.objects.filter(order=order, ordered_product=instance.cart_product).exists():
