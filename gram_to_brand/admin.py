@@ -231,6 +231,7 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     form = GRNOrderProductForm
 
     extra= 10
+    fields = ('product','po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date','expiry_date','product_invoice_qty','delivered_qty','returned_qty')
     exclude = ('last_modified_by','available_qty',)
     def get_readonly_fields(self, request, obj=None):
         if obj: # editing an existing object
@@ -270,6 +271,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
     list_display = ('grn_id','order','invoice_no','grn_date','edit_grn_link')
     list_filter = [ OrderSearch, InvoiceNoSearch, GRNSearch, ('created_at', DateRangeFilter),]
     form = GRNOrderForm
+    fields = ('order','invoice_no')
 
     def get_readonly_fields(self, request, obj=None):
         if obj: # editing an existing object
