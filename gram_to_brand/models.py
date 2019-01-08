@@ -144,7 +144,7 @@ def create_order(sender, instance=None, created=False, **kwargs):
             order.save()
         else:
             order = Order.objects.create(ordered_cart=instance.cart, order_no=instance.cart.po_no, billing_address=instance.cart.gf_billing_address,
-            shipping_address=instance.cart.gf_shipping_address, total_final_amount=instance.total_price)
+            shipping_address=instance.cart.gf_shipping_address, total_final_amount=instance.total_price,order_status='ordered_to_brand')
 
         if order:
             if OrderItem.objects.filter(order=order, ordered_product=instance.cart_product).exists():

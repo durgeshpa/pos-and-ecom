@@ -130,6 +130,7 @@ class CartAdmin(admin.ModelAdmin):
                 obj.po_message = get_po_msg
             obj.is_approve = True
             obj.created_by = request.user
+            obj.last_modified_by = request.user
             obj.save()
             return HttpResponseRedirect("/admin/gram_to_brand/cart/")
         elif "_disapprove" in request.POST:
@@ -138,10 +139,14 @@ class CartAdmin(admin.ModelAdmin):
                 obj.po_message = get_po_msg
             obj.is_approve = False
             obj.created_by = request.user
+            obj.last_modified_by = request.user
             obj.save()
             return HttpResponseRedirect("/admin/gram_to_brand/cart/")
         else:
             obj.is_approve = ''
+            obj.po_status= 'ordered_to_brand'
+            obj.po_raised_by= request.user
+            obj.last_modified_by= request.user
             obj.save()
         return super().response_change(request, obj)
 
