@@ -65,6 +65,9 @@ class Cart(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return str(self.po_no)
+
     @property
     def products_sample_file(self):
         if self.cart_product_mapping_csv and hasattr(self.cart_product_mapping_csv, 'url'):
