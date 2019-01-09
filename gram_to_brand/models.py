@@ -73,6 +73,10 @@ class Cart(models.Model):
             url="""<h3><a href="#">Download Products List</a></h3>"""
         return url
 
+    def clean(self):
+        if self.po_validity_date and self.po_validity_date < datetime.date.today():
+            raise ValidationError(_("Po validity date cannot be in the past!"))
+
     class Meta:
         verbose_name = "PO Generation"
         permissions = (
