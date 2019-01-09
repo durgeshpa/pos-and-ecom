@@ -90,8 +90,12 @@ class CartProductMapping(models.Model):
     price = models.FloatField( verbose_name='Brand To Gram Price')
     total_price= models.PositiveIntegerField(default=0)
 
+    def __str__(self):
+        return str('')
+
     class Meta:
         verbose_name = "Select Product"
+
 
     def clean(self):
         if self.number_of_cases:

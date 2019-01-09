@@ -59,6 +59,7 @@ class CartProductMappingAdmin(admin.TabularInline):
     search_fields =('cart_product',)
     #formset = CartProductMappingFormset
     form = CartProductMappingForm
+    
 
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
