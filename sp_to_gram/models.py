@@ -150,6 +150,14 @@ class OrderedProductMapping(models.Model):
         )
 
 class OrderedProductReserved(models.Model):
+    RESERVED = "reserved"
+    ORDERED = "ordered"
+    FREE = "free"
+    RESERVE_STATUS = (
+        (RESERVED, "Reserved"),
+        (ORDERED, "Ordered"),
+        (FREE, "Free"),
+    )
     order_product_reserved = models.ForeignKey(OrderedProductMapping, related_name='sp_order_product_order_product_reserved',null=True, blank=True, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='sp_product_order_product_reserved', null=True, blank=True,on_delete=models.CASCADE)
     cart = models.ForeignKey(RetailerCart, related_name='sp_ordered_retailer_cart',null=True,blank=True,on_delete=models.CASCADE)
@@ -159,6 +167,7 @@ class OrderedProductReserved(models.Model):
     #order_reserve_status = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    reserve_status = models.CharField(max_length=100, choices=RESERVE_STATUS, default=RESERVED)
 
     def save(self):
         self.order_reserve_end_time = timezone.now() + timedelta(minutes=int(settings.BLOCKING_TIME_IN_MINUTS))

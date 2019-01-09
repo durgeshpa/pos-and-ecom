@@ -360,7 +360,7 @@ class PickListAdmin(admin.ModelAdmin):
 admin.site.register(PickList,PickListAdmin)
 
 class OrderedProductReservedAdmin(admin.ModelAdmin):
-    list_display = ('order_product_reserved','product','cart','reserved_qty','order_reserve_end_time','created_at')
+    list_display = ('order_product_reserved','product','reserved_qty','order_reserve_end_time','created_at','reserve_status')
 
 admin.site.register(OrderedProductReserved,OrderedProductReservedAdmin)
 

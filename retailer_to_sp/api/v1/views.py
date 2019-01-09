@@ -395,6 +395,7 @@ class ReservedOrder(generics.ListAPIView):
                                                                             reserved_qty=available_qty)
                             order_product_reserved.order_product_reserved = product_detail
                             order_product_reserved.cart = cart
+                            order_product_reserved.reserve_status = 'reserved'
                             order_product_reserved.save()
 
                             available_qty = available_qty - int(product_detail.available_qty)
@@ -446,6 +447,7 @@ class ReservedOrder(generics.ListAPIView):
                                                                                 reserved_qty=available_qty)
                             order_product_reserved_dt.order_product_reserved = product_detail
                             order_product_reserved_dt.cart = cart
+                            order_product_reserved_dt.reserve_status = 'reserved'
                             order_product_reserved_dt.save()
 
                             pick_list_item = PickListItems(pick_list=pick_list, grn_order=product_detail.grn_order,

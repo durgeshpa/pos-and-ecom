@@ -85,3 +85,4 @@ class POGenerationForm(forms.ModelForm):
                     if not p.product_price == float(row[5]):
                         raise ValidationError("Row["+str(id+1)+"] | "+first_row[5]+":"+row[5]+" | Price does not matched with original product's brand to gram price")
             return self.cleaned_data
+
