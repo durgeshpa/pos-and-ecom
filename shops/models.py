@@ -58,28 +58,6 @@ class Shop(models.Model):
     def __str__(self):
         return "%s - %s"%(self.shop_name, self.shop_type.get_shop_type_display())
 
-    # def has_changed(instance, status):
-    #     import pdb; pdb.set_trace()
-    #     if not instance.pk:
-    #         return False
-    #     old_value = instance.__class__._default_manager.filter(pk=instance.pk).values(status).get()[status]
-    #
-    #     return not getattr(instance, status) == old_value
-
-# @receiver(post_save, sender=Shop)
-# def shop_addition_notification(sender, instance=None, created=False, **kwargs):
-#
-#         if created:
-#             otp = '123546'
-#             date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
-#             time = datetime.datetime.now().strftime("%I:%M %p")
-#             message = SendSms(phone=instance.shop_owner,
-#                                               body="%s is your One Time Password for GramFactory Account."\
-#                                                    " Request time is %s, %s IST." % (otp,date,time))
-#
-#             message.send()
-
-
 @receiver(post_save, sender=Shop)
 def shop_verification_notification(sender, instance=None, created=False, **kwargs):
         if not created:
@@ -97,9 +75,6 @@ def shop_verification_notification(sender, instance=None, created=False, **kwarg
                                       " Team GramFactory " % (username, shop_title))
 
                 message.send()
-
-
-
 
 class ShopPhoto(models.Model):
     shop_name = models.ForeignKey(Shop, related_name='shop_name_photos', on_delete=models.CASCADE)
