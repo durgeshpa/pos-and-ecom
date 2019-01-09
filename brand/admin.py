@@ -7,6 +7,7 @@ from django.db.models import Q
 from import_export.admin import ExportMixin
 from .resources import BrandResource
 
+
 class BrandSearch(InputFilter):
     parameter_name = 'brand_name'
     title = 'Brand Name'
