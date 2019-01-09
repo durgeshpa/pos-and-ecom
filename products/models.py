@@ -176,6 +176,9 @@ class ProductPrice(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
+    def __str__(self):
+        return self.product.product_name
+
 class ProductCategory(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_category',on_delete=models.CASCADE)
     category = models.ForeignKey(Category, related_name='category_pro_category',on_delete=models.CASCADE)
