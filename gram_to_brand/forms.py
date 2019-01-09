@@ -86,7 +86,3 @@ class POGenerationForm(forms.ModelForm):
                         raise ValidationError("Row["+str(id+1)+"] | "+first_row[5]+":"+row[5]+" | Price does not matched with original product's brand to gram price")
             return self.cleaned_data
 
-        date = self.cleaned_data['po_validity_date']
-        if date < datetime.date.today():
-            raise forms.ValidationError("Po validity date cannot be in the past!")
-        return date
