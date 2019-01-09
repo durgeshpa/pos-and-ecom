@@ -21,10 +21,10 @@ from django.db.models import Q
 from daterange_filter.filter import DateRangeFilter
 from admin_auto_filters.filters import AutocompleteFilter
 
-from import_export.admin import ExportMixin
+from import_export.admin import ExportActionMixin
 from .resources import (SizeResource, ColorResource, FragranceResource,
     FlavorResource, WeightResource, PackageSizeResource, ProductResource,
-    ProductPriceResource)
+    ProductPriceResource, TaxResource)
 
 class BrandFilter(AutocompleteFilter):
     title = 'Brand' # display title
@@ -43,40 +43,41 @@ class ProductVendorMappingAdmin(admin.ModelAdmin):
     list_display = ('vendor','product','product_price')
 admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)
 
-class SizeAdmin(ExportMixin, admin.ModelAdmin):
+class SizeAdmin(ExportActionMixin, admin.ModelAdmin):
     resource_class = SizeResource
     prepopulated_fields = {'size_name': ('size_value','size_unit')}
     search_fields = ['size_name']
 admin.site.register(Size, SizeAdmin)
 
-class FragranceAdmin(ExportMixin, admin.ModelAdmin):
+class FragranceAdmin(ExportActionMixin, admin.ModelAdmin):
     resource_class = FragranceResource
     search_fields = ['fragrance_name']
 admin.site.register(Fragrance, FragranceAdmin)
 
-class FlavorAdmin(ExportMixin, admin.ModelAdmin):
+class FlavorAdmin(ExportActionMixin, admin.ModelAdmin):
     resource_class = FlavorResource
     search_fields = ['flavor_name']
 admin.site.register(Flavor,FlavorAdmin)
 
-class ColorAdmin(ExportMixin, admin.ModelAdmin):
+class ColorAdmin(ExportActionMixin, admin.ModelAdmin):
     resource_class = ColorResource
     search_fields = ['color_name']
 admin.site.register(Color,ColorAdmin)
 
-class PackageSizeAdmin(ExportMixin, admin.ModelAdmin):
+class PackageSizeAdmin(ExportActionMixin, admin.ModelAdmin):
     resource_class = PackageSizeResource
     prepopulated_fields = {'pack_size_name': ('pack_size_value','pack_size_unit')}
     search_fields = ['pack_size_name']
 admin.site.register(PackageSize, PackageSizeAdmin)
 
-class WeightAdmin(ExportMixin, admin.ModelAdmin):
+class WeightAdmin(ExportActionMixin, admin.ModelAdmin):
     resource_class = WeightResource
     prepopulated_fields = {'weight_name': ('weight_value','weight_unit')}
     search_fields = ['weight_name']
 admin.site.register(Weight, WeightAdmin)
 
-class TaxAdmin(admin.ModelAdmin):
+class TaxAdmin(ExportActionMixin, admin.ModelAdmin):
+    resource_class = TaxResource
     search_fields = ['tax_name']
 admin.site.register(Tax,TaxAdmin)
 
@@ -161,7 +162,7 @@ class ProductTaxMappingAdmin(admin.TabularInline):
             pass
 
 
-class ProductAdmin(ExportMixin, admin.ModelAdmin):
+class ProductAdmin(ExportActionMixin, admin.ModelAdmin):
     resource_class = ProductResource
     class Media:
             pass
@@ -206,7 +207,7 @@ class ProductAdmin(ExportMixin, admin.ModelAdmin):
 
 admin.site.register(Product,ProductAdmin)
 
-class ProductPriceAdmin(ExportMixin, admin.ModelAdmin):
+class ProductPriceAdmin(ExportActionMixin, admin.ModelAdmin):
     resource_class = ProductPriceResource
     list_display = ['product','mrp','price_to_service_partner',
     'price_to_retailer','price_to_super_retailer','start_date',
