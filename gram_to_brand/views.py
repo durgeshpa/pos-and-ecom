@@ -58,8 +58,8 @@ class ShippingAddressAutocomplete(autocomplete.Select2QuerySetView):
         supplier_name = self.forwarded.get('supplier_name', None)
 
 
-        if state_id:
-            qs = qs.filter(state__id=state_id)
+        # if state_id:
+        #     qs = qs.filter(state__id=state_id)
 
         return qs
 
@@ -70,19 +70,23 @@ class BillingAddressAutocomplete(autocomplete.Select2QuerySetView):
         qs = Address.objects.filter(shop_name__shop_type__shop_type='gf',address_type='billing')
         state_id = self.forwarded.get('state', None)
 
-        if state_id:
-            qs = qs.filter(state__id=state_id)
+        # if state_id:
+        #     qs = qs.filter(state__id=state_id)
 
         return qs
 
 class BrandAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self,*args,**kwargs):
         qs = Brand.objects.all()
+        if self.q:
+            qs = qs.filter(brand_name__icontains=self.q)
         return qs
 
 class StateAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self,*args,**kwargs):
         qs = State.objects.all()
+        if self.q:
+            qs = qs.filter(state_name__icontains=self.q)
         return qs
 
 class OrderAutocomplete(autocomplete.Select2QuerySetView):
@@ -167,15 +171,22 @@ class DownloadPurchaseOrder(APIView):
         # for m in products:
         #     data = {"object": order_obj,"products":products,"amount_inline": m.qty * m.price }
         #     print (data)
-        cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
+
+        #cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
+                      #"no-stop-slow-scripts": True, "quiet": True}
+
+
+        cmd_option = {"encoding":"utf8","margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
+        cmd_option = {'encoding':'utf8','margin-top': 3}
+
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         return response
 
 class VendorProductAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self,*args,**kwargs):
-        qs = Product.objects.all()
+        qs = None
         supplier_id = self.forwarded.get('supplier_name', None)
         if supplier_id:
             qs = Product.objects.all()

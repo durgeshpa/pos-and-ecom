@@ -20,7 +20,10 @@ from retailer_backend.common_function import(po_pattern, grn_pattern,
 
 
 ORDER_STATUS = (
-    ("ordered_to_brand","Ordered To Brand"),
+    ("send_to_brand","Send To Brand"),
+    ("waiting_for_finance_approval","Waiting For Finance Approval"),
+    ("finance_approved","Finance Approved"),
+    ("finance_not_approved","Finance Not Approved"),
     ("partially_delivered","Partially Delivered"),
     ("delivered","Delivered"),
 )
@@ -62,6 +65,9 @@ class Cart(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return str(self.po_no)
+
     @property
     def products_sample_file(self):
         if self.cart_product_mapping_csv and hasattr(self.cart_product_mapping_csv, 'url'):
@@ -69,6 +75,10 @@ class Cart(models.Model):
         else:
             url="""<h3><a href="#">Download Products List</a></h3>"""
         return url
+
+    def clean(self):
+        if self.po_validity_date and self.po_validity_date < datetime.date.today():
+            raise ValidationError(_("Po validity date cannot be in the past!"))
 
     class Meta:
         verbose_name = "PO Generation"
@@ -87,8 +97,12 @@ class CartProductMapping(models.Model):
     price = models.FloatField( verbose_name='Brand To Gram Price')
     total_price= models.PositiveIntegerField(default=0)
 
+    def __str__(self):
+        return str('')
+
     class Meta:
         verbose_name = "Select Product"
+
 
     def clean(self):
         if self.number_of_cases:
@@ -113,6 +127,15 @@ def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
                          number_of_cases = int(row[3]),scheme = float(row[4]) if row[4] else None, price=float(row[5])
                          , total_price = float(row[2])*float(row[3])*float(row[5]))
 
+@receiver(post_save, sender=Cart)
+def change_order_status(sender, instance=None, created=False, **kwargs):
+    if not created:
+        order = Order.objects.filter(ordered_cart=instance)
+        if order.exists():
+            order = order.last()
+            order.order_status = instance.po_status
+            order.save()
+
 class Order(models.Model):
     shop = models.ForeignKey(Shop, related_name='shop_order',null=True,blank=True,on_delete=models.CASCADE)
     ordered_cart = models.ForeignKey(Cart,related_name='order_cart_mapping',on_delete=models.CASCADE)
@@ -124,7 +147,7 @@ class Order(models.Model):
     total_discount_amount = models.FloatField(default=0)
     total_tax_amount = models.FloatField(default=0)
     total_final_amount = models.FloatField(default=0)
-    order_status = models.CharField(max_length=50,choices=ORDER_STATUS)
+    order_status = models.CharField(max_length=200,choices=ORDER_STATUS)
     ordered_by = models.ForeignKey(get_user_model(), related_name='brand_order_by_user', null=True, blank=True,on_delete=models.CASCADE)
     received_by = models.ForeignKey(get_user_model(), related_name='brand_received_by_user', null=True, blank=True,on_delete=models.CASCADE)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='brand_order_modified_user', null=True,blank=True, on_delete=models.CASCADE)
@@ -141,10 +164,11 @@ def create_order(sender, instance=None, created=False, **kwargs):
         if order.exists():
             order = order.last()
             order.total_final_amount = order.total_final_amount+instance.total_price
+            order.order_status = instance.cart.po_status
             order.save()
         else:
             order = Order.objects.create(ordered_cart=instance.cart, order_no=instance.cart.po_no, billing_address=instance.cart.gf_billing_address,
-            shipping_address=instance.cart.gf_shipping_address, total_final_amount=instance.total_price)
+            shipping_address=instance.cart.gf_shipping_address, total_final_amount=instance.total_price,order_status='waiting_for_finance_approval')
 
         if order:
             if OrderItem.objects.filter(order=order, ordered_product=instance.cart_product).exists():
@@ -200,8 +224,8 @@ class GRNOrderProductMapping(models.Model):
     already_grned_product= models.PositiveIntegerField(default=0, verbose_name='Already GRNed Product Quantity',blank=True)
     product_invoice_price = models.FloatField(default=0)
     product_invoice_qty = models.PositiveIntegerField(default=0)
-    manufacture_date = models.DateField(null=True,blank=True)
-    expiry_date = models.DateField(null=True,blank=True)
+    manufacture_date = models.DateField(null=True,blank=False)
+    expiry_date = models.DateField(null=True,blank=False)
     available_qty = models.PositiveIntegerField(default=0)
     ordered_qty = models.PositiveIntegerField(default=0)
     delivered_qty = models.PositiveIntegerField(default=0)
@@ -211,23 +235,27 @@ class GRNOrderProductMapping(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-    def clean(self):
-         sum= self.delivered_qty + self.returned_qty
-         diff = self.po_product_quantity - self.already_grned_product
-         if self.product_invoice_qty <= diff:
-             if self.product_invoice_qty < sum:
-               raise ValidationError(_('Product invoice quantity cannot be less than the sum of delivered quantity and returned quantity'))
-             elif sum < self.product_invoice_qty:
-               raise ValidationError(_('Product invoice quantity must be equal to the sum of delivered quantity and returned quantity'))
-         else:
-             raise ValidationError(_('Product invoice quantity cannot be greater than the difference of PO product quantity and already_grned_product'))
+    def __str__(self):
+        return str('')
 
     def clean(self):
-         if self.manufacture_date > datetime.date.today():
-             raise ValidationError(_("Manufactured Date cannot be greater than today's date"))
-         elif self.expiry_date < self.manufacture_date:
-             raise ValidationError(_("Expiry Date cannot be less than manufacture date"))
-
+        super(GRNOrderProductMapping, self).clean()
+        sum= self.delivered_qty + self.returned_qty
+        diff = self.po_product_quantity - self.already_grned_product
+        if self.product_invoice_qty <= diff:
+            if self.product_invoice_qty < sum:
+                raise ValidationError(_('Product invoice quantity cannot be less than the sum of delivered quantity and returned quantity'))
+            elif sum < self.product_invoice_qty:
+                raise ValidationError(_('Product invoice quantity must be equal to the sum of delivered quantity and returned quantity'))
+        else:
+            raise ValidationError(_('Product invoice quantity cannot be greater than the difference of PO product quantity and already_grned_product'))
+        if self.manufacture_date :
+            if self.manufacture_date >= datetime.date.today():
+                raise ValidationError(_("Manufactured Date cannot be greater than or equal to today's date"))
+            elif self.expiry_date < self.manufacture_date:
+                raise ValidationError(_("Expiry Date cannot be less than manufacture date"))
+        else:
+            raise ValidationError(_("Please enter all the field values"))
 
 class OrderHistory(models.Model):
     #shop = models.ForeignKey(Shop, related_name='shop_order',null=True,blank=True,on_delete=models.CASCADE)

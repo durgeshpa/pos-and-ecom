@@ -59,6 +59,7 @@ class CartProductMappingAdmin(admin.TabularInline):
     search_fields =('cart_product',)
     #formset = CartProductMappingFormset
     form = CartProductMappingForm
+    
 
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
@@ -129,24 +130,43 @@ class CartAdmin(admin.ModelAdmin):
                 get_po_msg,_ = Po_Message.objects.get_or_create(message=request.POST.get('message'))
                 obj.po_message = get_po_msg
             obj.is_approve = True
+            obj.po_status = 'finance_approved'
             obj.created_by = request.user
+            obj.last_modified_by = request.user
             obj.save()
+
             return HttpResponseRedirect("/admin/gram_to_brand/cart/")
         elif "_disapprove" in request.POST:
             if request.POST.get('message'):
                 get_po_msg, _ = Po_Message.objects.get_or_create(message=request.POST.get('message'))
                 obj.po_message = get_po_msg
             obj.is_approve = False
+            obj.po_status = 'finance_not_approved'
             obj.created_by = request.user
+            obj.last_modified_by = request.user
             obj.save()
+
             return HttpResponseRedirect("/admin/gram_to_brand/cart/")
         else:
             obj.is_approve = ''
+            obj.po_status = 'waiting_for_finance_approval'
+            obj.po_raised_by= request.user
+            obj.last_modified_by= request.user
             obj.save()
+
         return super().response_change(request, obj)
+
+    def save_model(self, request, obj, form, change):
+        if change==False:
+            obj.is_approve = ''
+            obj.po_status = 'waiting_for_finance_approval'
+            obj.po_raised_by = request.user
+            obj.last_modified_by = request.user
+            obj.save()
 
     class Media:
             pass
+
 
 
 admin.site.register(Cart,CartAdmin)
@@ -181,11 +201,17 @@ class GRNOrderProductForm(forms.ModelForm):
         queryset=Product.objects.all(),
         widget=autocomplete.ModelSelect2(url='product-autocomplete',forward=('order',))
      )
+
     class Meta:
         model = GRNOrderProductMapping
         fields = ('product','po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date','expiry_date','product_invoice_qty','available_qty','delivered_qty','returned_qty')
         readonly_fields = ('product')
         autocomplete_fields = ('product',)
+
+    # def __init__(self, *args, **kwargs):
+    #     super(GRNOrderProductForm, self).__init__(*args, **kwargs)
+    #     self.fields['manufacture_date'].required = True
+    #     self.fields['expiry_date'].required = True
 
     class Media:
         #css = {'all': ('pretty.css',)}
@@ -206,10 +232,11 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     form = GRNOrderProductForm
 
     extra= 10
+    fields = ('product','po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date','expiry_date','product_invoice_qty','delivered_qty','returned_qty')
     exclude = ('last_modified_by','available_qty',)
     def get_readonly_fields(self, request, obj=None):
         if obj: # editing an existing object
-            return self.readonly_fields + ('po_product_quantity','po_product_price','already_grned_product',)
+            return self.readonly_fields + ('product','po_product_quantity','po_product_price','already_grned_product',)
         return self.readonly_fields
 
     #readonly_fields= ('po_product_price', 'po_product_quantity', 'already_grned_product')
@@ -245,6 +272,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
     list_display = ('grn_id','order','invoice_no','grn_date','edit_grn_link')
     list_filter = [ OrderSearch, InvoiceNoSearch, GRNSearch, ('created_at', DateRangeFilter),]
     form = GRNOrderForm
+    fields = ('order','invoice_no')
 
     def get_readonly_fields(self, request, obj=None):
         if obj: # editing an existing object
@@ -332,7 +360,7 @@ class PickListAdmin(admin.ModelAdmin):
 admin.site.register(PickList,PickListAdmin)
 
 class OrderedProductReservedAdmin(admin.ModelAdmin):
-    list_display = ('order_product_reserved','product','cart','reserved_qty','order_reserve_end_time','created_at')
+    list_display = ('order_product_reserved','product','reserved_qty','order_reserve_end_time','created_at','reserve_status')
 
 admin.site.register(OrderedProductReserved,OrderedProductReservedAdmin)
 
