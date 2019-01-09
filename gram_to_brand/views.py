@@ -79,14 +79,14 @@ class BrandAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self,*args,**kwargs):
         qs = Brand.objects.all()
         if self.q:
-            qs = qs.filter(brand_name__istartswith=self.q)
+            qs = qs.filter(brand_name__icontains=self.q)
         return qs
 
 class StateAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self,*args,**kwargs):
         qs = State.objects.all()
         if self.q:
-            qs = qs.filter(state_name__istartswith=self.q)
+            qs = qs.filter(state_name__icontains=self.q)
         return qs
 
 class OrderAutocomplete(autocomplete.Select2QuerySetView):
