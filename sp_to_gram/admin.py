@@ -8,7 +8,6 @@ from daterange_filter.filter import DateRangeFilter
 from django.utils.html import format_html
 from django.urls import reverse
 
-
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
     autocomplete_fields = ('cart_product',)
@@ -43,6 +42,10 @@ class POGenerationForm(forms.ModelForm):
 
     class Media:
         js = ('/static/admin/js/sp_po_generation_form.js',)
+
+    def __init__(self, *args, **kwargs):
+        super(POGenerationForm, self).__init__(*args, **kwargs)
+        self.fields['shop'].label = "Recipient Warehouse"
 
     class Meta:
         model = Cart
