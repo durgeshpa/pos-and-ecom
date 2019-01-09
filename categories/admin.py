@@ -1,7 +1,7 @@
 from django.contrib import admin
 from adminsortable.admin import NonSortableParentAdmin, SortableStackedInline
 from .models import Category,CategoryData,CategoryPosation
-from import_export.admin import ExportMixin
+from import_export.admin import ExportActionMixin
 from .resources import CategoryResource
 
 class CategoryDataInline(SortableStackedInline):
@@ -13,7 +13,7 @@ class CategoryPosationAdmin(NonSortableParentAdmin):
 admin.site.register(CategoryPosation, CategoryPosationAdmin)
 
 
-class CategoryAdmin(ExportMixin, admin.ModelAdmin):
+class CategoryAdmin(ExportActionMixin, admin.ModelAdmin):
     resource_class = CategoryResource
     list_display = ['id','category_name', 'category_slug']
     search_fields = ['category_name']

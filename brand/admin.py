@@ -4,7 +4,7 @@ from .models import Brand, BrandData,BrandPosition,Vendor
 from products.models import ProductVendorMapping
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
-from import_export.admin import ExportMixin
+from import_export.admin import ExportActionMixin
 from .resources import BrandResource
 
 
@@ -45,7 +45,7 @@ class BrandPositionAdmin(NonSortableParentAdmin):
 
 admin.site.register(BrandPosition, BrandPositionAdmin)
 
-class BrandAdmin(ExportMixin, admin.ModelAdmin):
+class BrandAdmin(ExportActionMixin, admin.ModelAdmin):
     resource_class = BrandResource
     fields = ('brand_name','brand_slug','brand_logo','brand_parent','brand_description','brand_code','active_status')
     list_display = ('id','brand_name','brand_logo','brand_code','active_status')
