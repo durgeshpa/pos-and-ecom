@@ -55,7 +55,7 @@ class POGenerationForm(forms.ModelForm):
 
     class Meta:
         model = Cart
-        fields = ('brand','supplier_state','gf_shipping_address','gf_billing_address','po_validity_date','payment_term','delivery_term','cart_product_mapping_csv')
+        fields = ('brand','supplier_state','gf_shipping_address','gf_billing_address','po_validity_date','payment_term','delivery_term','supplier_name','cart_product_mapping_csv')
 
     def __init__(self, *args, **kwargs):
         super(POGenerationForm, self).__init__(*args, **kwargs)

@@ -224,6 +224,9 @@ class GRNOrderProductMapping(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return str('')
+
     def clean(self):
         super(GRNOrderProductMapping, self).clean()
         sum= self.delivered_qty + self.returned_qty
