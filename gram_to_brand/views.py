@@ -124,7 +124,7 @@ class DownloadPurchaseOrder(APIView):
         a = Cart.objects.get(pk=pk)
         shop =a
         products = a.cart_list.all()
-        order= shop.order_cart_mapping.get(pk=pk)
+        order= shop.order_cart_mapping.last()
         order_id= order.order_no
         sum_qty = 0
         sum_amount=0
