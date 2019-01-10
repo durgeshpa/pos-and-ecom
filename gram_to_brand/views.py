@@ -171,9 +171,15 @@ class DownloadPurchaseOrder(APIView):
         # for m in products:
         #     data = {"object": order_obj,"products":products,"amount_inline": m.qty * m.price }
         #     print (data)
+
+        #cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
+                      #"no-stop-slow-scripts": True, "quiet": True}
+
+
         cmd_option = {"encoding":"utf8","margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
-        cmd_option = {'margin-top': 3,}
+        cmd_option = {'encoding':'utf8','margin-top': 3}
+
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         return response
@@ -218,7 +224,8 @@ class GRNProductPriceMappingData(APIView):
     def get(self,*args,**kwargs):
         order_id =self.request.GET.get('order_id')
         cart_product_id= self.request.GET.get('cart_product_id')
-        po_product_price = CartProductMapping.objects.get( cart__id=order_id,cart_product__id=cart_product_id)
+        order = Order.objects.get(id=order_id)
+        po_product_price = CartProductMapping.objects.get( cart__id=order.ordered_cart.id,cart_product__id=cart_product_id)
         return Response({"message": [""], "response_data": po_product_price.price, "success": True})
 
 class GRNProductMappingData(APIView):
@@ -226,7 +233,8 @@ class GRNProductMappingData(APIView):
     def get(self,*args,**kwargs):
         order_id =self.request.GET.get('order_id')
         cart_product_id= self.request.GET.get('cart_product_id')
-        po_product_quantity = CartProductMapping.objects.get( cart__id=order_id,cart_product__id=cart_product_id)
+        order = Order.objects.get(id=order_id)
+        po_product_quantity = CartProductMapping.objects.get( cart__id=order.ordered_cart.id,cart_product__id=cart_product_id)
         return Response({"message": [""], "response_data": po_product_quantity.qty, "success": True})
 
 class GRNOrderAutocomplete(autocomplete.Select2QuerySetView):

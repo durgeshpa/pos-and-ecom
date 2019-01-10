@@ -70,6 +70,7 @@ class DownloadInvoice(APIView):
 
             sum_qty = sum_qty + int(m.product.product_inner_case_size) * int(m.shipped_qty)
 
+
             for h in m.product.product_pro_price.all():
 
                 sum_amount = sum_amount + (m.shipped_qty * h.price_to_retailer)

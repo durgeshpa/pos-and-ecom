@@ -65,6 +65,9 @@ class Cart(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return str(self.po_no)
+
     @property
     def products_sample_file(self):
         if self.cart_product_mapping_csv and hasattr(self.cart_product_mapping_csv, 'url'):
@@ -94,8 +97,12 @@ class CartProductMapping(models.Model):
     price = models.FloatField( verbose_name='Brand To Gram Price')
     total_price= models.PositiveIntegerField(default=0)
 
+    def __str__(self):
+        return str('')
+
     class Meta:
         verbose_name = "Select Product"
+
 
     def clean(self):
         if self.number_of_cases:
@@ -227,6 +234,9 @@ class GRNOrderProductMapping(models.Model):
     last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_user_grn_order_product', null=True,blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return str('')
 
     def clean(self):
         super(GRNOrderProductMapping, self).clean()

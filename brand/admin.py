@@ -1,12 +1,13 @@
 from django.contrib import admin
-
-# Register your models here.
 from adminsortable.admin import NonSortableParentAdmin, SortableStackedInline
-
 from .models import Brand, BrandData,BrandPosition,Vendor
 from products.models import ProductVendorMapping
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
+from import_export.admin import ExportActionMixin
+from .resources import BrandResource
+from products.admin import ExportCsvMixin
+
 
 class BrandSearch(InputFilter):
     parameter_name = 'brand_name'
@@ -45,7 +46,9 @@ class BrandPositionAdmin(NonSortableParentAdmin):
 
 admin.site.register(BrandPosition, BrandPositionAdmin)
 
-class BrandAdmin(admin.ModelAdmin):
+class BrandAdmin( admin.ModelAdmin, ExportCsvMixin):
+    resource_class = BrandResource
+    actions = ["export_as_csv"]
     fields = ('brand_name','brand_slug','brand_logo','brand_parent','brand_description','brand_code','active_status')
     list_display = ('id','brand_name','brand_logo','brand_code','active_status')
     list_filter = (BrandSearch,BrandCodeSearch,'active_status', )

@@ -1,9 +1,8 @@
 from django.contrib import admin
-
-# Register your models here.
 from adminsortable.admin import NonSortableParentAdmin, SortableStackedInline
 from .models import Category,CategoryData,CategoryPosation
-
+from import_export.admin import ExportActionMixin
+from .resources import CategoryResource
 
 class CategoryDataInline(SortableStackedInline):
     model = CategoryData
@@ -14,19 +13,11 @@ class CategoryPosationAdmin(NonSortableParentAdmin):
 admin.site.register(CategoryPosation, CategoryPosationAdmin)
 
 
-class CategoryAdmin(admin.ModelAdmin):
+class CategoryAdmin(ExportActionMixin, admin.ModelAdmin):
+    resource_class = CategoryResource
     list_display = ['id','category_name', 'category_slug']
     search_fields = ['category_name']
     prepopulated_fields = {'category_slug': ('category_name',)}
     search_fields = ('category_name',)
 
 admin.site.register(Category,CategoryAdmin)
-
-# from mptt.admin import DraggableMPTTAdmin
-#
-# class CategoriesAdmin(DraggableMPTTAdmin):
-#     mptt_indent_field = "category_name"
-#     list_display = ('category_name', 'category_parent','is_created', 'status')
-#     list_display_links = ('category_name',)
-#
-# admin.site.register(Categories,CategoriesAdmin)

@@ -60,6 +60,7 @@ class CartProductMappingAdmin(admin.TabularInline):
     #formset = CartProductMappingFormset
     form = CartProductMappingForm
 
+
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     exclude = ('po_no', 'shop', 'po_status','last_modified_by')
@@ -235,7 +236,7 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     exclude = ('last_modified_by','available_qty',)
     def get_readonly_fields(self, request, obj=None):
         if obj: # editing an existing object
-            return self.readonly_fields + ('po_product_quantity','po_product_price','already_grned_product',)
+            return self.readonly_fields + ('product','po_product_quantity','po_product_price','already_grned_product',)
         return self.readonly_fields
 
     #readonly_fields= ('po_product_price', 'po_product_quantity', 'already_grned_product')
