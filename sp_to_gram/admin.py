@@ -14,44 +14,8 @@ class CartProductMappingAdmin(admin.TabularInline):
     search_fields =('cart_product',)
     form = CartProductMappingForm
 
-
-# class CartProductMappingAdmin(admin.TabularInline):
-#     model = CartProductMapping
-#     autocomplete_fields = ('cart_product',)
-#     exclude = ('qty',)
-#
-#     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
-#         #print(db_field)
-#         if db_field.name == 'cart_product':
-#             pass
-#             #kwargs['queryset'] = Product.objects.filter(product_grn_order_product__delivered_qty__gt=0)
-#             #print(Product.objects.filter(product_grn_order_product__delivered_qty__gt=0).product_grn_order_product)
-#             #print(GRNOrderProductMapping.objects.filter(delivered_qty__gt=0).query)
-#         return super(CartProductMappingAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
-
-from dal import autocomplete
-from django import forms
-from addresses.models import State
-from shops.models import Shop,ShopType
-
-class POGenerationForm(forms.ModelForm):
-    shop = forms.ModelChoiceField(
-        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
-        widget=autocomplete.ModelSelect2(url='my-shop-autocomplete',)
-    )
-
-    class Media:
-        js = ('/static/admin/js/sp_po_generation_form.js',)
-
-    def __init__(self, *args, **kwargs):
-        super(POGenerationForm, self).__init__(*args, **kwargs)
-        self.fields['shop'].label = "Recipient Warehouse"
-
-    class Meta:
-        model = Cart
-        fields = ('shop','po_validity_date','payment_term','delivery_term')
-
 class CartAdmin(admin.ModelAdmin):
+    template = 'admin/sp_to_gram/cart/change_form.html'
     inlines = [CartProductMappingAdmin]
     exclude = ('po_no', 'po_status', 'last_modified_by')
     #autocomplete_fields = ('brand',)
