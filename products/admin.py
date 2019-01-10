@@ -63,39 +63,46 @@ admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)
 
 class SizeAdmin( admin.ModelAdmin,  ExportCsvMixin):
     resource_class = SizeResource
+    actions = ["export_as_csv"]
     prepopulated_fields = {'size_name': ('size_value','size_unit')}
     search_fields = ['size_name']
 admin.site.register(Size, SizeAdmin)
 
 class FragranceAdmin( admin.ModelAdmin, ExportCsvMixin):
     resource_class = FragranceResource
+    actions = ["export_as_csv"]
     search_fields = ['fragrance_name']
 admin.site.register(Fragrance, FragranceAdmin)
 
 class FlavorAdmin( admin.ModelAdmin, ExportCsvMixin):
     resource_class = FlavorResource
+    actions = ["export_as_csv"]
     search_fields = ['flavor_name']
 admin.site.register(Flavor,FlavorAdmin)
 
 class ColorAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ColorResource
+    actions = ["export_as_csv"]
     search_fields = ['color_name']
 admin.site.register(Color,ColorAdmin)
 
 class PackageSizeAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = PackageSizeResource
+    actions = ["export_as_csv"]
     prepopulated_fields = {'pack_size_name': ('pack_size_value','pack_size_unit')}
     search_fields = ['pack_size_name']
 admin.site.register(PackageSize, PackageSizeAdmin)
 
 class WeightAdmin( admin.ModelAdmin, ExportCsvMixin):
     resource_class = WeightResource
+    actions = ["export_as_csv"]
     prepopulated_fields = {'weight_name': ('weight_value','weight_unit')}
     search_fields = ['weight_name']
 admin.site.register(Weight, WeightAdmin)
 
 class TaxAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = TaxResource
+    actions = ["export_as_csv"]
     search_fields = ['tax_name']
 admin.site.register(Tax,TaxAdmin)
 
@@ -227,6 +234,7 @@ admin.site.register(Product,ProductAdmin)
 
 class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductPriceResource
+    actions = ["export_as_csv"]
     list_display = ['product','mrp','price_to_service_partner',
     'price_to_retailer','price_to_super_retailer','start_date',
     'end_date','status']
