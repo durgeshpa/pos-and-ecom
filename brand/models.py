@@ -72,7 +72,7 @@ class Brand(models.Model):
     brand_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three character for SKU")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    active_status = models.PositiveSmallIntegerField(('Active Status'),choices=CHOICES,default='active')
+    active_status = models.CharField(max_length=20,choices=CHOICES,default='active')
 
     def __str__(self):
         full_path = [self.brand_name]
