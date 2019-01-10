@@ -202,6 +202,17 @@ class ProductImage(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
+    def image_thumbnail(self):
+        return mark_safe('<img src="{url}" width="{width}" height={height} />'.format(
+            url = self.image.url,
+            width='500px',
+            height='500px',
+            )
+    )
+
+    def __str__(self):
+        return self.image.name
+
 class Tax(models.Model):
     TAX_CHOICES = (
             ("cess", "Cess"),

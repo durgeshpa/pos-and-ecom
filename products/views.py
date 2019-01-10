@@ -1,20 +1,24 @@
 from django.shortcuts import render
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.template import RequestContext, loader
 from django.shortcuts import render, redirect
 from .models import ProductImage, Product, ProductPrice
 from shops.models import Shop, ShopType
-from .forms import GFProductPriceForm,ProductPriceForm, ProductsFilterForm, ProductsPriceFilterForm, ProductsCSVUploadForm
+from .forms import (GFProductPriceForm,ProductPriceForm, ProductsFilterForm,
+        ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm)
 from addresses.models import City, State, Address
 from django.contrib import messages
 import csv, codecs, datetime
-from django.http import HttpResponse
 from brand.models import Brand
 from categories.models import Category
-from products.models import Product, ProductCategory, ProductOption, ProductTaxMapping, ProductVendorMapping
+from products.models import (Product, ProductCategory, ProductOption,
+    ProductTaxMapping, ProductVendorMapping, ProductImage)
 from django.core.exceptions import ValidationError
+from django.views import View
+import os
+
 def load_cities(request):
     state_id = request.GET.get('state')
     if state_id:
@@ -267,6 +271,32 @@ def ProductsCSVUploadView(request):
                                             }
                 )
 
+class MultiPhotoUploadView(View):
+    def get(self, request):
+        photos_list = ProductImage.objects.all()
+        return render(self.request, 'admin/products/multiphotoupload.html', {'photos': photos_list})
+
+    def post(self, request):
+        form = ProductImageForm(self.request.POST, self.request.FILES)
+        if form.is_valid():
+            file_name = (os.path.splitext(form.cleaned_data['image'].name)[0])
+            try:
+                product = Product.objects.get(product_gf_code=file_name)
+            except:
+                data = {'is_valid': False, 'error':True,
+                'name': 'No Product found with GF code <b>' + file_name+ '</b>', 'url': '#'}
+
+            else:
+                form_instance = form.save(commit=False)
+                form_instance.product = product
+                form_instance.image_name = file_name
+                form_instance.save()
+                data = {'is_valid': True, 'name': form_instance.image.name, 'url': form_instance.image.url}
+        else:
+            data = {'is_valid': False}
+        #response  JsonResponse(data)
+        #return response
+        return JsonResponse(data)
 
 def export(request):
     dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")

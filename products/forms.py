@@ -10,7 +10,13 @@ from products.models import ProductCategory, Tax, Size, Color, Fragrance, Weight
 from brand.models import Brand
 from categories.models import Category
 from django.utils.translation import gettext_lazy as _
-from products.models import Product
+from products.models import Product, ProductImage
+
+class ProductImageForm(forms.ModelForm):
+    class Meta:
+        model = ProductImage
+        fields = ('image', )
+
 class ProductPriceForm(forms.Form):
     state = forms.ModelChoiceField(queryset=State.objects.order_by('state_name'))
     city = forms.ModelChoiceField(queryset=City.objects.all())
