@@ -13,7 +13,7 @@ import csv, codecs, datetime
 from django.http import HttpResponse
 from brand.models import Brand
 from categories.models import Category
-from products.models import Product, ProductCategory, ProductOption, ProductTaxMapping, ProductVendorMapping
+from products.models import Product, ProductCategory, ProductOption, ProductTaxMapping, ProductVendorMapping,ProductHSN
 from django.core.exceptions import ValidationError
 def load_cities(request):
     state_id = request.GET.get('state')
@@ -232,13 +232,16 @@ def ProductsCSVUploadView(request):
             first_row = next(reader)
             try:
                 for row in reader:
+
+                    product_hsn_dt, _ = ProductHSN.objects.get_or_create(product_hsn_code=row[16])
                     product = Product.objects.create(product_name=row[0],\
                               product_short_description=row[1],\
                               product_long_description = row[2],\
                               product_gf_code = row[3],\
                               product_ean_code = row[4],\
-                              product_brand_id=row[5],\
-                              product_inner_case_size=row[14],\
+                              product_brand_id=row[5], \
+                              product_inner_case_size=row[14], \
+                              product_hsn = product_hsn_dt,
                               product_case_size=row[15])
 
                     for c in row[6].split(','):
@@ -312,8 +315,8 @@ def ProductsUploadSample(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(['product_name','product_short_description','product_long_description','product_gf_code','product_ean_code','p_brand_id','p_cat_id','p_tax_id','p_size_id','p_color_id','p_fragrance_id','p_flavor_id','p_weight_id','p_package_size_id','p_inner_case_size','p_case_size'])
-    writer.writerow(['fortune sunflowers oil','Fortune Sun Lite Refined Sunflower Oil is a healthy','Fortune Sun Lite Refined Sunflower Oil is a healthy, light and nutritious oil that is simple to digest. Rich in natural vitamins, it consists mostly of poly-unsaturated fatty acids (PUFA) and is low in soaked fats. It is strong and makes you feel light and active level after heavy food.','12BBPRG00000121','1234567890123','1','1','1','1','1','1','1','1','1','4','2'])
+    writer.writerow(['product_name','product_short_description','product_long_description','product_gf_code','product_ean_code','p_brand_id','p_cat_id','p_tax_id','p_size_id','p_color_id','p_fragrance_id','p_flavor_id','p_weight_id','p_package_size_id','p_inner_case_size','p_case_size','product_hsn_code'])
+    writer.writerow(['fortune sunflowers oil','Fortune Sun Lite Refined Sunflower Oil is a healthy','Fortune Sun Lite Refined Sunflower Oil is a healthy, light and nutritious oil that is simple to digest. Rich in natural vitamins, it consists mostly of poly-unsaturated fatty acids (PUFA) and is low in soaked fats. It is strong and makes you feel light and active level after heavy food.','12BBPRG00000121','1234567890123','1','1','1','1','1','1','1','1','1','4','2','HSN Code'])
     return response
 
 def NameIDCSV(request):
