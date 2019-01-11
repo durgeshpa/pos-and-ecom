@@ -56,6 +56,7 @@ def create_po_no(sender, instance=None, created=False, **kwargs):
         else:
             last_cart_po_no_increment = '00001'
         instance.po_no = "ADT/PO/07/%s" % (last_cart_po_no_increment)
+        instance.po_status = "ordered_to_gram"
 
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='sp_cart_list',on_delete=models.CASCADE)
@@ -111,7 +112,7 @@ def create_order(sender, instance=None, created=False, **kwargs):
             shipping_address = Address.objects.get(shop_name=instance.cart.shop,address_type='shipping')
             billing_address = Address.objects.get(shop_name=parent_mapping.parent,address_type='billing')
             Order.objects.create(ordered_cart=instance.cart, order_no=instance.cart.po_no,billing_address=billing_address,
-                 shipping_address=shipping_address,total_final_amount=instance.total_price)
+                 shipping_address=shipping_address,total_final_amount=instance.total_price,order_status='ordered_to_gram')
 
 class OrderedProduct(models.Model):
     order = models.ForeignKey(Order,related_name='sp_order_order_product',on_delete=models.CASCADE,null=True,blank=True)
