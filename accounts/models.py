@@ -91,6 +91,9 @@ class UserDocument(models.Model):
     def __str__(self):
         return "%s - %s"%(self.user, self.user_document_number)
 
+    class Meta:
+        verbose_name = "User Document"
+
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
 def create_auth_token(sender, instance=None, created=False, **kwargs):

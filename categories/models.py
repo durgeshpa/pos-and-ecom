@@ -4,6 +4,7 @@ from adminsortable.fields import SortableForeignKey
 from adminsortable.models import SortableMixin
 from mptt.models import TreeForeignKey
 from retailer_backend.validators import CapitalAlphabets
+from django.utils.translation import ugettext_lazy as _
 
 # Create your models here.
 class Category(models.Model):
@@ -40,6 +41,7 @@ class Category(models.Model):
 
     class Meta:
         unique_together = ('category_slug', 'category_parent',)
+        verbose_name_plural = _("Categories")
 
     # class MPTTMeta:
     #     order_insertion_by = ['category_name']
@@ -53,6 +55,8 @@ class CategoryPosation(SortableMixin):
 
     class Meta:
         ordering = ['category_posation_order']
+        verbose_name = _("Category Position")
+        verbose_name_plural = _("Category Positions")
 
 class CategoryData(SortableMixin):
     category_pos = SortableForeignKey(CategoryPosation,related_name='cat_data',null=True,blank=True, on_delete=models.CASCADE)

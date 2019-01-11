@@ -13,6 +13,7 @@ from django.utils.safestring import mark_safe
 from django.utils.text import slugify
 from django.dispatch import receiver
 from django.db.models.signals import pre_save, post_save
+from django.utils.translation import gettext_lazy as _
 
 SIZE_UNIT_CHOICES = (
         ('mm', 'Millimeter'),
@@ -92,6 +93,10 @@ class PackageSize(models.Model):
 
     def __str__(self):
         return self.pack_size_name
+
+    class Meta:
+        verbose_name = _("Package Size")
+        verbose_name_plural = _("Package Sizes")
 
 class Product(models.Model):
     product_name = models.CharField(max_length=255,validators=[ProductNameValidator])
@@ -221,6 +226,10 @@ class Tax(models.Model):
     def __str__(self):
         return self.tax_name
 
+    class Meta:
+        verbose_name = _("Tax")
+        verbose_name_plural = _("Taxes")
+
 class ProductTaxMapping(models.Model):
     product = models.ForeignKey(Product,related_name='product_pro_tax',on_delete=models.CASCADE)
     tax = models.ForeignKey(Tax,related_name='tax_pro_tax',on_delete=models.CASCADE)
@@ -250,6 +259,10 @@ class ProductCSV(models.Model):
 
     sample_file.allow_tags = True
 
+    class Meta:
+        verbose_name = _("Product CSV")
+        verbose_name_plural = _("Product CSVS")
+
 class ProductPriceCSV(models.Model):
     file = models.FileField(upload_to='products/price/')
     country = models.ForeignKey(Country,null=True,blank=True, on_delete=models.CASCADE)
@@ -260,6 +273,10 @@ class ProductPriceCSV(models.Model):
 
     def __str__(self):
         return '%s' % (self.file)
+
+    class Meta:
+        verbose_name = _("Product Price CSV")
+        verbose_name_plural = _("Product Price CSVS")
 
 class ProductVendorMapping(models.Model):
     vendor = models.ForeignKey(Vendor,related_name='vendor_brand_mapping',on_delete=models.CASCADE)

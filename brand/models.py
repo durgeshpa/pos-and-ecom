@@ -12,6 +12,7 @@ from django.dispatch import receiver
 from django.db.models.signals import post_save
 import datetime, csv, codecs, re
 from django.urls import reverse
+from django.utils.translation import ugettext_lazy as _
 
 VENDOR_REG_PAYMENT = (
     ("paid","Paid"),
@@ -98,6 +99,8 @@ class BrandPosition(SortableMixin):
 
     class Meta:
         ordering = ['brand_position_order']
+        verbose_name = _("Brand Position")
+        verbose_name_plural = _("Brand Positions")
 
 class BrandData(SortableMixin):
     slot = SortableForeignKey(BrandPosition,related_name='brand_data',null=True,blank=True, on_delete=models.CASCADE)
