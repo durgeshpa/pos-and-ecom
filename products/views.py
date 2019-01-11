@@ -234,31 +234,46 @@ def ProductsCSVUploadView(request):
                 for row in reader:
 
                     product_hsn_dt, _ = ProductHSN.objects.get_or_create(product_hsn_code=row[16])
-                    product = Product.objects.create(product_name=row[0],\
-                              product_short_description=row[1],\
-                              product_long_description = row[2],\
-                              product_gf_code = row[3],\
-                              product_ean_code = row[4],\
-                              product_brand_id=row[5], \
-                              product_inner_case_size=row[14], \
-                              product_hsn = product_hsn_dt,
-                              product_case_size=row[15])
+                    product,_ = Product.objects.get_or_create(product_gf_code = row[3])
+                    product.product_short_description=row[1]
+                    product.product_long_description = row[2]
+                    product.product_gf_code = row[3]
+                    product.product_ean_code = row[4]
+                    product.product_brand_id=row[5]
+                    product.product_inner_case_size=row[14]
+                    product.product_hsn = product_hsn_dt
+                    product.product_case_size=row[15]
+                    product.save()
 
                     for c in row[6].split(','):
                         if c is not '':
-                            ProductCategory.objects.create(product=product,\
-                                      category_id=c.strip())
+                            product_category,_ = ProductCategory.objects.get_or_create(product=product)
+                            product_category.category_id=c.strip()
+                            product_category.save()
 
-                    # product_category = ProductCategory.objects.bulk_create([ProductCategory(product=product,\
-                    #           category_id=c.strip()) for c in row[6].split(',') if c is not ''])
+                    productoptions,_ = ProductOption.objects.get_or_create(product=product)
+                    productoptions.size_id = row[8] if row[8] else None
+                    productoptions.color_id = row[9] if row[9] else None
+                    productoptions.fragrance_id = row[10] if row[10] else None
+                    productoptions.flavor_id = row[11] if row[11] else None
+                    productoptions.weight_id = row[12] if row[12] else None
+                    productoptions.package_size_id = row[13] if row[13] else None
+                    productoptions.save()
 
-                    productoptions = ProductOption.objects.create(product=product,size_id=row[8] if row[8] else None,\
-                            color_id=row[9] if row[9] else None,fragrance_id=row[10] if row[10] else None,\
-                            flavor_id=row[11] if row[11] else None,weight_id=row[12] if row[12] else None,\
-                            package_size_id=row[13] if row[13] else None)
+                    # productoptions = ProductOption.objects.create(product=product,size_id=row[8] if row[8] else None,\
+                    #         color_id=row[9] if row[9] else None,fragrance_id=row[10] if row[10] else None,\
+                    #         flavor_id=row[11] if row[11] else None,weight_id=row[12] if row[12] else None,\
+                    #         package_size_id=row[13] if row[13] else None)
 
-                    producttax = ProductTaxMapping.objects.bulk_create([ProductTaxMapping(product=product,\
-                                tax_id=t.strip()) for t in row[7].split(',') if t is not ''])
+                    # producttax = ProductTaxMapping.objects.bulk_create([ProductTaxMapping(product=product,\
+                    #             tax_id=t.strip()) for t in row[7].split(',') if t is not ''])
+
+                    for t in row[7].split(','):
+                        if t is not '':
+                            product_tax,_ = ProductTaxMapping.objects.get_or_create(product=product)
+                            product_tax.tax_id = t.strip()
+                            product_tax.save()
+
                 messages.success(request, 'Products uploaded successfully')
             except:
                 messages.error(request,"Something went wrong!")
