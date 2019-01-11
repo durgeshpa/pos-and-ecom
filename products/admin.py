@@ -13,7 +13,8 @@ from categories.models import Category
 from .views import (sp_sr_productprice, load_cities, load_sp_sr, export,
             load_brands, ProductsFilterView, ProductsPriceFilterView,
             ProductsUploadSample, ProductsCSVUploadView, GFProductPrice,
-            load_gf, products_export_for_vendor, products_vendor_mapping)
+            load_gf, products_export_for_vendor, products_vendor_mapping,
+            MultiPhotoUploadView)
 
 from dal import autocomplete
 from retailer_backend.admin import InputFilter
@@ -25,6 +26,11 @@ from admin_auto_filters.filters import AutocompleteFilter
 from .resources import (SizeResource, ColorResource, FragranceResource,
     FlavorResource, WeightResource, PackageSizeResource, ProductResource,
     ProductPriceResource, TaxResource)
+
+class ProductImageAdmin(admin.ModelAdmin):
+    readonly_fields = ['image_thumbnail']
+    search_fields = ['image', 'image_name']
+admin.site.register(ProductImage, ProductImageAdmin)
 
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
@@ -213,6 +219,7 @@ class ProductAdmin( admin.ModelAdmin, ExportCsvMixin):
             url(r'^ajax/load-brands/$', self.admin_site.admin_view(load_brands), name='ajax_load_brands'),
             url(r'^ajax/load-gf/$', self.admin_site.admin_view(load_gf), name='ajax_load_gf'),
             url(r'^products-export-for-vendor/$', self.admin_site.admin_view(products_export_for_vendor), name='products_export_for_vendor'),
+            url(r'^multiple-photos-upload/$', self.admin_site.admin_view(MultiPhotoUploadView.as_view()), name='multiple_photos_upload'),
             url(r'^products-vendor-mapping/(?P<pk>\d+)/$', self.admin_site.admin_view(products_vendor_mapping), name='products_vendor_mapping'),
 
         ] + urls

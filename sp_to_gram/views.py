@@ -42,8 +42,9 @@ class GfProductAutocomplete(autocomplete.Select2QuerySetView):
         if my_shop:
             parent_mapping = ParentRetailerMapping.objects.get(retailer__id=my_shop)
             grn_pro = GRNOrderProductMapping.objects.filter(grn_order__order__ordered_cart__gf_shipping_address__shop_name=parent_mapping.parent).annotate(Sum('available_qty'))
-            product = grn_pro.values('product')
-            qs = Product.objects.filter(id__in=[product])
+            product = grn_pro.values_list('product')
+            product = ProductPrice.objects.filter(product__in=product).values_list('product')
+            qs = Product.objects.filter(id__in=product)
 
         if self.q:
             qs = Product.objects.filter(shop_name__startswith=self.q)
@@ -68,15 +69,16 @@ class SpProductPrice(APIView):
         product_id =self.request.GET.get('product_id')
 
         parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id,status=True)
-        pro_price = ProductPrice.objects.filter(product__id=product_id,shop=parent_mapping.parent)
-        if pro_price.exists():
-            pro_price = pro_price.last()
-            service_partner_price = pro_price.price_to_service_partner
-            product_case_size = pro_price.product.product_case_size
-        else:
-            service_partner_price = ""
-            product_case_size = ""
-        return Response({"service_partner_price": service_partner_price, "product_case_size": product_case_size,"success": True})
+        pro_price = ProductPrice.objects.filter(product__id=product_id,shop=parent_mapping.parent).last()
+        service_partner_price = pro_price.price_to_service_partner
+        product_case_size = pro_price.product.product_case_size
+        product = Product.objects.get(pk = product_id)
+        return Response({"service_partner_price": service_partner_price,
+                "product_case_size": product_case_size,
+                "gf_code": product.product_gf_code,
+                "ean_number":product.product_ean_code,
+                "taxes":str([field.tax.tax_name for field in product.product_pro_tax.all()]),
+                "success": True})
 
 class DownloadPurchaseOrderSP(APIView):
     permission_classes = (AllowAny,)
