@@ -10,6 +10,8 @@ from django.db.models import Sum
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
+from wkhtmltopdf.views import PDFTemplateResponse
+from sp_to_gram.models import Cart
 
 
 # Create your views here.
@@ -81,18 +83,14 @@ class DownloadPurchaseOrderSP(APIView):
     """
     PDF Download object
     """
-    filename = 'purchase_order.pdf'
-    template_name = 'admin/purchase_order/purchase_order.html'
+    filename = 'purchase_order_sp.pdf'
+    template_name = 'admin/purchase_order/sp_purchase_order.html'
 
     def get(self, request, *args, **kwargs):
         order_obj = get_object_or_404(Cart, pk=self.kwargs.get('pk'))
-
-        #order_obj1= get_object_or_404(OrderedProductMapping)
-        pk=self.kwargs.get('pk')
-        a = Cart.objects.get(pk=pk)
-        shop =a
-        products = a.cart_list.all()
-        order= shop.order_cart_mapping.get(pk=pk)
+        #shop =order_obj
+        products = order_obj.sp_cart_list.all()
+        order= order_obj.sp_order_cart_mapping.last()
         order_id= order.order_no
         sum_qty = 0
         sum_amount=0
@@ -124,8 +122,7 @@ class DownloadPurchaseOrderSP(APIView):
                 sgst= (sum(gst_tax_list))/2
                 cess= sum(cess_tax_list)
                 surcharge= sum(surcharge_tax_list)
-                #tax_inline = tax_inline + (inline_sum_amount - original_amount)
-                #tax_inline1 =(tax_inline / 2)
+
             print(surcharge_tax_list)
             print(gst_tax_list)
             print(cess_tax_list)
@@ -133,14 +130,14 @@ class DownloadPurchaseOrderSP(APIView):
 
         total_amount = sum_amount
         print(sum_amount)
-        # print (tax_inline)
-        # print (tax_inline1)
-        data = {"object": order_obj,"products":products, "shop":shop, "sum_qty": sum_qty, "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" , "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,"order_id":order_id}
-        # for m in products:
-        #     data = {"object": order_obj,"products":products,"amount_inline": m.qty * m.price }
-        #     print (data)
+
+        data = {"object": order_obj,"products":products, "shop":order_obj, "sum_qty": sum_qty, "sum_amount":sum_amount,
+                "url":request.get_host(), "scheme": request.is_secure() and "https" or "http" , "igst":igst, "cgst":cgst,
+                "sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,"order_id":order_id}
+        for m in products:
+            data = {"object": order_obj,"products":products,"amount_inline": m.qty * m.price }
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
-        response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
-                                       context=data, show_content_in_browser=False, cmd_options=cmd_option)
+        response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,context=data, show_content_in_browser=False, cmd_options=cmd_option)
         return response
+
