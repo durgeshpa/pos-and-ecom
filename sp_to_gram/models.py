@@ -78,6 +78,23 @@ class CartProductMapping(models.Model):
     def __str__(self):
         return self.cart_product.product_name
 
+    @property
+    def gf_code(self):
+        return self.cart_product.product_gf_code
+
+    @property
+    def ean_number(self):
+        if self.cart_product.product_ean_code:
+            return self.cart_product.product_ean_code
+        return str("-")
+
+    @property
+    def taxes(self):
+        taxes = [field.tax.tax_name for field in self.cart_product.product_pro_tax.all()]
+        if not taxes:
+            return str("-")
+        return taxes
+
 class Order(models.Model):
     #shop = models.ForeignKey(Shop, related_name='sp_shop_order',null=True,blank=True,on_delete=models.CASCADE)
     ordered_cart = models.ForeignKey(Cart,related_name='sp_order_cart_mapping',on_delete=models.CASCADE)

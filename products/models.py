@@ -239,6 +239,8 @@ class ProductTaxMapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
+    def __str__(self):
+        return self.tax.tax_name
 # class ProductSurcharge(models.Model):
 #     product = models.ForeignKey(Product, related_name='product_pro_surcharge',on_delete=models.CASCADE)
 #     surcharge_name = models.CharField(max_length=255, validators=[NameValidator])

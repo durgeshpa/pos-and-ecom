@@ -10,10 +10,13 @@ from django.urls import reverse
 
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
+    fields = ('cart_product','gf_code','ean_number','taxes','case_size','number_of_cases','scheme','price','total_price',)
+    readonly_fields = ('gf_code','ean_number','taxes',)
     autocomplete_fields = ('cart_product',)
     search_fields =('cart_product',)
     form = CartProductMappingForm
 
+#admin.site.register(CartProductMapping, CartProductMappingAdmin)
 class CartAdmin(admin.ModelAdmin):
     template = 'admin/sp_to_gram/cart/change_form.html'
     inlines = [CartProductMappingAdmin]

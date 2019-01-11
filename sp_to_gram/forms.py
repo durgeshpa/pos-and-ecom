@@ -13,17 +13,26 @@ from django.core.exceptions import ValidationError
 import datetime, csv, codecs, re
 
 class CartProductMappingForm(forms.ModelForm):
-
     cart_product = forms.ModelChoiceField(
         queryset=Product.objects.all(),
         widget=autocomplete.ModelSelect2(url='gf-product-autocomplete', forward=('shop',))
     )
 
+    gf_code = forms.CharField(disabled=True, required=False)
+    ean_number = forms.CharField(disabled=True, required=False)
+    taxes = forms.CharField(disabled=True, required=False)
+
     class Meta:
         model = CartProductMapping
-        fields = ('cart_product','case_size','number_of_cases','qty','scheme','price','total_price',)
-        search_fields=('cart_product',)
+        #search_fields=('cart_product',)
+        fields= '__all__'
         exclude = ('qty',)
+
+    def save(self, commit=True):
+        # gf_code = self.cleaned_data.pop('gf_code')
+        # ean_number = self.cleaned_data.pop('ean_number')
+        # taxes = self.cleaned_data.pop('taxes')
+        return super(CartProductMappingForm, self).save(commit=commit)
 
 class OrderForm(forms.ModelForm):
 #
@@ -53,5 +62,3 @@ class POGenerationForm(forms.ModelForm):
     class Meta:
         model = Cart
         fields = ('shop','po_validity_date','payment_term','delivery_term')
-
-
