@@ -98,6 +98,11 @@ class PackageSize(models.Model):
         verbose_name = _("Package Size")
         verbose_name_plural = _("Package Sizes")
 
+class ProductHSN(models.Model):
+    product_hsn_code = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
 class Product(models.Model):
     product_name = models.CharField(max_length=255,validators=[ProductNameValidator])
     product_slug = models.SlugField(max_length=255)
@@ -106,8 +111,8 @@ class Product(models.Model):
     product_sku = models.CharField(max_length=255, blank=False, unique=True)
     product_gf_code = models.CharField(max_length=255, blank=False, unique=True)
     product_ean_code = models.CharField(max_length=255, blank=True)
+    product_hsn = models.ForeignKey(ProductHSN,related_name='product_hsn',null=True,blank=True,on_delete=models.CASCADE)
     product_brand = models.ForeignKey(Brand,related_name='prodcut_brand_product',blank=False,on_delete=models.CASCADE)
-    #hsn_code = models.PositiveIntegerField(null=True,blank=True,validators=[EanCodeValidator])
     product_inner_case_size = models.CharField(max_length=255,blank=False, default=1)
     product_case_size = models.CharField(max_length=255,blank=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -310,3 +315,4 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
     product = Product.objects.get(pk=instance.product_id)
     product.product_sku="%s%s%s%s"%(cat_sku_code,parent_cat_sku_code,brand_sku_code,last_sku_increment)
     product.save()
+
