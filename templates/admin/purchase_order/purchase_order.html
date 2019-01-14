@@ -168,7 +168,7 @@ table tr td,th,h4,span,address{
 										  {% for h in m.cart_product.product_pro_price.all %}
 										<td class="text-center">{{ h.mrp}}</td>
 										  {% endfor %}
-    								<td class="text-center">{{ m.cart_product.product_ean_code}}</td>
+    								<td class="text-center">{{ m.cart_product.product_hsn}}</td>
 										   {% for n in m.cart_product.product_pro_tax.all %}
 											 		{% if n.tax.tax_type == 'gst' %}
 		    										<td class="text-center">{{n.tax.tax_percentage}}%</td>
