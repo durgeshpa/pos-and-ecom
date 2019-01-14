@@ -172,6 +172,13 @@ class OrderedProductMapping(models.Model):
             ("warehouse_shipment", "Can Warehouse Shipment"),
         )
 
+    def clean(self):
+        if self.manufacture_date :
+            if self.manufacture_date >= datetime.date.today():
+                raise ValidationError(_("Manufactured Date cannot be greater than or equal to today's date"))
+            elif self.expiry_date < self.manufacture_date:
+                raise ValidationError(_("Expiry Date cannot be less than manufacture date"))
+
 class OrderedProductReserved(models.Model):
     RESERVED = "reserved"
     ORDERED = "ordered"
