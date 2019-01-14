@@ -77,10 +77,10 @@ class CartProductMapping(models.Model):
     class Meta:
         verbose_name = "Select Product"
 
-    # def clean(self):
-    #     if self.number_of_cases:
-    #          self.total_price= self.case_size * self.number_of_cases * self.price
-    #          self.qty = self.case_size * self.number_of_cases
+    def clean(self):
+        if self.number_of_cases:
+             self.qty = int(self.cart_product.product_inner_case_size) * int(self.case_size) * int(self.number_of_cases)
+             self.total_price= float(self.qty) * self.price
 
     def __str__(self):
         return self.cart_product.product_name
