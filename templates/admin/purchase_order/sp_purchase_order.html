@@ -45,26 +45,26 @@ table tr td,th,h4,span,address{
 						<span>Invoice To :</span><br>
     				<strong>{{order.billing_address.shop_name}}</strong><br>
     				{{order.billing_address.nick_name}}, {{order.billing_address.address_line1}}, {{order.billing_address.city}}<br>
-						<strong>GSTIN/UIN:</strong> <span>dfsfds</span><br>
+						<strong>GSTIN/UIN:</strong> <span>{% if shop_gstin %}{{ shop_gstin }}{% else %} ---- {% endif %}</span><br>
 						<strong>State Name:</strong> <span>{{order.billing_address.state}} </span><strong>Code:</strong> <span>{{order.billing_address.pincode}}</span><br>
 						<strong>CIN:</strong> <span>09AAQCA9570J1ZW</span>
     				</address>
 
 					<address>
 						<span>Dispatch To :</span><br>
-    				<strong>{{shop.gf_shipping_address.shop_name}}</strong><br>
-    				{{shop.gf_shipping_address.nick_name}}, {{shop.gf_shipping_address.address_line1}}, {{shop.gf_shipping_address.city}}<br>
-						<strong>GSTIN/UIN:</strong> <span>09AAQCA9570J1ZW</span><br>
-						<strong>State Name:</strong> <span>{{shop.gf_shipping_address.state}} </span><strong>Code:</strong> <span>{{shop.gf_shipping_address.pincode}}</span><br>
+    				<strong>{{order.shipping_address.shop_name}}</strong><br>
+    				{{order.shipping_address.nick_name}}, {{order.shipping_address.address_line1}}, {{order.shipping_address.city}}<br>
+						<strong>GSTIN/UIN:</strong> <span>{% if shop_gstin %}{{ shop_gstin }}{% else %} ---- {% endif %}</span><br>
+						<strong>State Name:</strong> <span>{{order.shipping_address.state}} </span><strong>Code:</strong> <span>{{order.shipping_address.pincode}}</span><br>
 						<strong>CIN:</strong> <span>09AAQCA9570J1ZW</span>
     				</address>
 					<address>
-						<span>Party :</span><br>
-    				<strong>{{shop.supplier_name.vendor_name}}</strong><br>
-    				{{shop.supplier_name.company_name}}, {{shop.supplier_name.city}}<br>
-						<strong>GSTIN/UIN:</strong> <span>{{shop.supplier_name.GST_number}}</span><br>
-						<strong>State Name:</strong> <span>{{shop.supplier_name.state}} </span><strong>Code:</strong> <span>{{shop.supplier_name.pincode}}</span><br>
-						<strong>CIN:</strong> <span>09AAQCA9570J1ZW</span>
+						<span>GramFactory :</span><br>
+    				<strong>{{gram_factory}}</strong><br>
+						{{gram_factory_address.nick_name}}, {{gram_factory_address.address_line1}}, {{gram_factory_address.city}}<br>
+						<strong>GSTIN/UIN:</strong> <span>{% if gram_factory_gstin %}{{ gram_factory_gstin }}{% else %} ---- {% endif %}</span><br>
+						<strong>State Name:</strong> <span>{{gram_factory_address.state}} </span><strong>Code:</strong> <span>{{gram_factory_address.pincode}}</span><br>
+						<!-- <strong>CIN:</strong> <span>09AAQCA9570J1ZW</span> -->
     				</address>
     			</div>
     			<div class="col-xs-6 text-right">

@@ -96,7 +96,13 @@ class DownloadPurchaseOrderSP(APIView):
         shop =a
         products = a.sp_cart_list.all()
         order= shop.sp_order_cart_mapping.last()
+        gram_factory = shop.shop.retiler_mapping.filter(status=True).last().parent
+        gram_factory_address = gram_factory.shop_name_address_mapping.filter(address_type='shipping').last()
         order_id= order.order_no
+        shop_gstin = shop.shop.shop_name_documents.filter(shop_document_type='gstin').last().shop_document_number
+        gram_factory_gstin = ""
+        if gram_factory.shop_name_documents.exists():
+            gram_factory_gstin = gram_factory.shop_name_documents.filter(shop_document_type='gstin').last().shop_document_number
         sum_qty = 0
         sum_amount=0
         tax_inline=0
@@ -137,7 +143,7 @@ class DownloadPurchaseOrderSP(APIView):
         total_amount = sum_amount
         print(sum_amount)
 
-        data = {"object": order_obj,"products":products, "shop":shop, "sum_qty": sum_qty, "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" , "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,"order_id":order_id}
+        data = {"object": order_obj,"products":products, "shop":shop, "sum_qty": sum_qty, "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" , "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,"order_id":order_id,"order":order,"gram_factory":gram_factory,"gram_factory_address":gram_factory_address,"shop_gstin":shop_gstin,"gram_factory_gstin":gram_factory_gstin}
         # for m in products:
         #     data = {"object": order_obj,"products":products,"amount_inline": m.qty * m.price }
         #     print (data)
