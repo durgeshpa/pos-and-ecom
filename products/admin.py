@@ -525,3 +525,10 @@ class ProductPriceCSVAdmin(admin.ModelAdmin):
                      price_to_service_partner=kwargs.get('service_partner_price'))
 
 admin.site.register(ProductPriceCSV, ProductPriceCSVAdmin)
+
+class ProductHSNAdmin(admin.ModelAdmin, ExportCsvMixin):
+    fields= ['product_hsn_code']
+    list_display= ['product_hsn_code']
+    actions = ["export_as_csv"]
+
+admin.site.register(ProductHSN, ProductHSNAdmin)
