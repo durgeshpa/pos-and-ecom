@@ -6,14 +6,16 @@ from brand.models import Brand
 from django.contrib.auth import get_user_model
 from addresses.models import Address
 from products.models import Product
-from datetime import datetime, timedelta
+from datetime import timedelta
 from django.utils import timezone
 from django.conf import settings
 from retailer_to_sp.models import Cart as RetailerCart
 from addresses.models import Address,City,State
 from django.dispatch import receiver
 from django.db.models.signals import pre_save, post_save
-
+from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
+import datetime
 
 ORDER_STATUS = (
     ("ordered_to_gram","Ordered To Gramfactory"),
@@ -42,6 +44,10 @@ class Cart(models.Model):
 
     def __str__(self):
         return self.po_no
+
+    def clean(self):
+        if self.po_validity_date and self.po_validity_date < datetime.date.today():
+            raise ValidationError(_("Po validity date cannot be in the past!"))
 
     class Meta:
         verbose_name = "PO Generation"
