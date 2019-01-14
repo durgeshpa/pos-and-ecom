@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from wkhtmltopdf.views import PDFTemplateResponse
-from sp_to_gram.models import Cart
+from sp_to_gram.models import Cart,CartProductMapping,Order
 
 
 # Create your views here.
@@ -143,3 +143,13 @@ class DownloadPurchaseOrderSP(APIView):
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,context=data, show_content_in_browser=False, cmd_options=cmd_option)
         return response
 
+class OrderedProductAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = None
+        order = self.forwarded.get('order', None)
+        if order:
+            qs = Order.objects.get(id=order)
+            cart_product = qs.ordered_cart.sp_cart_list.all()
+            cart_products =  cart_product.values('cart_product')
+            qs = Product.objects.filter(id__in=[cart_products])
+        return qs
