@@ -43,10 +43,10 @@ table tr td,th,h4,span,address{
     			<div class="col-xs-6">
     				<address>
 						<span>Invoice To :</span><br>
-    				<strong>{{shop.gf_billing_address.shop_name}}</strong><br>
-    				{{shop.gf_billing_address.nick_name}}, {{shop.gf_billing_address.address_line1}}, {{shop.gf_billing_address.city}}<br>
+    				<strong>{{order.billing_address.shop_name}}</strong><br>
+    				{{order.billing_address.nick_name}}, {{order.billing_address.address_line1}}, {{order.billing_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>dfsfds</span><br>
-						<strong>State Name:</strong> <span>{{shop.gf_billing_address.state}} </span><strong>Code:</strong> <span>{{shop.gf_billing_address.pincode}}</span><br>
+						<strong>State Name:</strong> <span>{{order.billing_address.state}} </span><strong>Code:</strong> <span>{{order.billing_address.pincode}}</span><br>
 						<strong>CIN:</strong> <span>09AAQCA9570J1ZW</span>
     				</address>
 
@@ -201,7 +201,7 @@ table tr td,th,h4,span,address{
     								<td class="thick-line text-center"><strong></strong></td>
     								<td class="thick-line text-right"><strong>₹{{sum_amount | intcomma }}/-</strong></td>
     							</tr>
-									{% if shop.supplier_state == shop.gf_shipping_address.state %}
+									{% if shop.shop.shop_name_address_mapping.all == shop.sp_order_cart_mapping.last.billing_address %}
     							<tr>
 
 									<td class="no-line"></td>
