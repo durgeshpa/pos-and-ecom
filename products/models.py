@@ -26,6 +26,8 @@ WEIGHT_UNIT_CHOICES = (
         ('kg', 'Kilogram'),
         ('gm', 'Gram'),
         ('mg', 'Milligram'),
+        ('l', 'Litre'),
+        ('ml', 'Milliliter'),
     )
 
 class Size(models.Model):
@@ -99,6 +101,7 @@ class PackageSize(models.Model):
         verbose_name_plural = _("Package Sizes")
 
 class ProductHSN(models.Model):
+    #product_hsn_name= models.CharField(max_length=255, null=True, blank=True)
     product_hsn_code = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -331,4 +334,3 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
     product = Product.objects.get(pk=instance.product_id)
     product.product_sku="%s%s%s%s"%(cat_sku_code,parent_cat_sku_code,brand_sku_code,last_sku_increment)
     product.save()
-

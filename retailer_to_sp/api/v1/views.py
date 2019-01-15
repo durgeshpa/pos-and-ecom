@@ -525,7 +525,7 @@ class CreateOrder(APIView):
                 cart.save()
 
                 if OrderedProductReserved.objects.filter(cart=cart).exists():
-                    order = Order.objects.get_or_create(last_modified_by=request.user,ordered_by=request.user, ordered_cart=cart, order_no=cart.order_id)
+                    order,_ = Order.objects.get_or_create(last_modified_by=request.user,ordered_by=request.user, ordered_cart=cart, order_no=cart.order_id)
 
                     order.billing_address = billing_address
                     order.shipping_address = shipping_address

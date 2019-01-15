@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping,OrderedProductReserved
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
-from .forms import CartProductMappingForm,POGenerationForm
+from .forms import CartProductMappingForm,POGenerationForm, OrderedProductMappingForm
 from retailer_backend.filters import BrandFilter,SupplierFilter,POAmountSearch,PORaisedBy
 from daterange_filter.filter import DateRangeFilter
 from django.utils.html import format_html
@@ -45,6 +45,7 @@ admin.site.register(Order,OrderAdmin)
 
 class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping
+    form = OrderedProductMappingForm
     exclude = ('last_modified_by','ordered_qty','available_qty','reserved_qty')
 
     warehouse_user_fieldset = ['product', 'manufacture_date', 'expiry_date','shipped_qty',]
