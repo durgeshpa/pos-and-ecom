@@ -31,8 +31,8 @@ class EmailAddress(models.Model):
     objects = EmailAddressManager()
 
     class Meta:
-        verbose_name = _("email address")
-        verbose_name_plural = _("email addresses")
+        verbose_name = _("E-Mail Address")
+        verbose_name_plural = _("E-Mail Addresses")
         if not app_settings.UNIQUE_EMAIL:
             unique_together = [("user", "email")]
 

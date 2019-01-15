@@ -284,8 +284,8 @@ class ProductsCSVUploadForm(forms.Form):
                 raise ValidationError(_("PRODUCT_GF_CODE required at Row[%(value)s]."), params={'value': id+1},)
             if row[3]:
                 product_gf = Product.objects.filter(product_gf_code=row[3])
-                if product_gf:
-                    raise ValidationError(_("PRODUCT_GF_CODE should be unique at Row[%(value)s]."), params={'value': id+1},)
+                # if product_gf:
+                #     raise ValidationError(_("PRODUCT_GF_CODE should be unique at Row[%(value)s]."), params={'value': id+1},)
             # if not row[4] or not re.match("^\d{13}$", row[4]):
             #     raise ValidationError(_("INVALID_PRODUCT_EAN_CODE at Row[%(value)s]. Exactly 13 numbers required"), params={'value': id+1},)
 

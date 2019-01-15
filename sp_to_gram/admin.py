@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping,OrderedProductReserved
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
-from .forms import CartProductMappingForm,POGenerationForm
+from .forms import CartProductMappingForm,POGenerationForm, OrderedProductMappingForm
 from retailer_backend.filters import BrandFilter,SupplierFilter,POAmountSearch,PORaisedBy
 from daterange_filter.filter import DateRangeFilter
 from django.utils.html import format_html
@@ -22,14 +22,13 @@ class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     exclude = ('po_no', 'po_status', 'last_modified_by')
     #autocomplete_fields = ('brand',)
-    list_display = ('po_no', 'po_creation_date', 'po_validity_date', 'po_amount', 'po_raised_by', 'po_status')
+    list_display = ('po_no', 'po_creation_date', 'po_validity_date', 'po_amount', 'po_raised_by', 'po_status', 'download_purchase_order')
     list_filter = [('po_creation_date', DateRangeFilter),
                    ('po_validity_date', DateRangeFilter), POAmountSearch, PORaisedBy]
     form = POGenerationForm
 
     def download_purchase_order(self, obj):
-        if obj.is_approve:
-            return format_html("<a href= '%s' >Download PO</a>" % (reverse('download_purchase_order_sp', args=[obj.pk])))
+        return format_html("<a href= '%s' >Download PO</a>" % (reverse('download_purchase_order_sp', args=[obj.pk])))
     download_purchase_order.short_description = 'Download Purchase Order'
 
     class Media:
@@ -46,6 +45,7 @@ admin.site.register(Order,OrderAdmin)
 
 class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping
+    form = OrderedProductMappingForm
     exclude = ('last_modified_by','ordered_qty','available_qty','reserved_qty')
 
     warehouse_user_fieldset = ['product', 'manufacture_date', 'expiry_date','shipped_qty',]

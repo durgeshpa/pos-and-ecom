@@ -2,6 +2,7 @@ from django.db import models
 from retailer_backend.validators import (NameValidator, AddressNameValidator,
         MobileNumberValidator, PinCodeValidator)
 from shops.models import Shop
+from django.utils.translation import ugettext_lazy as _
 
 address_type_choices = (
     ("billing","Billing"),
@@ -17,6 +18,9 @@ class Country(models.Model):
 
     def __str__(self):
         return self.country_name
+
+    class Meta:
+        verbose_name_plural = _("Countries")
 
 class State(models.Model):
     country = models.ForeignKey(Country,related_name='country_state',null=True,blank=True,on_delete=models.CASCADE)
@@ -38,6 +42,9 @@ class City(models.Model):
 
     def __str__(self):
         return self.city_name
+
+    class Meta:
+        verbose_name_plural = _("Cities")
 
 class Area(models.Model):
     city = models.ForeignKey(City, related_name='city_area', null=True, blank=True, on_delete=models.CASCADE)
@@ -81,3 +88,7 @@ class InvoiceCityMapping(models.Model):
 
     def __str__(self):
         return self.city_code
+
+    class Meta:
+        verbose_name = _("Invoice City Mapping")
+        verbose_name_plural = _("Invoice City Mappings")

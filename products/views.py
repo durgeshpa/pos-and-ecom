@@ -13,6 +13,7 @@ from django.contrib import messages
 import csv, codecs, datetime
 from brand.models import Brand
 from categories.models import Category
+from products.models import Product, ProductCategory, ProductOption, ProductTaxMapping, ProductVendorMapping,ProductHSN
 from products.models import (Product, ProductCategory, ProductOption,
     ProductTaxMapping, ProductVendorMapping, ProductImage)
 from django.core.exceptions import ValidationError
@@ -236,30 +237,48 @@ def ProductsCSVUploadView(request):
             first_row = next(reader)
             try:
                 for row in reader:
-                    product = Product.objects.create(product_name=row[0],\
-                              product_short_description=row[1],\
-                              product_long_description = row[2],\
-                              product_gf_code = row[3],\
-                              product_ean_code = row[4],\
-                              product_brand_id=row[5],\
-                              product_inner_case_size=row[14],\
-                              product_case_size=row[15])
+
+                    product_hsn_dt, _ = ProductHSN.objects.get_or_create(product_hsn_code=row[16])
+                    product,_ = Product.objects.get_or_create(product_gf_code = row[3])
+                    product.product_short_description=row[1]
+                    product.product_long_description = row[2]
+                    product.product_gf_code = row[3]
+                    product.product_ean_code = row[4]
+                    product.product_brand_id=row[5]
+                    product.product_inner_case_size=row[14]
+                    product.product_hsn = product_hsn_dt
+                    product.product_case_size=row[15]
+                    product.save()
 
                     for c in row[6].split(','):
                         if c is not '':
-                            ProductCategory.objects.create(product=product,\
-                                      category_id=c.strip())
+                            product_category,_ = ProductCategory.objects.get_or_create(product=product)
+                            product_category.category_id=c.strip()
+                            product_category.save()
 
-                    # product_category = ProductCategory.objects.bulk_create([ProductCategory(product=product,\
-                    #           category_id=c.strip()) for c in row[6].split(',') if c is not ''])
+                    productoptions,_ = ProductOption.objects.get_or_create(product=product)
+                    productoptions.size_id = row[8] if row[8] else None
+                    productoptions.color_id = row[9] if row[9] else None
+                    productoptions.fragrance_id = row[10] if row[10] else None
+                    productoptions.flavor_id = row[11] if row[11] else None
+                    productoptions.weight_id = row[12] if row[12] else None
+                    productoptions.package_size_id = row[13] if row[13] else None
+                    productoptions.save()
 
-                    productoptions = ProductOption.objects.create(product=product,size_id=row[8] if row[8] else None,\
-                            color_id=row[9] if row[9] else None,fragrance_id=row[10] if row[10] else None,\
-                            flavor_id=row[11] if row[11] else None,weight_id=row[12] if row[12] else None,\
-                            package_size_id=row[13] if row[13] else None)
+                    # productoptions = ProductOption.objects.create(product=product,size_id=row[8] if row[8] else None,\
+                    #         color_id=row[9] if row[9] else None,fragrance_id=row[10] if row[10] else None,\
+                    #         flavor_id=row[11] if row[11] else None,weight_id=row[12] if row[12] else None,\
+                    #         package_size_id=row[13] if row[13] else None)
 
-                    producttax = ProductTaxMapping.objects.bulk_create([ProductTaxMapping(product=product,\
-                                tax_id=t.strip()) for t in row[7].split(',') if t is not ''])
+                    # producttax = ProductTaxMapping.objects.bulk_create([ProductTaxMapping(product=product,\
+                    #             tax_id=t.strip()) for t in row[7].split(',') if t is not ''])
+
+                    for t in row[7].split(','):
+                        if t is not '':
+                            product_tax,_ = ProductTaxMapping.objects.get_or_create(product=product)
+                            product_tax.tax_id = t.strip()
+                            product_tax.save()
+
                 messages.success(request, 'Products uploaded successfully')
             except:
                 messages.error(request,"Something went wrong!")
@@ -342,8 +361,8 @@ def ProductsUploadSample(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(['product_name','product_short_description','product_long_description','product_gf_code','product_ean_code','p_brand_id','p_cat_id','p_tax_id','p_size_id','p_color_id','p_fragrance_id','p_flavor_id','p_weight_id','p_package_size_id','p_inner_case_size','p_case_size'])
-    writer.writerow(['fortune sunflowers oil','Fortune Sun Lite Refined Sunflower Oil is a healthy','Fortune Sun Lite Refined Sunflower Oil is a healthy, light and nutritious oil that is simple to digest. Rich in natural vitamins, it consists mostly of poly-unsaturated fatty acids (PUFA) and is low in soaked fats. It is strong and makes you feel light and active level after heavy food.','12BBPRG00000121','1234567890123','1','1','1','1','1','1','1','1','1','4','2'])
+    writer.writerow(['product_name','product_short_description','product_long_description','product_gf_code','product_ean_code','p_brand_id','p_cat_id','p_tax_id','p_size_id','p_color_id','p_fragrance_id','p_flavor_id','p_weight_id','p_package_size_id','p_inner_case_size','p_case_size','product_hsn_code'])
+    writer.writerow(['fortune sunflowers oil','Fortune Sun Lite Refined Sunflower Oil is a healthy','Fortune Sun Lite Refined Sunflower Oil is a healthy, light and nutritious oil that is simple to digest. Rich in natural vitamins, it consists mostly of poly-unsaturated fatty acids (PUFA) and is low in soaked fats. It is strong and makes you feel light and active level after heavy food.','12BBPRG00000121','1234567890123','1','1','1','1','1','1','1','1','1','4','2','HSN Code'])
     return response
 
 def NameIDCSV(request):

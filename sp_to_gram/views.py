@@ -10,6 +10,8 @@ from django.db.models import Sum
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
+from wkhtmltopdf.views import PDFTemplateResponse
+from sp_to_gram.models import Cart,CartProductMapping,Order
 
 
 # Create your views here.
@@ -83,19 +85,24 @@ class DownloadPurchaseOrderSP(APIView):
     """
     PDF Download object
     """
-    filename = 'purchase_order.pdf'
-    template_name = 'admin/purchase_order/purchase_order.html'
+    filename = 'purchase_order_sp.pdf'
+    template_name = 'admin/purchase_order/sp_purchase_order.html'
 
     def get(self, request, *args, **kwargs):
         order_obj = get_object_or_404(Cart, pk=self.kwargs.get('pk'))
-
-        #order_obj1= get_object_or_404(OrderedProductMapping)
+        #shop =order_obj
         pk=self.kwargs.get('pk')
         a = Cart.objects.get(pk=pk)
         shop =a
-        products = a.cart_list.all()
-        order= shop.order_cart_mapping.get(pk=pk)
+        products = a.sp_cart_list.all()
+        order= shop.sp_order_cart_mapping.last()
+        gram_factory = shop.shop.retiler_mapping.filter(status=True).last().parent
+        gram_factory_address = gram_factory.shop_name_address_mapping.filter(address_type='shipping').last()
         order_id= order.order_no
+        shop_gstin = shop.shop.shop_name_documents.filter(shop_document_type='gstin').last()
+        gram_factory_gstin = ""
+        if gram_factory.shop_name_documents.exists():
+            gram_factory_gstin = gram_factory.shop_name_documents.filter(shop_document_type='gstin').last()
         sum_qty = 0
         sum_amount=0
         tax_inline=0
@@ -135,14 +142,31 @@ class DownloadPurchaseOrderSP(APIView):
 
         total_amount = sum_amount
         print(sum_amount)
-        # print (tax_inline)
-        # print (tax_inline1)
-        data = {"object": order_obj,"products":products, "shop":shop, "sum_qty": sum_qty, "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" , "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,"order_id":order_id}
+
+        data = {"object": order_obj,"products":products, "shop":shop, "sum_qty": sum_qty, "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" , "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,"order_id":order_id,"order":order,"gram_factory":gram_factory,"gram_factory_address":gram_factory_address,"shop_gstin":shop_gstin,"gram_factory_gstin":gram_factory_gstin}
         # for m in products:
         #     data = {"object": order_obj,"products":products,"amount_inline": m.qty * m.price }
         #     print (data)
-        cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
+
+        #cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
+                      #"no-stop-slow-scripts": True, "quiet": True}
+
+
+        cmd_option = {"encoding":"utf8","margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
+        cmd_option = {'encoding':'utf8','margin-top': 3}
+
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         return response
+
+class OrderedProductAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = None
+        order = self.forwarded.get('order', None)
+        if order:
+            qs = Order.objects.get(id=order)
+            cart_product = qs.ordered_cart.sp_cart_list.all()
+            cart_products =  cart_product.values('cart_product')
+            qs = Product.objects.filter(id__in=[cart_products])
+        return qs

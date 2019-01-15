@@ -1,7 +1,7 @@
 from django import forms
 from django.forms import ModelForm
 from shops.models import Shop,ShopType
-from .models import Order, Cart, CartProductMapping
+from .models import Order, Cart, CartProductMapping,OrderedProductMapping
 from brand.models import Brand
 from dal import autocomplete
 from django_select2.forms import Select2MultipleWidget,ModelSelect2Widget
@@ -33,6 +33,18 @@ class CartProductMappingForm(forms.ModelForm):
         # ean_number = self.cleaned_data.pop('ean_number')
         # taxes = self.cleaned_data.pop('taxes')
         return super(CartProductMappingForm, self).save(commit=commit)
+
+class OrderedProductMappingForm(forms.ModelForm):
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(url='ordered-product-autocomplete', forward=('order',))
+    )
+
+    class Meta:
+        model = OrderedProductMapping
+        #search_fields=('cart_product',)
+        fields= '__all__'
+        
 
 class OrderForm(forms.ModelForm):
 #
