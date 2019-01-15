@@ -1,0 +1,19 @@
+
+
+header {
+  padding: 54px 0 100px;
+}
+
+@media (min-width: 992px) {
+  header {
+    padding: 156px 0 100px;
+  }
+}
+.bg-primary {
+
+    background-color: #c5c6c8 !important;
+
+}
+section {
+  padding: 150px 0;
+}
