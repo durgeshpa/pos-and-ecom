@@ -13,7 +13,8 @@ from categories.models import Category
 from .views import (sp_sr_productprice, load_cities, load_sp_sr, export,
             load_brands, ProductsFilterView, ProductsPriceFilterView,
             ProductsUploadSample, ProductsCSVUploadView, GFProductPrice,
-            load_gf, products_export_for_vendor, products_vendor_mapping)
+            load_gf, products_export_for_vendor, products_vendor_mapping,
+            MultiPhotoUploadView)
 
 from dal import autocomplete
 from retailer_backend.admin import InputFilter
@@ -21,10 +22,33 @@ from django.db.models import Q
 from daterange_filter.filter import DateRangeFilter
 from admin_auto_filters.filters import AutocompleteFilter
 
-from import_export.admin import ExportActionMixin
+
 from .resources import (SizeResource, ColorResource, FragranceResource,
     FlavorResource, WeightResource, PackageSizeResource, ProductResource,
     ProductPriceResource, TaxResource)
+
+class ProductImageAdmin(admin.ModelAdmin):
+    readonly_fields = ['image_thumbnail']
+    search_fields = ['image', 'image_name']
+admin.site.register(ProductImage, ProductImageAdmin)
+
+class ExportCsvMixin:
+    def export_as_csv(self, request, queryset):
+
+        meta = self.model._meta
+        field_names = [field.name for field in meta.fields]
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+
+        writer.writerow(field_names)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in field_names])
+
+        return response
+
+    export_as_csv.short_description = "Download CSV of Selected Objects"
 
 class BrandFilter(AutocompleteFilter):
     title = 'Brand' # display title
@@ -43,41 +67,48 @@ class ProductVendorMappingAdmin(admin.ModelAdmin):
     list_display = ('vendor','product','product_price')
 admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)
 
-class SizeAdmin(ExportActionMixin, admin.ModelAdmin):
+class SizeAdmin( admin.ModelAdmin,  ExportCsvMixin):
     resource_class = SizeResource
+    actions = ["export_as_csv"]
     prepopulated_fields = {'size_name': ('size_value','size_unit')}
     search_fields = ['size_name']
 admin.site.register(Size, SizeAdmin)
 
-class FragranceAdmin(ExportActionMixin, admin.ModelAdmin):
+class FragranceAdmin( admin.ModelAdmin, ExportCsvMixin):
     resource_class = FragranceResource
+    actions = ["export_as_csv"]
     search_fields = ['fragrance_name']
 admin.site.register(Fragrance, FragranceAdmin)
 
-class FlavorAdmin(ExportActionMixin, admin.ModelAdmin):
+class FlavorAdmin( admin.ModelAdmin, ExportCsvMixin):
     resource_class = FlavorResource
+    actions = ["export_as_csv"]
     search_fields = ['flavor_name']
 admin.site.register(Flavor,FlavorAdmin)
 
-class ColorAdmin(ExportActionMixin, admin.ModelAdmin):
+class ColorAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ColorResource
+    actions = ["export_as_csv"]
     search_fields = ['color_name']
 admin.site.register(Color,ColorAdmin)
 
-class PackageSizeAdmin(ExportActionMixin, admin.ModelAdmin):
+class PackageSizeAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = PackageSizeResource
+    actions = ["export_as_csv"]
     prepopulated_fields = {'pack_size_name': ('pack_size_value','pack_size_unit')}
     search_fields = ['pack_size_name']
 admin.site.register(PackageSize, PackageSizeAdmin)
 
-class WeightAdmin(ExportActionMixin, admin.ModelAdmin):
+class WeightAdmin( admin.ModelAdmin, ExportCsvMixin):
     resource_class = WeightResource
+    actions = ["export_as_csv"]
     prepopulated_fields = {'weight_name': ('weight_value','weight_unit')}
     search_fields = ['weight_name']
 admin.site.register(Weight, WeightAdmin)
 
-class TaxAdmin(ExportActionMixin, admin.ModelAdmin):
+class TaxAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = TaxResource
+    actions = ["export_as_csv"]
     search_fields = ['tax_name']
 admin.site.register(Tax,TaxAdmin)
 
@@ -162,7 +193,7 @@ class ProductTaxMappingAdmin(admin.TabularInline):
             pass
 
 
-class ProductAdmin(ExportActionMixin, admin.ModelAdmin):
+class ProductAdmin( admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductResource
     class Media:
             pass
@@ -188,27 +219,29 @@ class ProductAdmin(ExportActionMixin, admin.ModelAdmin):
             url(r'^ajax/load-brands/$', self.admin_site.admin_view(load_brands), name='ajax_load_brands'),
             url(r'^ajax/load-gf/$', self.admin_site.admin_view(load_gf), name='ajax_load_gf'),
             url(r'^products-export-for-vendor/$', self.admin_site.admin_view(products_export_for_vendor), name='products_export_for_vendor'),
+            url(r'^multiple-photos-upload/$', self.admin_site.admin_view(MultiPhotoUploadView.as_view()), name='multiple_photos_upload'),
             url(r'^products-vendor-mapping/(?P<pk>\d+)/$', self.admin_site.admin_view(products_vendor_mapping), name='products_vendor_mapping'),
 
         ] + urls
         return urls
-
-    list_display = ['product_sku','product_name', 'product_short_description', 'get_product_brand','product_gf_code']
+    actions = ["export_as_csv"]
+    list_display = ['product_sku','product_name', 'product_short_description', 'product_brand','product_gf_code']
     search_fields = ['product_name','id','product_gf_code']
     list_filter = [BrandFilter, CategorySearch,ProductSearch]
     prepopulated_fields = {'product_slug': ('product_name',)}
     inlines = [ProductCategoryAdmin,ProductOptionAdmin,ProductImageAdmin,ProductTaxMappingAdmin]
 
-    def get_product_brand(self, obj):
-        return "%s" % (obj.product_brand.brand_name if obj.product_brand else '-')
-
-    get_product_brand.short_description = 'Product Brand'
+    # def get_product_brand(self, obj):
+    #     return "%s" % (obj.product_brand.brand_name if obj.product_brand else '-')
+    #
+    # get_product_brand.short_description = 'Product Brand'
 
 
 admin.site.register(Product,ProductAdmin)
 
-class ProductPriceAdmin(ExportActionMixin, admin.ModelAdmin):
+class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductPriceResource
+    actions = ["export_as_csv"]
     list_display = ['product','mrp','price_to_service_partner',
     'price_to_retailer','price_to_super_retailer','start_date',
     'end_date','status']

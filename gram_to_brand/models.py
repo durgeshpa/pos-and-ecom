@@ -210,6 +210,11 @@ class GRNOrder(models.Model):
     def __str__(self):
         return str(self.grn_id)
 
+    class Meta:
+        verbose_name = _("GRN Order")
+        verbose_name_plural = _("GRN Orders")
+
+
 @receiver(post_save, sender=GRNOrder)
 def create_grn_id(sender, instance=None, created=False, **kwargs):
     if created:
@@ -309,9 +314,12 @@ class BrandNote(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-
     def __str__(self):
         return self.brand_note_id
+
+    class Meta:
+        verbose_name = _("Banner Note")
+        verbose_name_plural = _("Brand Notes")
 
 @receiver(post_save, sender=BrandNote)
 def create_brand_note_id(sender, instance=None, created=False, **kwargs):
@@ -344,12 +352,21 @@ class OrderedProductReserved(models.Model):
     def __str__(self):
         return str(self.order_reserve_end_time)
 
+    class Meta:
+        verbose_name = _("Ordered Product Reserved")
+        verbose_name_plural = _("Ordered Product Reserved")
+
 class PickList(models.Model):
     order = models.ForeignKey(GramMapperRetialerOrder, related_name='pick_list_order',null=True,blank=True,on_delete=models.CASCADE)
     cart = models.ForeignKey(GramMapperRetialerCart, related_name='pick_list_cart', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = _("Pick List")
+        verbose_name_plural = _("Pick List")
+
 
 class PickListItems(models.Model):
     pick_list = models.ForeignKey(PickList, related_name='pick_list_items_pick_list',on_delete=models.CASCADE)

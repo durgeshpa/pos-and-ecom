@@ -79,7 +79,7 @@ class GramGRNProductsList(APIView):
             products = products.filter(pk__in=product_ids)
         if keyword:
             products = products.filter(product_name__icontains=keyword)
-        
+
         products_price = ProductPrice.objects.filter(product__in=products).order_by('product','-created_at').distinct('product')
         if sort_preference:
             if sort_preference == 'low':
@@ -112,7 +112,7 @@ class GramGRNProductsList(APIView):
                 if cart:
                     cart_products = cart.rt_cart_list.all()
                     cart_check = True
-        
+
         p_list = []
 
         for p in products_price:
@@ -146,7 +146,7 @@ class GramGRNProductsList(APIView):
                                     "image_name":p_i.image_name,
                                     "image_alt":p_i.image_alt_text,
                                     "image_url":p_i.image.url
-                                } 
+                                }
                                 for p_i in product_img
                             ]
             if not product_images:
@@ -169,7 +169,7 @@ class GramGRNProductsList(APIView):
                      'message': ['Sorry! No product found'],
                      'response_data':None }
         return Response(msg,
-                         status=200)   
+                         status=200)
 
 
 
@@ -531,7 +531,7 @@ class CreateOrder(APIView):
                     order.shipping_address = shipping_address
                     order.buyer_shop = shop
                     order.seller_shop = parent_mapping.parent
-                    
+
                     order.total_mrp = float(total_mrp)
                     order.total_tax_amount = float(total_tax_amount)
                     order.total_final_amount = float(total_final_amount)

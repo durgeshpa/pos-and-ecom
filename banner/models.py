@@ -3,6 +3,7 @@ from adminsortable.fields import SortableForeignKey
 from adminsortable.models import SortableMixin
 from mptt.models import TreeForeignKey
 from django.utils import timezone
+from django.utils.translation import ugettext_lazy as _
 
 # Create your models here.
 class Banner(models.Model):
@@ -35,6 +36,10 @@ class BannerSlot(models.Model):
     def __str__(self):
         return  "%s->%s"%(self.page.name, self.name)
 
+    class Meta:
+        verbose_name = _("Banner Slot")
+        verbose_name_plural = _("Banner Slots")
+
 
 class BannerPosition(SortableMixin):
     page = models.ForeignKey(Page,on_delete=models.CASCADE, null=True)
@@ -46,7 +51,8 @@ class BannerPosition(SortableMixin):
 
     class Meta:
         ordering = ['banner_position_order']
-
+        verbose_name = _("Banner Position")
+        verbose_name_plural = _("Banner Positions")
 
 class BannerData(SortableMixin):
     slot = SortableForeignKey(BannerPosition,related_name='ban_data',on_delete=models.CASCADE)

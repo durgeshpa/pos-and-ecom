@@ -23,9 +23,15 @@
                      var row_id = present_id.closest(".form-row").attr("id");
                      var row_no = row_id.match(/(\d+)/g);
                      if(response['success']) {
+                        $('#sp_cart_list-'+row_no+' td.field-gf_code p').text(response.gf_code);
+                        $('#sp_cart_list-'+row_no+' td.field-ean_number p').text(response.ean_number);
+                        $('#sp_cart_list-'+row_no+' td.field-taxes p').text(response.taxes);
                         $('#id_sp_cart_list-'+row_no+'-case_size').val(response.product_case_size);
                         $('#id_sp_cart_list-'+row_no+'-price').val(response.service_partner_price);
                      }else{
+                       $('#sp_cart_list-'+row_no+' td.field-gf_code p').text("-");
+                       $('#sp_cart_list-'+row_no+' td.field-ean_number p').text("-");
+                       $('#sp_cart_list-'+row_no+' td.field-taxes p').text("-");
                         $('#id_sp_cart_list-'+row_no+'-case_size').val(0);
                         $('#id_sp_cart_list-'+row_no+'-price').val(0);
                      }

@@ -124,7 +124,7 @@ class DownloadPurchaseOrder(APIView):
         a = Cart.objects.get(pk=pk)
         shop =a
         products = a.cart_list.all()
-        order= shop.order_cart_mapping.get(pk=pk)
+        order= shop.order_cart_mapping.last()
         order_id= order.order_no
         sum_qty = 0
         sum_amount=0
@@ -224,7 +224,8 @@ class GRNProductPriceMappingData(APIView):
     def get(self,*args,**kwargs):
         order_id =self.request.GET.get('order_id')
         cart_product_id= self.request.GET.get('cart_product_id')
-        po_product_price = CartProductMapping.objects.get( cart__id=order_id,cart_product__id=cart_product_id)
+        order = Order.objects.get(id=order_id)
+        po_product_price = CartProductMapping.objects.get( cart__id=order.ordered_cart.id,cart_product__id=cart_product_id)
         return Response({"message": [""], "response_data": po_product_price.price, "success": True})
 
 class GRNProductMappingData(APIView):
@@ -232,7 +233,8 @@ class GRNProductMappingData(APIView):
     def get(self,*args,**kwargs):
         order_id =self.request.GET.get('order_id')
         cart_product_id= self.request.GET.get('cart_product_id')
-        po_product_quantity = CartProductMapping.objects.get( cart__id=order_id,cart_product__id=cart_product_id)
+        order = Order.objects.get(id=order_id)
+        po_product_quantity = CartProductMapping.objects.get( cart__id=order.ordered_cart.id,cart_product__id=cart_product_id)
         return Response({"message": [""], "response_data": po_product_quantity.qty, "success": True})
 
 class GRNOrderAutocomplete(autocomplete.Select2QuerySetView):

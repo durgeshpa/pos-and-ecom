@@ -13,6 +13,7 @@ from django.utils.safestring import mark_safe
 from django.utils.text import slugify
 from django.dispatch import receiver
 from django.db.models.signals import pre_save, post_save
+from django.utils.translation import gettext_lazy as _
 
 SIZE_UNIT_CHOICES = (
         ('mm', 'Millimeter'),
@@ -93,6 +94,18 @@ class PackageSize(models.Model):
     def __str__(self):
         return self.pack_size_name
 
+    class Meta:
+        verbose_name = _("Package Size")
+        verbose_name_plural = _("Package Sizes")
+
+class ProductHSN(models.Model):
+    product_hsn_code = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.product_hsn_code
+
 class Product(models.Model):
     product_name = models.CharField(max_length=255,validators=[ProductNameValidator])
     product_slug = models.SlugField(max_length=255)
@@ -101,8 +114,8 @@ class Product(models.Model):
     product_sku = models.CharField(max_length=255, blank=False, unique=True)
     product_gf_code = models.CharField(max_length=255, blank=False, unique=True)
     product_ean_code = models.CharField(max_length=255, blank=True)
+    product_hsn = models.ForeignKey(ProductHSN,related_name='product_hsn',null=True,blank=True,on_delete=models.CASCADE)
     product_brand = models.ForeignKey(Brand,related_name='prodcut_brand_product',blank=False,on_delete=models.CASCADE)
-    #hsn_code = models.PositiveIntegerField(null=True,blank=True,validators=[EanCodeValidator])
     product_inner_case_size = models.CharField(max_length=255,blank=False, default=1)
     product_case_size = models.CharField(max_length=255,blank=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -202,6 +215,17 @@ class ProductImage(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
+    def image_thumbnail(self):
+        return mark_safe('<img src="{url}" width="{width}" height={height} />'.format(
+            url = self.image.url,
+            width='500px',
+            height='500px',
+            )
+    )
+
+    def __str__(self):
+        return self.image.name
+
 class Tax(models.Model):
     TAX_CHOICES = (
             ("cess", "Cess"),
@@ -221,6 +245,10 @@ class Tax(models.Model):
     def __str__(self):
         return self.tax_name
 
+    class Meta:
+        verbose_name = _("Tax")
+        verbose_name_plural = _("Taxes")
+
 class ProductTaxMapping(models.Model):
     product = models.ForeignKey(Product,related_name='product_pro_tax',on_delete=models.CASCADE)
     tax = models.ForeignKey(Tax,related_name='tax_pro_tax',on_delete=models.CASCADE)
@@ -228,6 +256,8 @@ class ProductTaxMapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
+    def __str__(self):
+        return self.tax.tax_name
 # class ProductSurcharge(models.Model):
 #     product = models.ForeignKey(Product, related_name='product_pro_surcharge',on_delete=models.CASCADE)
 #     surcharge_name = models.CharField(max_length=255, validators=[NameValidator])
@@ -250,6 +280,10 @@ class ProductCSV(models.Model):
 
     sample_file.allow_tags = True
 
+    class Meta:
+        verbose_name = _("Product CSV")
+        verbose_name_plural = _("Product CSVS")
+
 class ProductPriceCSV(models.Model):
     file = models.FileField(upload_to='products/price/')
     country = models.ForeignKey(Country,null=True,blank=True, on_delete=models.CASCADE)
@@ -260,6 +294,10 @@ class ProductPriceCSV(models.Model):
 
     def __str__(self):
         return '%s' % (self.file)
+
+    class Meta:
+        verbose_name = _("Product Price CSV")
+        verbose_name_plural = _("Product Price CSVS")
 
 class ProductVendorMapping(models.Model):
     vendor = models.ForeignKey(Vendor,related_name='vendor_brand_mapping',on_delete=models.CASCADE)
@@ -293,3 +331,4 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
     product = Product.objects.get(pk=instance.product_id)
     product.product_sku="%s%s%s%s"%(cat_sku_code,parent_cat_sku_code,brand_sku_code,last_sku_increment)
     product.save()
+

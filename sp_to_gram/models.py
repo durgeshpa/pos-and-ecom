@@ -56,6 +56,7 @@ def create_po_no(sender, instance=None, created=False, **kwargs):
         else:
             last_cart_po_no_increment = '00001'
         instance.po_no = "ADT/PO/07/%s" % (last_cart_po_no_increment)
+        instance.po_status = "ordered_to_gram"
 
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='sp_cart_list',on_delete=models.CASCADE)
@@ -77,6 +78,23 @@ class CartProductMapping(models.Model):
 
     def __str__(self):
         return self.cart_product.product_name
+
+    @property
+    def gf_code(self):
+        return self.cart_product.product_gf_code
+
+    @property
+    def ean_number(self):
+        if self.cart_product.product_ean_code:
+            return self.cart_product.product_ean_code
+        return str("-")
+
+    @property
+    def taxes(self):
+        taxes = [field.tax.tax_name for field in self.cart_product.product_pro_tax.all()]
+        if not taxes:
+            return str("-")
+        return taxes
 
 class Order(models.Model):
     #shop = models.ForeignKey(Shop, related_name='sp_shop_order',null=True,blank=True,on_delete=models.CASCADE)
@@ -111,7 +129,7 @@ def create_order(sender, instance=None, created=False, **kwargs):
             shipping_address = Address.objects.get(shop_name=instance.cart.shop,address_type='shipping')
             billing_address = Address.objects.get(shop_name=parent_mapping.parent,address_type='billing')
             Order.objects.create(ordered_cart=instance.cart, order_no=instance.cart.po_no,billing_address=billing_address,
-                 shipping_address=shipping_address,total_final_amount=instance.total_price)
+                 shipping_address=shipping_address,total_final_amount=instance.total_price,order_status='ordered_to_gram')
 
 class OrderedProduct(models.Model):
     order = models.ForeignKey(Order,related_name='sp_order_order_product',on_delete=models.CASCADE,null=True,blank=True)
