@@ -2,64 +2,33 @@ from django.contrib import admin
 from .models import Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping,OrderedProductReserved
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
-from .forms import CartProductMappingForm,POGenerationForm
+from .forms import CartProductMappingForm,POGenerationForm, OrderedProductMappingForm
 from retailer_backend.filters import BrandFilter,SupplierFilter,POAmountSearch,PORaisedBy
 from daterange_filter.filter import DateRangeFilter
 from django.utils.html import format_html
 from django.urls import reverse
 
-
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
+    fields = ('cart_product','gf_code','ean_number','taxes','case_size','number_of_cases','scheme','price','total_price',)
+    readonly_fields = ('gf_code','ean_number','taxes',)
     autocomplete_fields = ('cart_product',)
     search_fields =('cart_product',)
     form = CartProductMappingForm
 
-
-# class CartProductMappingAdmin(admin.TabularInline):
-#     model = CartProductMapping
-#     autocomplete_fields = ('cart_product',)
-#     exclude = ('qty',)
-#
-#     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
-#         #print(db_field)
-#         if db_field.name == 'cart_product':
-#             pass
-#             #kwargs['queryset'] = Product.objects.filter(product_grn_order_product__delivered_qty__gt=0)
-#             #print(Product.objects.filter(product_grn_order_product__delivered_qty__gt=0).product_grn_order_product)
-#             #print(GRNOrderProductMapping.objects.filter(delivered_qty__gt=0).query)
-#         return super(CartProductMappingAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
-
-from dal import autocomplete
-from django import forms
-from addresses.models import State
-from shops.models import Shop,ShopType
-
-class POGenerationForm(forms.ModelForm):
-    shop = forms.ModelChoiceField(
-        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
-        widget=autocomplete.ModelSelect2(url='my-shop-autocomplete',)
-    )
-
-    class Media:
-        js = ('/static/admin/js/sp_po_generation_form.js',)
-
-    class Meta:
-        model = Cart
-        fields = ('shop','po_validity_date','payment_term','delivery_term')
-
+#admin.site.register(CartProductMapping, CartProductMappingAdmin)
 class CartAdmin(admin.ModelAdmin):
+    template = 'admin/sp_to_gram/cart/change_form.html'
     inlines = [CartProductMappingAdmin]
     exclude = ('po_no', 'po_status', 'last_modified_by')
     #autocomplete_fields = ('brand',)
-    list_display = ('po_no', 'po_creation_date', 'po_validity_date', 'po_amount', 'po_raised_by', 'po_status')
+    list_display = ('po_no', 'po_creation_date', 'po_validity_date', 'po_amount', 'po_raised_by', 'po_status', 'download_purchase_order')
     list_filter = [('po_creation_date', DateRangeFilter),
                    ('po_validity_date', DateRangeFilter), POAmountSearch, PORaisedBy]
     form = POGenerationForm
 
     def download_purchase_order(self, obj):
-        if obj.is_approve:
-            return format_html("<a href= '%s' >Download PO</a>" % (reverse('download_purchase_order_sp', args=[obj.pk])))
+        return format_html("<a href= '%s' >Download PO</a>" % (reverse('download_purchase_order_sp', args=[obj.pk])))
     download_purchase_order.short_description = 'Download Purchase Order'
 
     class Media:
@@ -76,6 +45,7 @@ admin.site.register(Order,OrderAdmin)
 
 class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping
+    form = OrderedProductMappingForm
     exclude = ('last_modified_by','ordered_qty','available_qty','reserved_qty')
 
     warehouse_user_fieldset = ['product', 'manufacture_date', 'expiry_date','shipped_qty',]

@@ -12,6 +12,7 @@ from django.dispatch import receiver
 from django.db.models.signals import post_save
 import datetime, csv, codecs, re
 from django.urls import reverse
+from django.utils.translation import ugettext_lazy as _
 
 VENDOR_REG_PAYMENT = (
     ("paid","Paid"),
@@ -20,8 +21,8 @@ VENDOR_REG_PAYMENT = (
 
 # Create your models here.
 CHOICES = (
-    (1, 'Active'),
-    (2, 'Inactive'),
+    ('active', 'Active'),
+    ('inactive', 'Inactive'),
   )
 
 def validate_image(image):
@@ -72,7 +73,7 @@ class Brand(models.Model):
     brand_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three character for SKU")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    active_status = models.PositiveSmallIntegerField(('Active Status'),choices=CHOICES,default='1')
+    active_status = models.CharField(max_length=20,choices=CHOICES,default='active')
 
     def __str__(self):
         full_path = [self.brand_name]
@@ -98,6 +99,8 @@ class BrandPosition(SortableMixin):
 
     class Meta:
         ordering = ['brand_position_order']
+        verbose_name = _("Brand Position")
+        verbose_name_plural = _("Brand Positions")
 
 class BrandData(SortableMixin):
     slot = SortableForeignKey(BrandPosition,related_name='brand_data',null=True,blank=True, on_delete=models.CASCADE)

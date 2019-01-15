@@ -124,8 +124,10 @@ class DownloadPurchaseOrder(APIView):
         a = Cart.objects.get(pk=pk)
         shop =a
         products = a.cart_list.all()
-        order= shop.order_cart_mapping.get(pk=pk)
+        order= shop.order_cart_mapping.last()
         order_id= order.order_no
+        gram_factory_billing_gstin= shop.gf_billing_address.shop_name.shop_name_documents.filter(shop_document_type='gstin').last()
+        gram_factory_shipping_gstin= shop.gf_shipping_address.shop_name.shop_name_documents.filter(shop_document_type='gstin').last()
         sum_qty = 0
         sum_amount=0
         tax_inline=0
@@ -167,7 +169,7 @@ class DownloadPurchaseOrder(APIView):
         print(sum_amount)
         # print (tax_inline)
         # print (tax_inline1)
-        data = {"object": order_obj,"products":products, "shop":shop, "sum_qty": sum_qty, "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" , "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,"order_id":order_id}
+        data = {"object": order_obj,"products":products, "shop":shop, "sum_qty": sum_qty, "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" , "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,"order_id":order_id,"gram_factory_billing_gstin":gram_factory_billing_gstin, "gram_factory_shipping_gstin":gram_factory_shipping_gstin}
         # for m in products:
         #     data = {"object": order_obj,"products":products,"amount_inline": m.qty * m.price }
         #     print (data)
@@ -224,7 +226,8 @@ class GRNProductPriceMappingData(APIView):
     def get(self,*args,**kwargs):
         order_id =self.request.GET.get('order_id')
         cart_product_id= self.request.GET.get('cart_product_id')
-        po_product_price = CartProductMapping.objects.get( cart__id=order_id,cart_product__id=cart_product_id)
+        order = Order.objects.get(id=order_id)
+        po_product_price = CartProductMapping.objects.get( cart__id=order.ordered_cart.id,cart_product__id=cart_product_id)
         return Response({"message": [""], "response_data": po_product_price.price, "success": True})
 
 class GRNProductMappingData(APIView):
@@ -232,7 +235,8 @@ class GRNProductMappingData(APIView):
     def get(self,*args,**kwargs):
         order_id =self.request.GET.get('order_id')
         cart_product_id= self.request.GET.get('cart_product_id')
-        po_product_quantity = CartProductMapping.objects.get( cart__id=order_id,cart_product__id=cart_product_id)
+        order = Order.objects.get(id=order_id)
+        po_product_quantity = CartProductMapping.objects.get( cart__id=order.ordered_cart.id,cart_product__id=cart_product_id)
         return Response({"message": [""], "response_data": po_product_quantity.qty, "success": True})
 
 class GRNOrderAutocomplete(autocomplete.Select2QuerySetView):

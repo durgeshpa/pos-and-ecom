@@ -40,9 +40,18 @@ def shipped_qty(value, *args, **kwargs):
 
 @register.filter(name='price_to_retailer')
 def price_to_retailer(value, *args, **kwargs):
+
     result = value*shipped_qty_list[0]
     shipped_qty_list.clear()
     return result
+
+@register.filter(name='inner_case_size')
+def inner_case_size(value, *args, **kwargs):
+    result = int(value)*shipped_qty_list[0]
+    shipped_qty_list.clear()
+    return result
+
+
 
 @register.filter(name='amount')
 def amount(value, *args, **kwargs):
