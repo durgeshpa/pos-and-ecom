@@ -99,10 +99,10 @@ class DownloadPurchaseOrderSP(APIView):
         gram_factory = shop.shop.retiler_mapping.filter(status=True).last().parent
         gram_factory_address = gram_factory.shop_name_address_mapping.filter(address_type='shipping').last()
         order_id= order.order_no
-        shop_gstin = shop.shop.shop_name_documents.filter(shop_document_type='gstin').last().shop_document_number
+        shop_gstin = shop.shop.shop_name_documents.filter(shop_document_type='gstin').last()
         gram_factory_gstin = ""
         if gram_factory.shop_name_documents.exists():
-            gram_factory_gstin = gram_factory.shop_name_documents.filter(shop_document_type='gstin').last().shop_document_number
+            gram_factory_gstin = gram_factory.shop_name_documents.filter(shop_document_type='gstin').last()
         sum_qty = 0
         sum_amount=0
         tax_inline=0
