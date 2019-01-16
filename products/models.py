@@ -195,6 +195,17 @@ class ProductPrice(models.Model):
     def __str__(self):
         return self.product.product_name
 
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            last_product_prices = ProductPrice.objects.filter(product=self.product,shop=self.shop,status=True).update(status=False)
+            self.status = True
+        super().save(*args, **kwargs)
+
+@receiver(pre_save, sender=ProductPrice)
+def change_product_price_status(sender, instance=None, created=False, **kwargs):
+    if instance._state.adding:
+        last_product_prices = ProductPrice.objects.filter(product=instance.product,shop=instance.shop,status=True).update(status=False)
+
 class ProductCategory(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_category',on_delete=models.CASCADE)
     category = models.ForeignKey(Category, related_name='category_pro_category',on_delete=models.CASCADE)
