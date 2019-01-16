@@ -899,36 +899,43 @@ class PaymentApi(APIView):
             msg = {'is_success': True,'message': None,'response_data': serializer.data}
         return Response( msg, status=status.HTTP_200_OK)
 
-# class PaymentNeftApi(APIView):
-#
-#     def get(self, request):
-#         queryset = Payment.objects.filter(payment_choice='neft')
 
-#         serializer = GramPaymentNeftSerializer(queryset, many=True)
-#         serializer = PaymentNeftSerializer(queryset, many=True)
+class ReleaseBlocking(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
 
-#         msg = {'is_success': True, 'message': ['All Payments'], 'response_data': serializer.data}
-#         return Response(msg, status=status.HTTP_201_CREATED)
-#
-#     def post(self,request):
-#         order_id=self.request.POST.get('order_id')
-#         neft_reference_number=self.request.POST.get('neft_reference_number')
-#         msg = {'is_success': False,'message': [''],'response_data': None}
-#         try:
-#             order = GramMappedOrder.objects.get(id=order_id)
-#         except ObjectDoesNotExist:
-#             msg['message'] = ["No order with this name"]
-#             return Response(msg, status=status.HTTP_200_OK)
-#         if not neft_reference_number:
-#             msg['message']= ["Please enter the NEFT reference numner"]
-#             return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+    def post(self, request):
+        shop_id = self.request.POST.get('shop_id')
+        cart_id = self.request.POST.get('cart_id')
+        msg = {'is_success': False, 'message': ['Have some error in shop or mapping'], 'response_data': None}
 
-#         serializer = GramPaymentNeftSerializer(data=request.data)
+        if checkNotShopAndMapping(shop_id):
+            return Response(msg, status=status.HTTP_200_OK)
 
-#         serializer = PaymentNeftSerializer(data=request.data)
+        parent_mapping = getShopMapping(shop_id)
+        if parent_mapping is None:
+            return Response(msg, status=status.HTTP_200_OK)
 
-#         if serializer.is_valid():
-#             serializer.save(payment_choice='neft')
-#             msg = {'is_success': True, 'message': ['Payment Sent'], 'response_data': serializer.data}
-#             return Response( msg, status=status.HTTP_201_CREATED)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        if not cart_id:
+            msg['message'] = 'Cart id not found'
+            return Response(msg, status=status.HTTP_200_OK)
+
+        if parent_mapping.parent.shop_type.shop_type == 'sp':
+            if OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved').exists():
+                for ordered_reserve in OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved'):
+                    ordered_reserve.order_product_reserved.available_qty = int(
+                        ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
+                    ordered_reserve.order_product_reserved.save()
+                    ordered_reserve.delete()
+            msg = {'is_success': True, 'message': ['Blocking has released'], 'response_data': None}
+        elif parent_mapping.parent.shop_type.shop_type == 'gf':
+            if GramOrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved').exists():
+                for ordered_reserve in GramOrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved'):
+                    ordered_reserve.order_product_reserved.available_qty = int(
+                        ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
+                    ordered_reserve.order_product_reserved.save()
+                    ordered_reserve.delete()
+            msg = {'is_success': True, 'message': ['Blocking has released'], 'response_data': None}
+        return Response(msg, status=status.HTTP_200_OK)
+
+
