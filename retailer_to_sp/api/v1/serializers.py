@@ -93,11 +93,11 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
 
     def product_price_dt(self, obj):
         shop_id = self.context.get("parent_mapping_id",None)
-        return '' if obj.product_pro_price.filter(shop__id=shop_id).last() is None else obj.product_pro_price.filter(shop__id=shop_id).last().price_to_retailer
+        return 0 if obj.product_pro_price.filter(shop__id=shop_id).last() is None else obj.product_pro_price.filter(shop__id=shop_id).last().price_to_retailer
 
     def product_mrp_dt(self, obj):
         shop_id = self.context.get("parent_mapping_id",None)
-        return '' if obj.product_pro_price.filter(shop__id=shop_id).last() is None else obj.product_pro_price.filter(shop__id=shop_id).last().mrp
+        return 0 if obj.product_pro_price.filter(shop__id=shop_id).last() is None else obj.product_pro_price.filter(shop__id=shop_id).last().mrp
 
 
     def product_case_size_picies_dt(self,obj):

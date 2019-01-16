@@ -688,6 +688,14 @@ class DownloadInvoiceSP(APIView):
         gst_tax_list= []
         cess_tax_list= []
         surcharge_tax_list=[]
+        for z in shop.order.seller_shop.shop_name_address_mapping.all():
+            shop_name_gram= z.shop_name
+            nick_name_gram= z.nick_name
+            address_line1_gram= z.address_line1
+            city_gram= z.city
+            state_gram= z.state
+            pincode_gram= z.pincode
+            
         for m in products:
 
             sum_qty = sum_qty + int(m.product.product_inner_case_size) * int(m.shipped_qty)
@@ -725,7 +733,7 @@ class DownloadInvoiceSP(APIView):
         print(sum_amount)
 
 
-        data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop, "sum_qty": sum_qty, "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" , "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,"order_id":order_id}
+        data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop, "sum_qty": sum_qty, "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" , "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,"order_id":order_id,"shop_name_gram":shop_name_gram,"nick_name_gram":nick_name_gram, "city_gram":city_gram, "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}

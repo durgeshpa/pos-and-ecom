@@ -60,13 +60,13 @@ table tr td,th,h4,span,address{
     				</address>
 					<address>
 						<span>GramFactory :</span><br>
-						{% for m in shop.order.seller_shop.shop_name_address_mapping.all %}
-    				<strong>{{m.shop_name}}</strong><br>
-    				{{m.nick_name}}, {{m.address_line1}}, {{m.city}}<br>
+
+    				<strong>{{shop_name_gram}}</strong><br>
+    				{{nick_name_gram}}, {{address_line1_gram}}, {{city_gram}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{{m.GST_number}}</span><br>
-						<strong>State Name:</strong> <span>{{m.state}} </span><strong>Code:</strong> <span>{{m.pincode}}</span><br>
+						<strong>State Name:</strong> <span>{{state_gram}} </span><strong>Code:</strong> <span>{{pincode_gram}}</span><br>
 						<strong>CIN:</strong> <span>09AAQCA9570J1ZW</span>
-						{% endfor %}
+
     				</address>
     			</div>
     			<div class="col-xs-6 text-right">

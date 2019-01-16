@@ -140,6 +140,7 @@ class DownloadPurchaseOrder(APIView):
             sum_qty = sum_qty + m.qty
             sum_amount = sum_amount + (m.qty * m.price)
             inline_sum_amount = (m.qty * m.price)
+
             for n in m.cart_product.product_pro_tax.all():
 
                 divisor= (1+(n.tax.tax_percentage/100))
