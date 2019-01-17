@@ -160,7 +160,7 @@ class AddressView(generics.ListCreateAPIView):
 class AddressDetail(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
-    
+
     def get_object(self, pk):
         try:
             return Address.objects.get(pk=pk)
@@ -221,7 +221,7 @@ class DefaultAddressView(generics.ListCreateAPIView):
         address_list = []
         for shop in user_shops:
             shop_address = Address.objects.filter(shop_name=shop).order_by('created_at').first()
-            if shop_address is not None:
+            if shop_address:
                 address_list.append(shop_address)
         queryset = address_list
         return queryset
@@ -229,7 +229,7 @@ class DefaultAddressView(generics.ListCreateAPIView):
     def list(self, request):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
-        msg = {'is_success': True,
+        msg = {'is_success': True if serializer.data else False,
                 'message': None,
                 'response_data': serializer.data}
         return Response(msg,
