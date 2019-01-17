@@ -32,7 +32,7 @@ class StateView(generics.ListAPIView):
     permission_classes = (AllowAny,)
 
     def get_queryset(self):
-        queryset = State.objects.all()
+        queryset = State.objects.all().order_by('state_name')
         country_id = self.request.query_params.get('country_id', None)
         if country_id is not None:
             queryset = queryset.filter(country=country_id)
@@ -53,7 +53,7 @@ class CityView(generics.ListAPIView):
     permission_classes = (AllowAny,)
 
     def get_queryset(self):
-        queryset = City.objects.all()
+        queryset = City.objects.all().order_by('city_name')
         state_id = self.request.query_params.get('state_id', None)
         if state_id is not None:
             queryset = queryset.filter(state__id=state_id)
