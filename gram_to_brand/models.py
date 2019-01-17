@@ -91,11 +91,11 @@ class CartProductMapping(models.Model):
     cart_product = models.ForeignKey(Product, related_name='cart_product_mapping', on_delete=models.CASCADE)
     inner_case_size = models.PositiveIntegerField(default=0)
     case_size= models.PositiveIntegerField(default=0)
-    number_of_cases = models.PositiveIntegerField()
+    number_of_cases = models.FloatField()
     qty= models.PositiveIntegerField(default=0)
     scheme = models.FloatField(default=0,null=True,blank=True,help_text='data into percentage %')
     price = models.FloatField( verbose_name='Brand To Gram Price')
-    total_price= models.PositiveIntegerField(default=0)
+    total_price= models.FloatField(default=0)
 
     def __str__(self):
         return str('')
