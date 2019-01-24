@@ -368,4 +368,6 @@ class ProductsCSVUploadForm(forms.Form):
                 raise ValidationError(_('INVALID_INNER_CASE_SIZE at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
             if not row[15] or not re.match("^[\d]*$", row[15]):
                 raise ValidationError(_('INVALID_CASE_SIZE at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
+            if not row[16]:
+                raise ValidationError(_('HSN_CODE_REQUIRED at Row[%(value)s].'), params={'value': id+1},)
         return self.cleaned_data['file']
