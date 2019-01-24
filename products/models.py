@@ -195,6 +195,11 @@ class ProductPrice(models.Model):
     def __str__(self):
         return self.product.product_name
 
+    def save(self, *args, **kwargs):
+        last_product_prices = ProductPrice.objects.filter(product=self.product,shop=self.shop,status=True).update(status=False)
+        self.status = True
+        super().save(*args, **kwargs)
+
 class ProductCategory(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_category',on_delete=models.CASCADE)
     category = models.ForeignKey(Category, related_name='category_pro_category',on_delete=models.CASCADE)
