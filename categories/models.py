@@ -3,6 +3,7 @@ from django.db import models
 from adminsortable.fields import SortableForeignKey
 from adminsortable.models import SortableMixin
 from mptt.models import TreeForeignKey
+from django.core.exceptions import ValidationError
 from retailer_backend.validators import CapitalAlphabets
 from django.utils.translation import ugettext_lazy as _
 
@@ -36,6 +37,12 @@ class Category(models.Model):
             raise ValidationError(_('Category and Category Parent cannot be same'))
         else:
             super(Category, self).save(*args, **kwargs)
+
+    def clean(self, *args, **kwargs):
+        if self.category_parent == self:
+            raise ValidationError(_('Category and Category Parent cannot be same'))
+        else:
+            super(Category, self).clean(*args, **kwargs)
 
     # def save(self, *args,**kwargs):
     #     super(Category, self).save()

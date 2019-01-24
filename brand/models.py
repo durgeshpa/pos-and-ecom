@@ -90,6 +90,12 @@ class Brand(models.Model):
             raise ValidationError(_('Brand and Brand Parent cannot be same'))
         else:
             super(Brand, self).save(*args, **kwargs)
+    
+    def clean(self, *args, **kwargs):
+        if self.brand_parent == self:
+            raise ValidationError(_('Brand and Brand Parent cannot be same'))
+        else:
+            super(Brand, self).clean(*args, **kwargs)
 
     # class Meta:
     #     unique_together = ('brand_name', 'brand_slug',)
