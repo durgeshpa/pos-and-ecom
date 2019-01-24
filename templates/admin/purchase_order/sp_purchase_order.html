@@ -47,7 +47,7 @@ table tr td,th,h4,span,address{
     				{{order.billing_address.nick_name}}, {{order.billing_address.address_line1}}, {{order.billing_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{% if shop_gstin %}{{ shop_gstin.shop_document_number }}{% else %} ---- {% endif %}</span><br>
 						<strong>State Name:</strong> <span>{{order.billing_address.state}} </span><strong>Code:</strong> <span>{{order.billing_address.pincode}}</span><br>
-						<strong>CIN:</strong> <span>09AAQCA9570J1ZW</span>
+						<strong>CIN:</strong> <span>---</span>
     				</address>
 
 					<address>
@@ -56,7 +56,7 @@ table tr td,th,h4,span,address{
     				{{order.shipping_address.nick_name}}, {{order.shipping_address.address_line1}}, {{order.shipping_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{% if shop_gstin %}{{ shop_gstin.shop_document_number }}{% else %} ---- {% endif %}</span><br>
 						<strong>State Name:</strong> <span>{{order.shipping_address.state}} </span><strong>Code:</strong> <span>{{order.shipping_address.pincode}}</span><br>
-						<strong>CIN:</strong> <span>09AAQCA9570J1ZW</span>
+						<strong>CIN:</strong> <span>---</span>
     				</address>
 					<address>
 						<span>GramFactory :</span><br>
@@ -64,7 +64,7 @@ table tr td,th,h4,span,address{
 						{{gram_factory_address.nick_name}}, {{gram_factory_address.address_line1}}, {{gram_factory_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{% if gram_factory_gstin %}{{ gram_factory_gstin.shop_document_number }}{% else %} ---- {% endif %}</span><br>
 						<strong>State Name:</strong> <span>{{gram_factory_address.state}} </span><strong>Code:</strong> <span>{{gram_factory_address.pincode}}</span><br>
-						<!-- <strong>CIN:</strong> <span>09AAQCA9570J1ZW</span> -->
+						<strong>CIN:</strong> <span>---</span>
     				</address>
     			</div>
     			<div class="col-xs-6 text-right">
@@ -147,7 +147,7 @@ table tr td,th,h4,span,address{
 
 												<td class="text-center"><strong>SKU</strong></td>
         							<td class="text-center"><strong>Description of Goods</strong></td>
-											<td class="text-center"><strong>MRP</strong></td>
+
         							<td class="text-center"><strong>HSN/SAC</strong></td>
 
 									    <td class="text-center"><strong>GST Rate</strong></td>
@@ -165,9 +165,7 @@ table tr td,th,h4,span,address{
     								<td><strong>{{forloop.counter}}</strong></td>
 										<td class="text-center">{{ m.cart_product.product_sku}}</td>
     								<td class="text-center">{{ m.cart_product.product_short_description}}</td>
-										  {% for h in m.cart_product.product_pro_price.all %}
-										<td class="text-center">{{ h.mrp}}</td>
-										  {% endfor %}
+
     								<td class="text-center">{{ m.cart_product.product_ean_code}}</td>
 										   {% for n in m.cart_product.product_pro_tax.all %}
 											 		{% if n.tax.tax_type == 'gst' %}
@@ -191,7 +189,7 @@ table tr td,th,h4,span,address{
 
 									<td></td>
 									<td><strong></strong></td>
-						 <td></td>
+
 									<td></td>
 									<td></td>
 
@@ -207,7 +205,7 @@ table tr td,th,h4,span,address{
 									<td class="no-line"></td>
 									<td class="no-line"></td>
 									<td class="no-line"></td>
-    								<td class="no-line"></td>
+
 									<td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line"></td>
@@ -221,7 +219,7 @@ table tr td,th,h4,span,address{
     								<td class="no-line"></td>
 									<td class="no-line"></td>
 										<td class="no-line"></td>
-    								<td class="no-line"></td>
+
 									<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
@@ -236,7 +234,7 @@ table tr td,th,h4,span,address{
 	    								<td class="no-line"></td>
 										<td class="no-line"></td>
 											<td class="no-line"></td>
-	    								<td class="no-line"></td>
+
 										<td class="no-line"></td>
 										<td class="no-line"></td>
 	    								<td class="no-line"></td>
@@ -252,7 +250,7 @@ table tr td,th,h4,span,address{
     								<td class="no-line"></td>
 									<td class="no-line"></td>
 									<td class="no-line"></td>
-										<td class="no-line"></td>
+
     								<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
@@ -267,7 +265,7 @@ table tr td,th,h4,span,address{
 	    								<td class="no-line"></td>
 										<td class="no-line"></td>
 										<td class="no-line"></td>
-											<td class="no-line"></td>
+
 	    								<td class="no-line"></td>
 										<td class="no-line"></td>
 	    								<td class="no-line"></td>
@@ -282,7 +280,7 @@ table tr td,th,h4,span,address{
 										<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
-									<td class="no-line"></td>
+
     								<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>

@@ -227,7 +227,7 @@ admin.site.register(CustomerCare,CustomerCareAdmin)
 
 class PaymentAdmin(admin.ModelAdmin):
     model= Payment
-    fields= ('order_id', 'paid_amount','payment_choice', 'neft_reference_number')
+    fields= ('order_id', 'paid_amount','payment_choice', 'neft_reference_number','payment_status')
     exclude = ('name',)
     list_display=('name','order_id', 'paid_amount', 'payment_choice', 'neft_reference_number')
     autocomplete_fields = ('order_id',)

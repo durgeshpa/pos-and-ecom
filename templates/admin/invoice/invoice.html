@@ -47,7 +47,7 @@ table tr td,th,h4,span,address{
     				{{shop.order.billing_address.nick_name}}, {{shop.order.billing_address.address_line1}}, {{shop.order.billing_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>dfsfds</span><br>
 						<strong>State Name:</strong> <span>{{shop.order.billing_address.state}} </span><strong>Code:</strong> <span>{{shop.order.billing_address.pincode}}</span><br>
-						<strong>CIN:</strong> <span>09AAQCA9570J1ZW</span>
+						<strong>CIN:</strong> <span>---</span>
     				</address>
 
 					<address>
@@ -56,7 +56,7 @@ table tr td,th,h4,span,address{
     				{{shop.order.shipping_address.nick_name}}, {{shop.order.shipping_address.address_line1}}, {{shop.order.shipping_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>09AAQCA9570J1ZW</span><br>
 						<strong>State Name:</strong> <span>{{shop.order.shipping_address.state}} </span><strong>Code:</strong> <span>{{shop.order.shipping_address.pincode}}</span><br>
-						<strong>CIN:</strong> <span>09AAQCA9570J1ZW</span>
+						<strong>CIN:</strong> <span>---</span>
     				</address>
 					<address>
 						<span>GramFactory :</span><br>
@@ -65,7 +65,7 @@ table tr td,th,h4,span,address{
     				{{nick_name_gram}}, {{address_line1_gram}}, {{city_gram}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{{m.GST_number}}</span><br>
 						<strong>State Name:</strong> <span>{{state_gram}} </span><strong>Code:</strong> <span>{{pincode_gram}}</span><br>
-						<strong>CIN:</strong> <span>09AAQCA9570J1ZW</span>
+						<strong>CIN:</strong> <span>---</span>
 
     				</address>
     			</div>
@@ -149,7 +149,7 @@ table tr td,th,h4,span,address{
 
 												<td class="text-center"><strong>SKU</strong></td>
         							<td class="text-center"><strong>Description of Goods</strong></td>
-											<td class="text-center"><strong>MRP</strong></td>
+
         							<td class="text-center"><strong>HSN/SAC</strong></td>
 
 									    <td class="text-center"><strong>GST Rate</strong></td>
@@ -168,9 +168,6 @@ table tr td,th,h4,span,address{
     								<td><strong>{{forloop.counter}}</strong></td>
 										<td class="text-center">{{ m.product.product_sku}}</td>
     								<td class="text-center">{{ m.product.product_short_description}}</td>
-										  {% for h in m.product.product_pro_price.all %}
-										<td class="text-center">{{ h.mrp}}</td>
-										  {% endfor %}
     								<td class="text-center">{{ m.product.product_hsn}}</td>
 										   {% for n in m.product.product_pro_tax.all %}
 											 		{% if n.tax.tax_type == 'gst' %}
@@ -199,7 +196,7 @@ table tr td,th,h4,span,address{
 
 									<td></td>
 									<td><strong></strong></td>
-						 <td></td>
+
 									<td></td>
 									<td></td>
 									<td></td>
@@ -217,7 +214,7 @@ table tr td,th,h4,span,address{
 									<td class="no-line"></td>
 									<td class="no-line"></td>
 									<td class="no-line"></td>
-    								<td class="no-line"></td>
+
 									<td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line"></td>
@@ -232,7 +229,7 @@ table tr td,th,h4,span,address{
     								<td class="no-line"></td>
 									<td class="no-line"></td>
 										<td class="no-line"></td>
-    								<td class="no-line"></td>
+
 									<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
@@ -248,7 +245,7 @@ table tr td,th,h4,span,address{
 	    								<td class="no-line"></td>
 										<td class="no-line"></td>
 											<td class="no-line"></td>
-	    								<td class="no-line"></td>
+
 										<td class="no-line"></td>
 										<td class="no-line"></td>
 	    								<td class="no-line"></td>
@@ -265,7 +262,7 @@ table tr td,th,h4,span,address{
     								<td class="no-line"></td>
 									<td class="no-line"></td>
 									<td class="no-line"></td>
-										<td class="no-line"></td>
+
     								<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
@@ -281,7 +278,7 @@ table tr td,th,h4,span,address{
 	    								<td class="no-line"></td>
 										<td class="no-line"></td>
 										<td class="no-line"></td>
-											<td class="no-line"></td>
+
 	    								<td class="no-line"></td>
 										<td class="no-line"></td>
 	    								<td class="no-line"></td>
@@ -297,7 +294,7 @@ table tr td,th,h4,span,address{
 										<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
-									<td class="no-line"></td>
+
     								<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>

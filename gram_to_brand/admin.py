@@ -251,7 +251,7 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
 
 class BrandNoteAdmin(admin.ModelAdmin):
     model = BrandNote
-    list_display = ('brand_note_id','order','grn_order', 'note_type', 'amount')
+    list_display = ('brand_note_id','order','grn_order',  'amount')
     exclude = ('brand_note_id','last_modified_by',)
 
 class OrderItemAdmin(admin.ModelAdmin):
@@ -269,7 +269,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
     autocomplete_fields = ('order',)
     exclude = ('order_item','grn_id','last_modified_by',)
     #list_display_links = None
-    list_display = ('grn_id','order','invoice_no','grn_date','edit_grn_link')
+    list_display = ('grn_id','order','invoice_no','grn_date','edit_grn_link','download_debit_note')
     list_filter = [ OrderSearch, InvoiceNoSearch, GRNSearch, ('created_at', DateRangeFilter),]
     form = GRNOrderForm
     fields = ('order','invoice_no')
@@ -286,6 +286,11 @@ class GRNOrderAdmin(admin.ModelAdmin):
 
     edit_grn_link.short_description = 'Edit GRN'
 
+    def download_debit_note(self,obj):
+        if obj.grn_order_brand_note.count()>0:
+            return format_html("<a href= '%s' >Download Debit Note</a>"%(reverse('download_debit_note', args=[obj.pk])))
+
+    download_debit_note.short_description = 'Download Debit Note'
 
     def save_formset(self, request, form, formset, change, *args, **kwargs):
         import datetime

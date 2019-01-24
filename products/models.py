@@ -195,6 +195,12 @@ class ProductPrice(models.Model):
     def __str__(self):
         return self.product.product_name
 
+    @property
+    def gram_mrp(self):
+        mrp_result = ProductPrice.objects.filter(shop__shop_type__shop_type='gf',product=self.product).last()
+        print(mrp_result.query)
+        return mrp_result.mrp
+
 class ProductCategory(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_category',on_delete=models.CASCADE)
     category = models.ForeignKey(Category, related_name='category_pro_category',on_delete=models.CASCADE)
