@@ -285,7 +285,7 @@ def ProductsCSVUploadView(request):
                 for t in row[7].split(','):
                     if t is not '':
                         try:
-                            product_tax,_ = ProductTaxMapping.objects.get_or_create(product=product, product_tax.tax_id = t.strip())
+                            product_tax,_ = ProductTaxMapping.objects.get_or_create(product=product, tax_id = t.strip())
                         except Exception as e:
                             logger.error(e)
                             messages.error(request, "Unable to create product tax for {}--{}".format(row[1], t))
