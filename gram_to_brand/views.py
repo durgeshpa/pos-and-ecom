@@ -92,6 +92,8 @@ class StateAutocomplete(autocomplete.Select2QuerySetView):
 class OrderAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self,*args,**kwargs):
         qs = Order.objects.all()
+        if self.q:
+            qs = qs.filter(order_no__icontains=self.q)
         return qs
 
 class ProductAutocomplete(autocomplete.Select2QuerySetView):
@@ -105,6 +107,8 @@ class ProductAutocomplete(autocomplete.Select2QuerySetView):
             cp_products = CartProductMapping.objects.filter(cart=order.ordered_cart).values('cart_product')
             qs = qs.filter(id__in=[cp_products])
 
+        if self.q:
+            qs = qs.filter(product_name__istartswith=self.q)
         return qs
 
 
