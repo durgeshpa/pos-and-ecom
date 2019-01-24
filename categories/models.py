@@ -31,6 +31,12 @@ class Category(models.Model):
 
         return ' -> '.join(full_path[::-1])
 
+    def save(self, *args, **kwargs):
+        if self.category_parent == self:
+            raise ValidationError(_('Category and Category Parent cannot be same'))
+        else:
+            super(Category, self).save(*args, **kwargs)
+
     # def save(self, *args,**kwargs):
     #     super(Category, self).save()
     #     if self.pk and int(self.pk) >= 1 and int(self.pk) < 10:
