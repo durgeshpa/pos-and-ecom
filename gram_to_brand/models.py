@@ -106,7 +106,7 @@ class CartProductMapping(models.Model):
 
     def clean(self):
         if self.number_of_cases:
-             self.qty = int(self.cart_product.product_inner_case_size) * int(self.case_size) * int(self.number_of_cases)
+             self.qty = int(int(self.cart_product.product_inner_case_size) * int(self.case_size) * float(self.number_of_cases))
              self.total_price= float(self.qty) * self.price
 
 
@@ -124,7 +124,7 @@ def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
                 for row in reader:
                     if row[3]:
                         CartProductMapping.objects.create(cart=instance,cart_product_id = row[0], case_size= int(row[2]),
-                         number_of_cases = int(row[3]),scheme = float(row[4]) if row[4] else None, price=float(row[5])
+                         number_of_cases = row[3],scheme = float(row[4]) if row[4] else None, price=float(row[5])
                          , total_price = float(row[2])*float(row[3])*float(row[5]))
 
 @receiver(post_save, sender=Cart)
@@ -174,7 +174,7 @@ def create_order(sender, instance=None, created=False, **kwargs):
             if OrderItem.objects.filter(order=order, ordered_product=instance.cart_product).exists():
                 OrderItem.objects.filter(order=order,ordered_product=instance.cart_product).delete()
             else:
-                qty = int(instance.number_of_cases) * int(instance.case_size)
+                qty = float(instance.number_of_cases) * int(instance.case_size)
                 order_item = OrderItem.objects.create(ordered_product=instance.cart_product,ordered_qty=qty, ordered_price=instance.price,order = order)
 
 
