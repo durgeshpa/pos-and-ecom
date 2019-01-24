@@ -19,6 +19,9 @@ from products.models import (Product, ProductCategory, ProductOption,
 from django.core.exceptions import ValidationError
 from django.views import View
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 def load_cities(request):
     state_id = request.GET.get('state')
@@ -235,27 +238,39 @@ def ProductsCSVUploadView(request):
             file = form.cleaned_data['file']
             reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
             first_row = next(reader)
-            try:
-                for row in reader:
-
+            for row in reader:
+                try:
                     product_hsn_dt, _ = ProductHSN.objects.get_or_create(product_hsn_code=row[16])
+                except Exception as e:
+                    logger.exception("unable to create product HSN")
+                    messages.error(request,"unable to create product HSN")
+                try:
                     product,_ = Product.objects.get_or_create(product_gf_code = row[3])
+                except Exception as e:
+                    logger.exception("unable to create product")
+                    messages.error(request,"unable to create product {}".format(row[1]))
+                else:
                     product.product_short_description=row[1]
                     product.product_long_description = row[2]
-                    product.product_gf_code = row[3]
                     product.product_ean_code = row[4]
                     product.product_brand_id=row[5]
                     product.product_inner_case_size=row[14]
                     product.product_hsn = product_hsn_dt
                     product.product_case_size=row[15]
+                try:
                     product.save()
+                except Exception as e:
+                    logger.exception("Unable to save product")
+                    messages.error(request,"unable to save product details for {}".format(row[1]))
 
-                    for c in row[6].split(','):
-                        if c is not '':
-                            product_category,_ = ProductCategory.objects.get_or_create(product=product)
-                            product_category.category_id=c.strip()
-                            product_category.save()
-
+                for c in row[6].split(','):
+                    if c is not '':
+                        try:
+                            product_category,_ = ProductCategory.objects.get_or_create(product=product, category_id=c.strip())
+                        except Exception as e:
+                            logger.exception("unable to get or create product category for category {}".format(c) )
+                            messages.error(request,"unable to create product category for {}, {}".format(row[1], c))
+                try:
                     productoptions,_ = ProductOption.objects.get_or_create(product=product)
                     productoptions.size_id = row[8] if row[8] else None
                     productoptions.color_id = row[9] if row[9] else None
@@ -264,24 +279,18 @@ def ProductsCSVUploadView(request):
                     productoptions.weight_id = row[12] if row[12] else None
                     productoptions.package_size_id = row[13] if row[13] else None
                     productoptions.save()
+                except Exception as e:
+                    logger.exception("Unable to create Product Options")
+                    messages.error(request, "Unable to create Product options for {}".format(row[1]))
+                for t in row[7].split(','):
+                    if t is not '':
+                        try:
+                            product_tax,_ = ProductTaxMapping.objects.get_or_create(product=product, product_tax.tax_id = t.strip())
+                        except Exception as e:
+                            logger.error(e)
+                            messages.error(request, "Unable to create product tax for {}--{}".format(row[1], t))
 
-                    # productoptions = ProductOption.objects.create(product=product,size_id=row[8] if row[8] else None,\
-                    #         color_id=row[9] if row[9] else None,fragrance_id=row[10] if row[10] else None,\
-                    #         flavor_id=row[11] if row[11] else None,weight_id=row[12] if row[12] else None,\
-                    #         package_size_id=row[13] if row[13] else None)
-
-                    # producttax = ProductTaxMapping.objects.bulk_create([ProductTaxMapping(product=product,\
-                    #             tax_id=t.strip()) for t in row[7].split(',') if t is not ''])
-
-                    for t in row[7].split(','):
-                        if t is not '':
-                            product_tax,_ = ProductTaxMapping.objects.get_or_create(product=product)
-                            product_tax.tax_id = t.strip()
-                            product_tax.save()
-
-                messages.success(request, 'Products uploaded successfully')
-            except:
-                messages.error(request,"Something went wrong!")
+            messages.success(request, 'Products uploaded successfully')
             return redirect('admin:productscsvupload')
     else:
         form = ProductsCSVUploadForm()
