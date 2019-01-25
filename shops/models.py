@@ -84,10 +84,7 @@ class ShopPhoto(models.Model):
         return mark_safe('<img alt="%s" src="%s" />' % (self.shop_name, self.shop_photo.url))
 
     def __str__(self):
-        if self.shop_name:
-            return "%s - %s"%(self.shop_name.shop_name, self.shop_photo.url)
-        else:
-            return "%s" % (self.shop_photo.url)
+        return "%s" % (self.shop_photo.url)
 
 class ShopDocument(models.Model):
     shop_name = models.ForeignKey(Shop, related_name='shop_name_documents', on_delete=models.CASCADE)
