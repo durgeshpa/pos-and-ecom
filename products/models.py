@@ -207,6 +207,10 @@ class ProductCategory(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
+    class Meta:
+        verbose_name = _("Product Category")
+        verbose_name_plural = _("Product Categories")
+
 class ProductCategoryHistory(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_cat_history',on_delete=models.CASCADE)
     category = models.ForeignKey(Category, related_name='category_pro_cat_history',on_delete=models.CASCADE)
