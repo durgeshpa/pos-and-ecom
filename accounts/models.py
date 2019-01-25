@@ -77,7 +77,7 @@ class User(AbstractUser):
 
 
     def __str__(self):
-        return "%s - %s"%(self.first_name,str(self.phone_number))
+        return "%s"%(str(self.phone_number))
 
 class UserDocument(models.Model):
     user = models.ForeignKey(User, related_name='user_documents', on_delete=models.CASCADE)

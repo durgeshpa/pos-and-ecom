@@ -69,7 +69,7 @@ def shop_verification_notification(sender, instance=None, created=False, **kwarg
                     username = instance.shop_owner.phone_number
                 #shop_owner_first_name = 'Retailer'
                 shop_title= str(instance.shop_name)
-                message = SendSms(phone=instance.shop_owner,
+                message = SendSms(phone=instance.shop_owner.phone_number,
                                   body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App."\
                                       " Thanks,"\
                                       " Team GramFactory " % (username, shop_title))
