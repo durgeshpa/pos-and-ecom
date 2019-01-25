@@ -77,7 +77,7 @@ class GramGRNProductsList(APIView):
         if category:
             product_ids = ProductCategory.objects.filter(product__in=grn, category__in=category).values_list('product_id')
             products = products.filter(pk__in=product_ids)
-        if keyword:
+        if keyword and products.filter(product_name__icontains=keyword).last():
             products = products.filter(product_name__icontains=keyword)
 
         products_price = ProductPrice.objects.filter(product__in=products).order_by('product','-created_at').distinct('product')
