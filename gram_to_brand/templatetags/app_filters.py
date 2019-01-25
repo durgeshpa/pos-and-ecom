@@ -8,6 +8,7 @@ register = template.Library()
 
 qty_list = []
 shipped_qty_list= []
+
 # qty_list1 =[]
 
 # @register.filter(name='case_size')
@@ -50,7 +51,6 @@ def inner_case_size(value, *args, **kwargs):
     result = int(value)*shipped_qty_list[0]
     shipped_qty_list.clear()
     return result
-
 
 
 @register.filter(name='amount')

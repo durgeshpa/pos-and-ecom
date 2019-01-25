@@ -10,7 +10,7 @@ from dal import autocomplete
 from django.utils.html import format_html
 from django.urls import reverse
 from daterange_filter.filter import DateRangeFilter
-
+from django.db.models import Q
 from brand.models import Brand
 from addresses.models import State,Address
 from brand.models import Vendor
@@ -20,6 +20,8 @@ from .forms import POGenerationForm
 from django.http import HttpResponse, HttpResponseRedirect
 from retailer_backend.filters import ( BrandFilter, SupplierStateFilter,SupplierFilter, OrderSearch, QuantitySearch, InvoiceNoSearch,
                                        GRNSearch, POAmountSearch, PORaisedBy)
+
+from django.db.models import Q
 
 class CartProductMappingForm(forms.ModelForm):
 
@@ -68,6 +70,16 @@ class CartAdmin(admin.ModelAdmin):
     list_display = ('po_no','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_amount','is_approve','po_raised_by','po_status', 'download_purchase_order')
     list_filter = [BrandFilter,SupplierStateFilter ,SupplierFilter,('po_creation_date', DateRangeFilter),('po_validity_date', DateRangeFilter),POAmountSearch,PORaisedBy]
     form = POGenerationForm
+
+    def get_queryset(self, request):
+        qs = super(CartAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(
+            Q(gf_shipping_address__shop_name__related_users=request.user) |
+            Q(gf_shipping_address__shop_name__shop_owner=request.user)
+                )
+
     def download_purchase_order(self,obj):
         if obj.is_approve:
             return format_html("<a href= '%s' >Download PO</a>"%(reverse('download_purchase_order', args=[obj.pk])))
@@ -251,7 +263,7 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
 
 class BrandNoteAdmin(admin.ModelAdmin):
     model = BrandNote
-    list_display = ('brand_note_id','order','grn_order', 'note_type', 'amount')
+    list_display = ('brand_note_id','order','grn_order',  'amount')
     exclude = ('brand_note_id','last_modified_by',)
 
 class OrderItemAdmin(admin.ModelAdmin):
@@ -269,7 +281,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
     autocomplete_fields = ('order',)
     exclude = ('order_item','grn_id','last_modified_by',)
     #list_display_links = None
-    list_display = ('grn_id','order','invoice_no','grn_date','edit_grn_link')
+    list_display = ('grn_id','order','invoice_no','grn_date','edit_grn_link','download_debit_note')
     list_filter = [ OrderSearch, InvoiceNoSearch, GRNSearch, ('created_at', DateRangeFilter),]
     form = GRNOrderForm
     fields = ('order','invoice_no')
@@ -279,6 +291,15 @@ class GRNOrderAdmin(admin.ModelAdmin):
             return self.readonly_fields + ('order', )
         return self.readonly_fields
 
+    def get_queryset(self, request):
+        qs = super(GRNOrderAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(
+            Q(order__ordered_cart__gf_shipping_address__shop_name__related_users=request.user) |
+            Q(order__ordered_cart__gf_shipping_address__shop_name__shop_owner
+              =request.user)
+        )
 
     def edit_grn_link(self, obj):
         #return format_html("<ul class ='object-tools'><li><a href = '/admin/gram_to_brand/grnorder/add/?brand=%s' class ='addlink' > Add order</a></li></ul>"% (obj.id))
@@ -286,6 +307,11 @@ class GRNOrderAdmin(admin.ModelAdmin):
 
     edit_grn_link.short_description = 'Edit GRN'
 
+    def download_debit_note(self,obj):
+        if obj.grn_order_brand_note.count()>0:
+            return format_html("<a href= '%s' >Download Debit Note</a>"%(reverse('download_debit_note', args=[obj.pk])))
+
+    download_debit_note.short_description = 'Download Debit Note'
 
     def save_formset(self, request, form, formset, change, *args, **kwargs):
         import datetime

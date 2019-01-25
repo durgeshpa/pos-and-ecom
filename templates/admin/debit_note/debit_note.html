@@ -1,14 +1,14 @@
 {% load i18n %}
 {% load static %}
 {% load staticfiles %}
-{% load app_filters%}
+{% load app_filters_debitnote %}
 {% load humanize %}
 
 <html>
 
 	<head>
 <meta charset="UTF-8">
-<title>purchase order</title>
+<title>debit note</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link href="{{scheme}}://{{url}}/static/admin/css/bootstrap.css" rel="stylesheet" id="bootstrap-css">
    <link rel="stylesheet" type="text/css" href="{{scheme}}://{{url}}/static/admin/css/style.css">
@@ -36,34 +36,34 @@ table tr td,th,h4,span,address{
     <div class="row">
         <div class="col-xs-12">
     		<div class="invoice-title">
-    			<h4 class="invoice">Purchase Order No:- <span class="invoice_no"> <strong>{{shop.po_no}}</strong></span></h4><h4 class="pull-right order_id">Order Id: <span class="order_id_no"><strong>{{ order_id }}</strong></span></h4>
+    			<h4 class="invoice">Debit Note  No:- <span class="invoice_no"> <strong>{{debit_note_id.last.brand_note_id}}</strong></span></h4><h4 class="pull-right order_id">Order Id: <span class="order_id_no"><strong>{{ order_id }}</strong></span></h4>
     		</div>
 
     		<div class="row">
     			<div class="col-xs-6">
     				<address>
 						<span>Invoice To :</span><br>
-    				<strong>{{shop.gf_billing_address.shop_name}}</strong><br>
-    				{{shop.gf_billing_address.nick_name}}, {{shop.gf_billing_address.address_line1}}, {{shop.gf_billing_address.city}}<br>
+    				<strong>{{shop.order.billing_address.shop_name}}</strong><br>
+    				{{shop.order.billing_address.nick_name}}, {{shop.order.billing_address.address_line1}}, {{shop.order.billing_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{% if gram_factory_billing_gstin %}{{ gram_factory_billing_gstin.shop_document_number }}{% else %} ---- {% endif %}</span><br>
-						<strong>State Name:</strong> <span>{{shop.gf_billing_address.state}} </span><strong>Code:</strong> <span>{{shop.gf_billing_address.pincode}}</span><br>
+						<strong>State Name:</strong> <span>{{shop.order.billing_address.state}} </span><strong>Code:</strong> <span>{{shop.order.billing_address.pincode}}</span><br>
 						<strong>CIN:</strong> <span>---</span>
     				</address>
 
 					<address>
 						<span>Dispatch To :</span><br>
-    				<strong>{{shop.gf_shipping_address.shop_name}}</strong><br>
-    				{{shop.gf_shipping_address.nick_name}}, {{shop.gf_shipping_address.address_line1}}, {{shop.gf_shipping_address.city}}<br>
+    				<strong>{{shop.order.shipping_address.shop_name}}</strong><br>
+    				{{shop.order.shipping_address.nick_name}}, {{shop.order.shipping_address.address_line1}}, {{shop.order.shipping_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{% if gram_factory_shipping_gstin %}{{ gram_factory_shipping_gstin.shop_document_number  }}{% else %} ---- {% endif %}</span><br>
-						<strong>State Name:</strong> <span>{{shop.gf_shipping_address.state}} </span><strong>Code:</strong> <span>{{shop.gf_shipping_address.pincode}}</span><br>
+						<strong>State Name:</strong> <span>{{shop.order.shipping_address.state}} </span><strong>Code:</strong> <span>{{shop.order.shipping_address.pincode}}</span><br>
 						<strong>CIN:</strong> <span>---</span>
     				</address>
 					<address>
 						<span>Party :</span><br>
-    				<strong>{{shop.supplier_name.vendor_name}}</strong><br>
-    				{{shop.supplier_name.company_name}}, {{shop.supplier_name.city}}<br>
-						<strong>GSTIN/UIN:</strong> <span>{{shop.supplier_name.GST_number}}</span><br>
-						<strong>State Name:</strong> <span>{{shop.supplier_name.state}} </span><strong>Code:</strong> <span>{{shop.supplier_name.pincode}}</span><br>
+    				<strong>{{shop.order.ordered_cart.supplier_name.vendor_name}}</strong><br>
+    				{{shop.order.ordered_cart.supplier_name.company_name}}, {{shop.order.ordered_cart.supplier_name.city}}<br>
+						<strong>GSTIN/UIN:</strong> <span>{{shop.order.ordered_cart.supplier_name.GST_number}}</span><br>
+						<strong>State Name:</strong> <span>{{shop.order.ordered_cart.supplier_name.state}} </span><strong>Code:</strong> <span>{{shop.order.ordered_cart.supplier_name.pincode}}</span><br>
 						<strong>CIN:</strong> <span>---</span>
     				</address>
     			</div>
@@ -77,7 +77,7 @@ table tr td,th,h4,span,address{
 									<span>{{shop.po_no}}</span>
 									</td>
         							<td class="text-center"><strong>Dated <br>
-{{shop.po_creation_date}}</strong></td>
+{{shop.grn_date}}</strong></td>
 
 
                                 </tr>
@@ -100,7 +100,7 @@ table tr td,th,h4,span,address{
 
                                 <tr>
 
-        							<td style="width: 50%" class="text-center"><strong>Supplier's Ref./Order No.</strong><br><span>{{shop.po_no}}</span></td>
+        							<td style="width: 50%" class="text-center"><strong>Supplier's Ref./Order No.</strong><br><span>{{shop.invoice_no}} dt. {{shop.grn_date}}</span></td>
         							<td class="text-center"><strong>Delivery Note Date <br>
 1 Days</strong></td>
 
@@ -136,7 +136,7 @@ table tr td,th,h4,span,address{
     	<div class="col-md-12">
     		<div class="panel panel-default">
     			<div class="panel-heading">
-    				<h3 class="panel-title"><strong>Order summary</strong></h3>
+    				<h3 class="panel-title"><strong>Debit Note summary</strong></h3>
     			</div>
     			<div class="panel-body">
     				<div class="table">
@@ -151,7 +151,7 @@ table tr td,th,h4,span,address{
         							<td class="text-center"><strong>HSN/SAC</strong></td>
 
 									    <td class="text-center"><strong>GST Rate</strong></td>
-						  <td class="text-center"><strong>No of Cases</strong></td>
+
 									    <td class="text-center"><strong>Quantity</strong></td>
         							<td class="text-center"><strong>Rate</strong></td>
         							<td class="text-center"><strong>Per</strong></td>
@@ -162,28 +162,26 @@ table tr td,th,h4,span,address{
     							<!-- foreach ($order->lineItems as $line) or some such thing here -->
     							<tr>
                     {% for m in products %}
+                    {% if m.returned_qty > 0 or m.product_invoice_price > m.po_product_price %}
     								<td><strong>{{forloop.counter}}</strong></td>
-										<td class="text-center">{{ m.cart_product.product_sku}}</td>
-    								<td class="text-center">{{ m.cart_product.product_short_description}}</td>
+										<td class="text-center">{{ m.product.product_sku}}</td>
+    								<td class="text-center">{{ m.product.product_short_description}}</td>
 
-
-
-    								<td class="text-center">{{ m.cart_product.product_hsn}}</td>
-										   {% for n in m.cart_product.product_pro_tax.all %}
+    								<td class="text-center">{{ m.product.product_hsn}}</td>
+										   {% for n in m.product.product_pro_tax.all %}
 											 		{% if n.tax.tax_type == 'gst' %}
 		    										<td class="text-center">{{n.tax.tax_percentage}}%</td>
 													{% endif %}
 												{% endfor %}
-									<td class="text-center">{{ m.number_of_cases }}</td>
 
-
-									<td class="text-center">{{m.qty}}</td>
-    								<td class="text-center">{{m.price}}</td>
+									<td class="text-center">{{m.returned_qty}}</td>
+    								<td class="text-center">{{m.po_product_price}}</td>
     								<td class="text-center">PCS</td>
-										   <div style="display:none"> {{m.qty| qty}}</div>
+										   <div style="display:none"> {{m.returned_qty | returned_qty}}</div>
 
-    								<td class="text-right">{{m.price| price | intcomma }}/-</td>
+    								<td class="text-right">{{m.po_product_price | po_product_price | intcomma }}/-</td>
     							</tr>
+                  {% endif %}
 									{% endfor %}
 
     							<tr>
@@ -191,9 +189,8 @@ table tr td,th,h4,span,address{
 
 									<td></td>
 									<td><strong></strong></td>
+									<td></td>
 
-									<td></td>
-									<td></td>
 
 <td class="text-center"></td>
 								  <td class="thick-line text-center"><strong>{{sum_qty}} PCS</strong></td>
@@ -201,15 +198,14 @@ table tr td,th,h4,span,address{
     								<td class="thick-line text-center"><strong></strong></td>
     								<td class="thick-line text-right"><strong>₹{{sum_amount | intcomma }}/-</strong></td>
     							</tr>
-									{% if shop.supplier_state == shop.gf_shipping_address.state %}
+									{% if shop.order.ordered_cart.supplier_state.state == shop.order.shipping_address.state %}
     							<tr>
 
 									<td class="no-line"></td>
 									<td class="no-line"></td>
 									<td class="no-line"></td>
-
 									<td class="no-line"></td>
-    								<td class="no-line"></td>
+
     								<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
@@ -221,9 +217,8 @@ table tr td,th,h4,span,address{
     								<td class="no-line"></td>
 									<td class="no-line"></td>
 										<td class="no-line"></td>
+									<td class="no-line"></td>
 
-									<td class="no-line"></td>
-									<td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line"></td>
@@ -238,7 +233,7 @@ table tr td,th,h4,span,address{
 											<td class="no-line"></td>
 
 										<td class="no-line"></td>
-										<td class="no-line"></td>
+
 	    								<td class="no-line"></td>
 	    								<td class="no-line"></td>
 	    								<td class="no-line"></td>
@@ -254,7 +249,7 @@ table tr td,th,h4,span,address{
 									<td class="no-line"></td>
 
     								<td class="no-line"></td>
-									<td class="no-line"></td>
+
     								<td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line"></td>
@@ -269,7 +264,7 @@ table tr td,th,h4,span,address{
 										<td class="no-line"></td>
 
 	    								<td class="no-line"></td>
-										<td class="no-line"></td>
+
 	    								<td class="no-line"></td>
 	    								<td class="no-line"></td>
 	    								<td class="no-line"></td>
@@ -284,7 +279,7 @@ table tr td,th,h4,span,address{
     								<td class="no-line"></td>
 
     								<td class="no-line"></td>
-									<td class="no-line"></td>
+
     								<td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line"></td>
@@ -299,9 +294,11 @@ table tr td,th,h4,span,address{
         							<td colspan="8" class="no-line"><strong>Amount Chargeable (in words)</strong></td>
         							<td class="no-line">E . &amp; O . E</td>
                                 </tr>
-								<tr>
-        							<td colspan="11"><strong>{{total_amount | amount}}</strong></td>
-
+								<tr> {% if total_amount.is_integer %}
+        							<td colspan="11"><strong>INR {{total_amount_int | amount }} only</strong></td>
+                      {% else %}
+                      <td colspan="11"><strong>INR {{total_amount | amount }} paise only</strong></td>
+                      {% endif %}
                                 </tr>
     						</tbody>
     					</table>

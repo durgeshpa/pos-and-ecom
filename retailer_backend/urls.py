@@ -43,6 +43,7 @@ urlpatterns = [
     url(r'^retailer/sp/', include('retailer_to_sp.urls')),
     url(r'^gram/brand/', include('gram_to_brand.urls')),
     url(r'^retailer/gram/', include('retailer_to_gram.urls')),
+    url(r'^services/', include('services.urls')),
     url('^delete-ordered-product-reserved/$', CronToDeleteOrderedProductReserved.as_view(), name='delete_ordered_product_reserved'),
     url('^terms-and-conditions/$', terms_and_conditions, name='terms_and_conditions'),
     url('^privacy-policy/$', privacy_policy, name='privacy_policy'),

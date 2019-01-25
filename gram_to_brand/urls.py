@@ -2,7 +2,7 @@
 from .views import (SupplierAutocomplete,ShippingAddressAutocomplete,BillingAddressAutocomplete,BrandAutocomplete,StateAutocomplete,
         OrderAutocomplete,ProductAutocomplete,VendorProductAutocomplete,VendorProductPrice, DownloadPurchaseOrder,
         GRNProductPriceMappingData,GRNProductAutocomplete,GRNProductMappingData,GRNProduct1MappingData,GRNOrderAutocomplete,
-        GRNedProductData, ApproveView, DisapproveView)
+        GRNedProductData, ApproveView, DisapproveView, DownloadDebitNote)
 
 
 from django.conf.urls import url,include
@@ -27,7 +27,7 @@ urlpatterns = [
     url(r'^order-autocomplete/$', GRNOrderAutocomplete.as_view(), name='order-autocomplete', ),
     url(r'^po-grned/$', GRNedProductData.as_view(), name='po-grned', ),
     #url(r'^po-grned1/$', GRNProduct2MappingData.as_view(), name='po-grned1', ),
-
+    url('^download-debit-note/(?P<pk>\d+)/debit_note/$', DownloadDebitNote.as_view(), name='download_debit_note'),
 
     url(r'^approve/(?P<pk>\d+)/$', ApproveView.as_view(), name='approve-account', ),
     url(r'^dis-approve/(?P<pk>\d+)/$', DisapproveView.as_view(), name='dis-approve-account', ),
