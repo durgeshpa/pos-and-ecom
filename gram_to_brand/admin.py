@@ -21,6 +21,8 @@ from django.http import HttpResponse, HttpResponseRedirect
 from retailer_backend.filters import ( BrandFilter, SupplierStateFilter,SupplierFilter, OrderSearch, QuantitySearch, InvoiceNoSearch,
                                        GRNSearch, POAmountSearch, PORaisedBy)
 
+from django.db.models import Q
+
 class CartProductMappingForm(forms.ModelForm):
 
     cart_product = forms.ModelChoiceField(
@@ -279,6 +281,15 @@ class GRNOrderAdmin(admin.ModelAdmin):
             return self.readonly_fields + ('order', )
         return self.readonly_fields
 
+    def get_queryset(self, request):
+        qs = super(GRNOrderAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(
+            Q(order__ordered_cart__gf_shipping_address__shop_name__related_users=request.user) |
+            Q(order__ordered_cart__gf_shipping_address__shop_name__shop_owner
+              =request.user)
+        )
 
     def edit_grn_link(self, obj):
         #return format_html("<ul class ='object-tools'><li><a href = '/admin/gram_to_brand/grnorder/add/?brand=%s' class ='addlink' > Add order</a></li></ul>"% (obj.id))

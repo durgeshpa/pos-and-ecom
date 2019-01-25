@@ -20,8 +20,8 @@ from products.models import ProductVendorMapping
 from django.db.models import F,Sum,Count
 from django.views.generic import View,ListView,UpdateView
 from django.urls import reverse_lazy
+from django.db.models import Q
 
-# Create your views here.
 
 class SupplierAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self,*args,**kwargs):
@@ -49,31 +49,28 @@ class SupplierAutocomplete(autocomplete.Select2QuerySetView):
 
 
 class ShippingAddressAutocomplete(autocomplete.Select2QuerySetView):
-
-    def get_queryset(self,*args,**kwargs):
-
-        qs = Address.objects.filter(shop_name__shop_type__shop_type='gf',address_type='shipping')
-
-        state_id = self.forwarded.get('state', None)
-        supplier_name = self.forwarded.get('supplier_name', None)
-
-
-        # if state_id:
-        #     qs = qs.filter(state__id=state_id)
-
+    def get_queryset(self, *args, **kwargs):
+        qs = Address.objects.filter(
+            Q(shop_name__shop_owner=self.request.user) |
+            Q(shop_name__related_users=self.request.user),
+            shop_name__shop_type__shop_type='gf',
+            address_type='shipping',
+            status=True
+            )
         return qs
-
 
 
 class BillingAddressAutocomplete(autocomplete.Select2QuerySetView):
-    def get_queryset(self,*args,**kwargs):
-        qs = Address.objects.filter(shop_name__shop_type__shop_type='gf',address_type='billing')
-        state_id = self.forwarded.get('state', None)
-
-        # if state_id:
-        #     qs = qs.filter(state__id=state_id)
-
+    def get_queryset(self, *args, **kwargs):
+        qs = Address.objects.filter(
+            Q(shop_name__shop_owner=self.request.user) |
+            Q(shop_name__related_users=self.request.user),
+            shop_name__shop_type__shop_type='gf',
+            address_type='billing',
+            status=True
+        )
         return qs
+
 
 class BrandAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self,*args,**kwargs):
