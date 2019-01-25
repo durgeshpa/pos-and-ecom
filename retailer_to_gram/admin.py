@@ -157,7 +157,10 @@ class OrderAdmin(admin.ModelAdmin):
         qs = super(OrderAdmin, self).get_queryset(request)
         if request.user.is_superuser:
             return qs
-        return qs.filter(seller_shop__related_users=request.user)
+        return qs.filter(
+            Q(seller_shop__related_users=request.user) |
+            Q(seller_shop__shop_owner=request.user)
+                )
 
 admin.site.register(Order,OrderAdmin)
 
@@ -215,7 +218,10 @@ class OrderedProductAdmin(admin.ModelAdmin):
         qs = super(OrderedProductAdmin, self).get_queryset(request)
         if request.user.is_superuser:
             return qs
-        return qs.filter(order__seller_shop__related_users=request.user)
+        return qs.filter(
+            Q(order__seller_shop__related_users=request.user) |
+            Q(order__seller_shop__shop_owner=request.user)
+                )
 
 
 

@@ -10,7 +10,7 @@ from dal import autocomplete
 from django.utils.html import format_html
 from django.urls import reverse
 from daterange_filter.filter import DateRangeFilter
-
+from django.db.models import Q
 from brand.models import Brand
 from addresses.models import State,Address
 from brand.models import Vendor
@@ -73,7 +73,10 @@ class CartAdmin(admin.ModelAdmin):
         qs = super(CartAdmin, self).get_queryset(request)
         if request.user.is_superuser:
             return qs
-        return qs.filter(gf_shipping_address__shop_name__related_users=request.user)
+        return qs.filter(
+            Q(gf_shipping_address__shop_name__related_users=request.user) |
+            Q(gf_shipping_address__shop_name__shop_owner=request.user)
+                )
 
     def download_purchase_order(self,obj):
         if obj.is_approve:
