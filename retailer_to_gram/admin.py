@@ -153,6 +153,12 @@ class OrderAdmin(admin.ModelAdmin):
     search_fields = ('order',)
     list_display = ('order_no','order_status',)
 
+    def get_queryset(self, request):
+        qs = super(OrderAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(seller_shop__related_users=request.user)
+
 admin.site.register(Order,OrderAdmin)
 
 from django.forms import formsets
@@ -204,6 +210,14 @@ class OrderedProductAdmin(admin.ModelAdmin):
             #import pdb; pdb.set_trace()
             return self.readonly_fields + ('order', )
         return self.readonly_fields
+
+    def get_queryset(self, request):
+        qs = super(OrderedProductAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(order__seller_shop__related_users=request.user)
+
+
 
 admin.site.register(OrderedProduct,OrderedProductAdmin)
 
