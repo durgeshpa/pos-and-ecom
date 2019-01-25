@@ -183,12 +183,9 @@ class ProductImageAdmin(admin.TabularInline):
 
 class ProductTaxMappingAdmin(admin.TabularInline):
     model = ProductTaxMapping
-    extra = 5
+    extra = 6
+    max_num = 6
     autocomplete_fields = ['tax']
-
-
-
-
     class Media:
             pass
 
