@@ -70,3 +70,4 @@ xlwt==1.3.0
 django-admin-autocomplete-filter==0.2
 tablib==0.12.1
 openpyxl==2.4.9
+django-ses

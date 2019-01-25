@@ -75,6 +75,7 @@ INSTALLED_APPS = [
     'retailer_to_gram',
     'admin_auto_filters',
     'notification_center',
+    'django_ses'
 ]
 
 
@@ -210,12 +211,14 @@ PO_STARTS_WITH = 'ADT/PO'
 CN_STARTS_WITH = 'ADT/CN'
 INVOICE_STARTS_WITH = 'ADT'
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_BACKEND = 'django_ses.SESBackend'
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587
-EMAIL_HOST_USER = config('EMAIL_USER')
-EMAIL_HOST_PASSWORD = config('EMAIL_PWD')
+
+AWS_SES_ACCESS_KEY_ID = config('AWS_SES_ACCESS_KEY_ID')
+AWS_SES_SECRET_ACCESS_KEY = config('AWS_SES_SECRET_ACCESS_KEY')
+AWS_SES_REGION_NAME = 'us-east-1'
+AWS_SES_CONFIGURATION_SET = 'gramfactory_basic_emails'
 
 OLD_PASSWORD_FIELD_ENABLED = True
 LOGOUT_ON_PASSWORD_CHANGE = True

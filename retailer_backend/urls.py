@@ -24,6 +24,9 @@ from django.conf import settings
 from retailer_backend.cron import CronToDeleteOrderedProductReserved,cron_to_delete_ordered_product_reserved
 from accounts.views import (terms_and_conditions, privacy_policy)
 
+from django_ses.views import handle_bounce
+from django.views.decorators.csrf import csrf_exempt
+
 schema_view = get_swagger_view(title='GramFactory API')
 
 
@@ -49,9 +52,11 @@ urlpatterns = [
 
     url('^delete-ordered-product-reserved1/$', cron_to_delete_ordered_product_reserved, name='delete_ordered_product_reserved'),
     path('admin/', admin.site.urls),
-
+    url(r'^ses/bounce/$', csrf_exempt(handle_bounce)),
 ]
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+urlpatterns += (url(r'^admin/django-ses/', include('django_ses.urls')),)
+
 if settings.DEBUG:
     urlpatterns += [url(r'^$', schema_view)]
