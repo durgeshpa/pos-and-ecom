@@ -67,7 +67,8 @@ class ShopAdmin(admin.ModelAdmin):
     get_shop_pending_amount.short_description = 'Shop Pending Amount'
 
     def get_shop_city(self, obj):
-        return obj.shop_name_address_mapping.last().city
+        if obj.shop_name_address_mapping.exists():
+            return obj.shop_name_address_mapping.last().city
     get_shop_city.short_description = 'Shop City'
 
 class ParentRetailerMappingAdmin(admin.ModelAdmin):

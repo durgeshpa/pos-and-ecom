@@ -10,7 +10,7 @@ from dal import autocomplete
 from django.utils.html import format_html
 from django.urls import reverse
 from daterange_filter.filter import DateRangeFilter
-
+from django.db.models import Q
 from brand.models import Brand
 from addresses.models import State,Address
 from brand.models import Vendor
@@ -70,6 +70,16 @@ class CartAdmin(admin.ModelAdmin):
     list_display = ('po_no','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_amount','is_approve','po_raised_by','po_status', 'download_purchase_order')
     list_filter = [BrandFilter,SupplierStateFilter ,SupplierFilter,('po_creation_date', DateRangeFilter),('po_validity_date', DateRangeFilter),POAmountSearch,PORaisedBy]
     form = POGenerationForm
+
+    def get_queryset(self, request):
+        qs = super(CartAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(
+            Q(gf_shipping_address__shop_name__related_users=request.user) |
+            Q(gf_shipping_address__shop_name__shop_owner=request.user)
+                )
+
     def download_purchase_order(self,obj):
         if obj.is_approve:
             return format_html("<a href= '%s' >Download PO</a>"%(reverse('download_purchase_order', args=[obj.pk])))
