@@ -61,14 +61,9 @@ class Shop(models.Model):
 @receiver(post_save, sender=Shop)
 def shop_verification_notification(sender, instance=None, created=False, **kwargs):
         if not created:
-            if instance.status ==True:
-
-                if instance.shop_owner.first_name:
-                    username = instance.shop_owner.first_name
-                else:
-                    username = instance.shop_owner.phone_number
-                #shop_owner_first_name = 'Retailer'
-                shop_title= str(instance.shop_name)
+            if instance.status == True and ParentRetailerMapping.objects.filter(retailer=instance,status=True):
+                username = instance.shop_owner.first_name if instance.shop_owner.first_name else instance.shop_owner.phone_number
+                shop_title = str(instance.shop_name)
                 message = SendSms(phone=instance.shop_owner,
                                   body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App."\
                                       " Thanks,"\
@@ -110,3 +105,17 @@ class ParentRetailerMapping(models.Model):
 
     def __str__(self):
         return "%s(%s) --mapped to-- %s(%s)(%s)"%(self.retailer.shop_name,self.retailer.shop_type,self.parent.shop_name,self.parent.shop_type,"Active" if self.status else "Inactive")
+
+@receiver(post_save, sender=ParentRetailerMapping)
+def shop_verification_notification1(sender, instance=None, created=False, **kwargs):
+        if created:
+            shop = instance.retailer
+            if shop.status == True:
+                username = shop.shop_owner.first_name if shop.shop_owner.first_name else shop.shop_owner.phone_number
+                shop_title = str(shop.shop_name)
+                message = SendSms(phone=shop.shop_owner,
+                                  body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App."\
+                                      " Thanks,"\
+                                      " Team GramFactory " % (username, shop_title))
+
+                message.send()
