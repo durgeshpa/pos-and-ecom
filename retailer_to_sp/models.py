@@ -216,6 +216,6 @@ def order_notification(sender, instance=None, created=False, **kwargs):
         message = SendSms(phone=instance.order_id.ordered_by,
                           body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
                               " Thanks," \
-                              " Team GramFactory" % (username, order_no,items_count, total_amount,shop_name))
+                              " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
 
         message.send()
