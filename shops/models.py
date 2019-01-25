@@ -58,18 +58,20 @@ class Shop(models.Model):
     def __str__(self):
         return "%s - %s"%(self.shop_name, self.shop_type.get_shop_type_display())
 
-@receiver(post_save, sender=Shop)
-def shop_verification_notification(sender, instance=None, created=False, **kwargs):
-        if not created:
-            if instance.status == True and ParentRetailerMapping.objects.filter(retailer=instance,status=True):
-                username = instance.shop_owner.first_name if instance.shop_owner.first_name else instance.shop_owner.phone_number
-                shop_title = str(instance.shop_name)
-                message = SendSms(phone=instance.shop_owner,
-                                  body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App."\
-                                      " Thanks,"\
-                                      " Team GramFactory " % (username, shop_title))
+    def __init__(self, *args, **kwargs):
+        super(Shop, self).__init__(*args, **kwargs)
+        self.__original_status = self.status
 
-                message.send()
+    def save(self, force_insert=False, force_update=False, *args, **kwargs):
+        if self.status != self.__original_status and self.status is True and ParentRetailerMapping.objects.filter(retailer=self, status=True).exists():
+            username = self.shop_owner.first_name if self.shop_owner.first_name else self.shop_owner.phone_number
+            shop_title = str(self.shop_name)
+            message = SendSms(phone=self.shop_owner,
+                              body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App." \
+                                   " Thanks," \
+                                   " Team GramFactory " % (username, shop_title))
+            message.send()
+        super(Shop, self).save(force_insert, force_update, *args, **kwargs)
 
 class ShopPhoto(models.Model):
     shop_name = models.ForeignKey(Shop, related_name='shop_name_photos', on_delete=models.CASCADE)
