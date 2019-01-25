@@ -73,7 +73,7 @@ class Address(models.Model):
     status = models.BooleanField(default=True)
 
     def __str__(self):
-        return "%s - %s"%(self.shop_name.shop_name , self.address_line1)
+        return "%s - %s"%(self.shop_name , self.address_line1)
 
 class InvoiceCityMapping(models.Model):
 
