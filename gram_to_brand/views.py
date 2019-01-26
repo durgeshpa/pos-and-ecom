@@ -89,8 +89,8 @@ class StateAutocomplete(autocomplete.Select2QuerySetView):
 class OrderAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self,*args,**kwargs):
         qs = Order.objects.all()
-        if self.request.user.is_superuser:
-            return qs
+        # if self.request.user.is_superuser:
+        #     return qs
         qs = qs.filter(
             Q(ordered_cart__gf_shipping_address__shop_name__shop_owner=self.request.user) |
             Q(ordered_cart__gf_shipping_address__shop_name__related_users=self.request.user),
