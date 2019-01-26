@@ -2,7 +2,7 @@ version: 0.0
 os: linux
 files:
   - source: /
-    destination: /home/ubuntu/sample-app
+    destination: /home/ubuntu/project
 hooks:
   ApplicationStop:
     - location: sudo supervisorctl restart all
