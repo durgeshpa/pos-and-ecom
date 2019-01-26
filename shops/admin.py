@@ -23,10 +23,19 @@ class ShopPhotosAdmin(admin.TabularInline):
     fields = ( 'shop_photo','shop_photo_thumbnail', )
     readonly_fields = ('shop_photo_thumbnail',)
 
+from django.forms.models import BaseInlineFormSet
+class RequiredInlineFormSet(BaseInlineFormSet):
+    def _construct_form(self, i, **kwargs):
+        form = super(RequiredInlineFormSet, self)._construct_form(i, **kwargs)
+        if i < 1:
+            form.empty_permitted = False
+        return form
+
 class ShopDocumentsAdmin(admin.TabularInline):
     model = ShopDocument
     fields = ( 'shop_document_type','shop_document_number','shop_document_photo','shop_document_photo_thumbnail', )
     readonly_fields = ('shop_document_photo_thumbnail',)
+    formset = RequiredInlineFormSet
 
 class AddressAdmin(admin.TabularInline):
     model = Address

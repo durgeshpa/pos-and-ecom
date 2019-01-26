@@ -208,6 +208,10 @@ class ProductCategory(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
+    class Meta:
+        verbose_name = _("Product Category")
+        verbose_name_plural = _("Product Categories")
+
 class ProductCategoryHistory(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_cat_history',on_delete=models.CASCADE)
     category = models.ForeignKey(Category, related_name='category_pro_cat_history',on_delete=models.CASCADE)
@@ -217,7 +221,7 @@ class ProductCategoryHistory(models.Model):
 
 class ProductImage(models.Model):
     product = models.ForeignKey(Product,related_name='product_pro_image',on_delete=models.CASCADE)
-    image_name = models.CharField(max_length=255,validators=[NameValidator])
+    image_name = models.CharField(max_length=255,validators=[ProductNameValidator])
     image_alt_text = models.CharField(max_length=255,null=True,blank=True,validators=[NameValidator])
     image = models.ImageField(upload_to='product_image')
     created_at = models.DateTimeField(auto_now_add=True)
