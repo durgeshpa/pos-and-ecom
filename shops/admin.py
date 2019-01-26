@@ -22,12 +22,10 @@ class ShopRelatedUserSearch(InputFilter):
 
     def queryset(self, request, queryset):
         if self.value() is not None:
-            related_user = self.value()
-            if related_user is None:
+            related_user_number = self.value()
+            if related_user_number is None:
                 return
-            return queryset.filter(
-                Q(related_users__shop_type__icontains=related_user)
-            )
+            return queryset.filter(related_users__phone_number__icontains=related_user_number)
 
 class ShopOwnerSearch(InputFilter):
     parameter_name = 'shop_owner'
@@ -35,15 +33,10 @@ class ShopOwnerSearch(InputFilter):
 
     def queryset(self, request, queryset):
         if self.value() is not None:
-            shop_type = self.value()
-            if shop_type is None:
+            shop_owner_number = self.value()
+            if shop_owner_number is None:
                 return
-            print(queryset.filter(Q(shop_type__shop_type__icontains=shop_type)).query)
-            return queryset.filter(
-                Q(shop_type__shop_type__icontains=shop_type)
-            )
-
-
+            return queryset.filter(shop_owner__phone_number__icontains=shop_owner_number)
 
 class ShopPhotosAdmin(admin.TabularInline):
     model = ShopPhoto
