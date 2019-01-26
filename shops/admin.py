@@ -14,9 +14,36 @@ class ShopTypeSearch(InputFilter):
             shop_type = self.value()
             if shop_type is None:
                 return
+            return queryset.filter(shop_type__shop_type__icontains=shop_type)
+
+class ShopRelatedUserSearch(InputFilter):
+    parameter_name = 'related_users'
+    title = 'Related User'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            related_user = self.value()
+            if related_user is None:
+                return
+            return queryset.filter(
+                Q(related_users__shop_type__icontains=related_user)
+            )
+
+class ShopOwnerSearch(InputFilter):
+    parameter_name = 'shop_owner'
+    title = 'Shop Owner'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            shop_type = self.value()
+            if shop_type is None:
+                return
+            print(queryset.filter(Q(shop_type__shop_type__icontains=shop_type)).query)
             return queryset.filter(
                 Q(shop_type__shop_type__icontains=shop_type)
             )
+
+
 
 class ShopPhotosAdmin(admin.TabularInline):
     model = ShopPhoto
@@ -36,7 +63,7 @@ class ShopAdmin(admin.ModelAdmin):
     inlines = [ShopPhotosAdmin, ShopDocumentsAdmin,AddressAdmin]
     list_display = ('shop_name','shop_owner','shop_type','status', 'get_shop_city')
     filter_horizontal = ('related_users',)
-    list_filter = (ShopTypeSearch,)
+    list_filter = (ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,)
 
     # def get_shop_pending_amount(self, obj):
     #     pending_amount_gf = 0
