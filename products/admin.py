@@ -12,7 +12,7 @@ from .models import *
 from .views import (
     sp_sr_productprice, load_cities, load_sp_sr, export,
     load_brands, products_filter_view, products_price_filter_view,
-    ProductsUploadSample, ProductsCSVUploadView, gf_product_price,
+    ProductsUploadSample, products_csv_upload_view, gf_product_price,
     load_gf, products_export_for_vendor, products_vendor_mapping,
     MultiPhotoUploadView
     )
@@ -196,7 +196,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
             ),
             url(
                 r'^productscsvupload/$',
-                self.admin_site.admin_view(ProductsCSVUploadView),
+                self.admin_site.admin_view(products_csv_upload_view),
                 name="productscsvupload"
             ),
             url(
@@ -284,6 +284,14 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
         'price_to_retailer', 'price_to_super_retailer',
         'start_date', 'end_date', 'status'
     ]
+
+    def get_queryset(self, request):
+        qs = super(ProductPriceAdmin, self).get_queryset(request)
+        return qs.filter(
+            Q(shop__related_users=request.user) |
+            Q(shop__shop_owner=request.user),
+            status=True
+        ).distinct()
 
 
 class ProductHSNAdmin(admin.ModelAdmin, ExportCsvMixin):

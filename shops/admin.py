@@ -45,9 +45,9 @@ class ShopAdmin(admin.ModelAdmin):
         if obj.shop_type.shop_type == 'r':
             #if obj.retiler_mapping.filter(status=True).last().parent.shop_type.shop_type=='gf':
             orders_to_gf = obj.rtg_buyer_shop_order.all()
-            for order in orders_to_gf:
-                if order.rt_payment.last().payment_status == 'payment_done_approval_pending' or order.rt_payment.last().payment_status == 'cash_collected':
-                    pending_amount_gf = pending_amount_gf + order.total_final_amount
+            # for order in orders_to_gf:
+            #     if order.rt_payment.last().payment_status == 'payment_done_approval_pending' or order.rt_payment.last().payment_status == 'cash_collected':
+            #         pending_amount_gf = pending_amount_gf + order.total_final_amount
             #return pending_amount
             #elif obj.retiler_mapping.filter(status=True).last().parent.shop_type.shop_type=='sp':
             orders_to_sp = obj.rt_buyer_shop_order.all()

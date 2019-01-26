@@ -200,7 +200,7 @@ class GRNOrderForm(forms.ModelForm):
 
 class GRNOrderProductForm(forms.ModelForm):
     product = forms.ModelChoiceField(
-        queryset=Product.objects.all(),
+        queryset=Product.objects.all().order_by('product_name'),
         widget=autocomplete.ModelSelect2(url='product-autocomplete',forward=('order',))
      )
 
