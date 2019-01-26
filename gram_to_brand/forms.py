@@ -135,7 +135,7 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
 
     def __init__(self, *args, **kwargs):
         super(GRNOrderProductFormset, self).__init__(*args, **kwargs)
-        if 'order' in self and self.order:
+        if hasattr(self, 'order') and self.order:
             order = self.order
             initial = []
             for item in order.order_order_item.all():
