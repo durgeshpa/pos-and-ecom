@@ -45,6 +45,8 @@ class CartAdmin(admin.ModelAdmin):
         qs = super(CartAdmin, self).get_queryset(request)
         if request.user.is_superuser:
             return qs
+        if request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
+            return qs
         return qs.filter(
             Q(gf_shipping_address__shop_name__related_users=request.user) |
             Q(gf_shipping_address__shop_name__shop_owner=request.user)
@@ -116,7 +118,7 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     exclude = ('last_modified_by','available_qty',)
     def get_readonly_fields(self, request, obj=None):
         if obj: # editing an existing object
-            return self.readonly_fields + ('product','po_product_quantity','po_product_price','already_grned_product',)
+            return self.readonly_fields + ('po_product_quantity','po_product_price','already_grned_product',)
         return self.readonly_fields
 
     def get_formset(self, request, obj=None, **kwargs):    
