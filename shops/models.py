@@ -90,7 +90,7 @@ class ShopDocument(models.Model):
     shop_document_photo = models.FileField(upload_to='shop_photos/shop_name/documents/')
 
     def shop_document_photo_thumbnail(self):
-        return mark_safe('<img alt="%s" src="%s" />' % (self.shop_name, self.shop_document_photo.url))
+        return mark_safe('<a href="{}"><img alt="{}" src="{}" height="200px" width="300px"/></a>'.format(self.shop_document_photo.url,self.shop_name,self.shop_document_photo.url))
 
     def __str__(self):
         return "%s - %s"%(self.shop_document_number, self.shop_document_photo.url)
