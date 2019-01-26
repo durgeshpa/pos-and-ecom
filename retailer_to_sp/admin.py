@@ -164,7 +164,7 @@ class OrderedProductAdmin(admin.ModelAdmin):
             return qs
         return qs.filter(
             Q(order__seller_shop__related_users=request.user) |
-            Q(order__seller_sho__shop_owner=request.user)
+            Q(order__seller_shop__shop_owner=request.user)
                 )
 
 admin.site.register(OrderedProduct,OrderedProductAdmin)
