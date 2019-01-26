@@ -22,6 +22,7 @@ from django.views.generic import View,ListView,UpdateView
 from django.urls import reverse_lazy
 from django.db.models import Q
 
+# Create your views here.
 
 class SupplierAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self,*args,**kwargs):
@@ -96,6 +97,8 @@ class OrderAutocomplete(autocomplete.Select2QuerySetView):
             Q(ordered_cart__gf_shipping_address__shop_name__related_users=self.request.user),
             ordered_cart__po_status='finance_approved'
         )
+        if self.q:
+            qs = qs.filter(order_no__icontains=self.q)
         return qs
 
 class ProductAutocomplete(autocomplete.Select2QuerySetView):
@@ -109,6 +112,8 @@ class ProductAutocomplete(autocomplete.Select2QuerySetView):
             cp_products = CartProductMapping.objects.filter(cart=order.ordered_cart).values('cart_product')
             qs = qs.filter(id__in=[cp_products])
 
+        if self.q:
+            qs = qs.filter(product_name__istartswith=self.q)
         return qs
 
 
