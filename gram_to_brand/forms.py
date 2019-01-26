@@ -1,7 +1,8 @@
 from django import forms
 from django.forms import ModelForm
 from shops.models import Shop,ShopType
-from gram_to_brand.models import Order,GRNOrder, Cart
+from .models import (Order,Cart,CartProductMapping,GRNOrder,GRNOrderProductMapping,OrderItem,BrandNote,PickList,PickListItems,
+                     OrderedProductReserved,Po_Message)
 from brand.models import Brand
 from dal import autocomplete
 from django_select2.forms import Select2MultipleWidget,ModelSelect2Widget
@@ -90,3 +91,61 @@ class POGenerationForm(forms.ModelForm):
         if date < datetime.date.today():
             raise forms.ValidationError("Po validity date cannot be in the past!")
         return self.cleaned_data
+
+
+class CartProductMappingForm(forms.ModelForm):
+
+    cart_product = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(url='vendor-product-autocomplete', forward=('supplier_name',))
+    )
+
+    class Meta:
+        model = CartProductMapping
+        fields = ('cart_product','inner_case_size','case_size', 'number_of_cases','scheme','price','total_price',)
+        search_fields=('cart_product',)
+        exclude = ('qty',)
+
+
+class GRNOrderForm(forms.ModelForm):
+    class Meta:
+        model = GRNOrder
+        fields = ('order','invoice_no')
+        readonly_fields = ('order')
+
+class GRNOrderProductForm(forms.ModelForm):
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(url='product-autocomplete',forward=('order',))
+     )
+
+    class Meta:
+        model = GRNOrderProductMapping
+        fields = ('product','po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date','expiry_date','product_invoice_qty','available_qty','delivered_qty','returned_qty')
+        readonly_fields = ('product')
+        autocomplete_fields = ('product',)
+
+
+    class Media:
+        #css = {'all': ('pretty.css',)}
+        js = ('/static/admin/js/grn_form.js',)
+
+class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
+    model = GRNOrderProductMapping
+
+    def __init__(self, *args, **kwargs):
+        super(GRNOrderProductFormset, self).__init__(*args, **kwargs)
+        if hasattr(self, 'order') and self.order:
+            order = self.order
+            initial = []
+            for item in order.order_order_item.all():
+                already_grn = 0
+                for pre_grn in item.ordered_product.product_grn_order_product.all():
+                    already_grn += pre_grn.delivered_qty
+                initial.append({
+                    'product' : item.ordered_product,
+                    'po_product_quantity': item.ordered_qty,
+                    'po_product_price': item.ordered_price,
+                    'already_grned_product': already_grn,
+                    })
+            self.initial= initial

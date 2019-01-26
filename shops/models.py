@@ -78,10 +78,10 @@ class ShopPhoto(models.Model):
     shop_photo = models.FileField(upload_to='shop_photos/shop_name/')
 
     def shop_photo_thumbnail(self):
-        return mark_safe('<a href="%s"><img alt="%s" src="%s" height="200px" width="300px" /></a>' % (self.shop_photo.url, self.shop_name, self.shop_photo.url))
+        return mark_safe('<a href="{}"><img alt="{}" src="{}" height="200px" width="300px"/></a>'.format(self.shop_photo.url,self.shop_name, self.shop_photo.url))
 
     def __str__(self):
-        return "%s - %s"%(self.shop_name, self.shop_photo.url)
+        return "{}".format(self.shop_name)
 
 class ShopDocument(models.Model):
     shop_name = models.ForeignKey(Shop, related_name='shop_name_documents', on_delete=models.CASCADE)

@@ -10,46 +10,18 @@ from dal import autocomplete
 from django.utils.html import format_html
 from django.urls import reverse
 from daterange_filter.filter import DateRangeFilter
-
+from django.db.models import Q
 from brand.models import Brand
 from addresses.models import State,Address
 from brand.models import Vendor
 from shops.models import Shop
-from gram_to_brand.forms import OrderForm
+from gram_to_brand.forms import (OrderForm, CartProductMappingForm, GRNOrderForm, GRNOrderProductForm, GRNOrderProductFormset)
 from .forms import POGenerationForm
 from django.http import HttpResponse, HttpResponseRedirect
 from retailer_backend.filters import ( BrandFilter, SupplierStateFilter,SupplierFilter, OrderSearch, QuantitySearch, InvoiceNoSearch,
                                        GRNSearch, POAmountSearch, PORaisedBy)
 
-class CartProductMappingForm(forms.ModelForm):
-
-    cart_product = forms.ModelChoiceField(
-        queryset=Product.objects.all(),
-        widget=autocomplete.ModelSelect2(url='vendor-product-autocomplete', forward=('supplier_name',))
-    )
-
-    class Meta:
-        model = CartProductMapping
-        fields = ('cart_product','inner_case_size','case_size', 'number_of_cases','scheme','price','total_price',)
-        search_fields=('cart_product',)
-        exclude = ('qty',)
-
-
-
-# class CartProductMappingFormset(forms.models.BaseInlineFormSet):
-#
-#     def clean(self):
-#         count = 0
-#         for form in self.forms:
-#             try:
-#                 if form.cleaned_data:
-#                     count += 1
-#             except AttributeError:
-#                 # annoyingly, if a subform is invalid Django explicity raises
-#                 # an AttributeError for cleaned_data
-#                 pass
-#         if count < 1:
-#             raise forms.ValidationError('You must have at least one product')
+from django.db.models import Q
 
 
 class CartProductMappingAdmin(admin.TabularInline):
@@ -68,61 +40,23 @@ class CartAdmin(admin.ModelAdmin):
     list_display = ('po_no','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_amount','is_approve','po_raised_by','po_status', 'download_purchase_order')
     list_filter = [BrandFilter,SupplierStateFilter ,SupplierFilter,('po_creation_date', DateRangeFilter),('po_validity_date', DateRangeFilter),POAmountSearch,PORaisedBy]
     form = POGenerationForm
+
+    def get_queryset(self, request):
+        qs = super(CartAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        if request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
+            return qs
+        return qs.filter(
+            Q(gf_shipping_address__shop_name__related_users=request.user) |
+            Q(gf_shipping_address__shop_name__shop_owner=request.user)
+                )
+
     def download_purchase_order(self,obj):
         if obj.is_approve:
             return format_html("<a href= '%s' >Download PO</a>"%(reverse('download_purchase_order', args=[obj.pk])))
 
     download_purchase_order.short_description = 'Download Purchase Order'
-
-    # def save_formset(self, request, form, formset, change):
-    #     import datetime
-    #     today = datetime.date.today()
-    #     instances = formset.save(commit=False)
-    #     flag = 0
-    #     new_order = ''
-    #     for instance in instances:
-    #
-    #         instance.last_modified_by = request.user
-    #         instance.save()
-    #         #print(instance.cart)
-    #         #Save Order
-    #         #order,_ = Order.objects.get_or_create(ordered_cart=instance.cart)
-    #         order,_ = Order.objects.get_or_create(ordered_cart=instance.cart,order_no=instance.cart.po_no)
-    #         order.ordered_by=request.user
-    #         order.order_status='ordered_to_brand'
-    #         order.last_modified_by=request.user
-    #         order.save()
-    #
-    #         #Save OrderItem
-    #         if OrderItem.objects.filter(order=order,ordered_product=instance.cart_product).exists():
-    #             OrderItem.objects.filter(order=order,ordered_product=instance.cart_product).delete()
-    #
-    #         order_item = OrderItem()
-    #         order_item.ordered_product = instance.cart_product
-    #         order_item.ordered_qty = instance.number_of_cases * instance.case_size
-    #         order_item.ordered_price = instance.price
-    #
-    #         order_item.order = order
-    #         order_item.last_modified_by = request.user
-    #         order_item.save()
-    #
-    #         #instance.order_brand.ordered_by = request.user
-    #         #instance.order_brand.order_status = 'ordered_to_brand'
-    #         #nstance.order_brand.brand_order_id = 'BRAND/ORDER/' + str(instance.order_brand.id)
-    #         #new_order = instance.order_brand
-    #
-    #         #Order.objects.get_or_create('ordered_cart'=instance.cart_list)
-    #         #instance.order_brand.save()
-    #         #instance.cart_id = 'BRAND-' + "{%Y%m%d}".format(today) + "-" + instance.id
-    #         #instance.shop = Shop.objects.get(name='Gramfactory')
-    #
-    #     # if request.user.groups.filter(name='grn_brand_to_gram_group').exists():
-    #     #     if new_order and CartToBrand.objects.filter(order_brand=new_order):
-    #     #         new_order.order_status = 'partially_delivered'
-    #     #     elif new_order:
-    #     #         new_order.order_status = 'delivered'
-    #     #     new_order.save()
-    #     formset.save_m2m()
 
     def response_change(self, request, obj):
         if "_approve" in request.POST:
@@ -172,86 +106,33 @@ class CartAdmin(admin.ModelAdmin):
 admin.site.register(Cart,CartAdmin)
 
 
-# testing st
-
 from django.utils.functional import curry
 
 
-class GRNOrderForm(forms.ModelForm):
-    order = forms.ModelChoiceField(
-        queryset=Order.objects.all(),
-        widget=autocomplete.ModelSelect2(url='order-autocomplete',)
-    )
-
-    class Meta:
-        model = GRNOrder
-        fields = ('order','invoice_no')
-
-    # def __init__(self, *args, **kwargs):
-    #     #print("mukesh")
-    #     self.initial = [
-    #         {'label': 'first name'},
-    #         {'label': 'last name'},
-    #         {'label': 'job', }
-    #     ]
-    #     super(GRNOrderForm, self).__init__(*args, **kwargs)
-
-class GRNOrderProductForm(forms.ModelForm):
-    product = forms.ModelChoiceField(
-        queryset=Product.objects.all(),
-        widget=autocomplete.ModelSelect2(url='product-autocomplete',forward=('order',))
-     )
-
-    class Meta:
-        model = GRNOrderProductMapping
-        fields = ('product','po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date','expiry_date','product_invoice_qty','available_qty','delivered_qty','returned_qty')
-        readonly_fields = ('product')
-        autocomplete_fields = ('product',)
-
-    # def __init__(self, *args, **kwargs):
-    #     super(GRNOrderProductForm, self).__init__(*args, **kwargs)
-    #     self.fields['manufacture_date'].required = True
-    #     self.fields['expiry_date'].required = True
-
-    class Media:
-        #css = {'all': ('pretty.css',)}
-        js = ('/static/admin/js/grn_form.js',)
-
-# def get_product(self,*args,**kwargs):
-#     qs = Product.objects.all()
-#     order_id = self.forwarded.get('order', None)
-#     if order_id:
-#         order = Order.objects.get(id=order_id)
-#         cp_products = CartProductMapping.objects.filter(cart=order.ordered_cart).values('cart_product')
-#         qs = qs.filter(id__in=[cp_products])
-#
-#     return qs
 
 class GRNOrderProductMappingAdmin(admin.TabularInline):
     model = GRNOrderProductMapping
-    form = GRNOrderProductForm
+    formset = GRNOrderProductFormset
 
-    extra= 10
     fields = ('product','po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date','expiry_date','product_invoice_qty','delivered_qty','returned_qty')
     exclude = ('last_modified_by','available_qty',)
     def get_readonly_fields(self, request, obj=None):
         if obj: # editing an existing object
-            return self.readonly_fields + ('product','po_product_quantity','po_product_price','already_grned_product',)
+            return self.readonly_fields + ('po_product_quantity','po_product_price','already_grned_product',)
         return self.readonly_fields
 
-    #readonly_fields= ('po_product_price', 'po_product_quantity', 'already_grned_product')
+    def get_formset(self, request, obj=None, **kwargs):    
+        formset = super(GRNOrderProductMappingAdmin, self).get_formset(request, obj, **kwargs)
+        order_id = request.GET.get('order')
+        if order_id:
+            formset.order = Order.objects.get(pk=int(order_id))
+        return formset
 
-    # def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
-    #     order_id = request.GET.get('odr')
-    #
-    #     if db_field.name == 'product':
-    #         kwargs['queryset'] = Product.objects.filter(product_order_item__order__id=order_id)
-    #
-    #     return super(GRNOrderProductMappingAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
+
 
 class BrandNoteAdmin(admin.ModelAdmin):
     model = BrandNote
-    list_display = ('brand_note_id','order','grn_order', 'note_type', 'amount')
+    list_display = ('brand_note_id','order','grn_order',  'amount')
     exclude = ('brand_note_id','last_modified_by',)
 
 class OrderItemAdmin(admin.ModelAdmin):
@@ -269,7 +150,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
     autocomplete_fields = ('order',)
     exclude = ('order_item','grn_id','last_modified_by',)
     #list_display_links = None
-    list_display = ('grn_id','order','invoice_no','grn_date','edit_grn_link')
+    list_display = ('grn_id','order','invoice_no','grn_date','edit_grn_link','download_debit_note')
     list_filter = [ OrderSearch, InvoiceNoSearch, GRNSearch, ('created_at', DateRangeFilter),]
     form = GRNOrderForm
     fields = ('order','invoice_no')
@@ -279,6 +160,15 @@ class GRNOrderAdmin(admin.ModelAdmin):
             return self.readonly_fields + ('order', )
         return self.readonly_fields
 
+    def get_queryset(self, request):
+        qs = super(GRNOrderAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(
+            Q(order__ordered_cart__gf_shipping_address__shop_name__related_users=request.user) |
+            Q(order__ordered_cart__gf_shipping_address__shop_name__shop_owner
+              =request.user)
+        )
 
     def edit_grn_link(self, obj):
         #return format_html("<ul class ='object-tools'><li><a href = '/admin/gram_to_brand/grnorder/add/?brand=%s' class ='addlink' > Add order</a></li></ul>"% (obj.id))
@@ -286,6 +176,11 @@ class GRNOrderAdmin(admin.ModelAdmin):
 
     edit_grn_link.short_description = 'Edit GRN'
 
+    def download_debit_note(self,obj):
+        if obj.grn_order_brand_note.count()>0:
+            return format_html("<a href= '%s' >Download Debit Note</a>"%(reverse('download_debit_note', args=[obj.pk])))
+
+    download_debit_note.short_description = 'Download Debit Note'
 
     def save_formset(self, request, form, formset, change, *args, **kwargs):
         import datetime
@@ -346,10 +241,6 @@ class OrderAdmin(admin.ModelAdmin):
 
     add_grn_link.short_description = 'Do GRN'
 
-admin.site.register(Order,OrderAdmin)
-admin.site.register(OrderItem, OrderItemAdmin)
-admin.site.register(GRNOrder,GRNOrderAdmin)
-admin.site.register(BrandNote,BrandNoteAdmin)
 
 class PickListItemAdmin(admin.TabularInline):
     model = PickListItems
@@ -362,11 +253,10 @@ admin.site.register(PickList,PickListAdmin)
 class OrderedProductReservedAdmin(admin.ModelAdmin):
     list_display = ('order_product_reserved','cart','product','reserved_qty','order_reserve_end_time','created_at','reserve_status')
 
-admin.site.register(OrderedProductReserved,OrderedProductReservedAdmin)
 
-from django.utils.functional import curry
-from django.forms import formset_factory
-#from django import OrderShipmentFrom
-from django.forms import BaseFormSet
-from django.forms.models import BaseModelFormSet ,BaseInlineFormSet
-#from .forms import OrderShipmentFrom
+admin.site.register(OrderedProductReserved,OrderedProductReservedAdmin)
+admin.site.register(Order,OrderAdmin)
+admin.site.register(OrderItem, OrderItemAdmin)
+admin.site.register(GRNOrder,GRNOrderAdmin)
+admin.site.register(BrandNote,BrandNoteAdmin)
+

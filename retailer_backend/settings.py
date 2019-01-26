@@ -74,6 +74,7 @@ INSTALLED_APPS = [
     'daterange_filter',
     'retailer_to_gram',
     'admin_auto_filters',
+    'services'
 ]
 
 
