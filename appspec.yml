@@ -1,0 +1,14 @@
+version: 0.0
+os: linux
+files:
+  - source: /
+    destination: /home/ubuntu/project
+hooks:
+  ApplicationStop:
+    - location: sudo supervisorctl restart all
+      timeout: 300
+      runas: root
+  ApplicationStart:
+    - location: sudo supervisorctl stop all
+      timeout: 300
+      runas: root
