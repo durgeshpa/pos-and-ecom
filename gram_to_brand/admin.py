@@ -109,6 +109,32 @@ admin.site.register(Cart,CartAdmin)
 from django.utils.functional import curry
 
 
+class GRNOrderForm(forms.ModelForm):
+    order = forms.ModelChoiceField(
+        queryset=Order.objects.all(),
+        widget=autocomplete.ModelSelect2(url='order-autocomplete',)
+    )
+
+    class Meta:
+        model = GRNOrder
+        fields = ('order', 'invoice_no')
+
+
+class GRNOrderProductForm(forms.ModelForm):
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(url='product-autocomplete',forward=('order',))
+     )
+
+    class Meta:
+        model = GRNOrderProductMapping
+        fields = ('product','po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date','expiry_date','product_invoice_qty','available_qty','delivered_qty','returned_qty')
+        readonly_fields = ('product')
+        autocomplete_fields = ('product',)
+
+    class Media:
+        js = ('/static/admin/js/grn_form.js',)
+
 
 class GRNOrderProductMappingAdmin(admin.TabularInline):
     model = GRNOrderProductMapping

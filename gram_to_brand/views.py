@@ -110,7 +110,7 @@ class ProductAutocomplete(autocomplete.Select2QuerySetView):
         if order_id:
             order = Order.objects.get(id=order_id)
             cp_products = CartProductMapping.objects.filter(cart=order.ordered_cart).values('cart_product')
-            qs = qs.filter(id__in=[cp_products])
+            qs = qs.filter(id__in=[cp_products]).order_by('product_name')
 
         if self.q:
             qs = qs.filter(product_name__istartswith=self.q)
