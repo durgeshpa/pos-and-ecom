@@ -55,6 +55,12 @@ class BrandAdmin( admin.ModelAdmin, ExportCsvMixin):
     search_fields= ('brand_name','brand_code')
     prepopulated_fields = {'brand_slug': ('brand_name',)}
 
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "brand_parent":
+            kwargs["queryset"] = Brand.objects.all().order_by('brand_slug')
+        return super(BrandAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
+
+
 admin.site.register(Brand,BrandAdmin)
 
 class ProductAdmin(admin.TabularInline):

@@ -135,6 +135,15 @@ class OrderAdmin(admin.ModelAdmin):
     search_fields = ('order',)
     list_display = ('order_no', 'order_status',)
 
+    def get_queryset(self, request):
+        qs = super(OrderAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(
+            Q(seller_shop__related_users=request.user) |
+            Q(seller_shop__shop_owner=request.user)
+                )
+
 
 class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping
@@ -183,6 +192,15 @@ class OrderedProductAdmin(admin.ModelAdmin):
         if obj:
             return self.readonly_fields + ('order', )
         return self.readonly_fields
+
+    def get_queryset(self, request):
+        qs = super(OrderedProductAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(
+            Q(order__seller_shop__related_users=request.user) |
+            Q(order__seller_shop__shop_owner=request.user)
+                )
 
 
 class NoteAdmin(admin.ModelAdmin):

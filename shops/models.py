@@ -58,33 +58,30 @@ class Shop(models.Model):
     def __str__(self):
         return "%s - %s"%(self.shop_name, self.shop_type.get_shop_type_display())
 
-@receiver(post_save, sender=Shop)
-def shop_verification_notification(sender, instance=None, created=False, **kwargs):
-        if not created:
-            if instance.status ==True:
+    def __init__(self, *args, **kwargs):
+        super(Shop, self).__init__(*args, **kwargs)
+        self.__original_status = self.status
 
-                if instance.shop_owner.first_name:
-                    username = instance.shop_owner.first_name
-                else:
-                    username = instance.shop_owner.phone_number
-                #shop_owner_first_name = 'Retailer'
-                shop_title= str(instance.shop_name)
-                message = SendSms(phone=instance.shop_owner,
-                                  body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App."\
-                                      " Thanks,"\
-                                      " Team GramFactory " % (username, shop_title))
-
-                message.send()
+    def save(self, force_insert=False, force_update=False, *args, **kwargs):
+        if self.status != self.__original_status and self.status is True and ParentRetailerMapping.objects.filter(retailer=self, status=True).exists():
+            username = self.shop_owner.first_name if self.shop_owner.first_name else self.shop_owner.phone_number
+            shop_title = str(self.shop_name)
+            message = SendSms(phone=self.shop_owner,
+                              body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App." \
+                                   " Thanks," \
+                                   " Team GramFactory " % (username, shop_title))
+            message.send()
+        super(Shop, self).save(force_insert, force_update, *args, **kwargs)
 
 class ShopPhoto(models.Model):
     shop_name = models.ForeignKey(Shop, related_name='shop_name_photos', on_delete=models.CASCADE)
     shop_photo = models.FileField(upload_to='shop_photos/shop_name/')
 
     def shop_photo_thumbnail(self):
-        return mark_safe('<img alt="%s" src="%s" />' % (self.shop_name, self.shop_photo.url))
+        return mark_safe('<a href="{}"><img alt="{}" src="{}" height="200px" width="300px"/></a>'.format(self.shop_photo.url,self.shop_name, self.shop_photo.url))
 
     def __str__(self):
-        return "%s - %s"%(self.shop_name, self.shop_photo.url)
+        return "{}".format(self.shop_name)
 
 class ShopDocument(models.Model):
     shop_name = models.ForeignKey(Shop, related_name='shop_name_documents', on_delete=models.CASCADE)
@@ -93,7 +90,7 @@ class ShopDocument(models.Model):
     shop_document_photo = models.FileField(upload_to='shop_photos/shop_name/documents/')
 
     def shop_document_photo_thumbnail(self):
-        return mark_safe('<img alt="%s" src="%s" />' % (self.shop_name, self.shop_document_photo.url))
+        return mark_safe('<a href="{}"><img alt="{}" src="{}" height="200px" width="300px"/></a>'.format(self.shop_document_photo.url,self.shop_name,self.shop_document_photo.url))
 
     def __str__(self):
         return "%s - %s"%(self.shop_document_number, self.shop_document_photo.url)
@@ -110,3 +107,17 @@ class ParentRetailerMapping(models.Model):
 
     def __str__(self):
         return "%s(%s) --mapped to-- %s(%s)(%s)"%(self.retailer.shop_name,self.retailer.shop_type,self.parent.shop_name,self.parent.shop_type,"Active" if self.status else "Inactive")
+
+@receiver(post_save, sender=ParentRetailerMapping)
+def shop_verification_notification1(sender, instance=None, created=False, **kwargs):
+        if created:
+            shop = instance.retailer
+            if shop.status == True:
+                username = shop.shop_owner.first_name if shop.shop_owner.first_name else shop.shop_owner.phone_number
+                shop_title = str(shop.shop_name)
+                message = SendSms(phone=shop.shop_owner,
+                                  body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App."\
+                                      " Thanks,"\
+                                      " Team GramFactory " % (username, shop_title))
+
+                message.send()

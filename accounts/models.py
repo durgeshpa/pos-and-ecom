@@ -77,7 +77,7 @@ class User(AbstractUser):
 
 
     def __str__(self):
-        return str(self.phone_number)
+        return "%s"%(str(self.phone_number))
 
 class UserDocument(models.Model):
     user = models.ForeignKey(User, related_name='user_documents', on_delete=models.CASCADE)
@@ -109,7 +109,7 @@ def user_creation_notification(sender, instance=None, created=False, **kwargs):
             username = instance.phone_number
         message = SendSms(phone=instance.phone_number,
                           body = '''\
-                                Dear %s, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering.
+                                Dear %s, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Click here 123123 to add your shop.
 Thanks,
 Team GramFactory
                                 ''' % (username))

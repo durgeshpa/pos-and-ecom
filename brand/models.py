@@ -68,7 +68,7 @@ class Brand(models.Model):
     brand_name = models.CharField(max_length=20)
     brand_slug = models.SlugField(blank=True, null=True)
     brand_logo = models.FileField(validators=[validate_image], blank=False,null=True)
-    brand_parent = models.ForeignKey('self', related_name='brnd_parent', null=True, blank=True,on_delete=models.CASCADE)
+    brand_parent = models.ForeignKey('self', related_name='brnd_parent', null=True, blank=True,on_delete=models.CASCADE, limit_choices_to={'brand_parent': None},)
     brand_description = models.TextField(null=True, blank=True)
     brand_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three character for SKU")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -90,7 +90,7 @@ class Brand(models.Model):
             raise ValidationError(_('Brand and Brand Parent cannot be same'))
         else:
             super(Brand, self).save(*args, **kwargs)
-    
+
     def clean(self, *args, **kwargs):
         if self.brand_parent == self:
             raise ValidationError(_('Brand and Brand Parent cannot be same'))

@@ -42,7 +42,7 @@ class Po_Message(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-class Cart(models.Model):
+class Cart(models.Model): # PO
     brand = models.ForeignKey(Brand, related_name='brand_order', on_delete=models.CASCADE)
     supplier_state = models.ForeignKey(State, related_name='state_cart',null=True, blank=True,on_delete=models.CASCADE)
     supplier_name = models.ForeignKey(Vendor, related_name='buyer_vendor_order', null=True, blank=True,on_delete=models.CASCADE)
@@ -197,7 +197,7 @@ class OrderItem(models.Model):
 
 class GRNOrder(models.Model):
     order = models.ForeignKey(Order,related_name='order_grn_order',on_delete=models.CASCADE,null=True,blank=True )
-    order_item = models.ForeignKey(OrderItem,related_name='order_item_grn_order',on_delete=models.CASCADE,null=True,blank=True)
+    # order_item = models.ForeignKey(OrderItem,related_name='order_item_grn_order',on_delete=models.CASCADE,null=True,blank=True)
     invoice_no = models.CharField(max_length=255)
     grn_id = models.CharField(max_length=255,null=True,blank=True)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_user_grn_order', null=True,blank=True, on_delete=models.CASCADE)
