@@ -16,7 +16,7 @@ from django.db.models.signals import pre_save, post_save
 from django.urls import reverse
 import datetime, csv, codecs, re
 from retailer_backend.common_function import(po_pattern, grn_pattern,
-    brand_note_pattern)
+    brand_note_pattern, brand_debit_note_pattern)
 
 
 ORDER_STATUS = (
@@ -34,7 +34,6 @@ ITEM_STATUS = (
 
 NOTE_TYPE_CHOICES = (
     ("debit_note","Debit Note"),
-    ("credit_note","Credit Note"),
 )
 
 class Po_Message(models.Model):
@@ -43,7 +42,7 @@ class Po_Message(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-class Cart(models.Model):
+class Cart(models.Model): # PO
     brand = models.ForeignKey(Brand, related_name='brand_order', on_delete=models.CASCADE)
     supplier_state = models.ForeignKey(State, related_name='state_cart',null=True, blank=True,on_delete=models.CASCADE)
     supplier_name = models.ForeignKey(Vendor, related_name='buyer_vendor_order', null=True, blank=True,on_delete=models.CASCADE)
@@ -198,7 +197,7 @@ class OrderItem(models.Model):
 
 class GRNOrder(models.Model):
     order = models.ForeignKey(Order,related_name='order_grn_order',on_delete=models.CASCADE,null=True,blank=True )
-    order_item = models.ForeignKey(OrderItem,related_name='order_item_grn_order',on_delete=models.CASCADE,null=True,blank=True)
+    # order_item = models.ForeignKey(OrderItem,related_name='order_item_grn_order',on_delete=models.CASCADE,null=True,blank=True)
     invoice_no = models.CharField(max_length=255)
     grn_id = models.CharField(max_length=255,null=True,blank=True)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_user_grn_order', null=True,blank=True, on_delete=models.CASCADE)
@@ -305,10 +304,10 @@ class GRNOrderProductHistory(models.Model):
 
 
 class BrandNote(models.Model):
-    brand_note_id = models.CharField(max_length=255, null=True, blank=True)
+    brand_note_id = models.CharField(max_length=255, null=True, blank=True, verbose_name='Debit Note ID')
     order = models.ForeignKey(Order, related_name='order_brand_note',null=True,blank=True,on_delete=models.CASCADE)
     grn_order = models.ForeignKey(GRNOrder, related_name='grn_order_brand_note', null=True, blank=True,on_delete=models.CASCADE)
-    note_type = models.CharField(max_length=255,choices=NOTE_TYPE_CHOICES)
+    note_type = models.CharField(max_length=255,choices=NOTE_TYPE_CHOICES, default='debit_note')
     amount = models.FloatField(default=0)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_user_brand_note',null=True, blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -318,14 +317,30 @@ class BrandNote(models.Model):
         return self.brand_note_id
 
     class Meta:
-        verbose_name = _("Banner Note")
-        verbose_name_plural = _("Brand Notes")
+        verbose_name = _("Debit Note")
+        verbose_name_plural = _("Debit Notes")
 
-@receiver(post_save, sender=BrandNote)
-def create_brand_note_id(sender, instance=None, created=False, **kwargs):
+@receiver(post_save, sender=GRNOrderProductMapping)
+def create_debit_note(sender, instance=None, created=False, **kwargs):
     if created:
-        instance.brand_note_id = brand_note_pattern(instance.note_type,instance.pk)
-        instance.save()
+        if instance.product_invoice_price > instance.po_product_price or instance.returned_qty > 0:
+            debit_note = BrandNote.objects.filter(grn_order = instance.grn_order)
+            if debit_note.exists():
+                debit_note = debit_note.last()
+                debit_note.brand_note_id = brand_debit_note_pattern(instance.grn_order.pk)
+                debit_note.order = instance.grn_order.order
+                debit_note.amount= debit_note.amount + (instance.returned_qty * instance.po_product_price)
+                debit_note.save()
+            else:
+                debit_note = BrandNote.objects.create(brand_note_id=brand_debit_note_pattern(instance.grn_order.pk), order=instance.grn_order.order,
+                grn_order = instance.grn_order, amount = instance.returned_qty * instance.po_product_price)
+
+
+# @receiver(post_save, sender=BrandNote)
+# def create_brand_note_id(sender, instance=None, created=False, **kwargs):
+#     if created:
+#         instance.brand_note_id = brand_note_pattern(instance.note_type,instance.pk)
+#         instance.save()
 
 class OrderedProductReserved(models.Model):
     RESERVED = "reserved"

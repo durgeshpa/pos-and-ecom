@@ -369,6 +369,7 @@ class ReservedOrder(generics.ListAPIView):
 
                 for cart_product in cart_products:
                     ordered_product_details = OrderedProductMapping.objects.filter(
+                        ordered_product__order__shipping_address__shop_name=parent_mapping.parent,
                         product=cart_product.cart_product).order_by('-expiry_date')
                     ordered_product_sum = ordered_product_details.aggregate(available_qty_sum=Sum('available_qty'))
 
@@ -422,6 +423,7 @@ class ReservedOrder(generics.ListAPIView):
 
                 for cart_product in cart_products:
                     ordered_product_details = GRNOrderProductMapping.objects.filter(
+                        grn_order__order__shipping_address__shop_name=parent_mapping.parent,
                         product=cart_product.cart_product).order_by('-expiry_date')
                     ordered_product_sum = ordered_product_details.aggregate(available_qty_sum=Sum('available_qty'))
 

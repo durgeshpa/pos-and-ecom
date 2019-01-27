@@ -95,7 +95,6 @@ class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     exclude = ('order_id', 'shop', 'cart_status','last_modified_by')
     list_display = ('order_id', 'cart_status')
-
     change_form_template = 'admin/sp_to_gram/cart/change_form.html'
 
     def save_formset(self, request, form, formset, change):
@@ -132,6 +131,15 @@ class OrderAdmin(admin.ModelAdmin):
     search_fields = ('order',)
     list_display = ('order_no','order_status',)
 
+    def get_queryset(self, request):
+        qs = super(OrderAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(
+            Q(seller_shop__related_users=request.user) |
+            Q(seller_shop__shop_owner=request.user)
+                )
+
 admin.site.register(Order,OrderAdmin)
 
 class OrderedProductMappingAdmin(admin.TabularInline):
@@ -149,6 +157,15 @@ class OrderedProductAdmin(admin.ModelAdmin):
         #request = self.context.get("request")
         return format_html("<a href= '%s' >Download Invoice</a>"%(reverse('download_invoice_sp', args=[obj.pk])))
     download_invoice.short_description = 'Download Invoice'
+
+    def get_queryset(self, request):
+        qs = super(OrderedProductAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(
+            Q(order__seller_shop__related_users=request.user) |
+            Q(order__seller_shop__shop_owner=request.user)
+                )
 
 admin.site.register(OrderedProduct,OrderedProductAdmin)
 
@@ -169,10 +186,9 @@ class CustomerCareAdmin(admin.ModelAdmin):
 
 admin.site.register(CustomerCare,CustomerCareAdmin)
 
-
 class PaymentAdmin(admin.ModelAdmin):
     model= Payment
-    fields= ('order_id', 'paid_amount','payment_choice', 'neft_reference_number')
+    fields= ('order_id', 'paid_amount','payment_choice', 'neft_reference_number', 'payment_status')
     exclude = ('name',)
     list_display=('name','order_id', 'paid_amount', 'payment_choice', 'neft_reference_number')
     autocomplete_fields = ('order_id',)
