@@ -142,6 +142,7 @@ def create_invoice_no(sender, instance=None, created=False, **kwargs):
             instance.invoice_no = invoice_pattern(instance.pk)
         instance.save()
 
+
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(OrderedProduct,related_name='rtg_order_product_order_product_mapping', null=True,blank=True,on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='rtg_product_order_product',null=True,blank=True, on_delete=models.CASCADE)
@@ -152,6 +153,15 @@ class OrderedProductMapping(models.Model):
     last_modified_by = models.ForeignKey(get_user_model(), related_name='rtg_last_modified_user_order_product', null=True,blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def ordered_qty(self):
+        if self.ordered_product:
+            qty = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
+                cart_product=self.product).values('qty')
+            qty = qty[0].get('qty')
+            return str(qty)
+        return str("-")
 
 class Note(models.Model):
     order = models.ForeignKey(Order, related_name='rtg_order_note',null=True,blank=True,on_delete=models.CASCADE)

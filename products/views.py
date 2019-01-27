@@ -453,21 +453,31 @@ def products_csv_upload_view(request):
                         product_hsn_code=row[16]
                     )
                 except Exception as e:
-                    logger.exception("unable to create product HSN")
-                    messages.error(request, "unable to create product HSN")
+                    logger.exception("Unable to create product HSN")
+                    messages.error(request, "Unable to create product HSN")
+                    return render(
+                        request,
+                        'admin/products/productscsvupload.html',
+                        {'form': form}
+                    )
                 try:
                     product, _ = Product.objects.get_or_create(
-                        product_gf_code=row[3])
+                        product_gf_code=row[3], product_brand_id=row[5])
                 except Exception as e:
-                    logger.exception("unable to create product")
+                    logger.exception("Unable to create product")
                     messages.error(
                         request,
-                        "unable to create product {}".format(row[1]))
+                        "Unable to create product {}".format(row[1]))
+                    return render(
+                        request,
+                        'admin/products/productscsvupload.html',
+                        {'form': form}
+                    )
                 else:
+                    product.product_name = row[0]
                     product.product_short_description = row[1]
                     product.product_long_description = row[2]
                     product.product_ean_code = row[4]
-                    product.product_brand_id = row[5]
                     product.product_inner_case_size = row[14]
                     product.product_hsn = product_hsn_dt
                     product.product_case_size = row[15]
@@ -478,6 +488,11 @@ def products_csv_upload_view(request):
                     messages.error(
                         request,
                         "unable to save product details for {}".format(row[1]))
+                    return render(
+                        request,
+                        'admin/products/productscsvupload.html',
+                        {'form': form}
+                    )
 
                 for c in row[6].split(','):
                     if c is not '':
@@ -495,6 +510,11 @@ def products_csv_upload_view(request):
                             messages.error(
                                 request, "unable to create product category "
                                          "for {}, {}".format(row[1], c)
+                            )
+                            return render(
+                                request,
+                                'admin/products/productscsvupload.html',
+                                {'form': form}
                             )
                 try:
                     productoptions, _ = ProductOption.objects.get_or_create(
@@ -514,6 +534,11 @@ def products_csv_upload_view(request):
                         "Unable to create Product options "
                         "for {}".format(row[1])
                     )
+                    return render(
+                        request,
+                        'admin/products/productscsvupload.html',
+                        {'form': form}
+                    )
                 for t in row[7].split(','):
                     if t is not '':
                         try:
@@ -529,7 +554,11 @@ def products_csv_upload_view(request):
                                 "Unable to create product tax"
                                 " for {}--{}".format(row[1], t)
                             )
-
+                            return render(
+                                request,
+                                'admin/products/productscsvupload.html',
+                                {'form': form}
+                            )
             messages.success(request, 'Products uploaded successfully')
             return redirect('admin:productscsvupload')
     else:
