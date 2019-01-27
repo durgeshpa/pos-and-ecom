@@ -4,6 +4,7 @@ from addresses.models import Address
 from .forms import ParentRetailerMappingForm
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
+from django.utils.html import format_html
 
 class ShopTypeSearch(InputFilter):
     parameter_name = 'shop_type'
@@ -63,9 +64,25 @@ class AddressAdmin(admin.TabularInline):
 
 class ShopAdmin(admin.ModelAdmin):
     inlines = [ShopPhotosAdmin, ShopDocumentsAdmin,AddressAdmin]
-    list_display = ('shop_name','shop_owner','shop_type','status', 'get_shop_city')
+    list_display = ('shop_name','shop_owner','shop_type','status', 'get_shop_city','shop_mapped_product')
     filter_horizontal = ('related_users',)
     list_filter = (ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,)
+
+    def get_queryset(self, request):
+        qs = super(ShopAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(
+            Q(related_users=request.user) |
+            Q(shop_owner=request.user)
+        )
+
+    def shop_mapped_product(self, obj):
+        if obj.shop_type.shop_type=='gf':
+            return format_html("<a href = '/admin/shops/shop-mapped/%s/product/' class ='addlink' > Product List</a>"% (obj.id))
+
+    shop_mapped_product.short_description = 'Product List with Qty'
+
 
     # def get_shop_pending_amount(self, obj):
     #     pending_amount_gf = 0
