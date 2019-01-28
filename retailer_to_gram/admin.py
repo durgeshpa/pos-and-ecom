@@ -151,6 +151,13 @@ class OrderedProductMappingAdmin(admin.TabularInline):
     exclude = ('last_modified_by',)
     readonly_fields = ['ordered_qty']
     extra = 0
+
+    warehouse_user_fieldset = ['product', 'shipped_qty', ]
+    delivery_user_fieldset = ['product', 'delivered_qty', 'returned_qty',
+                              'damaged_qty', ]
+    superuser_user_fieldset = ['product', 'shipped_qty','delivered_qty', 'returned_qty',
+                              'damaged_qty', ]
+
     class Media:
         js = (
             'https://code.jquery.com/jquery-3.2.1.js',
@@ -163,6 +170,16 @@ class OrderedProductMappingAdmin(admin.TabularInline):
                 '4.0.6-rc.0/css/select2.min.css',
             )
             }
+
+    def get_fieldsets(self, request, obj=None, **kwargs):
+        if request.user.is_superuser:
+            self.fields = self.superuser_user_fieldset
+        elif request.user.has_perm('sp_to_gram.warehouse_shipment'):
+            self.fields = self.warehouse_user_fieldset
+        elif request.user.has_perm('sp_to_gram.delivery_from_gf'):
+            self.fields = self.delivery_user_fieldset
+
+        return super(OrderedProductMappingAdmin, self).get_fieldsets(request, obj, **kwargs)
 
 
 class OrderedProductAdmin(admin.ModelAdmin):
@@ -181,6 +198,7 @@ class OrderedProductAdmin(admin.ModelAdmin):
     list_display = ('invoice_no', 'vehicle_no', 'shipped_by',
                     'received_by', 'download_invoice')
     search_fields = ('invoice_no', 'vehicle_no')
+
 
     def download_invoice(self, obj):
         return format_html("<a href= '%s' >Download Invoice</a>" %
