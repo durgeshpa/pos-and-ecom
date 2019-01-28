@@ -54,6 +54,7 @@
     <thead>
       <tr>
         <th scope="col">Product</th>
+        <th scope="col">Ordered Qty</th>
         <th scope="col">Shipped Qty</th>
         <th scope="col">Delivered Qty</th>
         <th scope="col">Returned Qty</th>
@@ -65,7 +66,8 @@
 
         {% for order_form in formset %}
         <tr>
-          <td>{{ order_form.product }}</td>
+         <div id="readonly"><td>{{ order_form.product }}</td></div>
+          <td> <input type="text" name="country" value="{{ order_form.ordered_qty.value }}" readonly></td>
           <td>{{ order_form.shipped_qty }}</td>
           <td>{{ order_form.delivered_qty }}</td>
           <td>{{ order_form.returned_qty }}</td>
@@ -88,6 +90,8 @@
 
 <script>
 $(document).ready(function(){
+
+  $("select[id^='id_form']").attr("disabled", true);
   $('select#id_order').select2();
 
     $("select#id_order").change(function(){
@@ -99,6 +103,11 @@ $(document).ready(function(){
          location.href=url;
         });
 
+});
+jQuery(function ($) {
+  $('form').bind('submit', function () {
+    $(this).find(':input').prop('disabled', false);
+  });
 });
 </script>
 </html>
