@@ -132,6 +132,9 @@ class OrderedProduct(models.Model):
     def __str__(self):
         return str(self.invoice_no) or str(self.id)
 
+    class Meta:
+        verbose_name= 'Shipment Planning'
+
 @receiver(post_save, sender=OrderedProduct)
 def create_invoice_no(sender, instance=None, created=False, **kwargs):
     if created:

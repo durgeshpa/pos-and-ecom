@@ -3,7 +3,7 @@ from .models import OrderedProduct, OrderedProductMapping, Order, Cart, CartProd
 from products.models import Product
 from .forms import (
     OrderedProductForm, OrderedProductMappingForm,
-    OrderedProductMappingCustomForm
+    OrderedProductMappingCustomForm, OrderedProductMappingCustomFormShipment,
 )
 from django.shortcuts import render
 from django.forms import inlineformset_factory, modelformset_factory, formset_factory
@@ -16,7 +16,10 @@ from wkhtmltopdf.views import PDFTemplateResponse
 
 def ordered_product_mapping(request):
     order_id = request.GET.get('order_id')
-    ordered_product_set = formset_factory(OrderedProductMappingCustomForm, extra=1, max_num=1)
+    if request.user.has_perm('sp_to_gram.warehouse_shipment'):
+        ordered_product_set = formset_factory(OrderedProductMappingCustomFormShipment, extra=1, max_num=1)
+    else:
+        ordered_product_set = formset_factory(OrderedProductMappingCustomForm, extra=1, max_num=1)
     form = OrderedProductForm()
     form_set = ordered_product_set()
     if order_id:

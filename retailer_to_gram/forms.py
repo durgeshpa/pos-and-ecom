@@ -59,3 +59,11 @@ class OrderedProductMappingCustomForm(forms.ModelForm):
     class Meta:
         model = OrderedProductMapping
         fields = '__all__'
+
+class OrderedProductMappingCustomFormShipment(forms.ModelForm):
+    product = forms.ModelChoiceField(queryset=Product.objects.all())
+    ordered_qty = forms.CharField(required=False)
+
+    class Meta:
+        model = OrderedProductMapping
+        fields = ('product', 'ordered_qty', 'shipped_qty',)
