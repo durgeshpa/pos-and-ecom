@@ -140,7 +140,7 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
             initial = []
             for item in order.order_order_item.all():
                 already_grn = 0
-                for pre_grn in item.ordered_product.product_grn_order_product.all():
+                for pre_grn in item.ordered_product.product_grn_order_product.filter(grn_order__order=order):
                     already_grn += pre_grn.delivered_qty
                 initial.append({
                     'product' : item.ordered_product,
