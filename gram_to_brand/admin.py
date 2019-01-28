@@ -147,8 +147,9 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
             return self.readonly_fields + ('po_product_quantity','po_product_price','already_grned_product',)
         return self.readonly_fields
 
-    def get_formset(self, request, obj=None, **kwargs):    
+    def get_formset(self, request, obj=None, **kwargs): 
         formset = super(GRNOrderProductMappingAdmin, self).get_formset(request, obj, **kwargs)
+
         order_id = request.GET.get('order')
         if order_id:
             formset.order = Order.objects.get(pk=int(order_id))
