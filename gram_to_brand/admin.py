@@ -147,7 +147,7 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
             return self.readonly_fields + ('po_product_quantity','po_product_price','already_grned_product',)
         return self.readonly_fields
 
-    def get_formset(self, request, obj=None, **kwargs): 
+    def get_formset(self, request, obj=None, **kwargs):
         formset = super(GRNOrderProductMappingAdmin, self).get_formset(request, obj, **kwargs)
 
         order_id = request.GET.get('order')
@@ -199,7 +199,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
 
 
     def download_debit_note(self,obj):
-        if obj.grn_order_brand_note.count()>0:
+        if obj.grn_order_brand_note.count()>0 and obj.grn_order_brand_note.filter(status=True):
             return format_html("<a href= '%s' >Download Debit Note</a>"%(reverse('download_debit_note', args=[obj.pk])))
 
     download_debit_note.short_description = 'Download Debit Note'
@@ -281,4 +281,3 @@ admin.site.register(Order,OrderAdmin)
 admin.site.register(OrderItem, OrderItemAdmin)
 admin.site.register(GRNOrder,GRNOrderAdmin)
 admin.site.register(BrandNote,BrandNoteAdmin)
-
