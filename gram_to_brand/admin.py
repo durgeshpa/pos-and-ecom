@@ -176,7 +176,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
     autocomplete_fields = ('order',)
     exclude = ('order_item','grn_id','last_modified_by',)
     #list_display_links = None
-    list_display = ('grn_id','order','invoice_no','grn_date','edit_grn_link','download_debit_note')
+    list_display = ('grn_id','order','invoice_no','grn_date','download_debit_note')
     list_filter = [ OrderSearch, InvoiceNoSearch, GRNSearch, ('created_at', DateRangeFilter),]
     form = GRNOrderForm
     fields = ('order','invoice_no')
@@ -196,11 +196,6 @@ class GRNOrderAdmin(admin.ModelAdmin):
               =request.user)
         )
 
-    def edit_grn_link(self, obj):
-        #return format_html("<ul class ='object-tools'><li><a href = '/admin/gram_to_brand/grnorder/add/?brand=%s' class ='addlink' > Add order</a></li></ul>"% (obj.id))
-        return format_html("<a href = '/admin/gram_to_brand/grnorder/%s/change/?order=%s&odr=%s' class ='addlink' > Edit GRN</a>"% (obj.id,obj.id,obj.id))
-
-    edit_grn_link.short_description = 'Edit GRN'
 
     def download_debit_note(self,obj):
         if obj.grn_order_brand_note.count()>0:
