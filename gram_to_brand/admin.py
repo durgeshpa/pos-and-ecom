@@ -259,7 +259,7 @@ class OrderAdmin(admin.ModelAdmin):
     form= OrderForm
 
     def add_grn_link(self, obj):
-        return format_html("<a href = '/admin/gram_to_brand/grnorder/add/?order=%s&odr=%s' class ='addlink' > Add GRN</a>"% (obj.id,obj.id))
+        return format_html("<a href = '/admin/gram_to_brand/grnorder/add/?order=%s&odr=%s' class ='addlink' > Add GRN</a>"% (obj.ordered_cart.id,obj.id))
 
     add_grn_link.short_description = 'Do GRN'
 
