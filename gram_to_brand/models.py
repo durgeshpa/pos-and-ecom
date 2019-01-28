@@ -323,7 +323,7 @@ class BrandNote(models.Model):
 @receiver(post_save, sender=GRNOrderProductMapping)
 def create_debit_note(sender, instance=None, created=False, **kwargs):
     if created:
-        if instance.product_invoice_price > instance.po_product_price or instance.returned_qty > 0:
+        if  instance.returned_qty > 0:
             debit_note = BrandNote.objects.filter(grn_order = instance.grn_order)
             if debit_note.exists():
                 debit_note = debit_note.last()
