@@ -312,6 +312,7 @@ class BrandNote(models.Model):
     last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_user_brand_note',null=True, blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=False)
 
     def __str__(self):
         return self.brand_note_id
@@ -322,19 +323,15 @@ class BrandNote(models.Model):
 
 @receiver(post_save, sender=GRNOrderProductMapping)
 def create_debit_note(sender, instance=None, created=False, **kwargs):
-    if created:
-        if  instance.returned_qty > 0:
-            debit_note = BrandNote.objects.filter(grn_order = instance.grn_order)
-            if debit_note.exists():
-                debit_note = debit_note.last()
-                debit_note.brand_note_id = brand_debit_note_pattern(instance.grn_order.pk)
-                debit_note.order = instance.grn_order.order
-                debit_note.amount= debit_note.amount + (instance.returned_qty * instance.po_product_price)
-                debit_note.save()
-            else:
-                debit_note = BrandNote.objects.create(brand_note_id=brand_debit_note_pattern(instance.grn_order.pk), order=instance.grn_order.order,
-                grn_order = instance.grn_order, amount = instance.returned_qty * instance.po_product_price)
-
+    if instance.returned_qty > 0:
+        debit_note = BrandNote.objects.filter(grn_order = instance.grn_order)
+        if debit_note.exists():
+            debit_note.delete()
+        debit_note = BrandNote.objects.create(brand_note_id=brand_debit_note_pattern(instance.grn_order.pk), order=instance.grn_order.order,grn_order = instance.grn_order, amount = instance.returned_qty * instance.po_product_price, status=True)
+    else:
+        debit_note = BrandNote.objects.filter(grn_order = instance.grn_order)
+        if debit_note.exists():
+            debit_note.update(status=False)
 
 # @receiver(post_save, sender=BrandNote)
 # def create_brand_note_id(sender, instance=None, created=False, **kwargs):
