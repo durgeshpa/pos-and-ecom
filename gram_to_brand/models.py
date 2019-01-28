@@ -173,8 +173,7 @@ def create_order(sender, instance=None, created=False, **kwargs):
             if OrderItem.objects.filter(order=order, ordered_product=instance.cart_product).exists():
                 OrderItem.objects.filter(order=order,ordered_product=instance.cart_product).delete()
             else:
-                qty = float(instance.number_of_cases) * int(instance.case_size)
-                order_item = OrderItem.objects.create(ordered_product=instance.cart_product,ordered_qty=qty, ordered_price=instance.price,order = order)
+                order_item = OrderItem.objects.create(ordered_product=instance.cart_product,ordered_qty=instance.qty, ordered_price=instance.price,order = order)
 
 
 class OrderItem(models.Model):

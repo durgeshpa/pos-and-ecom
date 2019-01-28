@@ -132,7 +132,6 @@ class GRNOrderProductForm(forms.ModelForm):
 
 class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
     model = GRNOrderProductMapping
-
     def __init__(self, *args, **kwargs):
         super(GRNOrderProductFormset, self).__init__(*args, **kwargs)
         if hasattr(self, 'order') and self.order:
@@ -148,4 +147,7 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
                     'po_product_price': item.ordered_price,
                     'already_grned_product': already_grn,
                     })
+            self.extra = len(initial)
             self.initial= initial
+
+
