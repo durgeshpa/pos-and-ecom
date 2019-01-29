@@ -138,7 +138,7 @@ def change_order_status(sender, instance=None, created=False, **kwargs):
 class Order(models.Model):
     shop = models.ForeignKey(Shop, related_name='shop_order',null=True,blank=True,on_delete=models.CASCADE)
     ordered_cart = models.ForeignKey(Cart,related_name='order_cart_mapping',on_delete=models.CASCADE)
-    order_no = models.CharField(max_length=255, null=True, blank=True)
+    order_no = models.CharField(max_length=255, null=True, blank=True, verbose_name='po no')
     billing_address = models.ForeignKey(Address,related_name='billing_address_order',null=True,blank=True,on_delete=models.CASCADE)
     shipping_address = models.ForeignKey(Address,related_name='shipping_address_order',null=True,blank=True,on_delete=models.CASCADE)
     #ordered_shipment = models.ManyToManyField(CarOrderShipmentMapping,related_name='order_shipment_mapping')
@@ -155,6 +155,10 @@ class Order(models.Model):
 
     def __str__(self):
         return str(self.order_no) or str(self.id)
+
+    class Meta:
+        verbose_name = _("Purchase Order")
+        verbose_name_plural = _("Purchase Orders")
 
 @receiver(post_save, sender=CartProductMapping)
 def create_order(sender, instance=None, created=False, **kwargs):
@@ -222,7 +226,7 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
 class GRNOrderProductMapping(models.Model):
     grn_order = models.ForeignKey(GRNOrder,related_name='grn_order_grn_order_product',null=True,blank=True,on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='product_grn_order_product',null=True,blank=True, on_delete=models.CASCADE)
-    po_product_quantity= models.PositiveIntegerField(default=0, verbose_name='PO Product Quantity',blank=True )
+    po_product_quantity= models.PositiveIntegerField(default=0, verbose_name='PO Product Quantity (In Pieces)',blank=True )
     po_product_price= models.FloatField(default=0, verbose_name='PO Product Price',blank=True )
     already_grned_product= models.PositiveIntegerField(default=0, verbose_name='Already GRNed Product Quantity',blank=True)
     product_invoice_price = models.FloatField(default=0)
