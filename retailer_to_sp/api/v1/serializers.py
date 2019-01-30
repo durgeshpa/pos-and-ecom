@@ -203,16 +203,16 @@ class NoteSerializer(serializers.ModelSerializer):
         fields = ('id','amount','note_type','last_modified_by','created_at','modified_at','note_link')
 
 class OrderedProductSerializer(serializers.ModelSerializer):
-    invoice_link = serializers.SerializerMethodField('invoice_link_id')
+    #invoice_link = serializers.SerializerMethodField('invoice_link_id')
     rt_order_product_note = NoteSerializer(many=True)
 
-    def invoice_link_id(self, obj):
-        request = self.context.get("request")
-        return "{0}{1}".format(request.get_host(),reverse('download_invoice', args=[obj.pk]))
+    # def invoice_link_id(self, obj):
+    #     request = self.context.get("request")
+    #     return "{0}{1}".format(request.get_host(),reverse('download_invoice', args=[obj.pk]))
 
     class Meta:
         model = OrderedProduct
-        fields = ('order','invoice_no','vehicle_no','shipped_by','received_by','last_modified_by','created_at','modified_at','invoice_link','rt_order_product_note')
+        fields = ('order','invoice_no','vehicle_no','shipped_by','received_by','last_modified_by','created_at','modified_at','rt_order_product_note')
 
 class OrderSerializer(serializers.ModelSerializer):
     ordered_cart = CartSerializer()
@@ -334,16 +334,16 @@ class GramMappedCartSerializer(serializers.ModelSerializer):
         fields = ('id','order_id','cart_status','last_modified_by','created_at','modified_at','rt_cart_list','total_amount','items_count','sub_total')
 
 class GramMappedOrderedProductSerializer(serializers.ModelSerializer):
-    invoice_link = serializers.SerializerMethodField('invoice_link_id')
-    rt_order_product_note = NoteSerializer(many=True)
+    #invoice_link = serializers.SerializerMethodField('invoice_link_id')
+    rtg_order_product_note = NoteSerializer(many=True)
 
-    def invoice_link_id(self, obj):
-        request = self.context.get("request")
-        return "{0}{1}".format(request.get_host(),reverse('download_invoice', args=[obj.pk]))
+    # def invoice_link_id(self, obj):
+    #     request = self.context.get("request")
+    #     return "{0}{1}".format(request.get_host(),reverse('download_invoice', args=[obj.pk]))
 
     class Meta:
         model = GramMappedOrderedProduct
-        fields = ('order','invoice_no','vehicle_no','shipped_by','received_by','last_modified_by','created_at','modified_at','invoice_link','rt_order_product_note')
+        fields = ('order','invoice_no','vehicle_no','shipped_by','received_by','last_modified_by','created_at','modified_at','rtg_order_product_note')
 
 
 class GramMappedOrderSerializer(serializers.ModelSerializer):

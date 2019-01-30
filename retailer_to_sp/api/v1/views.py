@@ -625,10 +625,10 @@ class OrderList(generics.ListAPIView):
             return Response(msg, status=status.HTTP_200_OK)
 
         if parent_mapping.parent.shop_type.shop_type == 'sp':
-            queryset = Order.objects.filter(last_modified_by=user)
+            queryset = Order.objects.filter(last_modified_by=user).order_by('-created_at')
             serializer = OrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
-            queryset = GramMappedOrder.objects.filter(last_modified_by=user)
+            queryset = GramMappedOrder.objects.filter(last_modified_by=user).order_by('-created_at')
             serializer = GramMappedOrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id})
 
         if serializer.data:
