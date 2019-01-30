@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping,Note, CustomerCare, Payment
+from .models import Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping,Note, CustomerCare, Payment, Return, ReturnProductMapping
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
 from django.utils.html import format_html
@@ -196,3 +196,18 @@ class PaymentAdmin(admin.ModelAdmin):
     list_filter = (NameSearch, OrderIdSearch, PaymentChoiceSearch)
 
 admin.site.register(Payment,PaymentAdmin)
+
+from .forms import ReturnProductMappingForm
+class ReturnProductMappingAdmin(admin.TabularInline):
+    form = ReturnProductMappingForm
+    model = ReturnProductMapping
+    exclude = ('last_modified_by',)
+
+class ReturnAdmin(admin.ModelAdmin):
+    inlines = [ReturnProductMappingAdmin]
+    list_display = ('name','invoice_no',)
+    exclude = ('name','shipped_by','received_by','last_modified_by',)
+    search_fields=('invoice_no','returned_qty')
+    autocomplete_fields = ('invoice_no',)
+
+admin.site.register(Return, ReturnAdmin)
