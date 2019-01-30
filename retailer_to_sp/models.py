@@ -12,6 +12,7 @@ from django.db.models.signals import post_save
 from otp.sms import SendSms
 import datetime
 from retailer_backend.common_function import order_id_pattern
+from django.core.exceptions import ValidationError
 
 ORDER_STATUS = (
     ("active","Active"),
@@ -219,3 +220,39 @@ def order_notification(sender, instance=None, created=False, **kwargs):
                               " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
 
         message.send()
+
+class Return(models.Model):
+    invoice_no = models.ForeignKey(OrderedProduct,on_delete=models.CASCADE, null=True, verbose_name='Shipment Id')
+    name = models.CharField(max_length=255,null=True,blank=True)
+    shipped_by = models.ForeignKey(get_user_model(), related_name='return_shipped_product_ordered_by_user', null=True, blank=True,on_delete=models.CASCADE)
+    received_by = models.ForeignKey(get_user_model(), related_name='return_ordered_product_received_by_user', null=True, blank=True,on_delete=models.CASCADE)
+    last_modified_by = models.ForeignKey(get_user_model(), related_name='return_last_modified_user_order', null=True,blank=True, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args,**kwargs):
+        super(Return, self).save()
+        self.name = "Return/%s"%(self.pk)
+        super(Return, self).save()
+
+    def __str__(self):
+        return str(self.name)
+
+class ReturnProductMapping(models.Model):
+    return_id = models.ForeignKey(Return,related_name='rt_product_return_product_mapping',null=True,blank=True,on_delete=models.CASCADE)
+    returned_product = models.ForeignKey(Product, related_name='rt_product_return_product',null=True,blank=True, on_delete=models.CASCADE)
+    total_returned_qty = models.PositiveIntegerField(default=0)
+    reusable_qty = models.PositiveIntegerField(default=0)
+    damaged_qty = models.PositiveIntegerField(default=0)
+    last_modified_by = models.ForeignKey(get_user_model(), related_name='return_last_modified_user_return_product', null=True,blank=True, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return str('')
+
+    def clean(self):
+        super(ReturnProductMapping, self).clean()
+        total_returned_qty = self.reusable_qty + self.damaged_qty
+        if total_returned_qty != self.total_returned_qty:
+            raise ValidationError('Sum of Reusable quantity and damaged quantity must be equal to total returned quantity')

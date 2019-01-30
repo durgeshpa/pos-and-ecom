@@ -288,6 +288,8 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def get_queryset(self, request):
         qs = super(ProductPriceAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
         return qs.filter(
             Q(shop__related_users=request.user) |
             Q(shop__shop_owner=request.user),
