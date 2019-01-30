@@ -236,7 +236,7 @@ class Return(models.Model):
         super(Return, self).save()
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
 class ReturnProductMapping(models.Model):
     return_id = models.ForeignKey(Return,related_name='rt_product_return_product_mapping',null=True,blank=True,on_delete=models.CASCADE)
