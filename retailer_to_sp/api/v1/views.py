@@ -200,7 +200,22 @@ class GramGRNProductsList(APIView):
                          status=200)
 
 
-
+def release_blocking(parent_mapping,cart_id):
+    if parent_mapping.parent.shop_type.shop_type == 'sp':
+        if OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved').exists():
+            for ordered_reserve in OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved'):
+                ordered_reserve.order_product_reserved.available_qty = int(
+                    ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
+                ordered_reserve.order_product_reserved.save()
+                ordered_reserve.delete()
+    elif parent_mapping.parent.shop_type.shop_type == 'gf':
+        if GramOrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved').exists():
+            for ordered_reserve in GramOrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved'):
+                ordered_reserve.order_product_reserved.available_qty = int(
+                    ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
+                ordered_reserve.order_product_reserved.save()
+                ordered_reserve.delete()
+    return True
 
 class ProductDetail(APIView):
 
@@ -432,6 +447,7 @@ class ReservedOrder(generics.ListAPIView):
                         serializer = CartSerializer(cart,context={'parent_mapping_id': parent_mapping.parent.id})
                         msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                     else:
+                        release_blocking(parent_mapping, cart.id)
                         msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
                         return Response(msg, status=status.HTTP_200_OK)
                 if CartProductMapping.objects.filter(cart=cart).count() <= 0:
@@ -489,6 +505,7 @@ class ReservedOrder(generics.ListAPIView):
                         serializer = GramMappedCartSerializer(cart, context={'parent_mapping_id': parent_mapping.parent.id})
                         msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                     else:
+                        release_blocking(parent_mapping,cart.id)
                         msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
                         return Response(msg, status=status.HTTP_200_OK)
                 if GramMappedCartProductMapping.objects.filter(cart=cart).count() <= 0:
@@ -975,5 +992,8 @@ class ReleaseBlocking(APIView):
                     ordered_reserve.delete()
             msg = {'is_success': True, 'message': ['Blocking has released'], 'response_data': None}
         return Response(msg, status=status.HTTP_200_OK)
+
+
+
 
 
