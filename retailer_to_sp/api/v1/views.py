@@ -201,19 +201,27 @@ class GramGRNProductsList(APIView):
 
 
 def release_blocking(parent_mapping,cart_id):
+    print(parent_mapping)
+    print(cart_id)
     if parent_mapping.parent.shop_type.shop_type == 'sp':
+
         if OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved').exists():
             for ordered_reserve in OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved'):
                 ordered_reserve.order_product_reserved.available_qty = int(
                     ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
                 ordered_reserve.order_product_reserved.save()
+                ordered_reserve.cart.rt_cart_list.update(qty_error_msg='')
+                cart_product.qty_error_msg = ''
                 ordered_reserve.delete()
     elif parent_mapping.parent.shop_type.shop_type == 'gf':
+        print(GramOrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved').exists())
         if GramOrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved').exists():
             for ordered_reserve in GramOrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved'):
                 ordered_reserve.order_product_reserved.available_qty = int(
                     ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
                 ordered_reserve.order_product_reserved.save()
+                ordered_reserve.cart.rt_cart_list.update(qty_error_msg='')
+                print(ordered_reserve.cart.rt_cart_list.all())
                 ordered_reserve.delete()
     return True
 
