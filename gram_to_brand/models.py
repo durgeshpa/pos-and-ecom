@@ -189,6 +189,7 @@ class GRNOrderProductMapping(models.Model):
     manufacture_date = models.DateField(null=True,blank=False)
     expiry_date = models.DateField(null=True,blank=False)
     delivered_qty = models.PositiveIntegerField(default=0)
+    available_qty = models.PositiveIntegerField(default=0)
     returned_qty = models.PositiveIntegerField(default=0)
     damaged_qty = models.PositiveIntegerField(default=0)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_user_grn_order_product', null=True,blank=True, on_delete=models.CASCADE)
@@ -211,13 +212,18 @@ class GRNOrderProductMapping(models.Model):
         already_grn = self.product.product_grn_order_product.filter(grn_order__order=self.grn_order.order).aggregate(Sum('delivered_qty'))
         return 0 if already_grn.get('delivered_qty__sum') == None else already_grn.get('delivered_qty__sum')
         # 
-    @property
-    def available_qty(self):
-        return self.delivered_qty
       
     @property
     def ordered_qty(self):
         self.grn_order.order.ordered_cart.cart_list.last(cart_product=self.product).qty
+
+    # @property
+    # def available_qty(self):
+    #     return self.delivered_qty
+
+    # @available_qty.setter
+    # def available_qty(self, value):
+    #     return self._available_qty = value
     
 
     def clean(self):
