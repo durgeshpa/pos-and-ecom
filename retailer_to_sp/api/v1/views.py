@@ -93,33 +93,30 @@ class GramGRNProductsList(APIView):
             try:
                 parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
             except ObjectDoesNotExist:
+                grn = GRNOrderProductMapping.objects.values('product_id')
                 message = "Shop Mapping Not Found"
                 is_store_active = False
             else:
-                pass
-                #products_price = products_price.filter(shop=parent_mapping.parent)
+                if parent_mapping.parent.shop_type.shop_type == 'sp':
+                    '''4th Step
+                        SP mapped data shown  
+                    '''
+                    grn = SpMappedOrderedProductMapping.objects.filter(ordered_product__order__ordered_cart__shop=parent_mapping.parent,available_qty__gt=0).values('product_id')
+                    cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
+                    if cart:
+                        cart_products = cart.rt_cart_list.all()
+                        cart_check = True
 
-            # if shop mapped with sp
-            if parent_mapping.parent.shop_type.shop_type == 'sp':
-                '''4th Step
-                    SP mapped data shown  
-                '''
-                grn = SpMappedOrderedProductMapping.objects.filter(ordered_product__order__ordered_cart__shop=parent_mapping.parent,delivered_qty__gt=0).values('product_id')
-                cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
-                if cart:
-                    cart_products = cart.rt_cart_list.all()
-                    cart_check = True
-
-            # if shop mapped with gf
-            elif parent_mapping.parent.shop_type.shop_type == 'gf':
-                '''5th Step
-                    Gramfactory mapped data shown
-                '''
-                grn = GRNOrderProductMapping.objects.filter(grn_order__order__ordered_cart__gf_shipping_address__shop_name=parent_mapping.parent,delivered_qty__gt=0).values('product_id')
-                cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,cart_status__in=['active', 'pending']).last()
-                if cart:
-                    cart_products = cart.rt_cart_list.all()
-                    cart_check = True
+                # if shop mapped with gf
+                elif parent_mapping.parent.shop_type.shop_type == 'gf':
+                    '''5th Step
+                        Gramfactory mapped data shown
+                    '''
+                    grn = GRNOrderProductMapping.objects.filter(grn_order__order__ordered_cart__gf_shipping_address__shop_name=parent_mapping.parent,available_qty__gt=0).values('product_id')
+                    cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,cart_status__in=['active', 'pending']).last()
+                    if cart:
+                        cart_products = cart.rt_cart_list.all()
+                        cart_check = True
 
         products = Product.objects.filter(pk__in=grn).order_by('product_name')
         if brand:
@@ -135,15 +132,16 @@ class GramGRNProductsList(APIView):
         else:
             products_price = ProductPrice.objects.filter(product__in=products, shop=parent_mapping.parent).order_by('product', '-created_at').distinct('product')
 
-        if offset and pro_count:
-            products_price = products_price[offset:pro_count]
 
         if sort_preference:
             if sort_preference == 'low':
                 products_price = products_price.order_by('price_to_retailer').distinct()
             if sort_preference == 'high':
                 products_price = products_price.order_by('-price_to_retailer').distinct()
-
+        
+        if offset and pro_count:
+            products_price = products_price[offset:pro_count]
+        
         p_list = []
 
         for p in products_price:
