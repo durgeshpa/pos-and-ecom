@@ -4,7 +4,7 @@ from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializ
 
                           GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer )
 from products.models import Product, ProductPrice, ProductOption,ProductImage
-from sp_to_gram.models import OrderedProductMapping,OrderedProductReserved
+from sp_to_gram.models import OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping
 
 from rest_framework import permissions, authentication
 from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as GramCartProductMapping,
@@ -70,7 +70,57 @@ class GramGRNProductsList(APIView):
         cart_check = False
         is_store_active = True
         sort_preference = request.data.get('sort_by_price')
-        grn = GRNOrderProductMapping.objects.values('product_id')
+
+        '''1st Step
+            Check If Shop Is exists then 2nd pt else 3rd Pt
+        '''
+        try:
+            shop = Shop.objects.get(id=shop_id,status=True)
+        except ObjectDoesNotExist:
+            '''3rd Step
+                If no shop found then 
+            '''
+            grn = GRNOrderProductMapping.objects.values('product_id')
+            message = "Shop not active or does not exists"
+            is_store_active = False
+        else:
+            '''2nd Step
+                Check if shop fond then check weather it is sp 4th Step or retailer 5th Step
+            '''
+            try:
+                parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
+            except ObjectDoesNotExist:
+                message = "Shop Mapping Not Found"
+                is_store_active = False
+            else:
+                pass
+                #products_price = products_price.filter(shop=parent_mapping.parent)
+
+            # if shop mapped with sp
+            if parent_mapping.parent.shop_type.shop_type == 'sp':
+                '''4th Step
+                    SP mapped data shown  
+                
+                '''
+                grn = SpMappedOrderedProductMapping.objects.filter(ordered_product__order__ordered_cart__shop=parent_mapping.parent,delivered_qty__gt=0).values('product_id')
+                cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
+                if cart:
+                    cart_products = cart.rt_cart_list.all()
+                    cart_check = True
+
+            # if shop mapped with gf
+            elif parent_mapping.parent.shop_type.shop_type == 'gf':
+                '''5th Step
+                    Gramfactory mapped data shown
+                
+                '''
+                grn = GRNOrderProductMapping.objects.filter(grn_order__order__ordered_cart__gf_shipping_address__shop_name=parent_mapping.parent,delivered_qty__gt=0).values('product_id')
+                cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,cart_status__in=['active', 'pending']).last()
+                if cart:
+                    cart_products = cart.rt_cart_list.all()
+                    cart_check = True
+
+
         products = Product.objects.filter(pk__in=grn).order_by('product_name')
         if brand:
             products = products.filter(product_brand__in=brand)
@@ -86,32 +136,6 @@ class GramGRNProductsList(APIView):
                 products_price = products_price.order_by('price_to_retailer').distinct()
             if sort_preference == 'high':
                 products_price = products_price.order_by('-price_to_retailer').distinct()
-        try:
-            shop = Shop.objects.get(id=shop_id,status=True)
-        except ObjectDoesNotExist:
-            message = "Shop not active or does not exists"
-            is_store_active = False
-        else:
-            try:
-                parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
-            except ObjectDoesNotExist:
-                message = "Shop Mapping Not Found"
-                is_store_active = False
-            else:
-                products_price = products_price.filter(shop=parent_mapping.parent)
-            # if shop mapped with sp
-            if parent_mapping.parent.shop_type.shop_type == 'sp':
-                cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
-                if cart:
-                    cart_products = cart.rt_cart_list.all()
-                    cart_check = True
-            # if shop mapped with gf
-            elif parent_mapping.parent.shop_type.shop_type == 'gf':
-                cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,
-                                                 cart_status__in=['active', 'pending']).last()
-                if cart:
-                    cart_products = cart.rt_cart_list.all()
-                    cart_check = True
 
         p_list = []
 
