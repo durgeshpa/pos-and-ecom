@@ -67,6 +67,9 @@ class GramGRNProductsList(APIView):
         category = request.data.get('categories')
         keyword = request.data.get('product_name', None)
         shop_id = request.data.get('shop_id')
+        offset = request.data.get('offset')
+        pro_count = request.data.get('pro_count')
+
         cart_check = False
         is_store_active = True
         sort_preference = request.data.get('sort_by_price')
@@ -100,7 +103,6 @@ class GramGRNProductsList(APIView):
             if parent_mapping.parent.shop_type.shop_type == 'sp':
                 '''4th Step
                     SP mapped data shown  
-                
                 '''
                 grn = SpMappedOrderedProductMapping.objects.filter(ordered_product__order__ordered_cart__shop=parent_mapping.parent,delivered_qty__gt=0).values('product_id')
                 cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
@@ -112,14 +114,12 @@ class GramGRNProductsList(APIView):
             elif parent_mapping.parent.shop_type.shop_type == 'gf':
                 '''5th Step
                     Gramfactory mapped data shown
-                
                 '''
                 grn = GRNOrderProductMapping.objects.filter(grn_order__order__ordered_cart__gf_shipping_address__shop_name=parent_mapping.parent,delivered_qty__gt=0).values('product_id')
                 cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,cart_status__in=['active', 'pending']).last()
                 if cart:
                     cart_products = cart.rt_cart_list.all()
                     cart_check = True
-
 
         products = Product.objects.filter(pk__in=grn).order_by('product_name')
         if brand:
@@ -134,6 +134,9 @@ class GramGRNProductsList(APIView):
             products_price = ProductPrice.objects.filter(product__in=products).order_by('product','-created_at').distinct('product')
         else:
             products_price = ProductPrice.objects.filter(product__in=products, shop=parent_mapping.parent).order_by('product', '-created_at').distinct('product')
+
+        if offset and pro_count:
+            products_price = products_price[offset:pro_count]
 
         if sort_preference:
             if sort_preference == 'low':
