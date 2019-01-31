@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     'products',
     'shops',
     'import_export',
+    'base',
     'brand',
     'banner',
     'storages',
