@@ -344,7 +344,7 @@ class CartDetail(APIView):
                     msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
                            'response_data': None}
                 else:
-                    serializer = CartSerializer(Cart.objects.get(id=cart.id))
+                    serializer = CartSerializer(Cart.objects.get(id=cart.id),context={'parent_mapping_id': parent_mapping.parent.id})
                     msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
             else:
