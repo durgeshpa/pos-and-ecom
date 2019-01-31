@@ -124,7 +124,8 @@ class CartProductMapping(models.Model):
 @receiver(post_save, sender=Cart)
 def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
     if created:
-        instance.update(po_no= po_pattern(instance.gf_billing_address.city_id,instance.pk))
+        instance.po_no= po_pattern(instance.gf_billing_address.city_id,instance.pk)
+        instance.save()
         if instance.cart_product_mapping_csv:
             reader = csv.reader(codecs.iterdecode(instance.cart_product_mapping_csv, 'utf-8'))
             for id,row in enumerate(reader):
