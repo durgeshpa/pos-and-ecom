@@ -122,6 +122,8 @@ class GramGRNProductsSearchSerializer(serializers.Serializer):
     brands = serializers.CharField(write_only=True)
     sort_by_price = serializers.CharField(write_only=True)
     shop_id = serializers.CharField(write_only=True)
+    offset = serializers.CharField(write_only=True)
+    pro_count = serializers.CharField(write_only=True)
 
 class CartDataSerializer(serializers.ModelSerializer):
     last_modified_by = UserSerializer()
