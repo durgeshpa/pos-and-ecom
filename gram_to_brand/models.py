@@ -135,14 +135,10 @@ def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
                          number_of_cases = row[3],scheme = float(row[4]) if row[4] else None, price=float(row[5])
                          )
 
-# @receiver(post_save, sender=Cart)
-# def change_order_status(sender, instance=None, created=False, **kwargs):
-#     if not created:
-#         order = Order.objects.filter(ordered_cart=instance)
-#         if order.exists():
-#             order = order.last()
-#             order.order_status = instance.po_status
-#             order.save()
+@receiver(post_save, sender=Cart)
+def create_cart_order(sender, instance=None, created=False, **kwargs):
+    order = Order.objects.get_or_create(ordered_cart=instance.cart, order_no=instance.cart.po_no)
+
 
 class Order(BaseOrder):
     ordered_cart = models.OneToOneField(Cart,related_name='order_cart_mapping',on_delete=models.CASCADE)
