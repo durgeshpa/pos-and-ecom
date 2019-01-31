@@ -142,10 +142,10 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
     def __init__(self, *args, **kwargs):
         super(GRNOrderProductFormset, self).__init__(*args, **kwargs)
         if hasattr(self, 'order') and self.order:
-            order = self.order
+            ordered_cart = self.order
             initial = []
-            for item in order.ordered_cart.products.all():
-                already_grn = item.product_grn_order_product.filter(grn_order__order=order).aggregate(Sum('delivered_qty'))
+            for item in ordered_cart.products.all():
+                already_grn = item.product_grn_order_product.filter(grn_order__order__ordered_cart=ordered_cart).aggregate(Sum('delivered_qty'))
                 initial.append({
                     'product' : item,
                     'po_product_quantity': item.cart_product_mapping.last().qty,

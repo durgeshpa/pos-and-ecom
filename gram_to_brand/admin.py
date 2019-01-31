@@ -136,7 +136,7 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
         formset = super(GRNOrderProductMappingAdmin, self).get_formset(request, obj, **kwargs)
         order_id = request.GET.get('order')
         if order_id:
-            formset.order = Order.objects.get(pk=int(order_id))
+            formset.order = Cart.objects.get(pk=int(order_id))
         return formset
 
 
