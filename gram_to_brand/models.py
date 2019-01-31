@@ -230,6 +230,7 @@ class GRNOrderProductMapping(models.Model):
         super(GRNOrderProductMapping, self).clean()
         total_items= self.delivered_qty + self.returned_qty
         diff = self.po_product_quantity - self.already_grned_product
+        self.already_grn = self.delivered_qty
         if self.product_invoice_qty <= diff:
             if self.product_invoice_qty < total_items:
                 raise ValidationError(_('Product invoice quantity cannot be less than the sum of delivered quantity and returned quantity'))
