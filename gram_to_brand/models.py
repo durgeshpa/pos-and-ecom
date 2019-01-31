@@ -79,13 +79,14 @@ class Cart(BaseCart): # PO
         return url
 
     def clean(self):
+        super(Cart, self).clean(self)
         if self.po_validity_date and self.po_validity_date < datetime.date.today():
             raise ValidationError(_("Po validity date cannot be in the past!"))
 
     @property
     def po_amount(self):
         self.cart_list.aggregate(sum('total_price')) 
-
+    
     class Meta:
         verbose_name = "PO Generation"
         permissions = (
@@ -123,7 +124,7 @@ class CartProductMapping(models.Model):
 @receiver(post_save, sender=Cart)
 def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
     if created:
-        instance.po_no = po_pattern(instance.gf_billing_address.city_id,instance.pk)
+        instance.update(po_no= po_pattern(instance.gf_billing_address.city_id,instance.pk))
         if instance.cart_product_mapping_csv:
             reader = csv.reader(codecs.iterdecode(instance.cart_product_mapping_csv, 'utf-8'))
             for id,row in enumerate(reader):
@@ -224,7 +225,7 @@ class GRNOrderProductMapping(models.Model):
     @property
     def ordered_qty(self):
         self.grn_order.order.ordered_cart.cart_list.last(cart_product=self.product).qty
-
+    
 
     def clean(self):
         super(GRNOrderProductMapping, self).clean()
