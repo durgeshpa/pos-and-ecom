@@ -201,27 +201,19 @@ class GramGRNProductsList(APIView):
 
 
 def release_blocking(parent_mapping,cart_id):
-    print(parent_mapping)
-    print(cart_id)
     if parent_mapping.parent.shop_type.shop_type == 'sp':
-
         if OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved').exists():
             for ordered_reserve in OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved'):
                 ordered_reserve.order_product_reserved.available_qty = int(
                     ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
                 ordered_reserve.order_product_reserved.save()
-                ordered_reserve.cart.rt_cart_list.update(qty_error_msg='')
-                cart_product.qty_error_msg = ''
                 ordered_reserve.delete()
     elif parent_mapping.parent.shop_type.shop_type == 'gf':
-        print(GramOrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved').exists())
         if GramOrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved').exists():
             for ordered_reserve in GramOrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved'):
                 ordered_reserve.order_product_reserved.available_qty = int(
                     ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
                 ordered_reserve.order_product_reserved.save()
-                ordered_reserve.cart.rt_cart_list.update(qty_error_msg='')
-                print(ordered_reserve.cart.rt_cart_list.all())
                 ordered_reserve.delete()
     return True
 
@@ -424,11 +416,12 @@ class ReservedOrder(generics.ListAPIView):
                         product=cart_product.cart_product).order_by('-expiry_date')
                     ordered_product_sum = ordered_product_details.aggregate(available_qty_sum=Sum('available_qty'))
 
+                    is_error = False
                     if ordered_product_sum['available_qty_sum'] is not None:
                         if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty):
                             available_qty = int(ordered_product_sum['available_qty_sum'])
                             cart_product.qty_error_msg = 'Available Quantity : %s' % (available_qty)
-                            # cart_product.qty = available_qty
+                            is_error = True
                         else:
                             available_qty = int(cart_product.qty)
                             cart_product.qty_error_msg = ''
@@ -452,6 +445,8 @@ class ReservedOrder(generics.ListAPIView):
 
                             available_qty = available_qty - int(product_detail.available_qty)
 
+                        if is_error:
+                            release_blocking(parent_mapping, cart.id)
                         serializer = CartSerializer(cart,context={'parent_mapping_id': parent_mapping.parent.id})
                         msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                     else:
@@ -473,6 +468,7 @@ class ReservedOrder(generics.ListAPIView):
                 pick_list,_ = PickList.objects.get_or_create(cart=cart)
                 pick_list.save()
 
+                is_error = False
                 for cart_product in cart_products:
                     ordered_product_details = GRNOrderProductMapping.objects.filter(
                         grn_order__order__shipping_address__shop_name=parent_mapping.parent,
@@ -483,6 +479,7 @@ class ReservedOrder(generics.ListAPIView):
                         if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty):
                             available_qty = int(ordered_product_sum['available_qty_sum'])
                             cart_product.qty_error_msg = 'Available Quantity : %s' % (available_qty)
+                            is_error = True
                         else:
                             available_qty = int(cart_product.qty)
                             cart_product.qty_error_msg = ''
@@ -511,6 +508,8 @@ class ReservedOrder(generics.ListAPIView):
                             available_qty = available_qty - int(product_detail.available_qty)
 
                         serializer = GramMappedCartSerializer(cart, context={'parent_mapping_id': parent_mapping.parent.id})
+                        if is_error:
+                            release_blocking(parent_mapping, cart.id)
                         msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                     else:
                         release_blocking(parent_mapping,cart.id)
