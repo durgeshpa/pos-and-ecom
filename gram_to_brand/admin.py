@@ -134,9 +134,9 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
 
     def get_formset(self, request, obj=None, **kwargs):
         formset = super(GRNOrderProductMappingAdmin, self).get_formset(request, obj, **kwargs)
-        order_id = request.GET.get('order')
-        if order_id:
-            formset.order = Cart.objects.get(pk=int(order_id))
+        cart_id = request.GET.get('cart')
+        if cart_id:
+            formset.order = Cart.objects.get(pk=int(cart_id))
         return formset
 
 
@@ -195,7 +195,7 @@ class OrderAdmin(admin.ModelAdmin):
     form= OrderForm
 
     def add_grn_link(self, obj):
-        return format_html("<a href = '/admin/gram_to_brand/grnorder/add/?order=%s&odr=%s' class ='addlink' > Add GRN</a>"% (obj.ordered_cart.id,obj.id))
+        return format_html("<a href = '/admin/gram_to_brand/grnorder/add/?order=%s&cart=%s' class ='addlink' > Add GRN</a>"% (obj.id, obj.ordered_cart.id))
 
     add_grn_link.short_description = 'Do GRN'
 
