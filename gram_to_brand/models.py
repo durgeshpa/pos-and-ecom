@@ -126,6 +126,7 @@ def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
     if created:
         instance.po_no= po_pattern(instance.gf_billing_address.city_id,instance.pk)
         instance.save()
+    order = Order.objects.get_or_create(ordered_cart=instance, order_no=instance.po_no)
         if instance.cart_product_mapping_csv:
             reader = csv.reader(codecs.iterdecode(instance.cart_product_mapping_csv, 'utf-8'))
             for id,row in enumerate(reader):
@@ -134,11 +135,6 @@ def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
                         CartProductMapping.objects.create(cart=instance,cart_product_id = row[0], case_size= int(row[2]),
                          number_of_cases = row[3],scheme = float(row[4]) if row[4] else None, price=float(row[5])
                          )
-
-@receiver(post_save, sender=Cart)
-def create_cart_order(sender, instance=None, created=False, **kwargs):
-    order = Order.objects.get_or_create(ordered_cart=instance.cart, order_no=instance.cart.po_no)
-
 
 class Order(BaseOrder):
     ordered_cart = models.OneToOneField(Cart,related_name='order_cart_mapping',on_delete=models.CASCADE)
