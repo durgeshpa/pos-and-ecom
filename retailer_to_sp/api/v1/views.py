@@ -130,7 +130,11 @@ class GramGRNProductsList(APIView):
         if keyword and products.filter(product_name__icontains=keyword).last():
             products = products.filter(product_name__icontains=keyword)
 
-        products_price = ProductPrice.objects.filter(product__in=products).order_by('product','-created_at').distinct('product')
+        if is_store_active is False:
+            products_price = ProductPrice.objects.filter(product__in=products).order_by('product','-created_at').distinct('product')
+        else:
+            products_price = ProductPrice.objects.filter(product__in=products, shop=parent_mapping.parent).order_by('product', '-created_at').distinct('product')
+
         if sort_preference:
             if sort_preference == 'low':
                 products_price = products_price.order_by('price_to_retailer').distinct()
