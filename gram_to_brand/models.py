@@ -85,8 +85,8 @@ class Cart(BaseCart): # PO
 
     @property
     def po_amount(self):
-        self.cart_list.aggregate(sum('total_price')) 
-    
+        self.cart_list.aggregate(sum('total_price'))
+
     class Meta:
         verbose_name = "PO Generation"
         permissions = (
@@ -109,14 +109,14 @@ class CartProductMapping(models.Model):
         verbose_name = "Select Product"
         unique_together = ('cart', 'cart_product')
 
-    @property 
+    @property
     def qty(self):
         return int(int(self.cart_product.product_inner_case_size) * int(self.case_size) * float(self.number_of_cases))
 
     @property
     def total_price(self):
         return float(self.qty) * self.price
-    
+
 
     def __str__(self):
         return self.cart_product.product_name
@@ -211,8 +211,8 @@ class GRNOrderProductMapping(models.Model):
     def already_grned_product(self):
         already_grn = self.product.product_grn_order_product.filter(grn_order__order=self.grn_order.order).aggregate(Sum('delivered_qty'))
         return 0 if already_grn.get('delivered_qty__sum') == None else already_grn.get('delivered_qty__sum')
-        # 
-      
+        #
+
     @property
     def ordered_qty(self):
         self.grn_order.order.ordered_cart.cart_list.last(cart_product=self.product).qty
@@ -224,7 +224,7 @@ class GRNOrderProductMapping(models.Model):
     # @available_qty.setter
     # def available_qty(self, value):
     #     return self._available_qty = value
-    
+
 
     def clean(self):
         super(GRNOrderProductMapping, self).clean()
@@ -270,6 +270,10 @@ class BrandNote(models.Model):
 
 @receiver(post_save, sender=GRNOrderProductMapping)
 def create_debit_note(sender, instance=None, created=False, **kwargs):
+    if created:
+        instance.available_qty = instance.delivered_qty
+        instance.save()
+        
     if instance.returned_qty > 0:
         debit_note = BrandNote.objects.filter(grn_order = instance.grn_order)
         if debit_note.exists():
