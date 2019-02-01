@@ -82,13 +82,13 @@ class DownloadInvoice(APIView):
             city_gram= z.city
             state_gram= z.state
             pincode_gram= z.pincode
-            
+
         for m in products:
 
             sum_qty = sum_qty + int(m.product.product_inner_case_size) * int(m.shipped_qty)
 
 
-            for h in m.product.product_pro_price.all():
+            for h in m.get_shop_specific_products_prices():
 
                 sum_amount = sum_amount + (m.shipped_qty * h.price_to_retailer)
                 inline_sum_amount = (m.shipped_qty * h.price_to_retailer)

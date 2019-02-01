@@ -8,6 +8,7 @@ register = template.Library()
 
 qty_list = []
 shipped_qty_list= []
+shipped_qty_list_amount=[]
 
 # qty_list1 =[]
 
@@ -38,13 +39,7 @@ def price(value, *args, **kwargs):
 @register.filter(name='shipped_qty')
 def shipped_qty(value, *args, **kwargs):
     shipped_qty_list.append(value)
-
-@register.filter(name='price_to_retailer')
-def price_to_retailer(value, *args, **kwargs):
-
-    result = value*shipped_qty_list[0]
-    shipped_qty_list.clear()
-    return result
+    shipped_qty_list_amount.append(value)
 
 @register.filter(name='inner_case_size')
 def inner_case_size(value, *args, **kwargs):
@@ -52,6 +47,11 @@ def inner_case_size(value, *args, **kwargs):
     shipped_qty_list.clear()
     return result
 
+@register.filter(name='price_to_retailer')
+def price_to_retailer(value, *args, **kwargs):
+    result = value*shipped_qty_list_amount[0]
+    shipped_qty_list_amount.clear()
+    return result
 
 @register.filter(name='amount')
 def amount(value, *args, **kwargs):

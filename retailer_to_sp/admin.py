@@ -16,6 +16,10 @@ class InvoiceNumberFilter(AutocompleteFilter):
     title = 'Invoice Number' # display title
     field_name = 'invoice_no' # name of the foreign key field
 
+class ReturnNumberFilter(AutocompleteFilter):
+    title = 'Return No' # display title
+    field_name = 'return_no' # name of the foreign key field
+
 class ReturnNameSearch(InputFilter):
     parameter_name = 'name'
     title = 'Name'
@@ -201,7 +205,17 @@ class OrderedProductAdmin(admin.ModelAdmin):
 admin.site.register(OrderedProduct,OrderedProductAdmin)
 
 class NoteAdmin(admin.ModelAdmin):
-    list_display = ('order','ordered_product','note_type', 'amount', 'created_at')
+    list_display = ('credit_note_id','return_no', 'order','get_invoice_no',  'amount')
+    exclude = ('credit_note_id','last_modified_by',)
+    search_fields = ('credit_note_id','return_no__name', 'order__order_no',  'amount')
+    list_filter = [ReturnNumberFilter,]
+
+    def get_invoice_no(self, obj):
+        return obj.return_no.invoice_no
+    get_invoice_no.short_description = 'Invoice No'
+
+    class Media:
+        pass
 
 admin.site.register(Note,NoteAdmin)
 
@@ -236,9 +250,9 @@ class ReturnProductMappingAdmin(admin.TabularInline):
 
 class ReturnAdmin(admin.ModelAdmin):
     inlines = [ReturnProductMappingAdmin]
-    list_display = ('name','invoice_no','get_order')
+    list_display = ('name','invoice_no','get_order', 'download_credit_note')
     exclude = ('name','shipped_by','received_by','last_modified_by')
-    search_fields=('name','invoice_no__invoice_no')
+    search_fields=('name','invoice_no__invoice_no','name','return_no')
     autocomplete_fields = ('invoice_no',)
     list_filter = (InvoiceNumberFilter,ReturnNameSearch, OrderFilter )
 
@@ -248,5 +262,12 @@ class ReturnAdmin(admin.ModelAdmin):
 
     class Media:
             pass
+
+    def download_credit_note(self,obj):
+        if obj.return_credit_note.count()>0 and obj.return_credit_note.filter(status=True):
+            return format_html("<a href= '%s' >Download Credit Note</a>"%(reverse('download_credit_note', args=[obj.pk])))
+
+    download_credit_note.short_description = 'Download Credit Note'
+
 
 admin.site.register(Return, ReturnAdmin)
