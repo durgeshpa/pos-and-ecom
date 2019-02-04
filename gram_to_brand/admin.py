@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import (Order,Cart,CartProductMapping,GRNOrder,GRNOrderProductMapping,OrderItem,BrandNote,PickList,PickListItems,
+from .models import (Order,Cart,CartProductMapping,GRNOrder,GRNOrderProductMapping,BrandNote,PickList,PickListItems,
                      OrderedProductReserved,Po_Message)
 from products.models import Product
 from django import forms
@@ -35,9 +35,9 @@ class CartProductMappingAdmin(admin.TabularInline):
 
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
-    exclude = ('po_no', 'shop', 'po_status','last_modified_by')
+    exclude = ('po_no', 'po_status','last_modified_by')
     autocomplete_fields = ('brand',)
-    list_display = ('po_no','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_amount','is_approve','po_raised_by','po_status', 'download_purchase_order')
+    list_display = ('po_no','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','is_approve','po_raised_by','po_status', 'download_purchase_order')
     list_filter = [BrandFilter,SupplierStateFilter ,SupplierFilter,('po_creation_date', DateRangeFilter),('po_validity_date', DateRangeFilter),POAmountSearch,PORaisedBy]
     form = POGenerationForm
 
@@ -120,45 +120,30 @@ class GRNOrderForm(forms.ModelForm):
         fields = ('order', 'invoice_no')
 
 
-class GRNOrderProductForm(forms.ModelForm):
-    product = forms.ModelChoiceField(
-        queryset=Product.objects.all(),
-        widget=autocomplete.ModelSelect2(url='product-autocomplete',forward=('order',))
-     )
-
-    class Meta:
-        model = GRNOrderProductMapping
-        fields = ('product','po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date','expiry_date','product_invoice_qty','available_qty','delivered_qty','returned_qty')
-        readonly_fields = ('product')
-        autocomplete_fields = ('product',)
-
-    class Media:
-        js = ('/static/admin/js/grn_form.js',)
-
 
 class GRNOrderProductMappingAdmin(admin.TabularInline):
     model = GRNOrderProductMapping
     formset = GRNOrderProductFormset
-
-    fields = ('product','po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date','expiry_date','product_invoice_qty','delivered_qty','returned_qty')
+    form = GRNOrderProductForm
     exclude = ('last_modified_by','available_qty',)
+    
     def get_readonly_fields(self, request, obj=None):
         if obj: # editing an existing object
             return self.readonly_fields + ('po_product_quantity','po_product_price','already_grned_product',)
         return self.readonly_fields
 
-    def get_formset(self, request, obj=None, **kwargs):    
+    def get_formset(self, request, obj=None, **kwargs):
         formset = super(GRNOrderProductMappingAdmin, self).get_formset(request, obj, **kwargs)
-        order_id = request.GET.get('order')
-        if order_id:
-            formset.order = Order.objects.get(pk=int(order_id))
+        cart_id = request.GET.get('cart')
+        if cart_id:
+            formset.order = Cart.objects.get(pk=int(cart_id))
         return formset
 
 
 
 class BrandNoteAdmin(admin.ModelAdmin):
     model = BrandNote
-    list_display = ('brand_note_id','order','grn_order',  'amount')
+    list_display = ('brand_note_id','grn_order',  'amount')
     exclude = ('brand_note_id','last_modified_by',)
 
 class OrderItemAdmin(admin.ModelAdmin):
@@ -176,7 +161,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
     autocomplete_fields = ('order',)
     exclude = ('order_item','grn_id','last_modified_by',)
     #list_display_links = None
-    list_display = ('grn_id','order','invoice_no','grn_date','edit_grn_link','download_debit_note')
+    list_display = ('grn_id','order','invoice_no','grn_date','download_debit_note')
     list_filter = [ OrderSearch, InvoiceNoSearch, GRNSearch, ('created_at', DateRangeFilter),]
     form = GRNOrderForm
     fields = ('order','invoice_no')
@@ -196,74 +181,21 @@ class GRNOrderAdmin(admin.ModelAdmin):
               =request.user)
         )
 
-    def edit_grn_link(self, obj):
-        #return format_html("<ul class ='object-tools'><li><a href = '/admin/gram_to_brand/grnorder/add/?brand=%s' class ='addlink' > Add order</a></li></ul>"% (obj.id))
-        return format_html("<a href = '/admin/gram_to_brand/grnorder/%s/change/?order=%s&odr=%s' class ='addlink' > Edit GRN</a>"% (obj.id,obj.id,obj.id))
-
-    edit_grn_link.short_description = 'Edit GRN'
 
     def download_debit_note(self,obj):
-        if obj.grn_order_brand_note.count()>0:
+        if obj.grn_order_brand_note.count()>0 and obj.grn_order_brand_note.filter(status=True):
             return format_html("<a href= '%s' >Download Debit Note</a>"%(reverse('download_debit_note', args=[obj.pk])))
 
     download_debit_note.short_description = 'Download Debit Note'
 
-    def save_formset(self, request, form, formset, change, *args, **kwargs):
-        import datetime
-        super(GRNOrderAdmin, self).save_formset(request, form, formset, change, *args, **kwargs)
-        instances = formset.save(commit=False)
-        order_id = 0
-
-
-        for instance in instances:
-            #GRNOrderProductMapping
-            #Save OrderItem
-            if OrderItem.objects.filter(order=instance.grn_order.order,ordered_product=instance.product).exists():
-                order_item = OrderItem.objects.get(order=instance.grn_order.order, ordered_product=instance.product)
-                if GRNOrderProductMapping.objects.filter(grn_order__order=instance.grn_order.order,product=instance.product).exists():
-                    product_grouped_info = GRNOrderProductMapping.objects.filter(grn_order__order=instance.grn_order.order,product=instance.product)\
-                        .aggregate(total_delivered_qty=Sum('delivered_qty'),total_returned_qty=Sum('returned_qty'),total_damaged_qty=Sum('damaged_qty'))
-
-                    order_item.total_delivered_qty = product_grouped_info['total_delivered_qty']
-                    order_item.total_returned_qty = product_grouped_info['total_returned_qty']
-                    order_item.total_damaged_qty = product_grouped_info['total_damaged_qty']
-                    if product_grouped_info['total_delivered_qty'] == order_item.ordered_qty:
-                        order_item.item_status = 'delivered'
-                    else:
-                        order_item.item_status = 'partially_delivered'
-                else:
-
-                    order_item.total_delivered_qty = instance.delivered_qty
-                    order_item.total_returned_qty = instance.returned_qty
-                    order_item.total_damaged_qty = instance.damaged_qty
-                    if instance.delivered_qty == order_item.ordered_qty:
-                        order_item.item_status = 'delivered'
-                    else:
-                        order_item.item_status = 'partially_delivered'
-
-                order_item.save()
-                instance.available_qty = int(instance.delivered_qty)
-                instance.grn_order.order.order_status='partially_delivered'
-                instance.grn_order.order.save()
-                order_id = instance.grn_order.order.id
-                instance.save()
-            #Update Order
-        if order_id!= 0 and OrderItem.objects.filter(order=order_id).exists():
-            order = Order.objects.get(id=order_id)
-            order_item = OrderItem.objects.filter(order=order_id)
-            order.order_status = 'partially_delivered' if order_item.filter(item_status='partially_delivered').count()>0 else 'delivered'
-            order.save()
-
-        formset.save_m2m()
-
 
 class OrderAdmin(admin.ModelAdmin):
     search_fields = ['order_no',]
-    list_display = ('order_no','order_status','ordered_by','created_at','add_grn_link')
+    list_display = ('order_no','created_at','add_grn_link')
     form= OrderForm
 
     def add_grn_link(self, obj):
-        return format_html("<a href = '/admin/gram_to_brand/grnorder/add/?order=%s&odr=%s' class ='addlink' > Add GRN</a>"% (obj.id,obj.id))
+        return format_html("<a href = '/admin/gram_to_brand/grnorder/add/?order=%s&cart=%s' class ='addlink' > Add GRN</a>"% (obj.id, obj.ordered_cart.id))
 
     add_grn_link.short_description = 'Do GRN'
 
@@ -282,7 +214,5 @@ class OrderedProductReservedAdmin(admin.ModelAdmin):
 
 admin.site.register(OrderedProductReserved,OrderedProductReservedAdmin)
 admin.site.register(Order,OrderAdmin)
-admin.site.register(OrderItem, OrderItemAdmin)
 admin.site.register(GRNOrder,GRNOrderAdmin)
 admin.site.register(BrandNote,BrandNoteAdmin)
-

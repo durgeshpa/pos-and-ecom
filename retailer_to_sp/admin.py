@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping,Note, CustomerCare, Payment
+from .models import Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping,Note, CustomerCare, Payment, Return, ReturnProductMapping
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
 from django.utils.html import format_html
@@ -9,7 +9,38 @@ from django_select2.forms import Select2MultipleWidget,ModelSelect2Widget
 from dal import autocomplete
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
+from admin_auto_filters.filters import AutocompleteFilter
+from django.contrib.admin import SimpleListFilter
 
+class InvoiceNumberFilter(AutocompleteFilter):
+    title = 'Invoice Number' # display title
+    field_name = 'invoice_no' # name of the foreign key field
+
+class ReturnNameSearch(InputFilter):
+    parameter_name = 'name'
+    title = 'Name'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            name = self.value()
+            if name is None:
+                return
+            return queryset.filter(
+                Q(name__icontains=name)
+            )
+
+class OrderFilter(InputFilter):
+    parameter_name = 'order_no'
+    title = 'Order'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            order_no = self.value()
+            if order_no is None:
+                return
+            return queryset.filter(
+                Q(invoice_no__order__order_no__icontains=order_no)
+            )
 # Register your models here.
 class NameSearch(InputFilter):
     parameter_name = 'name'
@@ -196,3 +227,26 @@ class PaymentAdmin(admin.ModelAdmin):
     list_filter = (NameSearch, OrderIdSearch, PaymentChoiceSearch)
 
 admin.site.register(Payment,PaymentAdmin)
+
+from .forms import ReturnProductMappingForm
+class ReturnProductMappingAdmin(admin.TabularInline):
+    form = ReturnProductMappingForm
+    model = ReturnProductMapping
+    exclude = ('last_modified_by',)
+
+class ReturnAdmin(admin.ModelAdmin):
+    inlines = [ReturnProductMappingAdmin]
+    list_display = ('name','invoice_no','get_order')
+    exclude = ('name','shipped_by','received_by','last_modified_by')
+    search_fields=('name','invoice_no__invoice_no')
+    autocomplete_fields = ('invoice_no',)
+    list_filter = (InvoiceNumberFilter,ReturnNameSearch, OrderFilter )
+
+    def get_order(self, obj):
+        return obj.invoice_no.order
+    get_order.short_description = 'Order'
+
+    class Media:
+            pass
+
+admin.site.register(Return, ReturnAdmin)

@@ -4,7 +4,7 @@ from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializ
 
                           GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer )
 from products.models import Product, ProductPrice, ProductOption,ProductImage
-from sp_to_gram.models import OrderedProductMapping,OrderedProductReserved
+from sp_to_gram.models import OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping
 
 from rest_framework import permissions, authentication
 from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as GramCartProductMapping,
@@ -67,10 +67,57 @@ class GramGRNProductsList(APIView):
         category = request.data.get('categories')
         keyword = request.data.get('product_name', None)
         shop_id = request.data.get('shop_id')
+        offset = request.data.get('offset')
+        pro_count = request.data.get('pro_count')
+
         cart_check = False
         is_store_active = True
         sort_preference = request.data.get('sort_by_price')
-        grn = GRNOrderProductMapping.objects.values('product_id')
+
+        '''1st Step
+            Check If Shop Is exists then 2nd pt else 3rd Pt
+        '''
+        try:
+            shop = Shop.objects.get(id=shop_id,status=True)
+        except ObjectDoesNotExist:
+            '''3rd Step
+                If no shop found then 
+            '''
+            grn = GRNOrderProductMapping.objects.values('product_id')
+            message = "Shop not active or does not exists"
+            is_store_active = False
+        else:
+            '''2nd Step
+                Check if shop fond then check weather it is sp 4th Step or retailer 5th Step
+            '''
+            try:
+                parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
+            except ObjectDoesNotExist:
+                grn = GRNOrderProductMapping.objects.values('product_id')
+                message = "Shop Mapping Not Found"
+                is_store_active = False
+            else:
+                if parent_mapping.parent.shop_type.shop_type == 'sp':
+                    '''4th Step
+                        SP mapped data shown  
+                    '''
+                    grn = SpMappedOrderedProductMapping.objects.filter(ordered_product__order__ordered_cart__shop=parent_mapping.parent,available_qty__gt=0).values('product_id')
+                    cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
+                    if cart:
+                        cart_products = cart.rt_cart_list.all()
+                        cart_check = True
+
+                # if shop mapped with gf
+                elif parent_mapping.parent.shop_type.shop_type == 'gf':
+                    '''5th Step
+                        Gramfactory mapped data shown
+                    '''
+                    grn = GRNOrderProductMapping.objects.filter(grn_order__order__ordered_cart__gf_shipping_address__shop_name=parent_mapping.parent,available_qty__gt=0).values('product_id')
+                    cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,cart_status__in=['active', 'pending']).last()
+                    if cart:
+                        cart_products = cart.rt_cart_list.all()
+                        cart_check = True
+
         products = Product.objects.filter(pk__in=grn).order_by('product_name')
         if brand:
             products = products.filter(product_brand__in=brand)
@@ -80,39 +127,21 @@ class GramGRNProductsList(APIView):
         if keyword and products.filter(product_name__icontains=keyword).last():
             products = products.filter(product_name__icontains=keyword)
 
-        products_price = ProductPrice.objects.filter(product__in=products).order_by('product','-created_at').distinct('product')
+        if is_store_active is False:
+            products_price = ProductPrice.objects.filter(product__in=products).order_by('product','-created_at').distinct('product')
+        else:
+            products_price = ProductPrice.objects.filter(product__in=products, shop=parent_mapping.parent).order_by('product', '-created_at').distinct('product')
+
+
         if sort_preference:
             if sort_preference == 'low':
                 products_price = products_price.order_by('price_to_retailer').distinct()
             if sort_preference == 'high':
                 products_price = products_price.order_by('-price_to_retailer').distinct()
-        try:
-            shop = Shop.objects.get(id=shop_id,status=True)
-        except ObjectDoesNotExist:
-            message = "Shop not active or does not exists"
-            is_store_active = False
-        else:
-            try:
-                parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
-            except ObjectDoesNotExist:
-                message = "Shop Mapping Not Found"
-                is_store_active = False
-            else:
-                products_price = products_price.filter(shop=parent_mapping.parent)
-            # if shop mapped with sp
-            if parent_mapping.parent.shop_type.shop_type == 'sp':
-                cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
-                if cart:
-                    cart_products = cart.rt_cart_list.all()
-                    cart_check = True
-            # if shop mapped with gf
-            elif parent_mapping.parent.shop_type.shop_type == 'gf':
-                cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,
-                                                 cart_status__in=['active', 'pending']).last()
-                if cart:
-                    cart_products = cart.rt_cart_list.all()
-                    cart_check = True
-
+        
+        if offset and pro_count:
+            products_price = products_price[offset:pro_count]
+        
         p_list = []
 
         for p in products_price:
@@ -172,7 +201,22 @@ class GramGRNProductsList(APIView):
                          status=200)
 
 
-
+def release_blocking(parent_mapping,cart_id):
+    if parent_mapping.parent.shop_type.shop_type == 'sp':
+        if OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved').exists():
+            for ordered_reserve in OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved'):
+                ordered_reserve.order_product_reserved.available_qty = int(
+                    ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
+                ordered_reserve.order_product_reserved.save()
+                ordered_reserve.delete()
+    elif parent_mapping.parent.shop_type.shop_type == 'gf':
+        if GramOrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved').exists():
+            for ordered_reserve in GramOrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved'):
+                ordered_reserve.order_product_reserved.available_qty = int(
+                    ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
+                ordered_reserve.order_product_reserved.save()
+                ordered_reserve.delete()
+    return True
 
 class ProductDetail(APIView):
 
@@ -316,7 +360,7 @@ class CartDetail(APIView):
                     msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
                            'response_data': None}
                 else:
-                    serializer = CartSerializer(Cart.objects.get(id=cart.id))
+                    serializer = CartSerializer(Cart.objects.get(id=cart.id),context={'parent_mapping_id': parent_mapping.parent.id})
                     msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
             else:
@@ -373,11 +417,12 @@ class ReservedOrder(generics.ListAPIView):
                         product=cart_product.cart_product).order_by('-expiry_date')
                     ordered_product_sum = ordered_product_details.aggregate(available_qty_sum=Sum('available_qty'))
 
+                    is_error = False
                     if ordered_product_sum['available_qty_sum'] is not None:
                         if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty):
                             available_qty = int(ordered_product_sum['available_qty_sum'])
                             cart_product.qty_error_msg = 'Available Quantity : %s' % (available_qty)
-                            # cart_product.qty = available_qty
+                            is_error = True
                         else:
                             available_qty = int(cart_product.qty)
                             cart_product.qty_error_msg = ''
@@ -401,9 +446,12 @@ class ReservedOrder(generics.ListAPIView):
 
                             available_qty = available_qty - int(product_detail.available_qty)
 
+                        if is_error:
+                            release_blocking(parent_mapping, cart.id)
                         serializer = CartSerializer(cart,context={'parent_mapping_id': parent_mapping.parent.id})
                         msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                     else:
+                        release_blocking(parent_mapping, cart.id)
                         msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
                         return Response(msg, status=status.HTTP_200_OK)
                 if CartProductMapping.objects.filter(cart=cart).count() <= 0:
@@ -421,6 +469,7 @@ class ReservedOrder(generics.ListAPIView):
                 pick_list,_ = PickList.objects.get_or_create(cart=cart)
                 pick_list.save()
 
+                is_error = False
                 for cart_product in cart_products:
                     ordered_product_details = GRNOrderProductMapping.objects.filter(
                         grn_order__order__shipping_address__shop_name=parent_mapping.parent,
@@ -431,6 +480,7 @@ class ReservedOrder(generics.ListAPIView):
                         if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty):
                             available_qty = int(ordered_product_sum['available_qty_sum'])
                             cart_product.qty_error_msg = 'Available Quantity : %s' % (available_qty)
+                            is_error = True
                         else:
                             available_qty = int(cart_product.qty)
                             cart_product.qty_error_msg = ''
@@ -459,8 +509,11 @@ class ReservedOrder(generics.ListAPIView):
                             available_qty = available_qty - int(product_detail.available_qty)
 
                         serializer = GramMappedCartSerializer(cart, context={'parent_mapping_id': parent_mapping.parent.id})
+                        if is_error:
+                            release_blocking(parent_mapping, cart.id)
                         msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                     else:
+                        release_blocking(parent_mapping,cart.id)
                         msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
                         return Response(msg, status=status.HTTP_200_OK)
                 if GramMappedCartProductMapping.objects.filter(cart=cart).count() <= 0:
@@ -625,10 +678,10 @@ class OrderList(generics.ListAPIView):
             return Response(msg, status=status.HTTP_200_OK)
 
         if parent_mapping.parent.shop_type.shop_type == 'sp':
-            queryset = Order.objects.filter(last_modified_by=user)
+            queryset = Order.objects.filter(last_modified_by=user).order_by('-created_at')
             serializer = OrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
-            queryset = GramMappedOrder.objects.filter(last_modified_by=user)
+            queryset = GramMappedOrder.objects.filter(last_modified_by=user).order_by('-created_at')
             serializer = GramMappedOrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id})
 
         if serializer.data:
@@ -947,5 +1000,8 @@ class ReleaseBlocking(APIView):
                     ordered_reserve.delete()
             msg = {'is_success': True, 'message': ['Blocking has released'], 'response_data': None}
         return Response(msg, status=status.HTTP_200_OK)
+
+
+
 
 

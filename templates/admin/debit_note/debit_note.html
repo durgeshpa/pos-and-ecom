@@ -162,7 +162,7 @@ table tr td,th,h4,span,address{
     							<!-- foreach ($order->lineItems as $line) or some such thing here -->
     							<tr>
                     {% for m in products %}
-                    {% if m.returned_qty > 0 or m.product_invoice_price > m.po_product_price %}
+                    {% if m.returned_qty > 0  %}
     								<td><strong>{{forloop.counter}}</strong></td>
 										<td class="text-center">{{ m.product.product_sku}}</td>
     								<td class="text-center">{{ m.product.product_short_description}}</td>
