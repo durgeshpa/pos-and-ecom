@@ -15,7 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
 
-from retailer_to_sp.models import Cart,CartProductMapping,Order,OrderedProduct, Payment, CustomerCare
+from retailer_to_sp.models import Cart,CartProductMapping,Order,OrderedProduct, Payment, CustomerCare,Return
 
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
                                       OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment, CustomerCare as GramMappedCustomerCare )
@@ -81,7 +81,7 @@ class GramGRNProductsList(APIView):
             shop = Shop.objects.get(id=shop_id,status=True)
         except ObjectDoesNotExist:
             '''3rd Step
-                If no shop found then 
+                If no shop found then
             '''
             grn = GRNOrderProductMapping.objects.values('product_id')
             message = "Shop not active or does not exists"
@@ -99,7 +99,7 @@ class GramGRNProductsList(APIView):
             else:
                 if parent_mapping.parent.shop_type.shop_type == 'sp':
                     '''4th Step
-                        SP mapped data shown  
+                        SP mapped data shown
                     '''
                     grn = SpMappedOrderedProductMapping.objects.filter(ordered_product__order__ordered_cart__shop=parent_mapping.parent,available_qty__gt=0).values('product_id')
                     cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
@@ -138,10 +138,10 @@ class GramGRNProductsList(APIView):
                 products_price = products_price.order_by('price_to_retailer').distinct()
             if sort_preference == 'high':
                 products_price = products_price.order_by('-price_to_retailer').distinct()
-        
+
         if offset and pro_count:
-            products_price = products_price[offset:pro_count]
-        
+            products_price = products_price[int(offset):int(offset)+int(pro_count)]
+
         p_list = []
 
         for p in products_price:
@@ -722,7 +722,7 @@ class DownloadInvoiceSP(APIView):
     PDF Download object
     """
     filename = 'invoice.pdf'
-    template_name = 'admin/invoice/invoice.html'
+    template_name = 'admin/invoice/invoice_sp.html'
 
     def get(self, request, *args, **kwargs):
         order_obj = get_object_or_404(OrderedProduct, pk=self.kwargs.get('pk'))
@@ -733,7 +733,7 @@ class DownloadInvoiceSP(APIView):
         print(a)
         shop=a
         products = a.rt_order_product_order_product_mapping.all()
-
+        payment_type = a.order.rt_payment.last().payment_choice
         order_id= a.order.order_no
 
         sum_qty = 0
@@ -750,15 +750,14 @@ class DownloadInvoiceSP(APIView):
             city_gram= z.city
             state_gram= z.state
             pincode_gram= z.pincode
-            
-        for m in products:
 
+        for m in products:
             sum_qty = sum_qty + int(m.product.product_inner_case_size) * int(m.shipped_qty)
 
-            for h in m.product.product_pro_price.all():
+            for h in m.get_shop_specific_products_prices_sp():
 
-                sum_amount = sum_amount + (m.shipped_qty * h.price_to_retailer)
-                inline_sum_amount = (m.shipped_qty * h.price_to_retailer)
+                sum_amount = sum_amount + (int(m.product.product_inner_case_size) * int(m.shipped_qty) * h.price_to_retailer)
+                inline_sum_amount = (int(m.product.product_inner_case_size) * int(m.shipped_qty) * h.price_to_retailer)
             for n in m.product.product_pro_tax.all():
 
                 divisor= (1+(n.tax.tax_percentage/100))
@@ -785,16 +784,18 @@ class DownloadInvoiceSP(APIView):
             print(taxes_list)
 
         total_amount = sum_amount
+        total_amount_int = int(total_amount)
         print(sum_amount)
 
 
-        data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop, "sum_qty": sum_qty, "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" , "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,"order_id":order_id,"shop_name_gram":shop_name_gram,"nick_name_gram":nick_name_gram, "city_gram":city_gram, "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram}
+        data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop, "sum_qty": sum_qty, "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" , "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,"order_id":order_id,"shop_name_gram":shop_name_gram,"nick_name_gram":nick_name_gram, "city_gram":city_gram, "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram, "payment_type":payment_type,"total_amount_int":total_amount_int}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         return response
+
 
 
 class DownloadNote(APIView):
@@ -1000,8 +1001,3 @@ class ReleaseBlocking(APIView):
                     ordered_reserve.delete()
             msg = {'is_success': True, 'message': ['Blocking has released'], 'response_data': None}
         return Response(msg, status=status.HTTP_200_OK)
-
-
-
-
-

@@ -271,6 +271,12 @@ class ProductTaxMapping(models.Model):
 
     def __str__(self):
         return self.tax.tax_name
+
+    def get_products_gst_tax(self):
+        return self.product.product_pro_tax.filter(tax__tax_type='gst')
+
+    def get_products_gst_cess(self):
+        return self.product.product_pro_tax.filter(tax__tax_type='cess')
 # class ProductSurcharge(models.Model):
 #     product = models.ForeignKey(Product, related_name='product_pro_surcharge',on_delete=models.CASCADE)
 #     surcharge_name = models.CharField(max_length=255, validators=[NameValidator])
@@ -328,7 +334,7 @@ def create_product_vendor_mapping(sender, instance=None, created=False, **kwargs
     if file:
         reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
         first_row = next(reader)
-        ProductVendorMapping.objects.bulk_create([ProductVendorMapping(vendor=vendor, product_id = row[0], product_price=row[2]) for row in reader if row[2]])
+        ProductVendorMapping.objects.bulk_create([ProductVendorMapping(vendor=vendor, product_id = row[0], product_price=row[3]) for row in reader if row[3]])
 
 @receiver(pre_save, sender=ProductCategory)
 def create_product_sku(sender, instance=None, created=False, **kwargs):
