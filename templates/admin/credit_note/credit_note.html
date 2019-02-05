@@ -213,7 +213,7 @@ table tr td,th,h4,span,address{
     								<td class="thick-line text-right"><strong>₹{{sum_amount | intcomma }}/-</strong></td>
     							</tr>
 									{% if shop.order.seller_shop.shop_name_address_mapping.all == shop.order.shipping_address %}
-    							<tr>
+    							<tr style="display:none">
 
 									<td class="no-line"></td>
 									<td class="no-line"></td>
@@ -229,7 +229,7 @@ table tr td,th,h4,span,address{
     								<td class="no-line text-center"><strong>CGST</strong></td>
     								<td class="no-line text-right"><strong>₹{{cgst | floatformat:2 }}/-</strong></td>
     							</tr>
-								<tr>
+								<tr style="display:none">
 
     								<td class="no-line"></td>
 									<td class="no-line"></td>
@@ -246,7 +246,7 @@ table tr td,th,h4,span,address{
     								<td class="no-line text-right"><strong>₹ {{sgst | floatformat:2 }}/-</strong></td>
     							</tr>
 									{% else %}
-									<tr>
+									<tr style="display:none">
 
 	    								<td class="no-line"></td>
 										<td class="no-line"></td>
@@ -263,7 +263,7 @@ table tr td,th,h4,span,address{
 	    								<td class="no-line text-right"><strong>₹ {{igst | floatformat:2 }}/-</strong></td>
 	    							</tr>
 										{% endif %}
-								<tr>
+								<tr style="display:none">
 
 
     								<td class="no-line"></td>
