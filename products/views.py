@@ -630,10 +630,10 @@ def products_export_for_vendor(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(['id','product_name', 'brand_to_gram_price'])
-    products = Product.objects.values_list('id','product_name')
+    writer.writerow(['id','product_name','product_gf_code', 'brand_to_gram_price'])
+    products = Product.objects.values_list('id','product_name','product_gf_code')
     for product in products:
-        writer.writerow([product[0],product[1],''])
+        writer.writerow([product[0],product[1],product[2],''])
     return response
 
 def products_vendor_mapping(request,pk=None):
