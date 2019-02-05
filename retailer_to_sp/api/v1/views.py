@@ -140,7 +140,7 @@ class GramGRNProductsList(APIView):
                 products_price = products_price.order_by('-price_to_retailer').distinct()
         
         if offset and pro_count:
-            products_price = products_price[offset:pro_count]
+            products_price = products_price[int(offset):int(offset)+int(pro_count)]
         
         p_list = []
 
