@@ -148,6 +148,12 @@ class OrderedProductMapping(models.Model):
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(shop__shop_type__shop_type='sp', status=True)
 
+    def get_products_gst_tax(self):
+        return self.product.product_pro_tax.filter(tax__tax_type='gst')
+
+    def get_products_gst_cess(self):
+        return self.product.product_pro_tax.filter(tax__tax_type='cess')
+
 
 class CustomerCare(models.Model):
     order_id = models.ForeignKey(Order,on_delete=models.CASCADE, null=True)
@@ -257,6 +263,12 @@ class ReturnProductMapping(models.Model):
 
     def get_shop_specific_products_prices_sp_return(self):
         return self.returned_product.product_pro_price.filter(shop__shop_type__shop_type='sp', status=True)
+
+    def get_products_gst_tax_return(self):
+        return self.returned_product.product_pro_tax.filter(tax__tax_type='gst')
+
+    def get_products_gst_cess_return(self):
+        return self.returned_product.product_pro_tax.filter(tax__tax_type='cess')
 
 class Note(models.Model):
     credit_note_id = models.CharField(max_length=255, null=True, blank=True)
