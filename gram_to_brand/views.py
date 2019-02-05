@@ -6,7 +6,7 @@ from dal import autocomplete
 from addresses.models import Address,State
 from brand.models import Brand
 
-from gram_to_brand.models import Order,CartProductMapping, OrderItem, Cart, GRNOrder, GRNOrderProductMapping
+from gram_to_brand.models import Order,CartProductMapping, Cart, GRNOrder, GRNOrderProductMapping
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -133,7 +133,7 @@ class DownloadPurchaseOrder(APIView):
         a = Cart.objects.get(pk=pk)
         shop =a
         products = a.cart_list.all()
-        order= shop.order_cart_mapping.last()
+        order= shop.order_cart_mapping
         order_id= order.order_no
         gram_factory_billing_gstin= shop.gf_billing_address.shop_name.shop_name_documents.filter(shop_document_type='gstin').last()
         gram_factory_shipping_gstin= shop.gf_shipping_address.shop_name.shop_name_documents.filter(shop_document_type='gstin').last()
