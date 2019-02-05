@@ -328,7 +328,7 @@ def create_product_vendor_mapping(sender, instance=None, created=False, **kwargs
     if file:
         reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
         first_row = next(reader)
-        ProductVendorMapping.objects.bulk_create([ProductVendorMapping(vendor=vendor, product_id = row[0], product_price=row[2]) for row in reader if row[2]])
+        ProductVendorMapping.objects.bulk_create([ProductVendorMapping(vendor=vendor, product_id = row[0], product_price=row[3]) for row in reader if row[3]])
 
 @receiver(pre_save, sender=ProductCategory)
 def create_product_sku(sender, instance=None, created=False, **kwargs):
