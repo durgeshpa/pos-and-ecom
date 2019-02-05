@@ -283,7 +283,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                              format(obj.product_pro_image.first().image.url,obj.product_pro_image.first().image_alt_text,
                                     obj.product_pro_image.first().image.url))
 
-    product_images.short_description = 'Gf Code'
+    product_images.short_description = 'Product Image'
 
 
 class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
