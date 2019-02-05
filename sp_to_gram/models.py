@@ -1,39 +1,52 @@
-from django.db import models
-
-# Create your models here.
-from shops.models import Shop,ParentRetailerMapping
-from brand.models import Brand
-from django.contrib.auth import get_user_model
-from addresses.models import Address
-from products.models import Product
+import datetime
 from datetime import timedelta
-from django.utils import timezone
-from django.conf import settings
-from retailer_to_sp.models import Cart as RetailerCart
-from addresses.models import Address,City,State
+
 from django.dispatch import receiver
 from django.db.models.signals import pre_save, post_save
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
-import datetime
+from django.contrib.auth import get_user_model
+from django.utils import timezone
+from django.conf import settings
+from django.db import models
+
+from shops.models import Shop, ParentRetailerMapping
+from brand.models import Brand
+from products.models import Product
+from retailer_to_sp.models import Cart as RetailerCart
+from addresses.models import Address, City, State
 
 ORDER_STATUS = (
-    ("ordered_to_gram","Ordered To Gramfactory"),
-    ("order_shipped","Order Shipped From Gramfactory"),
-    ("partially_delivered","Partially Delivered"),
-    ("delivered","Delivered"),
-)
-ITEM_STATUS = (
-    ("partially_delivered","Partially Delivered"),
-    ("delivered","Delivered"),
+    ("ordered_to_gram", "Ordered To Gramfactory"),
+    ("order_shipped", "Order Shipped From Gramfactory"),
+    ("partially_delivered", "Partially Delivered"),
+    ("delivered", "Delivered"),
 )
 
+ITEM_STATUS = (
+    ("partially_delivered", "Partially Delivered"),
+    ("delivered", "Delivered"),
+)
+
+
 class Cart(models.Model):
-    shop = models.ForeignKey(Shop, related_name='sp_shop_cart',null=True,blank=True,on_delete=models.CASCADE)
+    shop = models.ForeignKey(
+        Shop, related_name='sp_shop_cart',
+        null=True, blank=True, on_delete=models.CASCADE
+    )
     po_no = models.CharField(max_length=255, null=True, blank=True)
-    po_status = models.CharField(max_length=200, choices=ORDER_STATUS, null=True, blank=True)
-    po_raised_by = models.ForeignKey(get_user_model(), related_name='po_raise_sp_user_cart', null=True, blank=True,on_delete=models.CASCADE)
-    last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_sp_user_cart', null=True,blank=True, on_delete=models.CASCADE)
+    po_status = models.CharField(
+        max_length=200, choices=ORDER_STATUS,
+        null=True, blank=True
+    )
+    po_raised_by = models.ForeignKey(
+        get_user_model(), related_name='po_raise_sp_user_cart',
+        null=True, blank=True, on_delete=models.CASCADE
+    )
+    last_modified_by = models.ForeignKey(
+        get_user_model(), related_name='last_modified_sp_user_cart',
+        null=True, blank=True, on_delete=models.CASCADE
+    )
     po_creation_date = models.DateField(auto_now_add=True)
     po_validity_date = models.DateField()
     payment_term = models.TextField(null=True, blank=True)
@@ -42,27 +55,34 @@ class Cart(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        verbose_name = "PO Generation"
+
     def __str__(self):
         return self.po_no
 
     def clean(self):
-        if self.po_validity_date and self.po_validity_date < datetime.date.today():
+        if (
+            self.po_validity_date
+            and self.po_validity_date
+        ) < datetime.date.today():
             raise ValidationError(_("Po validity date cannot be in the past!"))
 
-    class Meta:
-        verbose_name = "PO Generation"
 
 @receiver(pre_save, sender=Cart)
 def create_po_no(sender, instance=None, created=False, **kwargs):
     if instance._state.adding:
         last_cart = Cart.objects.last()
         if last_cart:
-            last_cart_po_no_increment = str(int(last_cart.po_no.rsplit('/', 1)[-1]) + 1).zfill(
-                len(last_cart.po_no.rsplit('/', 1)[-1]))
+            last_cart_po_no_increment = str(
+                int(last_cart.po_no.rsplit('/', 1)[-1]) + 1).zfill(
+                len(last_cart.po_no.rsplit('/', 1)[-1])
+            )
         else:
             last_cart_po_no_increment = '00001'
         instance.po_no = "ADT/PO/07/%s" % (last_cart_po_no_increment)
         instance.po_status = "ordered_to_gram"
+
 
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='sp_cart_list',on_delete=models.CASCADE)
@@ -79,8 +99,8 @@ class CartProductMapping(models.Model):
 
     def clean(self):
         if self.number_of_cases:
-             self.qty = int(self.cart_product.product_inner_case_size) * int(self.case_size) * int(self.number_of_cases)
-             self.total_price= float(self.qty) * self.price
+            self.qty = int(self.cart_product.product_inner_case_size) * int(self.case_size) * int(self.number_of_cases)
+            self.total_price = float(self.qty) * self.price
 
     def __str__(self):
         return self.cart_product.product_name

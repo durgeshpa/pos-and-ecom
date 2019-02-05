@@ -1,31 +1,46 @@
-from django.db import models
-from products.models import Product
-from django.db.models import Sum
+import datetime
+import csv
+import codecs
+import re
+from datetime import timedelta
 
-from shops.models import Shop
-from brand.models import Brand, Vendor
 from django.contrib.auth import get_user_model
-from addresses.models import Address,City,State
-from datetime import datetime, timedelta
-from django.utils import timezone
-from retailer_to_gram.models import Cart as GramMapperRetialerCart,Order as GramMapperRetialerOrder
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.dispatch import receiver
 from django.db.models.signals import pre_save, post_save
 from django.urls import reverse
-import datetime, csv, codecs, re
-from retailer_backend.common_function import(po_pattern, grn_pattern,
-    brand_note_pattern, brand_debit_note_pattern)
+from django.utils import timezone
+from django.db import models
+from django.db.models import Sum
 
+from shops.models import Shop, ParentRetailerMapping
+from products.models import Product
+from brand.models import Brand, Vendor
+from addresses.models import Address, City, State
+from retailer_to_gram.models import (
+    Cart as GramMapperRetialerCart,
+    Order as GramMapperRetialerOrder
+)
+from retailer_backend.common_function import (
+    po_pattern, grn_pattern,
+    brand_note_pattern, brand_debit_note_pattern
+)
+from sp_to_gram.models import (
+    Cart as SpPO,
+    CartProductMapping as SpPOProducts,
+    Order as SpOrder,
+    OrderedProduct as SpGRNOrder,
+    OrderedProductMapping as SpGRNOrderProductMapping
+)
 from base.models import (BaseOrder, BaseCart, BaseShipment)
 
-
 ITEM_STATUS = (
-    ("partially_delivered","Partially Delivered"),
-    ("delivered","Delivered"),
+    ("partially_delivered", "Partially Delivered"),
+    ("delivered", "Delivered"),
 )
+
 
 class Po_Message(models.Model):
     created_by = models.ForeignKey(get_user_model(), related_name='created_by_user_message', null=True,blank=True, on_delete=models.CASCADE)
@@ -33,65 +48,110 @@ class Po_Message(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-class Cart(BaseCart): # PO
+
+class Cart(BaseCart):
+    """PO Generation"""
     APPROVAL_AWAITED = "WAIT"
     FINANCE_APPROVED = "APRW"
     UNAPPROVED = "RJCT"
     SENT_TO_BRAND = "SENT"
     DELIVERED = "DLVR"
     ORDER_STATUS = (
-    (SENT_TO_BRAND,"Send To Brand"),
-    (APPROVAL_AWAITED,"Waiting For Finance Approval"),
-    (FINANCE_APPROVED,"Finance Approved"),
-    (UNAPPROVED,"Finance Not Approved"),
-    (DELIVERED,"Delivered"),
+        (SENT_TO_BRAND, "Send To Brand"),
+        (APPROVAL_AWAITED, "Waiting For Finance Approval"),
+        (FINANCE_APPROVED, "Finance Approved"),
+        (UNAPPROVED, "Finance Not Approved"),
+        (DELIVERED, "Delivered"),
     )
-    brand = models.ForeignKey(Brand, related_name='brand_order', on_delete=models.CASCADE)
-    supplier_state = models.ForeignKey(State, related_name='state_cart',null=True, blank=True,on_delete=models.CASCADE)
-    supplier_name = models.ForeignKey(Vendor, related_name='buyer_vendor_order', null=True, blank=True,on_delete=models.CASCADE)
-    gf_shipping_address = models.ForeignKey(Address, related_name='shipping_address_cart', null=True, blank=True,on_delete=models.CASCADE)
-    gf_billing_address = models.ForeignKey(Address, related_name='billing_address_cart', null=True, blank=True,on_delete=models.CASCADE)
-    products = models.ManyToManyField(Product, through='gram_to_brand.CartProductMapping')
-    po_no = models.CharField(max_length=255,null=True,blank=True)
-    po_status = models.CharField(max_length=200,choices=ORDER_STATUS,null=True,blank=True)
-    po_raised_by = models.ForeignKey(get_user_model(), related_name='po_raise_user_cart', null=True,blank=True, on_delete=models.CASCADE)
-    last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_user_cart', null=True,blank=True, on_delete=models.CASCADE)
+
+    brand = models.ForeignKey(
+        Brand, related_name='brand_order', on_delete=models.CASCADE
+    )
+    supplier_state = models.ForeignKey(
+        State, related_name='state_cart',
+        null=True, blank=True, on_delete=models.CASCADE
+    )
+    supplier_name = models.ForeignKey(
+        Vendor, related_name='buyer_vendor_order',
+        null=True, blank=True, on_delete=models.CASCADE
+    )
+    gf_shipping_address = models.ForeignKey(
+        Address, related_name='shipping_address_cart',
+        null=True, blank=True, on_delete=models.CASCADE
+    )
+    gf_billing_address = models.ForeignKey(
+        Address, related_name='billing_address_cart',
+        null=True, blank=True, on_delete=models.CASCADE
+    )
+    products = models.ManyToManyField(
+        Product, through='gram_to_brand.CartProductMapping'
+    )
+    po_no = models.CharField(max_length=255, null=True, blank=True)
+    po_status = models.CharField(
+        max_length=200, choices=ORDER_STATUS,
+        null=True, blank=True
+    )
+    po_raised_by = models.ForeignKey(
+        get_user_model(), related_name='po_raise_user_cart',
+        null=True, blank=True, on_delete=models.CASCADE
+    )
+    last_modified_by = models.ForeignKey(
+        get_user_model(), related_name='last_modified_user_cart',
+        null=True, blank=True, on_delete=models.CASCADE
+    )
     po_creation_date = models.DateField(auto_now_add=True)
     po_validity_date = models.DateField()
-    po_message = models.ForeignKey(Po_Message, related_name='po_message_dt', on_delete=models.CASCADE,null=True,blank=True)
+    po_message = models.ForeignKey(
+        Po_Message, related_name='po_message_dt',
+        on_delete=models.CASCADE, null=True, blank=True
+    )
     payment_term = models.TextField(null=True,blank=True)
     delivery_term = models.TextField(null=True,blank=True)
     po_amount = models.FloatField(default=0)
-    cart_product_mapping_csv = models.FileField(upload_to='gram/brand/cart_product_mapping_csv', null=True,blank=True)
+    cart_product_mapping_csv = models.FileField(
+        upload_to='gram/brand/cart_product_mapping_csv',
+        null=True, blank=True
+    )
     is_approve = models.BooleanField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return str(self.po_no)
-
-    @property
-    def products_sample_file(self):
-        if self.cart_product_mapping_csv and hasattr(self.cart_product_mapping_csv, 'url'):
-            url = """<h3><a href="%s" target="_blank">Download Products List</a></h3>""" % (reverse('admin:products_vendor_mapping',args=(self.supplier_name_id,)))
-        else:
-            url="""<h3><a href="#">Download Products List</a></h3>"""
-        return url
-
-    def clean(self):
-        super(Cart, self).clean()
-        if self.po_validity_date and self.po_validity_date < datetime.date.today():
-            raise ValidationError(_("Po validity date cannot be in the past!"))
-
-    @property
-    def po_amount(self):
-        self.cart_list.aggregate(sum('total_price'))
 
     class Meta:
         verbose_name = "PO Generation"
         permissions = (
             ("can_approve_and_disapprove", "Can approve and dis-approve"),
         )
+
+    def clean(self):
+        super(Cart, self).clean()
+        if self.po_validity_date < datetime.date.today():
+            raise ValidationError(_("Po validity date cannot be in the past!"))
+
+    def __str__(self):
+        return str(self.po_no)
+
+    @property
+    def products_sample_file(self):
+        if (
+            self.cart_product_mapping_csv
+            and hasattr(self.cart_product_mapping_csv, 'url')
+        ):
+            url = """<h3><a href="%s" target="_blank">
+                    Download Products List</a></h3>""" % \
+                  (
+                      reverse(
+                          'admin:products_vendor_mapping',
+                          args=(self.supplier_name_id,)
+                      )
+                  )
+        else:
+            url = """<h3><a href="#">Download Products List</a></h3>"""
+        return url
+
+    @property
+    def po_amount(self):
+        self.cart_list.aggregate(sum('total_price'))
+
 
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='cart_list',on_delete=models.CASCADE)
@@ -121,11 +181,27 @@ class CartProductMapping(models.Model):
     def __str__(self):
         return self.cart_product.product_name
 
+
 @receiver(post_save, sender=Cart)
 def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
     if created:
-        instance.po_no= po_pattern(instance.gf_billing_address.city_id,instance.pk)
+        instance.po_no = po_pattern(
+            instance.gf_billing_address.city_id,
+            instance.pk
+        )
         instance.save()
+        # auto po for sp
+        connected_shops = ParentRetailerMapping.objects.filter(
+            parent=instance.gf_shipping_address.shop_name,
+            status=True
+        )
+        for shop in connected_shops:
+            if shop.retailer.shop_type.shop_type == 'sp':
+                sp_po = SpPO.objects.create(
+                    shop=shop.retailer,
+                    po_validity_date=datetime.date.today() + timedelta(days=15)
+                )
+        # ends here
         if instance.cart_product_mapping_csv:
             reader = csv.reader(codecs.iterdecode(instance.cart_product_mapping_csv, 'utf-8'))
             for id,row in enumerate(reader):
@@ -135,6 +211,39 @@ def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
                          number_of_cases = row[3],scheme = float(row[4]) if row[4] else None, price=float(row[5])
                          )
     order = Order.objects.get_or_create(ordered_cart=instance, order_no=instance.po_no)
+
+
+@receiver(post_save, sender=CartProductMapping)
+def auto_po_products_creation(sender, instance=None, created=False, **kwargs):
+    """
+    Adding products to the sp's based on their last created po
+    """
+    if created:
+        connected_shops = ParentRetailerMapping.objects.filter(
+            parent=instance.cart.gf_shipping_address.shop_name,
+            status=True
+        )
+        for shop in connected_shops:
+            if shop.retailer.shop_type.shop_type == 'sp':
+                sp_po = SpPO.objects.filter(
+                    shop=shop.retailer
+                ).last()
+                item = instance
+                sp_cpm = SpPOProducts.objects.create(
+                    cart=sp_po,
+                    cart_product=item.cart_product,
+                    case_size=item.case_size,
+                    number_of_cases=item.number_of_cases,
+                    qty=(
+                        int(item.cart_product.product_inner_case_size) *
+                        int(item.case_size) *
+                        int(item.number_of_cases)
+                    ),
+                    scheme=item.scheme,
+                    price=item.price,
+                    total_price=float(item.qty) * item.price
+                )
+
 
 class Order(BaseOrder):
     ordered_cart = models.OneToOneField(Cart,related_name='order_cart_mapping',on_delete=models.CASCADE)
@@ -180,6 +289,23 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
     if created:
         instance.grn_id = grn_pattern(instance.pk)
         instance.save()
+        # SP auto ordered product creation
+        connected_shops = ParentRetailerMapping.objects.filter(
+            parent=instance.order.ordered_cart.gf_shipping_address.shop_name,
+            status=True
+        )
+        for shop in connected_shops:
+            if shop.retailer.shop_type.shop_type == 'sp':
+                sp_po = SpPO.objects.filter(
+                    shop=shop.retailer
+                ).last()
+                sp_order = SpOrder.objects.filter(
+                    ordered_cart=sp_po
+                ).last()
+                SpGRNOrder.objects.create(
+                    order=sp_order
+                )
+        # ends here
 
 class GRNOrderProductMapping(models.Model):
     grn_order = models.ForeignKey(GRNOrder,related_name='grn_order_grn_order_product',null=True,blank=True,on_delete=models.CASCADE)
@@ -268,12 +394,44 @@ class BrandNote(models.Model):
         verbose_name = _("Debit Note")
         verbose_name_plural = _("Debit Notes")
 
+
 @receiver(post_save, sender=GRNOrderProductMapping)
 def create_debit_note(sender, instance=None, created=False, **kwargs):
     if created:
         instance.available_qty = instance.delivered_qty
         instance.save()
-        
+
+        # SP auto ordered product creation
+        connected_shops = ParentRetailerMapping.objects.filter(
+            parent=instance.grn_order.order.ordered_cart.gf_shipping_address.shop_name,
+            status=True
+        )
+        for shop in connected_shops:
+            if shop.retailer.shop_type.shop_type == 'sp':
+                sp_po = SpPO.objects.filter(
+                    shop=shop.retailer
+                ).last()
+                sp_order = SpOrder.objects.filter(
+                    ordered_cart=sp_po
+                ).last()
+                sp_grn_order = SpGRNOrder.objects.filter(
+                    order=sp_order
+                ).last()
+                SpGRNOrderProductMapping.objects.create(
+                    ordered_product=sp_grn_order,
+                    product=instance.product,
+                    manufacture_date=instance.manufacture_date,
+                    expiry_date=instance.expiry_date,
+                    shipped_qty=instance.delivered_qty,
+                    available_qty=instance.available_qty,
+                    ordered_qty=instance.grn_order.order.ordered_cart.\
+                        cart_list.filter(cart_product=instance.product).last().qty,
+                    delivered_qty=instance.delivered_qty,
+                    returned_qty=instance.returned_qty,
+                    damaged_qty=instance.damaged_qty
+                )
+        # ends here
+
     if instance.returned_qty > 0:
         debit_note = BrandNote.objects.filter(grn_order = instance.grn_order)
         if debit_note.exists():
