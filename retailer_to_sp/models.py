@@ -296,10 +296,10 @@ def create_credit_note(sender, instance=None, created=False, **kwargs):
             if credit_note.exists():
                 credit_note = credit_note.last()
                 credit_note.credit_note_id = brand_credit_note_pattern(instance.return_id.pk)
-                credit_note.amount= credit_note.amount + (instance.total_returned_qty * instance.returned_product.product_pro_price.filter(shop__shop_type__shop_type='sp', status=True).price_to_retailer)
+                credit_note.amount= credit_note.amount + (int(instance.total_returned_qty) * int(instance.returned_product.product_inner_case_size)* float(instance.returned_product.product_pro_price.filter(shop__shop_type__shop_type='sp', status=True).last().price_to_retailer))
                 credit_note.save()
             else:
-                credit_note = Note.objects.create(credit_note_id = brand_credit_note_pattern(instance.return_id.pk), order=instance.return_id.invoice_no.order,return_no = instance.return_id, amount = instance.total_returned_qty * instance.returned_product.product_pro_price.filter(shop__shop_type__shop_type='sp', status=True).price_to_retailer, status=True)
+                credit_note = Note.objects.create(credit_note_id = brand_credit_note_pattern(instance.return_id.pk), order=instance.return_id.invoice_no.order,return_no = instance.return_id, amount = int(instance.total_returned_qty) * int(instance.returned_product.product_inner_case_size)*float(instance.returned_product.product_pro_price.filter(shop__shop_type__shop_type='sp', status=True).last().price_to_retailer), status=True)
 
 # def create_debit_note(sender, instance=None, created=False, **kwargs):
 #     if instance.total_returned_qty > 0:
