@@ -65,6 +65,7 @@ class DownloadInvoice(APIView):
         print(a)
         shop=a
         products = a.rtg_order_product_order_product_mapping.all()
+        payment_type = a.order.rt_payment.last().payment_choice
 
         order_id= a.order.order_no
 
@@ -82,18 +83,13 @@ class DownloadInvoice(APIView):
             city_gram= z.city
             state_gram= z.state
             pincode_gram= z.pincode
-            
+
         for m in products:
-
             sum_qty = sum_qty + int(m.product.product_inner_case_size) * int(m.shipped_qty)
-
-
-            for h in m.product.product_pro_price.all():
-
-                sum_amount = sum_amount + (m.shipped_qty * h.price_to_retailer)
-                inline_sum_amount = (m.shipped_qty * h.price_to_retailer)
+            for h in m.get_shop_specific_products_prices():
+                sum_amount = sum_amount + (int(m.product.product_inner_case_size) * int(m.shipped_qty) * h.price_to_retailer)
+                inline_sum_amount = (int(m.product.product_inner_case_size) * int(m.shipped_qty) * h.price_to_retailer)
             for n in m.product.product_pro_tax.all():
-
                 divisor= (1+(n.tax.tax_percentage/100))
                 original_amount= (inline_sum_amount/divisor)
                 tax_amount = inline_sum_amount - original_amount
@@ -103,7 +99,6 @@ class DownloadInvoice(APIView):
                     cess_tax_list.append(tax_amount)
                 if n.tax.tax_type=='surcharge':
                     surcharge_tax_list.append(tax_amount)
-
                 taxes_list.append(tax_amount)
                 igst= sum(gst_tax_list)
                 cgst= (sum(gst_tax_list))/2
@@ -118,10 +113,11 @@ class DownloadInvoice(APIView):
             print(taxes_list)
 
         total_amount = sum_amount
+        total_amount_int = int(total_amount)
         print(sum_amount)
 
 
-        data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop, "sum_qty": sum_qty, "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" , "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,"order_id":order_id,"shop_name_gram":shop_name_gram,"nick_name_gram":nick_name_gram, "city_gram":city_gram, "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram}
+        data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop, "sum_qty": sum_qty, "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" , "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,"order_id":order_id,"shop_name_gram":shop_name_gram,"nick_name_gram":nick_name_gram, "city_gram":city_gram, "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram, "payment_type":payment_type,"total_amount_int":total_amount_int}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
