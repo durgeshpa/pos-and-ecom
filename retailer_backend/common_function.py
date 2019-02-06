@@ -96,15 +96,15 @@ def grn_pattern(id):
 
 def brand_debit_note_pattern( id):
 
-    """Brand Note pattern
-
-    Getting note_type to return pattern as per note_typeself,
-    id is used as auto increment.
-    """
     starts_with = datetime.date.today().strftime('%d%m%y')
     ends_with = str(id)
     return "%s/%s"%(starts_with,ends_with)
 
+def brand_credit_note_pattern( id):
+
+    starts_with = getattr(settings, 'CN_STARTS_WITH', 'ADT/CN')
+    ends_with = str(id).ljust(5, '0')
+    return "%s/%s"%(starts_with,ends_with)
 
 
 def brand_note_pattern(note_type, id):
