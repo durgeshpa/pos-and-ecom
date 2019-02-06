@@ -190,18 +190,6 @@ def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
             instance.pk
         )
         instance.save()
-        # auto po for sp
-        connected_shops = ParentRetailerMapping.objects.filter(
-            parent=instance.gf_shipping_address.shop_name,
-            status=True
-        )
-        for shop in connected_shops:
-            if shop.retailer.shop_type.shop_type == 'sp':
-                sp_po = SpPO.objects.create(
-                    shop=shop.retailer,
-                    po_validity_date=datetime.date.today() + timedelta(days=15)
-                )
-        # ends here
         if instance.cart_product_mapping_csv:
             reader = csv.reader(codecs.iterdecode(instance.cart_product_mapping_csv, 'utf-8'))
             for id,row in enumerate(reader):
@@ -211,38 +199,6 @@ def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
                          number_of_cases = row[3],scheme = float(row[4]) if row[4] else None, price=float(row[5])
                          )
     order = Order.objects.get_or_create(ordered_cart=instance, order_no=instance.po_no)
-
-
-@receiver(post_save, sender=CartProductMapping)
-def auto_po_products_creation(sender, instance=None, created=False, **kwargs):
-    """
-    Adding products to the sp's based on their last created po
-    """
-    if created:
-        connected_shops = ParentRetailerMapping.objects.filter(
-            parent=instance.cart.gf_shipping_address.shop_name,
-            status=True
-        )
-        for shop in connected_shops:
-            if shop.retailer.shop_type.shop_type == 'sp':
-                sp_po = SpPO.objects.filter(
-                    shop=shop.retailer
-                ).last()
-                item = instance
-                sp_cpm = SpPOProducts.objects.create(
-                    cart=sp_po,
-                    cart_product=item.cart_product,
-                    case_size=item.case_size,
-                    number_of_cases=item.number_of_cases,
-                    qty=(
-                        int(item.cart_product.product_inner_case_size) *
-                        int(item.case_size) *
-                        int(item.number_of_cases)
-                    ),
-                    scheme=item.scheme,
-                    price=item.price,
-                    total_price=float(item.qty) * item.price
-                )
 
 
 class Order(BaseOrder):
@@ -296,16 +252,34 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
         )
         for shop in connected_shops:
             if shop.retailer.shop_type.shop_type == 'sp':
-                sp_po = SpPO.objects.filter(
-                    shop=shop.retailer
-                ).last()
+                sp_po = SpPO.objects.create(
+                    shop=shop.retailer,
+                    po_validity_date=datetime.date.today() + timedelta(days=15)
+                )
+
+                cart_items = instance.order.ordered_cart.cart_list.all()
+                for item in cart_items:
+                    sp_cpm = SpPOProducts.objects.create(
+                        cart=sp_po,
+                        cart_product=item.cart_product,
+                        case_size=item.case_size,
+                        number_of_cases=item.number_of_cases,
+                        qty=(
+                                int(item.cart_product.product_inner_case_size) *
+                                int(item.case_size) *
+                                int(item.number_of_cases)
+                        ),
+                        scheme=item.scheme,
+                        price=item.price,
+                        total_price=float(item.qty) * item.price
+                    )
                 sp_order = SpOrder.objects.filter(
                     ordered_cart=sp_po
                 ).last()
                 SpGRNOrder.objects.create(
                     order=sp_order
                 )
-        # ends here
+
 
 class GRNOrderProductMapping(models.Model):
     grn_order = models.ForeignKey(GRNOrder,related_name='grn_order_grn_order_product',null=True,blank=True,on_delete=models.CASCADE)
@@ -341,7 +315,7 @@ class GRNOrderProductMapping(models.Model):
 
     @property
     def ordered_qty(self):
-        self.grn_order.order.ordered_cart.cart_list.last(cart_product=self.product).qty
+        self.grn_order.order.ordered_cart.cart_list.filter(cart_product=self.product).last().qty
 
     # @property
     # def available_qty(self):
@@ -449,6 +423,8 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                     damaged_qty=instance.damaged_qty
                 )
         # ends here
+        instance.available_qty = 0
+        instance.save()
 
 # @receiver(post_save, sender=BrandNote)
 # def create_brand_note_id(sender, instance=None, created=False, **kwargs):
