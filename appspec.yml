@@ -5,10 +5,10 @@ files:
     destination: /home/ubuntu/project
 hooks:
   ApplicationStop:
-    - location: sudo supervisorctl restart all
+    - location: stopapp.sh
       timeout: 300
       runas: root
   ApplicationStart:
-    - location: sudo supervisorctl stop all
+    - location: startapp.sh
       timeout: 300
       runas: root
