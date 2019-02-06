@@ -3,7 +3,7 @@ from django.forms import ModelForm
 from django.db.models import Sum
 from shops.models import Shop,ShopType
 from .models import (Order,Cart,CartProductMapping,GRNOrder,GRNOrderProductMapping,BrandNote,PickList,PickListItems,
-                     OrderedProductReserved,Po_Message)
+                     OrderedProductReserved,Po_Message, BEST_BEFORE_MONTH_CHOICE, BEST_BEFORE_YEAR_CHOICE)
 from brand.models import Brand
 from dal import autocomplete
 from django_select2.forms import Select2MultipleWidget,ModelSelect2Widget
@@ -13,7 +13,10 @@ from django.urls import reverse
 from products.models import Product, ProductVendorMapping
 from django.core.exceptions import ValidationError
 import datetime, csv, codecs, re
-
+from datetime import datetime, timedelta
+from django.contrib.admin.widgets import AdminDateWidget
+from django.utils.translation import gettext_lazy as _
+from dateutil.relativedelta import relativedelta
 
 class OrderForm(forms.ModelForm):
 #
@@ -122,9 +125,14 @@ class GRNOrderProductForm(forms.ModelForm):
     po_product_quantity = forms.IntegerField()
     po_product_price = forms.DecimalField()
     already_grned_product = forms.IntegerField()
+    expiry_date = forms.DateField(required=False,widget=AdminDateWidget())
+    best_before_year = forms.ChoiceField(choices=BEST_BEFORE_YEAR_CHOICE,)
+    best_before_month = forms.ChoiceField(choices=BEST_BEFORE_MONTH_CHOICE,)
+
     class Meta:
         model = GRNOrderProductMapping
-        fields = ('product','po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date','expiry_date','product_invoice_qty','delivered_qty','returned_qty')
+        fields = ('product','po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date',
+                  'expiry_date','best_before_year','best_before_month','product_invoice_qty','delivered_qty','returned_qty')
         # readonly_fields = ('product', 'po_product_quantity', 'po_product_price', 'already_grned_product')
         autocomplete_fields = ('product',)
 
@@ -132,9 +140,19 @@ class GRNOrderProductForm(forms.ModelForm):
         #css = {'all': ('pretty.css',)}
         js = ('/static/admin/js/grn_form.js',)
 
-    # def __init__(self, *args, **kwargs):
-    #     # import pdb; pdb.set_trace()
-    #     return super(GRNOrderProductForm, self).__init__(self, *args, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super(GRNOrderProductForm, self).__init__(*args, **kwargs)
+
+
+    def clean(self):
+        super(GRNOrderProductForm, self).clean()
+        if self.cleaned_data.get('expiry_date'):
+            pass
+        elif int(self.cleaned_data.get('best_before_year')) or int(self.cleaned_data.get('best_before_month')):
+            expiry_date = self.cleaned_data.get('manufacture_date') + relativedelta(years=int(self.cleaned_data.get('best_before_year')), months=int(self.cleaned_data.get('best_before_month')))
+            self.cleaned_data['expiry_date'] = expiry_date
+        else:
+            raise ValidationError(_('Please enter either expire date or best before'))
 
 
 class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
