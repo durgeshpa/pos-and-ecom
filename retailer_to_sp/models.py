@@ -19,9 +19,10 @@ ORDER_STATUS = (
     ("pending","Pending"),
     ("deleted","Deleted"),
     ("ordered","Ordered"),
-    ("order_shipped","Order Shipped"),
+    ("order_shipped","Dispatched"),
     ("partially_delivered","Partially Delivered"),
     ("delivered","Delivered"),
+    ("closed","Closed"),
 )
 ITEM_STATUS = (
     ("partially_delivered","Partially Delivered"),
