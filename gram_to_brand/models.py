@@ -257,29 +257,6 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
                     po_validity_date=datetime.date.today() + timedelta(days=15)
                 )
 
-                cart_items = instance.order.ordered_cart.cart_list.all()
-                for item in cart_items:
-                    sp_cpm = SpPOProducts.objects.create(
-                        cart=sp_po,
-                        cart_product=item.cart_product,
-                        case_size=item.case_size,
-                        number_of_cases=item.number_of_cases,
-                        qty=(
-                                int(item.cart_product.product_inner_case_size) *
-                                int(item.case_size) *
-                                int(item.number_of_cases)
-                        ),
-                        scheme=item.scheme,
-                        price=item.price,
-                        total_price=float(item.qty) * item.price
-                    )
-                sp_order = SpOrder.objects.filter(
-                    ordered_cart=sp_po
-                ).last()
-                SpGRNOrder.objects.create(
-                    order=sp_order
-                )
-
 
 class GRNOrderProductMapping(models.Model):
     grn_order = models.ForeignKey(GRNOrder,related_name='grn_order_grn_order_product',null=True,blank=True,on_delete=models.CASCADE)
@@ -316,15 +293,6 @@ class GRNOrderProductMapping(models.Model):
     @property
     def ordered_qty(self):
         self.grn_order.order.ordered_cart.cart_list.filter(cart_product=self.product).last().qty
-
-    # @property
-    # def available_qty(self):
-    #     return self.delivered_qty
-
-    # @available_qty.setter
-    # def available_qty(self, value):
-    #     return self._available_qty = value
-
 
     def clean(self):
         super(GRNOrderProductMapping, self).clean()
@@ -384,13 +352,6 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                 debit_note = BrandNote.objects.create(brand_note_id=brand_debit_note_pattern(instance.grn_order.pk),
                 grn_order = instance.grn_order, amount = instance.returned_qty * instance.po_product_price, status=True)
 
-    #     total_amount =  instance.returned_qty * instance.po_product_price
-    #     debit_note = BrandNote.objects.create(brand_note_id=brand_debit_note_pattern(instance.grn_order.pk), order=instance.grn_order.order,grn_order = instance.grn_order, amount = total_amount, status=True)
-    # else:
-    #     debit_note = BrandNote.objects.filter(grn_order = instance.grn_order)
-    #     if debit_note.exists():
-    #         debit_note.update(status=False)
-
         instance.available_qty = instance.delivered_qty
         instance.save()
         # SP auto ordered product creation
@@ -403,12 +364,38 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                 sp_po = SpPO.objects.filter(
                     shop=shop.retailer
                 ).last()
+                sp_cpm = SpPOProducts.objects.create(
+                    cart=sp_po,
+                    cart_product=instance.product,
+                    case_size=instance.product.product_case_size,
+                    number_of_cases=instance.grn_order.order. \
+                              ordered_cart.cart_list.filter
+                              (
+                              cart_product=instance.product
+                          ).last().number_of_cases,
+                    qty=int(instance.delivered_qty),
+                    #scheme=item.scheme,
+                    price=instance.grn_order.order.\
+                    ordered_cart.cart_list.filter
+                    (
+                        cart_product=instance.product
+                    ).last().price,
+                    total_price=float(instance.delivered_qty) * instance.grn_order.order.\
+                    ordered_cart.cart_list.filter
+                    (
+                        cart_product=instance.product
+                    ).last().price,
+                )
                 sp_order = SpOrder.objects.filter(
                     ordered_cart=sp_po
                 ).last()
-                sp_grn_order = SpGRNOrder.objects.filter(
+                sp_grn_orders = SpGRNOrder.objects.filter(
                     order=sp_order
-                ).last()
+                )
+                if sp_grn_orders.exists():
+                    sp_grn_order = sp_grn_orders.last()
+                else:
+                    sp_grn_order = SpGRNOrder.objects.create(order=sp_order)
                 SpGRNOrderProductMapping.objects.create(
                     ordered_product=sp_grn_order,
                     product=instance.product,
@@ -426,11 +413,6 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
         instance.available_qty = 0
         instance.save()
 
-# @receiver(post_save, sender=BrandNote)
-# def create_brand_note_id(sender, instance=None, created=False, **kwargs):
-#     if created:
-#         instance.brand_note_id = brand_note_pattern(instance.note_type,instance.pk)
-#         instance.save()
 
 class OrderedProductReserved(models.Model):
     RESERVED = "reserved"
@@ -460,6 +442,7 @@ class OrderedProductReserved(models.Model):
     class Meta:
         verbose_name = _("Ordered Product Reserved")
         verbose_name_plural = _("Ordered Product Reserved")
+
 
 class PickList(models.Model):
     order = models.ForeignKey(GramMapperRetialerOrder, related_name='pick_list_order',null=True,blank=True,on_delete=models.CASCADE)
