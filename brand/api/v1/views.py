@@ -21,7 +21,7 @@ class GetSlotBrandListView(APIView):
         pos_name = self.kwargs.get('slot_position_name')
         data = BrandData.objects.filter(brand_data__active_status='active')
         if pos_name:
-            data = data.filter(slot__position_name=pos_name).order_by('brand_data_order'))
+            data = data.filter(slot__position_name=pos_name).order_by('brand_data_order')
         else:
             data = data.order_by('brand_data_order')
         is_success = True if data else False
