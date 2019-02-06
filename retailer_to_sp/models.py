@@ -248,6 +248,8 @@ class ReturnProductMapping(models.Model):
     total_returned_qty = models.PositiveIntegerField(default=0)
     reusable_qty = models.PositiveIntegerField(default=0)
     damaged_qty = models.PositiveIntegerField(default=0)
+    manufacture_date = models.DateField()
+    expiry_date = models.DateField()
     last_modified_by = models.ForeignKey(get_user_model(), related_name='return_last_modified_user_return_product', null=True,blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
