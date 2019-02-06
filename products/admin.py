@@ -266,7 +266,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     actions = ['export_as_csv']
     list_display = [
         'product_sku', 'product_name', 'product_short_description',
-        'product_brand', 'product_gf_code'
+        'product_brand', 'product_gf_code','product_images'
     ]
     search_fields = ['product_name', 'id', 'product_gf_code']
     list_filter = [BrandFilter, CategorySearch, ProductSearch]
@@ -276,15 +276,29 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
         ProductImageAdmin, ProductTaxMappingAdmin
     ]
 
+    def product_images(self,obj):
+        if obj.product_pro_image.first():
+            print(obj.product_pro_image.first().image)
+            return mark_safe('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.
+                             format(obj.product_pro_image.first().image.url,obj.product_pro_image.first().image_alt_text,
+                                    obj.product_pro_image.first().image.url))
+
+    product_images.short_description = 'Product Image'
+
 
 class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductPriceResource
     actions = ["export_as_csv"]
     list_display = [
-        'product', 'mrp', 'price_to_service_partner',
+        'product', 'product_gf_code', 'mrp', 'price_to_service_partner',
         'price_to_retailer', 'price_to_super_retailer',
         'start_date', 'end_date', 'status'
     ]
+
+    def product_gf_code(self, obj):
+        return obj.product.product_gf_code
+
+    product_gf_code.short_description = 'Gf Code'
 
     def get_queryset(self, request):
         qs = super(ProductPriceAdmin, self).get_queryset(request)
