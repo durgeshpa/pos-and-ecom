@@ -35,12 +35,36 @@ from sp_to_gram.models import (
     OrderedProductMapping as SpGRNOrderProductMapping
 )
 from base.models import (BaseOrder, BaseCart, BaseShipment)
+#from gram_to_brand.forms import GRNOrderProductForm
 
 ITEM_STATUS = (
     ("partially_delivered", "Partially Delivered"),
     ("delivered", "Delivered"),
 )
 
+BEST_BEFORE_MONTH_CHOICE = (
+    (0,'0 Month'),
+    (1,'1 Month'),
+    (2, '2 Month'),
+    (3, '3 Month'),
+    (4, '4 Month'),
+    (5, '5 Month'),
+    (6, '6 Month'),
+    (7, '7 Month'),
+    (8, '8 Month'),
+    (9, '9 Month'),
+    (10, '10 Month'),
+    (11, '11 Month'),
+)
+
+BEST_BEFORE_YEAR_CHOICE = (
+    (0, '0 Year'),
+    (1, '1 Year'),
+    (2, '2 Year'),
+    (3, '3 Year'),
+    (4, '4 Year'),
+    (5, '5 Year'),
+)
 
 class Po_Message(models.Model):
     created_by = models.ForeignKey(get_user_model(), related_name='created_by_user_message', null=True,blank=True, on_delete=models.CASCADE)
@@ -278,11 +302,11 @@ class GRNOrderProductMapping(models.Model):
 
     @property
     def po_product_quantity(self):
-        return self.grn_order.order.ordered_cart.cart_list.filter(cart_product=self.product).last().qty
+        return self.grn_order.order.ordered_cart.cart_list.filter(cart_product=self.product).last().qty if self.product else ''
 
     @property
     def po_product_price(self):
-        return self.grn_order.order.ordered_cart.cart_list.filter(cart_product=self.product).last().price
+        return self.grn_order.order.ordered_cart.cart_list.filter(cart_product=self.product).last().price if self.product else ''
 
     @property
     def already_grned_product(self):
@@ -292,12 +316,29 @@ class GRNOrderProductMapping(models.Model):
 
     @property
     def ordered_qty(self):
-        self.grn_order.order.ordered_cart.cart_list.filter(cart_product=self.product).last().qty
+        return self.grn_order.order.ordered_cart.cart_list.last(cart_product=self.product).qty if self.product else ''
+
+    @property
+    def best_before_year(self):
+        return 0
+
+    @property
+    def best_before_month(self):
+        return 0
+    # @property
+    # def available_qty(self):
+    #     return self.delivered_qty
+
+    # @available_qty.setter
+    # def available_qty(self, value):
+    #     return self._available_qty = value
+
 
     def clean(self):
         super(GRNOrderProductMapping, self).clean()
         total_items= self.delivered_qty + self.returned_qty
         diff = self.po_product_quantity - self.already_grned_product
+
         self.already_grn = self.delivered_qty
         if self.product_invoice_qty <= diff:
             if self.product_invoice_qty < total_items:
@@ -309,8 +350,8 @@ class GRNOrderProductMapping(models.Model):
         if self.manufacture_date :
             if self.manufacture_date >= datetime.date.today():
                 raise ValidationError(_("Manufactured Date cannot be greater than or equal to today's date"))
-            elif self.expiry_date < self.manufacture_date:
-                raise ValidationError(_("Expiry Date cannot be less than manufacture date"))
+            # elif self.expiry_date < self.manufacture_date:
+            #     raise ValidationError(_("Expiry Date cannot be less than manufacture date"))
         else:
             raise ValidationError(_("Please enter all the field values"))
 

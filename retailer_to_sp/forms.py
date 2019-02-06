@@ -18,4 +18,4 @@ class ReturnProductMappingForm(forms.ModelForm):
 
     class Meta:
         model= ReturnProductMapping
-        fields= ('returned_product','total_returned_qty', 'reusable_qty', 'damaged_qty')
+        fields= ('returned_product','total_returned_qty', 'reusable_qty', 'damaged_qty','manufacture_date','expiry_date')
