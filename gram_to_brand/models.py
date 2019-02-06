@@ -219,8 +219,9 @@ def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
             for id,row in enumerate(reader):
                 for row in reader:
                     if row[3]:
-                        CartProductMapping.objects.create(cart=instance,cart_product_id = row[0], case_size= int(row[2]),
-                         number_of_cases = row[3],scheme = float(row[4]) if row[4] else None, price=float(row[5])
+                        CartProductMapping.objects.create(cart=instance,cart_product_id = row[0],
+                         inner_case_size=int(row[2]),case_size= int(row[3]),
+                         number_of_cases = row[4],scheme = float(row[5]) if row[5] else None, price=float(row[6])
                          )
     order = Order.objects.get_or_create(ordered_cart=instance, order_no=instance.po_no)
 
