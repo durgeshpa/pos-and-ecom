@@ -3,7 +3,7 @@ from django.forms import ModelForm
 from django.db.models import Sum
 from shops.models import Shop,ShopType
 from .models import (Order,Cart,CartProductMapping,GRNOrder,GRNOrderProductMapping,BrandNote,PickList,PickListItems,
-                     OrderedProductReserved,Po_Message)
+                     OrderedProductReserved,Po_Message, BEST_BEFORE_MONTH_CHOICE, BEST_BEFORE_YEAR_CHOICE)
 from brand.models import Brand
 from dal import autocomplete
 from django_select2.forms import Select2MultipleWidget,ModelSelect2Widget
@@ -13,7 +13,10 @@ from django.urls import reverse
 from products.models import Product, ProductVendorMapping
 from django.core.exceptions import ValidationError
 import datetime, csv, codecs, re
-
+from datetime import datetime, timedelta
+from django.contrib.admin.widgets import AdminDateWidget
+from django.utils.translation import gettext_lazy as _
+from dateutil.relativedelta import relativedelta
 
 class OrderForm(forms.ModelForm):
 #
@@ -78,14 +81,14 @@ class POGenerationForm(forms.ModelForm):
                     raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product ID cannot be empty")
                 #if not row[2] and not re.match("^\d+$", row[2]):
                 #    raise ValidationError("Row["+str(id+1)+"] | "+first_row[2]+":"+row[2]+" | Case size should be integer and cannot be empty")
-                if not product.product_case_size == row[2]:
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[2]+":"+row[2]+" | Case size does not matched with original product's case size")
+                if not product.product_case_size == row[3]:
+                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[3]+":"+row[3]+" | Case size does not matched with original product's case size")
                 #if row[3] and not re.match("^\d+$", row[3]):
                 #    raise ValidationError("Row["+str(id+1)+"] | "+first_row[3]+":"+row[3]+" | No. of cases should be integer value")
                 vendor_product = ProductVendorMapping.objects.filter(vendor=self.cleaned_data['supplier_name'], product=product).order_by('product','-created_at').distinct('product')
                 for p in vendor_product:
-                    if not p.product_price == float(row[5]):
-                        raise ValidationError("Row["+str(id+1)+"] | "+first_row[5]+":"+row[5]+" | Price does not matched with original product's brand to gram price")
+                    if not p.product_price == float(row[6]):
+                        raise ValidationError("Row["+str(id+1)+"] | "+first_row[6]+":"+row[6]+" | Price does not matched with original product's brand to gram price")
             return self.cleaned_data
 
         date = self.cleaned_data['po_validity_date']
@@ -122,9 +125,14 @@ class GRNOrderProductForm(forms.ModelForm):
     po_product_quantity = forms.IntegerField()
     po_product_price = forms.DecimalField()
     already_grned_product = forms.IntegerField()
+    expiry_date = forms.DateField(required=False,widget=AdminDateWidget())
+    best_before_year = forms.ChoiceField(choices=BEST_BEFORE_YEAR_CHOICE,)
+    best_before_month = forms.ChoiceField(choices=BEST_BEFORE_MONTH_CHOICE,)
+
     class Meta:
         model = GRNOrderProductMapping
-        fields = ('product','po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date','expiry_date','product_invoice_qty','delivered_qty','returned_qty')
+        fields = ('product','po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date',
+                  'expiry_date','best_before_year','best_before_month','product_invoice_qty','delivered_qty','returned_qty')
         # readonly_fields = ('product', 'po_product_quantity', 'po_product_price', 'already_grned_product')
         autocomplete_fields = ('product',)
 
@@ -132,9 +140,19 @@ class GRNOrderProductForm(forms.ModelForm):
         #css = {'all': ('pretty.css',)}
         js = ('/static/admin/js/grn_form.js',)
 
-    # def __init__(self, *args, **kwargs):
-    #     # import pdb; pdb.set_trace()
-    #     return super(GRNOrderProductForm, self).__init__(self, *args, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super(GRNOrderProductForm, self).__init__(*args, **kwargs)
+
+
+    def clean(self):
+        super(GRNOrderProductForm, self).clean()
+        if self.cleaned_data.get('expiry_date'):
+            pass
+        elif int(self.cleaned_data.get('best_before_year')) or int(self.cleaned_data.get('best_before_month')):
+            expiry_date = self.cleaned_data.get('manufacture_date') + relativedelta(years=int(self.cleaned_data.get('best_before_year')), months=int(self.cleaned_data.get('best_before_month')))
+            self.cleaned_data['expiry_date'] = expiry_date
+        else:
+            raise ValidationError(_('Please enter either expire date or best before'))
 
 
 class GRNOrderProductFormset(forms.models.BaseInlineFormSet):

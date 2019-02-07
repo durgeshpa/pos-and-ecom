@@ -179,6 +179,7 @@ class CartAdmin(admin.ModelAdmin):
 class OrderAdmin(admin.ModelAdmin):
     search_fields = ('order',)
     list_display = ('order_no', 'order_status',)
+    list_display = ('order_no', 'order_status', 'download_pick_list')
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
@@ -188,6 +189,14 @@ class OrderAdmin(admin.ModelAdmin):
             Q(seller_shop__related_users=request.user) |
             Q(seller_shop__shop_owner=request.user)
                 )
+
+    def download_pick_list(self,obj):
+        if obj.order_status not in ["active", "pending"]:
+            return format_html(
+                "<a href= '%s' >Download Pick List</a>" %
+                (reverse('download_pick_list_sp', args=[obj.pk]))
+            )
+    download_pick_list.short_description = 'Download Pick List'
 
 
 class OrderedProductMappingAdmin(admin.TabularInline):

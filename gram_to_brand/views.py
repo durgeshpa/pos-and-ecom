@@ -215,8 +215,8 @@ class DownloadDebitNote(APIView):
         products = a.grn_order_grn_order_product.all()
         order= shop.order
         order_id= order.order_no
-        gram_factory_billing_gstin= shop.order.billing_address.shop_name.shop_name_documents.filter(shop_document_type='gstin').last()
-        gram_factory_shipping_gstin= shop.order.shipping_address.shop_name.shop_name_documents.filter(shop_document_type='gstin').last()
+        gram_factory_billing_gstin= shop.order.ordered_cart.gf_billing_address.shop_name.shop_name_documents.filter(shop_document_type='gstin').last()
+        gram_factory_shipping_gstin= shop.order.ordered_cart.gf_shipping_address.shop_name.shop_name_documents.filter(shop_document_type='gstin').last()
         sum_qty = 0
         sum_amount=0
         tax_inline=0

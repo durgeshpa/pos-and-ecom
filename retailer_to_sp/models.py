@@ -21,9 +21,10 @@ ORDER_STATUS = (
     ("pending", "Pending"),
     ("deleted", "Deleted"),
     ("ordered", "Ordered"),
-    ("order_shipped", "Order Shipped"),
+    ("order_shipped", "Dispatched"),
     ("partially_delivered", "Partially Delivered"),
     ("delivered", "Delivered"),
+    ("closed", "Closed"),
 )
 
 ITEM_STATUS = (
@@ -207,9 +208,7 @@ class OrderedProductMapping(models.Model):
     @property
     def ordered_qty(self):
         if self.ordered_product:
-            #import pdb; pdb.set_trace()
             qty = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
-            #qty = self.ordered_product.order.ordered_cart.rt_order_cart_mapping.filter(
                 cart_product=self.product).values('qty')
             print(qty)
             qty = qty.first().get('qty')
@@ -358,6 +357,8 @@ class ReturnProductMapping(models.Model):
         related_name='return_last_modified_user_return_product',
         null=True, blank=True, on_delete=models.CASCADE
     )
+    manufacture_date = models.DateField()
+    expiry_date = models.DateField()
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 

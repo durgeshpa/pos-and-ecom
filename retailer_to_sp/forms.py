@@ -35,7 +35,8 @@ class ReturnProductMappingForm(forms.ModelForm):
         model = ReturnProductMapping
         fields = (
             'returned_product', 'total_returned_qty',
-            'reusable_qty', 'damaged_qty'
+            'reusable_qty', 'damaged_qty',
+            'manufacture_date', 'expiry_date'
         )
 
 
