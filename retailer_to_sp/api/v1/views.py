@@ -571,6 +571,7 @@ class CreateOrder(APIView):
             msg['message'] = ['Shipping address not found']
             return Response(msg, status=status.HTTP_200_OK)
 
+        current_url = request.get_host()
         # if shop mapped with sp
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             #self.sp_mapping_order_reserve()
@@ -601,7 +602,7 @@ class CreateOrder(APIView):
                         ordered_reserve.reserve_status = 'ordered'
                         ordered_reserve.save()
 
-                    serializer = OrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id})
+                    serializer = OrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
                     msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                 else:
                     msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
@@ -644,7 +645,7 @@ class CreateOrder(APIView):
                         ordered_reserve.reserve_status = 'ordered'
                         ordered_reserve.save()
 
-                    serializer = GramMappedOrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id})
+                    serializer = GramMappedOrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
                     msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                 else:
                     msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
@@ -677,12 +678,14 @@ class OrderList(generics.ListAPIView):
         if parent_mapping is None:
             return Response(msg, status=status.HTTP_200_OK)
 
+        current_url = request.get_host()
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             queryset = Order.objects.filter(last_modified_by=user).order_by('-created_at')
-            serializer = OrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id})
+
+            serializer = OrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             queryset = GramMappedOrder.objects.filter(last_modified_by=user).order_by('-created_at')
-            serializer = GramMappedOrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id})
+            serializer = GramMappedOrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
 
         if serializer.data:
             msg = {'is_success': True,'message': None,'response_data': serializer.data}
@@ -705,12 +708,13 @@ class OrderDetail(generics.RetrieveAPIView):
         if parent_mapping is None:
             return Response(msg, status=status.HTTP_200_OK)
 
+        current_url = request.get_host()
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             queryset = Order.objects.get(id=pk)
-            serializer = OrderSerializer(queryset, context={'parent_mapping_id': parent_mapping.parent.id})
+            serializer = OrderSerializer(queryset, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             queryset = GramMappedOrder.objects.get(id=pk)
-            serializer = GramMappedOrderSerializer(queryset,context={'parent_mapping_id': parent_mapping.parent.id})
+            serializer = GramMappedOrderSerializer(queryset,context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
 
         if serializer.data:
             msg = {'is_success': True,'message': None,'response_data': serializer.data}
