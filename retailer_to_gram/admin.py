@@ -183,6 +183,7 @@ class OrderedProductMappingAdmin(admin.TabularInline):
 
 
 class OrderedProductAdmin(admin.ModelAdmin):
+    change_list_template = 'admin/retailer_to_gram/OrderedProduct/change_list.html'
     def get_urls(self):
         from django.conf.urls import url
         urls = super(OrderedProductAdmin, self).get_urls()
