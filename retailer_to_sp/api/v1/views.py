@@ -786,7 +786,7 @@ class DownloadInvoiceSP(APIView):
                 "product_inner_case_size": m.product.product_inner_case_size,
                 "product_no_of_pices": int(m.product.product_inner_case_size) * int(m.shipped_qty) ,
                 "price_to_retailer":  product_pro_price,
-                "product_sub_total": float(m.shipped_qty) * float(product_pro_price),
+                "product_sub_total": float(m.product.product_inner_case_size) * float(m.shipped_qty) * float(product_pro_price),
                 "product_tax_amount": product_tax_amount,
 
             }
