@@ -912,6 +912,7 @@ class PaymentApi(APIView):
         paid_amount =self.request.POST.get('paid_amount')
         neft_reference_number =self.request.POST.get('neft_reference_number')
         shop_id = self.request.POST.get('shop_id')
+        imei_no = self.request.POST.get('imei_no')
 
         # payment_type = neft or cash_on_delivery
         msg = {'is_success': False, 'message': ['Have some error in shop or mapping'], 'response_data': None}
@@ -943,7 +944,8 @@ class PaymentApi(APIView):
                 msg['message'] = ["No order found"]
                 return Response(msg, status=status.HTTP_200_OK)
 
-            payment = Payment(order_id=order,paid_amount=paid_amount,payment_choice=payment_choice,neft_reference_number=neft_reference_number)
+            payment = Payment(order_id=order,paid_amount=paid_amount,payment_choice=payment_choice,
+                              neft_reference_number=neft_reference_number,imei_no=imei_no)
             payment.save()
             order.order_status = 'payment_done_approval_pending'
             order.save()
@@ -957,7 +959,8 @@ class PaymentApi(APIView):
                 msg['message'] = ["No order found"]
                 return Response(msg, status=status.HTTP_200_OK)
 
-            payment = GramMappedPayment(order_id=order,paid_amount=paid_amount,payment_choice=payment_choice,neft_reference_number=neft_reference_number)
+            payment = GramMappedPayment(order_id=order,paid_amount=paid_amount,payment_choice=payment_choice,
+                                        neft_reference_number=neft_reference_number,imei_no=imei_no)
             payment.save()
             order.order_status = 'payment_done_approval_pending'
             order.save()
