@@ -1,34 +1,37 @@
+import datetime
+import csv
+import codecs
+import re
+from datetime import timedelta
+
 from django import forms
-from django.forms import ModelForm
-from django.db.models import Sum
-from shops.models import Shop,ShopType
-from .models import (Order,Cart,CartProductMapping,GRNOrder,GRNOrderProductMapping,BrandNote,PickList,PickListItems,
-                     OrderedProductReserved,Po_Message, BEST_BEFORE_MONTH_CHOICE, BEST_BEFORE_YEAR_CHOICE)
-from brand.models import Brand
-from dal import autocomplete
-from django_select2.forms import Select2MultipleWidget,ModelSelect2Widget
-from addresses.models import State,Address
-from brand.models import Vendor
-from django.urls import reverse
-from products.models import Product, ProductVendorMapping
 from django.core.exceptions import ValidationError
-import datetime, csv, codecs, re
-from datetime import datetime, timedelta
-from django.contrib.admin.widgets import AdminDateWidget
 from django.utils.translation import gettext_lazy as _
 from dateutil.relativedelta import relativedelta
+from django.contrib.admin.widgets import AdminDateWidget
+from django.urls import reverse
+from django.forms import ModelForm
+from django.db.models import Sum
+
+from dal import autocomplete
+from django_select2.forms import Select2MultipleWidget, ModelSelect2Widget
+
+from shops.models import Shop, ShopType
+from .models import (
+    Order, Cart, CartProductMapping, GRNOrder, GRNOrderProductMapping,
+    BrandNote, PickList, PickListItems, OrderedProductReserved, Po_Message,
+    BEST_BEFORE_MONTH_CHOICE, BEST_BEFORE_YEAR_CHOICE
+)
+from brand.models import Brand
+from addresses.models import State, Address
+from brand.models import Vendor
+from products.models import Product, ProductVendorMapping
+
 
 class OrderForm(forms.ModelForm):
-#
     class Meta:
-        model= Order
-        fields= '__all__'
-#
-    # def __init__(self, exp = None, *args, **kwargs):
-    #     super(OrderForm, self).__init__(*args, **kwargs)
-    #     shop_type= ShopType.objects.filter(shop_type__in=['gf'])
-    #     shops = Shop.objects.filter(shop_type__in=shop_type)
-        # self.fields["shop"].queryset = shops
+        model = Order
+        fields = '__all__'
 
 
 class POGenerationForm(forms.ModelForm):
@@ -42,29 +45,39 @@ class POGenerationForm(forms.ModelForm):
     )
     supplier_name = forms.ModelChoiceField(
         queryset=Vendor.objects.all(),
-        widget=autocomplete.ModelSelect2(url='supplier-autocomplete',forward=('supplier_state','brand'))
+        widget=autocomplete.ModelSelect2(url='supplier-autocomplete',
+                                         forward=('supplier_state', 'brand'))
     )
     gf_shipping_address = forms.ModelChoiceField(
         queryset=Address.objects.filter(shop_name__shop_type__shop_type='gf'),
-        widget=autocomplete.ModelSelect2(url='shipping-address-autocomplete', forward=('supplier_name','supplier_state',))
+        widget=autocomplete.ModelSelect2(
+            url='shipping-address-autocomplete',
+            forward=('supplier_name', 'supplier_state',)
+        )
     )
     gf_billing_address = forms.ModelChoiceField(
         queryset=Address.objects.filter(shop_name__shop_type__shop_type='gf'),
-        widget=autocomplete.ModelSelect2(url='billing-address-autocomplete', forward=('supplier_state',))
+        widget=autocomplete.ModelSelect2(
+            url='billing-address-autocomplete',
+            forward=('supplier_state',)
+        )
     )
 
     class Media:
         pass
         js = ('/static/admin/js/po_generation_form.js',)
 
-
     class Meta:
         model = Cart
-        fields = ('brand','supplier_state','gf_shipping_address','gf_billing_address','po_validity_date','payment_term','delivery_term','supplier_name','cart_product_mapping_csv')
+        fields = ('brand', 'supplier_state', 'gf_shipping_address',
+                  'gf_billing_address', 'po_validity_date', 'payment_term',
+                  'delivery_term', 'supplier_name', 'cart_product_mapping_csv'
+                  )
 
     def __init__(self, *args, **kwargs):
         super(POGenerationForm, self).__init__(*args, **kwargs)
-        self.fields['cart_product_mapping_csv'].help_text = self.instance.products_sample_file
+        self.fields['cart_product_mapping_csv'].help_text = self.instance.\
+            products_sample_file
 
     def clean(self):
         if self.cleaned_data['cart_product_mapping_csv']:
