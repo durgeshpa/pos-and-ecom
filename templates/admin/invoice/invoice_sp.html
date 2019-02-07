@@ -51,27 +51,27 @@ table tr td,th,h4,span,address{
     			<div class="col-xs-6">
     				<address>
 						<span>Invoice To :</span><br>
-    				<strong>{{shop.order.billing_address.shop_name}}</strong><br>
+    				<strong>{{shop.order.billing_address.shop_name.shop_name}}</strong><br>
     				{{shop.order.billing_address.nick_name}}, {{shop.order.billing_address.address_line1}}, {{shop.order.billing_address.city}}<br>
-						<strong>GSTIN/UIN:</strong> <span>dfsfds</span><br>
+						<strong>GSTIN/UIN:</strong> <span>{{ buyer_shop_gistin }}</span><br>
 						<strong>State Name:</strong> <span>{{shop.order.billing_address.state}} </span><strong>Code:</strong> <span>{{shop.order.billing_address.pincode}}</span><br>
 						<strong>CIN:</strong> <span>---</span>
     				</address>
 
 					<address>
 						<span>Dispatch To :</span><br>
-    				<strong>{{shop.order.shipping_address.shop_name}}</strong><br>
+    				<strong>{{shop.order.shipping_address.shop_name.shop_name}}</strong><br>
     				{{shop.order.shipping_address.nick_name}}, {{shop.order.shipping_address.address_line1}}, {{shop.order.shipping_address.city}}<br>
-						<strong>GSTIN/UIN:</strong> <span>09AAQCA9570J1ZW</span><br>
+						<strong>GSTIN/UIN:</strong> <span>{{ buyer_shop_gistin }}</span><br>
 						<strong>State Name:</strong> <span>{{shop.order.shipping_address.state}} </span><strong>Code:</strong> <span>{{shop.order.shipping_address.pincode}}</span><br>
 						<strong>CIN:</strong> <span>---</span>
     				</address>
 					<address>
-						<span>GramFactory :</span><br>
+						<span>Supplier :</span><br>
 
-    				<strong>{{shop_name_gram}}</strong><br>
+    				<strong>{{shop_name_gram.shop_name}}</strong><br>
     				{{nick_name_gram}}, {{address_line1_gram}}, {{city_gram}}<br>
-						<strong>GSTIN/UIN:</strong> <span>{{m.GST_number}}</span><br>
+						<strong>GSTIN/UIN:</strong> <span>{{seller_shop_gistin}}</span><br>
 						<strong>State Name:</strong> <span>{{state_gram}} </span><strong>Code:</strong> <span>{{pincode_gram}}</span><br>
 						<strong>CIN:</strong> <span>---</span>
 
@@ -314,11 +314,11 @@ table tr td,th,h4,span,address{
 								<td colspan="12"></td>
 								</tr>
 								<tr>
-        							<td colspan="8" class="no-line"><strong>Amount Chargeable (in words)</strong></td>
+        							<td colspan="8" class="no-line"><strong>Amount Chargeable (in words): </strong></td>
         							<td class="no-line">E . &amp; O . E</td>
                                 </tr>
 								<tr>
-                  {% if total_amount.is_integer %}
+                  		{% if total_amount.is_integer %}
                         <td colspan="11"><strong>INR {{total_amount_int | amount }} only</strong></td>
                         {% else %}
                         <td colspan="11"><strong>INR {{total_amount | amount }} paise only</strong></td>
@@ -366,9 +366,7 @@ table tr td,th,h4,span,address{
 We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.
 									</td>
         							<td class="text-right" colspan="5" height="100">
-
-										<strong>For Addistro Technologies Pvt Ltd</strong> <br>
- Authorised Signatory
+										Authorised Signatory
 									</td>
 
 

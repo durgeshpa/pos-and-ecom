@@ -755,6 +755,11 @@ class DownloadInvoiceSP(APIView):
             state_gram= z.state
             pincode_gram= z.pincode
 
+        seller_shop_gistin = order_obj.order.seller_shop.shop_name_documents.filter(
+            shop_document_type='gstin').last().shop_document_number if order_obj.order.seller_shop.shop_name_documents.exists() else '---'
+        buyer_shop_gistin = order_obj.order.buyer_shop.shop_name_documents.filter(
+            shop_document_type='gstin').last().shop_document_number if order_obj.order.buyer_shop.shop_name_documents.exists() else '---'
+
         product_listing = []
         for m in products:
 
@@ -837,7 +842,8 @@ class DownloadInvoiceSP(APIView):
                 "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,
                 "order_id":order_id,"shop_name_gram":shop_name_gram,"nick_name_gram":nick_name_gram, "city_gram":city_gram,
                 "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram,
-                "payment_type":payment_type,"total_amount_int":total_amount_int,"product_listing":product_listing}
+                "payment_type":payment_type,"total_amount_int":total_amount_int,"product_listing":product_listing,
+                "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
