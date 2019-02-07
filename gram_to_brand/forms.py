@@ -1,7 +1,8 @@
 from django import forms
 from django.forms import ModelForm
+from django.db.models import Sum
 from shops.models import Shop,ShopType
-from .models import (Order,Cart,CartProductMapping,GRNOrder,GRNOrderProductMapping,OrderItem,BrandNote,PickList,PickListItems,
+from .models import (Order,Cart,CartProductMapping,GRNOrder,GRNOrderProductMapping,BrandNote,PickList,PickListItems,
                      OrderedProductReserved,Po_Message)
 from brand.models import Brand
 from dal import autocomplete
@@ -20,11 +21,11 @@ class OrderForm(forms.ModelForm):
         model= Order
         fields= '__all__'
 #
-    def __init__(self, exp = None, *args, **kwargs):
-        super(OrderForm, self).__init__(*args, **kwargs)
-        shop_type= ShopType.objects.filter(shop_type__in=['gf'])
-        shops = Shop.objects.filter(shop_type__in=shop_type)
-        self.fields["shop"].queryset = shops
+    # def __init__(self, exp = None, *args, **kwargs):
+    #     super(OrderForm, self).__init__(*args, **kwargs)
+    #     shop_type= ShopType.objects.filter(shop_type__in=['gf'])
+    #     shops = Shop.objects.filter(shop_type__in=shop_type)
+        # self.fields["shop"].queryset = shops
 
 
 class POGenerationForm(forms.ModelForm):
@@ -99,10 +100,10 @@ class CartProductMappingForm(forms.ModelForm):
         queryset=Product.objects.all(),
         widget=autocomplete.ModelSelect2(url='vendor-product-autocomplete', forward=('supplier_name',))
     )
-
+    # total_price = forms.DecimalField(decimal_places=2,)
     class Meta:
         model = CartProductMapping
-        fields = ('cart_product','inner_case_size','case_size', 'number_of_cases','scheme','price','total_price',)
+        fields = ('cart_product','inner_case_size','case_size', 'number_of_cases','scheme','price',)
         search_fields=('cart_product',)
         exclude = ('qty',)
 
@@ -118,34 +119,40 @@ class GRNOrderProductForm(forms.ModelForm):
         queryset=Product.objects.all(),
         widget=autocomplete.ModelSelect2(url='product-autocomplete',forward=('order',))
      )
-
+    po_product_quantity = forms.IntegerField()
+    po_product_price = forms.DecimalField()
+    already_grned_product = forms.IntegerField()
     class Meta:
         model = GRNOrderProductMapping
-        fields = ('product','po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date','expiry_date','product_invoice_qty','available_qty','delivered_qty','returned_qty')
-        readonly_fields = ('product')
+        fields = ('product','po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date','expiry_date','product_invoice_qty','delivered_qty','returned_qty')
+        # readonly_fields = ('product', 'po_product_quantity', 'po_product_price', 'already_grned_product')
         autocomplete_fields = ('product',)
-
 
     class Media:
         #css = {'all': ('pretty.css',)}
         js = ('/static/admin/js/grn_form.js',)
 
+    # def __init__(self, *args, **kwargs):
+    #     # import pdb; pdb.set_trace()
+    #     return super(GRNOrderProductForm, self).__init__(self, *args, **kwargs)
+
+
 class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
     model = GRNOrderProductMapping
-
     def __init__(self, *args, **kwargs):
         super(GRNOrderProductFormset, self).__init__(*args, **kwargs)
         if hasattr(self, 'order') and self.order:
-            order = self.order
+            ordered_cart = self.order
             initial = []
-            for item in order.order_order_item.all():
-                already_grn = 0
-                for pre_grn in item.ordered_product.product_grn_order_product.all():
-                    already_grn += pre_grn.delivered_qty
+            for item in ordered_cart.products.all():
+                already_grn = item.product_grn_order_product.filter(grn_order__order__ordered_cart=ordered_cart).aggregate(Sum('delivered_qty'))
                 initial.append({
-                    'product' : item.ordered_product,
-                    'po_product_quantity': item.ordered_qty,
-                    'po_product_price': item.ordered_price,
-                    'already_grned_product': already_grn,
+                    'product' : item,
+                    'po_product_quantity': item.cart_product_mapping.last().qty,
+                    'po_product_price': item.cart_product_mapping.last().price,
+                    'already_grned_product': 0 if already_grn.get('delivered_qty__sum') == None else already_grn.get('delivered_qty__sum'),
                     })
+            self.extra = len(initial)
             self.initial= initial
+
+

@@ -1,7 +1,7 @@
 {% load i18n %}
 {% load static %}
 {% load staticfiles %}
-{% load app_filters_gf_invoice%}
+{% load app_filters_invoice_sp %}
 {% load humanize %}
 
 <html>
@@ -33,17 +33,18 @@ table tr td,th,h4,span,address{
 		</div>
 
 		</div>
-		<div class="row">
+    <div class="row">
         <div class="col-xs-12">
           <div class="invoice-title col-md-12">
-      			<div class="invoice col-sm-6"><strong><h4> Tax Invoice No: <span style="font-size:30px"class="invoice_no">{{shop.invoice_no}}</span></h4></strong></div>
-						<div class="pull-right order_id col-sm-6">
-	            {% if payment_type == 'neft' %}
-	                <h4 style="font-size:30px">Prepaid Order</h4>
-	            {% else %}
-	                <h4 style="font-size:30px">Cash On Delivery</h4>
-	            {% endif %}
-  				<div class="pull-right"><strong><h4>Order Id: <span style="font-size:30px"class=" order_id_no ">{{ order_id }}</span></h4></strong></div></div>
+      			<div class="invoice col-sm-6"><h4> Tax Invoice No: <span style="font-size:30px"class="invoice_no"><strong>{{shop.invoice_no}}</strong></span></h4></div>
+
+  				<div class="pull-right order_id col-sm-6">
+            {% if payment_type == 'neft' %}
+                <h4 style="font-size:30px">Prepaid Order</h4>
+            {% else %}
+                <h4 style="font-size:30px">Cash On Delivery</h4>
+            {% endif %}
+            <div class="pull-right"><h4>Order Id: <span style="font-size:30px"class=" order_id_no "><strong>{{ order_id }}</strong></span></h4></div></div>
       		</div>
 
     		<div class="row">
@@ -159,7 +160,7 @@ table tr td,th,h4,span,address{
 
         							<td class="text-center"><strong>HSN/SAC</strong></td>
 
-											<td class="text-center"><strong>Tax Rate (GST+CESS)</strong></td>
+									    <td class="text-center"><strong>Tax Rate (GST+CESS)</strong></td>
                       <td class="text-center"><strong>Tax Amount</strong></td>
 						  <td class="text-center"><strong>Inner Case Size</strong></td>
 									    <td class="text-center"><strong>Quantity</strong></td>
@@ -177,24 +178,25 @@ table tr td,th,h4,span,address{
 										<td class="text-center">{{ m.product.product_sku}}</td>
     								<td class="text-center">{{ m.product.product_short_description}}</td>
     								<td class="text-center">{{ m.product.product_hsn}}</td>
-										{% if m.get_products_gst_cess_gf %}
-									 <td class="text-center"><strong>{{ m.get_products_gst_tax_gf.last.tax.tax_percentage |add:m.get_products_gst_cess_gf.last.tax.tax_percentage }}%</strong></td>
-										{% else %}
-										<td class="text-center"><strong>{{ m.get_products_gst_tax_gf.last.tax.tax_percentage}}%</strong></td>
-										{% endif %}
+                    {% if m.get_products_gst_cess %}
+		    						<td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage |add:m.get_products_gst_cess.last.tax.tax_percentage }}%</strong></td>
+                    {% else %}
+                    <td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage}}%</strong></td>
+                    {% endif %}
+                        <td class="text-center"><strong>GST Amount</strong></td>
 									<td class="text-center">{{ m.product.product_inner_case_size }}</td>
 
 
 									<td class="text-center">{{m.shipped_qty}}</td>
 									<div style="display:none"> {{m.shipped_qty | shipped_qty}}</div>
 									<td class="text-center">{{m.product.product_inner_case_size | inner_case_size}}</td>
-									{% for h in m.get_shop_specific_products_prices %}
+									{% for h in m.get_shop_specific_products_prices_sp %}
     								<td class="text-center">{{h.price_to_retailer}}</td>
 										{% endfor %}
     								<td class="text-center">PCS</td>
 										   <div style="display:none"> {{m.shipped_qty | shipped_qty}}</div>
-											 <div style="display:none"> {{m.product.product_inner_case_size | inner_case_size}}</div>
-                    {% for h in m.get_shop_specific_products_prices %}
+                       <div style="display:none"> {{m.product.product_inner_case_size | inner_case_size}}</div>
+                    {% for h in m.get_shop_specific_products_prices_sp %}
     								<td class="text-right">{{h.price_to_retailer | price_to_retailer | intcomma }}/-</td>
 										{% endfor %}
     							</tr>
@@ -207,6 +209,7 @@ table tr td,th,h4,span,address{
 									<td><strong></strong></td>
 
 									<td></td>
+                  <td></td>
 									<td></td>
 									<td></td>
 
@@ -225,6 +228,7 @@ table tr td,th,h4,span,address{
 									<td class="no-line"></td>
 
 									<td class="no-line"></td>
+                  <td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line"></td>
 									<td class="no-line"></td>
@@ -240,6 +244,7 @@ table tr td,th,h4,span,address{
 										<td class="no-line"></td>
 
 									<td class="no-line"></td>
+                  <td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line"></td>
@@ -256,6 +261,7 @@ table tr td,th,h4,span,address{
 											<td class="no-line"></td>
 
 										<td class="no-line"></td>
+                    <td class="no-line"></td>
 										<td class="no-line"></td>
 	    								<td class="no-line"></td>
 	    								<td class="no-line"></td>
@@ -273,6 +279,7 @@ table tr td,th,h4,span,address{
 									<td class="no-line"></td>
 
     								<td class="no-line"></td>
+                    <td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line"></td>
@@ -289,6 +296,7 @@ table tr td,th,h4,span,address{
 										<td class="no-line"></td>
 
 	    								<td class="no-line"></td>
+                      <td class="no-line"></td>
 										<td class="no-line"></td>
 	    								<td class="no-line"></td>
 	    								<td class="no-line"></td>
@@ -305,6 +313,7 @@ table tr td,th,h4,span,address{
     								<td class="no-line"></td>
 
     								<td class="no-line"></td>
+                    <td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line"></td>
@@ -322,11 +331,12 @@ table tr td,th,h4,span,address{
         							<td class="no-line">E . &amp; O . E</td>
                                 </tr>
 								<tr>
-									{% if total_amount.is_integer %}
-												<td colspan="11"><strong>INR {{total_amount_int | amount }} only</strong></td>
-												{% else %}
-												<td colspan="11"><strong>INR {{total_amount | amount }} paise only</strong></td>
-												{% endif %}
+                  {% if total_amount.is_integer %}
+                        <td colspan="11"><strong>INR {{total_amount_int | amount }} only</strong></td>
+                        {% else %}
+                        <td colspan="11"><strong>INR {{total_amount | amount }} paise only</strong></td>
+                        {% endif %}
+
                                 </tr>
     						</tbody>
     					</table>

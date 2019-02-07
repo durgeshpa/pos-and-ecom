@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping,Note, CustomerCare, Payment
+from .models import Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping,Note, CustomerCare, Payment, Return, ReturnProductMapping
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
 from django.utils.html import format_html
@@ -9,7 +9,42 @@ from django_select2.forms import Select2MultipleWidget,ModelSelect2Widget
 from dal import autocomplete
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
+from admin_auto_filters.filters import AutocompleteFilter
+from django.contrib.admin import SimpleListFilter
 
+class InvoiceNumberFilter(AutocompleteFilter):
+    title = 'Invoice Number' # display title
+    field_name = 'invoice_no' # name of the foreign key field
+
+class ReturnNumberFilter(AutocompleteFilter):
+    title = 'Return No' # display title
+    field_name = 'return_no' # name of the foreign key field
+
+class ReturnNameSearch(InputFilter):
+    parameter_name = 'name'
+    title = 'Name'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            name = self.value()
+            if name is None:
+                return
+            return queryset.filter(
+                Q(name__icontains=name)
+            )
+
+class OrderFilter(InputFilter):
+    parameter_name = 'order_no'
+    title = 'Order'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            order_no = self.value()
+            if order_no is None:
+                return
+            return queryset.filter(
+                Q(invoice_no__order__order_no__icontains=order_no)
+            )
 # Register your models here.
 class NameSearch(InputFilter):
     parameter_name = 'name'
@@ -170,7 +205,17 @@ class OrderedProductAdmin(admin.ModelAdmin):
 admin.site.register(OrderedProduct,OrderedProductAdmin)
 
 class NoteAdmin(admin.ModelAdmin):
-    list_display = ('order','ordered_product','note_type', 'amount', 'created_at')
+    list_display = ('credit_note_id','return_no', 'order','get_invoice_no',  'amount')
+    exclude = ('credit_note_id','last_modified_by',)
+    search_fields = ('credit_note_id','return_no__name', 'order__order_no',  'amount')
+    list_filter = [ReturnNumberFilter,]
+
+    def get_invoice_no(self, obj):
+        return obj.return_no.invoice_no
+    get_invoice_no.short_description = 'Invoice No'
+
+    class Media:
+        pass
 
 admin.site.register(Note,NoteAdmin)
 
@@ -196,3 +241,33 @@ class PaymentAdmin(admin.ModelAdmin):
     list_filter = (NameSearch, OrderIdSearch, PaymentChoiceSearch)
 
 admin.site.register(Payment,PaymentAdmin)
+
+from .forms import ReturnProductMappingForm
+class ReturnProductMappingAdmin(admin.TabularInline):
+    form = ReturnProductMappingForm
+    model = ReturnProductMapping
+    exclude = ('last_modified_by',)
+
+class ReturnAdmin(admin.ModelAdmin):
+    inlines = [ReturnProductMappingAdmin]
+    list_display = ('name','invoice_no','get_order', 'download_credit_note')
+    exclude = ('name','shipped_by','received_by','last_modified_by')
+    search_fields=('name','invoice_no__invoice_no','name','return_no')
+    autocomplete_fields = ('invoice_no',)
+    list_filter = (InvoiceNumberFilter,ReturnNameSearch, OrderFilter )
+
+    def get_order(self, obj):
+        return obj.invoice_no.order
+    get_order.short_description = 'Order'
+
+    class Media:
+            pass
+
+    def download_credit_note(self,obj):
+        if obj.return_credit_note.count()>0 and obj.return_credit_note.filter(status=True):
+            return format_html("<a href= '%s' >Download Credit Note</a>"%(reverse('download_credit_note', args=[obj.pk])))
+
+    download_credit_note.short_description = 'Download Credit Note'
+
+
+admin.site.register(Return, ReturnAdmin)

@@ -11,7 +11,8 @@ from django.db.models.signals import pre_save
 from django.db.models.signals import post_save
 from otp.sms import SendSms
 import datetime
-from retailer_backend.common_function import order_id_pattern
+from retailer_backend.common_function import order_id_pattern, brand_credit_note_pattern
+from django.core.exceptions import ValidationError
 
 ORDER_STATUS = (
     ("active","Active"),
@@ -120,6 +121,10 @@ class OrderedProduct(models.Model):
     def __str__(self):
         return self.invoice_no or self.id
 
+    class Meta:
+        verbose_name= 'Shipment Planning'
+
+
 # @receiver(pre_save, sender=OrderedProduct)
 # def create_order_id(sender, instance=None, created=False, **kwargs):
 #     last_ordered_product = OrderedProduct.objects.last()
@@ -140,14 +145,14 @@ class OrderedProductMapping(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-class Note(models.Model):
-    order = models.ForeignKey(Order, related_name='rt_order_note',null=True,blank=True,on_delete=models.CASCADE)
-    ordered_product = models.ForeignKey(OrderedProduct, related_name='rt_order_product_note',null=True, blank=True, on_delete=models.CASCADE)
-    note_type = models.CharField(max_length=255,choices=NOTE_TYPE_CHOICES)
-    amount = models.FloatField(default=0)
-    last_modified_by = models.ForeignKey(get_user_model(), related_name='rt_last_modified_user_note',null=True, blank=True, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
+    def get_shop_specific_products_prices_sp(self):
+        return self.product.product_pro_price.filter(shop__shop_type__shop_type='sp', status=True)
+
+    def get_products_gst_tax(self):
+        return self.product.product_pro_tax.filter(tax__tax_type='gst')
+
+    def get_products_gst_cess(self):
+        return self.product.product_pro_tax.filter(tax__tax_type='cess')
 
 
 class CustomerCare(models.Model):
@@ -219,3 +224,90 @@ def order_notification(sender, instance=None, created=False, **kwargs):
                               " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
 
         message.send()
+
+class Return(models.Model):
+    invoice_no = models.ForeignKey(OrderedProduct,on_delete=models.CASCADE, null=True, verbose_name='Shipment Id')
+    name = models.CharField(max_length=255,null=True,blank=True)
+    shipped_by = models.ForeignKey(get_user_model(), related_name='return_shipped_product_ordered_by_user', null=True, blank=True,on_delete=models.CASCADE)
+    received_by = models.ForeignKey(get_user_model(), related_name='return_ordered_product_received_by_user', null=True, blank=True,on_delete=models.CASCADE)
+    last_modified_by = models.ForeignKey(get_user_model(), related_name='return_last_modified_user_order', null=True,blank=True, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args,**kwargs):
+        super(Return, self).save()
+        self.name = "Return/%s"%(self.pk)
+        super(Return, self).save()
+
+    def __str__(self):
+        return str(self.name)
+
+class ReturnProductMapping(models.Model):
+    return_id = models.ForeignKey(Return,related_name='rt_product_return_product_mapping',null=True,blank=True,on_delete=models.CASCADE)
+    returned_product = models.ForeignKey(Product, related_name='rt_product_return_product',null=True,blank=True, on_delete=models.CASCADE)
+    total_returned_qty = models.PositiveIntegerField(default=0)
+    reusable_qty = models.PositiveIntegerField(default=0)
+    damaged_qty = models.PositiveIntegerField(default=0)
+    last_modified_by = models.ForeignKey(get_user_model(), related_name='return_last_modified_user_return_product', null=True,blank=True, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return str('')
+
+    def clean(self):
+        super(ReturnProductMapping, self).clean()
+        total_returned_qty = self.reusable_qty + self.damaged_qty
+        if total_returned_qty != self.total_returned_qty:
+            raise ValidationError('Sum of Reusable quantity and damaged quantity must be equal to total returned quantity')
+
+    def get_shop_specific_products_prices_sp_return(self):
+        return self.returned_product.product_pro_price.filter(shop__shop_type__shop_type='sp', status=True)
+
+    def get_products_gst_tax_return(self):
+        return self.returned_product.product_pro_tax.filter(tax__tax_type='gst')
+
+    def get_products_gst_cess_return(self):
+        return self.returned_product.product_pro_tax.filter(tax__tax_type='cess')
+
+class Note(models.Model):
+    credit_note_id = models.CharField(max_length=255, null=True, blank=True)
+    order = models.ForeignKey(Order, related_name='rt_order_note',null=True,blank=True,on_delete=models.CASCADE)
+    return_no = models.ForeignKey(Return, related_name='return_credit_note',null=True, blank=True, on_delete=models.CASCADE)
+    note_type = models.CharField(max_length=255,choices=NOTE_TYPE_CHOICES, default='credit_note')
+    amount = models.FloatField(default=0)
+    last_modified_by = models.ForeignKey(get_user_model(), related_name='rt_last_modified_user_note',null=True, blank=True, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = ("Credit Note")
+        verbose_name_plural = ("Credit Notes")
+
+    def __str__(self):
+        return str(self.credit_note_id)
+
+@receiver(post_save, sender=ReturnProductMapping)
+def create_credit_note(sender, instance=None, created=False, **kwargs):
+    if created:
+        if instance.total_returned_qty > 0:
+            credit_note = Note.objects.filter(return_no = instance.return_id)
+            if credit_note.exists():
+                credit_note = credit_note.last()
+                credit_note.credit_note_id = brand_credit_note_pattern(instance.return_id.pk)
+                credit_note.amount= credit_note.amount + (int(instance.total_returned_qty) * int(instance.returned_product.product_inner_case_size)* float(instance.returned_product.product_pro_price.filter(shop__shop_type__shop_type='sp', status=True).last().price_to_retailer))
+                credit_note.save()
+            else:
+                credit_note = Note.objects.create(credit_note_id = brand_credit_note_pattern(instance.return_id.pk), order=instance.return_id.invoice_no.order,return_no = instance.return_id, amount = int(instance.total_returned_qty) * int(instance.returned_product.product_inner_case_size)*float(instance.returned_product.product_pro_price.filter(shop__shop_type__shop_type='sp', status=True).last().price_to_retailer), status=True)
+
+# def create_debit_note(sender, instance=None, created=False, **kwargs):
+#     if instance.total_returned_qty > 0:
+#         credit_note = Note.objects.filter(return_no = instance.return_id)
+#         if credit_note.exists():
+#             credit_note.delete()
+#         credit_note = Note.objects.create(credit_note_id = brand_credit_note_pattern(instance.return_id.pk), order=instance.return_id.invoice_no.order,return_no = instance.return_id, amount = instance.total_returned_qty * instance.return_id.invoice_no.rt_order_product_order_product_mapping.last().product.product_pro_price.last().price_to_retailer, status=True)
+#     else:
+#         credit_note = Note.objects.filter(return_no = instance.return_id)
+#         if credit_note.exists():
+#             credit_note.update(status=False)

@@ -132,6 +132,9 @@ class OrderedProduct(models.Model):
     def __str__(self):
         return str(self.invoice_no) or str(self.id)
 
+    class Meta:
+        verbose_name= 'Shipment Planning'
+
 @receiver(post_save, sender=OrderedProduct)
 def create_invoice_no(sender, instance=None, created=False, **kwargs):
     if created:
@@ -162,6 +165,16 @@ class OrderedProductMapping(models.Model):
             qty = qty[0].get('qty')
             return str(qty)
         return str("-")
+
+    def get_shop_specific_products_prices(self):
+        return self.product.product_pro_price.filter(shop__shop_type__shop_type='gf', status=True)
+
+    def get_products_gst_tax_gf(self):
+        return self.product.product_pro_tax.filter(tax__tax_type='gst')
+
+    def get_products_gst_cess_gf(self):
+        return self.product.product_pro_tax.filter(tax__tax_type='cess')
+
 
 class Note(models.Model):
     order = models.ForeignKey(Order, related_name='rtg_order_note',null=True,blank=True,on_delete=models.CASCADE)
