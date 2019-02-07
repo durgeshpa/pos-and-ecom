@@ -64,7 +64,7 @@ class Cart(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return str(self.id)
+        return str(self.order_id)
 
 @receiver(post_save, sender=Cart)
 def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
@@ -107,7 +107,7 @@ class Order(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.order_no or str(self.id)
+        return self.ordered_cart.order_id or str(self.id)
 
 # @receiver(post_save, sender=CartProductMapping)
 # def create_order(sender, instance=None, created=False, **kwargs):
@@ -162,7 +162,7 @@ class OrderedProductMapping(models.Model):
         if self.ordered_product:
             qty = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
                 cart_product=self.product).values('qty')
-            qty = qty[0].get('qty')
+            qty = qty.first().get('qty')
             return str(qty)
         return str("-")
 
@@ -220,7 +220,8 @@ class Payment(models.Model):
     #order_amount= models.ForeignKey(Order, related_name= 'rt_amount', on_delete=models.CASCADE, null=True)
     paid_amount=models.DecimalField(max_digits=20,decimal_places=4,default=('0.0000'))
     payment_choice = models.CharField(max_length=30, choices=PAYMENT_MODE_CHOICES, null=True)
-    neft_reference_number= models.CharField(max_length=20, null=True)
+    neft_reference_number= models.CharField(max_length=20, null=True, blank=True)
+    imei_no = models.CharField(max_length=100, null=True, blank=True)
     payment_status = models.CharField(max_length=50, null=True, blank=True, choices=PAYMENT_STATUS,default=PAYMENT_DONE_APPROVAL_PENDING)
 
     def save(self, *args,**kwargs):

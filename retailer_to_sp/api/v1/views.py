@@ -472,7 +472,7 @@ class ReservedOrder(generics.ListAPIView):
                 is_error = False
                 for cart_product in cart_products:
                     ordered_product_details = GRNOrderProductMapping.objects.filter(
-                        grn_order__order__shipping_address__shop_name=parent_mapping.parent,
+                        grn_order__order__ordered_cart__gf_shipping_address__shop_name=parent_mapping.parent,
                         product=cart_product.cart_product).order_by('-expiry_date')
                     ordered_product_sum = ordered_product_details.aggregate(available_qty_sum=Sum('available_qty'))
 
@@ -571,6 +571,7 @@ class CreateOrder(APIView):
             msg['message'] = ['Shipping address not found']
             return Response(msg, status=status.HTTP_200_OK)
 
+        current_url = request.get_host()
         # if shop mapped with sp
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             #self.sp_mapping_order_reserve()
@@ -601,7 +602,7 @@ class CreateOrder(APIView):
                         ordered_reserve.reserve_status = 'ordered'
                         ordered_reserve.save()
 
-                    serializer = OrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id})
+                    serializer = OrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
                     msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                 else:
                     msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
@@ -644,7 +645,7 @@ class CreateOrder(APIView):
                         ordered_reserve.reserve_status = 'ordered'
                         ordered_reserve.save()
 
-                    serializer = GramMappedOrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id})
+                    serializer = GramMappedOrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
                     msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                 else:
                     msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
@@ -677,12 +678,14 @@ class OrderList(generics.ListAPIView):
         if parent_mapping is None:
             return Response(msg, status=status.HTTP_200_OK)
 
+        current_url = request.get_host()
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             queryset = Order.objects.filter(last_modified_by=user).order_by('-created_at')
-            serializer = OrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id})
+
+            serializer = OrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             queryset = GramMappedOrder.objects.filter(last_modified_by=user).order_by('-created_at')
-            serializer = GramMappedOrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id})
+            serializer = GramMappedOrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
 
         if serializer.data:
             msg = {'is_success': True,'message': None,'response_data': serializer.data}
@@ -705,12 +708,13 @@ class OrderDetail(generics.RetrieveAPIView):
         if parent_mapping is None:
             return Response(msg, status=status.HTTP_200_OK)
 
+        current_url = request.get_host()
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             queryset = Order.objects.get(id=pk)
-            serializer = OrderSerializer(queryset, context={'parent_mapping_id': parent_mapping.parent.id})
+            serializer = OrderSerializer(queryset, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             queryset = GramMappedOrder.objects.get(id=pk)
-            serializer = GramMappedOrderSerializer(queryset,context={'parent_mapping_id': parent_mapping.parent.id})
+            serializer = GramMappedOrderSerializer(queryset,context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
 
         if serializer.data:
             msg = {'is_success': True,'message': None,'response_data': serializer.data}
@@ -908,6 +912,7 @@ class PaymentApi(APIView):
         paid_amount =self.request.POST.get('paid_amount')
         neft_reference_number =self.request.POST.get('neft_reference_number')
         shop_id = self.request.POST.get('shop_id')
+        imei_no = self.request.POST.get('imei_no')
 
         # payment_type = neft or cash_on_delivery
         msg = {'is_success': False, 'message': ['Have some error in shop or mapping'], 'response_data': None}
@@ -939,7 +944,8 @@ class PaymentApi(APIView):
                 msg['message'] = ["No order found"]
                 return Response(msg, status=status.HTTP_200_OK)
 
-            payment = Payment(order_id=order,paid_amount=paid_amount,payment_choice=payment_choice,neft_reference_number=neft_reference_number)
+            payment = Payment(order_id=order,paid_amount=paid_amount,payment_choice=payment_choice,
+                              neft_reference_number=neft_reference_number,imei_no=imei_no)
             payment.save()
             order.order_status = 'payment_done_approval_pending'
             order.save()
@@ -953,7 +959,8 @@ class PaymentApi(APIView):
                 msg['message'] = ["No order found"]
                 return Response(msg, status=status.HTTP_200_OK)
 
-            payment = GramMappedPayment(order_id=order,paid_amount=paid_amount,payment_choice=payment_choice,neft_reference_number=neft_reference_number)
+            payment = GramMappedPayment(order_id=order,paid_amount=paid_amount,payment_choice=payment_choice,
+                                        neft_reference_number=neft_reference_number,imei_no=imei_no)
             payment.save()
             order.order_status = 'payment_done_approval_pending'
             order.save()
