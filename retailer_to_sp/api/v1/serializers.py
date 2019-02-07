@@ -223,6 +223,12 @@ class OrderSerializer(serializers.ModelSerializer):
     rt_order_order_product = OrderedProductSerializer(many=True)
     billing_address = AddressSerializer()
     shipping_address = AddressSerializer()
+    order_status = serializers.CharField(source='get_order_status_display')
+
+    def to_representation(self, instance):
+        representation = super(OrderSerializer, self).to_representation(instance)
+        representation['created_at'] = instance.created_at.strftime("%Y-%m-%d - %H:%M:%S")
+        return representation
 
     class Meta:
         model=Order
