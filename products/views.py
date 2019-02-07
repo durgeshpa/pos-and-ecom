@@ -461,8 +461,9 @@ def products_csv_upload_view(request):
                         {'form': form}
                     )
                 try:
+                    brand = Brand.objects.get(pk=row[5])
                     product, _ = Product.objects.get_or_create(
-                        product_gf_code=row[3], product_brand_id=row[5])
+                        product_gf_code=row[3])
                 except Exception as e:
                     logger.exception("Unable to create product")
                     messages.error(
@@ -475,6 +476,7 @@ def products_csv_upload_view(request):
                     )
                 else:
                     product.product_name = row[0]
+                    product.product_brand = brand
                     product.product_short_description = row[1]
                     product.product_long_description = row[2]
                     product.product_ean_code = row[4]
