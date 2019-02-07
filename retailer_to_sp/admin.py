@@ -206,6 +206,7 @@ class OrderedProductMappingAdmin(admin.TabularInline):
 
 
 class OrderedProductAdmin(admin.ModelAdmin):
+    change_list_template = 'admin/retailer_to_sp/OrderedProduct/change_list.html'
     inlines = [OrderedProductMappingAdmin]
     list_display = (
         'invoice_no', 'vehicle_no', 'shipped_by',
