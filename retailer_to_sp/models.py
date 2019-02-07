@@ -270,16 +270,11 @@ class Payment(models.Model):
         on_delete=models.CASCADE, null=True
     )
     name = models.CharField(max_length=255, null=True, blank=True)
-    paid_amount = models.DecimalField(
-        max_digits=20, decimal_places=4, default='0.0000'
-    )
-    payment_choice = models.CharField(max_length=30,
-                                      choices=PAYMENT_MODE_CHOICES, null=True)
-    neft_reference_number = models.CharField(max_length=20, null=True)
-    payment_status = models.CharField(
-        max_length=50, null=True, blank=True,
-        choices=PAYMENT_STATUS, default=PAYMENT_DONE_APPROVAL_PENDING
-    )
+    paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
+    payment_choice = models.CharField(max_length=30,choices=PAYMENT_MODE_CHOICES, null=True)
+    neft_reference_number = models.CharField(max_length=20, null=True,blank=True)
+    imei_no = models.CharField(max_length=100, null=True, blank=True)
+    payment_status = models.CharField(max_length=50, null=True, blank=True,choices=PAYMENT_STATUS, default=PAYMENT_DONE_APPROVAL_PENDING)
 
     def __str__(self):
         return self.name
@@ -292,6 +287,7 @@ class Payment(models.Model):
 
 @receiver(post_save, sender=Payment)
 def order_notification(sender, instance=None, created=False, **kwargs):
+
     if created:
         if instance.order_id.ordered_by.first_name:
             username = instance.order_id.ordered_by.first_name

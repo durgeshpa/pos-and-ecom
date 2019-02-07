@@ -43,7 +43,6 @@ class ReturnNameSearch(InputFilter):
                 Q(name__icontains=name)
             )
 
-
 class OrderFilter(InputFilter):
     parameter_name = 'order_no'
     title = 'Order'
@@ -85,7 +84,6 @@ class OrderIdSearch(InputFilter):
                 Q(order_id__order_no__icontains=order_id)
             )
 
-
 class OrderStatusSearch(InputFilter):
     parameter_name = 'order_status'
     title = 'Order Status'
@@ -99,7 +97,6 @@ class OrderStatusSearch(InputFilter):
                 Q(order_status__icontains=order_status)
             )
 
-
 class IssueSearch(InputFilter):
     parameter_name = 'select_issue'
     title = 'Issue'
@@ -112,7 +109,6 @@ class IssueSearch(InputFilter):
             return queryset.filter(
                 Q(select_issue__icontains=select_issue)
             )
-
 
 class PaymentChoiceSearch(InputFilter):
     parameter_name = 'payment_choice'
@@ -206,6 +202,7 @@ class OrderedProductMappingAdmin(admin.TabularInline):
 
 
 class OrderedProductAdmin(admin.ModelAdmin):
+    change_list_template = 'admin/retailer_to_sp/OrderedProduct/change_list.html'
     inlines = [OrderedProductMappingAdmin]
     list_display = (
         'invoice_no', 'vehicle_no', 'shipped_by',
@@ -231,7 +228,6 @@ class OrderedProductAdmin(admin.ModelAdmin):
             Q(order__seller_shop__shop_owner=request.user)
                 )
 
-
 class NoteAdmin(admin.ModelAdmin):
     list_display = (
         'credit_note_id', 'return_no',
@@ -247,7 +243,6 @@ class NoteAdmin(admin.ModelAdmin):
 
     class Media:
         pass
-
 
 class CustomerCareAdmin(admin.ModelAdmin):
     model = CustomerCare
@@ -267,12 +262,12 @@ class PaymentAdmin(admin.ModelAdmin):
     model = Payment
     fields = (
         'order_id', 'paid_amount', 'payment_choice',
-        'neft_reference_number', 'payment_status'
+        'neft_reference_number', 'payment_status','imei_no'
     )
     exclude = ('name',)
     list_display = (
         'name', 'order_id', 'paid_amount',
-        'payment_choice', 'neft_reference_number'
+        'payment_choice', 'neft_reference_number','imei_no'
     )
     autocomplete_fields = ('order_id',)
     search_fields = ('name',)

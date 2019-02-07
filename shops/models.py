@@ -73,6 +73,11 @@ class Shop(models.Model):
             message.send()
         super(Shop, self).save(force_insert, force_update, *args, **kwargs)
 
+    class Meta:
+        permissions = (
+            ("can_see_all_shops", "Can See All Shops"),
+        )
+
 class ShopPhoto(models.Model):
     shop_name = models.ForeignKey(Shop, related_name='shop_name_photos', on_delete=models.CASCADE)
     shop_photo = models.FileField(upload_to='shop_photos/shop_name/')

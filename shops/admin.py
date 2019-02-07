@@ -72,6 +72,8 @@ class ShopAdmin(admin.ModelAdmin):
         qs = super(ShopAdmin, self).get_queryset(request)
         if request.user.is_superuser:
             return qs
+        if request.user.has_perm('shops.can_see_all_shops'):
+            return qs
         return qs.filter(
             Q(related_users=request.user) |
             Q(shop_owner=request.user)

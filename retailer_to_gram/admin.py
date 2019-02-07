@@ -183,6 +183,7 @@ class OrderedProductMappingAdmin(admin.TabularInline):
 
 
 class OrderedProductAdmin(admin.ModelAdmin):
+    change_list_template = 'admin/retailer_to_gram/OrderedProduct/change_list.html'
     def get_urls(self):
         from django.conf.urls import url
         urls = super(OrderedProductAdmin, self).get_urls()
@@ -248,12 +249,12 @@ class PaymentAdmin(admin.ModelAdmin):
     model = Payment
     fields = (
         'order_id', 'paid_amount', 'payment_choice',
-        'neft_reference_number', 'payment_status'
+        'neft_reference_number', 'payment_status','imei_no'
     )
     exclude = ('name',)
     list_display = (
         'name', 'order_id', 'paid_amount',
-        'payment_choice', 'neft_reference_number'
+        'payment_choice', 'neft_reference_number','imei_no'
     )
     autocomplete_fields = ('order_id',)
     search_fields = ('name',)
