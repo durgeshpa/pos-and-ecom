@@ -19,11 +19,11 @@ class GetSlotBrandListView(APIView):
     def get(self,*args,**kwargs):
 
         pos_name = self.kwargs.get('slot_position_name')
-        data = BrandData.objects.filter(slot__position_name=pos_name, brand_data__active_status='1').order_by('brand_data_order')
+        data = BrandData.objects.filter(brand_data__active_status='active')
         if pos_name:
-            data = BrandData.objects.filter(slot__position_name=pos_name,brand_data__active_status='1')
+            data = data.filter(slot__position_name=pos_name).order_by('brand_data_order')
         else:
-            data = BrandData.objects.filter(brand_data__active_status='1')
+            data = data.order_by('brand_data_order')
         is_success = True if data else False
         #serializer_class = BannerPositionSerializer
         brand_data_serializer = BrandDataSerializer(data,many=True)

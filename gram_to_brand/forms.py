@@ -81,14 +81,14 @@ class POGenerationForm(forms.ModelForm):
                     raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product ID cannot be empty")
                 #if not row[2] and not re.match("^\d+$", row[2]):
                 #    raise ValidationError("Row["+str(id+1)+"] | "+first_row[2]+":"+row[2]+" | Case size should be integer and cannot be empty")
-                if not product.product_case_size == row[2]:
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[2]+":"+row[2]+" | Case size does not matched with original product's case size")
+                if not product.product_case_size == row[3]:
+                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[3]+":"+row[3]+" | Case size does not matched with original product's case size")
                 #if row[3] and not re.match("^\d+$", row[3]):
                 #    raise ValidationError("Row["+str(id+1)+"] | "+first_row[3]+":"+row[3]+" | No. of cases should be integer value")
                 vendor_product = ProductVendorMapping.objects.filter(vendor=self.cleaned_data['supplier_name'], product=product).order_by('product','-created_at').distinct('product')
                 for p in vendor_product:
-                    if not p.product_price == float(row[5]):
-                        raise ValidationError("Row["+str(id+1)+"] | "+first_row[5]+":"+row[5]+" | Price does not matched with original product's brand to gram price")
+                    if not p.product_price == float(row[6]):
+                        raise ValidationError("Row["+str(id+1)+"] | "+first_row[6]+":"+row[6]+" | Price does not matched with original product's brand to gram price")
             return self.cleaned_data
 
         date = self.cleaned_data['po_validity_date']
