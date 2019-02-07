@@ -2,13 +2,9 @@ version: 0.0
 os: linux
 files:
   - source: /
-    destination: /home/ubuntu/project
+    destination: /home/ubuntu/project/retailer-backend
 hooks:
-  ApplicationStop:
-    - location: stopapp.sh
-      timeout: 300
-      runas: root
   ApplicationStart:
-    - location: startapp.sh
+    - location: /home/ubuntu/project/start.sh
       timeout: 300
       runas: root
