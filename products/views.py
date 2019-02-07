@@ -471,15 +471,6 @@ def products_csv_upload_view(request):
                     product = Product.objects.get(product_gf_code=row[3])
                 except:
                     product = Product.objects.create(product_gf_code=row[3], product_brand_id=row[5])
-                    logger.exception("Unable to create product")
-                    messages.error(
-                        request,
-                        "Unable to create product {}".format(row[1]))
-                    return render(
-                        request,
-                        'admin/products/productscsvupload.html',
-                        {'form': form}
-                    )
                 else:
                     product.product_brand = brand
                 finally:
