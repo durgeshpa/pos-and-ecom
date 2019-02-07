@@ -93,7 +93,7 @@ class POGenerationForm(forms.ModelForm):
 
         date = self.cleaned_data['po_validity_date']
         if date < datetime.date.today():
-            raise forms.ValidationError("PoGRNOrderProductMapping validity date cannot be in the past!")
+            raise forms.ValidationError("Po validity date cannot be in the past!")
         return self.cleaned_data
 
 
