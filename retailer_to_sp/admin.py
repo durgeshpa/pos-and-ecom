@@ -178,7 +178,6 @@ class CartAdmin(admin.ModelAdmin):
 
 class OrderAdmin(admin.ModelAdmin):
     search_fields = ('order',)
-    list_display = ('order_no', 'order_status',)
     list_display = ('order_no', 'order_status', 'download_pick_list')
 
     def get_queryset(self, request):
