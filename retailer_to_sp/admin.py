@@ -228,8 +228,6 @@ class OrderedProductAdmin(admin.ModelAdmin):
             Q(order__seller_shop__shop_owner=request.user)
                 )
 
-admin.site.register(OrderedProduct,OrderedProductAdmin)
-
 class NoteAdmin(admin.ModelAdmin):
     list_display = (
         'credit_note_id', 'return_no',
@@ -245,8 +243,6 @@ class NoteAdmin(admin.ModelAdmin):
 
     class Media:
         pass
-
-admin.site.register(Note,NoteAdmin)
 
 class CustomerCareAdmin(admin.ModelAdmin):
     model = CustomerCare
