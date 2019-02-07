@@ -782,10 +782,10 @@ class DownloadInvoiceSP(APIView):
                 "product_short_description": m.product.product_short_description,
                 "product_hsn": m.product.product_hsn,
                 "product_tax_percentage": "" if tax_sum == 0 else str(tax_sum)+"%",
-                "product_inner_case_size": m.product.product_inner_case_size,
-                "product_no_of_pices": m.product.product_inner_case_size,
-                "price_to_retailer":  product_pro_price,
                 "shipped_qty": m.shipped_qty,
+                "product_inner_case_size": m.product.product_inner_case_size,
+                "product_no_of_pices": int(m.product.product_inner_case_size) * int(m.shipped_qty) ,
+                "price_to_retailer":  product_pro_price,
                 "product_sub_total": float(m.shipped_qty) * float(product_pro_price),
                 "product_tax_amount": product_tax_amount,
 
