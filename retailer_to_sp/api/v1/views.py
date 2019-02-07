@@ -773,7 +773,7 @@ class DownloadInvoiceSP(APIView):
                 tax_sum = round(tax_sum,2)
 
                 get_tax_val = tax_sum/100
-                base_price = (float(product_pro_price) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
+                base_price = (float(product_pro_price) * float(m.shipped_qty) * float(m.product.product_inner_case_size)) / (float(get_tax_val) + 1)
                 product_tax_amount = float(base_price) * float(get_tax_val)
                 product_tax_amount = round(product_tax_amount,2)
 
