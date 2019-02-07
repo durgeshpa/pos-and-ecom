@@ -105,3 +105,22 @@ class DownloadCreditNote(APIView):
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         return response
+
+
+class DownloadPickList(APIView):
+    permission_classes = (AllowAny,)
+    """
+    PDF Download object
+    """
+    filename = 'pick_list.pdf'
+    template_name = 'admin/download/retailer_sp_pick_list.html'
+    
+    def get(self, request, *args, **kwargs):
+        order_obj = get_object_or_404(Order, pk=self.kwargs.get('pk'))
+        cart_products = order_obj.ordered_cart.rt_cart_list.all()
+        data = {"order_obj": order_obj,"cart_products":cart_products}
+        cmd_option = {"margin-top": 10, "zoom": 1,  "footer-center": "[page]/[topage]",
+                      "no-stop-slow-scripts": True}
+        response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
+                                       context=data, show_content_in_browser=False, cmd_options=cmd_option)
+        return response
