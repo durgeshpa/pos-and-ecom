@@ -4,6 +4,10 @@ files:
   - source: /
     destination: /home/ubuntu/project/retailer-backend
 hooks:
+  ApplicationStop:
+    - location: /home/ubuntu/project/stop.sh
+      timeout: 300
+      runas: root
   ApplicationStart:
     - location: /home/ubuntu/project/start.sh
       timeout: 300
