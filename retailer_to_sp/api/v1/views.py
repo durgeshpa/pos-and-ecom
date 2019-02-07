@@ -755,7 +755,47 @@ class DownloadInvoiceSP(APIView):
             state_gram= z.state
             pincode_gram= z.pincode
 
+        product_listing = []
         for m in products:
+
+            # New Code For Product Listing
+            tax_sum = 0
+            product_tax_amount = 0
+            product_pro_price = 0
+            product_pro_price = m.product.product_pro_price.filter(
+                shop=m.ordered_product.order.seller_shop).last().price_to_retailer if m.product.product_pro_price.exists() else 0
+
+            all_tax_list = m.product.product_pro_tax
+            if all_tax_list.exists():
+                for tax_dt in all_tax_list.all():
+                    tax_sum = float(tax_sum) + float(tax_dt.tax.tax_percentage)
+
+                tax_sum = round(tax_sum,2)
+
+                get_tax_val = tax_sum/100
+                base_price = (float(product_pro_price) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
+                product_tax_amount = float(base_price) * float(get_tax_val)
+                product_tax_amount = round(product_tax_amount,2)
+
+            ordered_prodcut = {
+                "product_sku": m.product.product_sku,
+                "product_short_description": m.product.product_short_description,
+                "product_hsn": m.product.product_hsn,
+                "product_tax_percentage": "" if tax_sum == 0 else str(tax_sum)+"%",
+                "product_inner_case_size": m.product.product_inner_case_size,
+                "product_no_of_pices": m.product.product_inner_case_size,
+                "price_to_retailer":  product_pro_price,
+                "shipped_qty": m.shipped_qty,
+                "product_sub_total": float(m.shipped_qty) * float(product_pro_price),
+                "product_tax_amount": product_tax_amount,
+
+            }
+
+            product_listing.append(ordered_prodcut)
+            # New Code For Product Listing
+
+
+
             sum_qty = sum_qty + int(m.product.product_inner_case_size) * int(m.shipped_qty)
 
             for h in m.get_shop_specific_products_prices_sp():
@@ -792,7 +832,12 @@ class DownloadInvoiceSP(APIView):
         print(sum_amount)
 
 
-        data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop, "sum_qty": sum_qty, "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" , "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,"order_id":order_id,"shop_name_gram":shop_name_gram,"nick_name_gram":nick_name_gram, "city_gram":city_gram, "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram, "payment_type":payment_type,"total_amount_int":total_amount_int}
+        data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop, "sum_qty": sum_qty,
+                "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" ,
+                "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,
+                "order_id":order_id,"shop_name_gram":shop_name_gram,"nick_name_gram":nick_name_gram, "city_gram":city_gram,
+                "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram,
+                "payment_type":payment_type,"total_amount_int":total_amount_int,"product_listing":product_listing}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}

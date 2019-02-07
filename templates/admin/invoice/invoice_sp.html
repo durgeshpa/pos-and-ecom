@@ -173,34 +173,21 @@ table tr td,th,h4,span,address{
     						<tbody>
     							<!-- foreach ($order->lineItems as $line) or some such thing here -->
     							<tr>
-                    {% for m in products %}
-    								<td><strong>{{forloop.counter}}</strong></td>
-										<td class="text-center">{{ m.product.product_sku}}</td>
-    								<td class="text-center">{{ m.product.product_short_description}}</td>
-    								<td class="text-center">{{ m.product.product_hsn}}</td>
-                    {% if m.get_products_gst_cess %}
-		    						<td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage |add:m.get_products_gst_cess.last.tax.tax_percentage }}%</strong></td>
-                    {% else %}
-                    <td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage}}%</strong></td>
-                    {% endif %}
-                        <td class="text-center"><strong>GST Amount</strong></td>
-									<td class="text-center">{{ m.product.product_inner_case_size }}</td>
-
-
-									<td class="text-center">{{m.shipped_qty}}</td>
-									<div style="display:none"> {{m.shipped_qty | shipped_qty}}</div>
-									<td class="text-center">{{m.product.product_inner_case_size | inner_case_size}}</td>
-									{% for h in m.get_shop_specific_products_prices_sp %}
-    								<td class="text-center">{{h.price_to_retailer}}</td>
-										{% endfor %}
-    								<td class="text-center">PCS</td>
-										   <div style="display:none"> {{m.shipped_qty | shipped_qty}}</div>
-                       <div style="display:none"> {{m.product.product_inner_case_size | inner_case_size}}</div>
-                    {% for h in m.get_shop_specific_products_prices_sp %}
-    								<td class="text-right">{{h.price_to_retailer | price_to_retailer | intcomma }}/-</td>
-										{% endfor %}
+                    {% for m in product_listing %}
+								<td><strong>{{forloop.counter}}</strong></td>
+									<td class="text-center">{{ m.product_sku}}</td>
+								<td class="text-center">{{ m.product_short_description}}</td>
+								<td class="text-center">{{ m.product_hsn}}</td>
+								<td class="text-center"><strong>{{ m.product_tax_percentage}}</strong></td>
+								<td class="text-center"><strong>{{m.product_tax_amount}}</strong></td>
+								<td class="text-center">{{ m.product.product_inner_case_size }}</td>
+								<td class="text-center">{{m.shipped_qty}}</td>
+								<td class="text-center">{{m.product_inner_case_size}}</td>
+								<td class="text-center">{{h.price_to_retailer}}</td>
+								<td class="text-center">PCS</td>
+								<td class="text-right">{{h.product_sub_total | intcomma }}/-</td>
     							</tr>
-									{% endfor %}
+					{% endfor %}
 
     							<tr>
 									<td></td>
