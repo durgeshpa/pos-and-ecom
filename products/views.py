@@ -462,7 +462,7 @@ def products_csv_upload_view(request):
                     )
                 try:
                     product, _ = Product.objects.get_or_create(
-                        product_gf_code=row[3], product_brand_id=row[5])
+                        product_gf_code=row[3])
                 except Exception as e:
                     logger.exception("Unable to create product")
                     messages.error(
