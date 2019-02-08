@@ -64,7 +64,7 @@ class OrderedProductForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(OrderedProductForm, self).__init__(*args, **kwargs)
         self.fields['order'].required = True
-        self.fields['invoice_no'].required = True
+       # self.fields['invoice_no'].required = True
         self.fields['vehicle_no'].required = True
 
 

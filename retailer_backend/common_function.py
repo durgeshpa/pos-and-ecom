@@ -151,5 +151,5 @@ def invoice_pattern(invoice_id, **kwargs):
 
 def retailer_sp_invoice(prefix, invoice_id):
     starts_with = prefix
-    ends_with = str(id).rjust(5, '0')
+    ends_with = str(invoice_id).rjust(5, '0')
     return "%s%s" % (starts_with, ends_with)
