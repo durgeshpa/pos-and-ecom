@@ -15,6 +15,7 @@ from brand.models import Brand
 from products.models import Product
 from retailer_to_sp.models import Cart as RetailerCart
 from addresses.models import Address, City, State
+from retailer_to_sp.models import Note as CreditNote
 
 ORDER_STATUS = (
     ("ordered_to_gram", "Ordered To Gramfactory"),
@@ -156,15 +157,25 @@ def create_order(sender, instance=None, created=False, **kwargs):
             Order.objects.create(ordered_cart=instance.cart, order_no=instance.cart.po_no,billing_address=billing_address,
                  shipping_address=shipping_address,total_final_amount=instance.total_price,order_status='ordered_to_gram')
 
-class OrderedProduct(models.Model):
+class OrderedProduct(models.Model): #GRN
+    DISABLED = "DIS"
+    ENABLED = "ENA"
+    EXPIRED = "EXP"
+    GRN_STATUS = (
+        (DISABLED, "Disabled"),
+        (ENABLED, "Enabled"),
+        (EXPIRED, "Expired"),
+        )
     order = models.ForeignKey(Order,related_name='sp_order_order_product',on_delete=models.CASCADE,null=True,blank=True)
     invoice_no = models.CharField(max_length=255,null=True,blank=True)
+    credit_note = models.ForeignKey(CreditNote, related_name='grn_list', null=True, blank=True, on_delete=models.CASCADE)
     vehicle_no = models.CharField(max_length=255,null=True,blank=True)
     shipped_by = models.ForeignKey(get_user_model(), related_name='sp_shipped_product_ordered_by_user', null=True, blank=True,on_delete=models.CASCADE)
     received_by = models.ForeignKey(get_user_model(), related_name='sp_ordered_product_received_by_user', null=True, blank=True,on_delete=models.CASCADE)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='sp_last_modified_user_order', null=True,blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    status = models.CharField(max_length=5, choices=GRN_STATUS, default=ENABLED)
 
     def save(self, *args,**kwargs):
         super(OrderedProduct, self).save()

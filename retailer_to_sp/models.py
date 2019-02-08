@@ -6,15 +6,17 @@ from django.contrib.auth import get_user_model
 from django.dispatch import receiver
 from django.db.models.signals import pre_save
 from django.db.models.signals import post_save
+from django.db.models import Sum
 
 from retailer_backend.common_function import (
-    order_id_pattern, brand_credit_note_pattern
+    order_id_pattern, brand_credit_note_pattern, getcredit_note_id
 )
 from shops.models import Shop
 from brand.models import Brand
 from addresses.models import Address
 from products.models import Product
 from otp.sms import SendSms
+from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
 
 ORDER_STATUS = (
     ("active", "Active"),
@@ -163,6 +165,7 @@ class OrderedProduct(models.Model):
     )
     invoice_no = models.CharField(max_length=255, null=True, blank=True)
     vehicle_no = models.CharField(max_length=255, null=True, blank=True)
+    driver_name = models.CharField(max_length=60, null=True, blank=True)
     shipped_by = models.ForeignKey(
         get_user_model(), related_name='rt_shipped_product_ordered_by_user',
         null=True, blank=True, on_delete=models.CASCADE
@@ -388,14 +391,7 @@ class ReturnProductMapping(models.Model):
 
 class Note(models.Model):
     credit_note_id = models.CharField(max_length=255, null=True, blank=True)
-    order = models.ForeignKey(
-        Order, related_name='rt_order_note',
-        null=True, blank=True, on_delete=models.CASCADE
-    )
-    return_no = models.ForeignKey(
-        Return, related_name='return_credit_note',
-        null=True, blank=True, on_delete=models.CASCADE
-    )
+    shipment = models.ForeignKey(OrderedProduct, null=True, blank=True, on_delete=models.CASCADE, related_name='credit_note')
     note_type = models.CharField(
         max_length=255, choices=NOTE_TYPE_CHOICES, default='credit_note'
     )
@@ -417,41 +413,82 @@ class Note(models.Model):
 
     @property
     def invoice_no(self):
-        if self.return_no:
-            return self.return_no.invoice_no
+        if self.shipment:
+            return self.shipment.invoice_no
 
 
-@receiver(post_save, sender=ReturnProductMapping)
+# @receiver(post_save, sender=ReturnProductMapping)
+# def create_credit_note(sender, instance=None, created=False, **kwargs):
+#     if created:
+#         if instance.total_returned_qty > 0:
+#             credit_note = Note.objects.filter(return_no=instance.return_id)
+#             if credit_note.exists():
+#                 credit_note = credit_note.last()
+#                 credit_note.credit_note_id = brand_credit_note_pattern(
+#                     instance.return_id.pk)
+#                 credit_note.amount = credit_note.amount + (
+#                         int(
+#                             instance.total_returned_qty
+#                         ) *
+#                         int(
+#                             instance.returned_product.product_inner_case_size
+#                         ) *
+#                         float(
+#                             instance.returned_product.product_pro_price.filter(
+#                                 shop__shop_type__shop_type='sp', status=True
+#                             ).last().price_to_retailer)
+#                 )
+#                 credit_note.save()
+#             else:
+#                 credit_note = Note.objects.create(
+#                     credit_note_id=brand_credit_note_pattern(instance.return_id.pk),
+#                     order=instance.return_id.invoice_no.order,
+#                     return_no=instance.return_id,
+#                     amount=int(instance.total_returned_qty) *
+#                     int(instance.returned_product.product_inner_case_size) *
+#                     float(instance.returned_product.product_pro_price.filter(
+#                         shop__shop_type__shop_type='sp', status=True
+#                         ).last().price_to_retailer),
+#                     status=True)
+
+@receiver(post_save, sender=OrderedProduct)
 def create_credit_note(sender, instance=None, created=False, **kwargs):
-    if created:
-        if instance.total_returned_qty > 0:
-            credit_note = Note.objects.filter(return_no=instance.return_id)
-            if credit_note.exists():
-                credit_note = credit_note.last()
-                credit_note.credit_note_id = brand_credit_note_pattern(
-                    instance.return_id.pk)
-                credit_note.amount = credit_note.amount + (
-                        int(
-                            instance.total_returned_qty
-                        ) *
-                        int(
-                            instance.returned_product.product_inner_case_size
-                        ) *
-                        float(
-                            instance.returned_product.product_pro_price.filter(
-                                shop__shop_type__shop_type='sp', status=True
-                            ).last().price_to_retailer)
-                )
-                credit_note.save()
-            else:
-                credit_note = Note.objects.create(
-                    credit_note_id=brand_credit_note_pattern(instance.return_id.pk),
-                    order=instance.return_id.invoice_no.order,
-                    return_no=instance.return_id,
-                    amount=int(instance.total_returned_qty) *
-                    int(instance.returned_product.product_inner_case_size) *
-                    float(instance.returned_product.product_pro_price.filter(
-                        shop__shop_type__shop_type='sp', status=True
-                        ).last().price_to_retailer),
-                    status=True)
+    if instance.rt_order_product_order_product_mapping.all().aggregate(Sum('returned_qty')).get('returned_qty__sum') > 0:
+        invoice_prefix = instance.order.seller_shop.invoce_pattern.filter(status=Shop.ACTIVE).last().pattern
+        last_credit_note = Note.objects.last()
+        if last_credit_note:
+            note_id = int(getcredit_note_id(last_credit_note.credit_note_id, invoice_prefix))
+            note_id += 1
+        else:
+            note_id = 1
 
+        credit_amount = 0
+        cur_cred_note = brand_credit_note_pattern(note_id, invoice_prefix)
+        if instance.credit_note.count()
+            credit_note = instance.credit_note.last()
+        else:
+            credit_note = Note.objects.create(
+                credit_note_id=brand_credit_note_pattern(note_id, invoice_prefix),
+                shipment = instance,
+                amount = 0,
+                status=True)
+        SPGRN.objects.filter(credit_note=credit_note).update(status=SPGRN.DISABLED)
+        credit_grn = SPGRN.objects.create(credit_note=credit_note)
+        credit_grn.save()
+
+        for item in instance.rt_order_product_order_product_mapping.all():
+            grn_item = SPGRNProductMapping.objects.create(
+                ordered_product=credit_grn,
+                product=item.product,
+                shipped_qty=item.returned_qty,
+                available_qty=item.returned_qty - item.damaged_qty,
+                ordered_qty = item.returned_qty,
+                )
+            grn_item.save()
+            credit_amount += int(item.returned_qty) * int(item.product.product_inner_case_size) * float(item.product.product_pro_price.filter(
+                shop__shop_type__shop_type='sp', status=True
+                ).last().price_to_retailer)
+
+        credit_note.amount = credit_amount
+        credit_note.save()
+ 
