@@ -43,7 +43,7 @@ table tr td,th,h4,span,address{
     			<div class="col-xs-6">
     				<address>
 						<span>Invoice To :</span><br>
-    				<strong>{{shop.gf_billing_address.shop_name}}</strong><br>
+    				<strong>{{shop.gf_billing_address.shop_name.shop_name}}</strong><br>
     				{{shop.gf_billing_address.nick_name}}, {{shop.gf_billing_address.address_line1}}, {{shop.gf_billing_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{% if gram_factory_billing_gstin %}{{ gram_factory_billing_gstin.shop_document_number }}{% else %} ---- {% endif %}</span><br>
 						<strong>State Name:</strong> <span>{{shop.gf_billing_address.state}} </span><strong>Code:</strong> <span>{{shop.gf_billing_address.pincode}}</span><br>
@@ -52,7 +52,7 @@ table tr td,th,h4,span,address{
 
 					<address>
 						<span>Dispatch To :</span><br>
-    				<strong>{{shop.gf_shipping_address.shop_name}}</strong><br>
+    				<strong>{{shop.gf_shipping_address.shop_name.shop_name}}</strong><br>
     				{{shop.gf_shipping_address.nick_name}}, {{shop.gf_shipping_address.address_line1}}, {{shop.gf_shipping_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{% if gram_factory_shipping_gstin %}{{ gram_factory_shipping_gstin.shop_document_number  }}{% else %} ---- {% endif %}</span><br>
 						<strong>State Name:</strong> <span>{{shop.gf_shipping_address.state}} </span><strong>Code:</strong> <span>{{shop.gf_shipping_address.pincode}}</span><br>
@@ -321,7 +321,7 @@ table tr td,th,h4,span,address{
 
 
 						<strong>Supplier's Service Tax No:</strong> <span>NA</span><br>
-										<strong>Company's PAN:</strong> <span>09AAQCA9570J1ZW</span><br>
+										<strong>Company's PAN:</strong> <span>NA</span><br>
 
 									</td>
 
