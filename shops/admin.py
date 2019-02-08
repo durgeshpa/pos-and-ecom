@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import Shop,ShopType,RetailerType,ParentRetailerMapping,ShopPhoto,ShopDocument
+from .models import (
+    Shop, ShopType, RetailerType, ParentRetailerMapping,
+    ShopPhoto, ShopDocument, ShopInvoicePattern
+)
 from addresses.models import Address
 from .forms import ParentRetailerMappingForm
 from retailer_backend.admin import InputFilter
@@ -43,6 +46,7 @@ class ShopPhotosAdmin(admin.TabularInline):
     model = ShopPhoto
     fields = ( 'shop_photo','shop_photo_thumbnail', )
     readonly_fields = ('shop_photo_thumbnail',)
+    extra = 2
 
 from django.forms.models import BaseInlineFormSet
 class RequiredInlineFormSet(BaseInlineFormSet):
@@ -57,13 +61,25 @@ class ShopDocumentsAdmin(admin.TabularInline):
     fields = ( 'shop_document_type','shop_document_number','shop_document_photo','shop_document_photo_thumbnail', )
     readonly_fields = ('shop_document_photo_thumbnail',)
     formset = RequiredInlineFormSet
+    extra = 2
+
+
+class ShopInvoicePatternAdmin(admin.TabularInline):
+    model = ShopInvoicePattern
+    extra = 1
+    fields = ('pattern', 'status')
+
 
 class AddressAdmin(admin.TabularInline):
     model = Address
     fields = ('address_contact_name','address_contact_number','address_type','address_line1','state','city','pincode',)
+    extra = 2
 
 class ShopAdmin(admin.ModelAdmin):
-    inlines = [ShopPhotosAdmin, ShopDocumentsAdmin,AddressAdmin]
+    inlines = [
+        ShopPhotosAdmin, ShopDocumentsAdmin,
+        AddressAdmin, ShopInvoicePatternAdmin
+    ]
     list_display = ('shop_name','shop_owner','shop_type','status', 'get_shop_city','shop_mapped_product')
     filter_horizontal = ('related_users',)
     list_filter = (ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,)

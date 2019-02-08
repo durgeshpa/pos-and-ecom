@@ -7,9 +7,11 @@ from django.dispatch import receiver
 from django.db.models.signals import pre_save
 from django.db.models.signals import post_save
 from django.db.models import Sum
+from django.utils.translation import ugettext_lazy as _
 
 from retailer_backend.common_function import (
-    order_id_pattern, brand_credit_note_pattern, getcredit_note_id
+    order_id_pattern, brand_credit_note_pattern, getcredit_note_id,
+    retailer_sp_invoice
 )
 from shops.models import Shop
 from brand.models import Brand
@@ -187,6 +189,20 @@ class OrderedProduct(models.Model):
     def __str__(self):
         return self.invoice_no or str(self.id)
 
+    def save(self, *args, **kwargs):
+        invoice_prefix = self.order.seller_shop.invoce_pattern.filter(
+            status='ACT').last().pattern
+        last_invoice = OrderedProduct.objects.filter(
+            order__in=self.order.seller_shop.rt_seller_shop_order.all()
+        ).order_by('invoice_no').last()
+        if last_invoice:
+            invoice_id = getcredit_note_id(last_invoice.invoice_no, invoice_prefix)
+            invoice_id += 1
+        else:
+            invoice_id = 1
+        self.invoice_no = retailer_sp_invoice(invoice_prefix, invoice_id)
+        super().save(*args, **kwargs)
+
 
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(
@@ -207,6 +223,19 @@ class OrderedProductMapping(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        super(OrderedProductMapping,self).clean()
+        delivered_qty = int(self.delivered_qty)
+        returned_qty = int(self.returned_qty)
+        damaged_qty = int(self.damaged_qty)
+        already_shipped_qty = int(self.shipped_qty)
+        if sum([delivered_qty, returned_qty,
+                damaged_qty]) != already_shipped_qty:
+            raise ValidationError(
+                _('Sum of Delivered, Returned and Damaged Quantity should be '
+                  'equals to Already Shipped Quantity '),
+            )
 
     @property
     def ordered_qty(self):
@@ -418,6 +447,7 @@ class Note(models.Model):
             return self.shipment.invoice_no
 
 
+
 # @receiver(post_save, sender=ReturnProductMapping)
 # def create_credit_note(sender, instance=None, created=False, **kwargs):
 #     if created:
@@ -451,5 +481,4 @@ class Note(models.Model):
 #                         shop__shop_type__shop_type='sp', status=True
 #                         ).last().price_to_retailer),
 #                     status=True)
-
 
