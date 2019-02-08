@@ -17,7 +17,9 @@ from products.models import Product
 from retailer_to_sp.models import Cart as RetailerCart
 from addresses.models import Address, City, State
 from retailer_to_sp.models import Note as CreditNote, OrderedProduct as RetailerShipment
-
+from retailer_backend.common_function import (
+    order_id_pattern, brand_credit_note_pattern, getcredit_note_id
+)
 ORDER_STATUS = (
     ("ordered_to_gram", "Ordered To Gramfactory"),
     ("order_shipped", "Order Shipped From Gramfactory"),
