@@ -230,7 +230,7 @@ class OrderedProductMapping(models.Model):
         returned_qty = int(self.returned_qty)
         damaged_qty = int(self.damaged_qty)
         already_shipped_qty = int(self.shipped_qty)
-        if sum([delivered_qty, returned_qty,
+        if (delivered_qty or returned_qty) and sum([delivered_qty, returned_qty,
                 damaged_qty]) != already_shipped_qty:
             raise ValidationError(
                 _('Sum of Delivered, Returned and Damaged Quantity should be '
