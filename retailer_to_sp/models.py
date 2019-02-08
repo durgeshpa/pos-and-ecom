@@ -7,6 +7,7 @@ from django.dispatch import receiver
 from django.db.models.signals import pre_save
 from django.db.models.signals import post_save
 from django.db.models import Sum
+from django.utils.translation import ugettext_lazy as _
 
 from retailer_backend.common_function import (
     order_id_pattern, brand_credit_note_pattern, getcredit_note_id,
@@ -222,6 +223,19 @@ class OrderedProductMapping(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        super(OrderedProductMapping,self).clean()
+        delivered_qty = int(self.delivered_qty)
+        returned_qty = int(self.returned_qty)
+        damaged_qty = int(self.damaged_qty)
+        already_shipped_qty = int(self.shipped_qty)
+        if sum([delivered_qty, returned_qty,
+                damaged_qty]) != already_shipped_qty:
+            raise ValidationError(
+                _('Sum of Delivered, Returned and Damaged Quantity should be '
+                  'equals to Already Shipped Quantity '),
+            )
 
     @property
     def ordered_qty(self):

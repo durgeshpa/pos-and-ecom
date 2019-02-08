@@ -46,7 +46,7 @@ class OrderedProductForm(forms.ModelForm):
 
     class Meta:
         model = OrderedProduct
-        fields = ['order', 'invoice_no', 'vehicle_no']
+        fields = ['order', 'vehicle_no','driver_name']
 
     class Media:
         js = (
@@ -64,7 +64,7 @@ class OrderedProductForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(OrderedProductForm, self).__init__(*args, **kwargs)
         self.fields['order'].required = True
-       # self.fields['invoice_no'].required = True
+        self.fields['driver_name'].required = True
         self.fields['vehicle_no'].required = True
 
 

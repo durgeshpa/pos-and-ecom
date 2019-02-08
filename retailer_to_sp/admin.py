@@ -183,6 +183,7 @@ class OrderAdmin(admin.ModelAdmin):
     search_fields = ('order',)
     list_display = ('order_no', 'order_status', 'download_pick_list')
 
+
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
         if request.user.is_superuser:
@@ -204,7 +205,7 @@ class OrderAdmin(admin.ModelAdmin):
 class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping
     exclude = ('last_modified_by',)
-    readonly_fields = ('ordered_qty',)
+    readonly_fields = ('ordered_qty','shipped_qty')
     extra = 0
 
 
@@ -218,6 +219,7 @@ class OrderedProductAdmin(admin.ModelAdmin):
     exclude = ('shipped_by', 'received_by', 'last_modified_by',)
     autocomplete_fields = ('order',)
     search_fields = ('invoice_no', 'vehicle_no')
+    readonly_fields = ('order', 'invoice_no', 'vehicle_no', 'driver_name')
 
     def download_invoice(self, obj):
         return format_html(
