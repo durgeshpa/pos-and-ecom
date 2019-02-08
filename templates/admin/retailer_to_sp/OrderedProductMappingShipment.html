@@ -49,29 +49,53 @@
 
 {{ordered_form.management_form}}
   {{ordered_form.as_p}}
+    {% if ordered_form.errors %}
+    {% for field in ordered_form %}
+        {% for error in field.errors %}
+            <div class="alert alert-danger">
+                <strong>{{ error|escape }}</strong>
+            </div>
+        {% endfor %}
+    {% endfor %}
+    {% for error in ordered_form.non_field_errors %}
+        <div class="alert alert-danger">
+            <strong>{{ error|escape }}</strong>
+        </div>
+    {% endfor %}
+{% endif %}
 
+
+    {% for dict in formset.errors %}
+    {% for field,error in dict.items %}
+           <div class="alert alert-danger">
+               {% if field == '__all__'%}
+                           <strong>{{ error|escape }}</strong>
+               {% else %}
+                           <strong>{{ field }}:{{ error|escape }}</strong>
+               {% endif %}
+
+        </div>
+    {% endfor %}
+{% endfor %}
   <table class="table table-striped">
     <thead>
       <tr>
         <th scope="col">Product</th>
         <th scope="col">Ordered Qty</th>
-        <th scope="col">Shipped Qty</th>
-        <th scope="col">Delivered Qty</th>
-        <th scope="col">Returned Qty</th>
-        <th scope="col">Damaged Qty</th>
+        <th scope="col">To Ship Qty</th>
+
       </tr>
     </thead>
     <tbody>
+
       {{ formset.management_form }}
 
         {% for order_form in formset %}
         <tr>
          <div id="readonly"><td>{{ order_form.product }}</td></div>
-          <td> <input type="text" name="country" value="{{ order_form.ordered_qty.value }}" readonly></td>
+            <td> <b>{{ order_form.ordered_qty }}</b></td>
           <td>{{ order_form.shipped_qty }}</td>
-          <td>{{ order_form.delivered_qty }}</td>
-          <td>{{ order_form.returned_qty }}</td>
-          <td>{{ order_form.damaged_qty }}</td>
+
         </tr>
       {% endfor %}
 
@@ -91,7 +115,7 @@
 <script>
 $(document).ready(function(){
 
-  $("select[id^='id_form']").attr("disabled", true);
+  $("input[id$='ordered_qty']").attr("readOnly", true);
   $('select#id_order').select2();
 
     $("select#id_order").change(function(){
@@ -99,7 +123,7 @@ $(document).ready(function(){
         $("table").html('Loading! Please wait...');
          var selectedOrder= $(this).children("option:selected").val();
          var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '')+'/';
-         var url = host + 'admin/retailer_to_sp/cart/order-product-mapping/?order_id=' + selectedOrder;
+         var url = host + 'admin/retailer_to_sp/cart/order-product-mapping-shipment/?order_id=' + selectedOrder;
          location.href=url;
         });
 

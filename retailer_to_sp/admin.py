@@ -17,7 +17,9 @@ from .models import (
     Payment, Return, ReturnProductMapping
 )
 from .forms import CustomerCareForm, ReturnProductMappingForm
-from retailer_to_sp.views import ordered_product_mapping
+from retailer_to_sp.views import (
+    ordered_product_mapping_shipment, ordered_product_mapping_delivery
+)
 
 
 class InvoiceNumberFilter(AutocompleteFilter):
@@ -146,9 +148,14 @@ class CartAdmin(admin.ModelAdmin):
         urls = super(CartAdmin, self).get_urls()
         urls = [
             url(
-                r'^order-product-mapping/$',
-                self.admin_site.admin_view(ordered_product_mapping),
-                name="OrderProductMappingView"
+                r'^order-product-mapping-shipment/$',
+                self.admin_site.admin_view(ordered_product_mapping_shipment),
+                name="OrderProductMappingShipment"
+            ),
+            url(
+                r'^order-product-mapping-delivery/$',
+                self.admin_site.admin_view(ordered_product_mapping_delivery),
+                name="OrderProductMappingDelivery"
             )
         ] + urls
         return urls
