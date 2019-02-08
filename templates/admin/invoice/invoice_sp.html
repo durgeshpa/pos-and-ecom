@@ -36,16 +36,17 @@ table tr td,th,h4,span,address{
     <div class="row">
         <div class="col-xs-12">
           <div class="invoice-title col-md-12">
-      			<div class="invoice "><h4> Tax Invoice No: <span style="font-size:30px"class="invoice_no"><strong>{{shop.invoice_no}}</strong></span></h4></div>
+      			<div class="invoice col-sm-4 "><h4> Tax Invoice No: <span style="font-size:30px"class="invoice_no"><strong>{{shop.invoice_no}}</strong></span></h4></div>
 
-  				<div class="pull-right order_id ">
+  				<div class="col-sm-4 order_id ">
             {% if payment_type == 'neft' %}
                 <h4 style="font-size:30px">Prepaid Order</h4>
             {% else %}
                 <h4 style="font-size:30px">Cash On Delivery</h4>
             {% endif %}
-            <div class="pull-right "><h4>Order Id: <span style="font-size:30px"class=" order_id_no "><strong>{{ order_id }}</strong></span></h4></div></div>
-      		</div>
+            </div>
+			<div class="pull-right col-sm-4 "><h4>Order Id: <span style="font-size:30px"class=" order_id_no "><strong>{{ order_id }}</strong></span></h4></div>
+		  </div>
 
     		<div class="row">
     			<div class="col-xs-6">
