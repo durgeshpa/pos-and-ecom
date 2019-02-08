@@ -237,14 +237,14 @@ class OrderedProductAdmin(admin.ModelAdmin):
 
 class NoteAdmin(admin.ModelAdmin):
     list_display = (
-        'credit_note_id', 'return_no',
-        'order', 'invoice_no',  'amount'
+        'credit_note_id', 'shipment',
+        'invoice_no',  'amount'
     )
     readonly_fields = ['invoice_no', ]
     exclude = ('credit_note_id', 'last_modified_by',)
     search_fields = (
         'credit_note_id', 'return_no__name',
-        'order__order_no',  'amount'
+          'amount'
     )
     list_filter = [ReturnNumberFilter, ]
 

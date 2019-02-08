@@ -72,7 +72,7 @@ def order_id_pattern(order_id):
     starts_with = getattr(settings, 'INVOICE_STARTS_WITH', 'ADT')
     default_city_code = getattr(settings, 'DEFAULT_CITY_CODE', '07')
     city_code = default_city_code
-    ends_with = str(order_id).ljust(5, '0')
+    ends_with = str(order_id).rjust(5, '0')
     return "%s/%s/%s" % (starts_with,city_code,ends_with)
 
 def grn_pattern(id):
@@ -103,7 +103,7 @@ def brand_debit_note_pattern( id):
 def brand_credit_note_pattern(cid, invoice_pattern):
 
     starts_with = invoice_pattern
-    ends_with = str(cid).ljust(5, '0')
+    ends_with = str(cid).rjust(5, '0')
     return "%s/%s"%(starts_with,ends_with)
 
 def getcredit_note_id(c_num, invoice_pattern):
@@ -125,7 +125,7 @@ def brand_note_pattern(note_type, id):
 
     elif note_type == 'credit_note':
         starts_with = getattr(settings, 'CN_STARTS_WITH', 'ADT/CN')
-        ends_with = str(id).ljust(5, '0')
+        ends_with = str(id).rjust(5, '0')
         return "%s/%s"%(starts_with,ends_with)
 
 def invoice_pattern(invoice_id, **kwargs):
