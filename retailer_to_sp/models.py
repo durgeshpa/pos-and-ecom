@@ -464,7 +464,7 @@ def create_credit_note(sender, instance=None, created=False, **kwargs):
 
         credit_amount = 0
         cur_cred_note = brand_credit_note_pattern(note_id, invoice_prefix)
-        if instance.credit_note.count()
+        if instance.credit_note.count():
             credit_note = instance.credit_note.last()
         else:
             credit_note = Note.objects.create(
