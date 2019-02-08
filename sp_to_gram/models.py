@@ -15,7 +15,7 @@ from brand.models import Brand
 from products.models import Product
 from retailer_to_sp.models import Cart as RetailerCart
 from addresses.models import Address, City, State
-from retailer_to_sp.models import Note as CreditNote
+from retailer_to_sp.models import Note as CreditNote, OrderedProduct as RetailerShipment
 
 ORDER_STATUS = (
     ("ordered_to_gram", "Ordered To Gramfactory"),
@@ -281,3 +281,45 @@ def create_brand_note_id(sender, instance=None, created=False, **kwargs):
             else:
                 last_brand_note_id_increment = '00001'
             instance.brand_note_id = "ADT/CN/%s"%(last_brand_note_id_increment)
+
+@receiver(post_save, sender=RetailerShipment)
+def create_credit_note(sender, instance=None, created=False, **kwargs):
+    if instance.rt_order_product_order_product_mapping.all().aggregate(Sum('returned_qty')).get('returned_qty__sum') > 0:
+        invoice_prefix = instance.order.seller_shop.invoce_pattern.filter(status=Shop.ACTIVE).last().pattern
+        last_credit_note = Note.objects.last()
+        if last_credit_note:
+            note_id = int(getcredit_note_id(last_credit_note.credit_note_id, invoice_prefix))
+            note_id += 1
+        else:
+            note_id = 1
+
+        credit_amount = 0
+        cur_cred_note = brand_credit_note_pattern(note_id, invoice_prefix)
+        if instance.credit_note.count():
+            credit_note = instance.credit_note.last()
+        else:
+            credit_note = Note.objects.create(
+                credit_note_id=brand_credit_note_pattern(note_id, invoice_prefix),
+                shipment = instance,
+                amount = 0,
+                status=True)
+        SPGRN.objects.filter(credit_note=credit_note).update(status=SPGRN.DISABLED)
+        credit_grn = SPGRN.objects.create(credit_note=credit_note)
+        credit_grn.save()
+
+        for item in instance.rt_order_product_order_product_mapping.all():
+            grn_item = SPGRNProductMapping.objects.create(
+                ordered_product=credit_grn,
+                product=item.product,
+                shipped_qty=item.returned_qty,
+                available_qty=item.returned_qty - item.damaged_qty,
+                ordered_qty = item.returned_qty,
+                )
+            grn_item.save()
+            credit_amount += int(item.returned_qty) * int(item.product.product_inner_case_size) * float(item.product.product_pro_price.filter(
+                shop__shop_type__shop_type='sp', status=True
+                ).last().price_to_retailer)
+
+        credit_note.amount = credit_amount
+        credit_note.save()
+ 
