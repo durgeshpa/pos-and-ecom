@@ -215,4 +215,4 @@ class OrderedProductReservedAdmin(admin.ModelAdmin):
 admin.site.register(OrderedProductReserved,OrderedProductReservedAdmin)
 admin.site.register(Order,OrderAdmin)
 admin.site.register(GRNOrder,GRNOrderAdmin)
-admin.site.register(BrandNote,BrandNoteAdmin)
+#admin.site.register(BrandNote,BrandNoteAdmin)
