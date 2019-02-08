@@ -9,8 +9,9 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.conf import settings
 from django.db import models
+from django.db.models import Sum
 
-from shops.models import Shop, ParentRetailerMapping
+from shops.models import Shop, ParentRetailerMapping, ShopInvoicePattern
 from brand.models import Brand
 from products.models import Product
 from retailer_to_sp.models import Cart as RetailerCart
@@ -284,9 +285,9 @@ def create_brand_note_id(sender, instance=None, created=False, **kwargs):
 
 @receiver(post_save, sender=RetailerShipment)
 def create_credit_note(sender, instance=None, created=False, **kwargs):
-    if instance.rt_order_product_order_product_mapping.all().aggregate(Sum('returned_qty')).get('returned_qty__sum') > 0:
-        invoice_prefix = instance.order.seller_shop.invoce_pattern.filter(status=Shop.ACTIVE).last().pattern
-        last_credit_note = Note.objects.last()
+    if instance.rt_order_product_order_product_mapping.last() and instance.rt_order_product_order_product_mapping.all().aggregate(Sum('returned_qty')).get('returned_qty__sum') > 0:
+        invoice_prefix = instance.order.seller_shop.invoce_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
+        last_credit_note = CreditNote.objects.filter(shop=instance.order.seller_shop).last()
         if last_credit_note:
             note_id = int(getcredit_note_id(last_credit_note.credit_note_id, invoice_prefix))
             note_id += 1
@@ -298,17 +299,18 @@ def create_credit_note(sender, instance=None, created=False, **kwargs):
         if instance.credit_note.count():
             credit_note = instance.credit_note.last()
         else:
-            credit_note = Note.objects.create(
+            credit_note = CreditNote.objects.create(
+                shop = instance.order.seller_shop,
                 credit_note_id=brand_credit_note_pattern(note_id, invoice_prefix),
                 shipment = instance,
                 amount = 0,
                 status=True)
-        SPGRN.objects.filter(credit_note=credit_note).update(status=SPGRN.DISABLED)
-        credit_grn = SPGRN.objects.create(credit_note=credit_note)
+        OrderedProduct.objects.filter(credit_note=credit_note).update(status=OrderedProduct.DISABLED)
+        credit_grn = OrderedProduct.objects.create(credit_note=credit_note)
         credit_grn.save()
 
         for item in instance.rt_order_product_order_product_mapping.all():
-            grn_item = SPGRNProductMapping.objects.create(
+            grn_item = OrderedProductMapping.objects.create(
                 ordered_product=credit_grn,
                 product=item.product,
                 shipped_qty=item.returned_qty,
