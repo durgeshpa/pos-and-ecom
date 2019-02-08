@@ -108,7 +108,7 @@ def brand_credit_note_pattern(cid, invoice_pattern):
 
 def getcredit_note_id(c_num, invoice_pattern):
     starts_with = invoice_pattern
-    return int(c_num.s.split(starts_with)[1])
+    return int(c_num.split(starts_with)[1])
 
 def brand_note_pattern(note_type, id):
 
@@ -147,3 +147,9 @@ def invoice_pattern(invoice_id, **kwargs):
             city_code = city_code_mapping.last().city_code
     ends_with = format(invoice_id,'05d')
     return "%s/%s/%s" % (starts_with,city_code,ends_with)
+
+
+def retailer_sp_invoice(prefix, invoice_id):
+    starts_with = prefix
+    ends_with = str(id).rjust(5, '0')
+    return "%s%s" % (starts_with, ends_with)
