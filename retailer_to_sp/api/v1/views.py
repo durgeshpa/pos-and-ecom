@@ -734,7 +734,6 @@ class DownloadInvoiceSP(APIView):
         #order_obj1= get_object_or_404(OrderedProductMapping)
         pk=self.kwargs.get('pk')
         a = OrderedProduct.objects.get(pk=pk)
-        print(a)
         shop=a
         products = a.rt_order_product_order_product_mapping.all()
         payment_type = a.order.rt_payment.last().payment_choice
@@ -769,7 +768,7 @@ class DownloadInvoiceSP(APIView):
         product_listing = []
         for m in products:
 
-            # New Code For Product Listing
+            # New Code For Product Listing Start
             tax_sum = 0
             product_tax_amount = 0
             product_pro_price = 0
@@ -803,8 +802,7 @@ class DownloadInvoiceSP(APIView):
             }
 
             product_listing.append(ordered_prodcut)
-            # New Code For Product Listing
-
+            # New Code For Product Listing End
 
 
             sum_qty = sum_qty + int(m.product.product_inner_case_size) * int(m.shipped_qty)
@@ -833,15 +831,9 @@ class DownloadInvoiceSP(APIView):
                 surcharge= sum(surcharge_tax_list)
                 #tax_inline = tax_inline + (inline_sum_amount - original_amount)
                 #tax_inline1 =(tax_inline / 2)
-            print(surcharge_tax_list)
-            print(gst_tax_list)
-            print(cess_tax_list)
-            print(taxes_list)
 
         total_amount = sum_amount
         total_amount_int = int(total_amount)
-        print(sum_amount)
-
 
         data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop, "sum_qty": sum_qty,
                 "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" ,
