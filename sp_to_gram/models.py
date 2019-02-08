@@ -285,6 +285,7 @@ def create_brand_note_id(sender, instance=None, created=False, **kwargs):
                 last_brand_note_id_increment = '00001'
             instance.brand_note_id = "ADT/CN/%s"%(last_brand_note_id_increment)
 
+
 @receiver(post_save, sender=RetailerShipment)
 def create_credit_note(sender, instance=None, created=False, **kwargs):
     if instance.rt_order_product_order_product_mapping.last() and instance.rt_order_product_order_product_mapping.all().aggregate(Sum('returned_qty')).get('returned_qty__sum') > 0:
@@ -321,9 +322,9 @@ def create_credit_note(sender, instance=None, created=False, **kwargs):
                 )
             grn_item.save()
             credit_amount += int(item.returned_qty) * int(item.product.product_inner_case_size) * float(item.product.product_pro_price.filter(
-                shop__shop_type__shop_type='sp', status=True
+                shop=instance.order.seller_shop, status=True
                 ).last().price_to_retailer)
 
         credit_note.amount = credit_amount
         credit_note.save()
- 
+

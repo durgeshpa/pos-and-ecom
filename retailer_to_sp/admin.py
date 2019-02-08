@@ -27,9 +27,9 @@ class InvoiceNumberFilter(AutocompleteFilter):
     field_name = 'invoice_no'
 
 
-class ReturnNumberFilter(AutocompleteFilter):
-    title = 'Return No'
-    field_name = 'return_no'
+# class ReturnNumberFilter(AutocompleteFilter):
+#     title = 'Return No'
+#     field_name = 'return_no'
 
 
 class ReturnNameSearch(InputFilter):
@@ -242,11 +242,11 @@ class NoteAdmin(admin.ModelAdmin):
     )
     readonly_fields = ['invoice_no', ]
     exclude = ('credit_note_id', 'last_modified_by',)
-    search_fields = (
-        'credit_note_id', 'return_no__name',
-          'amount'
-    )
-    list_filter = [ReturnNumberFilter, ]
+    # search_fields = (
+    #     'credit_note_id',
+    #       'amount'
+    # )
+    # list_filter = [ReturnNumberFilter, ]
 
     class Media:
         pass
