@@ -100,12 +100,15 @@ def brand_debit_note_pattern( id):
     ends_with = str(id)
     return "%s/%s"%(starts_with,ends_with)
 
-def brand_credit_note_pattern( id):
+def brand_credit_note_pattern(cid, invoice_pattern):
 
-    starts_with = getattr(settings, 'CN_STARTS_WITH', 'ADT/CN')
-    ends_with = str(id).ljust(5, '0')
+    starts_with = invoice_pattern
+    ends_with = str(cid).ljust(5, '0')
     return "%s/%s"%(starts_with,ends_with)
 
+def getcredit_note_id(c_num, invoice_pattern):
+    starts_with = invoice_pattern
+    return int(c_num.s.split(starts_with)[1])
 
 def brand_note_pattern(note_type, id):
 

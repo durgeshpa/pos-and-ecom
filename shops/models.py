@@ -100,6 +100,21 @@ class ShopDocument(models.Model):
     def __str__(self):
         return "%s - %s"%(self.shop_document_number, self.shop_document_photo.url)
 
+class ShopInvoicePattern(models.Model):
+    ACTIVE = 'ACT'
+    DISABLED = 'DIS'
+    SHOP_INVOICE_CHOICES = (
+        (ACTIVE, 'Active'),
+        (DISABLED, 'Disabled'),
+        )
+    shop = models.ForeignKey(Shop, related_name='invoce_pattern', on_delete=models.CASCADE)
+    pattern = models.CharField(max_length=15, null=True, blank=True)
+    start_date = models.DateTimeField(null=True, blank=True)
+    end_date = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=3, choices=SHOP_INVOICE_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
 class ParentRetailerMapping(models.Model):
     parent = models.ForeignKey(Shop,related_name='parrent_mapping',on_delete=models.CASCADE)
     retailer = models.ForeignKey(Shop,related_name='retiler_mapping',on_delete=models.CASCADE)

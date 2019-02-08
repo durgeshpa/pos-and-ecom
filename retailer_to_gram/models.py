@@ -123,6 +123,7 @@ class OrderedProduct(models.Model):
     order = models.ForeignKey(Order,related_name='rt_order_order_product',on_delete=models.CASCADE,null=True,blank=True)
     invoice_no = models.CharField(max_length=255,null=True,blank=True)
     vehicle_no = models.CharField(max_length=255,null=True,blank=True)
+    driver_name = models.CharField(max_length=80, null=True, blank=True) #Temporary 
     shipped_by = models.ForeignKey(get_user_model(), related_name='rtg_shipped_product_ordered_by_user', null=True, blank=True,on_delete=models.CASCADE)
     received_by = models.ForeignKey(get_user_model(), related_name='rtg_ordered_product_received_by_user', null=True, blank=True,on_delete=models.CASCADE)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='rtg_last_modified_user_order', null=True,blank=True, on_delete=models.CASCADE)
