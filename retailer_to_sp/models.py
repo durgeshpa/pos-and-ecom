@@ -191,7 +191,8 @@ class OrderedProduct(models.Model):
     def save(self, *args, **kwargs):
         invoice_prefix = self.order.seller_shop.invoce_pattern.filter(
             status='ACT')
-        last_invoice = OrderedProduct.objects.order_by('invoice_no').last()
+    #    import pdb; pdb.set_trace()
+        last_invoice = OrderedProduct.objects.filter(order__in=self.order.seller_shop.rt_seller_shop_order.all()).order_by('invoice_no').last()
         if last_invoice:
             invoice_id = getcredit_note_id(last_invoice.invoice_no, invoice_prefix)
             invoice_id += 1
@@ -465,16 +466,3 @@ class Note(models.Model):
 #                         ).last().price_to_retailer),
 #                     status=True)
 
-@receiver(post_save, sender=Order)
-def invoice_creation(sender, instance=None, created=False, **kwargs):
-    if created:
-        import pdb; pdb.set_trace()
-        instance.seller_shop
-        try:
-            invoice_pattern = instance.seller_shop.invoce_pattern.filter(
-            status='ACT')
-
-        except:
-           pass
-        else:
-            invoice_pattern = invoice_pattern.values('pattern').first().get('pattern')
