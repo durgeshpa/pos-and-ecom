@@ -390,6 +390,7 @@ class ReturnProductMapping(models.Model):
 
 
 class Note(models.Model):
+    shop = models.ForeignKey(Shop, related_name='credit_notes', null=True, blank=True, on_delete=models.CASCADE)
     credit_note_id = models.CharField(max_length=255, null=True, blank=True)
     shipment = models.ForeignKey(OrderedProduct, null=True, blank=True, on_delete=models.CASCADE, related_name='credit_note')
     note_type = models.CharField(
