@@ -755,10 +755,16 @@ class DownloadInvoiceSP(APIView):
             state_gram= z.state
             pincode_gram= z.pincode
 
-        seller_shop_gistin = order_obj.order.seller_shop.shop_name_documents.filter(
-            shop_document_type='gstin').last().shop_document_number if order_obj.order.seller_shop.shop_name_documents.exists() else '---'
-        buyer_shop_gistin = order_obj.order.buyer_shop.shop_name_documents.filter(
-            shop_document_type='gstin').last().shop_document_number if order_obj.order.buyer_shop.shop_name_documents.exists() else '---'
+        seller_shop_gistin = '---'
+        buyer_shop_gistin = '---'
+
+        if order_obj.order.seller_shop.shop_name_documents.exists():
+            seller_shop_gistin = order_obj.order.seller_shop.shop_name_documents.filter(
+            shop_document_type='gstin').last().shop_document_number if order_obj.order.seller_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else '---'
+
+        if order_obj.order.buyer_shop.shop_name_documents.exists():
+            buyer_shop_gistin = order_obj.order.buyer_shop.shop_name_documents.filter(
+            shop_document_type='gstin').last().shop_document_number if order_obj.order.buyer_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else '---'
 
         product_listing = []
         for m in products:
