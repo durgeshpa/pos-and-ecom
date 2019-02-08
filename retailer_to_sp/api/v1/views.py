@@ -734,7 +734,6 @@ class DownloadInvoiceSP(APIView):
         #order_obj1= get_object_or_404(OrderedProductMapping)
         pk=self.kwargs.get('pk')
         a = OrderedProduct.objects.get(pk=pk)
-        print(a)
         shop=a
         products = a.rt_order_product_order_product_mapping.all()
         payment_type = a.order.rt_payment.last().payment_choice
@@ -755,7 +754,57 @@ class DownloadInvoiceSP(APIView):
             state_gram= z.state
             pincode_gram= z.pincode
 
+        seller_shop_gistin = '---'
+        buyer_shop_gistin = '---'
+
+        if order_obj.order.seller_shop.shop_name_documents.exists():
+            seller_shop_gistin = order_obj.order.seller_shop.shop_name_documents.filter(
+            shop_document_type='gstin').last().shop_document_number if order_obj.order.seller_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else '---'
+
+        if order_obj.order.buyer_shop.shop_name_documents.exists():
+            buyer_shop_gistin = order_obj.order.buyer_shop.shop_name_documents.filter(
+            shop_document_type='gstin').last().shop_document_number if order_obj.order.buyer_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else '---'
+
+        product_listing = []
         for m in products:
+
+            # New Code For Product Listing Start
+            tax_sum = 0
+            product_tax_amount = 0
+            product_pro_price = 0
+            product_pro_price = m.product.product_pro_price.filter(
+                shop=m.ordered_product.order.seller_shop).last().price_to_retailer if m.product.product_pro_price.exists() else 0
+
+            all_tax_list = m.product.product_pro_tax
+            if all_tax_list.exists():
+                for tax_dt in all_tax_list.all():
+                    tax_sum = float(tax_sum) + float(tax_dt.tax.tax_percentage)
+
+                tax_sum = round(tax_sum,2)
+
+                get_tax_val = tax_sum/100
+                base_price = (float(product_pro_price) * float(m.shipped_qty) * float(m.product.product_inner_case_size)) / (float(get_tax_val) + 1)
+                product_tax_amount = float(base_price) * float(get_tax_val)
+                product_tax_amount = round(product_tax_amount,2)
+
+            ordered_prodcut = {
+                "product_sku": m.product.product_sku,
+                "product_short_description": m.product.product_short_description,
+                "product_hsn": m.product.product_hsn,
+                "product_tax_percentage": "" if tax_sum == 0 else str(tax_sum)+"%",
+                "shipped_qty": m.shipped_qty,
+                "product_inner_case_size": m.product.product_inner_case_size,
+                "product_no_of_pices": int(m.product.product_inner_case_size) * int(m.shipped_qty) ,
+                "price_to_retailer":  product_pro_price,
+                "product_sub_total": float(m.product.product_inner_case_size) * float(m.shipped_qty) * float(product_pro_price),
+                "product_tax_amount": product_tax_amount,
+
+            }
+
+            product_listing.append(ordered_prodcut)
+            # New Code For Product Listing End
+
+
             sum_qty = sum_qty + int(m.product.product_inner_case_size) * int(m.shipped_qty)
 
             for h in m.get_shop_specific_products_prices_sp():
@@ -782,17 +831,17 @@ class DownloadInvoiceSP(APIView):
                 surcharge= sum(surcharge_tax_list)
                 #tax_inline = tax_inline + (inline_sum_amount - original_amount)
                 #tax_inline1 =(tax_inline / 2)
-            print(surcharge_tax_list)
-            print(gst_tax_list)
-            print(cess_tax_list)
-            print(taxes_list)
 
         total_amount = sum_amount
         total_amount_int = int(total_amount)
-        print(sum_amount)
 
-
-        data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop, "sum_qty": sum_qty, "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" , "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,"order_id":order_id,"shop_name_gram":shop_name_gram,"nick_name_gram":nick_name_gram, "city_gram":city_gram, "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram, "payment_type":payment_type,"total_amount_int":total_amount_int}
+        data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop, "sum_qty": sum_qty,
+                "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" ,
+                "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,
+                "order_id":order_id,"shop_name_gram":shop_name_gram,"nick_name_gram":nick_name_gram, "city_gram":city_gram,
+                "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram,
+                "payment_type":payment_type,"total_amount_int":total_amount_int,"product_listing":product_listing,
+                "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
