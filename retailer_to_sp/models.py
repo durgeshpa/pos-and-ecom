@@ -6,15 +6,19 @@ from django.contrib.auth import get_user_model
 from django.dispatch import receiver
 from django.db.models.signals import pre_save
 from django.db.models.signals import post_save
+from django.db.models import Sum
+from django.utils.translation import ugettext_lazy as _
 
 from retailer_backend.common_function import (
-    order_id_pattern, brand_credit_note_pattern
+    order_id_pattern, brand_credit_note_pattern, getcredit_note_id,
+    retailer_sp_invoice
 )
 from shops.models import Shop
 from brand.models import Brand
 from addresses.models import Address
 from products.models import Product
 from otp.sms import SendSms
+# from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
 
 ORDER_STATUS = (
     ("active", "Active"),
@@ -163,6 +167,7 @@ class OrderedProduct(models.Model):
     )
     invoice_no = models.CharField(max_length=255, null=True, blank=True)
     vehicle_no = models.CharField(max_length=255, null=True, blank=True)
+    driver_name = models.CharField(max_length=60, null=True, blank=True)
     shipped_by = models.ForeignKey(
         get_user_model(), related_name='rt_shipped_product_ordered_by_user',
         null=True, blank=True, on_delete=models.CASCADE
@@ -184,6 +189,20 @@ class OrderedProduct(models.Model):
     def __str__(self):
         return self.invoice_no or str(self.id)
 
+    def save(self, *args, **kwargs):
+        invoice_prefix = self.order.seller_shop.invoce_pattern.filter(
+            status='ACT').last().pattern
+        last_invoice = OrderedProduct.objects.filter(
+            order__in=self.order.seller_shop.rt_seller_shop_order.all()
+        ).order_by('invoice_no').last()
+        if last_invoice:
+            invoice_id = getcredit_note_id(last_invoice.invoice_no, invoice_prefix)
+            invoice_id += 1
+        else:
+            invoice_id = 1
+        self.invoice_no = retailer_sp_invoice(invoice_prefix, invoice_id)
+        super().save(*args, **kwargs)
+
 
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(
@@ -204,6 +223,19 @@ class OrderedProductMapping(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        super(OrderedProductMapping,self).clean()
+        delivered_qty = int(self.delivered_qty)
+        returned_qty = int(self.returned_qty)
+        damaged_qty = int(self.damaged_qty)
+        already_shipped_qty = int(self.shipped_qty)
+        if (delivered_qty or returned_qty) and sum([delivered_qty, returned_qty,
+                damaged_qty]) != already_shipped_qty:
+            raise ValidationError(
+                _('Sum of Delivered, Returned and Damaged Quantity should be '
+                  'equals to Already Shipped Quantity '),
+            )
 
     @property
     def ordered_qty(self):
@@ -387,15 +419,9 @@ class ReturnProductMapping(models.Model):
 
 
 class Note(models.Model):
+    shop = models.ForeignKey(Shop, related_name='credit_notes', null=True, blank=True, on_delete=models.CASCADE)
     credit_note_id = models.CharField(max_length=255, null=True, blank=True)
-    order = models.ForeignKey(
-        Order, related_name='rt_order_note',
-        null=True, blank=True, on_delete=models.CASCADE
-    )
-    return_no = models.ForeignKey(
-        Return, related_name='return_credit_note',
-        null=True, blank=True, on_delete=models.CASCADE
-    )
+    shipment = models.ForeignKey(OrderedProduct, null=True, blank=True, on_delete=models.CASCADE, related_name='credit_note')
     note_type = models.CharField(
         max_length=255, choices=NOTE_TYPE_CHOICES, default='credit_note'
     )
@@ -417,41 +443,42 @@ class Note(models.Model):
 
     @property
     def invoice_no(self):
-        if self.return_no:
-            return self.return_no.invoice_no
+        if self.shipment:
+            return self.shipment.invoice_no
 
 
-@receiver(post_save, sender=ReturnProductMapping)
-def create_credit_note(sender, instance=None, created=False, **kwargs):
-    if created:
-        if instance.total_returned_qty > 0:
-            credit_note = Note.objects.filter(return_no=instance.return_id)
-            if credit_note.exists():
-                credit_note = credit_note.last()
-                credit_note.credit_note_id = brand_credit_note_pattern(
-                    instance.return_id.pk)
-                credit_note.amount = credit_note.amount + (
-                        int(
-                            instance.total_returned_qty
-                        ) *
-                        int(
-                            instance.returned_product.product_inner_case_size
-                        ) *
-                        float(
-                            instance.returned_product.product_pro_price.filter(
-                                shop__shop_type__shop_type='sp', status=True
-                            ).last().price_to_retailer)
-                )
-                credit_note.save()
-            else:
-                credit_note = Note.objects.create(
-                    credit_note_id=brand_credit_note_pattern(instance.return_id.pk),
-                    order=instance.return_id.invoice_no.order,
-                    return_no=instance.return_id,
-                    amount=int(instance.total_returned_qty) *
-                    int(instance.returned_product.product_inner_case_size) *
-                    float(instance.returned_product.product_pro_price.filter(
-                        shop__shop_type__shop_type='sp', status=True
-                        ).last().price_to_retailer),
-                    status=True)
+
+# @receiver(post_save, sender=ReturnProductMapping)
+# def create_credit_note(sender, instance=None, created=False, **kwargs):
+#     if created:
+#         if instance.total_returned_qty > 0:
+#             credit_note = Note.objects.filter(return_no=instance.return_id)
+#             if credit_note.exists():
+#                 credit_note = credit_note.last()
+#                 credit_note.credit_note_id = brand_credit_note_pattern(
+#                     instance.return_id.pk)
+#                 credit_note.amount = credit_note.amount + (
+#                         int(
+#                             instance.total_returned_qty
+#                         ) *
+#                         int(
+#                             instance.returned_product.product_inner_case_size
+#                         ) *
+#                         float(
+#                             instance.returned_product.product_pro_price.filter(
+#                                 shop__shop_type__shop_type='sp', status=True
+#                             ).last().price_to_retailer)
+#                 )
+#                 credit_note.save()
+#             else:
+#                 credit_note = Note.objects.create(
+#                     credit_note_id=brand_credit_note_pattern(instance.return_id.pk),
+#                     order=instance.return_id.invoice_no.order,
+#                     return_no=instance.return_id,
+#                     amount=int(instance.total_returned_qty) *
+#                     int(instance.returned_product.product_inner_case_size) *
+#                     float(instance.returned_product.product_pro_price.filter(
+#                         shop__shop_type__shop_type='sp', status=True
+#                         ).last().price_to_retailer),
+#                     status=True)
 

@@ -110,13 +110,9 @@ class CategorySearch(InputFilter):
 
     def queryset(self, request, queryset):
         if self.value() is not None:
-            qty = self.value()
-            if qty is None:
-                return
             return queryset.filter(
-                Q(ordered_qty__icontains=qty)
+                Q(product_pro_category__category__category_name__icontains=self.value())
             )
-
 
 class ProductSearch(InputFilter):
     parameter_name = 'product_sku'

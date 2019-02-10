@@ -2,6 +2,8 @@ from dal import autocomplete
 from django_select2.forms import Select2MultipleWidget, ModelSelect2Widget
 
 from django import forms
+from django.core.exceptions import ValidationError
+from django.utils.translation import ugettext_lazy as _
 
 from retailer_to_sp.models import (
     CustomerCare, ReturnProductMapping, OrderedProduct,
@@ -44,7 +46,7 @@ class OrderedProductForm(forms.ModelForm):
 
     class Meta:
         model = OrderedProduct
-        fields = ['order', 'invoice_no', 'vehicle_no']
+        fields = ['order', 'vehicle_no','driver_name']
 
     class Media:
         js = (
@@ -59,13 +61,62 @@ class OrderedProductForm(forms.ModelForm):
             )
         }
 
+    def __init__(self, *args, **kwargs):
+        super(OrderedProductForm, self).__init__(*args, **kwargs)
+        self.fields['order'].required = True
+        self.fields['driver_name'].required = True
+        self.fields['vehicle_no'].required = True
 
-class OrderedProductMappingForm(forms.ModelForm):
+
+class OrderedProductMappingDeliveryForm(forms.ModelForm):
+    ordered_qty = forms.CharField(required=False)
+    already_shipped_qty = forms.CharField(required=False)
+
+    class Meta:
+        model = OrderedProductMapping
+        fields = [
+            'product', 'ordered_qty', 'already_shipped_qty', 'delivered_qty',
+            'returned_qty', 'damaged_qty'
+        ]
+
+    def clean(self):
+        cleaned_data = self.cleaned_data
+        delivered_qty = int(self.cleaned_data.get('delivered_qty', '0'))
+        returned_qty = int(self.cleaned_data.get('returned_qty', '0'))
+        damaged_qty = int(self.cleaned_data.get('damaged_qty', '0'))
+        already_shipped_qty = int(self.cleaned_data.get('already_shipped_qty'))
+        if sum([delivered_qty, returned_qty,
+                damaged_qty]) != already_shipped_qty:
+            raise forms.ValidationError(
+                _('Sum of Delivered, Returned and Damaged Quantity should be '
+                  'equals to Already Shipped Quantity for %(value)s'),
+                params={'value': self.cleaned_data.get('product')},
+            )
+        else:
+            return cleaned_data
+
+
+class OrderedProductMappingShipmentForm(forms.ModelForm):
     ordered_qty = forms.CharField(required=False)
 
     class Meta:
         model = OrderedProductMapping
         fields = [
-            'product', 'ordered_qty', 'shipped_qty', 'delivered_qty',
-            'returned_qty', 'damaged_qty'
+            'product', 'ordered_qty', 'shipped_qty'
         ]
+
+    def clean(self):
+        cleaned_data = self.cleaned_data
+        if self.cleaned_data.get('shipped_qty') and (
+                int(self.cleaned_data.get('shipped_qty')) >
+                int(self.cleaned_data.get('ordered_qty'))
+        ):
+            raise forms.ValidationError(
+                _('Shipped Quantity cannot be greater '
+                    'than Ordered Quantity for %(value)s'),
+                params={'value': self.cleaned_data.get('product')},
+            )
+        else:
+            return cleaned_data
+
+

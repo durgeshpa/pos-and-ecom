@@ -3,6 +3,8 @@ from wkhtmltopdf.views import PDFTemplateResponse
 
 from django.forms import formset_factory
 from django.shortcuts import render, get_object_or_404, redirect
+from django.db.models import Sum
+
 
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
@@ -14,7 +16,8 @@ from retailer_to_sp.models import (
 )
 from products.models import Product
 from retailer_to_sp.forms import (
-    OrderedProductForm, OrderedProductMappingForm
+    OrderedProductForm, OrderedProductMappingShipmentForm,
+    OrderedProductMappingDeliveryForm
 )
 
 
@@ -146,9 +149,9 @@ class DownloadCreditNote(APIView):
         return response
 
 
-def ordered_product_mapping(request):
+def ordered_product_mapping_shipment(request):
     order_id = request.GET.get('order_id')
-    ordered_product_set = formset_factory(OrderedProductMappingForm,
+    ordered_product_set = formset_factory(OrderedProductMappingShipmentForm,
                                           extra=1, max_num=1)
     form = OrderedProductForm()
     form_set = ordered_product_set()
@@ -160,7 +163,7 @@ def ordered_product_mapping(request):
         form_set = ordered_product_set(
             initial=[{
                 'product': item['cart_product'],
-                'ordered_qty': item['qty']
+                'ordered_qty': item['qty'],
             } for item in order_product_mapping.values('cart_product', 'qty')
             ])
         form = OrderedProductForm(initial={'order': order_id})
@@ -180,7 +183,48 @@ def ordered_product_mapping(request):
 
     return render(
         request,
-        'admin/retailer_to_sp/orderproductmapping.html',
+        'admin/retailer_to_sp/OrderedProductMappingShipment.html',
+        {'ordered_form': form, 'formset': form_set}
+    )
+
+
+def ordered_product_mapping_delivery(request):
+    order_id = request.GET.get('order_id')
+    ordered_product_set = formset_factory(OrderedProductMappingDeliveryForm,
+                                          extra=1, max_num=1)
+    form = OrderedProductForm()
+    form_set = ordered_product_set()
+    if order_id:
+        ordered_product = Cart.objects.filter(pk=order_id)
+        ordered_product = Order.objects.get(pk=order_id).ordered_cart
+        order_product_mapping = CartProductMapping.objects.filter(
+            cart=ordered_product)
+        products_list = []
+        for item in order_product_mapping.values('cart_product', 'qty'):
+            products_list.append({
+                    'product': item['cart_product'],
+                    'ordered_qty': item['qty'],
+                    'already_shipped_qty': OrderedProductMapping.objects.filter(ordered_product__in=Order.objects.get(pk=order_id).rt_order_order_product.all(),product_id=item['cart_product']).aggregate(Sum('shipped_qty')).get('shipped_qty__sum',0)
+                    })
+        form_set = ordered_product_set(initial=products_list)
+        form = OrderedProductForm(initial={'order': order_id})
+
+    if request.POST:
+        form = OrderedProductForm(request.POST)
+        if form.is_valid():
+            ordered_product_instance=form.save()
+            form_set = ordered_product_set(request.POST)
+
+            if form_set.is_valid():
+                for form in form_set:
+                    formset_data = form.save(commit=False)
+                    formset_data.ordered_product = ordered_product_instance
+                    formset_data.save()
+                return redirect('/admin/retailer_to_sp/orderedproduct/')
+
+    return render(
+        request,
+        'admin/retailer_to_sp/OrderedProductMappingDelivery.html',
         {'ordered_form': form, 'formset': form_set}
     )
 

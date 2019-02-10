@@ -17,7 +17,9 @@ from .models import (
     Payment, Return, ReturnProductMapping
 )
 from .forms import CustomerCareForm, ReturnProductMappingForm
-from retailer_to_sp.views import ordered_product_mapping
+from retailer_to_sp.views import (
+    ordered_product_mapping_shipment, ordered_product_mapping_delivery
+)
 
 
 class InvoiceNumberFilter(AutocompleteFilter):
@@ -25,9 +27,9 @@ class InvoiceNumberFilter(AutocompleteFilter):
     field_name = 'invoice_no'
 
 
-class ReturnNumberFilter(AutocompleteFilter):
-    title = 'Return No'
-    field_name = 'return_no'
+# class ReturnNumberFilter(AutocompleteFilter):
+#     title = 'Return No'
+#     field_name = 'return_no'
 
 
 class ReturnNameSearch(InputFilter):
@@ -146,9 +148,14 @@ class CartAdmin(admin.ModelAdmin):
         urls = super(CartAdmin, self).get_urls()
         urls = [
             url(
-                r'^order-product-mapping/$',
-                self.admin_site.admin_view(ordered_product_mapping),
-                name="OrderProductMappingView"
+                r'^order-product-mapping-shipment/$',
+                self.admin_site.admin_view(ordered_product_mapping_shipment),
+                name="OrderProductMappingShipment"
+            ),
+            url(
+                r'^order-product-mapping-delivery/$',
+                self.admin_site.admin_view(ordered_product_mapping_delivery),
+                name="OrderProductMappingDelivery"
             )
         ] + urls
         return urls
@@ -176,6 +183,7 @@ class OrderAdmin(admin.ModelAdmin):
     search_fields = ('order',)
     list_display = ('order_no', 'order_status', 'download_pick_list')
 
+
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
         if request.user.is_superuser:
@@ -197,7 +205,7 @@ class OrderAdmin(admin.ModelAdmin):
 class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping
     exclude = ('last_modified_by',)
-    readonly_fields = ('ordered_qty',)
+    readonly_fields = ('ordered_qty','shipped_qty')
     extra = 0
 
 
@@ -211,6 +219,7 @@ class OrderedProductAdmin(admin.ModelAdmin):
     exclude = ('shipped_by', 'received_by', 'last_modified_by',)
     autocomplete_fields = ('order',)
     search_fields = ('invoice_no', 'vehicle_no')
+    readonly_fields = ('order', 'invoice_no', 'vehicle_no', 'driver_name')
 
     def download_invoice(self, obj):
         return format_html(
@@ -230,16 +239,16 @@ class OrderedProductAdmin(admin.ModelAdmin):
 
 class NoteAdmin(admin.ModelAdmin):
     list_display = (
-        'credit_note_id', 'return_no',
-        'order', 'invoice_no',  'amount'
+        'credit_note_id', 'shipment',
+        'invoice_no',  'amount'
     )
     readonly_fields = ['invoice_no', ]
     exclude = ('credit_note_id', 'last_modified_by',)
-    search_fields = (
-        'credit_note_id', 'return_no__name',
-        'order__order_no',  'amount'
-    )
-    list_filter = [ReturnNumberFilter, ]
+    # search_fields = (
+    #     'credit_note_id',
+    #       'amount'
+    # )
+    # list_filter = [ReturnNumberFilter, ]
 
     class Media:
         pass

@@ -43,19 +43,19 @@ table tr td,th,h4,span,address{
     			<div class="col-xs-6">
     				<address>
 						<span>Invoice To :</span><br>
-    				<strong>{{shop.order.billing_address.shop_name}}</strong><br>
-    				{{shop.order.billing_address.nick_name}}, {{shop.order.billing_address.address_line1}}, {{shop.order.billing_address.city}}<br>
+    				<strong>{{shop.order.ordered_cart.gf_billing_address.shop_name.shop_name}}</strong><br>
+    				{{shop.order.ordered_cart.gf_billing_address.nick_name}}, {{shop.order.ordered_cart.gf_billing_address.address_line1}}, {{shop.order.ordered_cart.gf_billing_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{% if gram_factory_billing_gstin %}{{ gram_factory_billing_gstin.shop_document_number }}{% else %} ---- {% endif %}</span><br>
-						<strong>State Name:</strong> <span>{{shop.order.billing_address.state}} </span><strong>Code:</strong> <span>{{shop.order.billing_address.pincode}}</span><br>
+						<strong>State Name:</strong> <span>{{shop.order.ordered_cart.gf_billing_address.state}} </span><strong>Code:</strong> <span>{{shop.order.ordered_cart.gf_billing_address.pincode}}</span><br>
 						<strong>CIN:</strong> <span>---</span>
     				</address>
 
 					<address>
 						<span>Dispatch To :</span><br>
-    				<strong>{{shop.order.shipping_address.shop_name}}</strong><br>
-    				{{shop.order.shipping_address.nick_name}}, {{shop.order.shipping_address.address_line1}}, {{shop.order.shipping_address.city}}<br>
+    				<strong>{{shop.order.ordered_cart.gf_shipping_address.shop_name}}</strong><br>
+    				{{shop.order.ordered_cart.gf_shipping_address.nick_name}}, {{shop.order.ordered_cart.gf_shipping_address.address_line1}}, {{shop.order.ordered_cart.gf_shipping_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{% if gram_factory_shipping_gstin %}{{ gram_factory_shipping_gstin.shop_document_number  }}{% else %} ---- {% endif %}</span><br>
-						<strong>State Name:</strong> <span>{{shop.order.shipping_address.state}} </span><strong>Code:</strong> <span>{{shop.order.shipping_address.pincode}}</span><br>
+						<strong>State Name:</strong> <span>{{shop.order.ordered_cart.gf_shipping_address.state}} </span><strong>Code:</strong> <span>{{shop.order.ordered_cart.gf_shipping_address.pincode}}</span><br>
 						<strong>CIN:</strong> <span>---</span>
     				</address>
 					<address>
