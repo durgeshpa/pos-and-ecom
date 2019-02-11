@@ -765,6 +765,7 @@ class DownloadInvoiceSP(APIView):
             city_gram= z.city
             state_gram= z.state
             pincode_gram= z.pincode
+            address_contact_number= z.address_contact_number
 
         seller_shop_gistin = '---'
         buyer_shop_gistin = '---'
@@ -853,7 +854,8 @@ class DownloadInvoiceSP(APIView):
                 "order_id":order_id,"shop_name_gram":shop_name_gram,"nick_name_gram":nick_name_gram, "city_gram":city_gram,
                 "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram,
                 "payment_type":payment_type,"total_amount_int":total_amount_int,"product_listing":product_listing,
-                "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin}
+                "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
+                "address_contact_number":address_contact_number}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
