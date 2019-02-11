@@ -419,12 +419,12 @@ class ReservedOrder(generics.ListAPIView):
 
                     is_error = False
                     if ordered_product_sum['available_qty_sum'] is not None:
-                        if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty):
+                        if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size):
                             available_qty = int(ordered_product_sum['available_qty_sum'])
                             cart_product.qty_error_msg = 'Available Quantity : %s' % (available_qty)
                             is_error = True
                         else:
-                            available_qty = int(cart_product.qty)
+                            available_qty = int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size)
                             cart_product.qty_error_msg = ''
 
                         cart_product.save()
@@ -477,12 +477,12 @@ class ReservedOrder(generics.ListAPIView):
                     ordered_product_sum = ordered_product_details.aggregate(available_qty_sum=Sum('available_qty'))
 
                     if ordered_product_sum['available_qty_sum'] is not None:
-                        if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty):
+                        if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size):
                             available_qty = int(ordered_product_sum['available_qty_sum'])
                             cart_product.qty_error_msg = 'Available Quantity : %s' % (available_qty)
                             is_error = True
                         else:
-                            available_qty = int(cart_product.qty)
+                            available_qty = int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size)
                             cart_product.qty_error_msg = ''
 
                         cart_product.save()
