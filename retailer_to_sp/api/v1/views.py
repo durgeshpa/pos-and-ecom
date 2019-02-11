@@ -430,8 +430,14 @@ class ReservedOrder(generics.ListAPIView):
                         cart_product.save()
 
                         for product_detail in ordered_product_details:
+                            deduct_qty = 0
                             if available_qty <= 0:
                                 break
+
+                            if available_qty > product_detail.available_qty:
+                                deduct_qty = product_detail.available_qty
+                            else:
+                                deduct_qty = available_qty
 
                             product_detail.available_qty = 0 if available_qty > product_detail.available_qty else int(
                                 product_detail.available_qty) - int(available_qty)
@@ -444,7 +450,7 @@ class ReservedOrder(generics.ListAPIView):
                             order_product_reserved.reserve_status = 'reserved'
                             order_product_reserved.save()
 
-                            available_qty = available_qty - int(product_detail.available_qty)
+                            available_qty = available_qty - int(deduct_qty)
 
                         if is_error:
                             release_blocking(parent_mapping, cart.id)
