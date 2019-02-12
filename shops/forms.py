@@ -2,6 +2,7 @@ from django import forms
 from .models import ParentRetailerMapping, Shop, ShopType
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
+from dal import autocomplete
 
 class ParentRetailerMappingForm(forms.ModelForm):
     class Meta:
@@ -24,3 +25,14 @@ class ParentRetailerMappingForm(forms.ModelForm):
                 parent.status=False
                 parent.save()
         return cleaned_data
+
+
+class ShopParentRetailerMappingForm(forms.ModelForm):
+    parent = forms.ModelChoiceField(
+        queryset=Shop.objects.all(),
+        widget=autocomplete.ModelSelect2(url='shop-parent-autocomplete', )
+    )
+
+    class Meta:
+        Model = ParentRetailerMapping
+
