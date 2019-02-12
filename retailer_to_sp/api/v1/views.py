@@ -421,7 +421,7 @@ class ReservedOrder(generics.ListAPIView):
                     if ordered_product_sum['available_qty_sum'] is not None:
                         if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size):
                             available_qty = int(ordered_product_sum['available_qty_sum'])
-                            cart_product.qty_error_msg = 'Available Quantity : %s' % (available_qty)
+                            cart_product.qty_error_msg = 'Available Quantity : %s' % (int(available_qty) // int(cart_product.cart_product.product_inner_case_size))
                             is_error = True
                         else:
                             available_qty = int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size)
@@ -430,8 +430,14 @@ class ReservedOrder(generics.ListAPIView):
                         cart_product.save()
 
                         for product_detail in ordered_product_details:
+                            deduct_qty = 0
                             if available_qty <= 0:
                                 break
+
+                            if available_qty > product_detail.available_qty:
+                                deduct_qty = product_detail.available_qty
+                            else:
+                                deduct_qty = available_qty
 
                             product_detail.available_qty = 0 if available_qty > product_detail.available_qty else int(
                                 product_detail.available_qty) - int(available_qty)
@@ -444,7 +450,7 @@ class ReservedOrder(generics.ListAPIView):
                             order_product_reserved.reserve_status = 'reserved'
                             order_product_reserved.save()
 
-                            available_qty = available_qty - int(product_detail.available_qty)
+                            available_qty = available_qty - int(deduct_qty)
 
                         if is_error:
                             release_blocking(parent_mapping, cart.id)
@@ -479,7 +485,7 @@ class ReservedOrder(generics.ListAPIView):
                     if ordered_product_sum['available_qty_sum'] is not None:
                         if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size):
                             available_qty = int(ordered_product_sum['available_qty_sum'])
-                            cart_product.qty_error_msg = 'Available Quantity : %s' % (available_qty)
+                            cart_product.qty_error_msg = 'Available Quantity : %s' % (int(available_qty) // int(cart_product.cart_product.product_inner_case_size))
                             is_error = True
                         else:
                             available_qty = int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size)
@@ -488,8 +494,14 @@ class ReservedOrder(generics.ListAPIView):
                         cart_product.save()
 
                         for product_detail in ordered_product_details:
+                            deduct_qty = 0
                             if available_qty <= 0:
                                 break
+
+                            if available_qty > product_detail.available_qty:
+                                deduct_qty = product_detail.available_qty
+                            else:
+                                deduct_qty = available_qty
 
                             product_detail.available_qty = 0 if available_qty > product_detail.available_qty else int(
                                 product_detail.available_qty) - int(available_qty)
@@ -506,7 +518,7 @@ class ReservedOrder(generics.ListAPIView):
                                                            pick_qty=available_qty)
                             pick_list_item.product = product_detail.product
                             pick_list_item.save()
-                            available_qty = available_qty - int(product_detail.available_qty)
+                            available_qty = available_qty - int(deduct_qty)
 
                         serializer = GramMappedCartSerializer(cart, context={'parent_mapping_id': parent_mapping.parent.id})
                         if is_error:
@@ -753,6 +765,7 @@ class DownloadInvoiceSP(APIView):
             city_gram= z.city
             state_gram= z.state
             pincode_gram= z.pincode
+            address_contact_number= z.address_contact_number
 
         seller_shop_gistin = '---'
         buyer_shop_gistin = '---'
@@ -841,7 +854,8 @@ class DownloadInvoiceSP(APIView):
                 "order_id":order_id,"shop_name_gram":shop_name_gram,"nick_name_gram":nick_name_gram, "city_gram":city_gram,
                 "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram,
                 "payment_type":payment_type,"total_amount_int":total_amount_int,"product_listing":product_listing,
-                "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin}
+                "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
+                "address_contact_number":address_contact_number}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
