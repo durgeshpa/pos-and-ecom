@@ -31,6 +31,7 @@ from django.utils import timezone
 from products.models import ProductCategory
 from addresses.models import Address
 from retailer_backend.common_function import getShopMapping,checkNotShopAndMapping,getShop
+from retailer_backend.messages import ERROR_MESSAGES
 
 class ProductsList(generics.ListCreateAPIView):
     permission_classes = (AllowAny,)
@@ -421,7 +422,7 @@ class ReservedOrder(generics.ListAPIView):
                     if ordered_product_sum['available_qty_sum'] is not None:
                         if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size):
                             available_qty = int(ordered_product_sum['available_qty_sum'])
-                            cart_product.qty_error_msg = 'Available Quantity : %s' % (int(available_qty) // int(cart_product.cart_product.product_inner_case_size))
+                            cart_product.qty_error_msg = ERROR_MESSAGES['AVAILABLE_PRODUCT'].format(int(available_qty))
                             is_error = True
                         else:
                             available_qty = int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size)
@@ -485,7 +486,7 @@ class ReservedOrder(generics.ListAPIView):
                     if ordered_product_sum['available_qty_sum'] is not None:
                         if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size):
                             available_qty = int(ordered_product_sum['available_qty_sum'])
-                            cart_product.qty_error_msg = 'Available Quantity : %s' % (int(available_qty) // int(cart_product.cart_product.product_inner_case_size))
+                            cart_product.qty_error_msg = ERROR_MESSAGES['AVAILABLE_PRODUCT'].format(int(available_qty))
                             is_error = True
                         else:
                             available_qty = int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size)
