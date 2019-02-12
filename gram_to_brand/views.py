@@ -88,7 +88,7 @@ class OrderAutocomplete(autocomplete.Select2QuerySetView):
               self.request.user) |
             Q(ordered_cart__gf_shipping_address__shop_name__related_users=
               self.request.user),
-            ordered_cart__po_status='finance_approved'
+            ordered_cart__po_status=Cart.FINANCE_APPROVED
         )
         if self.q:
             qs = qs.filter(order_no__icontains=self.q)
