@@ -79,13 +79,17 @@ class Cart(BaseCart):
     FINANCE_APPROVED = "APRW"
     UNAPPROVED = "RJCT"
     SENT_TO_BRAND = "SENT"
+    PARTIAL_DELIVERED = "PDLV"
     DELIVERED = "DLVR"
+    CANCELED = "CNCL"
     ORDER_STATUS = (
         (SENT_TO_BRAND, "Send To Brand"),
         (APPROVAL_AWAITED, "Waiting For Finance Approval"),
         (FINANCE_APPROVED, "Finance Approved"),
         (UNAPPROVED, "Finance Not Approved"),
+        (PARTIAL_DELIVERED, "Partial Delivered"),
         (DELIVERED, "Delivered"),
+        (CANCELED, "Canceled"),
     )
 
     brand = models.ForeignKey(
@@ -244,8 +248,8 @@ class Order(BaseOrder):
         return self.ordered_cart.po_status
 
     class Meta:
-        verbose_name = _("Purchase Order")
-        verbose_name_plural = _("Purchase Orders")
+        verbose_name = _("Add GRN")
+        verbose_name_plural = _("Add GRN")
 
 
 class GRNOrder(BaseShipment): #Order Shipment
@@ -261,8 +265,8 @@ class GRNOrder(BaseShipment): #Order Shipment
         return str(self.grn_id)
 
     class Meta:
-        verbose_name = _("GRN Order")
-        verbose_name_plural = _("GRN Orders")
+        verbose_name = _("View GRN Detail")
+        verbose_name_plural = _("View GRN Details")
 
 
 @receiver(post_save, sender=GRNOrder)
@@ -300,6 +304,9 @@ class GRNOrderProductMapping(models.Model):
 
     def __str__(self):
         return str('')
+
+    class Meta:
+        verbose_name = _("GRN Product Detail")
 
     @property
     def po_product_quantity(self):
