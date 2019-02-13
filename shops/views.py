@@ -4,7 +4,7 @@ from django.shortcuts import get_object_or_404
 from shops.models import Shop
 from gram_to_brand.models import GRNOrderProductMapping
 from sp_to_gram.models import OrderedProductMapping
-from django.db.models import Sum
+from django.db.models import Sum,Q
 from dal import autocomplete
 
 # Create your views here.
@@ -31,12 +31,12 @@ class ShopParentAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qs = Shop.objects.filter(shop_type__shop_type__in=['sp','gf'])
         if self.q:
-            qs = qs.filter(shop_name__icontains=self.q)
+            qs = qs.filter(Q(shop_owner__phone_number__icontains=self.q) | Q(shop_name__icontains=self.q))
         return qs
 
 class ShopRetailerAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qs = Shop.objects.filter(shop_type__shop_type__in=['sp','r'],shop_name_address_mapping__address_type='shipping').distinct('id')
         if self.q:
-            qs = qs.filter(shop_name__icontains=self.q)
+            qs = qs.filter(Q(shop_owner__phone_number__icontains=self.q) | Q(shop_name__icontains=self.q))
         return qs
