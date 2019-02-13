@@ -240,8 +240,22 @@ class DownloadPickList(APIView):
     def get(self, request, *args, **kwargs):
         order_obj = get_object_or_404(Order, pk=self.kwargs.get('pk'))
         cart_products = order_obj.ordered_cart.rt_cart_list.all()
+        cart_product_list = []
+
+        for cart_pro in cart_products:
+            product_list = {
+                "product_name":cart_pro.cart_product.product_name,
+                "product_mrp":cart_pro.cart_product.product_pro_price.filter(shop=order_obj.seller_shop).last().mrp,
+                "ordered_qty":cart_pro.qty,
+                "no_of_pieces":int(cart_pro.cart_product.product_inner_case_size)*int(cart_pro.qty),
+            }
+            cart_product_list.append(product_list)
+
+
+
+
         data = {
-            "order_obj": order_obj, "cart_products":cart_products
+            "order_obj": order_obj, "cart_products":cart_product_list
         }
         cmd_option = {
             "margin-top": 10,

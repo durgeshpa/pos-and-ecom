@@ -53,8 +53,7 @@ class CartAdmin(admin.ModelAdmin):
                 )
 
     def download_purchase_order(self,obj):
-        if obj.is_approve:
-            return format_html("<a href= '%s' >Download PO</a>"%(reverse('download_purchase_order', args=[obj.pk])))
+        return format_html("<a href= '%s' >Download PO</a>"%(reverse('download_purchase_order', args=[obj.pk])))
 
     download_purchase_order.short_description = 'Download Purchase Order'
 
@@ -64,7 +63,7 @@ class CartAdmin(admin.ModelAdmin):
                 get_po_msg,_ = Po_Message.objects.get_or_create(message=request.POST.get('message'))
                 obj.po_message = get_po_msg
             obj.is_approve = True
-            obj.po_status = 'finance_approved'
+            obj.po_status = obj.FINANCE_APPROVED
             obj.created_by = request.user
             obj.last_modified_by = request.user
             obj.save()
@@ -75,7 +74,7 @@ class CartAdmin(admin.ModelAdmin):
                 get_po_msg, _ = Po_Message.objects.get_or_create(message=request.POST.get('message'))
                 obj.po_message = get_po_msg
             obj.is_approve = False
-            obj.po_status = 'finance_not_approved'
+            obj.po_status = obj.UNAPPROVED
             obj.created_by = request.user
             obj.last_modified_by = request.user
             obj.save()
@@ -83,7 +82,7 @@ class CartAdmin(admin.ModelAdmin):
             return HttpResponseRedirect("/admin/gram_to_brand/cart/")
         else:
             obj.is_approve = ''
-            obj.po_status = 'waiting_for_finance_approval'
+            obj.po_status = obj.APPROVAL_AWAITED
             obj.po_raised_by= request.user
             obj.last_modified_by= request.user
             obj.save()
@@ -93,7 +92,7 @@ class CartAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         if change==False:
             obj.is_approve = ''
-            obj.po_status = 'waiting_for_finance_approval'
+            obj.po_status = obj.APPROVAL_AWAITED
             obj.po_raised_by = request.user
             obj.last_modified_by = request.user
             obj.save()
@@ -126,11 +125,11 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     form = GRNOrderProductForm
     exclude = ('last_modified_by','available_qty',)
     extra = 0
-    readonly_fields = ('po_product_quantity','po_product_price','already_grned_product',)
-    # def get_readonly_fields(self, request, obj=None):
-    #     if obj: # editing an existing object
-    #         return self.readonly_fields + ('po_product_quantity','po_product_price','already_grned_product',)
-    #     return self.readonly_fields
+    #readonly_fields = ('po_product_quantity','po_product_price','already_grned_product',)
+    def get_readonly_fields(self, request, obj=None):
+        if obj: # editing an existing object
+            return self.readonly_fields + ('po_product_quantity','po_product_price','already_grned_product',)
+        return self.readonly_fields
 
     def get_formset(self, request, obj=None, **kwargs):
         formset = super(GRNOrderProductMappingAdmin, self).get_formset(request, obj, **kwargs)
@@ -187,6 +186,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
             return format_html("<a href= '%s' >Download Debit Note</a>"%(reverse('download_debit_note', args=[obj.pk])))
 
     download_debit_note.short_description = 'Download Debit Note'
+    change_list_template = 'admin/gram_to_brand/order/change_list.html'
 
 
 class OrderAdmin(admin.ModelAdmin):
@@ -195,9 +195,12 @@ class OrderAdmin(admin.ModelAdmin):
     form= OrderForm
 
     def add_grn_link(self, obj):
-        return format_html("<a href = '/admin/gram_to_brand/grnorder/add/?order=%s&cart=%s' class ='addlink' > Add GRN</a>"% (obj.id, obj.ordered_cart.id))
+        if obj.ordered_cart.po_status in [obj.ordered_cart.FINANCE_APPROVED,obj.ordered_cart.PARTIAL_DELIVERED] :
+            return format_html("<a href = '/admin/gram_to_brand/grnorder/add/?order=%s&cart=%s' class ='addlink' > Add GRN</a>"% (obj.id, obj.ordered_cart.id))
 
-    add_grn_link.short_description = 'Do GRN'
+    add_grn_link.short_description = 'Add GRN'
+
+    change_list_template = 'admin/gram_to_brand/order/change_list.html'
 
 
 class PickListItemAdmin(admin.TabularInline):

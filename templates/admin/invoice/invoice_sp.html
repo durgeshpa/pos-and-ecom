@@ -36,7 +36,7 @@ table tr td,th,h4,span,address{
     <div class="row">
         <div class="col-lg-12">
           <div class="invoice-title col-md-12">
-      			<div class="invoice col-sm-4 "><h4> Tax Invoice No: <span style="font-size:30px"class="invoice_no"><strong>{{shop.invoice_no}}</strong></span></h4></div>
+      			<div class="invoice col-sm-4 "><h4> Tax / Retail Invoice No: <span style="font-size:30px"class="invoice_no"><strong>{{shop.invoice_no}}</strong></span></h4></div>
 
   				<div class="col-sm-4 order_id ">
             {% if payment_type == 'neft' %}
@@ -54,6 +54,7 @@ table tr td,th,h4,span,address{
 						<span>Invoice To :</span><br>
     				<strong>{{shop.order.billing_address.shop_name.shop_name}}</strong><br>
     				{{shop.order.billing_address.nick_name}}, {{shop.order.billing_address.address_line1}}, {{shop.order.billing_address.city}}<br>
+						{{shop.order.billing_address.address_contact_number}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{{ buyer_shop_gistin }}</span><br>
 						<strong>State Name:</strong> <span>{{shop.order.billing_address.state}} </span><strong>Code:</strong> <span>{{shop.order.billing_address.pincode}}</span><br>
 						<strong>CIN:</strong> <span>---</span>
@@ -63,6 +64,7 @@ table tr td,th,h4,span,address{
 						<span>Dispatch To :</span><br>
     				<strong>{{shop.order.shipping_address.shop_name.shop_name}}</strong><br>
     				{{shop.order.shipping_address.nick_name}}, {{shop.order.shipping_address.address_line1}}, {{shop.order.shipping_address.city}}<br>
+						{{shop.order.shipping_address.address_contact_number}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{{ buyer_shop_gistin }}</span><br>
 						<strong>State Name:</strong> <span>{{shop.order.shipping_address.state}} </span><strong>Code:</strong> <span>{{shop.order.shipping_address.pincode}}</span><br>
 						<strong>CIN:</strong> <span>---</span>
@@ -72,6 +74,7 @@ table tr td,th,h4,span,address{
 
     				<strong>{{shop_name_gram.shop_name}}</strong><br>
     				{{nick_name_gram}}, {{address_line1_gram}}, {{city_gram}}<br>
+						{{address_contact_number}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{{seller_shop_gistin}}</span><br>
 						<strong>State Name:</strong> <span>{{state_gram}} </span><strong>Code:</strong> <span>{{pincode_gram}}</span><br>
 						<strong>CIN:</strong> <span>---</span>

@@ -20,13 +20,6 @@ RETAILER_TYPE_CHOICES = (
     ("ps", "Pan Shop"),
 )
 
-SHOP_DOCUMENTS_TYPE_CHOICES = (
-    ("gstin", "GSTIN"),
-    ("sln", "Shop License Number"),
-    ("uidai", "Aadhaar Card"),
-    ("bill", "Shop Electricity Bill"),
-)
-
 class RetailerType(models.Model):
     retailer_type_name = models.CharField(max_length=100, choices=RETAILER_TYPE_CHOICES, default='gm')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -56,7 +49,7 @@ class Shop(models.Model):
     status = models.BooleanField(default=False)
 
     def __str__(self):
-        return "%s - %s"%(self.shop_name, self.shop_type.get_shop_type_display())
+        return "%s - %s - %s"%(self.shop_name,self.shop_owner, self.shop_type.get_shop_type_display())
 
     def __init__(self, *args, **kwargs):
         super(Shop, self).__init__(*args, **kwargs)
@@ -89,6 +82,21 @@ class ShopPhoto(models.Model):
         return "{}".format(self.shop_name)
 
 class ShopDocument(models.Model):
+    GSTIN = 'gstin'
+    SLN = 'sln'
+    UIDAI = 'uidai'
+    ELE_BILL = 'bill'
+    PAN = 'pan'
+    FSSAI = 'fssai'
+
+    SHOP_DOCUMENTS_TYPE_CHOICES = (
+        (GSTIN, "GSTIN"),
+        (SLN, "Shop License No"),
+        (UIDAI, "Aadhaar Card"),
+        (ELE_BILL, "Shop Electricity Bill"),
+        (PAN, "Pan Card No"),
+        (FSSAI, "Fssai License No"),
+    )
     shop_name = models.ForeignKey(Shop, related_name='shop_name_documents', on_delete=models.CASCADE)
     shop_document_type = models.CharField(max_length=100, choices=SHOP_DOCUMENTS_TYPE_CHOICES, default='gstin')
     shop_document_number = models.CharField(max_length=100)

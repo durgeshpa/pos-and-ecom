@@ -4,7 +4,7 @@ from .models import (
     ShopPhoto, ShopDocument, ShopInvoicePattern
 )
 from addresses.models import Address
-from .forms import ParentRetailerMappingForm
+from .forms import ParentRetailerMappingForm,ShopParentRetailerMappingForm
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
 from django.utils.html import format_html
@@ -75,10 +75,18 @@ class AddressAdmin(admin.TabularInline):
     fields = ('address_contact_name','address_contact_number','address_type','address_line1','state','city','pincode',)
     extra = 2
 
+class ShopParentRetailerMapping(admin.TabularInline):
+    model = ParentRetailerMapping
+    form = ShopParentRetailerMappingForm
+    fields = ('parent',)
+    fk_name = 'retailer'
+    extra = 1
+    max_num = 1
+
 class ShopAdmin(admin.ModelAdmin):
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin,
-        AddressAdmin, ShopInvoicePatternAdmin
+        AddressAdmin, ShopInvoicePatternAdmin,ShopParentRetailerMapping
     ]
     list_display = ('shop_name','shop_owner','shop_type','status', 'get_shop_city','shop_mapped_product')
     filter_horizontal = ('related_users',)

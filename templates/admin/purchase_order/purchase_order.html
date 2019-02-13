@@ -182,7 +182,7 @@ table tr td,th,h4,span,address{
     								<td class="text-center">PCS</td>
 										   <div style="display:none"> {{m.qty| qty}}</div>
 
-    								<td class="text-right">{{m.price| price | intcomma }}/-</td>
+    								<td class="text-right">{{m.price| price | floatformat:2 | intcomma }}/-</td>
     							</tr>
 									{% endfor %}
 
@@ -199,7 +199,7 @@ table tr td,th,h4,span,address{
 								  <td class="thick-line text-center"><strong>{{sum_qty}} PCS</strong></td>
     								<td class="thick-line"></td>
     								<td class="thick-line text-center"><strong></strong></td>
-    								<td class="thick-line text-right"><strong>₹{{sum_amount | intcomma }}/-</strong></td>
+    								<td class="thick-line text-right"><strong>₹{{sum_amount | floatformat:2 | intcomma }}/-</strong></td>
     							</tr>
 									{% if shop.supplier_state == shop.gf_shipping_address.state %}
     							<tr>
@@ -289,7 +289,7 @@ table tr td,th,h4,span,address{
     								<td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line text-center"><strong>Total</strong></td>
-    								<td class="no-line text-right" style="width:120px"><strong>₹ {{total_amount | intcomma}}/- </strong></td>
+    								<td class="no-line text-right" style="width:120px"><strong>₹ {{total_amount | floatformat:2 | intcomma}}/- </strong></td>
     							</tr>
 
 								<tr>
@@ -300,7 +300,7 @@ table tr td,th,h4,span,address{
         							<td class="no-line">E . &amp; O . E</td>
                                 </tr>
 								<tr>
-        							<td colspan="11"><strong>{{total_amount | amount}}</strong></td>
+        							<td colspan="11"><strong>{{total_amount | floatformat:2 | amount }}</strong></td>
 
                                 </tr>
     						</tbody>
