@@ -17,7 +17,7 @@ from retailer_to_sp.models import (
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
-    OrderedProductMappingDeliveryForm
+    OrderedProductMappingDeliveryForm, OrderedProductDispatchForm
 )
 
 
@@ -160,26 +160,35 @@ def ordered_product_mapping_shipment(request):
         ordered_product = Order.objects.get(pk=order_id).ordered_cart
         order_product_mapping = CartProductMapping.objects.filter(
             cart=ordered_product)
-        form_set = ordered_product_set(
-            initial=[{
-                'product': item['cart_product'],
-                'ordered_qty': item['qty'],
-            } for item in order_product_mapping.values('cart_product', 'qty')
-            ])
+        products_list = []
+        for item in order_product_mapping.values('cart_product', 'qty'):
+            already_shipped_qty = OrderedProductMapping.objects.filter(
+                ordered_product__in=Order.objects.get(
+                    pk=order_id).rt_order_order_product.all(),
+                product_id=item['cart_product']).aggregate(
+                Sum('shipped_qty')).get('shipped_qty__sum', 0)
+            ordered_qty = item['qty']
+            inner_case_size = int(Product.objects.get(pk=item['cart_product']).product_inner_case_size)
+            ordered_no_pieces = ordered_qty * inner_case_size
+            if ordered_no_pieces != already_shipped_qty:
+                products_list.append({
+                        'product': item['cart_product'],
+                        'ordered_qty': ordered_no_pieces,
+                        'already_shipped_qty': already_shipped_qty if already_shipped_qty else 0
+                        })
+        form_set = ordered_product_set(initial=products_list)
         form = OrderedProductForm(initial={'order': order_id})
 
-    if request.POST:
+    if request.method == 'POST':
+        form_set = ordered_product_set(request.POST)
         form = OrderedProductForm(request.POST)
-        if form.is_valid():
-            ordered_product_instance=form.save()
-            form_set = ordered_product_set(request.POST)
-
-            if form_set.is_valid():
-                for form in form_set:
-                    formset_data = form.save(commit=False)
-                    formset_data.ordered_product = ordered_product_instance
-                    formset_data.save()
-                return redirect('/admin/retailer_to_sp/orderedproduct/')
+        if form.is_valid() and form_set.is_valid():
+            ordered_product_instance = form.save()
+            for forms in form_set:
+                formset_data = forms.save(commit=False)
+                formset_data.ordered_product = ordered_product_instance
+                formset_data.save()
+            return redirect('/admin/retailer_to_sp/orderedproduct/')
 
     return render(
         request,
@@ -255,3 +264,90 @@ class DownloadPickList(APIView):
             filename=self.filename, context=data,
             show_content_in_browser=False, cmd_options=cmd_option)
         return response
+
+
+def dispatch_shipment(request):
+    # order_id = request.GET.get('order_id')
+    # ordered_product_set = formset_factory(OrderedProductMappingShipmentForm,
+    #                                       extra=1, max_num=1)
+    # form = OrderedProductDispatchForm()
+    # form_set = ordered_product_set()
+    # if order_id:
+    #     ordered_product = Cart.objects.filter(pk=order_id)
+    #     ordered_product = Order.objects.get(pk=order_id).ordered_cart
+    #     order_product_mapping = CartProductMapping.objects.filter(
+    #         cart=ordered_product)
+    #     products_list = []
+    #     for item in order_product_mapping.values('cart_product', 'qty'):
+    #         already_shipped_qty = OrderedProductMapping.objects.filter(
+    #             ordered_product__in=Order.objects.get(
+    #                 pk=order_id).rt_order_order_product.all(),
+    #             product_id=item['cart_product']).aggregate(
+    #             Sum('shipped_qty')).get('shipped_qty__sum', 0)
+    #         ordered_qty = item['qty']
+    #         inner_case_size = int(Product.objects.get(pk=item['cart_product']).product_inner_case_size)
+    #         ordered_no_pieces = ordered_qty * inner_case_size
+    #         if ordered_no_pieces != already_shipped_qty:
+    #             products_list.append({
+    #                     'product': item['cart_product'],
+    #                     'ordered_qty': ordered_no_pieces,
+    #                     'already_shipped_qty': already_shipped_qty if already_shipped_qty else 0,
+    #                     })
+    #     form_set = ordered_product_set(initial=products_list)
+    #     form = OrderedProductDispatchForm(initial={'order': order_id})
+    #
+    # if request.method == 'POST':
+    #     form_set = ordered_product_set(request.POST)
+    #     form = OrderedProductDispatchForm(request.POST)
+    #     if form.is_valid() and form_set.is_valid():
+    #         ordered_product_instance = form.save()
+    #         for forms in form_set:
+    #             formset_data = forms.save(commit=False)
+    #             formset_data.ordered_product = ordered_product_instance
+    #             formset_data.save()
+    #         return redirect('/admin/retailer_to_sp/orderedproduct/')
+    #import pdb; pdb.set_trace()
+    form = OrderedProductDispatchForm()
+    invoice_no = request.GET.get('invoice_no')
+    print(invoice_no)
+    if invoice_no:
+        #import ipdb; ipdb.set_trace()
+        ordered_product = OrderedProduct.objects.get(pk=invoice_no)
+        form = OrderedProductDispatchForm(instance=ordered_product)
+        return render(
+             request,
+             'admin/retailer_to_sp/Dispatch.html',
+             {'ordered_form': form}
+        )
+
+    if request.method == 'POST':
+        print("adfadsfadsfsfsf")
+        print(invoice_no)
+        #import pdb;pdb.set_trace()
+        ordered_product = OrderedProduct.objects.get(pk=170)
+        form = OrderedProductDispatchForm(request.POST, instance=ordered_product)
+        #import ipdb;ipdb.set_trace()
+
+        form.save()
+        return redirect('/admin/retailer_to_sp/orderedproduct/')
+
+    return render(
+        request,
+        'admin/retailer_to_sp/Dispatch.html',
+        {'ordered_form': form}
+    )
+
+
+def order_invoices(request):
+    order_id = request.GET.get('order_id')
+    if order_id:
+        invoices = OrderedProduct.objects.filter(
+            order_id=order_id
+        )
+    else:
+        invoices = OrderedProduct.objects.none()
+    return render(
+        request,
+        'admin/retailer_to_sp/invoices_dropdown_list.html',
+        {'invoices': invoices}
+    )

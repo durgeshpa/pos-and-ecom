@@ -7,7 +7,7 @@ from django.utils.translation import ugettext_lazy as _
 
 from retailer_to_sp.models import (
     CustomerCare, ReturnProductMapping, OrderedProduct,
-    OrderedProductMapping
+    OrderedProductMapping, Order
 )
 from products.models import Product
 
@@ -46,13 +46,12 @@ class OrderedProductForm(forms.ModelForm):
 
     class Meta:
         model = OrderedProduct
-        fields = ['order', 'vehicle_no','driver_name']
+        fields = ['order', 'shipment_status']
 
     class Media:
         js = (
             'https://cdnjs.cloudflare.com/ajax/libs/select2/'
             '4.0.6-rc.0/js/select2.min.js',
-            'admin/js/orderedproduct.js'
         )
         css = {
             'all': (
@@ -64,8 +63,6 @@ class OrderedProductForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(OrderedProductForm, self).__init__(*args, **kwargs)
         self.fields['order'].required = True
-        self.fields['driver_name'].required = True
-        self.fields['vehicle_no'].required = True
 
 
 class OrderedProductMappingDeliveryForm(forms.ModelForm):
@@ -98,25 +95,61 @@ class OrderedProductMappingDeliveryForm(forms.ModelForm):
 
 class OrderedProductMappingShipmentForm(forms.ModelForm):
     ordered_qty = forms.CharField(required=False)
+    already_shipped_qty = forms.CharField(required=False)
 
     class Meta:
         model = OrderedProductMapping
         fields = [
-            'product', 'ordered_qty', 'shipped_qty'
+            'product', 'ordered_qty', 'already_shipped_qty',
+            'shipped_qty'
         ]
 
     def clean(self):
         cleaned_data = self.cleaned_data
-        if self.cleaned_data.get('shipped_qty') and (
-                int(self.cleaned_data.get('shipped_qty')) >
-                int(self.cleaned_data.get('ordered_qty'))
-        ):
+        product = self.cleaned_data.get('product')
+        ordered_qty = int(self.cleaned_data.get('ordered_qty'))
+        shipped_qty = int(self.cleaned_data.get('shipped_qty'))
+        already_shipped_qty = int(self.cleaned_data.get('already_shipped_qty'))
+        if (ordered_qty - already_shipped_qty) < shipped_qty:
             raise forms.ValidationError(
-                _('Shipped Quantity cannot be greater '
-                    'than Ordered Quantity for %(value)s'),
-                params={'value': self.cleaned_data.get('product')},
+                _('To be Ship Qty cannot be greater than difference '
+                  'of Ordered Qty and Already Shipped Qty for %(value)s'),
+                params={'value': product},
             )
         else:
             return cleaned_data
 
+
+class OrderedProductDispatchForm(forms.ModelForm):
+    order_custom = forms.ModelChoiceField(
+        # queryset=Order.objects.filter(order_status__in=[
+        #     'ordered', 'PROCESSING', 'PARTIALLY_COMPLETED'
+        # ])
+        queryset=Order.objects.all()
+    )
+
+    invoice_no_custom = forms.ModelChoiceField(
+        queryset=OrderedProduct.objects.all()
+    )
+
+    class Meta:
+        model = OrderedProduct
+        fields = ['order_custom', 'invoice_no_custom',
+                  'vehicle_no', 'shipment_status']
+
+    class Media:
+        js = (
+            'https://cdnjs.cloudflare.com/ajax/libs/select2/'
+            '4.0.6-rc.0/js/select2.min.js',
+        )
+        css = {
+            'all': (
+                'https://cdnjs.cloudflare.com/ajax/libs/select2/'
+                '4.0.6-rc.0/css/select2.min.css',
+            )
+        }
+
+    def __init__(self, *args, **kwargs):
+        super(OrderedProductDispatchForm, self).__init__(*args, **kwargs)
+        #self.fields['order'].required = True
 

@@ -16,11 +16,11 @@ from retailer_backend.common_function import (
 from shops.models import Shop
 from brand.models import Brand
 from addresses.models import Address
-from products.models import Product
+from products.models import Product, ProductPrice
 from otp.sms import SendSms
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
 
-ORDER_STATUS = (
+CART_STATUS = (
     ("active", "Active"),
     ("pending", "Pending"),
     ("deleted", "Deleted"),
@@ -65,7 +65,7 @@ SELECT_ISSUE = (
 class Cart(models.Model):
     order_id = models.CharField(max_length=255, null=True, blank=True)
     cart_status = models.CharField(
-        max_length=200, choices=ORDER_STATUS,
+        max_length=200, choices=CART_STATUS,
         null=True, blank=True
     )
     last_modified_by = models.ForeignKey(
@@ -74,6 +74,9 @@ class Cart(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Order Items Detail'
 
     def __str__(self):
         return self.order_id
@@ -106,6 +109,16 @@ class CartProductMapping(models.Model):
 
 
 class Order(models.Model):
+    ORDERED = 'ordered'
+
+    ORDER_STATUS = (
+        (ORDERED, 'Ordered'),
+        ('PROCESSING', 'Processing'),
+        ('PARTIALLY_COMPLETED', 'Partially Completed'),
+        ('COMPLETED', 'Completed'),
+        ('CANCELLED', 'Cancelled'),
+        ('DENIED', 'Denied'),
+    )
     seller_shop = models.ForeignKey(
         Shop, related_name='rt_seller_shop_order',
         null=True, blank=True, on_delete=models.CASCADE
@@ -161,16 +174,30 @@ class Order(models.Model):
 
 
 class OrderedProduct(models.Model):
+    SHIPMENT_STATUS = (
+        ('READY_TO_SHIP', 'Ready to Ship'),
+        ('DISPATCHED', 'Dispatched'),
+        ('PARTIALLY_DELIVERED', 'Partially Deliver'),
+        ('DELIVERED', 'Delivered'),
+        ('DELIVERED_WITH_RETURN_DAMAGED', 'Delivered with Return/ Damage'),
+        ('DENIED', 'Denied'),
+        ('CANCELLED', 'Cancelled')
+    )
     order = models.ForeignKey(
         Order, related_name='rt_order_order_product',
         on_delete=models.CASCADE, null=True, blank=True
     )
+    shipment_status = models.CharField(
+        max_length=50, choices=SHIPMENT_STATUS,
+        null=True, blank=True, verbose_name='Current Shipment Status',
+        default='READY_TO_SHIP'
+    )
     invoice_no = models.CharField(max_length=255, null=True, blank=True)
     vehicle_no = models.CharField(max_length=255, null=True, blank=True)
-    driver_name = models.CharField(max_length=60, null=True, blank=True)
     shipped_by = models.ForeignKey(
         get_user_model(), related_name='rt_shipped_product_ordered_by_user',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.CASCADE,
+        verbose_name='Delivery Boy'
     )
     received_by = models.ForeignKey(
         get_user_model(), related_name='rt_ordered_product_received_by_user',
@@ -180,27 +207,56 @@ class OrderedProduct(models.Model):
         get_user_model(), related_name='rt_last_modified_user_order',
         null=True, blank=True, on_delete=models.CASCADE
     )
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True, verbose_name="Invoice Date")
     modified_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'Shipment Planning'
+        verbose_name = 'Update Delivery/ Returns/ Damage'
 
     def __str__(self):
         return self.invoice_no or str(self.id)
 
+    @property
+    def shipment_address(self):
+        if self.order:
+            address = Address.objects.select_related(
+                'shop_name', 'city').get(pk=self.order.shipping_address_id)
+            address_line = address.address_line1
+            shop_name = address.shop_name.shop_name
+            city = address.city
+            return str("%s, %s, %s") % (shop_name, address_line, city)
+        return str("-")
+
+    @property
+    def invoice_amount(self):
+        if self.order:
+            total_amount = []
+            seller_shop = self.order.seller_shop
+            ordered_products = self.rt_order_product_order_product_mapping.all()
+            for product in ordered_products:
+                product_price = ProductPrice.objects.filter(
+                    shop=seller_shop, product=product.product, status=True
+                ).last().price_to_retailer
+                shipped_qty = product.shipped_qty
+                amount = shipped_qty * product_price
+                total_amount.append(amount)
+            return str(sum(total_amount))
+        return str("-")
+
     def save(self, *args, **kwargs):
-        invoice_prefix = self.order.seller_shop.invoce_pattern.filter(
-            status='ACT').last().pattern
-        last_invoice = OrderedProduct.objects.filter(
-            order__in=self.order.seller_shop.rt_seller_shop_order.all()
-        ).order_by('invoice_no').last()
-        if last_invoice:
-            invoice_id = getcredit_note_id(last_invoice.invoice_no, invoice_prefix)
-            invoice_id += 1
-        else:
-            invoice_id = 1
-        self.invoice_no = retailer_sp_invoice(invoice_prefix, invoice_id)
+        if self._state.adding:
+            invoice_prefix = self.order.seller_shop.invoce_pattern.filter(
+                status='ACT').last().pattern
+            last_invoice = OrderedProduct.objects.filter(
+                order__in=self.order.seller_shop.rt_seller_shop_order.all()
+            ).order_by('invoice_no').last()
+            if last_invoice:
+                invoice_id = getcredit_note_id(last_invoice.invoice_no, invoice_prefix)
+                invoice_id += 1
+            else:
+                invoice_id = 1
+            self.invoice_no = retailer_sp_invoice(invoice_prefix, invoice_id)
         super().save(*args, **kwargs)
 
 
@@ -225,26 +281,28 @@ class OrderedProductMapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     def clean(self):
-        super(OrderedProductMapping,self).clean()
+        super(OrderedProductMapping, self).clean()
         delivered_qty = int(self.delivered_qty)
         returned_qty = int(self.returned_qty)
         damaged_qty = int(self.damaged_qty)
-        already_shipped_qty = int(self.shipped_qty)
-        if sum([delivered_qty, returned_qty,
-                damaged_qty]) != already_shipped_qty:
-            raise ValidationError(
-                _('Sum of Delivered, Returned and Damaged Quantity should be '
-                  'equals to Already Shipped Quantity '),
-            )
+        if delivered_qty or returned_qty or damaged_qty:
+            already_shipped_qty = int(self.shipped_qty)
+            if sum([delivered_qty, returned_qty,
+                    damaged_qty]) != already_shipped_qty:
+                raise ValidationError(
+                    _('Sum of Delivered, Returned and Damaged Quantity should be '
+                      'equals to Already Shipped Quantity '),
+                )
 
     @property
     def ordered_qty(self):
         if self.ordered_product:
             qty = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
                 cart_product=self.product).values('qty')
-            print(qty)
             qty = qty.first().get('qty')
-            return str(qty)
+            inner_case_size = self.product.product_inner_case_size
+            no_of_pieces = int(inner_case_size) * int(qty if qty else 0)
+            return str(no_of_pieces)
         return str("-")
 
     def get_shop_specific_products_prices_sp(self):
@@ -257,6 +315,16 @@ class OrderedProductMapping(models.Model):
 
     def get_products_gst_cess(self):
         return self.product.product_pro_tax.filter(tax__tax_type='cess')
+
+
+class Delivery(OrderedProduct):
+    class Meta:
+        proxy = True
+
+
+class DeliveryProductMapping(OrderedProductMapping):
+    class Meta:
+        proxy = True
 
 
 class CustomerCare(models.Model):
@@ -447,38 +515,20 @@ class Note(models.Model):
             return self.shipment.invoice_no
 
 
+@receiver(post_save, sender=OrderedProduct)
+def change_order_status(sender, instance=None, created=False, **kwargs):
+    if created:
+        ordered_products = instance.order.rt_order_order_product.all()
+        all_shipment_status = [ordered_product.shipment_status
+                               for ordered_product in ordered_products]
+        all_shipment_status = list(set(all_shipment_status))
+        pass
 
-# @receiver(post_save, sender=ReturnProductMapping)
-# def create_credit_note(sender, instance=None, created=False, **kwargs):
-#     if created:
-#         if instance.total_returned_qty > 0:
-#             credit_note = Note.objects.filter(return_no=instance.return_id)
-#             if credit_note.exists():
-#                 credit_note = credit_note.last()
-#                 credit_note.credit_note_id = brand_credit_note_pattern(
-#                     instance.return_id.pk)
-#                 credit_note.amount = credit_note.amount + (
-#                         int(
-#                             instance.total_returned_qty
-#                         ) *
-#                         int(
-#                             instance.returned_product.product_inner_case_size
-#                         ) *
-#                         float(
-#                             instance.returned_product.product_pro_price.filter(
-#                                 shop__shop_type__shop_type='sp', status=True
-#                             ).last().price_to_retailer)
-#                 )
-#                 credit_note.save()
-#             else:
-#                 credit_note = Note.objects.create(
-#                     credit_note_id=brand_credit_note_pattern(instance.return_id.pk),
-#                     order=instance.return_id.invoice_no.order,
-#                     return_no=instance.return_id,
-#                     amount=int(instance.total_returned_qty) *
-#                     int(instance.returned_product.product_inner_case_size) *
-#                     float(instance.returned_product.product_pro_price.filter(
-#                         shop__shop_type__shop_type='sp', status=True
-#                         ).last().price_to_retailer),
-#                     status=True)
+
+@receiver(post_save, sender=OrderedProductMapping)
+def change_order_status(sender, instance=None, created=False, **kwargs):
+    if created:
+        ordered_product_mapping = instance.ordered_product.\
+            rt_order_product_order_product_mapping.all()
+        import ipdb; ipdb.set_trace()
 

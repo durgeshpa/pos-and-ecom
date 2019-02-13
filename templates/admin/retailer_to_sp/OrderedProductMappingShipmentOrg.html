@@ -1,0 +1,137 @@
+{% load i18n %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>GramFactory</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <script
+    src="https://code.jquery.com/jquery-3.2.1.js"
+    integrity="sha256-DZAnKJ/6XZ9si04Hgrsxu/8s717jcIzLy3oi35EouyE="
+    crossorigin="anonymous"></script>  {{ form.media }}
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/css/select2.min.css">
+
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <a class="navbar-brand" href="/admin/">GramFactory</a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarTogglerDemo02" aria-controls="navbarTogglerDemo02" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarTogglerDemo02">
+      <ul class="navbar-nav ml-auto mt-2 mt-lg-0">
+        <li class="nav-item">
+          <a class="nav-link" href="#">{% block welcome-msg %}
+            {% trans 'Welcome,' %}
+            <strong>{% firstof user.get_short_name user.get_username %}</strong>.
+            {% endblock %} </a>
+          </li>
+          <li class="nav-item">
+            {% if user.has_usable_password %}
+            <a class="nav-link" href="{% url 'admin:password_change' %}">{% trans 'Change password' %}</a>
+            {% endif %}
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{% url 'admin:logout' %}">{% trans 'Log out' %}</a>
+          </li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="container" style='padding-top:60px'>
+
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+
+{{ordered_form.management_form}}
+  {{ordered_form.as_p}}
+    {% if ordered_form.errors %}
+    {% for field in ordered_form %}
+        {% for error in field.errors %}
+            <div class="alert alert-danger">
+                <strong>{{ error|escape }}</strong>
+            </div>
+        {% endfor %}
+    {% endfor %}
+    {% for error in ordered_form.non_field_errors %}
+        <div class="alert alert-danger">
+            <strong>{{ error|escape }}</strong>
+        </div>
+    {% endfor %}
+{% endif %}
+
+
+    {% for dict in formset.errors %}
+    {% for field,error in dict.items %}
+           <div class="alert alert-danger">
+               {% if field == '__all__'%}
+                           <strong>{{ error|escape }}</strong>
+               {% else %}
+                           <strong>{{ field }}:{{ error|escape }}</strong>
+               {% endif %}
+
+        </div>
+    {% endfor %}
+{% endfor %}
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th scope="col">Product</th>
+        <th scope="col">Ordered Qty</th>
+        <th scope="col">To Ship Qty</th>
+
+      </tr>
+    </thead>
+    <tbody>
+
+      {{ formset.management_form }}
+
+        {% for order_form in formset %}
+        <tr>
+         <div id="readonly"><td>{{ order_form.product }}</td></div>
+            <td> <b>{{ order_form.ordered_qty }}</b></td>
+          <td>{{ order_form.shipped_qty }}</td>
+
+        </tr>
+      {% endfor %}
+
+    </tbody>
+  </table>
+ <div id="submitbutton">
+   <a href="/admin/retailer_to_sp/orderedproduct/" class="btn btn-secondary">Back</a>
+   <button type="submit" class="btn btn-primary">Submit</button>
+
+ </div>
+
+</form>
+</div>
+</body>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/js/select2.min.js'></script>
+
+<script>
+$(document).ready(function(){
+
+  $("input[id$='ordered_qty']").attr("readOnly", true);
+  $('select#id_order').select2();
+
+    $("select#id_order").change(function(){
+        $("#submitbutton").hide();
+        $("table").html('Loading! Please wait...');
+         var selectedOrder= $(this).children("option:selected").val();
+         var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '')+'/';
+         var url = host + 'admin/retailer_to_sp/cart/order-product-mapping-shipment/?order_id=' + selectedOrder;
+         location.href=url;
+        });
+
+});
+jQuery(function ($) {
+  $('form').bind('submit', function () {
+    $(this).find(':input').prop('disabled', false);
+  });
+});
+</script>
+</html>

@@ -63,6 +63,13 @@
                {% endif %}
                {% endif %}
 
+            {% if app.name == "Retailer_To_Sp" %}
+            {% if model.name == "Update Delivery/ Returns/ Damages" %}
+            <tr>
+                <th scope="row"><a href="{% url 'admin:OrderProductMappingShipment' %}">Plan Shipment</a></th>
+            </tr>
+            {% endif %}
+            {% endif %}
         {% endfor %}
         </table>
         </div>

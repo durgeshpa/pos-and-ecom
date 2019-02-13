@@ -14,11 +14,13 @@ from admin_auto_filters.filters import AutocompleteFilter
 from .models import (
     Cart, CartProductMapping, Order, OrderedProduct,
     OrderedProductMapping, Note, CustomerCare,
-    Payment, Return, ReturnProductMapping
+    Payment, Return, ReturnProductMapping, Delivery,
+    DeliveryProductMapping
 )
 from .forms import CustomerCareForm, ReturnProductMappingForm
 from retailer_to_sp.views import (
-    ordered_product_mapping_shipment, ordered_product_mapping_delivery
+    ordered_product_mapping_shipment, ordered_product_mapping_delivery,
+    dispatch_shipment, order_invoices
 )
 
 
@@ -44,6 +46,7 @@ class ReturnNameSearch(InputFilter):
             return queryset.filter(
                 Q(name__icontains=name)
             )
+
 
 class OrderFilter(InputFilter):
     parameter_name = 'order_no'
@@ -86,6 +89,7 @@ class OrderIdSearch(InputFilter):
                 Q(order_id__order_no__icontains=order_id)
             )
 
+
 class OrderStatusSearch(InputFilter):
     parameter_name = 'order_status'
     title = 'Order Status'
@@ -99,6 +103,7 @@ class OrderStatusSearch(InputFilter):
                 Q(order_status__icontains=order_status)
             )
 
+
 class IssueSearch(InputFilter):
     parameter_name = 'select_issue'
     title = 'Issue'
@@ -111,6 +116,7 @@ class IssueSearch(InputFilter):
             return queryset.filter(
                 Q(select_issue__icontains=select_issue)
             )
+
 
 class PaymentChoiceSearch(InputFilter):
     parameter_name = 'payment_choice'
@@ -129,6 +135,7 @@ class PaymentChoiceSearch(InputFilter):
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
     autocomplete_fields = ('cart_product',)
+    extra = 0
 
     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
         if db_field.name == 'cart_product':
@@ -141,7 +148,10 @@ class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     exclude = ('order_id', 'shop', 'cart_status','last_modified_by')
     list_display = ('order_id', 'cart_status')
-    change_form_template = 'admin/sp_to_gram/cart/change_form.html'
+    #change_form_template = 'admin/sp_to_gram/cart/change_form.html'
+
+    class Media:
+        css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
 
     def get_urls(self):
         from django.conf.urls import url
@@ -156,7 +166,18 @@ class CartAdmin(admin.ModelAdmin):
                 r'^order-product-mapping-delivery/$',
                 self.admin_site.admin_view(ordered_product_mapping_delivery),
                 name="OrderProductMappingDelivery"
+            ),
+            url(
+                r'^dispatch-shipment/$',
+                self.admin_site.admin_view(dispatch_shipment),
+                name="DispatchShipment"
+            ),
+            url(
+                r'^order-invoices/$',
+                self.admin_site.admin_view(order_invoices),
+                name="OrderInvoices"
             )
+
         ] + urls
         return urls
 
@@ -216,10 +237,11 @@ class OrderedProductAdmin(admin.ModelAdmin):
         'invoice_no', 'vehicle_no', 'shipped_by',
         'received_by', 'download_invoice'
     )
-    exclude = ('shipped_by', 'received_by', 'last_modified_by',)
+    exclude = ('shipped_by', 'received_by', 'last_modified_by')
     autocomplete_fields = ('order',)
     search_fields = ('invoice_no', 'vehicle_no')
-    readonly_fields = ('order', 'invoice_no', 'vehicle_no', 'driver_name')
+    readonly_fields = ('order', 'invoice_no', 'shipment_status',
+                       'vehicle_no')
 
     def download_invoice(self, obj):
         return format_html(
@@ -230,6 +252,40 @@ class OrderedProductAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super(OrderedProductAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(
+            Q(order__seller_shop__related_users=request.user) |
+            Q(order__seller_shop__shop_owner=request.user)
+                )
+
+    class Media:
+        css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
+
+
+class DeliveryProductMappingAdmin(admin.TabularInline):
+    model = OrderedProductMapping
+    exclude = ('last_modified_by',)
+    readonly_fields = ('ordered_qty','shipped_qty')
+    extra = 0
+
+
+class DeliveryAdmin(admin.ModelAdmin):
+    inlines = [DeliveryProductMappingAdmin]
+    list_display = (
+        'invoice_no', 'created_at', 'shipment_address', 'invoice_amount',
+        'shipped_by', 'vehicle_no', 'shipment_status'
+    )
+    list_editable = ('shipped_by', 'vehicle_no')
+    date_hierarchy = 'created_at'
+    from rangefilter.filter import DateRangeFilter, DateTimeRangeFilter
+
+    list_filter = [
+        ('created_at', DateTimeRangeFilter)
+    ]
+
+    def get_queryset(self, request):
+        qs = super(DeliveryAdmin, self).get_queryset(request)
         if request.user.is_superuser:
             return qs
         return qs.filter(
@@ -317,10 +373,11 @@ class ReturnAdmin(admin.ModelAdmin):
     download_credit_note.short_description = 'Download Credit Note'
 
 
-admin.site.register(Return, ReturnAdmin)
+# admin.site.register(Return, ReturnAdmin)
 admin.site.register(Cart, CartAdmin)
 admin.site.register(Order, OrderAdmin)
 admin.site.register(OrderedProduct, OrderedProductAdmin)
 admin.site.register(Note, NoteAdmin)
 admin.site.register(CustomerCare, CustomerCareAdmin)
 admin.site.register(Payment, PaymentAdmin)
+admin.site.register(Delivery, DeliveryAdmin)
