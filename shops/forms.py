@@ -5,16 +5,18 @@ from django.utils.translation import gettext_lazy as _
 from dal import autocomplete
 
 class ParentRetailerMappingForm(forms.ModelForm):
+    parent = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['sp','gf']),
+        widget=autocomplete.ModelSelect2(url='shop-parent-autocomplete', )
+    )
+    retailer = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['sp', 'r']),
+        widget=autocomplete.ModelSelect2(url='shop-retailer-autocomplete', )
+    )
+
     class Meta:
         Model = ParentRetailerMapping
         fields = ('parent','retailer','status')
-
-    def __init__(self, *args, **kwargs):
-        super(ParentRetailerMappingForm, self).__init__(*args, **kwargs)
-        shop_type_gf_sp = ShopType.objects.filter(shop_type__in=['sp','gf'])
-        self.fields['parent'].queryset = Shop.objects.filter(shop_type__in=shop_type_gf_sp)
-        shop_type_retailer= ShopType.objects.filter(shop_type__in=['r','sp'])
-        self.fields['retailer'].queryset = Shop.objects.filter(shop_type__in=shop_type_retailer)
 
     def clean(self):
         cleaned_data = super().clean()
@@ -29,7 +31,7 @@ class ParentRetailerMappingForm(forms.ModelForm):
 
 class ShopParentRetailerMappingForm(forms.ModelForm):
     parent = forms.ModelChoiceField(
-        queryset=Shop.objects.all(),
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['sp','gf']),
         widget=autocomplete.ModelSelect2(url='shop-parent-autocomplete', )
     )
 
