@@ -186,6 +186,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
             return format_html("<a href= '%s' >Download Debit Note</a>"%(reverse('download_debit_note', args=[obj.pk])))
 
     download_debit_note.short_description = 'Download Debit Note'
+    change_list_template = 'admin/gram_to_brand/order/change_list.html'
 
 
 class OrderAdmin(admin.ModelAdmin):
@@ -198,6 +199,8 @@ class OrderAdmin(admin.ModelAdmin):
             return format_html("<a href = '/admin/gram_to_brand/grnorder/add/?order=%s&cart=%s' class ='addlink' > Add GRN</a>"% (obj.id, obj.ordered_cart.id))
 
     add_grn_link.short_description = 'Add GRN'
+
+    change_list_template = 'admin/gram_to_brand/order/change_list.html'
 
 
 class PickListItemAdmin(admin.TabularInline):
