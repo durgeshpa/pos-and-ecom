@@ -125,11 +125,11 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     form = GRNOrderProductForm
     exclude = ('last_modified_by','available_qty',)
     extra = 0
-    readonly_fields = ('po_product_quantity','po_product_price','already_grned_product',)
-    # def get_readonly_fields(self, request, obj=None):
-    #     if obj: # editing an existing object
-    #         return self.readonly_fields + ('po_product_quantity','po_product_price','already_grned_product',)
-    #     return self.readonly_fields
+    #readonly_fields = ('po_product_quantity','po_product_price','already_grned_product',)
+    def get_readonly_fields(self, request, obj=None):
+        if obj: # editing an existing object
+            return self.readonly_fields + ('po_product_quantity','po_product_price','already_grned_product',)
+        return self.readonly_fields
 
     def get_formset(self, request, obj=None, **kwargs):
         formset = super(GRNOrderProductMappingAdmin, self).get_formset(request, obj, **kwargs)
