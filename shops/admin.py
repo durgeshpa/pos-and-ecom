@@ -77,6 +77,7 @@ class AddressAdmin(admin.TabularInline):
 
 class ShopParentRetailerMapping(admin.TabularInline):
     model = ParentRetailerMapping
+    form = ShopParentRetailerMappingForm
     fields = ('parent',)
     fk_name = 'retailer'
     extra = 1
