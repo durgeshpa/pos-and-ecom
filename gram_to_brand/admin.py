@@ -116,7 +116,7 @@ class GRNOrderForm(forms.ModelForm):
 
     class Meta:
         model = GRNOrder
-        fields = ('order', 'invoice_no')
+        fields = ('order', 'invoice_no','brand_invoice')
 
 
 class GRNOrderProductMappingAdmin(admin.TabularInline):
@@ -163,7 +163,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
     list_display = ('grn_id','order','invoice_no','grn_date','download_debit_note')
     list_filter = [ OrderSearch, InvoiceNoSearch, GRNSearch, ('created_at', DateRangeFilter),]
     form = GRNOrderForm
-    fields = ('order','invoice_no')
+    fields = ('order','invoice_no','brand_invoice')
 
     def get_readonly_fields(self, request, obj=None):
         if obj: # editing an existing object
