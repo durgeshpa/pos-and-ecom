@@ -287,7 +287,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     actions = ["export_as_csv"]
     list_display = [
         'product', 'product_gf_code', 'mrp', 'price_to_service_partner',
-        'price_to_retailer', 'price_to_super_retailer',
+        'price_to_retailer', 'price_to_super_retailer', 'cash_discount', 'loyalty_incentive',
         'start_date', 'end_date', 'status'
     ]
 
