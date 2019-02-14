@@ -159,6 +159,9 @@ class Order(models.Model):
     def __str__(self):
         return self.order_no or str(self.id)
 
+    class Meta:
+        ordering = ['-created_at']
+
 
 class OrderedProduct(models.Model):
     order = models.ForeignKey(

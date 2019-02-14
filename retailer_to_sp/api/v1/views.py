@@ -74,6 +74,7 @@ class GramGRNProductsList(APIView):
         cart_check = False
         is_store_active = True
         sort_preference = request.data.get('sort_by_price')
+        today = datetime.today()
 
         '''1st Step
             Check If Shop Is exists then 2nd pt else 3rd Pt
@@ -102,7 +103,7 @@ class GramGRNProductsList(APIView):
                     '''4th Step
                         SP mapped data shown
                     '''
-                    grn = SpMappedOrderedProductMapping.objects.filter(ordered_product__order__ordered_cart__shop=parent_mapping.parent,available_qty__gt=0).values('product_id')
+                    grn = SpMappedOrderedProductMapping.objects.filter(ordered_product__order__ordered_cart__shop=parent_mapping.parent,available_qty__gt=0,expiry_date__gt=today).values('product_id')
                     cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
                     if cart:
                         cart_products = cart.rt_cart_list.all()
@@ -113,7 +114,7 @@ class GramGRNProductsList(APIView):
                     '''5th Step
                         Gramfactory mapped data shown
                     '''
-                    grn = GRNOrderProductMapping.objects.filter(grn_order__order__ordered_cart__gf_shipping_address__shop_name=parent_mapping.parent,available_qty__gt=0).values('product_id')
+                    grn = GRNOrderProductMapping.objects.filter(grn_order__order__ordered_cart__gf_shipping_address__shop_name=parent_mapping.parent,available_qty__gt=0,expiry_date__gt=today).values('product_id')
                     cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,cart_status__in=['active', 'pending']).last()
                     if cart:
                         cart_products = cart.rt_cart_list.all()
