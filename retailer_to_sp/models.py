@@ -176,7 +176,7 @@ class Order(models.Model):
         ordering = ['-created_at']
 
 
-class OrderedProduct(models.Model):
+class OrderedProduct(models.Model): 
     order = models.ForeignKey(
         Order, related_name='rt_order_order_product',
         on_delete=models.CASCADE, null=True, blank=True
@@ -266,7 +266,7 @@ class OrderedProductMapping(models.Model):
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
             shop__shop_type__shop_type='sp', status=True
-        )
+        ).last()
 
     def get_products_gst_tax(self):
         return self.product.product_pro_tax.filter(tax__tax_type='gst')
