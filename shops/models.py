@@ -6,7 +6,6 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from otp.sms import SendSms
 import datetime
-from sp_to
 
 
 SHOP_TYPE_CHOICES = (
