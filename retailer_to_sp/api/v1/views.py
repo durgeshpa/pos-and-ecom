@@ -788,7 +788,7 @@ class DownloadInvoiceSP(APIView):
             product_tax_amount = 0
             product_pro_price = 0
             product_pro_price = m.product.product_pro_price.filter(
-                shop=m.ordered_product.order.seller_shop).last().price_to_retailer if m.product.product_pro_price.exists() else 0
+                shop=m.ordered_product.order.seller_shop, status=True).last().price_to_retailer
 
             all_tax_list = m.product.product_pro_tax
             if all_tax_list.exists():
@@ -821,8 +821,8 @@ class DownloadInvoiceSP(APIView):
 
 
             sum_qty = sum_qty + int(m.product.product_inner_case_size) * int(m.shipped_qty)
-            sum_amount += (int(m.product.product_inner_case_size) * int(m.shipped_qty) * m.get_shop_specific_products_prices_sp().price_to_retailer)
-            inline_sum_amount = (int(m.product.product_inner_case_size) * int(m.shipped_qty) * m.get_shop_specific_products_prices_sp().price_to_retailer)
+            sum_amount += (int(m.product.product_inner_case_size) * int(m.shipped_qty) * product_pro_price)
+            inline_sum_amount = (int(m.product.product_inner_case_size) * int(m.shipped_qty) * product_pro_price)
             
             for n in m.product.product_pro_tax.all():
 
