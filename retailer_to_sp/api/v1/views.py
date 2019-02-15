@@ -821,8 +821,9 @@ class DownloadInvoiceSP(APIView):
 
 
             sum_qty = sum_qty + int(m.product.product_inner_case_size) * int(m.shipped_qty)
-            sum_amount += (int(m.product.product_inner_case_size) * int(m.shipped_qty) * m.price_to_retailer)
-            inline_sum_amount += (int(m.product.product_inner_case_size) * int(m.shipped_qty) * m.price_to_retailer)
+            sum_amount += (int(m.product.product_inner_case_size) * int(m.shipped_qty) * m.get_shop_specific_products_prices_sp().price_to_retailer)
+            inline_sum_amount += (int(m.product.product_inner_case_size) * int(m.shipped_qty) * h.get_shop_specific_products_prices_sp().price_to_retailer)
+            
             for n in m.product.product_pro_tax.all():
 
                 divisor= (1+(n.tax.tax_percentage/100))
