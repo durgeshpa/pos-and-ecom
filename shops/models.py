@@ -6,6 +6,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from otp.sms import SendSms
 import datetime
+from sp_to
 
 
 SHOP_TYPE_CHOICES = (
@@ -65,6 +66,14 @@ class Shop(models.Model):
                                    " Team GramFactory " % (username, shop_title))
             message.send()
         super(Shop, self).save(force_insert, force_update, *args, **kwargs)
+
+    # def available_product(self, product):
+    #     ProductMapping = {
+    #         "sp": 
+    #     }
+    #     products = OrderedProductMapping.objects.filter(
+    #                     ordered_product__order__shipping_address__shop_name=self,
+    #                     product=product).order_by('-expiry_date')
 
     class Meta:
         permissions = (
