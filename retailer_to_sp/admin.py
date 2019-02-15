@@ -140,7 +140,7 @@ class CartProductMappingAdmin(admin.TabularInline):
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     exclude = ('order_id', 'shop', 'cart_status','last_modified_by')
-    list_display = ('order_id', 'cart_status','created_at')
+    list_display = ('order_id', 'cart_status')
     change_form_template = 'admin/sp_to_gram/cart/change_form.html'
 
     def get_urls(self):
@@ -181,7 +181,7 @@ class CartAdmin(admin.ModelAdmin):
 
 class OrderAdmin(admin.ModelAdmin):
     search_fields = ('order',)
-    list_display = ('order_no', 'order_status','created_at', 'download_pick_list')
+    list_display = ('order_no', 'order_status', 'download_pick_list')
 
 
     def get_queryset(self, request):
