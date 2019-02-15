@@ -75,9 +75,25 @@ class User(AbstractUser):
     def user_photo_thumbnail(self):
         return mark_safe('<img alt="%s" src="%s" />' % (self.user, self.user_photo.url))
 
-
     def __str__(self):
         return "%s"%(str(self.phone_number))
+
+
+class UserWithName(User):
+    class Meta:
+        proxy = True
+
+    def __str__(self):
+        if self.first_name and self.last_name:
+            return "%s - %s %s" % (
+                str(self.phone_number), self.first_name, self.last_name
+            )
+
+        elif self.first_name:
+            return "%s - %s" % (str(self.phone_number), self.first_name)
+
+        return "%s" % (str(self.phone_number))
+
 
 class UserDocument(models.Model):
     user = models.ForeignKey(User, related_name='user_documents', on_delete=models.CASCADE)

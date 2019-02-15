@@ -18,6 +18,7 @@ from brand.models import Brand
 from addresses.models import Address
 from products.models import Product, ProductPrice
 from otp.sms import SendSms
+from accounts.models import UserWithName
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
 
 CART_STATUS = (
@@ -173,6 +174,48 @@ class Order(models.Model):
         return self.order_no or str(self.id)
 
 
+class Trip(models.Model):
+    TRIP_STATUS = (
+        ('READY', 'Ready'),
+        ('STARTED', 'Started'),
+        ('COMPLETED', 'Completed')
+    )
+    seller_shop = models.ForeignKey(
+        Shop, related_name='trip_seller_shop',
+        on_delete=models.CASCADE
+    )
+    dispatch_no = models.CharField(max_length=50, unique=True)
+    delivery_boy = models.ForeignKey(
+        UserWithName, related_name='order_delivered_by_user',
+        on_delete=models.CASCADE, verbose_name='Delivery Boy'
+    )
+    vehicle_no = models.CharField(max_length=50)
+    trip_status = models.CharField(max_length=100, choices=TRIP_STATUS)
+    e_way_bill_no = models.CharField(max_length=50, blank=True, null=True)
+    starts_at = models.DateTimeField()
+    completed_at = models.DateTimeField(blank=True, null=True)
+
+    def __str__(self):
+        return self.dispatch_no
+
+    def save(self, *args, **kwargs):
+        if self._state.adding:
+            date = datetime.date.today().strftime('%d%m%y')
+            shop = self.seller_shop_id
+            shop_id_date = "%s/%s" % (shop, date)
+            last_dispatch_no = Trip.objects.filter(
+                dispatch_no__contains=shop_id_date)
+            if last_dispatch_no:
+                dispatch_attempt = int(
+                    last_dispatch_no.last().dispatch_no.split('/')[-1])
+                dispatch_attempt += 1
+            else:
+                dispatch_attempt = 1
+            final_dispatch_no = "%s/%s/%s" % ('DIS', shop_id_date, dispatch_attempt)
+            self.dispatch_no = final_dispatch_no
+        super().save(*args, **kwargs)
+
+
 class OrderedProduct(models.Model):
     SHIPMENT_STATUS = (
         ('READY_TO_SHIP', 'Ready to Ship'),
@@ -193,11 +236,9 @@ class OrderedProduct(models.Model):
         default='READY_TO_SHIP'
     )
     invoice_no = models.CharField(max_length=255, null=True, blank=True)
-    vehicle_no = models.CharField(max_length=255, null=True, blank=True)
-    shipped_by = models.ForeignKey(
-        get_user_model(), related_name='rt_shipped_product_ordered_by_user',
+    trip = models.ForeignKey(
+        Trip, related_name="rt_invoice_trip",
         null=True, blank=True, on_delete=models.CASCADE,
-        verbose_name='Delivery Boy'
     )
     received_by = models.ForeignKey(
         get_user_model(), related_name='rt_ordered_product_received_by_user',
@@ -221,12 +262,16 @@ class OrderedProduct(models.Model):
     def shipment_address(self):
         if self.order:
             address = Address.objects.select_related(
-                'shop_name', 'city').get(pk=self.order.shipping_address_id)
+                'shop_name').get(pk=self.order.shipping_address_id)
             address_line = address.address_line1
             shop_name = address.shop_name.shop_name
-            city = address.city
-            return str("%s, %s, %s") % (shop_name, address_line, city)
+            return str("%s, %s") % (shop_name, address_line)
         return str("-")
+
+    @property
+    def invoice_city(self):
+        city = self.order.shipping_address.city
+        return str(city)
 
     @property
     def invoice_amount(self):
@@ -305,6 +350,13 @@ class OrderedProductMapping(models.Model):
             return str(no_of_pieces)
         return str("-")
 
+    @property
+    def gf_code(self):
+        if self.product:
+            gf_code = self.product.product_gf_code
+            return str(gf_code)
+        return str("-")
+
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
             shop__shop_type__shop_type='sp', status=True
@@ -317,14 +369,16 @@ class OrderedProductMapping(models.Model):
         return self.product.product_pro_tax.filter(tax__tax_type='cess')
 
 
-class Delivery(OrderedProduct):
+class Dispatch(OrderedProduct):
     class Meta:
         proxy = True
 
 
-class DeliveryProductMapping(OrderedProductMapping):
+class DispatchProductMapping(OrderedProductMapping):
     class Meta:
         proxy = True
+        verbose_name = _("To be Ship product")
+        verbose_name_plural = _("To be Ship products")
 
 
 class CustomerCare(models.Model):

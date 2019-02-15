@@ -1,13 +1,17 @@
+import datetime
+
 from dal import autocomplete
 from django_select2.forms import Select2MultipleWidget, ModelSelect2Widget
 
+from django.contrib.auth import get_user_model
+from django.contrib.admin import widgets
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import ugettext_lazy as _
 
 from retailer_to_sp.models import (
     CustomerCare, ReturnProductMapping, OrderedProduct,
-    OrderedProductMapping, Order
+    OrderedProductMapping, Order, Dispatch, Trip
 )
 from products.models import Product
 
@@ -135,7 +139,7 @@ class OrderedProductDispatchForm(forms.ModelForm):
     class Meta:
         model = OrderedProduct
         fields = ['order_custom', 'invoice_no_custom',
-                  'vehicle_no', 'shipment_status']
+                  'shipment_status']
 
     class Media:
         js = (
@@ -153,3 +157,32 @@ class OrderedProductDispatchForm(forms.ModelForm):
         super(OrderedProductDispatchForm, self).__init__(*args, **kwargs)
         #self.fields['order'].required = True
 
+
+class TripForm(forms.ModelForm):
+
+    class Meta:
+        model = Trip
+        fields = ['seller_shop', 'delivery_boy', 'vehicle_no', 'trip_status',
+                  'e_way_bill_no', 'starts_at']
+
+    class Media:
+        js = ('admin/js/tripform.js', )
+
+    def __init__(self, *args, **kwargs):
+        super(TripForm, self).__init__(*args, **kwargs)
+        self.fields['starts_at'].widget = widgets.AdminSplitDateTime()
+
+        instance = getattr(self, 'instance', None)
+        if instance and instance.trip_status == 'STARTED':
+            self.fields['delivery_boy'].disabled = True
+            #self.fields['starts_at'].widget = forms.HiddenInput()
+        if instance and instance.trip_status == 'READY':
+            self.fields['seller_shop'].disabled = True
+            #self.fields['delivery_boy'].widget.attrs['readonly'] = 'readonly'
+            #self.fields['seller_shop'].widget = forms.HiddenInput()
+
+    def clean(self):
+        data = self.cleaned_data
+        if data['starts_at'] < datetime.datetime.today():
+            raise forms.ValidationError("The date cannot be in the past!")
+        return data
