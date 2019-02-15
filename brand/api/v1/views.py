@@ -35,9 +35,9 @@ class GetSubBrandsListView(APIView):
     def get(self, *args, **kwargs):
         brand_id = kwargs.get('brand')
         brand = Brand.objects.get(pk=brand_id)
-        data = brand.brnd_parent.all()
+        data = brand.brnd_parent.filter(active_status='active')
         is_success = True if data else False
-        brand_data_serializer = SubBrandSerializer(brand.brnd_parent.all(),many=True)
+        brand_data_serializer = SubBrandSerializer(brand.brnd_parent.filter(active_status='active'),many=True)
         return Response({"message":[""], "response_data": brand_data_serializer.data ,"is_success":is_success })
 
 '''class GetAllBrandListView(ListCreateAPIView):

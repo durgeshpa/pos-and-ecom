@@ -29,6 +29,7 @@ ORDER_STATUS = (
     ("partially_delivered", "Partially Delivered"),
     ("delivered", "Delivered"),
     ("closed", "Closed"),
+    ("payment_done_approval_pending", "Payment Done Approval Pending")
 )
 
 ITEM_STATUS = (
@@ -106,6 +107,18 @@ class CartProductMapping(models.Model):
 
 
 class Order(models.Model):
+    ORDER_STATUS = (
+    ("active", "Active"),
+    ("pending", "Pending"),
+    ("deleted", "Deleted"),
+    ("ordered", "Ordered"),
+    ("order_shipped", "Dispatched"),
+    ("partially_delivered", "Partially Delivered"),
+    ("delivered", "Delivered"),
+    ("closed", "Closed"),
+    ("payment_done_approval_pending", "Payment Done Approval Pending")
+)
+
     seller_shop = models.ForeignKey(
         Shop, related_name='rt_seller_shop_order',
         null=True, blank=True, on_delete=models.CASCADE
