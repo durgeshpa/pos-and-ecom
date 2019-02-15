@@ -178,12 +178,14 @@ class ProductPrice(models.Model):
     #pincode_from = models.PositiveIntegerField(default=0,null=True,blank=True)
     #pincode_to = models.PositiveIntegerField(default=0,null=True,blank=True)
     mrp = models.FloatField(default=0,null=True,blank=True)
+    # price_to_service_partner = models.FloatField(default=0,null=True,blank=True)
+    # price_to_retailer = models.FloatField(default=0,null=True,blank=True)
+    # price_to_super_retailer = models.FloatField(default=0,null=True,blank=True)
     shop = models.ForeignKey(Shop,related_name='shop_product_price', null=True,blank=True,on_delete=models.CASCADE)
+    #price = models.FloatField(default=0)
     price_to_service_partner = models.FloatField(default=0,null=True,blank=True)
     price_to_retailer = models.FloatField(default=0,null=True,blank=True)
     price_to_super_retailer = models.FloatField(default=0,null=True,blank=True)
-    cash_discount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    loyalty_incentive = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     start_date = models.DateTimeField(null=True,blank=True)
     end_date = models.DateTimeField(null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -192,6 +194,7 @@ class ProductPrice(models.Model):
 
     def __str__(self):
         return self.product.product_name
+
 
     def save(self, *args, **kwargs):
         last_product_prices = ProductPrice.objects.filter(product=self.product,shop=self.shop,status=True).update(status=False)
