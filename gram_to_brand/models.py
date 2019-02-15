@@ -258,6 +258,7 @@ class GRNOrder(BaseShipment): #Order Shipment
     grn_id = models.CharField(max_length=255,null=True,blank=True)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_user_grn_order', null=True,blank=True, on_delete=models.CASCADE)
     grn_date = models.DateField(auto_now_add=True)
+    brand_invoice = models.FileField(null=True,blank=True,upload_to='brand_invoice')
     products = models.ManyToManyField(Product,through='GRNOrderProductMapping')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
