@@ -749,7 +749,7 @@ class DownloadInvoiceSP(APIView):
         pk=self.kwargs.get('pk')
         a = OrderedProduct.objects.get(pk=pk)
         shop=a
-        products = a.rt_order_product_order_product_mapping.all()
+        products = a.rt_order_product_order_product_mapping.filter(delivered_qty__gt=0)
         payment_type = a.order.rt_payment.last().payment_choice
         order_id= a.order.order_no
 
