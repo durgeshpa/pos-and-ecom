@@ -303,7 +303,7 @@ def products_filter_view(request):
             writer.writerow([
                 'id', 'product_name',
                 'gf_code', 'product_hsn',
-                'mrp', 'ptsp', 'ptsr', 'ptr'
+                'mrp', 'ptsp', 'ptsr', 'ptr', 'cash_discount', 'loyalty_incentive'
             ])
             brands = form.cleaned_data.get('brand')
             products = Product.objects.select_related(
