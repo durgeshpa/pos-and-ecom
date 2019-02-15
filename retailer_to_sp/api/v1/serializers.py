@@ -26,7 +26,7 @@ class ProductImageSerializer(serializers.ModelSerializer):
 class ProductPriceSerializer(serializers.ModelSerializer):
    class Meta:
       model = ProductPrice
-      fields = '__all__'
+      fields = ('cash_discount','loyalty_incentive')
 
 class TaxSerializer(serializers.ModelSerializer):
     class Meta:
@@ -88,12 +88,31 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
     product_opt_product = ProductOptionSerializer(many=True)
     product_brand = BrandSerializer(read_only=True)
     product_price = serializers.SerializerMethodField('product_price_dt')
+    cash_discount = serializers.SerializerMethodField('cash_discount_dt')
+    loyalty_incentive = serializers.SerializerMethodField('loyalty_incentive_dt')
     product_mrp = serializers.SerializerMethodField('product_mrp_dt')
     product_case_size_picies = serializers.SerializerMethodField('product_case_size_picies_dt')
 
     def product_price_dt(self, obj):
         shop_id = self.context.get("parent_mapping_id",None)
-        return 0 if obj.product_pro_price.filter(shop__id=shop_id).last() is None else obj.product_pro_price.filter(shop__id=shop_id).last().price_to_retailer
+        if obj.product_pro_price.filter(shop__id=shop_id).last() is None:
+            self.product_price = 0
+            self.cash_discount = 0
+            self.loyalty_incentive = 0
+            return self.product_price
+
+        else:
+            product_price_filter = obj.product_pro_price.filter(shop__id=shop_id).last()
+            self.product_price = product_price_filter.price_to_retailer
+            self.cash_discount = product_price_filter.cash_discount
+            self.loyalty_incentive = product_price_filter.loyalty_incentive
+            return self.product_price
+
+    def cash_discount_dt(self, obj):
+        return self.cash_discount
+
+    def loyalty_incentive_dt(self, obj):
+        return self.loyalty_incentive
 
     def product_mrp_dt(self, obj):
         shop_id = self.context.get("parent_mapping_id",None)
@@ -107,7 +126,9 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
         model = Product
         fields = ('id','product_name','product_slug','product_short_description','product_long_description','product_sku','product_mrp',
                   'product_ean_code','product_brand','created_at','modified_at','product_pro_price','status','product_pro_image',
-                  'product_pro_tax','product_opt_product','product_price','product_inner_case_size','product_case_size','product_case_size_picies')
+                  'product_pro_tax','product_opt_product','product_price','product_inner_case_size','product_case_size','product_case_size_picies',
+                  'cash_discount','loyalty_incentive',
+                  )
 
 class ProductDetailSerializer(serializers.ModelSerializer):
 
