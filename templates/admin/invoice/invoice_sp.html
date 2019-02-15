@@ -183,13 +183,13 @@ table tr td,th,h4,span,address{
 								<td class="text-center">{{ m.product_short_description}}</td>
 								<td class="text-center">{{ m.product_hsn}}</td>
 								<td class="text-center"><strong>{{ m.product_tax_percentage}}</strong></td>
-								<td class="text-center"><strong>{{m.product_tax_amount}}</strong></td>
+								<td class="text-center"><strong>{{m.product_tax_amount |floatformat:2 | intcomma}}</strong></td>
 								<td class="text-center">{{ m.product_inner_case_size }}</td>
 								<td class="text-center">{{m.shipped_qty}}</td>
 								<td class="text-center">{{m.product_no_of_pices}}</td>
 								<td class="text-center">{{m.price_to_retailer}}</td>
 								<td class="text-center">PCS</td>
-								<td class="text-right">{{m.product_sub_total | intcomma }}/-</td>
+								<td class="text-right">{{m.product_sub_total|floatformat:2| intcomma }}/-</td>
     							</tr>
 					{% endfor %}
 
@@ -209,7 +209,7 @@ table tr td,th,h4,span,address{
 								  <td class="thick-line text-center"><strong>{{sum_qty}} PCS</strong></td>
     								<td class="thick-line"></td>
     								<td class="thick-line text-center"><strong></strong></td>
-    								<td class="thick-line text-right"><strong>₹{{sum_amount | intcomma }}/-</strong></td>
+    								<td class="thick-line text-right"><strong>₹{{sum_amount| floatformat:2 | intcomma }}/-</strong></td>
     							</tr>
 									{% if shop.order.seller_shop.shop_name_address_mapping.all == shop.order.shipping_address %}
     							<tr style="display:none">
@@ -309,7 +309,7 @@ table tr td,th,h4,span,address{
     								<td class="no-line"></td>
     								<td class="no-line"></td>
 									<td class="no-line text-right"><strong>Total</strong></td>
-    								<td class="no-line text-right" colspan="2"><strong>₹ {{total_amount | intcomma}}/- </strong></td>
+    								<td class="no-line text-right" colspan="2"><strong>₹ {{total_amount| floatformat:2 | intcomma}}/- </strong></td>
     							</tr>
 
 								<tr>
