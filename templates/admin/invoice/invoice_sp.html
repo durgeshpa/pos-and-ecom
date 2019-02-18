@@ -101,7 +101,13 @@ table tr td,th,h4,span,address{
         							<td class="text-center"></td>
 
         					<td class="text-center"><strong>Mode/Terms of Payment</strong><br>
-								 <span>1 Days</span>
+								 <span>
+                                     {% if payment_type == 'neft' %}
+                                        Prepaid Order
+                                     {% else %}
+                                        Cash On Delivery
+                                     {% endif %}
+                                 </span>
 								 </td>
 
 
@@ -115,8 +121,7 @@ table tr td,th,h4,span,address{
                                 <tr>
 
         							<td style="width: 50%" class="text-center"><strong>Supplier's Ref./Order No.</strong><br><span>{{shop.po_no}}</span></td>
-        							<td class="text-center"><strong>Delivery Note Date <br>
-1 Days</strong></td>
+        							<td class="text-center"><strong>Delivery Note Date</strong></td>
 
 
                                 </tr>

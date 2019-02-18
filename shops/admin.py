@@ -1,3 +1,4 @@
+import csv
 from django.contrib import admin
 from .models import (
     Shop, ShopType, RetailerType, ParentRetailerMapping,
@@ -8,6 +9,28 @@ from .forms import ParentRetailerMappingForm,ShopParentRetailerMappingForm
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
 from django.utils.html import format_html
+from import_export import resources
+from django.http import HttpResponse
+
+
+class ShopResource(resources.ModelResource):
+    class Meta:
+        model = Shop
+        exclude = ('created_at','modified_at')
+
+
+class ExportCsvMixin:
+    def export_as_csv(self, request, queryset):
+        meta = self.model._meta
+        field_names = [field.name for field in meta.fields]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in field_names])
+        return response
+    export_as_csv.short_description = "Download CSV of Selected Objects"
 
 class ShopTypeSearch(InputFilter):
     parameter_name = 'shop_type'
@@ -83,7 +106,10 @@ class ShopParentRetailerMapping(admin.TabularInline):
     extra = 1
     max_num = 1
 
-class ShopAdmin(admin.ModelAdmin):
+
+class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
+    resource_class = ShopResource
+    actions = ["export_as_csv"]
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin,
         AddressAdmin, ShopInvoicePatternAdmin,ShopParentRetailerMapping
@@ -91,6 +117,7 @@ class ShopAdmin(admin.ModelAdmin):
     list_display = ('shop_name','shop_owner','shop_type','status', 'get_shop_city','shop_mapped_product')
     filter_horizontal = ('related_users',)
     list_filter = (ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,)
+    search_fields = ('shop_name', )
 
     def get_queryset(self, request):
         qs = super(ShopAdmin, self).get_queryset(request)
