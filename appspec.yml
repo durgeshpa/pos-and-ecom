@@ -4,6 +4,8 @@ files:
   - source: /
     destination: /home/ubuntu/project/retailer-backend
 hooks:
+  BeforeInstall:
+    - location: scripts/before_install.sh
   ApplicationStop:
     - location: scripts/stop.sh
       timeout: 350
