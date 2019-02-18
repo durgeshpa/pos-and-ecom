@@ -5,10 +5,10 @@ files:
     destination: /home/ubuntu/project/retailer-backend
 hooks:
   ApplicationStop:
-    - location: stop.sh
+    - location: scripts/stop.sh
       timeout: 300
       runas: root
   ApplicationStart:
-    - location: start.sh
+    - location: scripts/start.sh
       timeout: 300
       runas: root
