@@ -119,6 +119,9 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     list_filter = (ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,)
     search_fields = ('shop_name', )
 
+    class Media:
+        css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
+
     def get_queryset(self, request):
         qs = super(ShopAdmin, self).get_queryset(request)
         if request.user.is_superuser:
