@@ -6,13 +6,14 @@
 image: python:3.5.1
 
 pipelines:
-  default:
-    - step:
-        name: Deploy
-        image: python:3.5.1
-        script:
-          - apt-get update
-          - apt-get install -y zip
-          - pip install boto3==1.3.0
-          - zip -r /tmp/artifact.zip appspec.yml .
-          - python codedeploy_deploy.py
+  branches:
+    master:
+      - step:
+          name: Deploy
+          image: python:3.5.1
+          script:
+            - apt-get update
+            - apt-get install -y zip
+            - pip install boto3==1.3.0
+            - zip -r /tmp/artifact.zip appspec.yml .
+            - python codedeploy_deploy.py
