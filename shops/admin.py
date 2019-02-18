@@ -117,6 +117,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     list_display = ('shop_name','shop_owner','shop_type','status', 'get_shop_city','shop_mapped_product')
     filter_horizontal = ('related_users',)
     list_filter = (ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,)
+    search_fields = ('shop_name', )
 
     def get_queryset(self, request):
         qs = super(ShopAdmin, self).get_queryset(request)
