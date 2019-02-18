@@ -180,7 +180,7 @@ class CartAdmin(admin.ModelAdmin):
 
 
 class OrderAdmin(admin.ModelAdmin):
-    search_fields = ('order',)
+    search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name')
     list_display = ('order_no', 'order_status', 'download_pick_list')
 
 
