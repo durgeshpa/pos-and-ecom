@@ -206,17 +206,19 @@ class OrderedProduct(models.Model):
         return self.invoice_no or str(self.id)
 
     def save(self, *args, **kwargs):
-        invoice_prefix = self.order.seller_shop.invoce_pattern.filter(
-            status='ACT').last().pattern
-        last_invoice = OrderedProduct.objects.filter(
-            order__in=self.order.seller_shop.rt_seller_shop_order.all()
-        ).order_by('invoice_no').last()
-        if last_invoice:
-            invoice_id = getcredit_note_id(last_invoice.invoice_no, invoice_prefix)
-            invoice_id += 1
-        else:
-            invoice_id = 1
-        self.invoice_no = retailer_sp_invoice(invoice_prefix, invoice_id)
+        if self._state.adding:
+            invoice_prefix = self.order.seller_shop.invoce_pattern.filter(
+                status='ACT').last().pattern
+            last_invoice = OrderedProduct.objects.filter(
+                order__in=self.order.seller_shop.rt_seller_shop_order.all()
+            ).order_by('invoice_no').last()
+            if last_invoice:
+                invoice_id = getcredit_note_id(last_invoice.invoice_no,
+                                               invoice_prefix)
+                invoice_id += 1
+            else:
+                invoice_id = 1
+            self.invoice_no = retailer_sp_invoice(invoice_prefix, invoice_id)
         super().save(*args, **kwargs)
 
 
