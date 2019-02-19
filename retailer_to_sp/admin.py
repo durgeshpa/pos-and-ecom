@@ -180,8 +180,10 @@ class CartAdmin(admin.ModelAdmin):
 
 
 class OrderAdmin(admin.ModelAdmin):
-    search_fields = ('order',)
-    list_display = ('order_no', 'order_status', 'download_pick_list')
+    search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name',
+                    'order_status', 'payment_mode')
+    list_display = ('order_no', 'seller_shop', 'buyer_shop', 'total_final_amount',
+                    'order_status', 'created_at', 'payment_amount', 'payment_mode', 'download_pick_list')
 
 
     def get_queryset(self, request):
