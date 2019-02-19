@@ -16,7 +16,8 @@ pipelines:
             - apt-get update
             - apt-get install -y zip
             - pip install boto3==1.3.0
-            - cp -R . retailer_backend
+            - mkdir retailer_backend
+            - cp -R retailer_backend/. retailer_backend
             - zip -r /tmp/artifact.zip appspec.yml scripts/* retailer_backend
             - python codedeploy_deploy.py
 
