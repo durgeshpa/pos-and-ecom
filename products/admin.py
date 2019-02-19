@@ -274,7 +274,6 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def product_images(self,obj):
         if obj.product_pro_image.first():
-            print(obj.product_pro_image.first().image)
             return mark_safe('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.
                              format(obj.product_pro_image.first().image.url,obj.product_pro_image.first().image_alt_text,
                                     obj.product_pro_image.first().image.url))
