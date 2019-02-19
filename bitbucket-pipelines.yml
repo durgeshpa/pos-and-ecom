@@ -16,7 +16,7 @@ pipelines:
             - apt-get update
             - apt-get install -y zip
             - pip install boto3==1.3.0
-            - zip -r /tmp/artifact.zip appspec.yml ./*
+            - zip -r /tmp/artifact.zip ./*
             - python codedeploy_deploy.py
 
     dev:
