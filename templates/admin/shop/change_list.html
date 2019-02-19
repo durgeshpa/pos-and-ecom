@@ -41,12 +41,22 @@
                         <div class="text"></div>
                         <div class="clear"></div>
                       </th>
+
                       <th scope="col" class="sortable column-country">
-                        <div class="text"><a href="?o=1">Product Name</a></div>
+                        <div class="text"><a href="?o=1">Product ID</a></div>
+                        <div class="clear"></div>
+                      </th>
+
+                      <th scope="col" class="sortable column-country">
+                        <div class="text"><a href="?o=2">GF code</a></div>
+                        <div class="clear"></div>
+                      </th>
+                      <th scope="col" class="sortable column-country">
+                        <div class="text"><a href="?o=3">Product Name</a></div>
                         <div class="clear"></div>
                       </th>
                       <th scope="col" class="sortable column-state_name">
-                        <div class="text"><a href="?o=2">Available Qty </a></div>
+                        <div class="text"><a href="?o=4">Available Qty </a></div>
                         <div class="clear"></div>
                       </th>
                     </tr>
@@ -55,6 +65,8 @@
                     {% for dt in shop_products %}
                     <tr class="row1">
                         <td class="action-checkbox"></td>
+                        <th class="field-country nowrap">{{ dt.product }}</th>
+                        <th class="field-country nowrap">{{ dt.product__product_gf_code }}</th>
                         <th class="field-country nowrap">{{ dt.product__product_name }}</th>
                         <td class="field-state_name">{{ dt.product_qty_sum }}</td>
                     </tr>

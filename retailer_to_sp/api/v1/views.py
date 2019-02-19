@@ -74,6 +74,7 @@ class GramGRNProductsList(APIView):
         cart_check = False
         is_store_active = True
         sort_preference = request.data.get('sort_by_price')
+        today = datetime.today()
 
         '''1st Step
             Check If Shop Is exists then 2nd pt else 3rd Pt
@@ -102,7 +103,7 @@ class GramGRNProductsList(APIView):
                     '''4th Step
                         SP mapped data shown
                     '''
-                    grn = SpMappedOrderedProductMapping.objects.filter(ordered_product__order__ordered_cart__shop=parent_mapping.parent,available_qty__gt=0).values('product_id')
+                    grn = SpMappedOrderedProductMapping.objects.filter(ordered_product__order__ordered_cart__shop=parent_mapping.parent,available_qty__gt=0,expiry_date__gt=today).values('product_id')
                     cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
                     if cart:
                         cart_products = cart.rt_cart_list.all()
@@ -113,7 +114,7 @@ class GramGRNProductsList(APIView):
                     '''5th Step
                         Gramfactory mapped data shown
                     '''
-                    grn = GRNOrderProductMapping.objects.filter(grn_order__order__ordered_cart__gf_shipping_address__shop_name=parent_mapping.parent,available_qty__gt=0).values('product_id')
+                    grn = GRNOrderProductMapping.objects.filter(grn_order__order__ordered_cart__gf_shipping_address__shop_name=parent_mapping.parent,available_qty__gt=0,expiry_date__gt=today).values('product_id')
                     cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,cart_status__in=['active', 'pending']).last()
                     if cart:
                         cart_products = cart.rt_cart_list.all()
@@ -748,7 +749,7 @@ class DownloadInvoiceSP(APIView):
         pk=self.kwargs.get('pk')
         a = OrderedProduct.objects.get(pk=pk)
         shop=a
-        products = a.rt_order_product_order_product_mapping.all()
+        products = a.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0)
         payment_type = a.order.rt_payment.last().payment_choice
         order_id= a.order.order_no
 
@@ -787,7 +788,7 @@ class DownloadInvoiceSP(APIView):
             product_tax_amount = 0
             product_pro_price = 0
             product_pro_price = m.product.product_pro_price.filter(
-                shop=m.ordered_product.order.seller_shop).last().price_to_retailer if m.product.product_pro_price.exists() else 0
+                shop=m.ordered_product.order.seller_shop, status=True).last().price_to_retailer
 
             all_tax_list = m.product.product_pro_tax
             if all_tax_list.exists():
@@ -820,11 +821,9 @@ class DownloadInvoiceSP(APIView):
 
 
             sum_qty = sum_qty + int(m.product.product_inner_case_size) * int(m.shipped_qty)
-
-            for h in m.get_shop_specific_products_prices_sp():
-
-                sum_amount = sum_amount + (int(m.product.product_inner_case_size) * int(m.shipped_qty) * h.price_to_retailer)
-                inline_sum_amount = (int(m.product.product_inner_case_size) * int(m.shipped_qty) * h.price_to_retailer)
+            sum_amount += (int(m.product.product_inner_case_size) * int(m.shipped_qty) * product_pro_price)
+            inline_sum_amount = (int(m.product.product_inner_case_size) * int(m.shipped_qty) * product_pro_price)
+            
             for n in m.product.product_pro_tax.all():
 
                 divisor= (1+(n.tax.tax_percentage/100))

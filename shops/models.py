@@ -66,6 +66,14 @@ class Shop(models.Model):
             message.send()
         super(Shop, self).save(force_insert, force_update, *args, **kwargs)
 
+    # def available_product(self, product):
+    #     ProductMapping = {
+    #         "sp": 
+    #     }
+    #     products = OrderedProductMapping.objects.filter(
+    #                     ordered_product__order__shipping_address__shop_name=self,
+    #                     product=product).order_by('-expiry_date')
+
     class Meta:
         permissions = (
             ("can_see_all_shops", "Can See All Shops"),

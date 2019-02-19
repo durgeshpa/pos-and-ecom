@@ -287,8 +287,12 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     actions = ["export_as_csv"]
     list_display = [
         'product', 'product_gf_code', 'mrp', 'price_to_service_partner',
-        'price_to_retailer', 'price_to_super_retailer', 'cash_discount', 'loyalty_incentive',
+        'price_to_retailer', 'price_to_super_retailer',
         'start_date', 'end_date', 'status'
+    ]
+    search_fields = [
+        'product__product_name', 'product__product_gf_code',
+        'product__product_brand__brand_name', 'shop__shop_name'
     ]
 
     def product_gf_code(self, obj):

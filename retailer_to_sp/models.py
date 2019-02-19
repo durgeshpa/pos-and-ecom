@@ -29,6 +29,7 @@ ORDER_STATUS = (
     ("partially_delivered", "Partially Delivered"),
     ("delivered", "Delivered"),
     ("closed", "Closed"),
+    ("payment_done_approval_pending", "Payment Done Approval Pending")
 )
 
 ITEM_STATUS = (
@@ -106,6 +107,18 @@ class CartProductMapping(models.Model):
 
 
 class Order(models.Model):
+    ORDER_STATUS = (
+    ("active", "Active"),
+    ("pending", "Pending"),
+    ("deleted", "Deleted"),
+    ("ordered", "Ordered"),
+    ("order_shipped", "Dispatched"),
+    ("partially_delivered", "Partially Delivered"),
+    ("delivered", "Delivered"),
+    ("closed", "Closed"),
+    ("payment_done_approval_pending", "Payment Done Approval Pending")
+)
+
     seller_shop = models.ForeignKey(
         Shop, related_name='rt_seller_shop_order',
         null=True, blank=True, on_delete=models.CASCADE
@@ -159,8 +172,11 @@ class Order(models.Model):
     def __str__(self):
         return self.order_no or str(self.id)
 
+    class Meta:
+        ordering = ['-created_at']
 
-class OrderedProduct(models.Model):
+
+class OrderedProduct(models.Model): 
     order = models.ForeignKey(
         Order, related_name='rt_order_order_product',
         on_delete=models.CASCADE, null=True, blank=True
@@ -190,17 +206,19 @@ class OrderedProduct(models.Model):
         return self.invoice_no or str(self.id)
 
     def save(self, *args, **kwargs):
-        invoice_prefix = self.order.seller_shop.invoce_pattern.filter(
-            status='ACT').last().pattern
-        last_invoice = OrderedProduct.objects.filter(
-            order__in=self.order.seller_shop.rt_seller_shop_order.all()
-        ).order_by('invoice_no').last()
-        if last_invoice:
-            invoice_id = getcredit_note_id(last_invoice.invoice_no, invoice_prefix)
-            invoice_id += 1
-        else:
-            invoice_id = 1
-        self.invoice_no = retailer_sp_invoice(invoice_prefix, invoice_id)
+        if self._state.adding:
+            invoice_prefix = self.order.seller_shop.invoce_pattern.filter(
+                status='ACT').last().pattern
+            last_invoice = OrderedProduct.objects.filter(
+                order__in=self.order.seller_shop.rt_seller_shop_order.all()
+            ).order_by('invoice_no').last()
+            if last_invoice:
+                invoice_id = getcredit_note_id(last_invoice.invoice_no,
+                                               invoice_prefix)
+                invoice_id += 1
+            else:
+                invoice_id = 1
+            self.invoice_no = retailer_sp_invoice(invoice_prefix, invoice_id)
         super().save(*args, **kwargs)
 
 
@@ -250,7 +268,7 @@ class OrderedProductMapping(models.Model):
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
             shop__shop_type__shop_type='sp', status=True
-        )
+        ).last()
 
     def get_products_gst_tax(self):
         return self.product.product_pro_tax.filter(tax__tax_type='gst')
