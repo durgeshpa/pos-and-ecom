@@ -1,4 +1,4 @@
-cp -R /home/ubuntu/projects/tmp/retailer_backend /home/ubuntu/projects/retailer-backend
+cp -R /home/ubuntu/project/tmp/retailer_backend /home/ubuntu/project/retailer-backend
 cp /tmp/.env /home/ubuntu/project/retailer-backend/.env
 source /home/ubuntu/projects/prod/bin/activate
 cd /home/ubuntu/project/retailer-backend/
