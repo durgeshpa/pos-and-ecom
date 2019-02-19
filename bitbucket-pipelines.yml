@@ -24,4 +24,4 @@ pipelines:
           name: Dev Deploy
           image: python:3.5.1
           script:
-            - echo "This script runs only on commit to the master branch."
+            - echo "This script runs only on commit to the dev branch."
