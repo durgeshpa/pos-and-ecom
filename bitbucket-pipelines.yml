@@ -17,7 +17,7 @@ pipelines:
             - apt-get install -y zip
             - pip install boto3==1.3.0
             - cp -R . /tmp/ret_bck
-            - zip -r /tmp/artifact.zip /tmp/ret_bck
+            - zip -r /tmp/artifact.zip appspec.yml /tmp/ret_bck
             - python codedeploy_deploy.py
 
     dev:
