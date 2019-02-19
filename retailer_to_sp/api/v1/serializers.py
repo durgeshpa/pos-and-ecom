@@ -98,24 +98,24 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
 
     def product_price_dt(self, obj):
         shop_id = self.context.get("parent_mapping_id",None)
-        if obj.product_pro_price.filter(shop__id=shop_id).last() is None:
+        if obj.product_pro_price.filter(shop__id=shop_id,status=True).exists():
+            product_price_filter = obj.product_pro_price.filter(shop__id=shop_id,status=True).last()
+            self.product_price = product_price_filter.price_to_retailer if product_price_filter.price_to_retailer else 0
+            self.cash_discount = product_price_filter.cash_discount if product_price_filter.cash_discount else 0
+            self.loyalty_incentive = product_price_filter.loyalty_incentive if product_price_filter.loyalty_incentive else 0
+
+            self.cash_discount_value = round((float(self.cash_discount) * float(self.product_price)) / 100, 2)
+            self.loyalty_incentive_value = round((float(self.loyalty_incentive) * float(self.product_price)) / 100, 2)
+            self.product_effective_price = round(float(self.product_price) - (float(self.loyalty_incentive_value) + float(self.cash_discount_value)), 2)
+            return self.product_price
+
+        else:
             self.product_price = 0
             self.cash_discount = 0
             self.cash_discount_value = 0
             self.loyalty_incentive = 0
             self.loyalty_incentive_value = 0
             self.product_effective_price = 0
-            return self.product_price
-
-        else:
-            product_price_filter = obj.product_pro_price.filter(shop__id=shop_id).last()
-            self.product_price = product_price_filter.price_to_retailer if product_price_filter.price_to_retailer else 0
-            self.cash_discount = product_price_filter.cash_discount if product_price_filter.cash_discount else 0
-            self.loyalty_incentive = product_price_filter.loyalty_incentive if product_price_filter.loyalty_incentive else 0
-
-            self.cash_discount_value = round((float(self.cash_discount)*float(self.product_price))/100,2)
-            self.loyalty_incentive_value = round((float(self.loyalty_incentive)*float(self.product_price))/100,2)
-            self.product_effective_price = round(float(self.product_price)-(float(self.loyalty_incentive_value)+float(self.cash_discount_value)),2)
             return self.product_price
 
     def cash_discount_dt(self, obj):
@@ -191,8 +191,8 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
     def product_sub_total_dt(self,obj):
         shop_id = self.context.get("parent_mapping_id", None)
         product_effective_price = 0
-        if obj.cart_product.product_pro_price.filter(shop__id=shop_id):
-            product_price_filter = obj.cart_product.product_pro_price.filter(shop__id=shop_id).last()
+        if obj.cart_product.product_pro_price.filter(shop__id=shop_id,status=True).exists():
+            product_price_filter = obj.cart_product.product_pro_price.filter(shop__id=shop_id,status=True).last()
             product_price = product_price_filter.price_to_retailer if product_price_filter.price_to_retailer else 0
             cash_discount = product_price_filter.cash_discount if product_price_filter.cash_discount else 0
             loyalty_incentive = product_price_filter.loyalty_incentive if product_price_filter.loyalty_incentive else 0
@@ -201,7 +201,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
             loyalty_incentive_value = round((float(loyalty_incentive) * float(product_price)) / 100, 2)
             product_effective_price = round(float(product_price) - (float(loyalty_incentive_value) + float(cash_discount_value)), 2)
 
-        return float(obj.cart_product.product_inner_case_size)*float(obj.qty)*float(product_effective_price)
+        return round((float(obj.cart_product.product_inner_case_size)*float(obj.qty)*float(product_effective_price)),2)
 
     class Meta:
         model = CartProductMapping
@@ -222,9 +222,19 @@ class CartSerializer(serializers.ModelSerializer):
         for cart_pro in obj.rt_cart_list.all():
             self.items_count = self.items_count + int(cart_pro.qty)
             shop_id = self.context.get("parent_mapping_id", None)
-            pro_price = ProductPrice.objects.filter(shop__id=shop_id, product=cart_pro.cart_product).last()
-            if pro_price and pro_price.price_to_retailer:
-                self.total_amount = float(self.total_amount) + (float(pro_price.price_to_retailer) * float(cart_pro.qty) * float(pro_price.product.product_inner_case_size))
+            if ProductPrice.objects.filter(shop__id=shop_id,product=cart_pro.cart_product,status=True).exists():
+                product_price_filter = ProductPrice.objects.filter(shop__id=shop_id,product=cart_pro.cart_product,status=True).last()
+                product_price = product_price_filter.price_to_retailer if product_price_filter.price_to_retailer else 0
+                cash_discount = product_price_filter.cash_discount if product_price_filter.cash_discount else 0
+                loyalty_incentive = product_price_filter.loyalty_incentive if product_price_filter.loyalty_incentive else 0
+
+                cash_discount_value = round((float(cash_discount) * float(product_price)) / 100, 2)
+                loyalty_incentive_value = round((float(loyalty_incentive) * float(product_price)) / 100, 2)
+                product_effective_price = round(float(product_price) - (float(loyalty_incentive_value) + float(cash_discount_value)), 2)
+
+            # New Code for price end
+            #pro_price = ProductPrice.objects.filter(shop__id=shop_id,product=cart_pro.cart_product).last()
+                self.total_amount = float(self.total_amount) + (float(product_effective_price) * float(cart_pro.qty) * float(product_price_filter.product.product_inner_case_size))
             else:
                 self.total_amount = float(self.total_amount) + 0
         return self.total_amount
@@ -350,8 +360,8 @@ class GramMappedCartProductMappingSerializer(serializers.ModelSerializer):
     def product_sub_total_dt(self,obj):
         shop_id = self.context.get("parent_mapping_id", None)
         product_effective_price = 0
-        if obj.cart_product.product_pro_price.filter(shop__id=shop_id):
-            product_price_filter = obj.cart_product.product_pro_price.filter(shop__id=shop_id).last()
+        if obj.cart_product.product_pro_price.filter(shop__id=shop_id,status=True).exists():
+            product_price_filter = obj.cart_product.product_pro_price.filter(shop__id=shop_id,status=True).last()
             product_price = product_price_filter.price_to_retailer if product_price_filter.price_to_retailer else 0
             cash_discount = product_price_filter.cash_discount if product_price_filter.cash_discount else 0
             loyalty_incentive = product_price_filter.loyalty_incentive if product_price_filter.loyalty_incentive else 0
@@ -360,7 +370,7 @@ class GramMappedCartProductMappingSerializer(serializers.ModelSerializer):
             loyalty_incentive_value = round((float(loyalty_incentive) * float(product_price)) / 100, 2)
             product_effective_price = round(float(product_price) - (float(loyalty_incentive_value) + float(cash_discount_value)), 2)
 
-        return float(obj.cart_product.product_inner_case_size)*float(obj.qty)*float(product_effective_price)
+        return round((float(obj.cart_product.product_inner_case_size)*float(obj.qty)*float(product_effective_price)),2)
 
     class Meta:
         model = GramMappedCartProductMapping
@@ -380,9 +390,21 @@ class GramMappedCartSerializer(serializers.ModelSerializer):
         for cart_pro in obj.rt_cart_list.all():
             self.items_count = self.items_count + int(cart_pro.qty)
             shop_id = self.context.get("parent_mapping_id", None)
-            pro_price = ProductPrice.objects.filter(shop__id=shop_id,product=cart_pro.cart_product).last()
-            if pro_price and pro_price.price_to_retailer:
-                self.total_amount = float(self.total_amount) + (float(pro_price.price_to_retailer) * float(cart_pro.qty) * float(pro_price.product.product_inner_case_size))
+            # New Code for Price St
+            product_effective_price = 0
+            if ProductPrice.objects.filter(shop__id=shop_id,product=cart_pro.cart_product,status=True).exists():
+                product_price_filter = ProductPrice.objects.filter(shop__id=shop_id,product=cart_pro.cart_product,status=True).last()
+                product_price = product_price_filter.price_to_retailer if product_price_filter.price_to_retailer else 0
+                cash_discount = product_price_filter.cash_discount if product_price_filter.cash_discount else 0
+                loyalty_incentive = product_price_filter.loyalty_incentive if product_price_filter.loyalty_incentive else 0
+
+                cash_discount_value = round((float(cash_discount) * float(product_price)) / 100, 2)
+                loyalty_incentive_value = round((float(loyalty_incentive) * float(product_price)) / 100, 2)
+                product_effective_price = round(float(product_price) - (float(loyalty_incentive_value) + float(cash_discount_value)), 2)
+
+            # New Code for price end
+            #pro_price = ProductPrice.objects.filter(shop__id=shop_id,product=cart_pro.cart_product).last()
+                self.total_amount = float(self.total_amount) + (float(product_effective_price) * float(cart_pro.qty) * float(product_price_filter.product.product_inner_case_size))
             else:
                 self.total_amount = float(self.total_amount) + 0
         return self.total_amount
