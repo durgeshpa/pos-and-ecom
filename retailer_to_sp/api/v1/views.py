@@ -272,9 +272,13 @@ class AddToCart(APIView):
                     cart = Cart.objects.filter(last_modified_by=self.request.user,
                                                cart_status__in=['active', 'pending']).last()
                     cart.cart_status = 'active'
+                    cart.seller_shop = parent_mapping.parent
+                    cart.buyer_shop = parent_mapping.retailer
                     cart.save()
                 else:
                     cart = Cart(last_modified_by=self.request.user, cart_status='active')
+                    cart.seller_shop = parent_mapping.parent
+                    cart.buyer_shop = parent_mapping.retailer
                     cart.save()
 
                 if int(qty) == 0:
@@ -284,6 +288,8 @@ class AddToCart(APIView):
                 else:
                     cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
                     cart_mapping.qty = qty
+                    cart_mapping.cart_product_price = ProductPrice.objects.get(product=product, shop=parent_mapping.parent, status=True) if ProductPrice.objects.filter(product=product, shop=parent_mapping.parent,status=True).exists() else None
+                    cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
                     cart_mapping.save()
 
                 if cart.rt_cart_list.count() <= 0:

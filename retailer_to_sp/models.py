@@ -16,7 +16,7 @@ from retailer_backend.common_function import (
 from shops.models import Shop
 from brand.models import Brand
 from addresses.models import Address
-from products.models import Product
+from products.models import Product,ProductPrice
 from otp.sms import SendSms
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
 
@@ -65,6 +65,14 @@ SELECT_ISSUE = (
 
 class Cart(models.Model):
     order_id = models.CharField(max_length=255, null=True, blank=True)
+    seller_shop = models.ForeignKey(
+        Shop, related_name='rt_seller_shop_cart',
+        null=True, blank=True, on_delete=models.CASCADE
+    )
+    buyer_shop = models.ForeignKey(
+        Shop, related_name='rt_buyer_shop_cart',
+        null=True, blank=True, on_delete=models.CASCADE
+    )
     cart_status = models.CharField(
         max_length=200, choices=ORDER_STATUS,
         null=True, blank=True
@@ -94,7 +102,12 @@ class CartProductMapping(models.Model):
         Product, related_name='rt_cart_product_mapping',
         on_delete=models.CASCADE
     )
+    cart_product_price = models.ForeignKey(
+        ProductPrice, related_name='rt_cart_product_price_mapping',
+        on_delete=models.CASCADE, null=True, blank=True
+    )
     qty = models.PositiveIntegerField(default=0)
+    no_of_pieces = models.PositiveIntegerField(default=0)
     qty_error_msg = models.CharField(
         max_length=255, null=True,
         blank=True, editable=False

@@ -178,11 +178,7 @@ class ProductPrice(models.Model):
     #pincode_from = models.PositiveIntegerField(default=0,null=True,blank=True)
     #pincode_to = models.PositiveIntegerField(default=0,null=True,blank=True)
     mrp = models.FloatField(default=0,null=True,blank=True)
-    # price_to_service_partner = models.FloatField(default=0,null=True,blank=True)
-    # price_to_retailer = models.FloatField(default=0,null=True,blank=True)
-    # price_to_super_retailer = models.FloatField(default=0,null=True,blank=True)
     shop = models.ForeignKey(Shop,related_name='shop_product_price', null=True,blank=True,on_delete=models.CASCADE)
-    #price = models.FloatField(default=0)
     price_to_service_partner = models.FloatField(default=0,null=True,blank=True)
     price_to_retailer = models.FloatField(default=0,null=True,blank=True)
     price_to_super_retailer = models.FloatField(default=0,null=True,blank=True)
@@ -193,7 +189,7 @@ class ProductPrice(models.Model):
     status = models.BooleanField(default=True)
 
     def __str__(self):
-        return self.product.product_name
+        return "%s - %s"%(self.product.product_name, self.mrp)
 
 
     def save(self, *args, **kwargs):
