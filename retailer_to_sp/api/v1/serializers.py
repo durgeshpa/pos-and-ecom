@@ -145,12 +145,18 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
         return self.is_available
 
     def no_pieces_dt(self, obj):
-        return int(obj.cart_product.product_inner_case_size) * int(obj.qty)
+        if obj.no_of_pieces and obj.no_of_pieces >0:
+            return int(obj.no_of_pieces)
+        else:
+            return int(obj.cart_product.product_inner_case_size) * int(obj.qty)
 
     def product_sub_total_dt(self,obj):
         shop_id = self.context.get("parent_mapping_id", None)
-        product_price = 0 if obj.cart_product.product_pro_price.filter(shop__id=shop_id).last() is None else obj.cart_product.product_pro_price.filter(shop__id=shop_id).last().price_to_retailer
-        return float(obj.cart_product.product_inner_case_size)*float(obj.qty)*float(product_price)
+        if obj.cart_product_price:
+            return float(obj.cart_product.product_inner_case_size) * float(obj.qty) * float(obj.cart_product_price.price_to_retailer)
+        else:
+            product_price = 0 if obj.cart_product.product_pro_price.filter(shop__id=shop_id).last() is None else obj.cart_product.product_pro_price.filter(shop__id=shop_id).last().price_to_retailer
+            return float(obj.cart_product.product_inner_case_size)*float(obj.qty)*float(product_price)
 
     class Meta:
         model = CartProductMapping
@@ -171,8 +177,10 @@ class CartSerializer(serializers.ModelSerializer):
         for cart_pro in obj.rt_cart_list.all():
             self.items_count = self.items_count + int(cart_pro.qty)
             shop_id = self.context.get("parent_mapping_id", None)
-            pro_price = ProductPrice.objects.filter(shop__id=shop_id, product=cart_pro.cart_product).last()
-            if pro_price and pro_price.price_to_retailer:
+            if cart_pro.cart_product_price:
+                self.total_amount = float(self.total_amount) + (float(cart_pro.cart_product_price.price_to_retailer) * float(cart_pro.no_of_pieces))
+            elif ProductPrice.objects.filter(shop__id=shop_id, product=cart_pro.cart_product).exists():
+                pro_price = ProductPrice.objects.filter(shop__id=shop_id, product=cart_pro.cart_product).last()
                 self.total_amount = float(self.total_amount) + (float(pro_price.price_to_retailer) * float(cart_pro.qty) * float(pro_price.product.product_inner_case_size))
             else:
                 self.total_amount = float(self.total_amount) + 0
