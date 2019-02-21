@@ -176,7 +176,7 @@ class Order(models.Model):
         ordering = ['-created_at']
 
 
-class OrderedProduct(models.Model): 
+class OrderedProduct(models.Model):
     order = models.ForeignKey(
         Order, related_name='rt_order_order_product',
         on_delete=models.CASCADE, null=True, blank=True
@@ -207,7 +207,7 @@ class OrderedProduct(models.Model):
 
     def save(self, *args, **kwargs):
         if self._state.adding:
-            invoice_prefix = self.order.seller_shop.invoce_pattern.filter(
+            invoice_prefix = self.order.seller_shop.invoice_pattern.filter(
                 status='ACT').last().pattern
             last_invoice = OrderedProduct.objects.filter(
                 order__in=self.order.seller_shop.rt_seller_shop_order.all()
@@ -321,7 +321,7 @@ class Payment(models.Model):
     )
     name = models.CharField(max_length=255, null=True, blank=True)
     paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
-    payment_choice = models.CharField(max_length=30,choices=PAYMENT_MODE_CHOICES, null=True)
+    payment_choice = models.CharField(verbose_name="Payment Mode",max_length=30,choices=PAYMENT_MODE_CHOICES, null=True)
     neft_reference_number = models.CharField(max_length=20, null=True,blank=True)
     imei_no = models.CharField(max_length=100, null=True, blank=True)
     payment_status = models.CharField(max_length=50, null=True, blank=True,choices=PAYMENT_STATUS, default=PAYMENT_DONE_APPROVAL_PENDING)
@@ -416,7 +416,7 @@ class ReturnProductMapping(models.Model):
         total_returned_qty = self.reusable_qty + self.damaged_qty
         if total_returned_qty != self.total_returned_qty:
             raise ValidationError(
-                """Sum of Reusable quantity and damaged 
+                """Sum of Reusable quantity and damaged
                 quantity must be equal to total returned quantity"""
             )
 
@@ -499,4 +499,3 @@ class Note(models.Model):
 #                         shop__shop_type__shop_type='sp', status=True
 #                         ).last().price_to_retailer),
 #                     status=True)
-

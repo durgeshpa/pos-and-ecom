@@ -32,6 +32,17 @@ class ExportCsvMixin:
         return response
     export_as_csv.short_description = "Download CSV of Selected Objects"
 
+class ShopNameSearch(InputFilter):
+    parameter_name = 'shop_name'
+    title = 'Shop Name'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            shop_name = self.value()
+            if shop_name is None:
+                return
+            return queryset.filter(shop_name__icontains=shop_name)
+
 class ShopTypeSearch(InputFilter):
     parameter_name = 'shop_type'
     title = 'Shop Type'
@@ -116,7 +127,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     ]
     list_display = ('shop_name','shop_owner','shop_type','status', 'get_shop_city','shop_mapped_product')
     filter_horizontal = ('related_users',)
-    list_filter = (ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,)
+    list_filter = (ShopNameSearch,ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,'status')
     search_fields = ('shop_name', )
 
     class Media:

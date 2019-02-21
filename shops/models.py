@@ -68,7 +68,7 @@ class Shop(models.Model):
 
     # def available_product(self, product):
     #     ProductMapping = {
-    #         "sp": 
+    #         "sp":
     #     }
     #     products = OrderedProductMapping.objects.filter(
     #                     ordered_product__order__shipping_address__shop_name=self,

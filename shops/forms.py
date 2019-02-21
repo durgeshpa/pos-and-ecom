@@ -37,4 +37,3 @@ class ShopParentRetailerMappingForm(forms.ModelForm):
 
     class Meta:
         Model = ParentRetailerMapping
-

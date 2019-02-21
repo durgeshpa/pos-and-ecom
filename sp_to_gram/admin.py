@@ -7,6 +7,8 @@ from retailer_backend.filters import BrandFilter,SupplierFilter,POAmountSearch,P
 from daterange_filter.filter import DateRangeFilter
 from django.utils.html import format_html
 from django.urls import reverse
+from admin_numeric_filter.admin import NumericFilterModelAdmin, SingleNumericFilter, RangeNumericFilter, \
+    SliderNumericFilter
 
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
@@ -17,14 +19,14 @@ class CartProductMappingAdmin(admin.TabularInline):
     form = CartProductMappingForm
 
 #admin.site.register(CartProductMapping, CartProductMappingAdmin)
-class CartAdmin(admin.ModelAdmin):
+class CartAdmin(NumericFilterModelAdmin,admin.ModelAdmin):
     template = 'admin/sp_to_gram/cart/change_form.html'
     inlines = [CartProductMappingAdmin]
     exclude = ('po_no', 'po_status', 'last_modified_by')
     #autocomplete_fields = ('brand',)
     list_display = ('po_no', 'po_creation_date', 'po_validity_date', 'po_amount', 'po_raised_by', 'po_status', 'download_purchase_order')
     list_filter = [('po_creation_date', DateRangeFilter),
-                   ('po_validity_date', DateRangeFilter), POAmountSearch, PORaisedBy]
+                   ('po_validity_date', DateRangeFilter), ('po_amount',RangeNumericFilter), PORaisedBy]
     form = POGenerationForm
 
     def download_purchase_order(self, obj):
