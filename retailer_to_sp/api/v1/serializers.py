@@ -130,11 +130,11 @@ class CartProductPrice(serializers.ModelSerializer):
     product_price = serializers.SerializerMethodField('product_price_dt')
     product_mrp = serializers.SerializerMethodField('product_mrp_dt')
 
-    def product_price_dt(self):
-        return self.price_to_retailer
+    def product_price_dt(self,obj):
+        return obj.price_to_retailer
 
-    def product_mrp_dt(self):
-        return self.mrp
+    def product_mrp_dt(self,obj):
+        return obj.mrp
 
     class Meta:
         model = ProductPrice
