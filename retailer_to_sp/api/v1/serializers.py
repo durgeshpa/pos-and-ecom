@@ -125,6 +125,21 @@ class GramGRNProductsSearchSerializer(serializers.Serializer):
     offset = serializers.CharField(write_only=True)
     pro_count = serializers.CharField(write_only=True)
 
+class CartProductPrice(serializers.ModelSerializer):
+    product = ProductsSearchSerializer()
+    product_price = serializers.SerializerMethodField('product_price_dt')
+    product_mrp = serializers.SerializerMethodField('product_mrp_dt')
+
+    def product_price_dt(self):
+        return self.price_to_retailer
+
+    def product_mrp_dt(self):
+        return self.mrp
+
+    class Meta:
+        model = ProductPrice
+        fields = ('id','product','product_price','product_mrp','created_at')
+
 class CartDataSerializer(serializers.ModelSerializer):
     last_modified_by = UserSerializer()
 
@@ -135,6 +150,7 @@ class CartDataSerializer(serializers.ModelSerializer):
 class CartProductMappingSerializer(serializers.ModelSerializer):
     cart_product = ProductsSearchSerializer()
     cart = CartDataSerializer()
+    cart_product_price = CartProductPrice()
     is_available = serializers.SerializerMethodField('is_available_dt')
     no_of_pieces = serializers.SerializerMethodField('no_pieces_dt')
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
@@ -160,7 +176,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CartProductMapping
-        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg','is_available','no_of_pieces','product_sub_total')
+        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg','is_available','no_of_pieces','product_sub_total','cart_product_price')
 
 
 class CartSerializer(serializers.ModelSerializer):
@@ -240,7 +256,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model=Order
-        fields = ('id','ordered_cart','order_no','billing_address','shipping_address','total_mrp','total_discount_amount',
+        fields = ('id','ordered_cart','order_no','billing_aproduct_priceddress','shipping_address','total_mrp','total_discount_amount',
                   'total_tax_amount','total_final_amount','order_status','ordered_by','received_by','last_modified_by',
                   'created_at','modified_at','rt_order_order_product')
 
