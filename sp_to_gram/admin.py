@@ -59,9 +59,22 @@ class CartAdmin(NumericFilterModelAdmin,admin.ModelAdmin):
 
 admin.site.register(Cart,CartAdmin)
 
+class OrderIdSearch(InputFilter):
+    parameter_name = 'order_no'
+    title = 'Order Id'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            order_no = self.value()
+            if order_no is None:
+                return
+            return queryset.filter(order_no__icontains=order_no)
+
+
 class OrderAdmin(admin.ModelAdmin):
     search_fields = ('order',)
     list_display = ('order_no','order_status',)
+    list_filter = (OrderIdSearch,'order_status',)
 
 admin.site.register(Order,OrderAdmin)
 
