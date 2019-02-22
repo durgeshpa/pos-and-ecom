@@ -9,6 +9,9 @@ from django.utils.html import format_html
 from django.urls import reverse
 from admin_numeric_filter.admin import NumericFilterModelAdmin, SingleNumericFilter, RangeNumericFilter, \
     SliderNumericFilter
+from dal_admin_filters import AutocompleteFilter
+from retailer_backend.admin import InputFilter
+from django.db.models import Q
 
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
@@ -19,13 +22,30 @@ class CartProductMappingAdmin(admin.TabularInline):
     form = CartProductMappingForm
 
 #admin.site.register(CartProductMapping, CartProductMappingAdmin)
+class RecipientWarehouseFilter(AutocompleteFilter):
+    title = 'Recipient Warehouse'                    # filter's title
+    field_name = 'shop'           # field name - ForeignKey to Country model
+    autocomplete_url = 'my-shop-autocomplete' # url name of Country autocomplete view
+
+class POSearch(InputFilter):
+    parameter_name = 'po_no'
+    title = 'PO No'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            po_no = self.value()
+            if po_no is None:
+                return
+            return queryset.filter(po_no__icontains=po_no)
+
+
 class CartAdmin(NumericFilterModelAdmin,admin.ModelAdmin):
     template = 'admin/sp_to_gram/cart/change_form.html'
     inlines = [CartProductMappingAdmin]
     exclude = ('po_no', 'po_status', 'last_modified_by')
     #autocomplete_fields = ('brand',)
     list_display = ('po_no', 'po_creation_date', 'po_validity_date', 'po_amount', 'po_raised_by', 'po_status', 'download_purchase_order')
-    list_filter = [('po_creation_date', DateRangeFilter),
+    list_filter = [RecipientWarehouseFilter,POSearch,('po_creation_date', DateRangeFilter),
                    ('po_validity_date', DateRangeFilter), ('po_amount',RangeNumericFilter), PORaisedBy]
     form = POGenerationForm
 
@@ -35,7 +55,7 @@ class CartAdmin(NumericFilterModelAdmin,admin.ModelAdmin):
 
     class Media:
         js = ('/static/admin/js/sp_po_generation_form.js',)
-
+        pass
 
 admin.site.register(Cart,CartAdmin)
 

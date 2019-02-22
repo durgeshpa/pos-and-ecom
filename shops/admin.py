@@ -11,7 +11,7 @@ from django.db.models import Q
 from django.utils.html import format_html
 from import_export import resources
 from django.http import HttpResponse
-
+from admin_auto_filters.filters import AutocompleteFilter
 
 class ShopResource(resources.ModelResource):
     class Meta:
@@ -184,8 +184,20 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
             return obj.shop_name_address_mapping.last().city
     get_shop_city.short_description = 'Shop City'
 
+class ParentFilter(AutocompleteFilter):
+    title = 'Parent' # display title
+    field_name = 'parent' # name of the foreign key field
+
+class RetailerFilter(AutocompleteFilter):
+    title = 'Retailer' # display title
+    field_name = 'retailer' # name of the foreign key field
+
 class ParentRetailerMappingAdmin(admin.ModelAdmin):
     form = ParentRetailerMappingForm
+    list_filter = (ParentFilter,RetailerFilter,'status')
+
+    class Media:
+        pass
 
 admin.site.register(ParentRetailerMapping,ParentRetailerMappingAdmin)
 admin.site.register(ShopType)
