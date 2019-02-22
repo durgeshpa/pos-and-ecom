@@ -1010,7 +1010,7 @@ class PaymentApi(APIView):
             payment = Payment(order_id=order,paid_amount=paid_amount,payment_choice=payment_choice,
                               neft_reference_number=neft_reference_number,imei_no=imei_no)
             payment.save()
-            order.order_status = 'payment_done_approval_pending'
+            order.order_status = 'opdp'
             order.save()
             serializer = OrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id})
 
@@ -1025,7 +1025,7 @@ class PaymentApi(APIView):
             payment = GramMappedPayment(order_id=order,paid_amount=paid_amount,payment_choice=payment_choice,
                                         neft_reference_number=neft_reference_number,imei_no=imei_no)
             payment.save()
-            order.order_status = 'payment_done_approval_pending'
+            order.order_status = 'opdp'
             order.save()
             serializer = GramMappedOrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id})
 

@@ -24,6 +24,7 @@ ORDER_STATUS = (
     ("order_cancel","Order Cancel"),
     ("partially_delivered","Partially Delivered"),
     ("delivered","Delivered"),
+    ("opdp", "Order Placed Dispatch Pending"),
 )
 
 ITEM_STATUS = (
