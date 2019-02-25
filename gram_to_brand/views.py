@@ -132,7 +132,6 @@ class DownloadPurchaseOrder(APIView):
             shop_name_documents.filter(shop_document_type='gstin').last()
 
         tax_inline, sum_amount, sum_qty = 0, 0, 0
-        igst, cgst, sgst, cess, surcharge = 0, 0, 0, 0, 0
         taxes_list = []
         gst_tax_list = []
         cess_tax_list = []
