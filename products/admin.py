@@ -21,8 +21,7 @@ from .resources import (
     FlavorResource, WeightResource, PackageSizeResource,
     ProductResource, ProductPriceResource, TaxResource
     )
-
-
+#from .forms import ProductTaxInlineForm
 class ProductImageMainAdmin(admin.ModelAdmin):
     readonly_fields = ['image_thumbnail']
     search_fields = ['image', 'image_name']
@@ -164,10 +163,41 @@ class ProductCategoryAdmin(TabularInline):
 class ProductImageAdmin(admin.TabularInline):
     model = ProductImage
 
+# class ProductTaxInlineFormset(BaseInlineFormSet):
+#     def clean(self):
+#         # get forms that actually have valid data
+#         count = 0
+#         for form in self.forms:
+#             try:
+#                 if form.cleaned_data:
+#                     count += 1
+#             except AttributeError:
+#                 pass
+#         if count < 1:
+#             raise forms.ValidationError('You must have at least one order')
+#         if self.product.product_pro_tax.filter(tax__tax_type=='gst').count()>1:
+#             raise forms.ValidationError('You must have at least one order1')
+
+class ProductTaxInlineFormSet(BaseInlineFormSet):
+   def clean(self):
+      super(ProductTaxInlineFormSet, self).clean()
+      tax_list=[]
+      tax_list_type=[]
+      for form in self.forms:
+          if form.is_valid():
+              tax_list.append(form.cleaned_data.get('tax'))
+      for i in range(len(tax_list)):
+          if tax_list[i] is not None:
+              tax_list_type.append(tax_list[i].tax_type)
+      if tax_list_type.count('gst')>1:
+          raise ValidationError('GST Type tax can be filled only once')
+      if tax_list_type.count('cess')>1:
+          raise ValidationError('CESS Type tax can be filled only once')
 
 class ProductTaxMappingAdmin(admin.TabularInline):
     model = ProductTaxMapping
     extra = 6
+    formset=ProductTaxInlineFormSet
     max_num = 6
     autocomplete_fields = ['tax']
 
