@@ -128,7 +128,7 @@ class GramGRNProductsList(APIView):
             product_ids = ProductCategory.objects.filter(product__in=grn, category__in=category).values_list('product_id')
             products = products.filter(pk__in=product_ids)
         if keyword:
-            products = products.annotate(search=SearchVector('product_name', 'prodcut_brand_product__brand_name', 'product_long_description')).filter(search=keyword)
+            products = products.annotate(search=SearchVector('product_name', 'product_brand__brand_name', 'product_long_description')).filter(search=keyword)
 
         if is_store_active is False:
             products_price = ProductPrice.objects.filter(product__in=products).order_by('product','-created_at').distinct('product')
