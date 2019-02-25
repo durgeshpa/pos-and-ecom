@@ -5,7 +5,7 @@ import PIL
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from django.http import HttpResponse
+from django.http import HttpResponse, Http404
 from django.conf import settings
 # Create your views here.
 
@@ -17,6 +17,8 @@ class ResizeImage(APIView):
         width = int(request.GET.get('width', '600'))
         height = request.GET.get('height', None)
         img_response = requests.get(img_url, stream=True)
+        if img_response.status_code == 404:
+            raise Http404("Image not found")
         img_response.raw.decode_content = True
         image = Image.open(img_response.raw)
 
