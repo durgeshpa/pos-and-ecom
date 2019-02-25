@@ -116,7 +116,8 @@ class Order(models.Model):
     ("partially_delivered", "Partially Delivered"),
     ("delivered", "Delivered"),
     ("closed", "Closed"),
-    ("payment_done_approval_pending", "Payment Done Approval Pending")
+    ("payment_done_approval_pending", "Payment Done Approval Pending"),
+    ("opdp", "Order Placed Dispatch Pending"),
 )
 
     seller_shop = models.ForeignKey(

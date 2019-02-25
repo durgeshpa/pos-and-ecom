@@ -22,6 +22,7 @@ from retailer_backend.filters import ( BrandFilter, SupplierStateFilter,Supplier
                                        GRNSearch, POAmountSearch, PORaisedBy)
 
 from django.db.models import Q
+from .views import DownloadPurchaseOrder
 
 
 class CartProductMappingAdmin(admin.TabularInline):
@@ -53,7 +54,7 @@ class CartAdmin(admin.ModelAdmin):
                 )
 
     def download_purchase_order(self,obj):
-        return format_html("<a href= '%s' >Download PO</a>"%(reverse('download_purchase_order', args=[obj.pk])))
+        return format_html("<a href= '%s' >Download PO</a>"%(reverse('admin:download_purchase_order', args=[obj.pk])))
 
     download_purchase_order.short_description = 'Download Purchase Order'
 
@@ -100,7 +101,15 @@ class CartAdmin(admin.ModelAdmin):
     class Media:
             pass
 
-
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(CartAdmin, self).get_urls()
+        urls = [
+            url(r'^download-purchase-order/(?P<pk>\d+)/purchase_order/$',
+                self.admin_site.admin_view(DownloadPurchaseOrder.as_view()),
+                name='download_purchase_order'),
+        ] + urls
+        return urls
 
 admin.site.register(Cart,CartAdmin)
 
