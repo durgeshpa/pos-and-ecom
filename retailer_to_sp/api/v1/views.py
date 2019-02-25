@@ -2,7 +2,7 @@ from rest_framework import generics
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,
                           OrderSerializer, CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
 
-                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer )
+                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer )
 from products.models import Product, ProductPrice, ProductOption,ProductImage
 from sp_to_gram.models import OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping
 
@@ -681,7 +681,7 @@ class CreateOrder(APIView):
 #OrderedProductMapping.objects.filter()
 
 class OrderList(generics.ListAPIView):
-    serializer_class = OrderSerializer
+    serializer_class = OrderDetailSerializer
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -702,7 +702,7 @@ class OrderList(generics.ListAPIView):
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             queryset = Order.objects.filter(last_modified_by=user).order_by('-created_at')
 
-            serializer = OrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
+            serializer = OrderDetailSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             queryset = GramMappedOrder.objects.filter(last_modified_by=user).order_by('-created_at')
             serializer = GramMappedOrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
@@ -712,7 +712,7 @@ class OrderList(generics.ListAPIView):
         return Response(msg,status=status.HTTP_200_OK)
 
 class OrderDetail(generics.RetrieveAPIView):
-    serializer_class = OrderSerializer
+    serializer_class = OrderDetailSerializer
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -731,7 +731,7 @@ class OrderDetail(generics.RetrieveAPIView):
         current_url = request.get_host()
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             queryset = Order.objects.get(id=pk)
-            serializer = OrderSerializer(queryset, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
+            serializer = OrderDetailSerializer(queryset, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             queryset = GramMappedOrder.objects.get(id=pk)
             serializer = GramMappedOrderSerializer(queryset,context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})

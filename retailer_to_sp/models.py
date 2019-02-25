@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.dispatch import receiver
 from django.db.models.signals import pre_save
 from django.db.models.signals import post_save
-from django.db.models import Sum
+from django.db.models import Sum,F, FloatField
 from django.utils.translation import ugettext_lazy as _
 
 from retailer_backend.common_function import (
@@ -87,6 +87,14 @@ class Cart(models.Model):
     def __str__(self):
         return self.order_id
 
+    @property
+    def subtotal(self):
+        return self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum']
+
+    @property
+    def qty_sum(self):
+        return self.rt_cart_list.aggregate(qty_sum=Sum('qty'))['qty_sum']
+
 
 @receiver(post_save, sender=Cart)
 def create_order_id(sender, instance=None, created=False, **kwargs):
@@ -114,33 +122,36 @@ class CartProductMapping(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
 
     def __str__(self):
         return self.cart_product.product_name
 
 
 class Order(models.Model):
-    ORDER_STATUS = (
-    ("active", "Active"),
-    ("pending", "Pending"),
-    ("deleted", "Deleted"),
-    ("ordered", "Ordered"),
-    ("order_shipped", "Dispatched"),
-    ("partially_delivered", "Partially Delivered"),
-    ("delivered", "Delivered"),
-    ("closed", "Closed"),
-    ("payment_done_approval_pending", "Payment Done Approval Pending")
-)
+    ACTIVE = 'active'
+    PENDING = 'pending'
+    DELETED = 'deleted'
+    ORDERED = 'ordered'
+    DISPATCHED = 'dispatched'
+    PARTIAL_DELIVERED = 'p_delivered'
+    DELIVERED = 'delivered'
+    CLOSED = 'closed'
+    PDAP = 'payment_done_approval_pending'
 
-    seller_shop = models.ForeignKey(
-        Shop, related_name='rt_seller_shop_order',
-        null=True, blank=True, on_delete=models.CASCADE
+    ORDER_STATUS = (
+        (ACTIVE, "Active"),
+        (PENDING, "Pending"),
+        (DELETED, "Deleted"),
+        (ORDERED, "Ordered"),
+        (DISPATCHED, "Dispatched"),
+        (PARTIAL_DELIVERED, "Partially Delivered"),
+        (DELIVERED, "Delivered"),
+        (CLOSED, "Closed"),
+        (PDAP, "Payment Done Approval Pending")
+
     )
-    buyer_shop = models.ForeignKey(
-        Shop, related_name='rt_buyer_shop_order',
-        null=True, blank=True, on_delete=models.CASCADE
-    )
-    ordered_cart = models.ForeignKey(
+    ordered_cart = models.OneToOneField(
         Cart, related_name='rt_order_cart_mapping',
         on_delete=models.CASCADE
     )
@@ -188,7 +199,6 @@ class Order(models.Model):
     class Meta:
         ordering = ['-created_at']
 
-
 class OrderedProduct(models.Model): 
     order = models.ForeignKey(
         Order, related_name='rt_order_order_product',
@@ -233,7 +243,6 @@ class OrderedProduct(models.Model):
                 invoice_id = 1
             self.invoice_no = retailer_sp_invoice(invoice_prefix, invoice_id)
         super().save(*args, **kwargs)
-
 
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(
