@@ -130,9 +130,8 @@ class DownloadPurchaseOrder(APIView):
             shop_name_documents.filter(shop_document_type='gstin').last()
         gram_factory_shipping_gstin= shop.gf_shipping_address.shop_name.\
             shop_name_documents.filter(shop_document_type='gstin').last()
-        sum_qty = 0
-        sum_amount = 0
-        tax_inline = 0
+
+        tax_inline, sum_amount, sum_qty = 0, 0, 0
         taxes_list = []
         gst_tax_list = []
         cess_tax_list = []
@@ -269,6 +268,8 @@ class VendorProductAutocomplete(autocomplete.Select2QuerySetView):
             product_id = ProductVendorMapping.objects\
                 .filter(vendor__id=supplier_id).values('product')
             qs = qs.filter(id__in=[product_id])
+            if self.q:
+                qs = qs.filter(product_name__icontains=self.q)
         return qs
 
 
