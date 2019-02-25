@@ -328,7 +328,7 @@ table tr td,th,h4,span,address{
                   		{% if total_amount.is_integer %}
                         <td colspan="11"><strong>INR {{total_amount_int | amount }} only</strong></td>
                         {% else %}
-                        <td colspan="11"><strong>INR {{total_amount | amount }} paise only</strong></td>
+                        <td colspan="11"><strong>INR {{total_amount | floatformat:2 | amount }} paise only</strong></td>
                         {% endif %}
 
                                 </tr>
