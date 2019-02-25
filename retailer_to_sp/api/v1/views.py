@@ -776,13 +776,13 @@ class DownloadInvoiceSP(APIView):
         seller_shop_gistin = '---'
         buyer_shop_gistin = '---'
 
-        if order_obj.order.seller_shop.shop_name_documents.exists():
-            seller_shop_gistin = order_obj.order.seller_shop.shop_name_documents.filter(
-            shop_document_type='gstin').last().shop_document_number if order_obj.order.seller_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else '---'
+        if order_obj.order.ordered_cart.seller_shop.shop_name_documents.exists():
+            seller_shop_gistin = order_obj.order.ordered_cart.seller_shop.shop_name_documents.filter(
+            shop_document_type='gstin').last().shop_document_number if order_obj.order.ordered_cart.seller_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else '---'
 
-        if order_obj.order.buyer_shop.shop_name_documents.exists():
-            buyer_shop_gistin = order_obj.order.buyer_shop.shop_name_documents.filter(
-            shop_document_type='gstin').last().shop_document_number if order_obj.order.buyer_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else '---'
+        if order_obj.order.ordered_cart.buyer_shop.shop_name_documents.exists():
+            buyer_shop_gistin = order_obj.order.ordered_cart.buyer_shop.shop_name_documents.filter(
+            shop_document_type='gstin').last().shop_document_number if order_obj.order.ordered_cart.buyer_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else '---'
 
         product_listing = []
         for m in products:
@@ -790,9 +790,11 @@ class DownloadInvoiceSP(APIView):
             # New Code For Product Listing Start
             tax_sum = 0
             product_tax_amount = 0
-            product_pro_price = 0
-            product_pro_price = m.product.product_pro_price.filter(
-                shop=m.ordered_product.order.seller_shop, status=True).last().price_to_retailer
+            no_of_pieces = 0
+            cart_qty = 0
+            product_pro_price = m.product.rt_cart_product_mapping.last().cart_product_price.price_to_retailer
+            no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
+            cart_qty = m.product.rt_cart_product_mapping.last().qty
 
             all_tax_list = m.product.product_pro_tax
             if all_tax_list.exists():
@@ -802,7 +804,7 @@ class DownloadInvoiceSP(APIView):
                 tax_sum = round(tax_sum,2)
 
                 get_tax_val = tax_sum/100
-                base_price = (float(product_pro_price) * float(m.shipped_qty) * float(m.product.product_inner_case_size)) / (float(get_tax_val) + 1)
+                base_price = (float(product_pro_price) * float(no_of_pieces)) / (float(get_tax_val) + 1)
                 product_tax_amount = float(base_price) * float(get_tax_val)
                 product_tax_amount = round(product_tax_amount,2)
 
@@ -812,10 +814,10 @@ class DownloadInvoiceSP(APIView):
                 "product_hsn": m.product.product_hsn,
                 "product_tax_percentage": "" if tax_sum == 0 else str(tax_sum)+"%",
                 "shipped_qty": m.shipped_qty,
-                "product_inner_case_size": m.product.product_inner_case_size,
-                "product_no_of_pices": int(m.product.product_inner_case_size) * int(m.shipped_qty) ,
+                "product_inner_case_size": int(no_of_pieces)//int(cart_qty),
+                "product_no_of_pices": no_of_pieces,
                 "price_to_retailer":  product_pro_price,
-                "product_sub_total": float(m.product.product_inner_case_size) * float(m.shipped_qty) * float(product_pro_price),
+                "product_sub_total": float(no_of_pieces) * float(product_pro_price),
                 "product_tax_amount": product_tax_amount,
 
             }
@@ -824,9 +826,9 @@ class DownloadInvoiceSP(APIView):
             # New Code For Product Listing End
 
 
-            sum_qty = sum_qty + int(m.product.product_inner_case_size) * int(m.shipped_qty)
-            sum_amount += (int(m.product.product_inner_case_size) * int(m.shipped_qty) * product_pro_price)
-            inline_sum_amount = (int(m.product.product_inner_case_size) * int(m.shipped_qty) * product_pro_price)
+            sum_qty = sum_qty + int(no_of_pieces)
+            sum_amount += (int(no_of_pieces) * product_pro_price)
+            inline_sum_amount = (int(no_of_pieces) * product_pro_price)
             
             for n in m.product.product_pro_tax.all():
 
