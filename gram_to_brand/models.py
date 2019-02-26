@@ -184,8 +184,8 @@ class Cart(BaseCart):
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='cart_list',on_delete=models.CASCADE)
     cart_product = models.ForeignKey(Product, related_name='cart_product_mapping', on_delete=models.CASCADE)
-    inner_case_size = models.PositiveIntegerField(default=0)
-    case_size= models.PositiveIntegerField(default=0)
+    inner_case_size = models.PositiveIntegerField(default=0, null=True,blank=True)
+    case_size= models.PositiveIntegerField(default=0,null=True,blank=True)
     number_of_cases = models.FloatField()
     scheme = models.FloatField(default=0,null=True,blank=True,help_text='data into percentage %')
     price = models.FloatField( verbose_name='Brand To Gram Price')

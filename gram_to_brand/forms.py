@@ -120,7 +120,7 @@ class CartProductMappingForm(forms.ModelForm):
     # total_price = forms.DecimalField(decimal_places=2,)
     class Meta:
         model = CartProductMapping
-        fields = ('cart_product','tax_percentage','inner_case_size','case_size', 'number_of_cases','price')
+        fields = ('cart_product','tax_percentage', 'number_of_cases','price')
         search_fields=('cart_product',)
         exclude = ('qty',)
 

@@ -31,7 +31,7 @@ class CartProductMappingAdmin(admin.TabularInline):
     autocomplete_fields = ('cart_product',)
     search_fields =('cart_product',)
     #formset = CartProductMappingFormset
-    fields = ('cart_product','tax_percentage','inner_case_size','case_size', 'number_of_cases','price')
+    fields = ('cart_product','tax_percentage', 'number_of_cases','price')
     form = CartProductMappingForm
     can_delete = False
     readonly_fields=('tax_percentage',)

@@ -46,7 +46,7 @@ class OrderedProductForm(forms.ModelForm):
 
     class Meta:
         model = OrderedProduct
-        fields = ['order', 'vehicle_no','driver_name']
+        fields = ['order', ]
 
     class Media:
         js = (
@@ -64,9 +64,6 @@ class OrderedProductForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(OrderedProductForm, self).__init__(*args, **kwargs)
         self.fields['order'].required = True
-        self.fields['driver_name'].required = True
-        self.fields['vehicle_no'].required = True
-
 
 class OrderedProductMappingDeliveryForm(forms.ModelForm):
     ordered_qty = forms.CharField(required=False)
@@ -118,5 +115,3 @@ class OrderedProductMappingShipmentForm(forms.ModelForm):
             )
         else:
             return cleaned_data
-
-
