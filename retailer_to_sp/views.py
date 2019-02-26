@@ -19,6 +19,8 @@ from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
     OrderedProductMappingDeliveryForm
 )
+from django.views.generic import TemplateView
+from django.conf import settings
 
 
 class ReturnProductAutocomplete(autocomplete.Select2QuerySetView):
@@ -229,30 +231,29 @@ def ordered_product_mapping_delivery(request):
     )
 
 
-class DownloadPickList(APIView):
-    permission_classes = (AllowAny,)
+class DownloadPickList(TemplateView,):
     """
-    PDF Download object
+    PDF Download Pick List
     """
     filename = 'pick_list.pdf'
     template_name = 'admin/download/retailer_sp_pick_list.html'
 
     def get(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('/admin/login/?next=%s' % request.path)
+
         order_obj = get_object_or_404(Order, pk=self.kwargs.get('pk'))
         cart_products = order_obj.ordered_cart.rt_cart_list.all()
         cart_product_list = []
 
         for cart_pro in cart_products:
             product_list = {
-                "product_name":cart_pro.cart_product.product_name,
-                "product_mrp":cart_pro.cart_product.product_pro_price.filter(shop=order_obj.seller_shop).last().mrp,
+                "product_name": cart_pro.cart_product.product_name,
+                "product_mrp":cart_pro.cart_product_price.mrp,
                 "ordered_qty":cart_pro.qty,
-                "no_of_pieces":int(cart_pro.cart_product.product_inner_case_size)*int(cart_pro.qty),
+                "no_of_pieces":cart_pro.no_of_pieces,
             }
             cart_product_list.append(product_list)
-
-
-
 
         data = {
             "order_obj": order_obj, "cart_products":cart_product_list
