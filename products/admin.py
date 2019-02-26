@@ -163,36 +163,16 @@ class ProductCategoryAdmin(TabularInline):
 class ProductImageAdmin(admin.TabularInline):
     model = ProductImage
 
-# class ProductTaxInlineFormset(BaseInlineFormSet):
-#     def clean(self):
-#         # get forms that actually have valid data
-#         count = 0
-#         for form in self.forms:
-#             try:
-#                 if form.cleaned_data:
-#                     count += 1
-#             except AttributeError:
-#                 pass
-#         if count < 1:
-#             raise forms.ValidationError('You must have at least one order')
-#         if self.product.product_pro_tax.filter(tax__tax_type=='gst').count()>1:
-#             raise forms.ValidationError('You must have at least one order1')
-
 class ProductTaxInlineFormSet(BaseInlineFormSet):
    def clean(self):
       super(ProductTaxInlineFormSet, self).clean()
-      tax_list=[]
       tax_list_type=[]
       for form in self.forms:
-          if form.is_valid():
-              tax_list.append(form.cleaned_data.get('tax'))
-      for i in range(len(tax_list)):
-          if tax_list[i] is not None:
-              tax_list_type.append(tax_list[i].tax_type)
-      if tax_list_type.count('gst')>1:
-          raise ValidationError('GST Type tax can be filled only once')
-      if tax_list_type.count('cess')>1:
-          raise ValidationError('CESS Type tax can be filled only once')
+          if form.is_valid() and form.cleaned_data.get('tax'):
+              if form.cleaned_data.get('tax').tax_type in tax_list_type:
+                  raise ValidationError('{} type tax can be filled only once'.format(form.cleaned_data.get('tax').tax_type))
+              tax_list_type.append(form.cleaned_data.get('tax').tax_type)
+
 
 class ProductTaxMappingAdmin(admin.TabularInline):
     model = ProductTaxMapping
