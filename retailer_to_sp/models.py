@@ -138,6 +138,7 @@ class Order(models.Model):
     DELIVERED = 'delivered'
     CLOSED = 'closed'
     PDAP = 'payment_done_approval_pending'
+    ORDER_PLACED_DISPATCH_PENDING = 'opdp'
 
     ORDER_STATUS = (
         (ACTIVE, "Active"),
@@ -148,7 +149,8 @@ class Order(models.Model):
         (PARTIAL_DELIVERED, "Partially Delivered"),
         (DELIVERED, "Delivered"),
         (CLOSED, "Closed"),
-        (PDAP, "Payment Done Approval Pending")
+        (PDAP, "Payment Done Approval Pending"),
+        (ORDER_PLACED_DISPATCH_PENDING, "Order Placed Dispatch Pending")
 
     )
     ordered_cart = models.OneToOneField(
