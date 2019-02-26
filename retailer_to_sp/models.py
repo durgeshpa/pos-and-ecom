@@ -232,10 +232,10 @@ class OrderedProduct(models.Model):
 
     def save(self, *args, **kwargs):
         if self._state.adding:
-            invoice_prefix = self.order.seller_shop.invoce_pattern.filter(
+            invoice_prefix = self.order.ordered_cart.seller_shop.invoce_pattern.filter(
                 status='ACT').last().pattern
             last_invoice = OrderedProduct.objects.filter(
-                order__in=self.order.seller_shop.rt_seller_shop_order.all()
+                order__in=self.order.ordered_cart.seller_shop.rt_seller_shop_order.all()
             ).order_by('invoice_no').last()
             if last_invoice:
                 invoice_id = getcredit_note_id(last_invoice.invoice_no,
