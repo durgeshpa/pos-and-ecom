@@ -234,12 +234,13 @@ class OrderedProduct(models.Model):
         if self._state.adding:
             invoice_prefix = self.order.ordered_cart.seller_shop.invoce_pattern.filter(
                 status='ACT').last().pattern
-            last_invoice = OrderedProduct.objects.filter(
-                order__in=self.order.ordered_cart.seller_shop.rt_seller_shop_order.all()
-            ).order_by('invoice_no').last()
+            # last_invoice = OrderedProduct.objects.filter(
+            #     order__in=self.order.ordered_cart.seller_shop.rt_seller_shop_order.all()
+            # ).order_by('invoice_no').last()
+
+            last_invoice = self.order.rt_order_order_product.filter(order__ordered_cart__in=self.order.ordered_cart.seller_shop.rt_seller_shop_cart.all()).order_by('invoice_no').last()
             if last_invoice:
-                invoice_id = getcredit_note_id(last_invoice.invoice_no,
-                                               invoice_prefix)
+                invoice_id = getcredit_note_id(last_invoice.invoice_no, invoice_prefix)
                 invoice_id += 1
             else:
                 invoice_id = 1
