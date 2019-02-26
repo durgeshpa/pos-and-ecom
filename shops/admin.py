@@ -11,7 +11,7 @@ from django.db.models import Q
 from django.utils.html import format_html
 from import_export import resources
 from django.http import HttpResponse
-
+from admin_auto_filters.filters import AutocompleteFilter
 
 class ShopResource(resources.ModelResource):
     class Meta:
@@ -31,6 +31,17 @@ class ExportCsvMixin:
             row = writer.writerow([getattr(obj, field) for field in field_names])
         return response
     export_as_csv.short_description = "Download CSV of Selected Objects"
+
+class ShopNameSearch(InputFilter):
+    parameter_name = 'shop_name'
+    title = 'Shop Name'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            shop_name = self.value()
+            if shop_name is None:
+                return
+            return queryset.filter(shop_name__icontains=shop_name)
 
 class ShopTypeSearch(InputFilter):
     parameter_name = 'shop_type'
@@ -116,7 +127,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     ]
     list_display = ('shop_name','shop_owner','shop_type','status', 'get_shop_city','shop_mapped_product')
     filter_horizontal = ('related_users',)
-    list_filter = (ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,)
+    list_filter = (ShopNameSearch,ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,'status')
     search_fields = ('shop_name', )
 
     class Media:
@@ -173,8 +184,20 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
             return obj.shop_name_address_mapping.last().city
     get_shop_city.short_description = 'Shop City'
 
+class ParentFilter(AutocompleteFilter):
+    title = 'Parent' # display title
+    field_name = 'parent' # name of the foreign key field
+
+class RetailerFilter(AutocompleteFilter):
+    title = 'Retailer' # display title
+    field_name = 'retailer' # name of the foreign key field
+
 class ParentRetailerMappingAdmin(admin.ModelAdmin):
     form = ParentRetailerMappingForm
+    list_filter = (ParentFilter,RetailerFilter,'status')
+
+    class Media:
+        pass
 
 admin.site.register(ParentRetailerMapping,ParentRetailerMappingAdmin)
 admin.site.register(ShopType)

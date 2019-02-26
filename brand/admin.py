@@ -7,7 +7,7 @@ from django.db.models import Q
 from import_export.admin import ExportActionMixin
 from .resources import BrandResource
 from products.admin import ExportCsvMixin
-
+from admin_auto_filters.filters import AutocompleteFilter
 
 class BrandSearch(InputFilter):
     parameter_name = 'brand_name'
@@ -35,7 +35,39 @@ class BrandCodeSearch(InputFilter):
                 Q(brand_code__icontains=brand_code)
             )
 
+class VendorNameSearch(InputFilter):
+    parameter_name = 'vendor_name'
+    title = 'Vendor Name'
 
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            vendor_name = self.value()
+            if vendor_name is None:
+                return
+            return queryset.filter(
+                Q(vendor_name__icontains=vendor_name)
+            )
+
+class VendorContactNoSearch(InputFilter):
+    parameter_name = 'mobile'
+    title = 'Vendor Contact No'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            mobile = self.value()
+            if mobile is None:
+                return
+            return queryset.filter(
+                Q(mobile__icontains=mobile)
+            )
+
+class StateFilter(AutocompleteFilter):
+    title = 'State' # display title
+    field_name = 'state' # name of the foreign key field
+
+class CityFilter(AutocompleteFilter):
+    title = 'City' # display title
+    field_name = 'city' # name of the foreign key field
 
 from .forms import VendorForm
 class BrandDataInline(SortableStackedInline):
@@ -70,6 +102,11 @@ class ProductAdmin(admin.TabularInline):
 class VendorAdmin(admin.ModelAdmin):
     form = VendorForm
     inlines = [ProductAdmin]
+    list_display = ('vendor_name', 'mobile','state', 'city')
     search_fields= ('vendor_name',)
+    list_filter = [VendorNameSearch, VendorContactNoSearch, StateFilter, CityFilter]
+
+    class Media:
+        pass
 
 admin.site.register(Vendor,VendorAdmin)
