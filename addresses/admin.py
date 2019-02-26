@@ -11,7 +11,9 @@ class StateAdmin(admin.ModelAdmin):
     list_filter = ('country', 'state_name',  'status')
     search_fields= ('state_name',)
 admin.site.register(State, StateAdmin)
-admin.site.register(City)
+class CityAdmin(admin.ModelAdmin):
+    search_fields= ('city_name',)
+admin.site.register(City, CityAdmin)
 admin.site.register(Area)
 
 from .forms import AddressForm
