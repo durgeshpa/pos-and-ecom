@@ -198,6 +198,14 @@ class CartProductMapping(models.Model):
         unique_together = ('cart', 'cart_product')
 
     @property
+    def tax_percentage(self):
+        tax_percentage = [field.tax.tax_percentage for field in self.cart_product.product_pro_tax.all()]
+        tax_percentage = sum(tax_percentage)
+        if not tax_percentage:
+            return str("-")
+        return tax_percentage
+
+    @property
     def qty(self):
         return int(int(self.cart_product.product_inner_case_size) * int(self.case_size) * float(self.number_of_cases))
 
