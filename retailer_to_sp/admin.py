@@ -20,7 +20,7 @@ from .forms import CustomerCareForm, ReturnProductMappingForm
 from retailer_to_sp.views import (
     ordered_product_mapping_shipment, ordered_product_mapping_delivery
 )
-<<<<<<< HEAD
+
 from products.admin import ExportCsvMixin
 from .resources import OrderResource
 from admin_numeric_filter.admin import NumericFilterModelAdmin, SingleNumericFilter, RangeNumericFilter, \

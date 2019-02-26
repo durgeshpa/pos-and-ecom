@@ -184,6 +184,7 @@ class Cart(BaseCart):
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='cart_list',on_delete=models.CASCADE)
     cart_product = models.ForeignKey(Product, related_name='cart_product_mapping', on_delete=models.CASCADE)
+    _tax_percentage = models.FloatField(db_column="tax_percentage", null=True)
     inner_case_size = models.PositiveIntegerField(default=0, null=True,blank=True)
     case_size= models.PositiveIntegerField(default=0,null=True,blank=True)
     number_of_cases = models.FloatField()
@@ -199,6 +200,13 @@ class CartProductMapping(models.Model):
 
     @property
     def tax_percentage(self):
+        return self._tax_percentage
+
+    @tax_percentage.setter
+    def tax_percentage(self, value):
+        self._tax_percentage = value
+
+    def calculate_tax_percentage(self):
         tax_percentage = [field.tax.tax_percentage for field in self.cart_product.product_pro_tax.all()]
         tax_percentage = sum(tax_percentage)
         if not tax_percentage:
@@ -217,6 +225,10 @@ class CartProductMapping(models.Model):
     def __str__(self):
         return self.cart_product.product_name
 
+    def save(self, *args, **kwargs):
+        if not self.tax_percentage or self.tax_percentage == "-":
+            self.tax_percentage = self.calculate_tax_percentage()
+        super(CartProductMapping, self).save(*args, **kwargs)
 
 @receiver(post_save, sender=Cart)
 def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
