@@ -20,6 +20,8 @@ class ResizeImage(APIView):
         if img_response.status_code == 404:
             raise Http404("Image not found")
         content_type = img_response.headers.get('Content-Type')
+        if content_type not in ['image/png', 'image/jpeg', 'image/jpg']:
+            return HttpResponse(content=img_response.content, content_type=content_type) 
         img_response.raw.decode_content = True
         image = Image.open(img_response.raw)
 
