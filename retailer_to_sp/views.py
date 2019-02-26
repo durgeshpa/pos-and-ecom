@@ -256,7 +256,10 @@ class DownloadPickList(TemplateView,):
             cart_product_list.append(product_list)
 
         data = {
-            "order_obj": order_obj, "cart_products":cart_product_list
+            "order_obj": order_obj,
+            "cart_products":cart_product_list,
+            "buyer_shop":order_obj.ordered_cart.buyer_shop.shop_name,
+            "buyer_contact_no":order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
         }
         cmd_option = {
             "margin-top": 10,
