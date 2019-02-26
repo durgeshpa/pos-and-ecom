@@ -20,7 +20,8 @@ from .forms import CustomerCareForm, ReturnProductMappingForm
 from retailer_to_sp.views import (
     ordered_product_mapping_shipment, ordered_product_mapping_delivery
 )
-
+from products.admin import ExportCsvMixin
+from .resources import OrderResource
 
 class InvoiceNumberFilter(AutocompleteFilter):
     title = 'Invoice Number'
@@ -179,7 +180,9 @@ class CartAdmin(admin.ModelAdmin):
         formset.save_m2m()
 
 
-class OrderAdmin(admin.ModelAdmin):
+class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
+    actions = ["export_as_csv"]
+    resource_class = OrderResource
     search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name',
                     'order_status', 'payment_mode')
     list_display = ('order_no', 'seller_shop', 'buyer_shop', 'total_final_amount',

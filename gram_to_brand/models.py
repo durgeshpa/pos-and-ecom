@@ -263,6 +263,8 @@ class Order(BaseOrder):
 class GRNOrder(BaseShipment): #Order Shipment
     order = models.ForeignKey(Order,related_name='order_grn_order',on_delete=models.CASCADE,null=True,blank=True )
     invoice_no = models.CharField(max_length=255)
+    e_way_bill_no = models.CharField(max_length=255, blank=True, null=True)
+    e_way_bill_document = models.FileField(null=True,blank=True)
     grn_id = models.CharField(max_length=255,null=True,blank=True)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_user_grn_order', null=True,blank=True, on_delete=models.CASCADE)
     grn_date = models.DateField(auto_now_add=True)
