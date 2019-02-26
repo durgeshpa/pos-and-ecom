@@ -793,6 +793,7 @@ class DownloadInvoiceSP(APIView):
             no_of_pieces = 0
             cart_qty = 0
             product_pro_price = m.product.rt_cart_product_mapping.last().cart_product_price.price_to_retailer
+            product_mrp = m.product.rt_cart_product_mapping.last().cart_product_price.mrp
             no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
             cart_qty = m.product.rt_cart_product_mapping.last().qty
 
@@ -810,6 +811,7 @@ class DownloadInvoiceSP(APIView):
 
             ordered_prodcut = {
                 "product_sku": m.product.product_sku,
+                "product_mrp": product_mrp,
                 "product_short_description": m.product.product_short_description,
                 "product_hsn": m.product.product_hsn,
                 "product_tax_percentage": "" if tax_sum == 0 else str(tax_sum)+"%",
@@ -819,7 +821,6 @@ class DownloadInvoiceSP(APIView):
                 "price_to_retailer":  product_pro_price,
                 "product_sub_total": float(no_of_pieces) * float(product_pro_price),
                 "product_tax_amount": product_tax_amount,
-
             }
 
             product_listing.append(ordered_prodcut)

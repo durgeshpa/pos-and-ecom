@@ -161,30 +161,29 @@ table tr td,th,h4,span,address{
     				<div class="table">
     					<table class="table table-condensed">
     						<thead>
-                      <tr>
+                      			<tr>
         							<td><strong>Serial No.</strong></td>
-
-												<td class="text-center"><strong>SKU</strong></td>
+									<td class="text-center"><strong>SKU</strong></td>
+        							<td class="text-center"><strong>MRP</strong></td>
         							<td class="text-center"><strong>Description of Goods</strong></td>
-
         							<td class="text-center"><strong>HSN/SAC</strong></td>
-
-									    <td class="text-center"><strong>Tax Rate (GST+CESS)</strong></td>
-                      <td class="text-center"><strong>Tax Amount</strong></td>
-						  <td class="text-center"><strong>Inner Case Size</strong></td>
-									    <td class="text-center"><strong>Quantity</strong></td>
-											<td class="text-center"><strong>No. of Pieces</strong></td>
+									<td class="text-center"><strong>Tax Rate (GST+CESS)</strong></td>
+									<td class="text-center"><strong>Tax Amount</strong></td>
+						  			<td class="text-center"><strong>Inner Case Size</strong></td>
+									<td class="text-center"><strong>Quantity</strong></td>
+									<td class="text-center"><strong>No. of Pieces</strong></td>
         							<td class="text-center"><strong>Rate</strong></td>
         							<td class="text-center"><strong>Per</strong></td>
         							<td class="text-right"><strong>Amount</strong></td>
-                      </tr>
+                      			</tr>
     						</thead>
     						<tbody>
     							<!-- foreach ($order->lineItems as $line) or some such thing here -->
     							<tr>
                     {% for m in product_listing %}
 								<td><strong>{{forloop.counter}}</strong></td>
-									<td class="text-center">{{ m.product_sku}}</td>
+								<td class="text-center">{{ m.product_sku}}</td>
+								<td class="text-center">{{ m.product_mrp}}</td>
 								<td class="text-center">{{ m.product_short_description}}</td>
 								<td class="text-center">{{ m.product_hsn}}</td>
 								<td class="text-center"><strong>{{ m.product_tax_percentage}}</strong></td>
@@ -374,7 +373,7 @@ We declare that this invoice shows the actual price of the goods described and t
 									</td>
         							<td class="text-left" colspan="5" height="100">
 										Authorised Signatory</br>
-										{{shop_name_gram.shop_name}}
+										Navnnet Singh
 									</td>
 
 
