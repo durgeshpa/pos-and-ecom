@@ -765,7 +765,7 @@ class DownloadInvoiceSP(APIView):
         gst_tax_list= []
         cess_tax_list= []
         surcharge_tax_list=[]
-        for z in shop.order.seller_shop.shop_name_address_mapping.all():
+        for z in shop.order.ordered_cart.seller_shop.shop_name_address_mapping.all():
             shop_name_gram= z.shop_name
             nick_name_gram= z.nick_name
             address_line1_gram= z.address_line1
