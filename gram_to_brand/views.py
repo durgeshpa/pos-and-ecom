@@ -282,14 +282,18 @@ class VendorProductPrice(APIView):
         vendor_product_price,product_case_size,product_inner_case_size = 0,0,0
         vendor_mapping = ProductVendorMapping.objects.filter(vendor__id=supplier_id, product__id=product_id)
         if vendor_mapping.exists():
+            product = vendor_mapping.last().product
             vendor_product_price = vendor_mapping.last().product_price
             product_case_size = vendor_mapping.last().product.product_case_size
             product_inner_case_size = vendor_mapping.last().product.product_inner_case_size
-
+            taxes = ([field.tax.tax_percentage for field in vendor_mapping.last().product.product_pro_tax.all()])
+            taxes = str(sum(taxes))
+            tax_percentage = taxes+'%'
         return Response({
             "price": vendor_product_price,
             "case_size": product_case_size,
             "inner_case_size": product_inner_case_size,
+            "tax_percentage": tax_percentage,
             "success": True})
 
 
