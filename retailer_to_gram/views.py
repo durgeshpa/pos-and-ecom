@@ -62,7 +62,6 @@ class DownloadInvoice(APIView):
         #order_obj1= get_object_or_404(OrderedProductMapping)
         pk=self.kwargs.get('pk')
         a = OrderedProduct.objects.get(pk=pk)
-        print(a)
         shop=a
         products = a.rtg_order_product_order_product_mapping.all()
         payment_type = a.order.rt_payment.last().payment_choice
@@ -107,14 +106,8 @@ class DownloadInvoice(APIView):
                 surcharge= sum(surcharge_tax_list)
                 #tax_inline = tax_inline + (inline_sum_amount - original_amount)
                 #tax_inline1 =(tax_inline / 2)
-            print(surcharge_tax_list)
-            print(gst_tax_list)
-            print(cess_tax_list)
-            print(taxes_list)
-
         total_amount = sum_amount
         total_amount_int = int(total_amount)
-        print(sum_amount)
 
 
         data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop, "sum_qty": sum_qty, "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" , "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,"order_id":order_id,"shop_name_gram":shop_name_gram,"nick_name_gram":nick_name_gram, "city_gram":city_gram, "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram, "payment_type":payment_type,"total_amount_int":total_amount_int}

@@ -32,6 +32,7 @@ from products.models import ProductCategory
 from addresses.models import Address
 from retailer_backend.common_function import getShopMapping,checkNotShopAndMapping,getShop
 from retailer_backend.messages import ERROR_MESSAGES
+from django.contrib.postgres.search import SearchVector
 
 class ProductsList(generics.ListCreateAPIView):
     permission_classes = (AllowAny,)
@@ -126,8 +127,8 @@ class GramGRNProductsList(APIView):
         if category:
             product_ids = ProductCategory.objects.filter(product__in=grn, category__in=category).values_list('product_id')
             products = products.filter(pk__in=product_ids)
-        if keyword and products.filter(product_name__icontains=keyword).last():
-            products = products.filter(product_name__icontains=keyword)
+        if keyword:
+            products = products.annotate(search=SearchVector('product_name', 'product_brand__brand_name', 'product_long_description')).filter(search=keyword)
 
         if is_store_active is False:
             products_price = ProductPrice.objects.filter(product__in=products).order_by('product','-created_at').distinct('product')
@@ -939,10 +940,8 @@ class CustomerCareApi(APIView):
             msg['message']= ["Please typle the complaint_detail"]
             return Response(msg, status=status.HTTP_400_BAD_REQUEST)
 
-        print(request.data)
         serializer = CustomerCareSerializer(data=request.data)
         if serializer.is_valid():
-            print("mmk")
             serializer.save()
             msg = {'is_success': True, 'message': ['Message Sent'], 'response_data': serializer.data}
             return Response( msg, status=status.HTTP_201_CREATED)
