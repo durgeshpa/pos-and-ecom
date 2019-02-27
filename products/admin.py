@@ -39,7 +39,8 @@ class ProductImageMainAdmin(admin.ModelAdmin):
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
-        field_names = [field.name for field in meta.fields]
+        exclude_fields = ['created_at', 'modified_at']
+        field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
         writer = csv.writer(response)
