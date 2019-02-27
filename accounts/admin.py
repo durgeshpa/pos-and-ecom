@@ -37,6 +37,6 @@ class UserDocumentAdmin(admin.ModelAdmin):
     readonly_fields = ('user_document_photo_thumbnail',)
 
 class AppVersionAdmin(admin.ModelAdmin):
-    list_display = ('app_version','update','force_update','created_at','modified_at')
+    list_display = ('app_version','update_recommended','force_update_required','created_at','modified_at')
 
 admin.site.register(AppVersion, AppVersionAdmin)

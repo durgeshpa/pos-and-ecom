@@ -28,4 +28,4 @@ class UserDocumentSerializer(serializers.ModelSerializer):
 class AppVersionSerializer(serializers.ModelSerializer):
     class Meta:
         model = AppVersion
-        fields = ('app_version', 'update','force_update')
+        fields = ('app_version', 'update_recommended','force_update_required')
