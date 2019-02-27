@@ -153,6 +153,14 @@ class Order(models.Model):
         (ORDER_PLACED_DISPATCH_PENDING, "Order Placed Dispatch Pending")
 
     )
+    seller_shop = models.ForeignKey(
+        Shop, related_name='rt_seller_shop_order',
+        null=True, blank=True, on_delete=models.CASCADE
+    )
+    buyer_shop = models.ForeignKey(
+        Shop, related_name='rt_buyer_shop_order',
+        null=True, blank=True, on_delete=models.CASCADE
+    )
     ordered_cart = models.OneToOneField(
         Cart, related_name='rt_order_cart_mapping',
         on_delete=models.CASCADE
