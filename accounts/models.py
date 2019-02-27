@@ -126,8 +126,8 @@ def create_phone_otp_instance(sender, instance=None, created=False, **kwargs):
 
 class AppVersion(models.Model):
     app_version = models.CharField(max_length=200)
-    update = models.BooleanField(default=False)
-    force_update = models.BooleanField(default=False)
+    update_recommended = models.BooleanField(default=False)
+    force_update_required = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
