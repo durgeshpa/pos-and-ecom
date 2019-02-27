@@ -153,10 +153,12 @@ class Order(models.Model):
         (ORDER_PLACED_DISPATCH_PENDING, "Order Placed Dispatch Pending")
 
     )
+    #Todo Remove
     seller_shop = models.ForeignKey(
         Shop, related_name='rt_seller_shop_order',
         null=True, blank=True, on_delete=models.CASCADE
     )
+    #Todo Remove
     buyer_shop = models.ForeignKey(
         Shop, related_name='rt_buyer_shop_order',
         null=True, blank=True, on_delete=models.CASCADE
