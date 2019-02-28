@@ -23,7 +23,6 @@ class CronToDeleteOrderedProductReserved(APIView):
                 ordered_reserve.cart.save()
 
                 # Deleted Cart
-                print("%s id will deleted and added %s qty in available_qty of OrderedProductMapping %s id"%(ordered_reserve.id,ordered_reserve.order_product_reserved.available_qty,ordered_reserve.order_product_reserved.id))
                 ordered_reserve.reserve_status = 'free'
                 ordered_reserve.save()
 
@@ -37,7 +36,6 @@ class CronToDeleteOrderedProductReserved(APIView):
                 ordered_reserve.cart.save()
 
                 # Deleted Cart
-                print("%s id will deleted and added %s qty in available_qty of OrderedProductMapping %s id"%(ordered_reserve.id,ordered_reserve.order_product_reserved.available_qty,ordered_reserve.order_product_reserved.id))
                 ordered_reserve.reserve_status = 'free'
                 ordered_reserve.save()
 
@@ -53,7 +51,6 @@ def cron_to_delete_ordered_product_reserved(request):
             ordered_reserve.cart.save()
 
             # Deleted Cart
-            print("%s id will deleted and added %s qty in available_qty of OrderedProductMapping %s id"%(ordered_reserve.id,ordered_reserve.order_product_reserved.available_qty,ordered_reserve.order_product_reserved.id))
             #ordered_reserve.delete()
             ordered_reserve.reserve_status = 'free'
             ordered_reserve.save()
@@ -69,9 +66,6 @@ def cron_to_delete_ordered_product_reserved(request):
             ordered_reserve.cart.save()
 
             # Deleted Cart
-            print("%s id will deleted and added %s qty in available_qty of OrderedProductMapping %s id" % (
-            ordered_reserve.id, ordered_reserve.order_product_reserved.available_qty,
-            ordered_reserve.order_product_reserved.id))
 
             ordered_reserve.reserve_status = 'free'
             ordered_reserve.save()

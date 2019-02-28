@@ -461,19 +461,19 @@ def products_csv_upload_view(request):
                         {'form': form}
                     )
                 try:
-                    product, _ = Product.objects.get_or_create(
-                        product_gf_code=row[3])
+                    brand = Brand.objects.get(pk=row[5])
                 except Exception as e:
-                    logger.exception("Unable to create product")
-                    messages.error(
-                        request,
-                        "Unable to create product {}".format(row[1]))
-                    return render(
-                        request,
-                        'admin/products/productscsvupload.html',
-                        {'form': form}
-                    )
+                    logger.exception("Brand Does not exist")
+                    message.error(request, "Brand doesn't exist for  {}".format(row[1]))
+                    return render(request, 'admin/products/productscsvupload.html',{'form': form})
+                
+                try:
+                    product = Product.objects.get(product_gf_code=row[3])
+                except:
+                    product = Product.objects.create(product_gf_code=row[3], product_brand_id=row[5])
                 else:
+                    product.product_brand = brand
+                finally:
                     product.product_name = row[0]
                     product.product_short_description = row[1]
                     product.product_long_description = row[2]

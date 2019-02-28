@@ -24,7 +24,6 @@ class GetSlotBannerListView(APIView):
         startdate = datetime.datetime.now()
         position_name= self.kwargs.get('page_name')
         pos_name = self.kwargs.get('banner_slot')
-        print(position_name,pos_name)
 
         if pos_name and position_name:
             #data = BannerData.objects.filter(banner_data__status=True, slot__page__name=position_name,slot__bannerslot__name=pos_name, banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate )

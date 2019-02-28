@@ -31,6 +31,7 @@ CART_STATUS = (
     ("partially_delivered", "Partially Delivered"),
     ("delivered", "Delivered"),
     ("closed", "Closed"),
+    ("payment_done_approval_pending", "Payment Done Approval Pending")
 )
 
 ITEM_STATUS = (
@@ -180,6 +181,9 @@ class Order(models.Model):
     def __str__(self):
         return self.order_no or str(self.id)
 
+    class Meta:
+        ordering = ['-created_at']
+
 
 class Trip(models.Model):
     seller_shop = models.ForeignKey(
@@ -304,13 +308,14 @@ class OrderedProduct(models.Model):
 
     def save(self, *args, **kwargs):
         if self._state.adding:
-            invoice_prefix = self.order.seller_shop.invoce_pattern.filter(
+            invoice_prefix = self.order.seller_shop.invoice_pattern.filter(
                 status='ACT').last().pattern
             last_invoice = OrderedProduct.objects.filter(
                 order__in=self.order.seller_shop.rt_seller_shop_order.all()
             ).order_by('invoice_no').last()
             if last_invoice:
-                invoice_id = getcredit_note_id(last_invoice.invoice_no, invoice_prefix)
+                invoice_id = getcredit_note_id(last_invoice.invoice_no,
+                                               invoice_prefix)
                 invoice_id += 1
             else:
                 invoice_id = 1
@@ -382,7 +387,7 @@ class OrderedProductMapping(models.Model):
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
             shop__shop_type__shop_type='sp', status=True
-        )
+        ).last()
 
     def get_products_gst_tax(self):
         return self.product.product_pro_tax.filter(tax__tax_type='gst')
@@ -475,7 +480,7 @@ class Payment(models.Model):
     )
     name = models.CharField(max_length=255, null=True, blank=True)
     paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
-    payment_choice = models.CharField(max_length=30,choices=PAYMENT_MODE_CHOICES, null=True)
+    payment_choice = models.CharField(verbose_name="Payment Mode",max_length=30,choices=PAYMENT_MODE_CHOICES, null=True)
     neft_reference_number = models.CharField(max_length=20, null=True,blank=True)
     imei_no = models.CharField(max_length=100, null=True, blank=True)
     payment_status = models.CharField(max_length=50, null=True, blank=True,choices=PAYMENT_STATUS, default=PAYMENT_DONE_APPROVAL_PENDING)
@@ -570,7 +575,7 @@ class ReturnProductMapping(models.Model):
         total_returned_qty = self.reusable_qty + self.damaged_qty
         if total_returned_qty != self.total_returned_qty:
             raise ValidationError(
-                """Sum of Reusable quantity and damaged 
+                """Sum of Reusable quantity and damaged
                 quantity must be equal to total returned quantity"""
             )
 

@@ -36,7 +36,7 @@ table tr td,th,h4,span,address{
     <div class="row">
         <div class="col-lg-12">
           <div class="invoice-title col-md-12">
-      			<div class="invoice col-sm-4 "><h4> Tax Invoice No: <span style="font-size:30px"class="invoice_no"><strong>{{shop.invoice_no}}</strong></span></h4></div>
+      			<div class="invoice col-sm-4 "><h4> Tax / Retail Invoice No: <span style="font-size:30px"class="invoice_no"><strong>{{shop.invoice_no}}</strong></span></h4></div>
 
   				<div class="col-sm-4 order_id ">
             {% if payment_type == 'neft' %}
@@ -54,6 +54,7 @@ table tr td,th,h4,span,address{
 						<span>Invoice To :</span><br>
     				<strong>{{shop.order.billing_address.shop_name.shop_name}}</strong><br>
     				{{shop.order.billing_address.nick_name}}, {{shop.order.billing_address.address_line1}}, {{shop.order.billing_address.city}}<br>
+						{{shop.order.billing_address.address_contact_number}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{{ buyer_shop_gistin }}</span><br>
 						<strong>State Name:</strong> <span>{{shop.order.billing_address.state}} </span><strong>Code:</strong> <span>{{shop.order.billing_address.pincode}}</span><br>
 						<strong>CIN:</strong> <span>---</span>
@@ -63,6 +64,7 @@ table tr td,th,h4,span,address{
 						<span>Dispatch To :</span><br>
     				<strong>{{shop.order.shipping_address.shop_name.shop_name}}</strong><br>
     				{{shop.order.shipping_address.nick_name}}, {{shop.order.shipping_address.address_line1}}, {{shop.order.shipping_address.city}}<br>
+						{{shop.order.shipping_address.address_contact_number}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{{ buyer_shop_gistin }}</span><br>
 						<strong>State Name:</strong> <span>{{shop.order.shipping_address.state}} </span><strong>Code:</strong> <span>{{shop.order.shipping_address.pincode}}</span><br>
 						<strong>CIN:</strong> <span>---</span>
@@ -72,6 +74,7 @@ table tr td,th,h4,span,address{
 
     				<strong>{{shop_name_gram.shop_name}}</strong><br>
     				{{nick_name_gram}}, {{address_line1_gram}}, {{city_gram}}<br>
+						{{address_contact_number}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{{seller_shop_gistin}}</span><br>
 						<strong>State Name:</strong> <span>{{state_gram}} </span><strong>Code:</strong> <span>{{pincode_gram}}</span><br>
 						<strong>CIN:</strong> <span>---</span>
@@ -98,7 +101,13 @@ table tr td,th,h4,span,address{
         							<td class="text-center"></td>
 
         					<td class="text-center"><strong>Mode/Terms of Payment</strong><br>
-								 <span>1 Days</span>
+								 <span>
+                                     {% if payment_type == 'neft' %}
+                                        Prepaid Order
+                                     {% else %}
+                                        Cash On Delivery
+                                     {% endif %}
+                                 </span>
 								 </td>
 
 
@@ -112,8 +121,7 @@ table tr td,th,h4,span,address{
                                 <tr>
 
         							<td style="width: 50%" class="text-center"><strong>Supplier's Ref./Order No.</strong><br><span>{{shop.po_no}}</span></td>
-        							<td class="text-center"><strong>Delivery Note Date <br>
-1 Days</strong></td>
+        							<td class="text-center"><strong>Delivery Note Date</strong></td>
 
 
                                 </tr>
@@ -180,13 +188,13 @@ table tr td,th,h4,span,address{
 								<td class="text-center">{{ m.product_short_description}}</td>
 								<td class="text-center">{{ m.product_hsn}}</td>
 								<td class="text-center"><strong>{{ m.product_tax_percentage}}</strong></td>
-								<td class="text-center"><strong>{{m.product_tax_amount}}</strong></td>
+								<td class="text-center"><strong>{{m.product_tax_amount |floatformat:2 | intcomma}}</strong></td>
 								<td class="text-center">{{ m.product_inner_case_size }}</td>
 								<td class="text-center">{{m.shipped_qty}}</td>
 								<td class="text-center">{{m.product_no_of_pices}}</td>
 								<td class="text-center">{{m.price_to_retailer}}</td>
 								<td class="text-center">PCS</td>
-								<td class="text-right">{{m.product_sub_total | intcomma }}/-</td>
+								<td class="text-right">{{m.product_sub_total|floatformat:2| intcomma }}/-</td>
     							</tr>
 					{% endfor %}
 
@@ -206,7 +214,7 @@ table tr td,th,h4,span,address{
 								  <td class="thick-line text-center"><strong>{{sum_qty}} PCS</strong></td>
     								<td class="thick-line"></td>
     								<td class="thick-line text-center"><strong></strong></td>
-    								<td class="thick-line text-right"><strong>₹{{sum_amount | intcomma }}/-</strong></td>
+    								<td class="thick-line text-right"><strong>₹{{sum_amount| floatformat:2 | intcomma }}/-</strong></td>
     							</tr>
 									{% if shop.order.seller_shop.shop_name_address_mapping.all == shop.order.shipping_address %}
     							<tr style="display:none">
@@ -306,7 +314,7 @@ table tr td,th,h4,span,address{
     								<td class="no-line"></td>
     								<td class="no-line"></td>
 									<td class="no-line text-right"><strong>Total</strong></td>
-    								<td class="no-line text-right" colspan="2"><strong>₹ {{total_amount | intcomma}}/- </strong></td>
+    								<td class="no-line text-right" colspan="2"><strong>₹ {{total_amount| floatformat:2 | intcomma}}/- </strong></td>
     							</tr>
 
 								<tr>
@@ -320,7 +328,7 @@ table tr td,th,h4,span,address{
                   		{% if total_amount.is_integer %}
                         <td colspan="11"><strong>INR {{total_amount_int | amount }} only</strong></td>
                         {% else %}
-                        <td colspan="11"><strong>INR {{total_amount | amount }} paise only</strong></td>
+                        <td colspan="11"><strong>INR {{total_amount | floatformat:2 | amount }} paise only</strong></td>
                         {% endif %}
 
                                 </tr>

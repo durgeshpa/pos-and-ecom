@@ -31,6 +31,8 @@ from django.utils import timezone
 from products.models import ProductCategory
 from addresses.models import Address
 from retailer_backend.common_function import getShopMapping,checkNotShopAndMapping,getShop
+from retailer_backend.messages import ERROR_MESSAGES
+from django.contrib.postgres.search import SearchVector
 
 class ProductsList(generics.ListCreateAPIView):
     permission_classes = (AllowAny,)
@@ -73,6 +75,7 @@ class GramGRNProductsList(APIView):
         cart_check = False
         is_store_active = True
         sort_preference = request.data.get('sort_by_price')
+        today = datetime.today()
 
         '''1st Step
             Check If Shop Is exists then 2nd pt else 3rd Pt
@@ -101,7 +104,7 @@ class GramGRNProductsList(APIView):
                     '''4th Step
                         SP mapped data shown
                     '''
-                    grn = SpMappedOrderedProductMapping.objects.filter(ordered_product__order__ordered_cart__shop=parent_mapping.parent,available_qty__gt=0).values('product_id')
+                    grn = SpMappedOrderedProductMapping.objects.filter(ordered_product__order__ordered_cart__shop=parent_mapping.parent,available_qty__gt=0,expiry_date__gt=today).values('product_id')
                     cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
                     if cart:
                         cart_products = cart.rt_cart_list.all()
@@ -112,7 +115,7 @@ class GramGRNProductsList(APIView):
                     '''5th Step
                         Gramfactory mapped data shown
                     '''
-                    grn = GRNOrderProductMapping.objects.filter(grn_order__order__ordered_cart__gf_shipping_address__shop_name=parent_mapping.parent,available_qty__gt=0).values('product_id')
+                    grn = GRNOrderProductMapping.objects.filter(grn_order__order__ordered_cart__gf_shipping_address__shop_name=parent_mapping.parent,available_qty__gt=0,expiry_date__gt=today).values('product_id')
                     cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,cart_status__in=['active', 'pending']).last()
                     if cart:
                         cart_products = cart.rt_cart_list.all()
@@ -124,8 +127,8 @@ class GramGRNProductsList(APIView):
         if category:
             product_ids = ProductCategory.objects.filter(product__in=grn, category__in=category).values_list('product_id')
             products = products.filter(pk__in=product_ids)
-        if keyword and products.filter(product_name__icontains=keyword).last():
-            products = products.filter(product_name__icontains=keyword)
+        if keyword:
+            products = products.annotate(search=SearchVector('product_name', 'product_brand__brand_name', 'product_long_description')).filter(search=keyword)
 
         if is_store_active is False:
             products_price = ProductPrice.objects.filter(product__in=products).order_by('product','-created_at').distinct('product')
@@ -419,19 +422,25 @@ class ReservedOrder(generics.ListAPIView):
 
                     is_error = False
                     if ordered_product_sum['available_qty_sum'] is not None:
-                        if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty):
+                        if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size):
                             available_qty = int(ordered_product_sum['available_qty_sum'])
-                            cart_product.qty_error_msg = 'Available Quantity : %s' % (available_qty)
+                            cart_product.qty_error_msg = ERROR_MESSAGES['AVAILABLE_PRODUCT'].format(int(available_qty))
                             is_error = True
                         else:
-                            available_qty = int(cart_product.qty)
+                            available_qty = int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size)
                             cart_product.qty_error_msg = ''
 
                         cart_product.save()
 
                         for product_detail in ordered_product_details:
+                            deduct_qty = 0
                             if available_qty <= 0:
                                 break
+
+                            if available_qty > product_detail.available_qty:
+                                deduct_qty = product_detail.available_qty
+                            else:
+                                deduct_qty = available_qty
 
                             product_detail.available_qty = 0 if available_qty > product_detail.available_qty else int(
                                 product_detail.available_qty) - int(available_qty)
@@ -444,7 +453,7 @@ class ReservedOrder(generics.ListAPIView):
                             order_product_reserved.reserve_status = 'reserved'
                             order_product_reserved.save()
 
-                            available_qty = available_qty - int(product_detail.available_qty)
+                            available_qty = available_qty - int(deduct_qty)
 
                         if is_error:
                             release_blocking(parent_mapping, cart.id)
@@ -477,19 +486,25 @@ class ReservedOrder(generics.ListAPIView):
                     ordered_product_sum = ordered_product_details.aggregate(available_qty_sum=Sum('available_qty'))
 
                     if ordered_product_sum['available_qty_sum'] is not None:
-                        if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty):
+                        if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size):
                             available_qty = int(ordered_product_sum['available_qty_sum'])
-                            cart_product.qty_error_msg = 'Available Quantity : %s' % (available_qty)
+                            cart_product.qty_error_msg = ERROR_MESSAGES['AVAILABLE_PRODUCT'].format(int(available_qty))
                             is_error = True
                         else:
-                            available_qty = int(cart_product.qty)
+                            available_qty = int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size)
                             cart_product.qty_error_msg = ''
 
                         cart_product.save()
 
                         for product_detail in ordered_product_details:
+                            deduct_qty = 0
                             if available_qty <= 0:
                                 break
+
+                            if available_qty > product_detail.available_qty:
+                                deduct_qty = product_detail.available_qty
+                            else:
+                                deduct_qty = available_qty
 
                             product_detail.available_qty = 0 if available_qty > product_detail.available_qty else int(
                                 product_detail.available_qty) - int(available_qty)
@@ -506,7 +521,7 @@ class ReservedOrder(generics.ListAPIView):
                                                            pick_qty=available_qty)
                             pick_list_item.product = product_detail.product
                             pick_list_item.save()
-                            available_qty = available_qty - int(product_detail.available_qty)
+                            available_qty = available_qty - int(deduct_qty)
 
                         serializer = GramMappedCartSerializer(cart, context={'parent_mapping_id': parent_mapping.parent.id})
                         if is_error:
@@ -735,7 +750,7 @@ class DownloadInvoiceSP(APIView):
         pk=self.kwargs.get('pk')
         a = OrderedProduct.objects.get(pk=pk)
         shop=a
-        products = a.rt_order_product_order_product_mapping.all()
+        products = a.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0)
         payment_type = a.order.rt_payment.last().payment_choice
         order_id= a.order.order_no
 
@@ -753,6 +768,7 @@ class DownloadInvoiceSP(APIView):
             city_gram= z.city
             state_gram= z.state
             pincode_gram= z.pincode
+            address_contact_number= z.address_contact_number
 
         seller_shop_gistin = '---'
         buyer_shop_gistin = '---'
@@ -773,7 +789,7 @@ class DownloadInvoiceSP(APIView):
             product_tax_amount = 0
             product_pro_price = 0
             product_pro_price = m.product.product_pro_price.filter(
-                shop=m.ordered_product.order.seller_shop).last().price_to_retailer if m.product.product_pro_price.exists() else 0
+                shop=m.ordered_product.order.seller_shop, status=True).last().price_to_retailer
 
             all_tax_list = m.product.product_pro_tax
             if all_tax_list.exists():
@@ -806,11 +822,9 @@ class DownloadInvoiceSP(APIView):
 
 
             sum_qty = sum_qty + int(m.product.product_inner_case_size) * int(m.shipped_qty)
-
-            for h in m.get_shop_specific_products_prices_sp():
-
-                sum_amount = sum_amount + (int(m.product.product_inner_case_size) * int(m.shipped_qty) * h.price_to_retailer)
-                inline_sum_amount = (int(m.product.product_inner_case_size) * int(m.shipped_qty) * h.price_to_retailer)
+            sum_amount += (int(m.product.product_inner_case_size) * int(m.shipped_qty) * product_pro_price)
+            inline_sum_amount = (int(m.product.product_inner_case_size) * int(m.shipped_qty) * product_pro_price)
+            
             for n in m.product.product_pro_tax.all():
 
                 divisor= (1+(n.tax.tax_percentage/100))
@@ -841,7 +855,8 @@ class DownloadInvoiceSP(APIView):
                 "order_id":order_id,"shop_name_gram":shop_name_gram,"nick_name_gram":nick_name_gram, "city_gram":city_gram,
                 "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram,
                 "payment_type":payment_type,"total_amount_int":total_amount_int,"product_listing":product_listing,
-                "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin}
+                "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
+                "address_contact_number":address_contact_number}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
@@ -925,10 +940,8 @@ class CustomerCareApi(APIView):
             msg['message']= ["Please typle the complaint_detail"]
             return Response(msg, status=status.HTTP_400_BAD_REQUEST)
 
-        print(request.data)
         serializer = CustomerCareSerializer(data=request.data)
         if serializer.is_valid():
-            print("mmk")
             serializer.save()
             msg = {'is_success': True, 'message': ['Message Sent'], 'response_data': serializer.data}
             return Response( msg, status=status.HTTP_201_CREATED)
@@ -996,7 +1009,7 @@ class PaymentApi(APIView):
             payment = Payment(order_id=order,paid_amount=paid_amount,payment_choice=payment_choice,
                               neft_reference_number=neft_reference_number,imei_no=imei_no)
             payment.save()
-            order.order_status = 'payment_done_approval_pending'
+            order.order_status = 'opdp'
             order.save()
             serializer = OrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id})
 
@@ -1011,7 +1024,7 @@ class PaymentApi(APIView):
             payment = GramMappedPayment(order_id=order,paid_amount=paid_amount,payment_choice=payment_choice,
                                         neft_reference_number=neft_reference_number,imei_no=imei_no)
             payment.save()
-            order.order_status = 'payment_done_approval_pending'
+            order.order_status = 'opdp'
             order.save()
             serializer = GramMappedOrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id})
 

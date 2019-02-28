@@ -88,7 +88,7 @@ class OrderAutocomplete(autocomplete.Select2QuerySetView):
               self.request.user) |
             Q(ordered_cart__gf_shipping_address__shop_name__related_users=
               self.request.user),
-            ordered_cart__po_status='finance_approved'
+            ordered_cart__po_status=Cart.FINANCE_APPROVED
         )
         if self.q:
             qs = qs.filter(order_no__icontains=self.q)
@@ -130,9 +130,8 @@ class DownloadPurchaseOrder(APIView):
             shop_name_documents.filter(shop_document_type='gstin').last()
         gram_factory_shipping_gstin= shop.gf_shipping_address.shop_name.\
             shop_name_documents.filter(shop_document_type='gstin').last()
-        sum_qty = 0
-        sum_amount = 0
-        tax_inline = 0
+
+        tax_inline, sum_amount, sum_qty = 0, 0, 0
         taxes_list = []
         gst_tax_list = []
         cess_tax_list = []
@@ -269,6 +268,8 @@ class VendorProductAutocomplete(autocomplete.Select2QuerySetView):
             product_id = ProductVendorMapping.objects\
                 .filter(vendor__id=supplier_id).values('product')
             qs = qs.filter(id__in=[product_id])
+            if self.q:
+                qs = qs.filter(product_name__icontains=self.q)
         return qs
 
 
@@ -278,21 +279,22 @@ class VendorProductPrice(APIView):
     def get(self, *args, **kwargs):
         supplier_id = self.request.GET.get('supplier_id')
         product_id = self.request.GET.get('product_id')
-        price = ProductVendorMapping.objects.get(
-           vendor__id=supplier_id, product__id=product_id
-        )
-        case_size = ProductVendorMapping.objects.get(
-           vendor__id=supplier_id, product__id=product_id
-        ).product.product_case_size
-        inner_case_size = ProductVendorMapping.objects.get(
-            vendor__id=supplier_id, product__id=product_id
-        ).product.product_inner_case_size
+        vendor_product_price,product_case_size,product_inner_case_size = 0,0,0
+        vendor_mapping = ProductVendorMapping.objects.filter(vendor__id=supplier_id, product__id=product_id)
+        if vendor_mapping.exists():
+            product = vendor_mapping.last().product
+            vendor_product_price = vendor_mapping.last().product_price
+            product_case_size = vendor_mapping.last().product.product_case_size
+            product_inner_case_size = vendor_mapping.last().product.product_inner_case_size
+            taxes = ([field.tax.tax_percentage for field in vendor_mapping.last().product.product_pro_tax.all()])
+            taxes = str(sum(taxes))
+            tax_percentage = taxes+'%'
         return Response({
-            "price": price.product_price,
-            "case_size": case_size,
-            "inner_case_size": inner_case_size,
-            "success": True}
-        )
+            "price": vendor_product_price,
+            "case_size": product_case_size,
+            "inner_case_size": product_inner_case_size,
+            "tax_percentage": tax_percentage,
+            "success": True})
 
 
 class GRNProductAutocomplete(autocomplete.Select2QuerySetView):

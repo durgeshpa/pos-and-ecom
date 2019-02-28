@@ -2,13 +2,15 @@ version: 0.0
 os: linux
 files:
   - source: /
-    destination: /home/ubuntu/project/retailer-backend
+    destination: /home/ubuntu/project/
 hooks:
+  BeforeInstall:
+    - location: scripts/before_install.sh
   ApplicationStop:
-    - location: stop.sh
-      timeout: 300
+    - location: scripts/stop.sh
+      timeout: 350
       runas: root
   ApplicationStart:
-    - location: start.sh
+    - location: scripts/start.sh
       timeout: 300
       runas: root

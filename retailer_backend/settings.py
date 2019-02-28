@@ -35,6 +35,7 @@ AUTH_USER_MODEL = 'accounts.user'
 INSTALLED_APPS = [
     'dal',
     'dal_select2',
+    'dal_admin_filters',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -77,6 +78,8 @@ INSTALLED_APPS = [
     'admin_auto_filters',
     'services',
     'rangefilter'
+    'admin_numeric_filter',
+
 ]
 
 
@@ -210,7 +213,7 @@ OTP_RESEND_IN = 30
 DEFAULT_CITY_CODE = '07'
 PO_STARTS_WITH = 'ADT/PO'
 CN_STARTS_WITH = 'ADT/CN'
-INVOICE_STARTS_WITH = 'ADT'
+INVOICE_STARTS_WITH = 'ORD'
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
@@ -226,7 +229,8 @@ AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
 AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME')
 #AWS_S3_CUSTOM_DOMAIN = '%s.s3.amazonaws.com' % AWS_STORAGE_BUCKET_NAME
-AWS_S3_CUSTOM_DOMAIN = 'images.gramfactory.com'
+AWS_S3_CUSTOM_DOMAIN = 'devimages.gramfactory.com'
+AWS_S3_CUSTOM_DOMAIN_ORIG = 'images.gramfactory.com'
 AWS_S3_OBJECT_PARAMETERS = {
   'CacheControl': 'max-age=86400',
 }

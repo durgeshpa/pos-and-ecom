@@ -1,13 +1,47 @@
+import csv
 from django.contrib import admin
 from .models import (
     Shop, ShopType, RetailerType, ParentRetailerMapping,
     ShopPhoto, ShopDocument, ShopInvoicePattern
 )
 from addresses.models import Address
-from .forms import ParentRetailerMappingForm
+from .forms import ParentRetailerMappingForm,ShopParentRetailerMappingForm
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
 from django.utils.html import format_html
+from import_export import resources
+from django.http import HttpResponse
+from admin_auto_filters.filters import AutocompleteFilter
+
+class ShopResource(resources.ModelResource):
+    class Meta:
+        model = Shop
+        exclude = ('created_at','modified_at')
+
+
+class ExportCsvMixin:
+    def export_as_csv(self, request, queryset):
+        meta = self.model._meta
+        field_names = [field.name for field in meta.fields]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in field_names])
+        return response
+    export_as_csv.short_description = "Download CSV of Selected Objects"
+
+class ShopNameSearch(InputFilter):
+    parameter_name = 'shop_name'
+    title = 'Shop Name'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            shop_name = self.value()
+            if shop_name is None:
+                return
+            return queryset.filter(shop_name__icontains=shop_name)
 
 class ShopTypeSearch(InputFilter):
     parameter_name = 'shop_type'
@@ -75,15 +109,29 @@ class AddressAdmin(admin.TabularInline):
     fields = ('address_contact_name','address_contact_number','address_type','address_line1','state','city','pincode',)
     extra = 2
 
-class ShopAdmin(admin.ModelAdmin):
+class ShopParentRetailerMapping(admin.TabularInline):
+    model = ParentRetailerMapping
+    form = ShopParentRetailerMappingForm
+    fields = ('parent',)
+    fk_name = 'retailer'
+    extra = 1
+    max_num = 1
+
+
+class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
+    resource_class = ShopResource
+    actions = ["export_as_csv"]
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin,
-        AddressAdmin, ShopInvoicePatternAdmin
+        AddressAdmin, ShopInvoicePatternAdmin,ShopParentRetailerMapping
     ]
     list_display = ('shop_name','shop_owner','shop_type','status', 'get_shop_city','shop_mapped_product')
     filter_horizontal = ('related_users',)
-    list_filter = (ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,)
-    search_fields = ('shop_name',)
+    list_filter = (ShopNameSearch,ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,'status')
+    search_fields = ('shop_name', )
+
+    class Media:
+        css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
 
     def get_queryset(self, request):
         qs = super(ShopAdmin, self).get_queryset(request)
@@ -136,8 +184,20 @@ class ShopAdmin(admin.ModelAdmin):
             return obj.shop_name_address_mapping.last().city
     get_shop_city.short_description = 'Shop City'
 
+class ParentFilter(AutocompleteFilter):
+    title = 'Parent' # display title
+    field_name = 'parent' # name of the foreign key field
+
+class RetailerFilter(AutocompleteFilter):
+    title = 'Retailer' # display title
+    field_name = 'retailer' # name of the foreign key field
+
 class ParentRetailerMappingAdmin(admin.ModelAdmin):
     form = ParentRetailerMappingForm
+    list_filter = (ParentFilter,RetailerFilter,'status')
+
+    class Media:
+        pass
 
 admin.site.register(ParentRetailerMapping,ParentRetailerMappingAdmin)
 admin.site.register(ShopType)
