@@ -4,7 +4,8 @@ from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializ
 
                           GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer )
 from products.models import Product, ProductPrice, ProductOption,ProductImage
-from sp_to_gram.models import OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping
+from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
+                                OrderedProduct as SPOrderedProduct)
 
 from rest_framework import permissions, authentication
 from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as GramCartProductMapping,
@@ -107,7 +108,7 @@ class GramGRNProductsList(APIView):
                     grn = SpMappedOrderedProductMapping.objects.filter(
                         Q(ordered_product__order__ordered_cart__shop=parent_mapping.parent)
                         |Q(ordered_product__credit_note__shop=parent_mapping.parent),
-                        available_qty__gt=0,expiry_date__gt=today, ordered_product__status=OrderedProduct.ENABLED
+                        available_qty__gt=0,expiry_date__gt=today, ordered_product__status=SPOrderedProduct.ENABLED
                         ).values('product_id')
                     cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
                     if cart:
