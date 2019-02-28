@@ -423,7 +423,7 @@ class ReservedOrder(generics.ListAPIView):
                     ordered_product_details = OrderedProductMapping.objects.filter(
                         Q(ordered_product__order__shipping_address__shop_name=parent_mapping.parent) |
                         Q(ordered_product__credit_note__shop=parent_mapping.parent),
-                        product=cart_product.cart_product).order_by('-expiry_date')
+                        product=cart_product.cart_product, ordered_product__status=OrderedProduct.ENABLED).order_by('-expiry_date')
                     ordered_product_sum = ordered_product_details.aggregate(available_qty_sum=Sum('available_qty'))
 
                     is_error = False
