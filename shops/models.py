@@ -124,7 +124,7 @@ class ShopInvoicePattern(models.Model):
         (ACTIVE, 'Active'),
         (DISABLED, 'Disabled'),
         )
-    shop = models.ForeignKey(Shop, related_name='invoce_pattern', on_delete=models.CASCADE)
+    shop = models.ForeignKey(Shop, related_name='invoice_pattern', on_delete=models.CASCADE)
     pattern = models.CharField(max_length=15, null=True, blank=True)
     start_date = models.DateTimeField(null=True, blank=True)
     end_date = models.DateTimeField(null=True, blank=True)
