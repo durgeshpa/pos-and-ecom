@@ -283,7 +283,7 @@ class DispatchForm(forms.ModelForm):
             if instance.trip:
                 trip_status = instance.trip.trip_status
                 self.fields['selected'].initial = True
-                if trip_status == 'READY':
+                if trip_status == 'READY' or trip_status == 'STARTED':
                     self.fields['items'].initial = mark_safe('<b><a href="/admin/retailer_to_sp/dispatch/'+
                                                              str(pk)+'/change/" target="_blank">'+
                                                              invoice_no+'</a></b>')

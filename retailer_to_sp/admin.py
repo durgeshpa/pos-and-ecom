@@ -24,16 +24,13 @@ from .forms import (
     OrderedProductMappingShipmentForm, ShipmentProductMappingForm
     )
 from retailer_to_sp.views import (
-    ordered_product_mapping_shipment, ordered_product_mapping_delivery,
-    dispatch_shipment, order_invoices, trip_planning, load_dispatches,
-    trip_planning_change
-)
+    ordered_product_mapping_shipment, order_invoices, trip_planning, load_dispatches, trip_planning_change
+    )
 
 from products.admin import ExportCsvMixin
 from .resources import OrderResource
 from admin_numeric_filter.admin import NumericFilterModelAdmin, SingleNumericFilter, RangeNumericFilter, \
     SliderNumericFilter
-
 
 
 class InvoiceNumberFilter(AutocompleteFilter):
@@ -187,16 +184,6 @@ class CartAdmin(admin.ModelAdmin):
                 name="OrderProductMappingShipment"
             ),
             url(
-                r'^order-product-mapping-delivery/$',
-                self.admin_site.admin_view(ordered_product_mapping_delivery),
-                name="OrderProductMappingDelivery"
-            ),
-            url(
-                r'^dispatch-shipment/$',
-                self.admin_site.admin_view(dispatch_shipment),
-                name="DispatchShipment"
-            ),
-            url(
                 r'^order-invoices/$',
                 self.admin_site.admin_view(order_invoices),
                 name="OrderInvoices"
@@ -276,8 +263,8 @@ class OrderedProductAdmin(admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/OrderedProduct/change_list.html'
     inlines = [OrderedProductMappingAdmin]
     list_display = (
-        'invoice_no',
-        'received_by', 'download_invoice'
+        'invoice_no', 'order', 'created_at', 'shipment_address', 'invoice_city',
+        'invoice_amount', 'payment_mode', 'shipment_status', 'download_invoice'
     )
     exclude = ('received_by', 'last_modified_by')
     autocomplete_fields = ('order',)
@@ -285,6 +272,8 @@ class OrderedProductAdmin(admin.ModelAdmin):
     readonly_fields = ('order', 'invoice_no', 'trip', 'shipment_status')
 
     def download_invoice(self, obj):
+        if obj.shipment_status == 'SHIPMENT_CREATED':
+            return format_html("-")
         return format_html(
             "<a href= '%s' >Download Invoice</a>" %
             (reverse('download_invoice_sp', args=[obj.pk]))
@@ -377,8 +366,8 @@ class ShipmentAdmin(admin.ModelAdmin):
     inlines = [ShipmentProductMappingAdmin]
     form = ShipmentForm
     list_display = (
-        'invoice_no', 'created_at', 'shipment_address', 'invoice_city',
-        'invoice_amount', 'shipment_status', 'download_invoice'
+        'invoice_no', 'order', 'created_at', 'shipment_address', 'invoice_city',
+        'invoice_amount', 'payment_mode', 'shipment_status', 'download_invoice'
     )
     list_filter = [
         ('created_at', DateTimeRangeFilter), 'shipment_status',
@@ -440,8 +429,8 @@ class DispatchNoSearch(InputFilter):
 class TripAdmin(admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
     list_display = (
-        'dispathces', 'seller_shop', 'delivery_boy', 'vehicle_no',
-        'trip_status'
+        'dispathces', 'delivery_boy', 'seller_shop', 'vehicle_no',
+        'trip_status', 'starts_at'
     )
     readonly_fields = ('dispathces',)
     autocomplete_fields = ('seller_shop',)

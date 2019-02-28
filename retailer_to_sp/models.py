@@ -71,6 +71,7 @@ TRIP_STATUS = (
     ('COMPLETED', 'Completed')
 )
 
+
 class Cart(models.Model):
     order_id = models.CharField(max_length=255, null=True, blank=True)
     cart_status = models.CharField(
@@ -281,8 +282,18 @@ class OrderedProduct(models.Model):
             address = Address.objects.select_related(
                 'shop_name').get(pk=self.order.shipping_address_id)
             address_line = address.address_line1
+            contact = address.address_contact_number
             shop_name = address.shop_name.shop_name
-            return str("%s, %s") % (shop_name, address_line)
+            return str("%s, %s(%s)") % (shop_name, address_line, contact)
+        return str("-")
+
+    @property
+    def payment_mode(self):
+        order = self.order
+        if order:
+            payment_mode = order.payment_mode
+            if payment_mode:
+                return str(payment_mode)
         return str("-")
 
     @property
