@@ -20,6 +20,10 @@ from .forms import CustomerCareForm, ReturnProductMappingForm
 from retailer_to_sp.views import (
     ordered_product_mapping_shipment, ordered_product_mapping_delivery
 )
+
+from sp_to_gram.models import create_credit_note
+
+from products.admin import ExportCsvMixin
 from .resources import OrderResource
 from admin_numeric_filter.admin import NumericFilterModelAdmin, SingleNumericFilter, RangeNumericFilter, \
     SliderNumericFilter
@@ -272,6 +276,9 @@ class OrderedProductAdmin(admin.ModelAdmin):
             Q(order__seller_shop__related_users=request.user) |
             Q(order__seller_shop__shop_owner=request.user)
                 )
+    def save_related(self, request, form, formsets, change):
+        super(OrderedProductAdmin, self).save_related(request, form, formsets, change)
+        create_credit_note(form)
 
 class NoteAdmin(admin.ModelAdmin):
     list_display = (

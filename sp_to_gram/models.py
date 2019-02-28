@@ -2,7 +2,7 @@ import datetime
 from datetime import timedelta
 
 from django.dispatch import receiver
-from django.db.models.signals import pre_save, post_save
+from django.db.models.signals import pre_save, post_save, m2m_changed
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
@@ -16,7 +16,7 @@ from brand.models import Brand
 from products.models import Product
 from retailer_to_sp.models import Cart as RetailerCart
 from addresses.models import Address, City, State
-from retailer_to_sp.models import Note as CreditNote, OrderedProduct as RetailerShipment
+from retailer_to_sp.models import Note as CreditNote, OrderedProduct as RetailerShipment, OrderedProductMapping as RetailerShipmentMapping
 from retailer_backend.common_function import (
     order_id_pattern, brand_credit_note_pattern, getcredit_note_id
 )
@@ -286,13 +286,13 @@ def create_brand_note_id(sender, instance=None, created=False, **kwargs):
             instance.brand_note_id = "ADT/CN/%s"%(last_brand_note_id_increment)
 
 
-@receiver(post_save, sender=RetailerShipment)
-def create_credit_note(sender, instance=None, created=False, **kwargs):
+def create_credit_note(instance=None, created=False, **kwargs):
+    instance = instance.instance
     if created:
         return None
     if instance.rt_order_product_order_product_mapping.last() and instance.rt_order_product_order_product_mapping.all().aggregate(Sum('returned_qty')).get('returned_qty__sum') > 0:
-        invoice_prefix = instance.order.seller_shop.invoce_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
-        last_credit_note = CreditNote.objects.filter(shop=instance.order.seller_shop).last()
+        invoice_prefix = instance.order.seller_shop.invoice_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
+        last_credit_note = CreditNote.objects.filter(shop=instance.order.seller_shop).order_by('credit_note_id').last()
         if last_credit_note:
             note_id = int(getcredit_note_id(last_credit_note.credit_note_id, invoice_prefix))
             note_id += 1
@@ -315,12 +315,17 @@ def create_credit_note(sender, instance=None, created=False, **kwargs):
         credit_grn.save()
 
         for item in instance.rt_order_product_order_product_mapping.all():
+            reserved_order = OrderedProductReserved.objects.filter(cart=instance.order.ordered_cart,
+                                                                 product=item.product, reserve_status=OrderedProductReserved.RESERVED).last()
             grn_item = OrderedProductMapping.objects.create(
                 ordered_product=credit_grn,
                 product=item.product,
                 shipped_qty=item.returned_qty,
-                available_qty=item.returned_qty - item.damaged_qty,
+                available_qty=item.returned_qty,
                 ordered_qty = item.returned_qty,
+                delivered_qty = item.returned_qty,
+                manufacture_date= reserved_order.order_product_reserved.last().manufacture_date,
+                expiry_date= reserved_order.order_product_reserved.last().expiry_date,
                 )
             grn_item.save()
             credit_amount += int(item.returned_qty) * int(item.product.product_inner_case_size) * float(item.product.product_pro_price.filter(
