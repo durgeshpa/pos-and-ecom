@@ -77,7 +77,7 @@ INSTALLED_APPS = [
     'retailer_to_gram',
     'admin_auto_filters',
     'services',
-    'rangefilter'
+    'rangefilter',
     'admin_numeric_filter',
 
 ]
