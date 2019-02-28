@@ -315,12 +315,17 @@ def create_credit_note(instance=None, created=False, **kwargs):
         credit_grn.save()
 
         for item in instance.rt_order_product_order_product_mapping.all():
+            reserved_order = OrderedProductReserved.objects.filter(cart=instance.order.ordered_cart,
+                                                                 product=item.product, reserve_status=OrderedProductReserved.RESERVED).last()
             grn_item = OrderedProductMapping.objects.create(
                 ordered_product=credit_grn,
                 product=item.product,
                 shipped_qty=item.returned_qty,
                 available_qty=item.returned_qty,
                 ordered_qty = item.returned_qty,
+                delivered_qty = item.returned_qty,
+                manufacture_date= reserved_order.order_product_reserved.last().manufacture_date,
+                expiry_date= reserved_order.order_product_reserved.last().expiry_date,
                 )
             grn_item.save()
             credit_amount += int(item.returned_qty) * int(item.product.product_inner_case_size) * float(item.product.product_pro_price.filter(
