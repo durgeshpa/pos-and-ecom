@@ -35,6 +35,7 @@ AUTH_USER_MODEL = 'accounts.user'
 INSTALLED_APPS = [
     'dal',
     'dal_select2',
+    'dal_admin_filters',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -75,7 +76,9 @@ INSTALLED_APPS = [
     'daterange_filter',
     'retailer_to_gram',
     'admin_auto_filters',
-    'services'
+    'services',
+    'admin_numeric_filter',
+
 ]
 
 

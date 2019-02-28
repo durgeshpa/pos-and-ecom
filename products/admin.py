@@ -6,7 +6,7 @@ from django.forms.models import BaseInlineFormSet
 from django.contrib.admin import TabularInline
 
 from admin_auto_filters.filters import AutocompleteFilter
-
+from daterange_filter.filter import DateRangeFilter
 from retailer_backend.admin import InputFilter
 from .models import *
 from .views import (
@@ -22,10 +22,18 @@ from .resources import (
     ProductResource, ProductPriceResource, TaxResource
     )
 
+class ProductFilter(AutocompleteFilter):
+    title = 'Product Name' # display title
+    field_name = 'product' # name of the foreign key field
 
 class ProductImageMainAdmin(admin.ModelAdmin):
     readonly_fields = ['image_thumbnail']
     search_fields = ['image', 'image_name']
+    list_display = ('product','image', 'image_name')
+    list_filter = [ProductFilter,]
+
+    class Media:
+        pass
 
 
 class ExportCsvMixin:
@@ -51,11 +59,17 @@ class CategoryFilter(AutocompleteFilter):
     title = 'Category'  # display title
     field_name = 'category_name'  # name of the foreign key field
 
+class VendorFilter(AutocompleteFilter):
+    title = 'Vendor Name' # display title
+    field_name = 'vendor' # name of the foreign key field
 
 class ProductVendorMappingAdmin(admin.ModelAdmin):
     fields = ('vendor', 'product', 'product_price')
     list_display = ('vendor', 'product', 'product_price')
+    list_filter = [VendorFilter,ProductFilter,]
 
+    class Media:
+        pass
 
 class SizeAdmin(admin.ModelAdmin,  ExportCsvMixin):
     resource_class = SizeResource
@@ -280,7 +294,18 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     product_images.short_description = 'Product Image'
 
+class MRPSearch(InputFilter):
+    parameter_name = 'mrp'
+    title = 'MRP'
 
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            mrp = self.value()
+            if mrp is None:
+                return
+            return queryset.filter(
+                Q(mrp__icontains=mrp)
+            )
 class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductPriceResource
     actions = ["export_as_csv"]
@@ -293,6 +318,10 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
         'product__product_name', 'product__product_gf_code',
         'product__product_brand__brand_name', 'shop__shop_name'
     ]
+    list_filter= [ProductFilter,MRPSearch,('start_date', DateRangeFilter),('end_date', DateRangeFilter)]
+
+    class Media:
+        pass
 
     def product_gf_code(self, obj):
         return obj.product.product_gf_code

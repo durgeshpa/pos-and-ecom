@@ -22,6 +22,13 @@ from retailer_to_sp.views import (
 )
 from sp_to_gram.models import create_credit_note
 
+from products.admin import ExportCsvMixin
+from .resources import OrderResource
+from admin_numeric_filter.admin import NumericFilterModelAdmin, SingleNumericFilter, RangeNumericFilter, \
+    SliderNumericFilter
+
+
+
 class InvoiceNumberFilter(AutocompleteFilter):
     title = 'Invoice Number'
     field_name = 'invoice_no'
@@ -72,6 +79,18 @@ class NameSearch(InputFilter):
                 Q(name__icontains=name)
             )
 
+class NEFTSearch(InputFilter):
+    parameter_name = 'neft_reference_number'
+    title = 'neft reference number'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            neft_reference_number = self.value()
+            if neft_reference_number is None:
+                return
+            return queryset.filter(
+                Q(neft_reference_number__icontains=neft_reference_number)
+            )
 
 class OrderIdSearch(InputFilter):
     parameter_name = 'order_id'
@@ -179,7 +198,9 @@ class CartAdmin(admin.ModelAdmin):
         formset.save_m2m()
 
 
-class OrderAdmin(admin.ModelAdmin):
+class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
+    actions = ["export_as_csv"]
+    resource_class = OrderResource
     search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name',
                     'order_status', 'payment_mode')
     list_display = ('order_no', 'seller_shop', 'buyer_shop', 'total_final_amount',
@@ -272,7 +293,7 @@ class CustomerCareAdmin(admin.ModelAdmin):
     list_filter = [NameSearch, OrderIdSearch, OrderStatusSearch, IssueSearch]
 
 
-class PaymentAdmin(admin.ModelAdmin):
+class PaymentAdmin(NumericFilterModelAdmin,admin.ModelAdmin):
     model = Payment
     fields = (
         'order_id', 'paid_amount', 'payment_choice',
@@ -285,7 +306,7 @@ class PaymentAdmin(admin.ModelAdmin):
     )
     autocomplete_fields = ('order_id',)
     search_fields = ('name',)
-    list_filter = (NameSearch, OrderIdSearch, PaymentChoiceSearch)
+    list_filter = (NameSearch, OrderIdSearch, PaymentChoiceSearch,('paid_amount', SliderNumericFilter),NEFTSearch)
 
 
 class ReturnProductMappingAdmin(admin.TabularInline):
