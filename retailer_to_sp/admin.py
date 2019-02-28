@@ -16,12 +16,17 @@ from .models import (
     Cart, CartProductMapping, Order, OrderedProduct,
     OrderedProductMapping, Note, CustomerCare,
     Payment, Return, ReturnProductMapping, Dispatch,
-    DispatchProductMapping, Trip
+    DispatchProductMapping, Trip, Shipment, ShipmentProductMapping
 )
-from .forms import CustomerCareForm, ReturnProductMappingForm, TripForm
+from .forms import (
+    CustomerCareForm, ReturnProductMappingForm, TripForm, DispatchForm,
+    OrderedProductMappingForm, OrderedProductForm, ShipmentForm,
+    OrderedProductMappingShipmentForm, ShipmentProductMappingForm
+    )
 from retailer_to_sp.views import (
     ordered_product_mapping_shipment, ordered_product_mapping_delivery,
-    dispatch_shipment, order_invoices
+    dispatch_shipment, order_invoices, trip_planning, load_dispatches,
+    trip_planning_change
 )
 
 
@@ -177,8 +182,22 @@ class CartAdmin(admin.ModelAdmin):
                 r'^order-invoices/$',
                 self.admin_site.admin_view(order_invoices),
                 name="OrderInvoices"
+            ),
+            url(
+               r'^trip-planning/$',
+               self.admin_site.admin_view(trip_planning),
+               name="TripPlanning"
+            ),
+            url(
+               r'^load-dispatches/$',
+               self.admin_site.admin_view(load_dispatches),
+               name="LoadDispatches"
+            ),
+            url(
+               r'^trip-planning/(?P<pk>\d+)/change/$',
+               self.admin_site.admin_view(trip_planning_change),
+               name="TripPlanningChange"
             )
-
         ] + urls
         return urls
 
@@ -226,8 +245,8 @@ class OrderAdmin(admin.ModelAdmin):
 
 class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping
-    exclude = ('last_modified_by',)
-    readonly_fields = ('ordered_qty','shipped_qty')
+    fields = ['product', 'gf_code', 'ordered_qty', 'shipped_qty', 'returned_qty', 'damaged_qty' , 'delivered_qty']
+    readonly_fields = ['ordered_qty', 'product', 'gf_code', 'shipped_qty', 'delivered_qty']
     extra = 0
 
 
@@ -241,7 +260,7 @@ class OrderedProductAdmin(admin.ModelAdmin):
     exclude = ('received_by', 'last_modified_by')
     autocomplete_fields = ('order',)
     search_fields = ('invoice_no', )
-    readonly_fields = ('order', 'invoice_no', 'shipment_status')
+    readonly_fields = ('order', 'invoice_no', 'trip', 'shipment_status')
 
     def download_invoice(self, obj):
         return format_html(
@@ -294,12 +313,12 @@ class DispatchAdmin(admin.ModelAdmin):
         'invoice_no', 'created_at', 'shipment_address', 'invoice_city',
         'invoice_amount', 'shipment_status', 'trip'
     )
-    list_editable = ('shipment_status', 'trip')
+    list_editable = ('shipment_status',)
     list_filter = [
         ('created_at', DateTimeRangeFilter), 'shipment_status',
     ]
-    fields = ['order', 'invoice_no', 'trip']
-    readonly_fields = ['order']
+    fields = ['order', 'invoice_no', 'invoice_amount','trip', 'shipment_address', 'invoice_city', 'shipment_status']
+    readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city']
 
     def get_queryset(self, request):
         qs = super(DispatchAdmin, self).get_queryset(request)
@@ -320,13 +339,103 @@ class DispatchAdmin(admin.ModelAdmin):
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
 
 
-class TripAdmin(admin.ModelAdmin):
-    form = TripForm
+class ShipmentProductMappingAdmin(admin.TabularInline):
+    model = ShipmentProductMapping
+    form = ShipmentProductMappingForm
+    fields = ['product', 'ordered_qty', 'already_shipped_qty', 'shipped_qty']
+    readonly_fields = ['product', 'ordered_qty', 'already_shipped_qty']
+    extra = 0
+    max_num = 0
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+class ShipmentAdmin(admin.ModelAdmin):
+    inlines = [ShipmentProductMappingAdmin]
+    form = ShipmentForm
     list_display = (
-        'dispatch_no', 'seller_shop', 'delivery_boy', 'vehicle_no',
+        'invoice_no', 'created_at', 'shipment_address', 'invoice_city',
+        'invoice_amount', 'shipment_status', 'download_invoice'
+    )
+    list_filter = [
+        ('created_at', DateTimeRangeFilter), 'shipment_status',
+    ]
+    fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city', 'shipment_status']
+    readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city']
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
+
+    def download_invoice(self, obj):
+        if obj.shipment_status == 'SHIPMENT_CREATED':
+            return format_html("-")
+        return format_html(
+            "<a href= '%s' >Download Invoice</a>" %
+            (reverse('download_invoice_sp', args=[obj.pk]))
+        )
+    download_invoice.short_description = 'Download Invoice'
+
+
+class DeliveryBoySearch(InputFilter):
+    parameter_name = 'delivery_boy'
+    title = 'delivery boy'
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(
+                Q(delivery_boy__first_name__icontains=self.value()) |
+                Q(delivery_boy__phone_number__startswith=self.value()) |
+                Q(delivery_boy__last_name__icontains=self.value())
+            )
+
+
+class VehicleNoSearch(InputFilter):
+    parameter_name = 'vehicle_no'
+    title = 'vehicle no'
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(
+                Q(vehicle_no__icontains=self.value())
+            )
+
+
+class DispatchNoSearch(InputFilter):
+    parameter_name = 'dispatch_no'
+    title = 'dispatch no'
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(
+                Q(dispatch_no__icontains=self.value())
+            )
+
+
+class TripAdmin(admin.ModelAdmin):
+    change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
+    list_display = (
+        'dispathces', 'seller_shop', 'delivery_boy', 'vehicle_no',
         'trip_status'
     )
+    readonly_fields = ('dispathces',)
     autocomplete_fields = ('seller_shop',)
+
+    search_fields = [
+        'delivery_boy__first_name', 'delivery_boy__last_name', 'delivery_boy__phone_number',
+        'vehicle_no', 'dispatch_no', 'seller_shop__shop_name'
+    ]
+
+    list_filter = [
+        'trip_status', ('created_at', DateTimeRangeFilter), ('starts_at', DateTimeRangeFilter),
+        ('completed_at', DateTimeRangeFilter), DeliveryBoySearch, VehicleNoSearch, DispatchNoSearch
+    ]
+
+    class Media:
+        js = ('admin/js/datetime_filter_collapse.js', )
 
 
 class NoteAdmin(admin.ModelAdmin):
@@ -418,3 +527,4 @@ admin.site.register(CustomerCare, CustomerCareAdmin)
 admin.site.register(Payment, PaymentAdmin)
 admin.site.register(Dispatch, DispatchAdmin)
 admin.site.register(Trip, TripAdmin)
+admin.site.register(Shipment, ShipmentAdmin)

@@ -8,6 +8,7 @@ from django.db.models.signals import pre_save
 from django.db.models.signals import post_save
 from django.db.models import Sum
 from django.utils.translation import ugettext_lazy as _
+from django.utils.safestring import mark_safe
 
 from retailer_backend.common_function import (
     order_id_pattern, brand_credit_note_pattern, getcredit_note_id,
@@ -62,6 +63,12 @@ SELECT_ISSUE = (
     ("others", "Others")
 )
 
+TRIP_STATUS = (
+    ('READY', 'Ready'),
+    ('CANCELLED', 'Cancelled'),
+    ('STARTED', 'Started'),
+    ('COMPLETED', 'Completed')
+)
 
 class Cart(models.Model):
     order_id = models.CharField(max_length=255, null=True, blank=True)
@@ -113,10 +120,10 @@ class Order(models.Model):
     ORDERED = 'ordered'
 
     ORDER_STATUS = (
-        (ORDERED, 'Ordered'),
-        ('PROCESSING', 'Processing'),
-        ('PARTIALLY_COMPLETED', 'Partially Completed'),
-        ('COMPLETED', 'Completed'),
+        (ORDERED, 'Order Placed'),
+        ('DISPATCH_PENDING', 'Dispatch Placed'),
+        ('PARTIALLY_SHIPPED', 'Partially Shipped'),
+        ('SHIPPED', 'Shipped'),
         ('CANCELLED', 'Cancelled'),
         ('DENIED', 'Denied'),
     )
@@ -175,11 +182,6 @@ class Order(models.Model):
 
 
 class Trip(models.Model):
-    TRIP_STATUS = (
-        ('READY', 'Ready'),
-        ('STARTED', 'Started'),
-        ('COMPLETED', 'Completed')
-    )
     seller_shop = models.ForeignKey(
         Shop, related_name='trip_seller_shop',
         on_delete=models.CASCADE
@@ -194,9 +196,14 @@ class Trip(models.Model):
     e_way_bill_no = models.CharField(max_length=50, blank=True, null=True)
     starts_at = models.DateTimeField()
     completed_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.dispatch_no
+        return "{} -> {}".format(
+            self.dispatch_no,
+            self.delivery_boy.first_name if self.delivery_boy.first_name else self.delivery_boy.phone_number
+        )
 
     def save(self, *args, **kwargs):
         if self._state.adding:
@@ -215,15 +222,21 @@ class Trip(models.Model):
             self.dispatch_no = final_dispatch_no
         super().save(*args, **kwargs)
 
+    def dispathces(self):
+        return mark_safe("<a href='/admin/retailer_to_sp/cart/trip-planning/%s/change/'>%s<a/>" % (self.pk,
+                                                                                                   self.dispatch_no)
+                         )
+
 
 class OrderedProduct(models.Model):
     SHIPMENT_STATUS = (
+        ('SHIPMENT_CREATED', 'Shipment Created'),
         ('READY_TO_SHIP', 'Ready to Ship'),
-        ('DISPATCHED', 'Dispatched'),
-        ('PARTIALLY_DELIVERED', 'Partially Deliver'),
-        ('DELIVERED', 'Delivered'),
-        ('DELIVERED_WITH_RETURN_DAMAGED', 'Delivered with Return/ Damage'),
-        ('DENIED', 'Denied'),
+        ('READY_TO_DISPATCH', 'Ready to Dispatch'),
+        ('OUT_FOR_DELIVERY', 'Out for Delivery'),
+        ('FULLY_RETURNED_AND_CLOSED', 'Fully Returned and Closed'),
+        ('PARTIALLY_DELIVERED_AND_CLOSED', 'Partially Delivered and Closed'),
+        ('FULLY_DELIVERED_AND_CLOSED', 'Fully Delivered and Closed'),
         ('CANCELLED', 'Cancelled')
     )
     order = models.ForeignKey(
@@ -314,10 +327,10 @@ class OrderedProductMapping(models.Model):
         Product, related_name='rt_product_order_product',
         null=True, blank=True, on_delete=models.CASCADE
     )
-    shipped_qty = models.PositiveIntegerField(default=0)
-    delivered_qty = models.PositiveIntegerField(default=0)
-    returned_qty = models.PositiveIntegerField(default=0)
-    damaged_qty = models.PositiveIntegerField(default=0)
+    shipped_qty = models.PositiveIntegerField(default=0, verbose_name="Shipped Pieces")
+    delivered_qty = models.PositiveIntegerField(default=0, verbose_name="Delivered Pieces")
+    returned_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Pieces")
+    damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Pieces")
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_order_product',
         null=True, blank=True, on_delete=models.CASCADE
@@ -327,17 +340,17 @@ class OrderedProductMapping(models.Model):
 
     def clean(self):
         super(OrderedProductMapping, self).clean()
-        delivered_qty = int(self.delivered_qty)
         returned_qty = int(self.returned_qty)
         damaged_qty = int(self.damaged_qty)
-        if delivered_qty or returned_qty or damaged_qty:
+        if returned_qty or damaged_qty:
             already_shipped_qty = int(self.shipped_qty)
-            if sum([delivered_qty, returned_qty,
-                    damaged_qty]) != already_shipped_qty:
+            if sum([returned_qty, damaged_qty]) > already_shipped_qty:
                 raise ValidationError(
-                    _('Sum of Delivered, Returned and Damaged Quantity should be '
-                      'equals to Already Shipped Quantity '),
+                    _('Sum of Returned and Damaged Quantity should be '
+                      'less than Already Shipped Quantity '),
                 )
+            else:
+                self.delivered_qty = self.shipped_qty - (self.damaged_qty + self.returned_qty)
 
     @property
     def ordered_qty(self):
@@ -349,6 +362,15 @@ class OrderedProductMapping(models.Model):
             no_of_pieces = int(inner_case_size) * int(qty if qty else 0)
             return str(no_of_pieces)
         return str("-")
+    ordered_qty.fget.short_description = "Ordered Pieces"
+
+    @property
+    def already_shipped_qty(self):
+        already_shipped_qty = OrderedProductMapping.objects.filter(
+            ordered_product__in=self.ordered_product.order.rt_order_order_product.all(),
+            product=self.product).aggregate(
+            Sum('delivered_qty')).get('delivered_qty__sum', 0)
+        return already_shipped_qty if already_shipped_qty else 0
 
     @property
     def gf_code(self):
@@ -379,6 +401,34 @@ class DispatchProductMapping(OrderedProductMapping):
         proxy = True
         verbose_name = _("To be Ship product")
         verbose_name_plural = _("To be Ship products")
+
+
+class Shipment(OrderedProduct):
+    class Meta:
+        proxy = True
+        verbose_name = _("Plan Shipment")
+        verbose_name_plural = _("Plan Shipment")
+
+
+class ShipmentProductMapping(OrderedProductMapping):
+
+    class Meta:
+        proxy = True
+        verbose_name = _("To be Ship product")
+        verbose_name_plural = _("To be Ship products")
+
+    def clean(self):
+        ordered_qty = int(self.ordered_qty)
+        shipped_qty = int(self.shipped_qty)
+        already_shipped_qty = int(self.already_shipped_qty)
+        if (ordered_qty - already_shipped_qty) < shipped_qty:
+            raise ValidationError(
+                _('To be Ship Qty cannot be greater than difference '
+                  'of Ordered Qty and Already Shipped Qty'),
+                )
+
+
+ShipmentProductMapping._meta.get_field('shipped_qty').verbose_name = 'No. of Pieces to Ship'
 
 
 class CustomerCare(models.Model):
@@ -569,20 +619,24 @@ class Note(models.Model):
             return self.shipment.invoice_no
 
 
-@receiver(post_save, sender=OrderedProduct)
-def change_order_status(sender, instance=None, created=False, **kwargs):
-    if created:
-        ordered_products = instance.order.rt_order_order_product.all()
-        all_shipment_status = [ordered_product.shipment_status
-                               for ordered_product in ordered_products]
-        all_shipment_status = list(set(all_shipment_status))
-        pass
+# @receiver(post_save, sender=OrderedProduct)
+# def change_order_status(sender, instance=None, created=False, **kwargs):
+#     import pdb;pdb.set_trace()
+#
+#     if created:
+#         ordered_products = instance.order.rt_order_order_product.all()
+#         all_shipment_status = [ordered_product.shipment_status
+#                                for ordered_product in ordered_products]
+#         all_shipment_status = list(set(all_shipment_status))
+#
+#
+# @receiver(post_save, sender=OrderedProductMapping)
+# def change_order_status(sender, instance=None, created=False, **kwargs):
+#     if created:
+#         ordered_product_mapping = instance.ordered_product.\
+#             rt_order_product_order_product_mapping.all()
+#         #import pdb;pdb.set_trace()
+#         shipment_status =  instance.ordered_product.shipment_status
 
 
-@receiver(post_save, sender=OrderedProductMapping)
-def change_order_status(sender, instance=None, created=False, **kwargs):
-    if created:
-        ordered_product_mapping = instance.ordered_product.\
-            rt_order_product_order_product_mapping.all()
-        import ipdb; ipdb.set_trace()
 
