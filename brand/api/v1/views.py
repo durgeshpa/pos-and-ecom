@@ -22,7 +22,7 @@ class GetSlotBrandListView(APIView):
         if pos_name and pos_name != 'all':
             data = data.filter(slot__position_name=pos_name).order_by('brand_data_order')
             brand_data_serializer = BrandDataSerializer(data,many=True)
-        elif pos_name == 'all':
+        elif pos_name == 'all_banners':
             data= Brand.objects.filter(brand_parent=None,active_status='active').order_by('brand_name')
             brand_data_serializer = BrandSerializer(data,many=True)
         else:
