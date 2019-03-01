@@ -39,7 +39,8 @@ class ProductImageMainAdmin(admin.ModelAdmin):
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
-        field_names = [field.name for field in meta.fields]
+        exclude_fields = ['created_at', 'modified_at']
+        field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
         writer = csv.writer(response)
@@ -319,9 +320,13 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
         'product__product_brand__brand_name', 'shop__shop_name'
     ]
     list_filter= [ProductFilter,MRPSearch,('start_date', DateRangeFilter),('end_date', DateRangeFilter)]
-
+    fields=('product','city','area','mrp','shop','price_to_retailer','price_to_super_retailer','price_to_service_partner','start_date','end_date','status')
     class Media:
         pass
+    def get_readonly_fields(self, request, obj=None):
+        if obj: # editing an existing object
+            return self.readonly_fields + ('mrp','price_to_retailer','price_to_super_retailer','price_to_service_partner' )
+        return self.readonly_fields
 
     def product_gf_code(self, obj):
         return obj.product.product_gf_code
