@@ -235,8 +235,8 @@ class Trip(models.Model):
 
 class OrderedProduct(models.Model):
     SHIPMENT_STATUS = (
-        ('SHIPMENT_CREATED', 'Shipment Created'),
-        ('READY_TO_SHIP', 'Ready to Ship'),
+        ('SHIPMENT_CREATED', 'QC Pending'),
+        ('READY_TO_SHIP', 'QC Passed'),
         ('READY_TO_DISPATCH', 'Ready to Dispatch'),
         ('OUT_FOR_DELIVERY', 'Out for Delivery'),
         ('FULLY_RETURNED_AND_CLOSED', 'Fully Returned and Closed'),
@@ -648,11 +648,11 @@ class Note(models.Model):
 #
 # @receiver(post_save, sender=OrderedProductMapping)
 # def change_order_status(sender, instance=None, created=False, **kwargs):
-#     if created:
-#         ordered_product_mapping = instance.ordered_product.\
-#             rt_order_product_order_product_mapping.all()
-#         #import pdb;pdb.set_trace()
-#         shipment_status =  instance.ordered_product.shipment_status
+#     import pdb;pdb.set_trace()
+#     ordered_product_mapping = instance.ordered_product.\
+#         rt_order_product_order_product_mapping.all()
+#     import pdb;pdb.set_trace()
+#     shipment_status =  instance.ordered_product.shipment_status
 
 
 

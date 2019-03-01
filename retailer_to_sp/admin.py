@@ -292,6 +292,23 @@ class OrderedProductAdmin(admin.ModelAdmin):
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
 
+    def save_formset(self, request, form, formset, change):
+        instances = formset.save(commit=False)
+        for obj in formset.deleted_objects:
+            obj.delete()
+        shipped_qty_list = []
+        returned_qty_list = []
+        damaged_qty_list = []
+        for instance in instances:
+            shipped_qty_list.append(instance.shipped_qty)
+            returned_qty_list.append(instance.returned_qty)
+            damaged_qty_list.append(instance.damaged_qty)
+        shipped_qty = sum(shipped_qty_list)
+        returned_qty = sum(returned_qty_list)
+        damaged_qty = sum(damaged_qty_list)
+        import pdb; pdb.set_trace()
+        formset.save_m2m()
+
 
 class DispatchProductMappingAdmin(admin.TabularInline):
     model = DispatchProductMapping
