@@ -4,7 +4,7 @@ from django.shortcuts import get_object_or_404
 from shops.models import Shop
 from gram_to_brand.models import GRNOrderProductMapping
 from sp_to_gram.models import OrderedProductMapping
-from django.db.models import Sum,Q
+from django.db.models import Sum,Q, F
 from dal import autocomplete
 
 # Create your views here.
@@ -21,7 +21,7 @@ class ShopMappedProduct(TemplateView):
 
         elif shop_obj.shop_type.shop_type=='sp':
             sp_grn_product = OrderedProductMapping.objects.filter(ordered_product__order__ordered_cart__shop=shop_obj)
-            product_sum = sp_grn_product.values('product','product__product_name', 'product__product_gf_code').annotate(product_qty_sum=Sum('available_qty'))
+            product_sum = sp_grn_product.values('product','product__product_name', 'product__product_gf_code').annotate(product_qty_sum=Sum(F('available_qty') - (F('damaged_qty') + F('lossed_qty'))))
             context['shop_products'] = product_sum
         else:
             context['shop_products'] = None

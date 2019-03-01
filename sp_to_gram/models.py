@@ -215,7 +215,7 @@ class OrderedProductMapping(models.Model):
                 raise ValidationError(_("Expiry Date cannot be less than manufacture date"))
 
     @property
-    def available_qty(self):
+    def sp_available_qty(self):
         return int(self.available_qty) - (int(self.damaged_qty) + int(self.lossed_qty))
 
 
