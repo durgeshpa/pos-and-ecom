@@ -418,9 +418,9 @@ class ReservedOrder(generics.ListAPIView):
                     #Exclude expired
                     ordered_product_details = OrderedProductMapping.objects.filter(
                         ordered_product__order__shipping_address__shop_name=parent_mapping.parent,
-                        product=cart_product.cart_product).order_by('-expiry_date')
+                        product=cart_product.cart_product).order_by('expiry_date')
                     ordered_product_sum = ordered_product_details.aggregate(available_qty_sum=Sum(F('available_qty') - (F('damaged_qty') + F('lossed_qty'))))
-                    #ordered_product_sum_without_loss = ordered_product_details.aggregate(available_qty_sum=Sum(F('available_qty')))
+
                     is_error = False
                     if ordered_product_sum['available_qty_sum'] is not None:
                         if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size):
@@ -430,10 +430,9 @@ class ReservedOrder(generics.ListAPIView):
                         else:
                             available_qty = int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size)
                             cart_product.qty_error_msg = ''
-
                         cart_product.save()
+
                         for product_detail in ordered_product_details:
-                            deduct_qty = 0
                             if available_qty <= 0:
                                 break
 
@@ -442,12 +441,11 @@ class ReservedOrder(generics.ListAPIView):
                             else:
                                 deduct_qty = available_qty
 
-                            product_detail.available_qty = product_detail.sp_available_qty if available_qty > product_detail.sp_available_qty else int(
-                                product_detail.sp_available_qty) - int(available_qty)
+                            product_detail.available_qty = int(product_detail.available_qty) - int(deduct_qty)
                             product_detail.save()
 
                             order_product_reserved = OrderedProductReserved(product=product_detail.product,
-                                                                            reserved_qty=product_detail.available_qty)
+                                                                            reserved_qty=deduct_qty)
                             order_product_reserved.order_product_reserved = product_detail
                             order_product_reserved.cart = cart
                             order_product_reserved.reserve_status = 'reserved'
