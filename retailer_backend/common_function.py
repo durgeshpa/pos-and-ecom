@@ -104,7 +104,7 @@ def brand_credit_note_pattern(cid, invoice_pattern):
 
     starts_with = invoice_pattern
     ends_with = str(cid).rjust(5, '0')
-    return "%s/%s"%(starts_with,ends_with)
+    return "%s%s"%(starts_with,ends_with)
 
 def getcredit_note_id(c_num, invoice_pattern):
     starts_with = invoice_pattern

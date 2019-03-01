@@ -81,11 +81,11 @@ admin.site.register(Order,OrderAdmin)
 class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping
     form = OrderedProductMappingForm
-    exclude = ('last_modified_by','ordered_qty','available_qty','reserved_qty')
+    exclude = ('last_modified_by','ordered_qty','reserved_qty')
 
     warehouse_user_fieldset = ['product', 'manufacture_date', 'expiry_date','shipped_qty',]
     delivery_user_fieldset = ['product', 'manufacture_date', 'expiry_date', 'delivered_qty', 'returned_qty',
-                              'damaged_qty', ]
+                              'damaged_qty', 'available_qty',]
 
     def get_fieldsets(self, request, obj=None, **kwargs):
         if request.user.is_superuser:
@@ -99,11 +99,11 @@ class OrderedProductMappingAdmin(admin.TabularInline):
 
 class OrderedProductAdmin(admin.ModelAdmin):
     inlines = [OrderedProductMappingAdmin]
-    list_display = ('invoice_no','vehicle_no','shipped_by','received_by',)
+    list_display = ('invoice_no','vehicle_no','shipped_by','received_by','status')
     exclude = ('shipped_by','received_by','last_modified_by',)
     autocomplete_fields = ('order',)
 
-    warehouse_user_fields = ['order','invoice_no','vehicle_no',]
+    warehouse_user_fields = ['order','invoice_no','vehicle_no', 'status']
     delivery_user_fields = ['order','vehicle_no',]
 
     def get_form(self, request, obj=None, **kwargs):

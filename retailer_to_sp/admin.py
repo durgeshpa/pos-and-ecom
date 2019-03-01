@@ -26,6 +26,7 @@ from .forms import (
 from retailer_to_sp.views import (
     ordered_product_mapping_shipment, order_invoices, trip_planning, load_dispatches, trip_planning_change
     )
+from sp_to_gram.models import create_credit_note
 
 from products.admin import ExportCsvMixin
 from .resources import OrderResource
@@ -233,7 +234,6 @@ class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
     list_display = ('order_no', 'seller_shop', 'buyer_shop', 'total_final_amount',
                     'order_status', 'created_at', 'payment_amount', 'payment_mode', 'download_pick_list')
 
-
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
         if request.user.is_superuser:
@@ -289,25 +289,29 @@ class OrderedProductAdmin(admin.ModelAdmin):
             Q(order__seller_shop__shop_owner=request.user)
                 )
 
+    def save_related(self, request, form, formsets, change):
+        super(OrderedProductAdmin, self).save_related(request, form, formsets, change)
+        create_credit_note(form)
+
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
 
-    def save_formset(self, request, form, formset, change):
-        instances = formset.save(commit=False)
-        for obj in formset.deleted_objects:
-            obj.delete()
-        shipped_qty_list = []
-        returned_qty_list = []
-        damaged_qty_list = []
-        for instance in instances:
-            shipped_qty_list.append(instance.shipped_qty)
-            returned_qty_list.append(instance.returned_qty)
-            damaged_qty_list.append(instance.damaged_qty)
-        shipped_qty = sum(shipped_qty_list)
-        returned_qty = sum(returned_qty_list)
-        damaged_qty = sum(damaged_qty_list)
-        import pdb; pdb.set_trace()
-        formset.save_m2m()
+    # def save_formset(self, request, form, formset, change):
+    #     instances = formset.save(commit=False)
+    #     for obj in formset.deleted_objects:
+    #         obj.delete()
+    #     shipped_qty_list = []
+    #     returned_qty_list = []
+    #     damaged_qty_list = []
+    #     for instance in instances:
+    #         shipped_qty_list.append(instance.shipped_qty)
+    #         returned_qty_list.append(instance.returned_qty)
+    #         damaged_qty_list.append(instance.damaged_qty)
+    #     shipped_qty = sum(shipped_qty_list)
+    #     returned_qty = sum(returned_qty_list)
+    #     damaged_qty = sum(damaged_qty_list)
+    #     import pdb; pdb.set_trace()
+    #     formset.save_m2m()
 
 
 class DispatchProductMappingAdmin(admin.TabularInline):
