@@ -116,10 +116,11 @@ class CartProductMappingForm(forms.ModelForm):
         queryset=Product.objects.all(),
         widget=autocomplete.ModelSelect2(url='vendor-product-autocomplete', forward=('supplier_name',))
     )
+    tax_percentage = forms.CharField(disabled=True, required=False)
     # total_price = forms.DecimalField(decimal_places=2,)
     class Meta:
         model = CartProductMapping
-        fields = ('cart_product','inner_case_size','case_size', 'number_of_cases','scheme','price',)
+        fields = ('cart_product','tax_percentage', 'number_of_cases','price')
         search_fields=('cart_product',)
         exclude = ('qty',)
 
@@ -185,5 +186,3 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
                     })
             self.extra = len(initial)
             self.initial= initial
-
-
