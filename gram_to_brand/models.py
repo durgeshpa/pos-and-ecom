@@ -215,7 +215,7 @@ class CartProductMapping(models.Model):
 
     @property
     def qty(self):
-        return int(int(self.cart_product.product_inner_case_size) * int(self.case_size) * float(self.number_of_cases))
+        return int(int(self.cart_product.product_inner_case_size) * int(self.cart_product.product_case_size) * float(self.number_of_cases))
 
     @property
     def total_price(self):
@@ -252,7 +252,7 @@ def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
 
 class Order(BaseOrder):
     ordered_cart = models.OneToOneField(Cart,related_name='order_cart_mapping',on_delete=models.CASCADE)
-    order_no = models.CharField(max_length=255, null=True, blank=True)
+    order_no = models.CharField(verbose_name='PO Number', max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -273,7 +273,7 @@ class Order(BaseOrder):
 
 
 class GRNOrder(BaseShipment): #Order Shipment
-    order = models.ForeignKey(Order,related_name='order_grn_order',on_delete=models.CASCADE,null=True,blank=True )
+    order = models.ForeignKey(Order,verbose_name='PO Number',related_name='order_grn_order',on_delete=models.CASCADE,null=True,blank=True )
     invoice_no = models.CharField(max_length=255)
     e_way_bill_no = models.CharField(max_length=255, blank=True, null=True)
     e_way_bill_document = models.FileField(null=True,blank=True)
@@ -315,7 +315,7 @@ class GRNOrderProductMapping(models.Model):
     product = models.ForeignKey(Product, related_name='product_grn_order_product',null=True,blank=True, on_delete=models.CASCADE)
     product_invoice_price = models.FloatField(default=0)
     product_invoice_qty = models.PositiveIntegerField(default=0)
-    manufacture_date = models.DateField(null=True,blank=False)
+    manufacture_date = models.DateField(null=True,blank=True)
     expiry_date = models.DateField(null=True,blank=False)
     delivered_qty = models.PositiveIntegerField(default=0)
     available_qty = models.PositiveIntegerField(default=0)
@@ -364,7 +364,6 @@ class GRNOrderProductMapping(models.Model):
     # def available_qty(self, value):
     #     return self._available_qty = value
 
-
     def clean(self):
         super(GRNOrderProductMapping, self).clean()
         total_items= self.delivered_qty + self.returned_qty
@@ -383,8 +382,8 @@ class GRNOrderProductMapping(models.Model):
                 raise ValidationError(_("Manufactured Date cannot be greater than or equal to today's date"))
             # elif self.expiry_date < self.manufacture_date:
             #     raise ValidationError(_("Expiry Date cannot be less than manufacture date"))
-        else:
-            raise ValidationError(_("Please enter all the field values"))
+        # else:
+        #     raise ValidationError(_("Please enter all the field values"))
 
 
 class BrandNote(models.Model):
