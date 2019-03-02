@@ -12,6 +12,8 @@ from django.utils.html import format_html
 from import_export import resources
 from django.http import HttpResponse
 from admin_auto_filters.filters import AutocompleteFilter
+from .views import ShopMappedProduct
+from django.urls import reverse
 
 class ShopResource(resources.ModelResource):
     class Meta:
@@ -130,6 +132,18 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     list_filter = (ShopNameSearch,ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,'status')
     search_fields = ('shop_name', )
 
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(ShopAdmin, self).get_urls()
+        urls = [
+            url(
+                r'^shop-mapped/(?P<pk>\d+)/product/$',
+                self.admin_site.admin_view(ShopMappedProduct.as_view()),
+                name="shop_mapped_product"
+            ),
+        ] + urls
+        return urls
+
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
 
@@ -146,7 +160,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def shop_mapped_product(self, obj):
         if obj.shop_type.shop_type in ['gf','sp']:
-            return format_html("<a href = '/admin/shops/shop-mapped/%s/product/' class ='addlink' > Product List</a>"% (obj.id))
+            return format_html("<a href ='%s' class ='addlink' > Product List</a>" %reverse('admin:shop_mapped_product', args=[obj.pk]))
 
     shop_mapped_product.short_description = 'Product List with Qty'
 
