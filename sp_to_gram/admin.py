@@ -118,14 +118,14 @@ class OrderedProductAdmin(admin.ModelAdmin):
 
         return super(OrderedProductAdmin, self).get_form(request, obj, **kwargs)
 
-    def save_formset(self, request, form, formset, change):
-        import datetime
-        today = datetime.date.today()
-        instances = formset.save(commit=False)
-        for instance in instances:
-            instance.available_qty = instance.delivered_qty
-            instance.save()
-        formset.save_m2m()
+    # def save_formset(self, request, form, formset, change):
+    #     import datetime
+    #     today = datetime.date.today()
+    #     instances = formset.save(commit=False)
+    #     for instance in instances:
+    #         instance.available_qty = instance.delivered_qty
+    #         instance.save()
+    #     formset.save_m2m()
 
 admin.site.register(OrderedProduct,OrderedProductAdmin)
 
