@@ -179,10 +179,21 @@ class ProductCategoryAdmin(TabularInline):
 class ProductImageAdmin(admin.TabularInline):
     model = ProductImage
 
+class ProductTaxInlineFormSet(BaseInlineFormSet):
+   def clean(self):
+      super(ProductTaxInlineFormSet, self).clean()
+      tax_list_type=[]
+      for form in self.forms:
+          if form.is_valid() and form.cleaned_data.get('tax'):
+              if form.cleaned_data.get('tax').tax_type in tax_list_type:
+                  raise ValidationError('{} type tax can be filled only once'.format(form.cleaned_data.get('tax').tax_type))
+              tax_list_type.append(form.cleaned_data.get('tax').tax_type)
+
 
 class ProductTaxMappingAdmin(admin.TabularInline):
     model = ProductTaxMapping
     extra = 6
+    formset=ProductTaxInlineFormSet
     max_num = 6
     autocomplete_fields = ['tax']
 
