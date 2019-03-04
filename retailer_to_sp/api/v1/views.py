@@ -429,7 +429,7 @@ class ReservedOrder(generics.ListAPIView):
                     is_error = False
                     ordered_amount = int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size)
                     
-                    if available_qty and int(available_qty) >= ordered_amount: #checking if stock available is more than the order
+                    if available_qty and int(available_qty) >= ordered_amount: #checking if stock available and more than the order
                         remaining_amount = ordered_amount
                         for product_detail in ordered_product_details:
                             if remaining_amount <=0:
