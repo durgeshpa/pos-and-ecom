@@ -324,8 +324,8 @@ def create_credit_note(instance=None, created=False, **kwargs):
                 available_qty=item.returned_qty,
                 ordered_qty = item.returned_qty,
                 delivered_qty = item.returned_qty,
-                manufacture_date= reserved_order.order_product_reserved.last().manufacture_date,
-                expiry_date= reserved_order.order_product_reserved.last().expiry_date,
+                manufacture_date= reserved_order.order_product_reserved.manufacture_date,
+                expiry_date= reserved_order.order_product_reserved.expiry_date,
                 )
             grn_item.save()
             credit_amount += int(item.returned_qty) * int(item.product.product_inner_case_size) * float(item.product.product_pro_price.filter(
