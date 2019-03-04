@@ -424,45 +424,32 @@ class ReservedOrder(generics.ListAPIView):
                         Q(ordered_product__order__shipping_address__shop_name=parent_mapping.parent) |
                         Q(ordered_product__credit_note__shop=parent_mapping.parent),
                         product=cart_product.cart_product, ordered_product__status=SPOrderedProduct.ENABLED).order_by('-expiry_date')
-                    ordered_product_sum = ordered_product_details.aggregate(available_qty_sum=Sum('available_qty'))
+                    available_qty = ordered_product_details.aggregate(available_qty_sum=Sum('available_qty'))['available_qty_sum']
 
                     is_error = False
-                    if ordered_product_sum['available_qty_sum'] is not None:
-                        if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size):
-                            available_qty = int(ordered_product_sum['available_qty_sum'])
-                            cart_product.qty_error_msg = ERROR_MESSAGES['AVAILABLE_PRODUCT'].format(int(available_qty))
-                            is_error = True
-                        else:
-                            available_qty = int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size)
-                            cart_product.qty_error_msg = ''
-
-                        cart_product.save()
-
+                    ordered_amount = int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size)
+                    
+                    if available_qty and int(available_qty) >= ordered_amount: #checking if stock available is more than the order
+                        remaining_amount = ordered_amount
                         for product_detail in ordered_product_details:
-                            deduct_qty = 0
-                            if available_qty <= 0:
+                            if remaining_amount <=0:
                                 break
-
-                            if available_qty > product_detail.available_qty:
-                                deduct_qty = product_detail.available_qty
+                            
+                            if product_detail.available_qty >= remaining_amount:
+                                deduct_qty = remaining_amount
                             else:
-                                deduct_qty = available_qty
-
-                            product_detail.available_qty = 0 if available_qty > product_detail.available_qty else int(
-                                product_detail.available_qty) - int(available_qty)
+                                deduct_qty = product_detail.available_qty
+                            
+                            product_detail.available_qty -= deduct_qty
+                            remaining_amount -= deduct_qty
                             product_detail.save()
 
                             order_product_reserved = OrderedProductReserved(product=product_detail.product,
-                                                                            reserved_qty=available_qty)
+                                                                            reserved_qty=deduct_qty)
                             order_product_reserved.order_product_reserved = product_detail
                             order_product_reserved.cart = cart
                             order_product_reserved.reserve_status = 'reserved'
                             order_product_reserved.save()
-
-                            available_qty = available_qty - int(deduct_qty)
-
-                        if is_error:
-                            release_blocking(parent_mapping, cart.id)
                         serializer = CartSerializer(cart,context={'parent_mapping_id': parent_mapping.parent.id})
                         msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                     else:
@@ -470,7 +457,7 @@ class ReservedOrder(generics.ListAPIView):
                         msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
                         return Response(msg, status=status.HTTP_200_OK)
                 if CartProductMapping.objects.filter(cart=cart).count() <= 0:
-                    msg = {'is_success': False, 'message': ['No any product available ins this cart'],
+                    msg = {'is_success': False, 'message': ['No product is available in cart'],
                            'response_data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
