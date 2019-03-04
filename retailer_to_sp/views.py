@@ -109,7 +109,6 @@ class DownloadCreditNote(APIView):
 
         total_amount = sum_amount
         total_amount_int = int(total_amount)
-        print(sum_amount)
 
 
         data = {

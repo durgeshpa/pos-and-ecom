@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import User, UserDocument
+from .models import User, UserDocument, AppVersion
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.utils.translation import ugettext_lazy as _
 
@@ -35,3 +35,8 @@ class UserDocumentAdmin(admin.ModelAdmin):
     model = UserDocument
     fields = ( 'user_document_type','user_document_number','user_document_photo','user_document_photo_thumbnail', )
     readonly_fields = ('user_document_photo_thumbnail',)
+
+class AppVersionAdmin(admin.ModelAdmin):
+    list_display = ('app_version','update_recommended','force_update_required','created_at','modified_at')
+
+admin.site.register(AppVersion, AppVersionAdmin)
