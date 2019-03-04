@@ -779,9 +779,13 @@ class DownloadInvoiceSP(APIView):
 
             # New Code For Product Listing Start
             tax_sum = 0
+            basic_rate = 0
             product_tax_amount = 0
-            product_pro_price = 0
-            product_pro_price = m.product.product_pro_price.filter(
+            product_pro_price_mrp =0
+            product_pro_price_ptr = 0
+            product_pro_price_mrp = m.product.product_pro_price.filter(
+                shop=m.ordered_product.order.seller_shop, status=True).last().mrp
+            product_pro_price_ptr = m.product.product_pro_price.filter(
                 shop=m.ordered_product.order.seller_shop, status=True).last().price_to_retailer
 
             all_tax_list = m.product.product_pro_tax
@@ -792,20 +796,23 @@ class DownloadInvoiceSP(APIView):
                 tax_sum = round(tax_sum,2)
 
                 get_tax_val = tax_sum/100
-                base_price = (float(product_pro_price) * float(m.shipped_qty) * float(m.product.product_inner_case_size)) / (float(get_tax_val) + 1)
+                basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
+                base_price = (float(product_pro_price_ptr) * float(m.shipped_qty) * float(m.product.product_inner_case_size)) / (float(get_tax_val) + 1)
                 product_tax_amount = float(base_price) * float(get_tax_val)
                 product_tax_amount = round(product_tax_amount,2)
 
             ordered_prodcut = {
-                "product_sku": m.product.product_sku,
+                "product_sku": m.product.product_gf_code,
                 "product_short_description": m.product.product_short_description,
                 "product_hsn": m.product.product_hsn,
                 "product_tax_percentage": "" if tax_sum == 0 else str(tax_sum)+"%",
+                "product_mrp": product_pro_price_mrp,
                 "shipped_qty": m.shipped_qty,
                 "product_inner_case_size": m.product.product_inner_case_size,
                 "product_no_of_pices": int(m.product.product_inner_case_size) * int(m.shipped_qty) ,
-                "price_to_retailer":  product_pro_price,
-                "product_sub_total": float(m.product.product_inner_case_size) * float(m.shipped_qty) * float(product_pro_price),
+                "basic_rate" : basic_rate,
+                "price_to_retailer":  product_pro_price_ptr,
+                "product_sub_total": float(m.product.product_inner_case_size) * float(m.shipped_qty) * float(product_pro_price_ptr),
                 "product_tax_amount": product_tax_amount,
 
             }
@@ -815,9 +822,9 @@ class DownloadInvoiceSP(APIView):
 
 
             sum_qty = sum_qty + int(m.product.product_inner_case_size) * int(m.shipped_qty)
-            sum_amount += (int(m.product.product_inner_case_size) * int(m.shipped_qty) * product_pro_price)
-            inline_sum_amount = (int(m.product.product_inner_case_size) * int(m.shipped_qty) * product_pro_price)
-            
+            sum_amount += (int(m.product.product_inner_case_size) * int(m.shipped_qty) * product_pro_price_ptr)
+            inline_sum_amount = (int(m.product.product_inner_case_size) * int(m.shipped_qty) * product_pro_price_ptr)
+
             for n in m.product.product_pro_tax.all():
 
                 divisor= (1+(n.tax.tax_percentage/100))
@@ -849,7 +856,7 @@ class DownloadInvoiceSP(APIView):
                 "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram,
                 "payment_type":payment_type,"total_amount_int":total_amount_int,"product_listing":product_listing,
                 "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
-                "address_contact_number":address_contact_number}
+                "address_contact_number":address_contact_number,"sum_amount_tax":product_tax_amount}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
