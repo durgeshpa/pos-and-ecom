@@ -11,6 +11,8 @@ from brand.models import Brand, BrandPosition,BrandData
 from rest_framework import viewsets
 from rest_framework.decorators import list_route
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from django.core.exceptions import ObjectDoesNotExist
+from shops.models import Shop, ParentRetailerMapping
 
 class GetSlotBrandListView(APIView):
 
@@ -18,16 +20,23 @@ class GetSlotBrandListView(APIView):
     permission_classes = (AllowAny,)
     def get(self,*args,**kwargs):
         pos_name = self.kwargs.get('slot_position_name')
+        shop_id = self.request.GET.get('shop_id')
         data = BrandData.objects.filter(brand_data__active_status='active')
-        if pos_name and pos_name != 'all':
-            data = data.filter(slot__position_name=pos_name).order_by('brand_data_order')
+
+        # try:
+        #     shop = Shop.objects.get(id=shop_id)
+        # except ObjectDoesNotExist:
+        #     return Response({"message":["Shop Not Found"], "response_data": None ,"is_success": False})
+        if pos_name and not shop_id:
+            data = data.filter(slot__position_name=pos_name, slot__shop=None).order_by('brand_data_order')
             brand_data_serializer = BrandDataSerializer(data,many=True)
-        elif pos_name == 'all_banners':
-            data= Brand.objects.filter(brand_parent=None,active_status='active').order_by('brand_name')
-            brand_data_serializer = BrandSerializer(data,many=True)
+        elif pos_name and shop_id:
+            data = data.filter(slot__position_name=pos_name, slot__shop=ParentRetailerMapping.objects.get(retailer=shop_id).parent.id).order_by('brand_data_order')
+            brand_data_serializer = BrandDataSerializer(data,many=True)
         else:
             data = data.order_by('brand_data_order')
             brand_data_serializer = BrandDataSerializer(data,many=True)
+
         is_success = True if data else False
 
         return Response({"message":[""], "response_data": brand_data_serializer.data ,"is_success": is_success})

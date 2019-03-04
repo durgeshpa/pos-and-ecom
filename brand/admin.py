@@ -8,6 +8,7 @@ from import_export.admin import ExportActionMixin
 from .resources import BrandResource
 from products.admin import ExportCsvMixin
 from admin_auto_filters.filters import AutocompleteFilter
+from .forms import BrandForm
 
 class BrandSearch(InputFilter):
     parameter_name = 'brand_name'
@@ -74,6 +75,7 @@ class BrandDataInline(SortableStackedInline):
     model = BrandData
 
 class BrandPositionAdmin(NonSortableParentAdmin):
+    form=BrandForm
     inlines = [BrandDataInline]
 
 admin.site.register(BrandPosition, BrandPositionAdmin)

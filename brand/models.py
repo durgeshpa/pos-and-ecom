@@ -13,6 +13,7 @@ from django.db.models.signals import post_save
 import datetime, csv, codecs, re
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
+from shops.models import Shop
 
 VENDOR_REG_PAYMENT = (
     ("paid","Paid"),
@@ -103,11 +104,12 @@ class Brand(models.Model):
 
 class BrandPosition(SortableMixin):
     #page = models.ForeignKey(Page,on_delete=models.CASCADE, null=True)
+    shop = models.ForeignKey(Shop,blank=True, on_delete=models.CASCADE, null=True)
     position_name = models.CharField(max_length=255)
     brand_position_order = models.PositiveIntegerField(default=0, editable=False, db_index=True)
 
     def __str__(self):
-        return self.position_name
+        return  "%s->%s"%(self.position_name, self.shop) if self.shop else self.position_name
 
     class Meta:
         ordering = ['brand_position_order']
