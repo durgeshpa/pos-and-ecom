@@ -133,7 +133,7 @@ class ShopMappedProduct(FormView):
                 po.append(temp)
 
             else:
-                current_avilable_qty = int(current_avilable_qty) - int(available_qty_sum)
+                current_avilable_qty = int(available_qty_sum) - int(current_avilable_qty)
                 for avilable_qty in ordered_product_details.order_by('expiry_date'):
                     if current_avilable_qty <= 0:
                         break
