@@ -11,7 +11,9 @@ https://docs.djangoproject.com/en/2.1/ref/settings/
 """
 
 import os
-
+import logging.config
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Decouple used to get values from .env file
@@ -35,6 +37,7 @@ AUTH_USER_MODEL = 'accounts.user'
 INSTALLED_APPS = [
     'dal',
     'dal_select2',
+    'dal_admin_filters',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -75,7 +78,10 @@ INSTALLED_APPS = [
     'daterange_filter',
     'retailer_to_gram',
     'admin_auto_filters',
-    'services'
+    'services',
+    'rangefilter',
+    'admin_numeric_filter',
+
 ]
 
 
@@ -251,3 +257,10 @@ TEMPUS_DOMINUS_INCLUDE_ASSETS=False
 CRONJOBS = [
     ('* * * * *', 'retailer_backend.cron.CronToDeleteOrderedProductReserved', '>> /var/log/nginx/cron.log')
 ]
+
+
+# Initiate Sentry SDK 
+sentry_sdk.init(
+    dsn="https://2f8d192414f94cd6a0ba5b26d6461684@sentry.io/1407300",
+    integrations=[DjangoIntegration()]
+)

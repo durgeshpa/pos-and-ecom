@@ -116,10 +116,11 @@ class CartProductMappingForm(forms.ModelForm):
         queryset=Product.objects.all(),
         widget=autocomplete.ModelSelect2(url='vendor-product-autocomplete', forward=('supplier_name',))
     )
+    tax_percentage = forms.CharField(disabled=True, required=False)
     # total_price = forms.DecimalField(decimal_places=2,)
     class Meta:
         model = CartProductMapping
-        fields = ('cart_product','inner_case_size','case_size', 'number_of_cases','scheme','price',)
+        fields = ('cart_product','tax_percentage', 'number_of_cases','price')
         search_fields=('cart_product',)
         exclude = ('qty',)
 
@@ -156,16 +157,27 @@ class GRNOrderProductForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(GRNOrderProductForm, self).__init__(*args, **kwargs)
 
+    def fields_required(self, fields):
+        """Used for conditionally marking fields as required."""
+        for field in fields:
+            if not self.cleaned_data.get(field, ''):
+                msg = forms.ValidationError("This field is required.")
+                self.add_error(field, msg)
 
     def clean(self):
         super(GRNOrderProductForm, self).clean()
-        if self.cleaned_data.get('expiry_date'):
-            pass
-        elif int(self.cleaned_data.get('best_before_year')) or int(self.cleaned_data.get('best_before_month')):
-            expiry_date = self.cleaned_data.get('manufacture_date') + relativedelta(years=int(self.cleaned_data.get('best_before_year')), months=int(self.cleaned_data.get('best_before_month')))
-            self.cleaned_data['expiry_date'] = expiry_date
-        else:
-            raise ValidationError(_('Please enter either expire date or best before'))
+        manufacture_date = self.cleaned_data.get('manufacture_date')
+        expiry_date = self.cleaned_data.get('expiry_date')
+        if self.cleaned_data.get('product_invoice_qty') >0:
+            self.fields_required(['manufacture_date'])
+            if self.cleaned_data.get('expiry_date') and self.cleaned_data.get('expiry_date') > self.cleaned_data.get('manufacture_date'):
+                pass
+            elif int(self.cleaned_data.get('best_before_year')) or int(self.cleaned_data.get('best_before_month')):
+                expiry_date = self.cleaned_data.get('manufacture_date') + relativedelta(years=int(self.cleaned_data.get('best_before_year')), months=int(self.cleaned_data.get('best_before_month')))
+                self.cleaned_data['expiry_date'] = expiry_date
+            else:
+                raise ValidationError(_('Please enter either expiry date greater than manufactured date or best before'))
+        return self.cleaned_data
 
 
 class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
@@ -186,4 +198,11 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
             self.extra = len(initial)
             self.initial= initial
 
-
+    def clean(self):
+        super(GRNOrderProductFormset, self).clean()
+        count=0
+        for form in self:
+            if form.cleaned_data.get('product_invoice_qty'):
+                count+=1
+        if count <1:
+            raise ValidationError("Please fill the product invoice quantity of at least one product.")

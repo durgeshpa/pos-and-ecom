@@ -124,7 +124,7 @@ class OrderedProduct(models.Model):
     order = models.ForeignKey(Order,related_name='rt_order_order_product',on_delete=models.CASCADE,null=True,blank=True)
     invoice_no = models.CharField(max_length=255,null=True,blank=True)
     vehicle_no = models.CharField(max_length=255,null=True,blank=True)
-    driver_name = models.CharField(max_length=80, null=True, blank=True) #Temporary 
+    driver_name = models.CharField(max_length=80, null=True, blank=True) #Temporary
     shipped_by = models.ForeignKey(get_user_model(), related_name='rtg_shipped_product_ordered_by_user', null=True, blank=True,on_delete=models.CASCADE)
     received_by = models.ForeignKey(get_user_model(), related_name='rtg_ordered_product_received_by_user', null=True, blank=True,on_delete=models.CASCADE)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='rtg_last_modified_user_order', null=True,blank=True, on_delete=models.CASCADE)
@@ -169,7 +169,7 @@ class OrderedProductMapping(models.Model):
         return str("-")
 
     def get_shop_specific_products_prices(self):
-        return self.product.product_pro_price.filter(shop__shop_type__shop_type='gf', status=True)
+        return self.product.product_pro_price.filter(shop__shop_type__shop_type='gf', status=True).last()
 
     def get_products_gst_tax_gf(self):
         return self.product.product_pro_tax.filter(tax__tax_type='gst')
