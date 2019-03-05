@@ -50,6 +50,7 @@ class ReturnProductMappingForm(forms.ModelForm):
 
 
 class OrderedProductForm(forms.ModelForm):
+    order = forms.ModelChoiceField(queryset=Order.objects.filter(order_status__in=['ordered', 'PARTIALLY_SHIPPED']))
 
     class Meta:
         model = OrderedProduct
