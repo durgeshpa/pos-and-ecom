@@ -32,7 +32,12 @@ class ShopMappedProduct(FormView):
             data['shop'] = shop_obj
 
         elif shop_obj.shop_type.shop_type=='sp':
-            sp_grn_product = OrderedProductMapping.objects.filter(ordered_product__order__ordered_cart__shop=shop_obj)
+
+            sp_grn_product = OrderedProductMapping.objects.filter(
+                Q(ordered_product__order__ordered_cart__shop=shop_obj)
+                | Q(ordered_product__credit_note__shop=shop_obj),
+                Q(ordered_product__status=OrderedProduct.ENABLED)
+                )
             product_sum = sp_grn_product.values('product','product__product_name', 'product__product_gf_code').annotate(product_qty_sum=Sum(F('available_qty') - (F('damaged_qty') + F('lossed_qty'))))
             data['shop_products'] = product_sum
             data['shop'] = shop_obj

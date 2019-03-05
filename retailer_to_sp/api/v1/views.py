@@ -4,7 +4,8 @@ from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializ
 
                           GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer )
 from products.models import Product, ProductPrice, ProductOption,ProductImage
-from sp_to_gram.models import OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping
+from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
+                                OrderedProduct as SPOrderedProduct)
 
 from rest_framework import permissions, authentication
 from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as GramCartProductMapping,
@@ -23,7 +24,7 @@ from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping 
 
 from shops.models import Shop,ParentRetailerMapping
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import F,Sum
+from django.db.models import F,Sum, Q
 from wkhtmltopdf.views import PDFTemplateResponse
 from django.shortcuts import get_object_or_404, get_list_or_404
 from datetime import datetime, timedelta
@@ -104,7 +105,11 @@ class GramGRNProductsList(APIView):
                     '''4th Step
                         SP mapped data shown
                     '''
-                    grn = SpMappedOrderedProductMapping.objects.filter(ordered_product__order__ordered_cart__shop=parent_mapping.parent,available_qty__gt=0,expiry_date__gt=today).values('product_id')
+                    grn = SpMappedOrderedProductMapping.objects.filter(
+                        Q(ordered_product__order__ordered_cart__shop=parent_mapping.parent)
+                        |Q(ordered_product__credit_note__shop=parent_mapping.parent),
+                        available_qty__gt=0,expiry_date__gt=today, ordered_product__status=SPOrderedProduct.ENABLED
+                        ).values('product_id')
                     cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
                     if cart:
                         cart_products = cart.rt_cart_list.all()
@@ -413,35 +418,33 @@ class ReservedOrder(generics.ListAPIView):
                 cart = Cart.objects.filter(last_modified_by=self.request.user,
                                            cart_status__in=['active', 'pending']).last()
                 cart_products = CartProductMapping.objects.filter(cart=cart)
+
                 for cart_product in cart_products:
 
                     #Exclude expired
                     ordered_product_details = OrderedProductMapping.objects.filter(
-                        ordered_product__order__shipping_address__shop_name=parent_mapping.parent,
-                        product=cart_product.cart_product).order_by('expiry_date')
-                    ordered_product_sum = ordered_product_details.aggregate(available_qty_sum=Sum(F('available_qty') - (F('damaged_qty') + F('lossed_qty'))))
+                        Q(ordered_product__order__shipping_address__shop_name=parent_mapping.parent) |
+                        Q(ordered_product__credit_note__shop=parent_mapping.parent),
+                        product=cart_product.cart_product, ordered_product__status=SPOrderedProduct.ENABLED).order_by('-expiry_date')
+                    available_qty = ordered_product_details.aggregate(
+                        available_qty_sum=Sum(F('available_qty') - (F('damaged_qty') + F('lossed_qty') + F('perished_qty'))))['available_qty_sum']
 
                     is_error = False
-                    if ordered_product_sum['available_qty_sum'] is not None:
-                        if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size):
-                            available_qty = int(ordered_product_sum['available_qty_sum'])
-                            cart_product.qty_error_msg = ERROR_MESSAGES['AVAILABLE_PRODUCT'].format(int(available_qty))
-                            is_error = True
-                        else:
-                            available_qty = int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size)
-                            cart_product.qty_error_msg = ''
-                        cart_product.save()
+                    ordered_amount = int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size)
 
+                    if available_qty and int(available_qty) >= ordered_amount: #checking if stock available and more than the order
+                        remaining_amount = ordered_amount
                         for product_detail in ordered_product_details:
-                            if available_qty <= 0:
+                            if remaining_amount <=0:
                                 break
 
-                            if available_qty > product_detail.sp_available_qty:
-                                deduct_qty = product_detail.sp_available_qty
+                            if product_detail.sp_available_qty >= remaining_amount:
+                                deduct_qty = remaining_amount
                             else:
-                                deduct_qty = available_qty
+                                deduct_qty = product_detail.sp_available_qty
 
-                            product_detail.available_qty = int(product_detail.available_qty) - int(deduct_qty)
+                            product_detail.available_qty -= deduct_qty
+                            remaining_amount -= deduct_qty
                             product_detail.save()
 
                             order_product_reserved = OrderedProductReserved(product=product_detail.product,
@@ -450,11 +453,6 @@ class ReservedOrder(generics.ListAPIView):
                             order_product_reserved.cart = cart
                             order_product_reserved.reserve_status = 'reserved'
                             order_product_reserved.save()
-
-                            available_qty = available_qty - int(deduct_qty)
-
-                        if is_error:
-                            release_blocking(parent_mapping, cart.id)
                         serializer = CartSerializer(cart,context={'parent_mapping_id': parent_mapping.parent.id})
                         msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                     else:
@@ -462,7 +460,7 @@ class ReservedOrder(generics.ListAPIView):
                         msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
                         return Response(msg, status=status.HTTP_200_OK)
                 if CartProductMapping.objects.filter(cart=cart).count() <= 0:
-                    msg = {'is_success': False, 'message': ['No any product available ins this cart'],
+                    msg = {'is_success': False, 'message': ['No product is available in cart'],
                            'response_data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
@@ -784,9 +782,13 @@ class DownloadInvoiceSP(APIView):
 
             # New Code For Product Listing Start
             tax_sum = 0
+            basic_rate = 0
             product_tax_amount = 0
-            product_pro_price = 0
-            product_pro_price = m.product.product_pro_price.filter(
+            product_pro_price_mrp =0
+            product_pro_price_ptr = 0
+            product_pro_price_mrp = m.product.product_pro_price.filter(
+                shop=m.ordered_product.order.seller_shop, status=True).last().mrp
+            product_pro_price_ptr = m.product.product_pro_price.filter(
                 shop=m.ordered_product.order.seller_shop, status=True).last().price_to_retailer
 
             all_tax_list = m.product.product_pro_tax
@@ -797,20 +799,23 @@ class DownloadInvoiceSP(APIView):
                 tax_sum = round(tax_sum,2)
 
                 get_tax_val = tax_sum/100
-                base_price = (float(product_pro_price) * float(m.shipped_qty) * float(m.product.product_inner_case_size)) / (float(get_tax_val) + 1)
+                basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
+                base_price = (float(product_pro_price_ptr) * float(m.shipped_qty) * float(m.product.product_inner_case_size)) / (float(get_tax_val) + 1)
                 product_tax_amount = float(base_price) * float(get_tax_val)
                 product_tax_amount = round(product_tax_amount,2)
 
             ordered_prodcut = {
-                "product_sku": m.product.product_sku,
+                "product_sku": m.product.product_gf_code,
                 "product_short_description": m.product.product_short_description,
                 "product_hsn": m.product.product_hsn,
                 "product_tax_percentage": "" if tax_sum == 0 else str(tax_sum)+"%",
+                "product_mrp": product_pro_price_mrp,
                 "shipped_qty": m.shipped_qty,
                 "product_inner_case_size": m.product.product_inner_case_size,
                 "product_no_of_pices": int(m.product.product_inner_case_size) * int(m.shipped_qty) ,
-                "price_to_retailer":  product_pro_price,
-                "product_sub_total": float(m.product.product_inner_case_size) * float(m.shipped_qty) * float(product_pro_price),
+                "basic_rate" : basic_rate,
+                "price_to_retailer":  product_pro_price_ptr,
+                "product_sub_total": float(m.product.product_inner_case_size) * float(m.shipped_qty) * float(product_pro_price_ptr),
                 "product_tax_amount": product_tax_amount,
 
             }
@@ -820,9 +825,9 @@ class DownloadInvoiceSP(APIView):
 
 
             sum_qty = sum_qty + int(m.product.product_inner_case_size) * int(m.shipped_qty)
-            sum_amount += (int(m.product.product_inner_case_size) * int(m.shipped_qty) * product_pro_price)
-            inline_sum_amount = (int(m.product.product_inner_case_size) * int(m.shipped_qty) * product_pro_price)
-            
+            sum_amount += (int(m.product.product_inner_case_size) * int(m.shipped_qty) * product_pro_price_ptr)
+            inline_sum_amount = (int(m.product.product_inner_case_size) * int(m.shipped_qty) * product_pro_price_ptr)
+
             for n in m.product.product_pro_tax.all():
 
                 divisor= (1+(n.tax.tax_percentage/100))
@@ -854,7 +859,7 @@ class DownloadInvoiceSP(APIView):
                 "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram,
                 "payment_type":payment_type,"total_amount_int":total_amount_int,"product_listing":product_listing,
                 "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
-                "address_contact_number":address_contact_number}
+                "address_contact_number":address_contact_number,"sum_amount_tax":product_tax_amount}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
