@@ -169,6 +169,6 @@ def shop_verification_notification1(sender, instance=None, created=False, **kwar
 class ShopStockAdjustment(models.Model):
     shop = models.ForeignKey(Shop, related_name='stock_adjustment_shop', on_delete=models.CASCADE)
     stock_adjustment_file = models.FileField(upload_to='stock_adjustment')
-    created_by = models.ForeignKey(get_user_model(),blank=True, related_name='stock_adjust_by')
+    created_by = models.ForeignKey(get_user_model(),null=True,blank=True, related_name='stock_adjust_by',on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
