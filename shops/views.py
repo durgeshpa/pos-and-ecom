@@ -64,6 +64,7 @@ class ShopMappedProduct(FormView):
 
             # Expired Product
             expired_dt = ordered_product_details.filter(expiry_date__lte=today)
+            not_expired_dt = ordered_product_details.filter(expiry_date__gte=today)
             expired_deduct_qty = int(row[4])
 
             """
@@ -71,7 +72,7 @@ class ShopMappedProduct(FormView):
             """
             if int(expired_deduct_qty) > expired_dt.count():
                 expired_deduct_qty= expired_deduct_qty-expired_dt.count()
-                for expired in expired_dt.order_by('expiry_date'):
+                for expired in not_expired_dt.order_by('expiry_date'):
                     if expired_deduct_qty <=0:
                         break
 
@@ -82,7 +83,7 @@ class ShopMappedProduct(FormView):
 
             else:
                 expired_deduct_qty = expired_deduct_qty - expired_dt.count()
-                for expired in expired_dt.order_by('-expiry_date'):
+                for expired in not_expired_dt.order_by('-expiry_date'):
                     if expired_deduct_qty > expired.sp_available_qty:
                         deduct_qty = expired.sp_available_qty
                         expired.expiry_date = expired.expiry_date + relativedelta(months=3)
