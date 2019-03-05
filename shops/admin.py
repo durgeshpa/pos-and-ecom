@@ -12,7 +12,7 @@ from django.utils.html import format_html
 from import_export import resources
 from django.http import HttpResponse
 from admin_auto_filters.filters import AutocompleteFilter
-from .views import ShopMappedProduct
+from .views import ShopMappedProduct, StockCorrectionUploadSample
 from django.urls import reverse
 
 class ShopResource(resources.ModelResource):
@@ -140,6 +140,10 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                 r'^shop-mapped/(?P<pk>\d+)/product/$',
                 self.admin_site.admin_view(ShopMappedProduct.as_view()),
                 name="shop_mapped_product"
+            ),
+            url(r'^stock-correction-upload-sample/$',
+                self.admin_site.admin_view(StockCorrectionUploadSample),
+                name="stock_correction_upload_sample"
             ),
         ] + urls
         return urls

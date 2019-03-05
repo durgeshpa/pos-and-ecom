@@ -165,3 +165,10 @@ def shop_verification_notification1(sender, instance=None, created=False, **kwar
                                       " Team GramFactory " % (username, shop_title))
 
                 message.send()
+
+class ShopStockAdjustment(models.Model):
+    shop = models.ForeignKey(Shop, related_name='stock_adjustment_shop', on_delete=models.CASCADE)
+    stock_adjustment_file = models.FileField(upload_to='stock_adjustment')
+    created_by = models.ForeignKey(get_user_model(),blank=True, related_name='stock_adjust_by')
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)

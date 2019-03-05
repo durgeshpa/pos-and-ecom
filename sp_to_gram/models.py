@@ -56,6 +56,7 @@ class Cart(models.Model):
     payment_term = models.TextField(null=True, blank=True)
     delivery_term = models.TextField(null=True, blank=True)
     po_amount = models.FloatField(default=0)
+    is_stock_adjustment = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -196,6 +197,7 @@ class OrderedProductMapping(models.Model):
     delivered_qty = models.PositiveIntegerField(default=0)
     returned_qty = models.PositiveIntegerField(default=0)
     damaged_qty = models.PositiveIntegerField(default=0)
+    perished_qty = models.PositiveIntegerField(default=0)
     lossed_qty = models.PositiveIntegerField(default=0)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='sp_last_modified_user_order_product', null=True,blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
