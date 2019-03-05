@@ -220,15 +220,6 @@ class OrderedProductMapping(models.Model):
     def sp_available_qty(self):
         return int(self.available_qty) - (int(self.damaged_qty) + int(self.lossed_qty) + int(self.perished_qty))
 
-    def __init__(self, *args, **kwargs):
-        super(OrderedProductMapping, self).__init__(*args, **kwargs)
-        self.__original_delivered_qty = self.delivered_qty
-
-    def save(self, force_insert=False, force_update=False, *args, **kwargs):
-        if self.delivered_qty != self.__original_delivered_qty and self.delivered_qty>0:
-            self.available_qty = self.delivered_qty
-        super(OrderedProductMapping, self).save(force_insert, force_update, *args, **kwargs)
-
 
 class OrderedProductReserved(models.Model):
     RESERVED = "reserved"
