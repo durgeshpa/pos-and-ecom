@@ -439,10 +439,11 @@ class ReservedOrder(generics.ListAPIView):
                             if remaining_amount <=0:
                                 break
 
-                            if product_detail.sp_available_qty >= remaining_amount:
+                            # Todo available_qty replace to sp_available_qty
+                            if product_detail.available_qty >= remaining_amount:
                                 deduct_qty = remaining_amount
                             else:
-                                deduct_qty = product_detail.sp_available_qty
+                                deduct_qty = product_detail.available_qty
 
                             product_detail.available_qty -= deduct_qty
                             remaining_amount -= deduct_qty
