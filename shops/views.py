@@ -52,136 +52,146 @@ class ShopMappedProduct(FormView):
         first_row = next(reader)
         today = datetime.today()
         po = []
-        try:
-            for row in reader:
+        #try:
+        for row in reader:
 
-                ordered_product_details = OrderedProductMapping.objects.filter(
-                    ordered_product__order__shipping_address__shop_name=shop_obj,
-                    product__id=int(row[1]))
+            #import ipdb
+            #ipdb.set_trace()
 
-                # Expired Product
-                expired_dt = ordered_product_details.filter(expiry_date__lte=today)
-                expired_deduct_qty = int(row[4])
+            ordered_product_details = OrderedProductMapping.objects.filter(
+                ordered_product__order__shipping_address__shop_name=shop_obj,
+                product__id=int(row[1]))
 
-                """
-                When quantity greater than current expired quantity
-                """
-                if int(expired_deduct_qty) > expired_dt.count():
-                    for expired in expired_dt.order_by('expiry_date'):
-                        if expired_deduct_qty <=0:
-                            break
+            # Expired Product
+            expired_dt = ordered_product_details.filter(expiry_date__lte=today)
+            expired_deduct_qty = int(row[4])
 
-                        deduct_qty = expired.available_qty if expired_deduct_qty > expired.available_qty else expired_deduct_qty
-                        expired.perished_qty = int(expired.perished_qty) - int(deduct_qty)
+            """
+            When quantity greater than current expired quantity
+            """
+            if int(expired_deduct_qty) > expired_dt.count():
+                expired_deduct_qty= expired_deduct_qty-expired_dt.count()
+                for expired in expired_dt.order_by('expiry_date'):
+                    if expired_deduct_qty <=0:
+                        break
+
+                    deduct_qty = expired.sp_available_qty if expired_deduct_qty > expired.sp_available_qty else expired_deduct_qty
+                    expired.perished_qty = int(expired.perished_qty) + int(deduct_qty)
+                    expired.save()
+                    expired_deduct_qty = int(expired_deduct_qty) - int(deduct_qty)
+
+            else:
+                expired_deduct_qty = expired_deduct_qty - expired_dt.count()
+                for expired in expired_dt.order_by('-expiry_date'):
+                    if expired_deduct_qty > expired.sp_available_qty:
+                        deduct_qty = expired.sp_available_qty
+                        expired.expiry_date = expired.expiry_date + relativedelta(months=3)
                         expired.save()
-                        expired_deduct_qty = int(expired_deduct_qty) - int(deduct_qty)
-
-                else:
-                    for expired in expired_dt.order_by('-expiry_date'):
-                        if expired_deduct_qty > expired.available_qty:
-                            deduct_qty = expired.available_qty
-                            expired.expiry_date = expired.expiry_date + relativedelta(months=3)
-                            expired.save()
-                        else:
-                            break
-                        expired_deduct_qty = int(expired_deduct_qty) - int(deduct_qty)
-
-                """
-                When qantity greater than demege quantity 
-                """
-                damage_deduct_qty = int(row[5])
-                ordered_product_sum = ordered_product_details.aggregate(damaged_qty_sum=Sum(F('damaged_qty')))
-
-                if ordered_product_sum['damaged_qty_sum'] is not None and int(damage_deduct_qty) > int(ordered_product_sum['damaged_qty_sum']):
-                    for damaged in ordered_product_details.order_by('expiry_date'):
-                        if damage_deduct_qty <= 0:
-                            break
-
-                        deduct_qty = damaged.available_qty if damage_deduct_qty > damaged.available_qty else damage_deduct_qty
-                        damaged.damaged_qty = int(damaged.damaged_qty) - int(deduct_qty)
-                        damaged.save()
-                        damage_deduct_qty = int(damage_deduct_qty) - int(deduct_qty)
-
-                else:
-                    for damaged in ordered_product_details.order_by('expiry_date'):
-                        if damage_deduct_qty <= 0:
-                            break
-
-                        deduct_qty = damaged.available_qty if damage_deduct_qty > damaged.available_qty else damage_deduct_qty
-                        damaged.available_qty = int(damaged.available_qty) + int(deduct_qty)
-                        damaged.save()
-                        damage_deduct_qty = int(damage_deduct_qty) - int(deduct_qty)
-
-                """
-                When quantity greater than available quantity  
-                """
-                current_avilable_qty = int(row[3])
-                ordered_product_sum = ordered_product_details.aggregate(available_qty_sum=Sum(F('available_qty') - (F('damaged_qty') + F('lossed_qty') + F('perished_qty'))))
-
-                if ordered_product_sum['available_qty_sum'] is not None and current_avilable_qty > ordered_product_sum['available_qty_sum']:
-                    temp = {
-                        'product_id':int(row[1]),
-                        'po_qty': int(current_avilable_qty)-int(ordered_product_sum['available_qty_sum']),
-                    }
-                    po.append(temp)
-
-                else:
-                    for avilable_qty in ordered_product_details.order_by('expiry_date'):
-                        if current_avilable_qty <= 0:
-                            break
-
-                        deduct_qty = avilable_qty.sp_available_qty if current_avilable_qty > avilable_qty.sp_available_qty else current_avilable_qty
-                        avilable_qty.lossed_qty = int(avilable_qty.lossed_qty) + int(deduct_qty)
-                        avilable_qty.save()
-                        current_avilable_qty = int(current_avilable_qty) - int(deduct_qty)
+                    else:
+                        break
+                    expired_deduct_qty = int(expired_deduct_qty) - int(deduct_qty)
 
             """
-            Creating a single po for exceeded qty
+            When qantity greater than demege quantity 
             """
-            if po:
-                shop_parent = getShopMapping(int(self.kwargs.get('pk')))
+            damage_deduct_qty = int(row[5])
+            damaged_qty_sum = ordered_product_details.aggregate(damaged_qty_sum=Sum(F('damaged_qty')))['damaged_qty_sum']
 
-                sp_cart = Cart.objects.create(
-                    shop=shop_obj,
-                    po_status='ordered_to_gram',
-                    po_raised_by=self.request.user,
-                    last_modified_by=self.request.user,
-                    po_validity_date=today + relativedelta(months=1),
-                    is_stock_adjustment=True
+            if damaged_qty_sum is not None and int(damage_deduct_qty) > int(damaged_qty_sum):
+                damaged_qty_sum = int(damaged_qty_sum) - int(damage_deduct_qty)
+                for damaged in ordered_product_details.order_by('expiry_date'):
+                    if damage_deduct_qty <= 0:
+                        break
+
+                    deduct_qty = damaged.sp_available_qty if damage_deduct_qty > damaged.sp_available_qty else damage_deduct_qty
+                    damaged.damaged_qty = int(damaged.damaged_qty) + int(deduct_qty)
+                    damaged.save()
+                    damage_deduct_qty = int(damage_deduct_qty) - int(deduct_qty)
+
+            else:
+                for damaged in ordered_product_details.order_by('expiry_date'):
+                    damaged_qty_sum = int(damaged_qty_sum) - int(damage_deduct_qty)
+                    if damage_deduct_qty <= 0:
+                        break
+
+                    deduct_qty = damaged.damaged_qty if damaged.damaged_qty >0 else 0
+                    damaged.damaged_qty = int(damaged.damaged_qty) - int(deduct_qty)
+                    damaged.save()
+                    damage_deduct_qty = int(damage_deduct_qty) - int(deduct_qty)
+
+            """
+            When quantity greater than available quantity  
+            """
+            current_avilable_qty = int(row[3])
+            available_qty_sum = ordered_product_details.aggregate(available_qty_sum=Sum(F('available_qty') - (F('damaged_qty') + F('lossed_qty') + F('perished_qty'))))['available_qty_sum']
+
+            if available_qty_sum is not None and int(current_avilable_qty) > int(available_qty_sum):
+                temp = {
+                    'product_id':int(row[1]),
+                    'po_qty': int(current_avilable_qty)-int(available_qty_sum),
+                }
+                po.append(temp)
+
+            else:
+                current_avilable_qty = int(current_avilable_qty) - int(available_qty_sum)
+                for avilable_qty in ordered_product_details.order_by('expiry_date'):
+                    if current_avilable_qty <= 0:
+                        break
+
+                    deduct_qty = avilable_qty.sp_available_qty if current_avilable_qty > avilable_qty.sp_available_qty else current_avilable_qty
+                    avilable_qty.lossed_qty = int(avilable_qty.lossed_qty) + int(deduct_qty)
+                    avilable_qty.save()
+                    current_avilable_qty = int(current_avilable_qty) - int(deduct_qty)
+
+        """
+        Creating a single po for exceeded qty
+        """
+        if po:
+            shop_parent = getShopMapping(int(self.kwargs.get('pk')))
+
+            sp_cart = Cart.objects.create(
+                shop=shop_obj,
+                po_status='ordered_to_gram',
+                po_raised_by=self.request.user,
+                last_modified_by=self.request.user,
+                po_validity_date=today + relativedelta(months=1),
+                is_stock_adjustment=True
+            )
+
+            for po_dt in po:
+                product_obj = Product.objects.get(id=int(po_dt['product_id']))
+                CartProductMapping.objects.create(
+                    cart= sp_cart,
+                    cart_product = product_obj,
+                    qty = int(po_dt['po_qty']),
+                    case_size=1,
+                    number_of_cases = 1,
+                    price =ProductPrice.objects.get(product=product_obj,shop=shop_parent.parent,status=True).price_to_service_partner
                 )
 
-                for po_dt in po:
-                    product_obj = Product.objects.get(id=int(po_dt.product_id))
-                    CartProductMapping.objects.create(
-                        cart= sp_cart,
-                        cart_product = product_obj,
-                        qty = po_dt.po_qty,
-                        price =ProductPrice.objects.get(product=product_obj,shop=shop_parent,status=True)
-                    )
+            """
+                Doing GRN
+            """
+            shipment_planning = OrderedProduct.objects.create(
+                order=sp_cart.sp_order_cart_mapping.last(),
+                last_modified_by=self.request.user,
+            )
 
-                """
-                    Doing GRN
-                """
-                shipment_planning = OrderedProduct.objects.create(
-                    order=sp_cart.sp_order_cart_mapping.last(),
-                    last_modified_by=self.request.user,
+            for po_dt in po:
+                product_obj = Product.objects.get(id=int(po_dt['product_id']))
+                OrderedProductMapping.objects.create(
+                    ordered_product = shipment_planning,
+                    product = product_obj,
+                    manufacture_date = today,
+                    expiry_date = today + relativedelta(months=6),
+                    delivered_qty = int(po_dt['po_qty']),
+                    available_qty = int(po_dt['po_qty']),
+                    last_modified_by = self.request.user,
                 )
-
-                for po_dt in po:
-                    product_obj = Product.objects.get(id=int(po_dt.product_id))
-                    OrderedProductMapping.objects.create(
-                        ordered_product = shipment_planning,
-                        product = product_obj,
-                        manufacture_date = today,
-                        expiry_date = today + relativedelta(months=6),
-                        delivered_qty = int(po_dt.po_qty),
-                        available_qty = int(po_dt.po_qty),
-                        last_modified_by = self.request.user,
-                    )
-            ShopStockAdjustment.objects.create(shop=shop_obj,stock_adjustment_file=file,created_by=self.request.user)
-            messages.success(self.request, 'Stock uploaded successfully')
-        except:
-            messages.error(self.request, "Something went wrong!")
+        ShopStockAdjustment.objects.create(shop=shop_obj,stock_adjustment_file=file,created_by=self.request.user)
+        messages.success(self.request, 'Stock uploaded successfully')
+        # except:
+        #     messages.error(self.request, "Something went wrong!")
 
         return super(ShopMappedProduct, self).form_valid(form)
 
