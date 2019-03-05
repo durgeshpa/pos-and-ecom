@@ -359,6 +359,17 @@ class OrderedProductMapping(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+    def clean(self):
+        super(OrderedProductMapping, self).clean()
+        returned_qty = int(self.returned_qty)
+        damaged_qty = int(self.damaged_qty)
+        if returned_qty > 0 or damaged_qty > 0:
+            already_shipped_qty = int(self.shipped_qty)
+            if sum([returned_qty, damaged_qty]) > already_shipped_qty:
+                raise ValidationError(
+                    _('Sum of returned and damaged pieces should be '
+                      'less than no. of pieces to ship'),
+                )
 
     @property
     def ordered_qty(self):

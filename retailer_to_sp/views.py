@@ -503,9 +503,8 @@ def update_order_status(form):
         total_damaged_qty.append(damaged_qty)
 
     order = form_instance.order
-
-    if (ordered_qty - sum(total_delivered_qty)) > 0 and sum(total_delivered_qty) > 0:
-        order.order_status = 'PARTIALLY_SHIPPED'
+    if ordered_qty == (sum(total_delivered_qty) + sum(total_returned_qty) + sum(total_damaged_qty)):
+        order.order_status = 'SHIPPED'
 
     elif (sum(total_returned_qty) == sum(total_shipped_qty) or
           (sum(total_damaged_qty) + sum(total_returned_qty)) == sum(total_shipped_qty)):
@@ -515,8 +514,8 @@ def update_order_status(form):
             sum(total_returned_qty) == 0 and sum(total_damaged_qty) == 0):
         order.order_status = 'DISPATCH_PENDING'
 
-    elif ordered_qty == sum(total_delivered_qty):
-        order.order_status = 'SHIPPED'
+    elif (ordered_qty - sum(total_delivered_qty)) > 0 and sum(total_delivered_qty) > 0:
+        order.order_status = 'PARTIALLY_SHIPPED'
     order.save()
 
 
