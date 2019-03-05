@@ -109,7 +109,6 @@ class DownloadCreditNote(APIView):
 
         total_amount = sum_amount
         total_amount_int = int(total_amount)
-        print(sum_amount)
 
 
         data = {
@@ -442,3 +441,82 @@ def order_invoices(request):
         'admin/retailer_to_sp/invoices_dropdown_list.html',
         {'invoices': invoices}
     )
+
+
+def update_delivered_qty(instance, inline_form):
+
+    instance.delivered_qty = instance.shipped_qty - (
+        inline_form.cleaned_data.get('returned_qty', 0)+
+        inline_form.cleaned_data.get('damaged_qty', 0)
+    )
+    instance.save()
+
+
+def update_shipment_status(form, formsets):
+    form_instance = getattr(form, 'instance', None)
+    shipped_qty_list = []
+    returned_qty_list = []
+    damaged_qty_list = []
+
+    for inline_forms in formsets:
+        for inline_form in inline_forms:
+            instance = getattr(inline_form, 'instance', None)
+            update_delivered_qty(instance, inline_form)
+            shipped_qty_list.append(instance.shipped_qty if instance else 0)
+            returned_qty_list.append(inline_form.cleaned_data.get('returned_qty', 0))
+            damaged_qty_list.append(inline_form.cleaned_data.get('damaged_qty', 0))
+
+    shipped_qty = sum(shipped_qty_list)
+    returned_qty = sum(returned_qty_list)
+    damaged_qty = sum(damaged_qty_list)
+
+    if shipped_qty == (returned_qty + damaged_qty):
+        form_instance.shipment_status = 'FULLY_RETURNED_AND_COMPLETED'
+
+    elif (returned_qty + damaged_qty) == 0:
+        form_instance.shipment_status = 'FULLY_DELIVERED_AND_COMPLETED'
+
+    elif shipped_qty > (returned_qty + damaged_qty):
+        form_instance.shipment_status = 'PARTIALLY_DELIVERED_AND_COMPLETED'
+
+    form_instance.save()
+
+
+def update_order_status(form):
+    form_instance = getattr(form, 'instance', None)
+    total_delivered_qty = []
+    total_shipped_qty = []
+    total_returned_qty = []
+    total_damaged_qty = []
+    current_order_shipment = form_instance.order.rt_order_order_product.all()
+    for shipment in current_order_shipment:
+        shipment_product = shipment.rt_order_product_order_product_mapping.all()
+        ordered_qty = sum([int(i.ordered_qty) for i in shipment_product])
+        delivered_qty = shipment_product.aggregate(Sum('delivered_qty')).get('delivered_qty__sum', 0)
+        shipped_qty = shipment_product.aggregate(Sum('shipped_qty')).get('shipped_qty__sum', 0)
+        returned_qty = shipment_product.aggregate(Sum('returned_qty')).get('returned_qty__sum', 0)
+        damaged_qty = shipment_product.aggregate(Sum('damaged_qty')).get('damaged_qty__sum', 0)
+
+        total_delivered_qty.append(delivered_qty)
+        total_shipped_qty.append(shipped_qty)
+        total_returned_qty.append(returned_qty)
+        total_damaged_qty.append(damaged_qty)
+
+    order = form_instance.order
+
+    if (ordered_qty - sum(total_delivered_qty)) > 0 and sum(total_delivered_qty) > 0:
+        order.order_status = 'PARTIALLY_SHIPPED'
+
+    elif (sum(total_returned_qty) == sum(total_shipped_qty) or
+          (sum(total_damaged_qty) + sum(total_returned_qty)) == sum(total_shipped_qty)):
+        order.order_status = 'DENIED'
+
+    elif (sum(total_delivered_qty) == 0 and sum(total_shipped_qty) > 0 and
+            sum(total_returned_qty) == 0 and sum(total_damaged_qty) == 0):
+        order.order_status = 'DISPATCH_PENDING'
+
+    elif ordered_qty == sum(total_delivered_qty):
+        order.order_status = 'SHIPPED'
+    order.save()
+
+

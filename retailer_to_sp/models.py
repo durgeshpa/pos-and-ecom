@@ -69,6 +69,8 @@ TRIP_STATUS = (
     ('CANCELLED', 'Cancelled'),
     ('STARTED', 'Started'),
     ('COMPLETED', 'Completed')
+#   ('READY_FOR_COMMERCIAL', 'Ready for commercial'),
+#   ('CLOSED', 'Closed')
 )
 
 
@@ -123,7 +125,7 @@ class Order(models.Model):
 
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'),
-        ('DISPATCH_PENDING', 'Dispatch Placed'),
+        ('DISPATCH_PENDING', 'Dispatch Pending'),
         ('PARTIALLY_SHIPPED', 'Partially Shipped'),
         ('SHIPPED', 'Shipped'),
         ('CANCELLED', 'Cancelled'),
@@ -239,6 +241,9 @@ class OrderedProduct(models.Model):
         ('READY_TO_SHIP', 'QC Passed'),
         ('READY_TO_DISPATCH', 'Ready to Dispatch'),
         ('OUT_FOR_DELIVERY', 'Out for Delivery'),
+        ('FULLY_RETURNED_AND_COMPLETED', 'Fully Returned and Completed'),
+        ('PARTIALLY_DELIVERED_AND_COMPLETED', 'Partially Delivered and Completed'),
+        ('FULLY_DELIVERED_AND_COMPLETED', 'Fully Delivered and Completed'),
         ('FULLY_RETURNED_AND_CLOSED', 'Fully Returned and Closed'),
         ('PARTIALLY_DELIVERED_AND_CLOSED', 'Partially Delivered and Closed'),
         ('FULLY_DELIVERED_AND_CLOSED', 'Fully Delivered and Closed'),
@@ -354,19 +359,6 @@ class OrderedProductMapping(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-    def clean(self):
-        super(OrderedProductMapping, self).clean()
-        returned_qty = int(self.returned_qty)
-        damaged_qty = int(self.damaged_qty)
-        if returned_qty or damaged_qty:
-            already_shipped_qty = int(self.shipped_qty)
-            if sum([returned_qty, damaged_qty]) > already_shipped_qty:
-                raise ValidationError(
-                    _('Sum of Returned and Damaged Quantity should be '
-                      'less than Already Shipped Quantity '),
-                )
-            else:
-                self.delivered_qty = self.shipped_qty - (self.damaged_qty + self.returned_qty)
 
     @property
     def ordered_qty(self):
