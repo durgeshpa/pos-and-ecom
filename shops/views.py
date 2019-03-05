@@ -54,8 +54,6 @@ class ShopMappedProduct(FormView):
         po = []
         try:
             for row in reader:
-                import ipdb
-                ipdb.set_trace()
 
                 ordered_product_details = OrderedProductMapping.objects.filter(
                     ordered_product__order__shipping_address__shop_name=shop_obj,
