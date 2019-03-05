@@ -248,7 +248,7 @@ class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
     resource_class = OrderResource
     search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name',
                     'order_status', 'payment_mode')
-    list_display = ('order_no', 'seller_shop', 'buyer_shop', 'total_final_amount',
+    list_display = ('order_no', 'seller_shop', 'buyer_shop', 'total_final_amount')
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
