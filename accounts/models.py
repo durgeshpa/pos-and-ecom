@@ -132,9 +132,6 @@ Team GramFactory
 
         message.send()
 
-
-
-
 from otp.models import PhoneOTP
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
 def create_phone_otp_instance(sender, instance=None, created=False, **kwargs):
@@ -142,3 +139,13 @@ def create_phone_otp_instance(sender, instance=None, created=False, **kwargs):
         otp_instance = PhoneOTP.objects.filter(phone_number=instance.phone_number)
         if not otp_instance:
             PhoneOTP.objects.create(phone_number=instance.phone_number)
+
+class AppVersion(models.Model):
+    app_version = models.CharField(max_length=200)
+    update_recommended = models.BooleanField(default=False)
+    force_update_required = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.app_version
