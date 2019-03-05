@@ -38,7 +38,7 @@ class CronToDeleteOrderedProductReserved(APIView):
                 # Deleted Cart
                 ordered_reserve.reserve_status = 'free'
                 ordered_reserve.save()
-
+        return Response()
 
 def cron_to_delete_ordered_product_reserved(request):
     if OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now(),reserve_status='reserved').exists():

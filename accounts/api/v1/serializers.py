@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from products.models import Product
 from django.contrib.auth import get_user_model
-from accounts.models import UserDocument
+from accounts.models import UserDocument, AppVersion
 
 User =  get_user_model()
 
@@ -24,3 +24,8 @@ class UserDocumentSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'user_document_type': {'required': True},
             }
+
+class AppVersionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppVersion
+        fields = ('app_version', 'update_recommended','force_update_required')

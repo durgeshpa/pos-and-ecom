@@ -184,8 +184,9 @@ class Cart(BaseCart):
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='cart_list',on_delete=models.CASCADE)
     cart_product = models.ForeignKey(Product, related_name='cart_product_mapping', on_delete=models.CASCADE)
-    inner_case_size = models.PositiveIntegerField(default=0)
-    case_size= models.PositiveIntegerField(default=0)
+    _tax_percentage = models.FloatField(db_column="tax_percentage", null=True)
+    inner_case_size = models.PositiveIntegerField(default=0, null=True,blank=True)
+    case_size= models.PositiveIntegerField(default=0,null=True,blank=True)
     number_of_cases = models.FloatField()
     scheme = models.FloatField(default=0,null=True,blank=True,help_text='data into percentage %')
     price = models.FloatField( verbose_name='Brand To Gram Price')
@@ -198,8 +199,23 @@ class CartProductMapping(models.Model):
         unique_together = ('cart', 'cart_product')
 
     @property
+    def tax_percentage(self):
+        return self._tax_percentage
+
+    @tax_percentage.setter
+    def tax_percentage(self, value):
+        self._tax_percentage = value
+
+    def calculate_tax_percentage(self):
+        tax_percentage = [field.tax.tax_percentage for field in self.cart_product.product_pro_tax.all()]
+        tax_percentage = sum(tax_percentage)
+        if not tax_percentage:
+            return str("-")
+        return tax_percentage
+
+    @property
     def qty(self):
-        return int(int(self.cart_product.product_inner_case_size) * int(self.case_size) * float(self.number_of_cases))
+        return int(int(self.cart_product.product_inner_case_size) * int(self.cart_product.product_case_size) * float(self.number_of_cases))
 
     @property
     def total_price(self):
@@ -209,6 +225,10 @@ class CartProductMapping(models.Model):
     def __str__(self):
         return self.cart_product.product_name
 
+    def save(self, *args, **kwargs):
+        if not self.tax_percentage or self.tax_percentage == "-":
+            self.tax_percentage = self.calculate_tax_percentage()
+        super(CartProductMapping, self).save(*args, **kwargs)
 
 @receiver(post_save, sender=Cart)
 def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
@@ -232,7 +252,7 @@ def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
 
 class Order(BaseOrder):
     ordered_cart = models.OneToOneField(Cart,related_name='order_cart_mapping',on_delete=models.CASCADE)
-    order_no = models.CharField(max_length=255, null=True, blank=True)
+    order_no = models.CharField(verbose_name='PO Number', max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -253,8 +273,10 @@ class Order(BaseOrder):
 
 
 class GRNOrder(BaseShipment): #Order Shipment
-    order = models.ForeignKey(Order,related_name='order_grn_order',on_delete=models.CASCADE,null=True,blank=True )
+    order = models.ForeignKey(Order,verbose_name='PO Number',related_name='order_grn_order',on_delete=models.CASCADE,null=True,blank=True )
     invoice_no = models.CharField(max_length=255)
+    e_way_bill_no = models.CharField(max_length=255, blank=True, null=True)
+    e_way_bill_document = models.FileField(null=True,blank=True)
     grn_id = models.CharField(max_length=255,null=True,blank=True)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_user_grn_order', null=True,blank=True, on_delete=models.CASCADE)
     grn_date = models.DateField(auto_now_add=True)
@@ -293,7 +315,7 @@ class GRNOrderProductMapping(models.Model):
     product = models.ForeignKey(Product, related_name='product_grn_order_product',null=True,blank=True, on_delete=models.CASCADE)
     product_invoice_price = models.FloatField(default=0)
     product_invoice_qty = models.PositiveIntegerField(default=0)
-    manufacture_date = models.DateField(null=True,blank=False)
+    manufacture_date = models.DateField(null=True,blank=True)
     expiry_date = models.DateField(null=True,blank=False)
     delivered_qty = models.PositiveIntegerField(default=0)
     available_qty = models.PositiveIntegerField(default=0)
@@ -342,7 +364,6 @@ class GRNOrderProductMapping(models.Model):
     # def available_qty(self, value):
     #     return self._available_qty = value
 
-
     def clean(self):
         super(GRNOrderProductMapping, self).clean()
         total_items= self.delivered_qty + self.returned_qty
@@ -361,8 +382,8 @@ class GRNOrderProductMapping(models.Model):
                 raise ValidationError(_("Manufactured Date cannot be greater than or equal to today's date"))
             # elif self.expiry_date < self.manufacture_date:
             #     raise ValidationError(_("Expiry Date cannot be less than manufacture date"))
-        else:
-            raise ValidationError(_("Please enter all the field values"))
+        # else:
+        #     raise ValidationError(_("Please enter all the field values"))
 
 
 class BrandNote(models.Model):

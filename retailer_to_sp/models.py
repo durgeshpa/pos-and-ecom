@@ -8,6 +8,7 @@ from django.db.models.signals import pre_save
 from django.db.models.signals import post_save
 from django.db.models import Sum,F, FloatField
 from django.utils.translation import ugettext_lazy as _
+from django.utils.safestring import mark_safe
 
 from retailer_backend.common_function import (
     order_id_pattern, brand_credit_note_pattern, getcredit_note_id,
@@ -18,9 +19,10 @@ from brand.models import Brand
 from addresses.models import Address
 from products.models import Product,ProductPrice
 from otp.sms import SendSms
+from accounts.models import UserWithName
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
 
-ORDER_STATUS = (
+CART_STATUS = (
     ("active", "Active"),
     ("pending", "Pending"),
     ("deleted", "Deleted"),
@@ -62,6 +64,13 @@ SELECT_ISSUE = (
     ("others", "Others")
 )
 
+TRIP_STATUS = (
+    ('READY', 'Ready'),
+    ('CANCELLED', 'Cancelled'),
+    ('STARTED', 'Started'),
+    ('COMPLETED', 'Completed')
+)
+
 
 class Cart(models.Model):
     order_id = models.CharField(max_length=255, null=True, blank=True)
@@ -74,7 +83,7 @@ class Cart(models.Model):
         null=True, blank=True, on_delete=models.CASCADE
     )
     cart_status = models.CharField(
-        max_length=200, choices=ORDER_STATUS,
+        max_length=200, choices=CART_STATUS,
         null=True, blank=True
     )
     last_modified_by = models.ForeignKey(
@@ -83,6 +92,9 @@ class Cart(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Order Items Detail'
 
     def __str__(self):
         return self.order_id
@@ -150,7 +162,12 @@ class Order(models.Model):
         (DELIVERED, "Delivered"),
         (CLOSED, "Closed"),
         (PDAP, "Payment Done Approval Pending"),
-        (ORDER_PLACED_DISPATCH_PENDING, "Order Placed Dispatch Pending")
+        (ORDER_PLACED_DISPATCH_PENDING, "Order Placed Dispatch Pending"),
+        ('DISPATCH_PENDING', 'Dispatch Placed'),
+        ('PARTIALLY_SHIPPED', 'Partially Shipped'),
+        ('SHIPPED', 'Shipped'),
+        ('CANCELLED', 'Cancelled'),
+        ('DENIED', 'Denied'),
 
     )
     #Todo Remove
@@ -211,17 +228,78 @@ class Order(models.Model):
     class Meta:
         ordering = ['-created_at']
 
-class OrderedProduct(models.Model): 
+
+class Trip(models.Model):
+    seller_shop = models.ForeignKey(
+        Shop, related_name='trip_seller_shop',
+        on_delete=models.CASCADE
+    )
+    dispatch_no = models.CharField(max_length=50, unique=True)
+    delivery_boy = models.ForeignKey(
+        UserWithName, related_name='order_delivered_by_user',
+        on_delete=models.CASCADE, verbose_name='Delivery Boy'
+    )
+    vehicle_no = models.CharField(max_length=50)
+    trip_status = models.CharField(max_length=100, choices=TRIP_STATUS)
+    e_way_bill_no = models.CharField(max_length=50, blank=True, null=True)
+    starts_at = models.DateTimeField()
+    completed_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return "{} -> {}".format(
+            self.dispatch_no,
+            self.delivery_boy.first_name if self.delivery_boy.first_name else self.delivery_boy.phone_number
+        )
+
+    def save(self, *args, **kwargs):
+        if self._state.adding:
+            date = datetime.date.today().strftime('%d%m%y')
+            shop = self.seller_shop_id
+            shop_id_date = "%s/%s" % (shop, date)
+            last_dispatch_no = Trip.objects.filter(
+                dispatch_no__contains=shop_id_date)
+            if last_dispatch_no:
+                dispatch_attempt = int(
+                    last_dispatch_no.last().dispatch_no.split('/')[-1])
+                dispatch_attempt += 1
+            else:
+                dispatch_attempt = 1
+            final_dispatch_no = "%s/%s/%s" % ('DIS', shop_id_date, dispatch_attempt)
+            self.dispatch_no = final_dispatch_no
+        super().save(*args, **kwargs)
+
+    def dispathces(self):
+        return mark_safe("<a href='/admin/retailer_to_sp/cart/trip-planning/%s/change/'>%s<a/>" % (self.pk,
+                                                                                                   self.dispatch_no)
+                         )
+
+
+class OrderedProduct(models.Model):
+    SHIPMENT_STATUS = (
+        ('SHIPMENT_CREATED', 'QC Pending'),
+        ('READY_TO_SHIP', 'QC Passed'),
+        ('READY_TO_DISPATCH', 'Ready to Dispatch'),
+        ('OUT_FOR_DELIVERY', 'Out for Delivery'),
+        ('FULLY_RETURNED_AND_CLOSED', 'Fully Returned and Closed'),
+        ('PARTIALLY_DELIVERED_AND_CLOSED', 'Partially Delivered and Closed'),
+        ('FULLY_DELIVERED_AND_CLOSED', 'Fully Delivered and Closed'),
+        ('CANCELLED', 'Cancelled')
+    )
     order = models.ForeignKey(
         Order, related_name='rt_order_order_product',
         on_delete=models.CASCADE, null=True, blank=True
     )
+    shipment_status = models.CharField(
+        max_length=50, choices=SHIPMENT_STATUS,
+        null=True, blank=True, verbose_name='Current Shipment Status',
+        default='READY_TO_SHIP'
+    )
     invoice_no = models.CharField(max_length=255, null=True, blank=True)
-    vehicle_no = models.CharField(max_length=255, null=True, blank=True)
-    driver_name = models.CharField(max_length=60, null=True, blank=True)
-    shipped_by = models.ForeignKey(
-        get_user_model(), related_name='rt_shipped_product_ordered_by_user',
-        null=True, blank=True, on_delete=models.CASCADE
+    trip = models.ForeignKey(
+        Trip, related_name="rt_invoice_trip",
+        null=True, blank=True, on_delete=models.CASCADE,
     )
     received_by = models.ForeignKey(
         get_user_model(), related_name='rt_ordered_product_received_by_user',
@@ -231,33 +309,73 @@ class OrderedProduct(models.Model):
         get_user_model(), related_name='rt_last_modified_user_order',
         null=True, blank=True, on_delete=models.CASCADE
     )
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True, verbose_name="Invoice Date")
     modified_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'Shipment Planning'
+        verbose_name = 'Update Delivery/ Returns/ Damage'
 
     def __str__(self):
         return self.invoice_no or str(self.id)
 
+    @property
+    def shipment_address(self):
+        if self.order:
+            address = Address.objects.select_related(
+                'shop_name').get(pk=self.order.shipping_address_id)
+            address_line = address.address_line1
+            contact = address.address_contact_number
+            shop_name = address.shop_name.shop_name
+            return str("%s, %s(%s)") % (shop_name, address_line, contact)
+        return str("-")
+
+    @property
+    def payment_mode(self):
+        order = self.order
+        if order:
+            payment_mode = order.payment_mode
+            if payment_mode:
+                return str(payment_mode)
+        return str("-")
+
+    @property
+    def invoice_city(self):
+        city = self.order.shipping_address.city
+        return str(city)
+
+    @property
+    def invoice_amount(self):
+        if self.order:
+            total_amount = []
+            seller_shop = self.order.seller_shop
+            ordered_products = self.rt_order_product_order_product_mapping.all()
+            for product in ordered_products:
+                product_price = ProductPrice.objects.filter(
+                    shop=seller_shop, product=product.product, status=True
+                ).last().price_to_retailer
+                shipped_qty = product.shipped_qty
+                amount = shipped_qty * product_price
+                total_amount.append(amount)
+            return str(sum(total_amount))
+        return str("-")
+
     def save(self, *args, **kwargs):
         if self._state.adding:
-            invoice_prefix = self.order.ordered_cart.seller_shop.invoce_pattern.filter(
+            invoice_prefix = self.order.seller_shop.invoice_pattern.filter(
                 status='ACT').last().pattern
-            # last_invoice = OrderedProduct.objects.filter(
-            #     order__in=self.order.seller_shop.rt_seller_shop_order.all()
-            # ).order_by('invoice_no').last()
-
             last_invoice = OrderedProduct.objects.filter(
-                order__ordered_cart__in=self.order.ordered_cart.seller_shop.rt_seller_shop_cart.all()
+                order__in=self.order.seller_shop.rt_seller_shop_order.all()
             ).order_by('invoice_no').last()
             if last_invoice:
-                invoice_id = getcredit_note_id(last_invoice.invoice_no, invoice_prefix)
+                invoice_id = getcredit_note_id(last_invoice.invoice_no,
+                                               invoice_prefix)
                 invoice_id += 1
             else:
                 invoice_id = 1
             self.invoice_no = retailer_sp_invoice(invoice_prefix, invoice_id)
         super().save(*args, **kwargs)
+
 
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(
@@ -268,10 +386,10 @@ class OrderedProductMapping(models.Model):
         Product, related_name='rt_product_order_product',
         null=True, blank=True, on_delete=models.CASCADE
     )
-    shipped_qty = models.PositiveIntegerField(default=0)
-    delivered_qty = models.PositiveIntegerField(default=0)
-    returned_qty = models.PositiveIntegerField(default=0)
-    damaged_qty = models.PositiveIntegerField(default=0)
+    shipped_qty = models.PositiveIntegerField(default=0, verbose_name="Shipped Pieces")
+    delivered_qty = models.PositiveIntegerField(default=0, verbose_name="Delivered Pieces")
+    returned_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Pieces")
+    damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Pieces")
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_order_product',
         null=True, blank=True, on_delete=models.CASCADE
@@ -280,26 +398,44 @@ class OrderedProductMapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     def clean(self):
-        super(OrderedProductMapping,self).clean()
-        delivered_qty = int(self.delivered_qty)
+        super(OrderedProductMapping, self).clean()
         returned_qty = int(self.returned_qty)
         damaged_qty = int(self.damaged_qty)
-        already_shipped_qty = int(self.shipped_qty)
-        if (delivered_qty or returned_qty) and sum([delivered_qty, returned_qty,
-                damaged_qty]) != already_shipped_qty:
-            raise ValidationError(
-                _('Sum of Delivered, Returned and Damaged Quantity should be '
-                  'equals to Already Shipped Quantity '),
-            )
+        if returned_qty or damaged_qty:
+            already_shipped_qty = int(self.shipped_qty)
+            if sum([returned_qty, damaged_qty]) > already_shipped_qty:
+                raise ValidationError(
+                    _('Sum of Returned and Damaged Quantity should be '
+                      'less than Already Shipped Quantity '),
+                )
+            else:
+                self.delivered_qty = self.shipped_qty - (self.damaged_qty + self.returned_qty)
 
     @property
     def ordered_qty(self):
         if self.ordered_product:
             qty = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
                 cart_product=self.product).values('qty')
-            print(qty)
             qty = qty.first().get('qty')
-            return str(qty)
+            inner_case_size = self.product.product_inner_case_size
+            no_of_pieces = int(inner_case_size) * int(qty if qty else 0)
+            return str(no_of_pieces)
+        return str("-")
+    ordered_qty.fget.short_description = "Ordered Pieces"
+
+    @property
+    def already_shipped_qty(self):
+        already_shipped_qty = OrderedProductMapping.objects.filter(
+            ordered_product__in=self.ordered_product.order.rt_order_order_product.all(),
+            product=self.product).aggregate(
+            Sum('delivered_qty')).get('delivered_qty__sum', 0)
+        return already_shipped_qty if already_shipped_qty else 0
+
+    @property
+    def gf_code(self):
+        if self.product:
+            gf_code = self.product.product_gf_code
+            return str(gf_code)
         return str("-")
 
     def get_shop_specific_products_prices_sp(self):
@@ -312,6 +448,46 @@ class OrderedProductMapping(models.Model):
 
     def get_products_gst_cess(self):
         return self.product.product_pro_tax.filter(tax__tax_type='cess')
+
+
+class Dispatch(OrderedProduct):
+    class Meta:
+        proxy = True
+
+
+class DispatchProductMapping(OrderedProductMapping):
+    class Meta:
+        proxy = True
+        verbose_name = _("To be Ship product")
+        verbose_name_plural = _("To be Ship products")
+
+
+class Shipment(OrderedProduct):
+    class Meta:
+        proxy = True
+        verbose_name = _("Plan Shipment")
+        verbose_name_plural = _("Plan Shipment")
+
+
+class ShipmentProductMapping(OrderedProductMapping):
+
+    class Meta:
+        proxy = True
+        verbose_name = _("To be Ship product")
+        verbose_name_plural = _("To be Ship products")
+
+    def clean(self):
+        ordered_qty = int(self.ordered_qty)
+        shipped_qty = int(self.shipped_qty)
+        already_shipped_qty = int(self.already_shipped_qty)
+        if (ordered_qty - already_shipped_qty) < shipped_qty:
+            raise ValidationError(
+                _('To be Ship Qty cannot be greater than difference '
+                  'of Ordered Qty and Already Shipped Qty'),
+                )
+
+
+ShipmentProductMapping._meta.get_field('shipped_qty').verbose_name = 'No. of Pieces to Ship'
 
 
 class CustomerCare(models.Model):
@@ -358,7 +534,7 @@ class Payment(models.Model):
     )
     name = models.CharField(max_length=255, null=True, blank=True)
     paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
-    payment_choice = models.CharField(max_length=30,choices=PAYMENT_MODE_CHOICES, null=True)
+    payment_choice = models.CharField(verbose_name="Payment Mode",max_length=30,choices=PAYMENT_MODE_CHOICES, null=True)
     neft_reference_number = models.CharField(max_length=20, null=True,blank=True)
     imei_no = models.CharField(max_length=100, null=True, blank=True)
     payment_status = models.CharField(max_length=50, null=True, blank=True,choices=PAYMENT_STATUS, default=PAYMENT_DONE_APPROVAL_PENDING)
@@ -453,7 +629,7 @@ class ReturnProductMapping(models.Model):
         total_returned_qty = self.reusable_qty + self.damaged_qty
         if total_returned_qty != self.total_returned_qty:
             raise ValidationError(
-                """Sum of Reusable quantity and damaged 
+                """Sum of Reusable quantity and damaged
                 quantity must be equal to total returned quantity"""
             )
 
@@ -502,38 +678,24 @@ class Note(models.Model):
             return self.shipment.invoice_no
 
 
-
-# @receiver(post_save, sender=ReturnProductMapping)
-# def create_credit_note(sender, instance=None, created=False, **kwargs):
+# @receiver(post_save, sender=OrderedProduct)
+# def change_order_status(sender, instance=None, created=False, **kwargs):
+#     import pdb;pdb.set_trace()
+#
 #     if created:
-#         if instance.total_returned_qty > 0:
-#             credit_note = Note.objects.filter(return_no=instance.return_id)
-#             if credit_note.exists():
-#                 credit_note = credit_note.last()
-#                 credit_note.credit_note_id = brand_credit_note_pattern(
-#                     instance.return_id.pk)
-#                 credit_note.amount = credit_note.amount + (
-#                         int(
-#                             instance.total_returned_qty
-#                         ) *
-#                         int(
-#                             instance.returned_product.product_inner_case_size
-#                         ) *
-#                         float(
-#                             instance.returned_product.product_pro_price.filter(
-#                                 shop__shop_type__shop_type='sp', status=True
-#                             ).last().price_to_retailer)
-#                 )
-#                 credit_note.save()
-#             else:
-#                 credit_note = Note.objects.create(
-#                     credit_note_id=brand_credit_note_pattern(instance.return_id.pk),
-#                     order=instance.return_id.invoice_no.order,
-#                     return_no=instance.return_id,
-#                     amount=int(instance.total_returned_qty) *
-#                     int(instance.returned_product.product_inner_case_size) *
-#                     float(instance.returned_product.product_pro_price.filter(
-#                         shop__shop_type__shop_type='sp', status=True
-#                         ).last().price_to_retailer),
-#                     status=True)
+#         ordered_products = instance.order.rt_order_order_product.all()
+#         all_shipment_status = [ordered_product.shipment_status
+#                                for ordered_product in ordered_products]
+#         all_shipment_status = list(set(all_shipment_status))
+#
+#
+# @receiver(post_save, sender=OrderedProductMapping)
+# def change_order_status(sender, instance=None, created=False, **kwargs):
+#     import pdb;pdb.set_trace()
+#     ordered_product_mapping = instance.ordered_product.\
+#         rt_order_product_order_product_mapping.all()
+#     import pdb;pdb.set_trace()
+#     shipment_status =  instance.ordered_product.shipment_status
+
+
 

@@ -17,16 +17,19 @@ class GetSlotBrandListView(APIView):
 
     permission_classes = (AllowAny,)
     def get(self,*args,**kwargs):
-
         pos_name = self.kwargs.get('slot_position_name')
         data = BrandData.objects.filter(brand_data__active_status='active')
-        if pos_name:
+        if pos_name and pos_name != 'all':
             data = data.filter(slot__position_name=pos_name).order_by('brand_data_order')
+            brand_data_serializer = BrandDataSerializer(data,many=True)
+        elif pos_name == 'all_banners':
+            data= Brand.objects.filter(brand_parent=None,active_status='active').order_by('brand_name')
+            brand_data_serializer = BrandSerializer(data,many=True)
         else:
             data = data.order_by('brand_data_order')
+            brand_data_serializer = BrandDataSerializer(data,many=True)
         is_success = True if data else False
-        #serializer_class = BannerPositionSerializer
-        brand_data_serializer = BrandDataSerializer(data,many=True)
+
         return Response({"message":[""], "response_data": brand_data_serializer.data ,"is_success": is_success})
 
 class GetSubBrandsListView(APIView):
@@ -41,12 +44,12 @@ class GetSubBrandsListView(APIView):
         return Response({"message":[""], "response_data": brand_data_serializer.data ,"is_success":is_success })
 
 '''class GetAllBrandListView(ListCreateAPIView):
-    queryset = Brand.objects.filter(active_status='1')
+    queryset = Brand.objects.filter(active_status='active')
     serializer_class = BrandSerializer
 
     @list_route
     def roots(self, request):
-        queryset = Brand.objects.filter(active_status='1')
+        queryset = Brand.objects.filter(active_status='active')
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 '''
@@ -60,4 +63,3 @@ class GetSubBrandsListView(APIView):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 '''
-

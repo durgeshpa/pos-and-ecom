@@ -4,7 +4,8 @@ from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializ
 
                           GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer )
 from products.models import Product, ProductPrice, ProductOption,ProductImage
-from sp_to_gram.models import OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping
+from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
+                                OrderedProduct as SPOrderedProduct)
 
 from rest_framework import permissions, authentication
 from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as GramCartProductMapping,
@@ -23,7 +24,7 @@ from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping 
 
 from shops.models import Shop,ParentRetailerMapping
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import F,Sum
+from django.db.models import F,Sum, Q
 from wkhtmltopdf.views import PDFTemplateResponse
 from django.shortcuts import get_object_or_404, get_list_or_404
 from datetime import datetime, timedelta
@@ -104,7 +105,11 @@ class GramGRNProductsList(APIView):
                     '''4th Step
                         SP mapped data shown
                     '''
-                    grn = SpMappedOrderedProductMapping.objects.filter(ordered_product__order__ordered_cart__shop=parent_mapping.parent,available_qty__gt=0,expiry_date__gt=today).values('product_id')
+                    grn = SpMappedOrderedProductMapping.objects.filter(
+                        Q(ordered_product__order__ordered_cart__shop=parent_mapping.parent)
+                        |Q(ordered_product__credit_note__shop=parent_mapping.parent),
+                        available_qty__gt=0,expiry_date__gt=today, ordered_product__status=SPOrderedProduct.ENABLED
+                        ).values('product_id')
                     cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
                     if cart:
                         cart_products = cart.rt_cart_list.all()
@@ -273,13 +278,9 @@ class AddToCart(APIView):
                     cart = Cart.objects.filter(last_modified_by=self.request.user,
                                                cart_status__in=['active', 'pending']).last()
                     cart.cart_status = 'active'
-                    cart.seller_shop = parent_mapping.parent
-                    cart.buyer_shop = parent_mapping.retailer
                     cart.save()
                 else:
                     cart = Cart(last_modified_by=self.request.user, cart_status='active')
-                    cart.seller_shop = parent_mapping.parent
-                    cart.buyer_shop = parent_mapping.retailer
                     cart.save()
 
                 if int(qty) == 0:
@@ -289,8 +290,6 @@ class AddToCart(APIView):
                 else:
                     cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
                     cart_mapping.qty = qty
-                    cart_mapping.cart_product_price = ProductPrice.objects.get(product=product, shop=parent_mapping.parent, status=True) if ProductPrice.objects.filter(product=product, shop=parent_mapping.parent,status=True).exists() else None
-                    cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
                     cart_mapping.save()
 
                 if cart.rt_cart_list.count() <= 0:
@@ -422,47 +421,35 @@ class ReservedOrder(generics.ListAPIView):
 
                 for cart_product in cart_products:
                     ordered_product_details = OrderedProductMapping.objects.filter(
-                        ordered_product__order__shipping_address__shop_name=parent_mapping.parent,
-                        product=cart_product.cart_product).order_by('-expiry_date')
-                    ordered_product_sum = ordered_product_details.aggregate(available_qty_sum=Sum('available_qty'))
+                        Q(ordered_product__order__shipping_address__shop_name=parent_mapping.parent) |
+                        Q(ordered_product__credit_note__shop=parent_mapping.parent),
+                        product=cart_product.cart_product, ordered_product__status=SPOrderedProduct.ENABLED).order_by('-expiry_date')
+                    available_qty = ordered_product_details.aggregate(available_qty_sum=Sum('available_qty'))['available_qty_sum']
 
                     is_error = False
-                    if ordered_product_sum['available_qty_sum'] is not None:
-                        if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size):
-                            available_qty = int(ordered_product_sum['available_qty_sum'])
-                            cart_product.qty_error_msg = ERROR_MESSAGES['AVAILABLE_PRODUCT'].format(int(available_qty))
-                            is_error = True
-                        else:
-                            available_qty = int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size)
-                            cart_product.qty_error_msg = ''
+                    ordered_amount = int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size)
 
-                        cart_product.save()
-
+                    if available_qty and int(available_qty) >= ordered_amount: #checking if stock available and more than the order
+                        remaining_amount = ordered_amount
                         for product_detail in ordered_product_details:
-                            deduct_qty = 0
-                            if available_qty <= 0:
+                            if remaining_amount <=0:
                                 break
 
-                            if available_qty > product_detail.available_qty:
-                                deduct_qty = product_detail.available_qty
+                            if product_detail.available_qty >= remaining_amount:
+                                deduct_qty = remaining_amount
                             else:
-                                deduct_qty = available_qty
+                                deduct_qty = product_detail.available_qty
 
-                            product_detail.available_qty = 0 if available_qty > product_detail.available_qty else int(
-                                product_detail.available_qty) - int(available_qty)
+                            product_detail.available_qty -= deduct_qty
+                            remaining_amount -= deduct_qty
                             product_detail.save()
 
                             order_product_reserved = OrderedProductReserved(product=product_detail.product,
-                                                                            reserved_qty=available_qty)
+                                                                            reserved_qty=deduct_qty)
                             order_product_reserved.order_product_reserved = product_detail
                             order_product_reserved.cart = cart
                             order_product_reserved.reserve_status = 'reserved'
                             order_product_reserved.save()
-
-                            available_qty = available_qty - int(deduct_qty)
-
-                        if is_error:
-                            release_blocking(parent_mapping, cart.id)
                         serializer = CartSerializer(cart,context={'parent_mapping_id': parent_mapping.parent.id})
                         msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                     else:
@@ -470,7 +457,7 @@ class ReservedOrder(generics.ListAPIView):
                         msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
                         return Response(msg, status=status.HTTP_200_OK)
                 if CartProductMapping.objects.filter(cart=cart).count() <= 0:
-                    msg = {'is_success': False, 'message': ['No any product available ins this cart'],
+                    msg = {'is_success': False, 'message': ['No product is available in cart'],
                            'response_data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
@@ -680,7 +667,7 @@ class CreateOrder(APIView):
 #OrderedProductMapping.objects.filter()
 
 class OrderList(generics.ListAPIView):
-    serializer_class = OrderDetailSerializer
+    serializer_class = OrderSerializer
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -701,7 +688,7 @@ class OrderList(generics.ListAPIView):
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             queryset = Order.objects.filter(last_modified_by=user).order_by('-created_at')
 
-            serializer = OrderDetailSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
+            serializer = OrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             queryset = GramMappedOrder.objects.filter(last_modified_by=user).order_by('-created_at')
             serializer = GramMappedOrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
@@ -711,7 +698,7 @@ class OrderList(generics.ListAPIView):
         return Response(msg,status=status.HTTP_200_OK)
 
 class OrderDetail(generics.RetrieveAPIView):
-    serializer_class = OrderDetailSerializer
+    serializer_class = OrderSerializer
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -730,7 +717,7 @@ class OrderDetail(generics.RetrieveAPIView):
         current_url = request.get_host()
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             queryset = Order.objects.get(id=pk)
-            serializer = OrderDetailSerializer(queryset, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
+            serializer = OrderSerializer(queryset, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             queryset = GramMappedOrder.objects.get(id=pk)
             serializer = GramMappedOrderSerializer(queryset,context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
@@ -765,7 +752,7 @@ class DownloadInvoiceSP(APIView):
         gst_tax_list= []
         cess_tax_list= []
         surcharge_tax_list=[]
-        for z in shop.order.ordered_cart.seller_shop.shop_name_address_mapping.all():
+        for z in shop.order.seller_shop.shop_name_address_mapping.all():
             shop_name_gram= z.shop_name
             nick_name_gram= z.nick_name
             address_line1_gram= z.address_line1
@@ -790,13 +777,14 @@ class DownloadInvoiceSP(APIView):
 
             # New Code For Product Listing Start
             tax_sum = 0
+            basic_rate = 0
             product_tax_amount = 0
-            no_of_pieces = 0
-            cart_qty = 0
-            product_pro_price = m.product.rt_cart_product_mapping.last().cart_product_price.price_to_retailer
-            product_mrp = m.product.rt_cart_product_mapping.last().cart_product_price.mrp
-            no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
-            cart_qty = m.product.rt_cart_product_mapping.last().qty
+            product_pro_price_mrp =0
+            product_pro_price_ptr = 0
+            product_pro_price_mrp = m.product.product_pro_price.filter(
+                shop=m.ordered_product.order.seller_shop, status=True).last().mrp
+            product_pro_price_ptr = m.product.product_pro_price.filter(
+                shop=m.ordered_product.order.seller_shop, status=True).last().price_to_retailer
 
             all_tax_list = m.product.product_pro_tax
             if all_tax_list.exists():
@@ -806,32 +794,35 @@ class DownloadInvoiceSP(APIView):
                 tax_sum = round(tax_sum,2)
 
                 get_tax_val = tax_sum/100
-                base_price = (float(product_pro_price) * float(no_of_pieces)) / (float(get_tax_val) + 1)
+                basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
+                base_price = (float(product_pro_price_ptr) * float(m.shipped_qty) * float(m.product.product_inner_case_size)) / (float(get_tax_val) + 1)
                 product_tax_amount = float(base_price) * float(get_tax_val)
                 product_tax_amount = round(product_tax_amount,2)
 
             ordered_prodcut = {
-                "product_sku": m.product.product_sku,
-                "product_mrp": product_mrp,
+                "product_sku": m.product.product_gf_code,
                 "product_short_description": m.product.product_short_description,
                 "product_hsn": m.product.product_hsn,
                 "product_tax_percentage": "" if tax_sum == 0 else str(tax_sum)+"%",
+                "product_mrp": product_pro_price_mrp,
                 "shipped_qty": m.shipped_qty,
-                "product_inner_case_size": int(no_of_pieces)//int(cart_qty),
-                "product_no_of_pices": no_of_pieces,
-                "price_to_retailer":  product_pro_price,
-                "product_sub_total": float(no_of_pieces) * float(product_pro_price),
+                "product_inner_case_size": m.product.product_inner_case_size,
+                "product_no_of_pices": int(m.product.product_inner_case_size) * int(m.shipped_qty) ,
+                "basic_rate" : basic_rate,
+                "price_to_retailer":  product_pro_price_ptr,
+                "product_sub_total": float(m.product.product_inner_case_size) * float(m.shipped_qty) * float(product_pro_price_ptr),
                 "product_tax_amount": product_tax_amount,
+
             }
 
             product_listing.append(ordered_prodcut)
             # New Code For Product Listing End
 
 
-            sum_qty = sum_qty + int(no_of_pieces)
-            sum_amount += (int(no_of_pieces) * product_pro_price)
-            inline_sum_amount = (int(no_of_pieces) * product_pro_price)
-            
+            sum_qty = sum_qty + int(m.product.product_inner_case_size) * int(m.shipped_qty)
+            sum_amount += (int(m.product.product_inner_case_size) * int(m.shipped_qty) * product_pro_price_ptr)
+            inline_sum_amount = (int(m.product.product_inner_case_size) * int(m.shipped_qty) * product_pro_price_ptr)
+
             for n in m.product.product_pro_tax.all():
 
                 divisor= (1+(n.tax.tax_percentage/100))
@@ -863,7 +854,7 @@ class DownloadInvoiceSP(APIView):
                 "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram,
                 "payment_type":payment_type,"total_amount_int":total_amount_int,"product_listing":product_listing,
                 "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
-                "address_contact_number":address_contact_number}
+                "address_contact_number":address_contact_number,"sum_amount_tax":product_tax_amount}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
