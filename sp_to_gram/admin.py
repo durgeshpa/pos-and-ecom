@@ -44,7 +44,7 @@ class CartAdmin(NumericFilterModelAdmin,admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     exclude = ('po_no', 'po_status', 'last_modified_by')
     #autocomplete_fields = ('brand',)
-    list_display = ('po_no', 'po_creation_date', 'po_validity_date', 'po_amount', 'po_raised_by', 'po_status', 'download_purchase_order')
+    list_display = ('po_no', 'po_creation_date', 'po_validity_date', 'po_amount', 'po_raised_by', 'po_status', 'download_purchase_order','is_stock_adjustment')
     list_filter = [RecipientWarehouseFilter,POSearch,('po_creation_date', DateRangeFilter),
                    ('po_validity_date', DateRangeFilter), ('po_amount',RangeNumericFilter), PORaisedBy]
     form = POGenerationForm
