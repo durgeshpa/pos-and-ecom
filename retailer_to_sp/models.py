@@ -122,6 +122,8 @@ class CartProductMapping(models.Model):
 
 class Order(models.Model):
     ORDERED = 'ordered'
+    PAYMENT_DONE_APPROVAL_PENDING = 'payment_done_approval_pending'
+    OPDP = 'opdp'
 
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'),
@@ -130,6 +132,8 @@ class Order(models.Model):
         ('SHIPPED', 'Shipped'),
         ('CANCELLED', 'Cancelled'),
         ('DENIED', 'Denied'),
+        (PAYMENT_DONE_APPROVAL_PENDING, "Payment Done Approval Pending"),
+        (OPDP, "Order Placed Dispatch Pending"),
     )
     seller_shop = models.ForeignKey(
         Shop, related_name='rt_seller_shop_order',
