@@ -428,18 +428,18 @@ class ReservedOrder(generics.ListAPIView):
 
                     is_error = False
                     ordered_amount = int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size)
-                    
+
                     if available_qty and int(available_qty) >= ordered_amount: #checking if stock available and more than the order
                         remaining_amount = ordered_amount
                         for product_detail in ordered_product_details:
                             if remaining_amount <=0:
                                 break
-                            
+
                             if product_detail.available_qty >= remaining_amount:
                                 deduct_qty = remaining_amount
                             else:
                                 deduct_qty = product_detail.available_qty
-                            
+
                             product_detail.available_qty -= deduct_qty
                             remaining_amount -= deduct_qty
                             product_detail.save()
@@ -797,7 +797,7 @@ class DownloadInvoiceSP(APIView):
 
                 get_tax_val = tax_sum/100
                 basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
-                base_price = (float(product_pro_price_ptr) * float(m.shipped_qty) * float(m.product.product_inner_case_size)) / (float(get_tax_val) + 1)
+                base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
                 product_tax_amount = float(base_price) * float(get_tax_val)
                 product_tax_amount = round(product_tax_amount,2)
 
@@ -809,10 +809,10 @@ class DownloadInvoiceSP(APIView):
                 "product_mrp": product_pro_price_mrp,
                 "shipped_qty": m.shipped_qty,
                 "product_inner_case_size": m.product.product_inner_case_size,
-                "product_no_of_pices": int(m.product.product_inner_case_size) * int(m.shipped_qty) ,
+                "product_no_of_pices": int(m.shipped_qty) ,
                 "basic_rate" : basic_rate,
                 "price_to_retailer":  product_pro_price_ptr,
-                "product_sub_total": float(m.product.product_inner_case_size) * float(m.shipped_qty) * float(product_pro_price_ptr),
+                "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr),
                 "product_tax_amount": product_tax_amount,
 
             }
@@ -821,9 +821,9 @@ class DownloadInvoiceSP(APIView):
             # New Code For Product Listing End
 
 
-            sum_qty = sum_qty + int(m.product.product_inner_case_size) * int(m.shipped_qty)
-            sum_amount += (int(m.product.product_inner_case_size) * int(m.shipped_qty) * product_pro_price_ptr)
-            inline_sum_amount = (int(m.product.product_inner_case_size) * int(m.shipped_qty) * product_pro_price_ptr)
+            sum_qty = sum_qty +  int(m.shipped_qty)
+            sum_amount += (int(m.shipped_qty) * product_pro_price_ptr)
+            inline_sum_amount = (int(m.shipped_qty) * product_pro_price_ptr)
 
             for n in m.product.product_pro_tax.all():
 
