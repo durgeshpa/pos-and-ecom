@@ -453,8 +453,13 @@ class ReservedOrder(generics.ListAPIView):
                         serializer = CartSerializer(cart,context={'parent_mapping_id': parent_mapping.parent.id})
                         msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                     else:
-                        release_blocking(parent_mapping, cart.id)
                         msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
+                        if int(available_qty) < ordered_amount:
+                            cart_product.qty_error_msg = ERROR_MESSAGES['AVAILABLE_PRODUCT'].format(int(available_qty))
+                            cart_product.save()
+                            serializer = CartSerializer(cart,context={'parent_mapping_id': parent_mapping.parent.id})
+                            msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
+                        release_blocking(parent_mapping, cart.id)
                         return Response(msg, status=status.HTTP_200_OK)
                 if CartProductMapping.objects.filter(cart=cart).count() <= 0:
                     msg = {'is_success': False, 'message': ['No product is available in cart'],
