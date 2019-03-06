@@ -23,7 +23,6 @@ class ShopMappedProduct(FormView):
 
     def get_context_data(self, **kwargs):
         shop_obj = get_object_or_404(Shop, pk=self.kwargs.get('pk'))
-        #context = super().get_context_data(**kwargs)
         data = super(ShopMappedProduct, self).get_context_data(**kwargs)
         if shop_obj.shop_type.shop_type=='gf':
             grn_product = GRNOrderProductMapping.objects.filter(grn_order__order__ordered_cart__gf_shipping_address__shop_name=shop_obj)
@@ -38,7 +37,12 @@ class ShopMappedProduct(FormView):
                 | Q(ordered_product__credit_note__shop=shop_obj),
                 Q(ordered_product__status=OrderedProduct.ENABLED)
                 )
-            product_sum = sp_grn_product.values('product','product__product_name', 'product__product_gf_code').annotate(product_qty_sum=Sum(F('available_qty') - (F('damaged_qty') + F('lossed_qty'))))
+            product_sum = sp_grn_product.values('product','product__product_name', 'product__product_gf_code').annotate(
+                product_qty_sum=Sum(F('available_qty') - (F('damaged_qty') + F('lossed_qty')+ F('perished_qty')))).annotate(
+                perished_qty_sum=Sum(F('perished_qty'))).annotate(
+                damaged_qty_sum=Sum(F('damaged_qty'))).annotate(
+                lossed_qty_sum=Sum(F('lossed_qty')))
+
             data['shop_products'] = product_sum
             data['shop'] = shop_obj
         else:
@@ -197,9 +201,6 @@ class ShopMappedProduct(FormView):
         return super(ShopMappedProduct, self).form_valid(form)
 
     def form_invalid(self, form):
-        #print('Form invalid!')
-        #print(form.errors)
-        #data = json.dumps(form.errors)
         return super(ShopMappedProduct, self).form_invalid(form)
 
     def get_success_url(self, **kwargs):
