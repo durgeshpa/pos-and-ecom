@@ -79,6 +79,13 @@ class Shop(models.Model):
             ("can_see_all_shops", "Can See All Shops"),
         )
 
+class ShopNameDisplay(Shop):
+    class Meta:
+        proxy = True
+
+    def __str__(self):
+        return "%s - %s"%(self.shop_name,self.shop_owner)
+
 class ShopPhoto(models.Model):
     shop_name = models.ForeignKey(Shop, related_name='shop_name_photos', on_delete=models.CASCADE)
     shop_photo = models.FileField(upload_to='shop_photos/shop_name/')
