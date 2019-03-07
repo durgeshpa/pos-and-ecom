@@ -189,6 +189,11 @@ class ProductTaxInlineFormSet(BaseInlineFormSet):
                   raise ValidationError('{} type tax can be filled only once'.format(form.cleaned_data.get('tax').tax_type))
               tax_list_type.append(form.cleaned_data.get('tax').tax_type)
 
+   def _construct_form(self, i, **kwargs):
+       form = super(ProductTaxInlineFormSet, self)._construct_form(i, **kwargs)
+       if i < 1:
+           form.empty_permitted = False
+       return form
 
 class ProductTaxMappingAdmin(admin.TabularInline):
     model = ProductTaxMapping
