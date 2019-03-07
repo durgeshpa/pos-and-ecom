@@ -66,36 +66,34 @@ class ShopMappedProduct(FormView):
                 ordered_product__order__shipping_address__shop_name=shop_obj,
                 product__id=int(row[1]))
 
-            # Expired Product
-            expired_dt = ordered_product_details.filter(expiry_date__lte=today)
-            not_expired_dt = ordered_product_details.filter(expiry_date__gte=today)
-            expired_deduct_qty = int(row[4])
-
             """
             When quantity greater than current expired quantity
             """
-            if int(expired_deduct_qty) > expired_dt.count():
-                expired_deduct_qty= expired_deduct_qty-expired_dt.count()
-                for expired in not_expired_dt.order_by('expiry_date'):
-                    if expired_deduct_qty <=0:
+            perished_deduct_qty = int(row[4])
+            perished_qty_sum = ordered_product_details.aggregate(perished_qty_sum=Sum(F('perished_qty')))['perished_qty_sum']
+
+            if perished_qty_sum is not None and int(perished_deduct_qty) > int(perished_qty_sum):
+                perished_deduct_qty = int(perished_deduct_qty) - int(perished_qty_sum)
+                for damaged in ordered_product_details.order_by('expiry_date'):
+                    if perished_deduct_qty <= 0:
                         break
 
-                    deduct_qty = expired.sp_available_qty if expired_deduct_qty > expired.sp_available_qty else expired_deduct_qty
-                    expired.perished_qty = int(expired.perished_qty) + int(deduct_qty)
-                    expired.save()
-                    expired_deduct_qty = int(expired_deduct_qty) - int(deduct_qty)
+                    deduct_qty = damaged.sp_available_qty if perished_deduct_qty > damaged.sp_available_qty else perished_deduct_qty
+                    damaged.perished_qty = int(damaged.perished_qty) + int(deduct_qty)
+                    damaged.save()
+                    perished_deduct_qty = int(perished_deduct_qty) - int(deduct_qty)
 
             else:
-                expired_deduct_qty = expired_deduct_qty - expired_dt.count()
-                for expired in not_expired_dt.order_by('-expiry_date'):
-                    if expired_deduct_qty > expired.sp_available_qty:
-                        deduct_qty = expired.sp_available_qty
-                        expired.expiry_date = expired.expiry_date + relativedelta(months=3)
-                        expired.save()
-                    else:
+                perished_deduct_qty = int(perished_qty_sum) - int(perished_deduct_qty)
+                for damaged in ordered_product_details.order_by('expiry_date'):
+                    if perished_deduct_qty <= 0:
                         break
-                    expired_deduct_qty = int(expired_deduct_qty) - int(deduct_qty)
 
+                    deduct_qty = damaged.perished_qty if damaged.perished_qty >0 else 0
+                    damaged.perished_qty = int(damaged.perished_qty) - int(deduct_qty)
+                    damaged.lossed_qty = int(damaged.lossed_qty) + int(deduct_qty)
+                    damaged.save()
+                    perished_deduct_qty = int(perished_deduct_qty) - int(deduct_qty)
             """
             When qantity greater than demege quantity 
             """
@@ -103,7 +101,7 @@ class ShopMappedProduct(FormView):
             damaged_qty_sum = ordered_product_details.aggregate(damaged_qty_sum=Sum(F('damaged_qty')))['damaged_qty_sum']
 
             if damaged_qty_sum is not None and int(damage_deduct_qty) > int(damaged_qty_sum):
-                damaged_qty_sum = int(damaged_qty_sum) - int(damage_deduct_qty)
+                damage_deduct_qty = int(damage_deduct_qty) - int(damaged_qty_sum)
                 for damaged in ordered_product_details.order_by('expiry_date'):
                     if damage_deduct_qty <= 0:
                         break
@@ -114,13 +112,14 @@ class ShopMappedProduct(FormView):
                     damage_deduct_qty = int(damage_deduct_qty) - int(deduct_qty)
 
             else:
+                damage_deduct_qty = int(damaged_qty_sum) - int(damage_deduct_qty)
                 for damaged in ordered_product_details.order_by('expiry_date'):
-                    damaged_qty_sum = int(damaged_qty_sum) - int(damage_deduct_qty)
-                    if damage_deduct_qty <= 0:
+                    if perished_deduct_qty <= 0:
                         break
 
-                    deduct_qty = damaged.damaged_qty if damaged.damaged_qty >0 else 0
-                    damaged.damaged_qty = int(damaged.damaged_qty) - int(deduct_qty)
+                    deduct_qty = damaged.damaged_qty if damaged.damaged_qty > 0 else 0
+                    damaged.perished_qty = int(damaged.perished_qty) - int(deduct_qty)
+                    damaged.lossed_qty = int(damaged.lossed_qty) + int(deduct_qty)
                     damaged.save()
                     damage_deduct_qty = int(damage_deduct_qty) - int(deduct_qty)
 

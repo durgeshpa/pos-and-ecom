@@ -221,6 +221,19 @@ class OrderedProductMapping(models.Model):
         return int(self.available_qty) - (int(self.damaged_qty) + int(self.lossed_qty) + int(self.perished_qty))
 
 
+class ShopStockAdjustment(models.Model):
+    #ordered_product = models.ForeignKey(OrderedProduct,related_name='sp_stock_product_mapping',null=True,blank=True,on_delete=models.CASCADE)
+    shop = models.ForeignKey(OrderedProduct,related_name='sp_stock_product_mapping',null=True,blank=True,on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, related_name='sp_stock_product',null=True,blank=True, on_delete=models.CASCADE)
+    available_qty = models.IntegerField(default=0)
+    damaged_qty = models.IntegerField(default=0)
+    perished_qty = models.IntegerField(default=0)
+    lossed_qty = models.IntegerField(default=0)
+    last_modified_by = models.ForeignKey(get_user_model(), related_name='sp_stock_last_modified_user', null=True,blank=True, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
+
 class OrderedProductReserved(models.Model):
     RESERVED = "reserved"
     ORDERED = "ordered"
