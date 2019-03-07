@@ -183,17 +183,13 @@ class ProductTaxInlineFormSet(BaseInlineFormSet):
    def clean(self):
       super(ProductTaxInlineFormSet, self).clean()
       tax_list_type=[]
-      count_gst = 0
       for form in self.forms:
           if form.is_valid() and form.cleaned_data.get('tax'):
               if form.cleaned_data.get('tax').tax_type in tax_list_type:
                   raise ValidationError('{} type tax can be filled only once'.format(form.cleaned_data.get('tax').tax_type))
               tax_list_type.append(form.cleaned_data.get('tax').tax_type)
-          if form.is_valid() and form.cleaned_data.get('tax'):
-              if form.cleaned_data.get('tax').tax_type=='gst':
-                  count_gst += 1
-          if count_gst<1:
-              raise ValidationError('Please fill the GST tax value')
+      if 'gst' not in tax_list_type:
+          raise ValidationError('Please fill the GST tax value')
 
 class ProductTaxMappingAdmin(admin.TabularInline):
     model = ProductTaxMapping
