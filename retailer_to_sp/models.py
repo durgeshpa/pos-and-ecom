@@ -14,7 +14,7 @@ from retailer_backend.common_function import (
     order_id_pattern, brand_credit_note_pattern, getcredit_note_id,
     retailer_sp_invoice
 )
-from shops.models import Shop
+from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
 from products.models import Product, ProductPrice
@@ -132,11 +132,11 @@ class Order(models.Model):
         ('DENIED', 'Denied'),
     )
     seller_shop = models.ForeignKey(
-        Shop, related_name='rt_seller_shop_order',
+        ShopNameDisplay, related_name='rt_seller_shop_order',
         null=True, blank=True, on_delete=models.CASCADE
     )
     buyer_shop = models.ForeignKey(
-        Shop, related_name='rt_buyer_shop_order',
+        ShopNameDisplay, related_name='rt_buyer_shop_order',
         null=True, blank=True, on_delete=models.CASCADE
     )
     ordered_cart = models.ForeignKey(
@@ -317,7 +317,7 @@ class OrderedProduct(models.Model):
                     shop=seller_shop, product=product.product, status=True
                 ).last().price_to_retailer
                 shipped_qty = product.shipped_qty
-                amount = shipped_qty * product_price
+                amount = round(shipped_qty * product_price, 2)
                 total_amount.append(amount)
             return str(sum(total_amount))
         return str("-")
@@ -656,6 +656,3 @@ class Note(models.Model):
 #         rt_order_product_order_product_mapping.all()
 #     import pdb;pdb.set_trace()
 #     shipment_status =  instance.ordered_product.shipment_status
-
-
-
