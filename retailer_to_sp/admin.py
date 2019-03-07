@@ -244,13 +244,15 @@ class ExportCsvMixin:
         return response
     export_as_csv.short_description = "Download CSV of Selected Objects"
 
+
 class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
     actions = ["export_as_csv"]
     resource_class = OrderResource
     search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name',
                     'order_status', 'payment_mode')
     list_display = ('order_no', 'seller_shop', 'buyer_shop', 'total_final_amount',
-                    'order_status', 'created_at', 'payment_amount', 'payment_mode', 'download_pick_list')
+                    'order_status', 'created_at', 'payment_mode', 'paid_amount', 'total_paid_amount', 'download_pick_list')
+    readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount')
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
