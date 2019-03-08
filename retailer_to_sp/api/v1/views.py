@@ -5,7 +5,7 @@ from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializ
                           GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer )
 from products.models import Product, ProductPrice, ProductOption,ProductImage
 from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
-                                OrderedProduct as SPOrderedProduct)
+                                OrderedProduct as SPOrderedProduct, StockAdjustment)
 
 from rest_framework import permissions, authentication
 from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as GramCartProductMapping,
@@ -423,7 +423,9 @@ class ReservedOrder(generics.ListAPIView):
                     ordered_product_details = OrderedProductMapping.objects.filter(
                         Q(ordered_product__order__shipping_address__shop_name=parent_mapping.parent) |
                         Q(ordered_product__credit_note__shop=parent_mapping.parent),
-                        product=cart_product.cart_product, ordered_product__status=SPOrderedProduct.ENABLED).order_by('-expiry_date')
+                        Q(product=cart_product.cart_product), 
+                        Q(ordered_product__status=SPOrderedProduct.ENABLED) |
+                        Q(stock_adjustment_mapping__stock_adjustment__status=StockAdjustment.ENABLED)).order_by('-expiry_date')
                     available_qty = ordered_product_details.aggregate(available_qty_sum=Sum('available_qty'))['available_qty_sum']
 
                     is_error = False

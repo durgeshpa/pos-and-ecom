@@ -3,6 +3,7 @@ from django.views.generic.base import TemplateView
 from django.http import HttpResponse
 from django.views import View
 from django.shortcuts import get_object_or_404
+from django.contrib import messages
 from shops.models import Shop
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
@@ -108,28 +109,35 @@ class StockAdjustmentView(View):
                 expiry_date = datetime.datetime.today()
                 self.increment_grn_qty(product, manufacture_date, expiry_date, qty)
 
-            adjustment_grn = {}
-
+            adjustment_grn = {
+                'available_qty' : 0,
+                'damaged' : 0
+            }
             if stock_available > product_available:
                 #Create GRN and add in stock adjustment
                 adjustment_grn['available_qty'] = abs(stock_available - product_available)
             
-            if stock_available < product_available:
-                self.decrement_grn_qty(product, db_available_products, abs(stock_available - product_available))
-
             if stock_damaged > product_damaged:
                 adjustment_grn['damaged'] = abs(stock_damaged - product_damaged)
             
+            if stock_available < product_available:
+                self.decrement_grn_qty(product, db_available_products, abs(stock_available - product_available))
+
             if stock_damaged < product_damaged:
-                self.decrement_grn_qty(product, db_available_products, abs(stock_available - product_available), True)
+                self.decrement_grn_qty(product, db_available_products, abs(stock_damaged - product_damaged), True)
             # Creating Fresh GRN 
-            if adjustment_grn.get('available_qty',0) > 0 or adjustment_grn.get('damaged',0) > 0:
+            if adjustment_grn['available_qty'] > 0 or adjustment_grn['damaged'] > 0:
                 manufacture_date = datetime.datetime.today()
                 expiry_date = datetime.datetime.today() + datetime.timedelta(days=180)
                 self.increment_grn_qty(product, manufacture_date, expiry_date, adjustment_grn['available_qty'], adjustment_grn['damaged'])
+        messages.success(self.request, 'Stock Updated .')
 
     def decrement_grn_qty(self, product, grn_queryset, qty, is_damaged=False):
         adjust_qty = qty
+        if is_damaged:
+            grn_queryset = grn_queryset.filter(damaged_qty__gt = 0).order_by('-expiry_date')
+        else:
+            grn_queryset = grn_queryset.filter(available_qty__gt = 0).order_by('-expiry_date')
         for grn in grn_queryset:
             if is_damaged:
                 if grn.damaged_qty >= qty:
@@ -137,32 +145,22 @@ class StockAdjustmentView(View):
                 else:
                     grn_deduct = grn.damaged_qty
                 grn.damaged_qty -= grn_deduct
-                qty -= grn_deduct
-                grn.save()
-                StockAdjustmentMapping.objects.create(
-                    stock_adjustment = self.stock_adjustment,
-                    grn_product = grn,
-                    adjustment_type = StockAdjustmentMapping.DECREMENT,
-                    adjustment_qty = grn_deduct
-                )
-                if qty <= 0:
-                    return
             else:
                 if grn.available_qty >= qty:
                     grn_deduct = qty
                 else:
                     grn_deduct = grn.available_qty
                 grn.available_qty -= grn_deduct
-                qty -= grn_deduct
-                grn.save()
-                StockAdjustmentMapping.objects.create(
-                    stock_adjustment = self.stock_adjustment,
-                    grn_product = grn,
-                    adjustment_type = StockAdjustmentMapping.DECREMENT,
-                    adjustment_qty = grn_deduct
-                )
-                if qty <= 0:
-                    return
+            qty -= grn_deduct
+            grn.save()
+            StockAdjustmentMapping.objects.create(
+                stock_adjustment = self.stock_adjustment,
+                grn_product = grn,
+                adjustment_type = StockAdjustmentMapping.DECREMENT,
+                adjustment_qty = grn_deduct
+            )
+            if qty <= 0:
+                return
 
     def increment_grn_qty(self, product, manufacture_date, expiry_date, qty, damaged=0):
         adjustment_grn = OrderedProductMapping.objects.create(

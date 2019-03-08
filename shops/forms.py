@@ -5,6 +5,8 @@ from django.utils.translation import gettext_lazy as _
 from dal import autocomplete
 import csv
 import codecs
+from products.models import Product, ProductPrice
+import re
 
 
 class ParentRetailerMappingForm(forms.ModelForm):
@@ -58,7 +60,7 @@ class StockAdjustmentUploadForm(forms.Form):
                 raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | Product Id required")
             else:
                 try:
-                    Product.objects.get(pk=row[1])
+                    Product.objects.get(product_gf_code=row[0])
                 except:
                     raise ValidationError(_('INVALID_PRODUCT_ID at Row[%(value)s]'), params={'value': id+1},)
 
@@ -71,5 +73,5 @@ class StockAdjustmentUploadForm(forms.Form):
             if not row[3] or not re.match("^[\d]*$", row[3]):
                 raise ValidationError(_('INVALID_EXPIRED_QTY at Row[%(value)s]. It should be numeric'),params={'value': id + 1}, )
 
-        return self.cleaned_data['file']
+        return self.cleaned_data['upload_file']
 
