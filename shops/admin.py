@@ -2,7 +2,7 @@ import csv
 from django.contrib import admin
 from .models import (
     Shop, ShopType, RetailerType, ParentRetailerMapping,
-    ShopPhoto, ShopDocument, ShopInvoicePattern, ShopStockAdjustment
+    ShopPhoto, ShopDocument, ShopInvoicePattern, ShopAdjustmentFile
 )
 from addresses.models import Address
 from .forms import ParentRetailerMappingForm,ShopParentRetailerMappingForm
@@ -217,11 +217,11 @@ class ParentRetailerMappingAdmin(admin.ModelAdmin):
     class Media:
         pass
 
-class ShopStockAdjustmentAdmin(admin.ModelAdmin):
+class ShopAdjustmentFileAdmin(admin.ModelAdmin):
     list_display = ('shop','stock_adjustment_file','created_by','created_at',)
 
 admin.site.register(ParentRetailerMapping,ParentRetailerMappingAdmin)
 admin.site.register(ShopType)
 admin.site.register(RetailerType)
 admin.site.register(Shop,ShopAdmin)
-admin.site.register(ShopStockAdjustment,ShopStockAdjustmentAdmin)
+admin.site.register(ShopAdjustmentFile,ShopAdjustmentFileAdmin)

@@ -426,7 +426,8 @@ class ReservedOrder(generics.ListAPIView):
                     ordered_product_details = OrderedProductMapping.objects.filter(
                         Q(ordered_product__order__shipping_address__shop_name=parent_mapping.parent) |
                         Q(ordered_product__credit_note__shop=parent_mapping.parent),
-                        product=cart_product.cart_product, ordered_product__status=SPOrderedProduct.ENABLED,expiry_date__gt=today).order_by('expiry_date')
+                        product=cart_product.cart_product, ordered_product__status__in=[SPOrderedProduct.ENABLED,SPOrderedProduct.ADJUSTEMENT],
+                        expiry_date__gt=today).order_by('expiry_date')
                     available_qty = ordered_product_details.aggregate(
                         available_qty_sum=Sum(F('available_qty') - (F('damaged_qty') + F('lossed_qty') + F('perished_qty'))))['available_qty_sum']
 
