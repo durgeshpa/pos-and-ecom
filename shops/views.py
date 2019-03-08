@@ -102,7 +102,7 @@ class ShopMappedProduct(FormView):
 
                 negative = {
                     'product_id': int(row[1]),
-                    'po_qty': int(current_avilable_qty),
+                    'po_qty': int(available_qty_sum)-int(current_avilable_qty),
                 }
                 odr.append(negative)
                 if not negative_adjustment_created:
@@ -112,7 +112,7 @@ class ShopMappedProduct(FormView):
                         status=ShopStockAdjustment.ADJUSTED)
                     negative_adjustment_created = True
                 ShopStockAdjustmentsProductsMapping.objects.create(shop_stock_adjustment=shop_stock_adjustment_n,
-                                                                   product=product_obj,qty=int(current_avilable_qty))
+                                                                   product=product_obj,qty=int(available_qty_sum)-int(current_avilable_qty))
 
         """
         Creating a single po for exceeded qty
@@ -149,8 +149,6 @@ class ShopMappedProduct(FormView):
                 ordered_product_details = OrderedProductMapping.objects.filter(
                     ordered_product__order__shipping_address__shop_name=shop_obj,
                     product__id=int(po_dt['product_id']))
-
-
 
                 for available in ordered_product_details.order_by('expiry_date'):
                     if available_deduct_qty <= 0:
