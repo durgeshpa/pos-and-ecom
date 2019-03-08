@@ -112,7 +112,7 @@ class ShopMappedProduct(FormView):
                         status=ShopStockAdjustment.ADJUSTED)
                     negative_adjustment_created = True
                 ShopStockAdjustmentsProductsMapping.objects.create(shop_stock_adjustment=shop_stock_adjustment_n,
-                                                                   product=product_obj,qty=int(available_qty_sum)-int(current_avilable_qty))
+                                                                   product=product_obj,qty=int(current_avilable_qty))
 
         """
         Creating a single po for exceeded qty
