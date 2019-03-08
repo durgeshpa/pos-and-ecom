@@ -86,7 +86,7 @@ class OrderedProductMappingAdmin(admin.TabularInline):
 
     warehouse_user_fieldset = ['product', 'manufacture_date', 'expiry_date','shipped_qty',]
     delivery_user_fieldset = ['product', 'manufacture_date', 'expiry_date', 'delivered_qty', 'returned_qty',
-                              'damaged_qty', 'available_qty','lossed_qty','perished_qty']
+                              'damaged_qty']
 
     def get_fieldsets(self, request, obj=None, **kwargs):
         if request.user.is_superuser:
