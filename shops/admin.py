@@ -6,6 +6,7 @@ from .models import (
 )
 from addresses.models import Address
 from .forms import ParentRetailerMappingForm,ShopParentRetailerMappingForm
+from .views import StockAdjustmentView
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
 from django.utils.html import format_html
@@ -132,6 +133,19 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(ShopAdmin, self).get_urls()
+        urls = [
+            url(
+                r'^adjust-stock/$',
+                self.admin_site.admin_view(StockAdjustmentView.as_view()),
+                name="StockAdjustment"
+            ),
+        ] + urls
+        return urls
+
 
     def get_queryset(self, request):
         qs = super(ShopAdmin, self).get_queryset(request)

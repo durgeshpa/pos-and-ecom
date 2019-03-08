@@ -185,7 +185,7 @@ class OrderedProduct(models.Model): #GRN
         self.invoice_no = "SP/INVOICE/%s"%(self.pk)
         super(OrderedProduct, self).save()
 
-class OrderedProductMapping(models.Model):
+class OrderedProductMapping(models.Model): #GRN Product
     ordered_product = models.ForeignKey(OrderedProduct,related_name='sp_order_product_order_product_mapping',null=True,blank=True,on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='sp_product_order_product',null=True,blank=True, on_delete=models.CASCADE)
     manufacture_date = models.DateField(null=True, blank=True)
@@ -261,6 +261,34 @@ class SpNote(models.Model):
 
     def __str__(self):
         return self.brand_note_id
+
+class StockAdjustment(models.Model):
+    ENABLED = "ENB"
+    DISABLED = "DIS"
+    STATUS_CHOICES = (
+        (ENABLED, "ENABLED"),
+        (DISABLED, "DISABLED")
+        )
+    shop = models.ForeignKey(Shop, related_name='shop_stock_adjustment', on_delete=models.CASCADE)
+    grn_product = models.ManyToManyField(OrderedProductMapping, related_name='stock_adjustment', through='StockAdjustmentMapping')
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.CharField(max_length=3, choices=STATUS_CHOICES, default=ENABLED)
+
+class StockAdjustmentMapping(models.Model):
+    DECREMENT = "dec"
+    INCREMENT = "inc"
+    ADJUSTMENT_TYPE_CHOICES = (
+        (INCREMENT, "Increment"),
+        (DECREMENT, "Decrement")
+        )
+    stock_adjustment = models.ForeignKey(StockAdjustment, on_delete=models.CASCADE, related_name='stock_adjustment_mapping')
+    grn_product = models.ForeignKey(OrderedProductMapping, on_delete=models.CASCADE, related_name='stock_adjustment_mapping')
+    adjustment_qty = models.PositiveIntegerField()
+    adjustment_type = models.CharField(max_length=5, choices=ADJUSTMENT_TYPE_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
 
 @receiver(pre_save, sender=SpNote)
 def create_brand_note_id(sender, instance=None, created=False, **kwargs):
