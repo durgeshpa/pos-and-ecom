@@ -1,0 +1,229 @@
+
+<!DOCTYPE html>
+
+<html lang="en-us" >
+<head>
+<title>Change Update Delivery/ Returns/ Damage | Admin</title>
+<link rel="stylesheet" type="text/css" href="/static/admin/css/base.css">
+
+    <link rel="stylesheet" type="text/css" href="/static/admin/css/forms.css">
+    <style type="text/css">
+        /* add an asterisk using CSS */
+        .aligned label.required:after {
+          content: '*';
+          color:#ba2121;
+        }
+
+        .hide_input_box {
+            border: none;
+            background-color: white;
+        }
+
+        .ui-select{width: 100%}
+/* This is to remove the arrow of select element in IE */
+.ui-select::-ms-expand {	display: none; }
+.ui-select {
+    -webkit-appearance: none;
+    appearance: none;
+}
+@-moz-document url-prefix(){
+	.ui-select{border: 1px solid #CCC; border-radius: 4px; box-sizing: border-box; position: relative; overflow: hidden;}
+  .ui-select { width: 110%; background-position: right 30px center !important; border: none !important;}
+}
+
+    </style>
+
+  <script
+    src="https://code.jquery.com/jquery-2.1.1.js"></script>  {{ form.media }}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/css/select2.min.css">
+<!--<script type="text/javascript" src="/admin/jsi18n/"></script>-->
+<!--<script type="text/javascript" src="/static/admin/js/vendor/jquery/jquery.js"></script>-->
+<!--<script type="text/javascript" src="/static/admin/js/jquery.init.js"></script>-->
+<!--<script type="text/javascript" src="/static/admin/js/core.js"></script>-->
+<!--<script type="text/javascript" src="/static/admin/js/admin/RelatedObjectLookups.js"></script>-->
+<!--<script type="text/javascript" src="/static/admin/js/actions.js"></script>-->
+<!--<script type="text/javascript" src="/static/admin/js/urlify.js"></script>-->
+<!--<script type="text/javascript" src="/static/admin/js/prepopulate.js"></script>-->
+<!--<script type="text/javascript" src="/static/admin/js/vendor/xregexp/xregexp.js"></script>-->
+<!--<script type="text/javascript" src="/static/admin/js/inlines.js"></script>-->
+
+
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="/static/admin/css/responsive.css">
+
+
+<meta name="robots" content="NONE,NOARCHIVE">
+</head>
+
+
+<body class=" app-retailer_to_sp model-orderedproduct change-form"
+  data-admin-utc-offset="19800">
+
+<!-- Container -->
+<div id="container">
+
+
+    <!-- Header -->
+    <div id="header">
+        <div id="branding">
+
+<h1 id="site-name">
+    <a href="/admin/">
+        <img src="/static/admin/img/logo-1.png" height="40px" />
+    </a>
+</h1>
+
+        </div>
+
+
+        <div id="user-tools">
+
+                Welcome,
+                <strong>{% firstof user.get_short_name user.get_username %}</strong>.
+
+
+
+                    <a href="/">View site</a> /
+
+
+
+
+
+
+                <a href="/admin/password_change/">Change password</a> /
+
+                <a href="/admin/logout/">Log out</a>
+
+        </div>
+
+
+
+    </div>
+    <!-- END Header -->
+
+<div class="breadcrumbs">
+<a href="/admin/">Home</a>
+&rsaquo; <a href="/admin/shops/">Shops</a>
+&rsaquo; <a href="/admin/shops/shop/adjust-stock/">Stock Adjustment</a>
+</div>
+
+
+
+
+
+
+
+    <!-- Content -->
+    <div id="content" class="colM">
+
+        <h1>Stock Adjustment</h1>
+        <div id="content-main">
+
+
+  <ul class="object-tools">
+
+
+
+<!--<li>-->
+
+    <!--<a href="/admin/retailer_to_sp/orderedproduct/119/history/" class="historylink">History</a>-->
+<!--</li>-->
+
+
+
+
+  </ul>
+
+
+<form method="post" enctype="multipart/form-data">
+<div>
+
+
+
+
+
+
+
+  <fieldset class="module aligned ">
+
+  {% csrf_token %}
+<hr>
+      <br>
+
+      {% if form.errors %}
+            {% for field in form %}
+                {% for error in field.errors %}
+                <p class="errornote">{{ error|escape }}</p>
+            {% endfor %}
+                {% endfor %}
+          {% for error in form.non_field_errors %}
+            <p class="errornote">{{ error|escape }}</p>
+          {% endfor %}
+      {% endif %}
+{{form.management_form}}
+  {{form.as_p}}
+
+
+</fieldset>
+
+<div class="submit-row">
+
+<input type="submit" value="Save" class="default" name="_save">
+
+
+    {# <p class="deletelink-box"><a href="/admin/retailer_to_sp/shipment/" class="deletelink">Back</a></p> #}
+
+
+
+
+</div>
+
+
+
+</div>
+</form></div>
+
+
+        <br class="clear">
+    </div>
+    <!-- END Content -->
+
+    <div id="footer"></div>
+</div>
+<!-- END Container -->
+
+</body>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/js/select2.min.js'></script>
+
+<script>
+$(document).ready(function(){
+$("input[id$='ordered_qty']").css('border', 'none');
+$("input[id$='already_shipped_qty']").css('border', 'none');
+
+  $("input[id$='ordered_qty']").attr("readOnly", true);
+  $("input[id$='already_shipped_qty']").attr("readOnly", true);
+  $('select#id_order').select2({width: '50%'});
+     // $('select#id_shipment_status').val("PLANNING").attr("disabled", true);
+    $('select#id_shipment_status').select2({width: '50%'});
+
+  $("select[id$='product']").attr("disabled", true);
+
+    $("select#id_order").change(function(){
+        $("#submitbutton").hide();
+        $("table").html('Loading! Please wait...');
+         var selectedOrder= $(this).children("option:selected").val();
+         var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '')+'/';
+         var url = host + 'admin/retailer_to_sp/cart/order-product-mapping-shipment/?order_id=' + selectedOrder;
+         location.href=url;
+        });
+
+});
+jQuery(function ($) {
+  $('form').bind('submit', function () {
+    $("select[id$='product']").attr("disabled", false);
+      $('select#id_shipment_status').attr("disabled", false);
+    $(this).find(':input').prop('disabled', false);
+  });
+});
+</script>
+</html>
