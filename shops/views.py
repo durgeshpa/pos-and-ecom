@@ -125,7 +125,6 @@ class ShopMappedProduct(FormView):
                 order=last_order,
                 last_modified_by=self.request.user,
             )
-            ordered_cart__gf_shipping_address__shop_name
 
             for po_dt in grn:
                 product_obj = Product.objects.get(id=int(po_dt['product_id']))
