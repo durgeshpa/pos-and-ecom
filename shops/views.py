@@ -89,8 +89,10 @@ class ShopMappedProduct(FormView):
                 }
                 grn.append(posative)
                 if not posative_adjustment_created:
-                    shop_stock_adjustment_p = ShopStockAdjustment.objects.create(shop_adjustment_file=shop_adjustment_file,
-                        adjustment_type=ShopStockAdjustment.POSITIVE)
+                    shop_stock_adjustment_p = ShopStockAdjustment.objects.create(
+                        shop_adjustment_file=shop_adjustment_file,
+                        adjustment_type=ShopStockAdjustment.POSITIVE,
+                        status=ShopStockAdjustment.ADJUSTED)
                     posative_adjustment_created = True
                 ShopStockAdjustmentsProductsMapping.objects.create(shop_stock_adjustment=shop_stock_adjustment_p,
                                                                    product=product_obj, qty=int(current_avilable_qty)-int(available_qty_sum))
@@ -106,7 +108,8 @@ class ShopMappedProduct(FormView):
                 if not negative_adjustment_created:
                     shop_stock_adjustment_n = ShopStockAdjustment.objects.create(
                         shop_adjustment_file=shop_adjustment_file,
-                        adjustment_type=ShopStockAdjustment.NEGATIVE)
+                        adjustment_type=ShopStockAdjustment.NEGATIVE,
+                        status=ShopStockAdjustment.ADJUSTED)
                     negative_adjustment_created = True
                 ShopStockAdjustmentsProductsMapping.objects.create(shop_stock_adjustment=shop_stock_adjustment_n,
                                                                    product=product_obj,qty=int(available_qty_sum)-int(current_avilable_qty))
