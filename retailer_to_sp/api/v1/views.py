@@ -441,6 +441,7 @@ class ReservedOrder(generics.ListAPIView):
                                 break
 
                             # Todo available_qty replace to sp_available_qty
+
                             if product_detail.available_qty >= remaining_amount:
                                 deduct_qty = remaining_amount
                             else:
@@ -459,8 +460,13 @@ class ReservedOrder(generics.ListAPIView):
                         serializer = CartSerializer(cart,context={'parent_mapping_id': parent_mapping.parent.id})
                         msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                     else:
-                        release_blocking(parent_mapping, cart.id)
                         msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
+                        if int(available_qty) < ordered_amount:
+                            cart_product.qty_error_msg = ERROR_MESSAGES['AVAILABLE_PRODUCT'].format(int(available_qty))
+                            cart_product.save()
+                            serializer = CartSerializer(cart,context={'parent_mapping_id': parent_mapping.parent.id})
+                            msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
+                        release_blocking(parent_mapping, cart.id)
                         return Response(msg, status=status.HTTP_200_OK)
                 if CartProductMapping.objects.filter(cart=cart).count() <= 0:
                     msg = {'is_success': False, 'message': ['No product is available in cart'],
@@ -803,7 +809,7 @@ class DownloadInvoiceSP(APIView):
 
                 get_tax_val = tax_sum/100
                 basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
-                base_price = (float(product_pro_price_ptr) * float(m.shipped_qty) * float(m.product.product_inner_case_size)) / (float(get_tax_val) + 1)
+                base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
                 product_tax_amount = float(base_price) * float(get_tax_val)
                 product_tax_amount = round(product_tax_amount,2)
 
@@ -815,10 +821,10 @@ class DownloadInvoiceSP(APIView):
                 "product_mrp": product_pro_price_mrp,
                 "shipped_qty": m.shipped_qty,
                 "product_inner_case_size": m.product.product_inner_case_size,
-                "product_no_of_pices": int(m.product.product_inner_case_size) * int(m.shipped_qty) ,
+                "product_no_of_pices": int(m.shipped_qty) ,
                 "basic_rate" : basic_rate,
                 "price_to_retailer":  product_pro_price_ptr,
-                "product_sub_total": float(m.product.product_inner_case_size) * float(m.shipped_qty) * float(product_pro_price_ptr),
+                "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr),
                 "product_tax_amount": product_tax_amount,
 
             }
@@ -827,9 +833,9 @@ class DownloadInvoiceSP(APIView):
             # New Code For Product Listing End
 
 
-            sum_qty = sum_qty + int(m.product.product_inner_case_size) * int(m.shipped_qty)
-            sum_amount += (int(m.product.product_inner_case_size) * int(m.shipped_qty) * product_pro_price_ptr)
-            inline_sum_amount = (int(m.product.product_inner_case_size) * int(m.shipped_qty) * product_pro_price_ptr)
+            sum_qty = sum_qty +  int(m.shipped_qty)
+            sum_amount += (int(m.shipped_qty) * product_pro_price_ptr)
+            inline_sum_amount = (int(m.shipped_qty) * product_pro_price_ptr)
 
             for n in m.product.product_pro_tax.all():
 
