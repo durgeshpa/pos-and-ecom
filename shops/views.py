@@ -22,6 +22,7 @@ class ShopMappedProduct(TemplateView):
     def get_context_data(self, **kwargs):
         shop_obj = get_object_or_404(Shop, pk=self.kwargs.get('pk'))
         context = super().get_context_data(**kwargs)
+        context['shop'] = shop_obj
         if shop_obj.shop_type.shop_type=='gf':
             grn_product = GRNOrderProductMapping.objects.filter(grn_order__order__ordered_cart__gf_shipping_address__shop_name=shop_obj)
             product_sum = grn_product.values('product','product__product_name', 'product__product_gf_code').annotate(product_qty_sum=Sum('available_qty'))
@@ -58,13 +59,41 @@ class ShopRetailerAutocomplete(autocomplete.Select2QuerySetView):
             qs = qs.filter(Q(shop_owner__phone_number__icontains=self.q) | Q(shop_name__icontains=self.q))
         return qs
 
+def stock_adjust_sample(request, shop_id):
+    filename = "stock_correction_upload_sample.csv"
+    shop = Shop.objects.get(pk=shop_id)
+    sp_grn_product = OrderedProductMapping.objects.filter(
+            Q(ordered_product__order__ordered_cart__shop=shop) |
+            Q(ordered_product__credit_note__shop=shop) |
+            Q(stock_adjustment_mapping__stock_adjustment__shop=shop),
+            Q(ordered_product__status=OrderedProduct.ENABLED) | 
+            Q(stock_adjustment_mapping__stock_adjustment__status=StockAdjustment.ENABLED),
+            )
+    db_available_products = sp_grn_product.filter(expiry_date__gt = datetime.datetime.today())
+    db_expired_products = sp_grn_product.exclude(expiry_date__gt = datetime.datetime.today())
+
+    products_available = db_available_products.values('product','product__product_name', 'product__product_gf_code').annotate(product_qty_sum=Sum('available_qty')).annotate(damaged_qty_sum=Sum('damaged_qty'))
+    products_expired = db_expired_products.values('product','product__product_name', 'product__product_gf_code').annotate(product_qty_sum=Sum('available_qty'))
+    expired_products = {}
+    for product in products_expired:
+        expired_products[product['product__product_gf_code']] = product['product_qty_sum']
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow(['product_gf_code','Available','Damaged','Expired'])
+    for product in products_available:
+        expired_product = expired_products[product['product__product_gf_code']]
+        writer.writerow([product['product__product_gf_code'],product['product_qty_sum'],product['damaged_qty_sum'],expired_product])
+    return response
+
 class StockAdjustmentView(View):
     template_name = 'admin/shop/upload_stock_adjustment.html'
-    def get(self, request):
-        form = StockAdjustmentUploadForm()
-        return render(request, self.template_name, {'form': form})
+    def get(self, request, shop_id):
+        shop = Shop.objects.get(pk=shop_id)
+        form = StockAdjustmentUploadForm(initial={'shop':shop})
+        return render(request, self.template_name, {'form': form, 'shop':shop})
 
-    def post(self,request):
+    def post(self,request, shop_id):
         form = StockAdjustmentUploadForm(request.POST, request.FILES)
         if form.is_valid():
             self.handle_uploaded_file(request.POST.get('shop'), request.FILES['upload_file'])

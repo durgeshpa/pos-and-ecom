@@ -6,7 +6,7 @@ from .models import (
 )
 from addresses.models import Address
 from .forms import ParentRetailerMappingForm,ShopParentRetailerMappingForm
-from .views import StockAdjustmentView
+from .views import StockAdjustmentView, stock_adjust_sample
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
 from django.utils.html import format_html
@@ -139,9 +139,14 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
         urls = super(ShopAdmin, self).get_urls()
         urls = [
             url(
-                r'^adjust-stock/$',
+                r'^adjust-stock/(?P<shop_id>\w+)/$',
                 self.admin_site.admin_view(StockAdjustmentView.as_view()),
                 name="StockAdjustment"
+            ),
+            url(
+                r'^adjust-stock-sample/(?P<shop_id>\w+)/$',
+                self.admin_site.admin_view(stock_adjust_sample),
+                name="ShopStocks"
             ),
         ] + urls
         return urls
