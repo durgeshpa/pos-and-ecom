@@ -94,12 +94,13 @@ class StockAdjustmentView(View):
         return render(request, self.template_name, {'form': form, 'shop':shop})
 
     def post(self,request, shop_id):
+        shop = Shop.objects.get(pk=shop_id)
         form = StockAdjustmentUploadForm(request.POST, request.FILES)
         if form.is_valid():
             self.handle_uploaded_file(request.POST.get('shop'), request.FILES['upload_file'])
             form = StockAdjustmentUploadForm()
-            return render(request, self.template_name, {'form': form})
-        return render(request, self.template_name, {'form': form})
+            return render(request, self.template_name, {'form': form, 'shop':shop})
+        return render(request, self.template_name, {'form': form, 'shop':shop})
 
     def handle_uploaded_file(self, shop_id, f):
         reader = csv.reader(codecs.iterdecode(f, 'utf-8'))
