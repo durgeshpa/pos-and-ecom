@@ -34,6 +34,8 @@ from addresses.models import Address
 from retailer_backend.common_function import getShopMapping,checkNotShopAndMapping,getShop
 from retailer_backend.messages import ERROR_MESSAGES
 from django.contrib.postgres.search import SearchVector
+today = datetime.today()
+
 
 class ProductsList(generics.ListCreateAPIView):
     permission_classes = (AllowAny,)
@@ -76,7 +78,6 @@ class GramGRNProductsList(APIView):
         cart_check = False
         is_store_active = True
         sort_preference = request.data.get('sort_by_price')
-        today = datetime.today()
 
         '''1st Step
             Check If Shop Is exists then 2nd pt else 3rd Pt
@@ -420,11 +421,15 @@ class ReservedOrder(generics.ListAPIView):
                 cart_products = CartProductMapping.objects.filter(cart=cart)
 
                 for cart_product in cart_products:
+
+                    #Exclude expired
                     ordered_product_details = OrderedProductMapping.objects.filter(
                         Q(ordered_product__order__shipping_address__shop_name=parent_mapping.parent) |
                         Q(ordered_product__credit_note__shop=parent_mapping.parent),
-                        product=cart_product.cart_product, ordered_product__status=SPOrderedProduct.ENABLED).order_by('-expiry_date')
-                    available_qty = ordered_product_details.aggregate(available_qty_sum=Sum('available_qty'))['available_qty_sum']
+                        product=cart_product.cart_product, ordered_product__status__in=[SPOrderedProduct.ENABLED,SPOrderedProduct.ADJUSTEMENT],
+                        expiry_date__gt=today).order_by('expiry_date')
+                    available_qty = ordered_product_details.aggregate(
+                        available_qty_sum=Sum(F('available_qty') - (F('damaged_qty') + F('lossed_qty') + F('perished_qty'))))['available_qty_sum']
 
                     is_error = False
                     ordered_amount = int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size)
@@ -434,6 +439,8 @@ class ReservedOrder(generics.ListAPIView):
                         for product_detail in ordered_product_details:
                             if remaining_amount <=0:
                                 break
+
+                            # Todo available_qty replace to sp_available_qty
 
                             if product_detail.available_qty >= remaining_amount:
                                 deduct_qty = remaining_amount
