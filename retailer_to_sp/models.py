@@ -14,7 +14,7 @@ from retailer_backend.common_function import (
     order_id_pattern, brand_credit_note_pattern, getcredit_note_id,
     retailer_sp_invoice
 )
-from shops.models import Shop
+from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
 from products.models import Product, ProductPrice
@@ -47,11 +47,6 @@ NOTE_TYPE_CHOICES = (
 PAYMENT_MODE_CHOICES = (
     ("cash_on_delivery", "Cash On Delivery"),
     ("neft", "NEFT"),
-)
-
-PAYMENT_STATUS = (
-    ("done", "Done"),
-    ("pending", "Pending"),
 )
 
 MESSAGE_STATUS = (
@@ -136,11 +131,11 @@ class Order(models.Model):
         (OPDP, "Order Placed Dispatch Pending"),
     )
     seller_shop = models.ForeignKey(
-        Shop, related_name='rt_seller_shop_order',
+        ShopNameDisplay, related_name='rt_seller_shop_order',
         null=True, blank=True, on_delete=models.CASCADE
     )
     buyer_shop = models.ForeignKey(
-        Shop, related_name='rt_buyer_shop_order',
+        ShopNameDisplay, related_name='rt_buyer_shop_order',
         null=True, blank=True, on_delete=models.CASCADE
     )
     ordered_cart = models.ForeignKey(
@@ -173,15 +168,6 @@ class Order(models.Model):
         get_user_model(), related_name='rt_order_modified_user',
         null=True, blank=True, on_delete=models.CASCADE
     )
-    payment_mode = models.CharField(
-        max_length=255, choices=PAYMENT_MODE_CHOICES
-    )
-    reference_no = models.CharField(max_length=255, null=True, blank=True)
-    payment_amount = models.FloatField(default=0)
-    payment_status = models.CharField(
-        max_length=255, choices=PAYMENT_STATUS,
-        null=True, blank=True
-    )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -190,6 +176,31 @@ class Order(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+    def payments(self):
+        payment_mode = []
+        payment_amount = []
+        payments = self.rt_payment.all()
+        if payments:
+            for payment in payments:
+                payment_mode.append(payment.get_payment_choice_display())
+                payment_amount.append(float(payment.paid_amount))
+        return payment_mode, payment_amount
+
+    @property
+    def payment_mode(self):
+        payment_mode, _ = self.payments()
+        return payment_mode
+
+    @property
+    def paid_amount(self):
+        _, payment_amount = self.payments()
+        return payment_amount
+
+    @property
+    def total_paid_amount(self):
+        _, payment_amount = self.payments()
+        return sum(payment_amount)
 
 
 class Trip(models.Model):
@@ -296,14 +307,22 @@ class OrderedProduct(models.Model):
             return str("%s, %s(%s)") % (shop_name, address_line, contact)
         return str("-")
 
-    @property
-    def payment_mode(self):
+    def payments(self):
+        payment_mode = []
+        payment_amount = []
         order = self.order
         if order:
-            payment_mode = order.payment_mode
-            if payment_mode:
-                return str(payment_mode)
-        return str("-")
+            payments = order.rt_payment.all()
+            if payments:
+                for payment in payments:
+                    payment_mode.append(payment.get_payment_choice_display())
+                    payment_amount.append(float(payment.paid_amount))
+            return payment_mode, payment_amount
+
+    @property
+    def payment_mode(self):
+        payment_mode, _ = self.payments()
+        return payment_mode
 
     @property
     def invoice_city(self):
@@ -321,7 +340,7 @@ class OrderedProduct(models.Model):
                     shop=seller_shop, product=product.product, status=True
                 ).last().price_to_retailer
                 shipped_qty = product.shipped_qty
-                amount = shipped_qty * product_price
+                amount = round(shipped_qty * product_price, 2)
                 total_amount.append(amount)
             return str(sum(total_amount))
         return str("-")
@@ -660,6 +679,3 @@ class Note(models.Model):
 #         rt_order_product_order_product_mapping.all()
 #     import pdb;pdb.set_trace()
 #     shipment_status =  instance.ordered_product.shipment_status
-
-
-
