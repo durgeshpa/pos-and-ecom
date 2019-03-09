@@ -299,7 +299,7 @@ def create_credit_note(instance=None, created=False, **kwargs):
         return None
     if instance.rt_order_product_order_product_mapping.last() and instance.rt_order_product_order_product_mapping.all().aggregate(Sum('returned_qty')).get('returned_qty__sum') > 0:
         invoice_prefix = instance.order.seller_shop.invoice_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
-        last_credit_note = CreditNote.objects.filter(shop=instance.order.seller_shop).order_by('credit_note_id').last()
+        last_credit_note = CreditNote.objects.filter(shop=instance.order.seller_shop, status=True).order_by('credit_note_id').last()
         if last_credit_note:
             note_id = int(getcredit_note_id(last_credit_note.credit_note_id, invoice_prefix))
             note_id += 1
