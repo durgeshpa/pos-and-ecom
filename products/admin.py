@@ -188,7 +188,8 @@ class ProductTaxInlineFormSet(BaseInlineFormSet):
               if form.cleaned_data.get('tax').tax_type in tax_list_type:
                   raise ValidationError('{} type tax can be filled only once'.format(form.cleaned_data.get('tax').tax_type))
               tax_list_type.append(form.cleaned_data.get('tax').tax_type)
-
+      if 'gst' not in tax_list_type:
+          raise ValidationError('Please fill the GST tax value')
 
 class ProductTaxMappingAdmin(admin.TabularInline):
     model = ProductTaxMapping

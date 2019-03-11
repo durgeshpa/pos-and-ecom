@@ -14,7 +14,7 @@ from retailer_backend.common_function import (
     order_id_pattern, brand_credit_note_pattern, getcredit_note_id,
     retailer_sp_invoice
 )
-from shops.models import Shop
+from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
 from products.models import Product,ProductPrice
@@ -49,11 +49,6 @@ PAYMENT_MODE_CHOICES = (
     ("neft", "NEFT"),
 )
 
-PAYMENT_STATUS = (
-    ("done", "Done"),
-    ("pending", "Pending"),
-)
-
 MESSAGE_STATUS = (
     ("pending", "Pending"),
     ("resolved", "Resolved"),
@@ -69,6 +64,8 @@ TRIP_STATUS = (
     ('CANCELLED', 'Cancelled'),
     ('STARTED', 'Started'),
     ('COMPLETED', 'Completed')
+#   ('READY_FOR_COMMERCIAL', 'Ready for commercial'),
+#   ('CLOSED', 'Closed')
 )
 
 
@@ -145,6 +142,8 @@ class Order(models.Model):
     PENDING = 'pending'
     DELETED = 'deleted'
     ORDERED = 'ordered'
+    PAYMENT_DONE_APPROVAL_PENDING = 'payment_done_approval_pending'
+    OPDP = 'opdp'
     DISPATCHED = 'dispatched'
     PARTIAL_DELIVERED = 'p_delivered'
     DELIVERED = 'delivered'
@@ -153,6 +152,8 @@ class Order(models.Model):
     ORDER_PLACED_DISPATCH_PENDING = 'opdp'
 
     ORDER_STATUS = (
+        (ORDERED, 'Order Placed'),
+        ('DISPATCH_PENDING', 'Dispatch Pending'),
         (ACTIVE, "Active"),
         (PENDING, "Pending"),
         (DELETED, "Deleted"),
@@ -168,16 +169,18 @@ class Order(models.Model):
         ('SHIPPED', 'Shipped'),
         ('CANCELLED', 'Cancelled'),
         ('DENIED', 'Denied'),
+        (PAYMENT_DONE_APPROVAL_PENDING, "Payment Done Approval Pending"),
+        (OPDP, "Order Placed Dispatch Pending"),
 
     )
     #Todo Remove
     seller_shop = models.ForeignKey(
-        Shop, related_name='rt_seller_shop_order',
+        ShopNameDisplay, related_name='rt_seller_shop_order',
         null=True, blank=True, on_delete=models.CASCADE
     )
     #Todo Remove
     buyer_shop = models.ForeignKey(
-        Shop, related_name='rt_buyer_shop_order',
+        ShopNameDisplay, related_name='rt_buyer_shop_order',
         null=True, blank=True, on_delete=models.CASCADE
     )
     ordered_cart = models.OneToOneField(
@@ -210,15 +213,6 @@ class Order(models.Model):
         get_user_model(), related_name='rt_order_modified_user',
         null=True, blank=True, on_delete=models.CASCADE
     )
-    payment_mode = models.CharField(
-        max_length=255, choices=PAYMENT_MODE_CHOICES
-    )
-    reference_no = models.CharField(max_length=255, null=True, blank=True)
-    payment_amount = models.FloatField(default=0)
-    payment_status = models.CharField(
-        max_length=255, choices=PAYMENT_STATUS,
-        null=True, blank=True
-    )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -227,6 +221,31 @@ class Order(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+    def payments(self):
+        payment_mode = []
+        payment_amount = []
+        payments = self.rt_payment.all()
+        if payments:
+            for payment in payments:
+                payment_mode.append(payment.get_payment_choice_display())
+                payment_amount.append(float(payment.paid_amount))
+        return payment_mode, payment_amount
+
+    @property
+    def payment_mode(self):
+        payment_mode, _ = self.payments()
+        return payment_mode
+
+    @property
+    def paid_amount(self):
+        _, payment_amount = self.payments()
+        return payment_amount
+
+    @property
+    def total_paid_amount(self):
+        _, payment_amount = self.payments()
+        return sum(payment_amount)
 
 
 class Trip(models.Model):
@@ -282,6 +301,9 @@ class OrderedProduct(models.Model):
         ('READY_TO_SHIP', 'QC Passed'),
         ('READY_TO_DISPATCH', 'Ready to Dispatch'),
         ('OUT_FOR_DELIVERY', 'Out for Delivery'),
+        ('FULLY_RETURNED_AND_COMPLETED', 'Fully Returned and Completed'),
+        ('PARTIALLY_DELIVERED_AND_COMPLETED', 'Partially Delivered and Completed'),
+        ('FULLY_DELIVERED_AND_COMPLETED', 'Fully Delivered and Completed'),
         ('FULLY_RETURNED_AND_CLOSED', 'Fully Returned and Closed'),
         ('PARTIALLY_DELIVERED_AND_CLOSED', 'Partially Delivered and Closed'),
         ('FULLY_DELIVERED_AND_CLOSED', 'Fully Delivered and Closed'),
@@ -330,14 +352,22 @@ class OrderedProduct(models.Model):
             return str("%s, %s(%s)") % (shop_name, address_line, contact)
         return str("-")
 
-    @property
-    def payment_mode(self):
+    def payments(self):
+        payment_mode = []
+        payment_amount = []
         order = self.order
         if order:
-            payment_mode = order.payment_mode
-            if payment_mode:
-                return str(payment_mode)
-        return str("-")
+            payments = order.rt_payment.all()
+            if payments:
+                for payment in payments:
+                    payment_mode.append(payment.get_payment_choice_display())
+                    payment_amount.append(float(payment.paid_amount))
+            return payment_mode, payment_amount
+
+    @property
+    def payment_mode(self):
+        payment_mode, _ = self.payments()
+        return payment_mode
 
     @property
     def invoice_city(self):
@@ -355,7 +385,7 @@ class OrderedProduct(models.Model):
                     shop=seller_shop, product=product.product, status=True
                 ).last().price_to_retailer
                 shipped_qty = product.shipped_qty
-                amount = shipped_qty * product_price
+                amount = round(shipped_qty * product_price, 2)
                 total_amount.append(amount)
             return str(sum(total_amount))
         return str("-")
@@ -401,15 +431,13 @@ class OrderedProductMapping(models.Model):
         super(OrderedProductMapping, self).clean()
         returned_qty = int(self.returned_qty)
         damaged_qty = int(self.damaged_qty)
-        if returned_qty or damaged_qty:
+        if returned_qty > 0 or damaged_qty > 0:
             already_shipped_qty = int(self.shipped_qty)
             if sum([returned_qty, damaged_qty]) > already_shipped_qty:
                 raise ValidationError(
-                    _('Sum of Returned and Damaged Quantity should be '
-                      'less than Already Shipped Quantity '),
+                    _('Sum of returned and damaged pieces should be '
+                      'less than no. of pieces to ship'),
                 )
-            else:
-                self.delivered_qty = self.shipped_qty - (self.damaged_qty + self.returned_qty)
 
     @property
     def ordered_qty(self):
@@ -696,6 +724,3 @@ class Note(models.Model):
 #         rt_order_product_order_product_mapping.all()
 #     import pdb;pdb.set_trace()
 #     shipment_status =  instance.ordered_product.shipment_status
-
-
-

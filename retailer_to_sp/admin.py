@@ -24,7 +24,8 @@ from .forms import (
     OrderedProductMappingShipmentForm, ShipmentProductMappingForm
     )
 from retailer_to_sp.views import (
-    ordered_product_mapping_shipment, order_invoices, trip_planning, load_dispatches, trip_planning_change
+    ordered_product_mapping_shipment, order_invoices, trip_planning, load_dispatches, trip_planning_change,
+    update_shipment_status, update_order_status, update_delivered_qty
     )
 from sp_to_gram.models import create_credit_note
 
@@ -243,12 +244,15 @@ class ExportCsvMixin:
         return response
     export_as_csv.short_description = "Download CSV of Selected Objects"
 
+
 class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
     actions = ["export_as_csv"]
     resource_class = OrderResource
     search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name',
                     'order_status', 'payment_mode')
-    list_display = ('order_no', 'seller_shop', 'buyer_shop', 'total_final_amount')
+    list_display = ('order_no', 'seller_shop', 'buyer_shop', 'total_final_amount',
+                    'order_status', 'created_at', 'payment_mode', 'paid_amount', 'total_paid_amount', 'download_pick_list')
+    readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount')
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
@@ -307,27 +311,12 @@ class OrderedProductAdmin(admin.ModelAdmin):
 
     def save_related(self, request, form, formsets, change):
         super(OrderedProductAdmin, self).save_related(request, form, formsets, change)
+        update_shipment_status(form, formsets)
+        update_order_status(form)
         create_credit_note(form)
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
-
-    # def save_formset(self, request, form, formset, change):
-    #     instances = formset.save(commit=False)
-    #     for obj in formset.deleted_objects:
-    #         obj.delete()
-    #     shipped_qty_list = []
-    #     returned_qty_list = []
-    #     damaged_qty_list = []
-    #     for instance in instances:
-    #         shipped_qty_list.append(instance.shipped_qty)
-    #         returned_qty_list.append(instance.returned_qty)
-    #         damaged_qty_list.append(instance.damaged_qty)
-    #     shipped_qty = sum(shipped_qty_list)
-    #     returned_qty = sum(returned_qty_list)
-    #     damaged_qty = sum(damaged_qty_list)
-    #     import pdb; pdb.set_trace()
-    #     formset.save_m2m()
 
 
 class DispatchProductMappingAdmin(admin.TabularInline):
@@ -386,6 +375,12 @@ class DispatchAdmin(admin.ModelAdmin):
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
 
+    def get_model_perms(self, request):
+        """
+        Return empty perms dict thus hiding the model from admin index.
+        """
+        return {}
+
 
 class ShipmentProductMappingAdmin(admin.TabularInline):
     model = ShipmentProductMapping
@@ -426,6 +421,11 @@ class ShipmentAdmin(admin.ModelAdmin):
             (reverse('download_invoice_sp', args=[obj.pk]))
         )
     download_invoice.short_description = 'Download Invoice'
+
+    def save_related(self, request, form, formsets, change):
+        super(ShipmentAdmin, self).save_related(request, form, formsets, change)
+        #update_shipment_status(form, formsets)
+        update_order_status(form)
 
 
 class DeliveryBoySearch(InputFilter):
