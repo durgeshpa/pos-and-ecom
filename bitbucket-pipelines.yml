@@ -14,6 +14,8 @@ pipelines:
           script:
             - echo "This script runs only on commit to the master branch."
             - apt-get update
+            - apt-get install -y zip
+            - pip install boto3==1.3.0
             - python codedeploy_deploy.py
 
     dev:
