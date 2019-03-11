@@ -125,6 +125,7 @@ class CartProductMapping(models.Model):
     )
     qty = models.PositiveIntegerField(default=0)
     no_of_pieces = models.PositiveIntegerField(default=0)
+    tax = models.PositiveIntegerField(default=0)
     qty_error_msg = models.CharField(
         max_length=255, null=True,
         blank=True, editable=False

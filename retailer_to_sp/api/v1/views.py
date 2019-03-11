@@ -3,7 +3,7 @@ from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializ
                           OrderSerializer, CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
 
                           GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer )
-from products.models import Product, ProductPrice, ProductOption,ProductImage
+from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
 from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
                                 OrderedProduct as SPOrderedProduct)
 
@@ -295,6 +295,12 @@ class AddToCart(APIView):
                     msg['message'] = ["Product Price not Found"]
                     return Response(msg, status=status.HTTP_200_OK)
 
+                try:
+                    product_tax_obj = ProductTaxMapping.objects.filter(product=product,status=True)
+                except ObjectDoesNotExist:
+                    msg['message'] = ["Product Tax not Found"]
+                    return Response(msg, status=status.HTTP_200_OK)
+
                 if int(qty) == 0:
                     if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
                         CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
@@ -303,6 +309,7 @@ class AddToCart(APIView):
                     cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
                     cart_mapping.qty = qty
                     cart_mapping.cart_product_price = product_price_obj
+                    cart_mapping.tax = product_tax_obj.aggregate(tax=Sum('tax__tax_percentage'))['tax']
                     cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
                     cart_mapping.save()
 
@@ -813,6 +820,13 @@ class DownloadInvoiceSP(APIView):
             product_pro_price_ptr = m.product.product_pro_price.filter(
                 shop=m.ordered_product.order.seller_shop, status=True).last().price_to_retailer
 
+            no_of_pieces = 0
+            cart_qty = 0
+            product_pro_price = m.product.rt_cart_product_mapping.last().cart_product_price.price_to_retailer
+            no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
+            cart_qty = m.product.rt_cart_product_mapping.last().qty
+
+
             all_tax_list = m.product.product_pro_tax
             if all_tax_list.exists():
                 for tax_dt in all_tax_list.all():
@@ -825,6 +839,12 @@ class DownloadInvoiceSP(APIView):
                 base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
                 product_tax_amount = float(base_price) * float(get_tax_val)
                 product_tax_amount = round(product_tax_amount,2)
+
+                tax_sum = round(tax_sum, 2)
+                get_tax_val = tax_sum / 100
+                base_price = (float(product_pro_price) * float(no_of_pieces)) / (float(get_tax_val) + 1)
+                product_tax_amount = float(base_price) * float(get_tax_val)
+                product_tax_amount = round(product_tax_amount, 2)
 
             ordered_prodcut = {
                 "product_sku": m.product.product_gf_code,
@@ -842,6 +862,21 @@ class DownloadInvoiceSP(APIView):
 
             }
 
+            ordered_prodcut = {
+                "product_sku": m.product.product_sku,
+                "product_short_description": m.product.product_short_description,
+                "product_hsn": m.product.product_hsn,
+                "product_tax_percentage": "" if tax_sum == 0 else str(tax_sum) + "%",
+                "shipped_qty": m.shipped_qty,
+                "product_inner_case_size": int(no_of_pieces) // int(cart_qty),
+                "product_no_of_pices": no_of_pieces,
+                "price_to_retailer": product_pro_price,
+                "product_sub_total": float(no_of_pieces) * float(product_pro_price),
+                "product_tax_amount": product_tax_amount,
+
+            }
+
+
             product_listing.append(ordered_prodcut)
             # New Code For Product Listing End
 
@@ -849,6 +884,58 @@ class DownloadInvoiceSP(APIView):
             sum_qty = sum_qty +  int(m.shipped_qty)
             sum_amount += (int(m.shipped_qty) * product_pro_price_ptr)
             inline_sum_amount = (int(m.shipped_qty) * product_pro_price_ptr)
+
+            # New code
+
+
+            product_listing = []
+            for m in products:
+
+                # New Code For Product Listing Start
+                tax_sum = 0
+                product_tax_amount = 0
+                no_of_pieces = 0
+                cart_qty = 0
+                product_pro_price = m.product.rt_cart_product_mapping.last().cart_product_price.price_to_retailer
+                no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
+                cart_qty = m.product.rt_cart_product_mapping.last().qty
+
+                all_tax_list = m.product.product_pro_tax
+                if all_tax_list.exists():
+                    for tax_dt in all_tax_list.all():
+                        tax_sum = float(tax_sum) + float(tax_dt.tax.tax_percentage)
+
+                    tax_sum = round(tax_sum, 2)
+                    get_tax_val = tax_sum / 100
+                    base_price = (float(product_pro_price) * float(no_of_pieces)) / (float(get_tax_val) + 1)
+                    product_tax_amount = float(base_price) * float(get_tax_val)
+                    product_tax_amount = round(product_tax_amount, 2)
+
+                ordered_prodcut = {
+                    "product_sku": m.product.product_sku,
+                    "product_short_description": m.product.product_short_description,
+                    "product_hsn": m.product.product_hsn,
+                    "product_tax_percentage": "" if tax_sum == 0 else str(tax_sum) + "%",
+                    "shipped_qty": m.shipped_qty,
+                    "product_inner_case_size": int(no_of_pieces) // int(cart_qty),
+                    "product_no_of_pices": no_of_pieces,
+                    "price_to_retailer": product_pro_price,
+                    "product_sub_total": float(no_of_pieces) * float(product_pro_price),
+                    "product_tax_amount": product_tax_amount,
+
+                }
+
+                product_listing.append(ordered_prodcut)
+                # New Code For Product Listing End
+
+                sum_qty = sum_qty + int(no_of_pieces)
+                sum_amount += (int(no_of_pieces) * product_pro_price)
+                inline_sum_amount = (int(no_of_pieces) * product_pro_price)
+
+            # New code
+
+
+
 
             for n in m.product.product_pro_tax.all():
 
