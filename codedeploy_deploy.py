@@ -51,31 +51,31 @@ def deploy_new_revision():
     """
     Deploy a new application revision to AWS CodeDeploy Deployment Group
     """
-    try:
-        client = boto3.client('codedeploy')
-    except ClientError as err:
-        print("Failed to create boto3 client.\n" + str(err))
-        return False
+    # try:
+    #     client = boto3.client('codedeploy')
+    # except ClientError as err:
+    #     print("Failed to create boto3 client.\n" + str(err))
+    #     return False
 
-    try:
-        response = client.create_deployment(
-            applicationName=str(os.getenv('APPLICATION_NAME')),
-            deploymentGroupName=str(os.getenv('DEPLOYMENT_GROUP_NAME')),
-            revision={
-                'revisionType': 'S3',
-                's3Location': {
-                    'bucket': os.getenv('S3_BUCKET'),
-                    'key': BUCKET_KEY,
-                    'bundleType': 'zip'
-                }
-            },
-            deploymentConfigName=str(os.getenv('DEPLOYMENT_CONFIG')),
-            description='New deployment from BitBucket',
-            ignoreApplicationStopFailures=True
-        )
-    except ClientError as err:
-        print("Failed to deploy application revision.\n" + str(err))
-        return False     
+    # try:
+    #     response = client.create_deployment(
+    #         applicationName=str(os.getenv('APPLICATION_NAME')),
+    #         deploymentGroupName=str(os.getenv('DEPLOYMENT_GROUP_NAME')),
+    #         revision={
+    #             'revisionType': 'S3',
+    #             's3Location': {
+    #                 'bucket': os.getenv('S3_BUCKET'),
+    #                 'key': BUCKET_KEY,
+    #                 'bundleType': 'zip'
+    #             }
+    #         },
+    #         deploymentConfigName=str(os.getenv('DEPLOYMENT_CONFIG')),
+    #         description='New deployment from BitBucket',
+    #         ignoreApplicationStopFailures=True
+    #     )
+    # except ClientError as err:
+    #     print("Failed to deploy application revision.\n" + str(err))
+    #     return False     
            
     """
     Wait for deployment to complete
@@ -100,8 +100,8 @@ def deploy_new_revision():
     return True
 
 def main():
-    if not upload_to_s3('/tmp/artifact.zip'):
-        sys.exit(1)
+    # if not upload_to_s3('/tmp/artifact.zip'):
+    #     sys.exit(1)
     if not deploy_new_revision():
         sys.exit(1)
 
