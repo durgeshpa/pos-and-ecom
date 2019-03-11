@@ -100,8 +100,8 @@ def deploy_new_revision():
     return True
 
 def main():
-    # if not upload_to_s3('/tmp/artifact.zip'):
-    #     sys.exit(1)
+    if not upload_to_s3('/tmp/artifact.zip'):
+        sys.exit(1)
     if not deploy_new_revision():
         sys.exit(1)
 
