@@ -280,10 +280,20 @@ class AddToCart(APIView):
                     cart = Cart.objects.filter(last_modified_by=self.request.user,
                                                cart_status__in=['active', 'pending']).last()
                     cart.cart_status = 'active'
+                    cart.seller_shop = parent_mapping.parent
+                    cart.buyer_shop = parent_mapping.retailer
                     cart.save()
                 else:
                     cart = Cart(last_modified_by=self.request.user, cart_status='active')
+                    cart.seller_shop = parent_mapping.parent
+                    cart.buyer_shop = parent_mapping.retailer
                     cart.save()
+
+                try:
+                    product_price_obj = ProductPrice.objects.get(product=product,shop=parent_mapping.parent,status=True)
+                except ObjectDoesNotExist:
+                    msg['message'] = ["Product Price not Found"]
+                    return Response(msg, status=status.HTTP_200_OK)
 
                 if int(qty) == 0:
                     if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
@@ -292,7 +302,10 @@ class AddToCart(APIView):
                 else:
                     cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
                     cart_mapping.qty = qty
+                    cart_mapping.cart_product_price = product_price_obj
+                    cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
                     cart_mapping.save()
+
 
                 if cart.rt_cart_list.count() <= 0:
                     msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],'response_data': None}
