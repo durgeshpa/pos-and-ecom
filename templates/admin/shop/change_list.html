@@ -74,6 +74,7 @@
     <button onclick="window.history.back();" class="btn btn-default" type="button">Back</button>
       <div id="content" class="flex" style="border:1px solid">
         <h1>{{ shop.shop_name|title }} Product List</h1>
+        {%  if perms.shops.can_do_reconciliation %}
         <ul class="object-tools">
           <li><a href="{% url 'admin:stock_correction_upload_sample' %}" class="addlink">Get CSV sample</a></li>
         </ul>
@@ -111,7 +112,8 @@
         </script>
 
       </form>
-
+      {% else %}
+      {% endif %}
         <div id="content-main">
           <div class="module filtered" id="changelist">
 
