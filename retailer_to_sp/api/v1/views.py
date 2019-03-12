@@ -161,8 +161,8 @@ class GramGRNProductsList(APIView):
                     if c_p.cart_product_id == p.product_id:
                         user_selected_qty = c_p.qty
             name = p.product.product_name
-            mrp = p.mrp
-            ptr = p.price_to_retailer
+            mrp = round(p.mrp,2) if p.mrp else p.mrp
+            ptr = round(p.price_to_retailer,2) if p.price_to_retailer else p.price_to_retailer
             status = p.product.status
             product_opt = p.product.product_opt_product.all()
             weight_value = None

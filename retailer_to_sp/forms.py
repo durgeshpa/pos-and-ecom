@@ -251,13 +251,13 @@ class TripForm(forms.ModelForm):
         else:
             self.fields['trip_status'].choices = TRIP_STATUS[:1]
 
-    def clean(self):
-        data = self.cleaned_data
-        if data.get('starts_at') and data.get('starts_at') < datetime.datetime.today():
-            raise forms.ValidationError("The Start Date cannot be in the past!")
-        elif data.get('completed_at') and (data.get('completed_at') < data.get('starts_at')):
-            raise forms.ValidationError("Completed Date should be greater than the Start Date")
-        return data
+    # def clean(self):
+    #     data = self.cleaned_data
+    #     if data.get('starts_at') and data.get('starts_at') < datetime.datetime.today():
+    #         raise forms.ValidationError("The Start Date cannot be in the past!")
+    #     elif data.get('completed_at') and (data.get('completed_at') < data.get('starts_at')):
+    #         raise forms.ValidationError("Completed Date should be greater than the Start Date")
+    #     return data
 
 
 class DispatchForm(forms.ModelForm):
