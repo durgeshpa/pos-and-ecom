@@ -8,7 +8,11 @@
 
     <link rel="stylesheet" type="text/css" href="/static/admin/css/forms.css">
     <style type="text/css">
+
         /* add an asterisk using CSS */
+        .required {
+            color:#ba2121;
+        }
         .aligned label.required:after {
           content: '*';
           color:#ba2121;
@@ -164,7 +168,10 @@
     {{ hidden }}
 {% endfor %}
 {% for field in form.visible_fields %}
-    <p><label for="{{ field.auto_id }}">{{field.label}}:</label>{{ field.errors }}{{ field }}</p>
+    <p><label for="{{ field.auto_id }}">{{field.label}}:    {% if field.field.required %}
+        <span class="required">*</span>
+    {% endif %}
+    </label>{{ field.errors }}{{ field }}</p>
     {{ field.widget.attrs.id }}
       {% endfor %}
 
@@ -285,7 +292,7 @@
 $(document).ready(function(){
 
     $('#id_seller_shop, #id_delivery_boy').select2();
-    $("#id_starts_at, #id_completed_at").flatpickr(
+    $(":input:not([type=hidden]) #id_starts_at,:input:not([type=hidden]) #id_completed_at").flatpickr(
         {
             enableTime: true,
             dateFormat: "Y-m-d H:i",

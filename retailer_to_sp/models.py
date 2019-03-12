@@ -216,7 +216,7 @@ class Trip(models.Model):
     vehicle_no = models.CharField(max_length=50)
     trip_status = models.CharField(max_length=100, choices=TRIP_STATUS)
     e_way_bill_no = models.CharField(max_length=50, blank=True, null=True)
-    starts_at = models.DateTimeField()
+    starts_at = models.DateTimeField(blank=True, null=True)
     completed_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -242,12 +242,23 @@ class Trip(models.Model):
                 dispatch_attempt = 1
             final_dispatch_no = "%s/%s/%s" % ('DIS', shop_id_date, dispatch_attempt)
             self.dispatch_no = final_dispatch_no
+        if self.trip_status == 'STARTED':
+            self.starts_at = datetime.datetime.now()
+        elif self.trip_status == 'COMPLETED':
+            self.completed_at = datetime.datetime.now()
         super().save(*args, **kwargs)
 
     def dispathces(self):
         return mark_safe("<a href='/admin/retailer_to_sp/cart/trip-planning/%s/change/'>%s<a/>" % (self.pk,
                                                                                                    self.dispatch_no)
                          )
+
+    @property
+    def current_trip_status(self):
+        trip_status = self.trip_status
+        if trip_status:
+            return str(self.get_trip_status_display())
+        return str("-------")
 
 
 class OrderedProduct(models.Model):
@@ -336,12 +347,13 @@ class OrderedProduct(models.Model):
             seller_shop = self.order.seller_shop
             ordered_products = self.rt_order_product_order_product_mapping.all()
             for product in ordered_products:
-                product_price = ProductPrice.objects.filter(
-                    shop=seller_shop, product=product.product, status=True
-                ).last().price_to_retailer
-                shipped_qty = product.shipped_qty
-                amount = shipped_qty * product_price
-                total_amount.append(amount)
+                if product.product:
+                    product_price = ProductPrice.objects.filter(
+                        shop=seller_shop, product=product.product, status=True
+                    ).last().price_to_retailer
+                    shipped_qty = product.shipped_qty
+                    amount = shipped_qty * product_price
+                    total_amount.append(amount)
             return str(sum(total_amount))
         return str("-")
 
@@ -415,6 +427,18 @@ class OrderedProductMapping(models.Model):
         return already_shipped_qty if already_shipped_qty else 0
 
     @property
+    def to_be_shipped_qty(self):
+        all_ordered_product = self.ordered_product.order.rt_order_order_product.all()
+        all_ordered_product_exclude_current = all_ordered_product.exclude(id=self.ordered_product_id)
+        to_be_shipped_qty = OrderedProductMapping.objects.filter(
+            ordered_product__in=all_ordered_product_exclude_current,
+            product=self.product).aggregate(
+            Sum('shipped_qty')).get('shipped_qty__sum', 0)
+        to_be_shipped_qty = to_be_shipped_qty if to_be_shipped_qty else 0
+        to_be_shipped_qty = to_be_shipped_qty - self.already_shipped_qty
+        return to_be_shipped_qty
+
+    @property
     def gf_code(self):
         if self.product:
             gf_code = self.product.product_gf_code
@@ -462,11 +486,12 @@ class ShipmentProductMapping(OrderedProductMapping):
     def clean(self):
         ordered_qty = int(self.ordered_qty)
         shipped_qty = int(self.shipped_qty)
+        to_be_shipped_qty = int(self.to_be_shipped_qty)
         already_shipped_qty = int(self.already_shipped_qty)
-        if (ordered_qty - already_shipped_qty) < shipped_qty:
+        max_qty_allowed = ordered_qty - (to_be_shipped_qty + already_shipped_qty)
+        if max_qty_allowed < shipped_qty:
             raise ValidationError(
-                _('To be Ship Qty cannot be greater than difference '
-                  'of Ordered Qty and Already Shipped Qty'),
+                _('Max. allowed Qty: %s') % max_qty_allowed,
                 )
 
 

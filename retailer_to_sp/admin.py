@@ -385,8 +385,8 @@ class DispatchAdmin(admin.ModelAdmin):
 class ShipmentProductMappingAdmin(admin.TabularInline):
     model = ShipmentProductMapping
     form = ShipmentProductMappingForm
-    fields = ['product', 'ordered_qty', 'already_shipped_qty', 'shipped_qty']
-    readonly_fields = ['product', 'ordered_qty', 'already_shipped_qty']
+    fields = ['product', 'ordered_qty', 'already_shipped_qty', 'to_be_shipped_qty','shipped_qty']
+    readonly_fields = ['product', 'ordered_qty', 'to_be_shipped_qty', 'already_shipped_qty']
     extra = 0
     max_num = 0
 
@@ -467,7 +467,7 @@ class TripAdmin(admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
     list_display = (
         'dispathces', 'delivery_boy', 'seller_shop', 'vehicle_no',
-        'trip_status', 'starts_at'
+        'trip_status', 'starts_at', 'completed_at'
     )
     readonly_fields = ('dispathces',)
     autocomplete_fields = ('seller_shop',)
