@@ -1019,11 +1019,14 @@ class PaymentApi(APIView):
                 msg['message'] = ["No order found"]
                 return Response(msg, status=status.HTTP_200_OK)
 
-            payment = Payment(order_id=order,paid_amount=paid_amount,payment_choice=payment_choice,
+            if Payment.objects.filter(order_id=order).exists():
+                pass
+            else:
+                payment = Payment(order_id=order,paid_amount=paid_amount,payment_choice=payment_choice,
                               neft_reference_number=neft_reference_number,imei_no=imei_no)
-            payment.save()
-            order.order_status = 'opdp'
-            order.save()
+                payment.save()
+                order.order_status = 'opdp'
+                order.save()
             serializer = OrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id})
 
         elif parent_mapping.parent.shop_type.shop_type == 'gf':

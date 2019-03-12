@@ -28,7 +28,7 @@ class ShopMappedProduct(FormView):
         data = super(ShopMappedProduct, self).get_context_data(**kwargs)
         if shop_obj.shop_type.shop_type=='gf':
             grn_product = GRNOrderProductMapping.objects.filter(grn_order__order__ordered_cart__gf_shipping_address__shop_name=shop_obj)
-            product_sum = grn_product.values('nb','product__product_name', 'product__product_gf_code').annotate(product_qty_sum=Sum('available_qty'))
+            product_sum = grn_product.values('product__product_name', 'product__product_gf_code').annotate(product_qty_sum=Sum('available_qty'))
             data['shop_products'] = product_sum
             data['shop'] = shop_obj
 
