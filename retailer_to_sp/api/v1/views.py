@@ -295,12 +295,6 @@ class AddToCart(APIView):
                     msg['message'] = ["Product Price not Found"]
                     return Response(msg, status=status.HTTP_200_OK)
 
-                try:
-                    product_tax_obj = ProductTaxMapping.objects.filter(product=product,status=True)
-                except ObjectDoesNotExist:
-                    msg['message'] = ["Product Tax not Found"]
-                    return Response(msg, status=status.HTTP_200_OK)
-
                 if int(qty) == 0:
                     if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
                         CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
@@ -309,7 +303,6 @@ class AddToCart(APIView):
                     cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
                     cart_mapping.qty = qty
                     cart_mapping.cart_product_price = product_price_obj
-                    cart_mapping.tax = product_tax_obj.aggregate(tax=Sum('tax__tax_percentage'))['tax']
                     cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
                     cart_mapping.save()
 
