@@ -209,8 +209,8 @@ class CartProductMapping(models.Model):
     def calculate_tax_percentage(self):
         tax_percentage = [field.tax.tax_percentage for field in self.cart_product.product_pro_tax.all()]
         tax_percentage = sum(tax_percentage)
-        if not tax_percentage:
-            return str("-")
+        # if not tax_percentage:
+        #     return str("-")
         return tax_percentage
 
     @property
