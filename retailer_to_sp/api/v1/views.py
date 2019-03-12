@@ -1020,7 +1020,7 @@ class PaymentApi(APIView):
                 return Response(msg, status=status.HTTP_200_OK)
 
             try:
-                Payment.objects.get(order_id=order)
+                Payment.objects.filter(order_id=order).exists()
             except ObjectDoesNotExist:
                 payment = Payment(order_id=order,paid_amount=paid_amount,payment_choice=payment_choice,
                               neft_reference_number=neft_reference_number,imei_no=imei_no)
