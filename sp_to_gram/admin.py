@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping,OrderedProductReserved
+from .models import (Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping,OrderedProductReserved,
+                     ShopStockAdjustment, ShopStockAdjustmentsProductsMapping)
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
 from .forms import CartProductMappingForm,POGenerationForm, OrderedProductMappingForm
@@ -44,7 +45,7 @@ class CartAdmin(NumericFilterModelAdmin,admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     exclude = ('po_no', 'po_status', 'last_modified_by')
     #autocomplete_fields = ('brand',)
-    list_display = ('po_no', 'po_creation_date', 'po_validity_date', 'po_amount', 'po_raised_by', 'po_status', 'download_purchase_order')
+    list_display = ('po_no', 'po_creation_date', 'po_validity_date', 'po_amount', 'po_raised_by', 'po_status', 'download_purchase_order',)
     list_filter = [RecipientWarehouseFilter,POSearch,('po_creation_date', DateRangeFilter),
                    ('po_validity_date', DateRangeFilter), ('po_amount',RangeNumericFilter), PORaisedBy]
     form = POGenerationForm
@@ -85,7 +86,7 @@ class OrderedProductMappingAdmin(admin.TabularInline):
 
     warehouse_user_fieldset = ['product', 'manufacture_date', 'expiry_date','shipped_qty',]
     delivery_user_fieldset = ['product', 'manufacture_date', 'expiry_date', 'delivered_qty', 'returned_qty',
-                              'damaged_qty', 'available_qty',]
+                              'damaged_qty']
 
     def get_fieldsets(self, request, obj=None, **kwargs):
         if request.user.is_superuser:
@@ -138,3 +139,5 @@ class OrderedProductReservedAdmin(admin.ModelAdmin):
     list_display = ('order_product_reserved','cart','product','reserved_qty','order_reserve_end_time','created_at','reserve_status')
 
 admin.site.register(OrderedProductReserved,OrderedProductReservedAdmin)
+admin.site.register(ShopStockAdjustment)
+admin.site.register(ShopStockAdjustmentsProductsMapping)

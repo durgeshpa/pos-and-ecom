@@ -1,11 +1,13 @@
 from django import forms
-from .models import Vendor
+from .models import Vendor, Brand, BrandPosition
 from django.urls import reverse
 import datetime, csv, codecs, re
 from django.core.exceptions import ValidationError
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from products.models import Product
 from addresses.models import City, State
+from dal import autocomplete
+from shops.models import Shop
 
 class VendorForm(forms.ModelForm):
     state = forms.ModelChoiceField(queryset=State.objects.order_by('state_name'))
@@ -53,3 +55,15 @@ class VendorForm(forms.ModelForm):
                 if row[3] and not re.match("^\d{0,8}(\.\d{1,4})?$", row[3]):
                     raise ValidationError("Row["+str(id+1)+"] | "+first_row[3]+":"+row[3]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
             return self.cleaned_data['vendor_products_csv']
+
+
+class BrandForm(forms.ModelForm):
+    shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['sp',]),
+        widget=autocomplete.ModelSelect2(url='shop-autocomplete', ),
+        required=False
+    )
+
+    class Meta:
+        Model = BrandPosition
+        fields = '__all__'

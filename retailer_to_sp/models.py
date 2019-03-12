@@ -14,7 +14,7 @@ from retailer_backend.common_function import (
     order_id_pattern, brand_credit_note_pattern, getcredit_note_id,
     retailer_sp_invoice
 )
-from shops.models import Shop
+from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
 from products.models import Product, ProductPrice
@@ -131,11 +131,11 @@ class Order(models.Model):
         (OPDP, "Order Placed Dispatch Pending"),
     )
     seller_shop = models.ForeignKey(
-        Shop, related_name='rt_seller_shop_order',
+        ShopNameDisplay, related_name='rt_seller_shop_order',
         null=True, blank=True, on_delete=models.CASCADE
     )
     buyer_shop = models.ForeignKey(
-        Shop, related_name='rt_buyer_shop_order',
+        ShopNameDisplay, related_name='rt_buyer_shop_order',
         null=True, blank=True, on_delete=models.CASCADE
     )
     ordered_cart = models.ForeignKey(

@@ -236,7 +236,6 @@ class TripForm(forms.ModelForm):
     trip_status = forms.ChoiceField(choices=TRIP_STATUS)
     search_by_area = forms.CharField(required=False)
     trip_id = forms.CharField(required=False)
-    #current_trip_status = forms.CharField(required=False, widget=PlainTextWidget)
 
     class Meta:
         model = Trip
@@ -265,7 +264,6 @@ class TripForm(forms.ModelForm):
         if trip:
             trip_status = instance.trip_status
             self.fields['trip_id'].initial = trip
-            #self.fields['current_trip_status'].initial = instance.current_trip_status
             if trip_status == 'READY':
                 self.fields['seller_shop'].disabled = True
                 self.fields['trip_status'].choices = TRIP_STATUS[0], TRIP_STATUS[2], TRIP_STATUS[1]
@@ -339,8 +337,6 @@ class DispatchForm(forms.ModelForm):
             self.fields['shipment_status'].widget.attrs = {'id':'hide_input_box', 'class':'ui-select'}
             self.fields['shipment_status'].disabled = True
             self.fields['selected'].widget.attrs = {'value': pk}
-
-
 
 
 class DispatchDisabledForm(DispatchForm):
