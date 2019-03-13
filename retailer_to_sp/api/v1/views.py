@@ -34,6 +34,8 @@ from addresses.models import Address
 from retailer_backend.common_function import getShopMapping,checkNotShopAndMapping,getShop
 from retailer_backend.messages import ERROR_MESSAGES
 from django.contrib.postgres.search import SearchVector
+today = datetime.today()
+
 
 class ProductsList(generics.ListCreateAPIView):
     permission_classes = (AllowAny,)
@@ -76,7 +78,6 @@ class GramGRNProductsList(APIView):
         cart_check = False
         is_store_active = True
         sort_preference = request.data.get('sort_by_price')
-        today = datetime.today()
 
         '''1st Step
             Check If Shop Is exists then 2nd pt else 3rd Pt
@@ -108,7 +109,8 @@ class GramGRNProductsList(APIView):
                     grn = SpMappedOrderedProductMapping.objects.filter(
                         Q(ordered_product__order__ordered_cart__shop=parent_mapping.parent)
                         |Q(ordered_product__credit_note__shop=parent_mapping.parent),
-                        available_qty__gt=0,expiry_date__gt=today, ordered_product__status=SPOrderedProduct.ENABLED
+                        available_qty__gt=0,expiry_date__gt=today, ordered_product__status__in=[
+                            SPOrderedProduct.ENABLED,SPOrderedProduct.ADJUSTEMENT]
                         ).values('product_id')
                     cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
                     if cart:
@@ -159,8 +161,8 @@ class GramGRNProductsList(APIView):
                     if c_p.cart_product_id == p.product_id:
                         user_selected_qty = c_p.qty
             name = p.product.product_name
-            mrp = p.mrp
-            ptr = p.price_to_retailer
+            mrp = round(p.mrp,2) if p.mrp else p.mrp
+            ptr = round(p.price_to_retailer,2) if p.price_to_retailer else p.price_to_retailer
             status = p.product.status
             product_opt = p.product.product_opt_product.all()
             weight_value = None
@@ -420,6 +422,8 @@ class ReservedOrder(generics.ListAPIView):
                 cart_products = CartProductMapping.objects.filter(cart=cart)
 
                 for cart_product in cart_products:
+
+                    #Exclude expired
                     ordered_product_details = OrderedProductMapping.objects.filter(
                         Q(ordered_product__order__shipping_address__shop_name=parent_mapping.parent) |
                         Q(ordered_product__credit_note__shop=parent_mapping.parent),
@@ -436,6 +440,8 @@ class ReservedOrder(generics.ListAPIView):
                         for product_detail in ordered_product_details:
                             if remaining_amount <=0:
                                 break
+
+                            # Todo available_qty replace to sp_available_qty
 
                             if product_detail.available_qty >= remaining_amount:
                                 deduct_qty = remaining_amount
@@ -1013,11 +1019,14 @@ class PaymentApi(APIView):
                 msg['message'] = ["No order found"]
                 return Response(msg, status=status.HTTP_200_OK)
 
-            payment = Payment(order_id=order,paid_amount=paid_amount,payment_choice=payment_choice,
+            if Payment.objects.filter(order_id=order).exists():
+                pass
+            else:
+                payment = Payment(order_id=order,paid_amount=paid_amount,payment_choice=payment_choice,
                               neft_reference_number=neft_reference_number,imei_no=imei_no)
-            payment.save()
-            order.order_status = 'opdp'
-            order.save()
+                payment.save()
+                order.order_status = 'opdp'
+                order.save()
             serializer = OrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id})
 
         elif parent_mapping.parent.shop_type.shop_type == 'gf':

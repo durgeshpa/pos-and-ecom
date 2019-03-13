@@ -164,10 +164,13 @@ class OrderedProduct(models.Model): #GRN
     DISABLED = "DIS"
     ENABLED = "ENA"
     EXPIRED = "EXP"
+    ADJUSTEMENT = "ADJ"
+
     GRN_STATUS = (
         (DISABLED, "Disabled"),
         (ENABLED, "Enabled"),
         (EXPIRED, "Expired"),
+        (ADJUSTEMENT, "Adjustment"),
         )
     order = models.ForeignKey(Order,related_name='sp_order_order_product',on_delete=models.CASCADE,null=True,blank=True)
     invoice_no = models.CharField(max_length=255,null=True,blank=True)
@@ -186,6 +189,7 @@ class OrderedProduct(models.Model): #GRN
         super(OrderedProduct, self).save()
 
 class OrderedProductMapping(models.Model): #GRN Product
+    shop = models.ForeignKey(Shop, related_name='shop_grn_list', null=True, blank=True, on_delete=models.SET_NULL)
     ordered_product = models.ForeignKey(OrderedProduct,related_name='sp_order_product_order_product_mapping',null=True,blank=True,on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='sp_product_order_product',null=True,blank=True, on_delete=models.CASCADE)
     manufacture_date = models.DateField(null=True, blank=True)
@@ -196,6 +200,8 @@ class OrderedProductMapping(models.Model): #GRN Product
     delivered_qty = models.PositiveIntegerField(default=0)
     returned_qty = models.PositiveIntegerField(default=0)
     damaged_qty = models.PositiveIntegerField(default=0)
+    perished_qty = models.PositiveIntegerField(default=0)
+    lossed_qty = models.PositiveIntegerField(default=0)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='sp_last_modified_user_order_product', null=True,blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -213,6 +219,18 @@ class OrderedProductMapping(models.Model): #GRN Product
             elif self.expiry_date < self.manufacture_date:
                 raise ValidationError(_("Expiry Date cannot be less than manufacture date"))
 
+    def save(self, *args, **kwargs):
+        # super().save(*args, **kwargs)
+        if self.ordered_product and self.ordered_product.order:
+            self.shop = self.ordered_product.order.ordered_cart.shop
+        elif self.ordered_product and self.ordered_product.credit_note:
+            self.shop = self.ordered_product.credit_note.shop
+        super().save(*args, **kwargs)
+
+    @property
+    def sp_available_qty(self):
+        return int(self.available_qty) - (int(self.damaged_qty) + int(self.lossed_qty) + int(self.perished_qty))
+
 class OrderedProductReserved(models.Model):
     RESERVED = "reserved"
     ORDERED = "ordered"
@@ -226,9 +244,7 @@ class OrderedProductReserved(models.Model):
     product = models.ForeignKey(Product, related_name='sp_product_order_product_reserved', null=True, blank=True,on_delete=models.CASCADE)
     cart = models.ForeignKey(RetailerCart, related_name='sp_ordered_retailer_cart',null=True,blank=True,on_delete=models.CASCADE)
     reserved_qty = models.PositiveIntegerField(default=0)
-    #order_reserve_start_time = models.DateTimeField(auto_now_add=True)
     order_reserve_end_time = models.DateTimeField(null=True,blank=True,editable=False)
-    #order_reserve_status = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     reserve_status = models.CharField(max_length=100, choices=RESERVE_STATUS, default=RESERVED)
@@ -362,4 +378,3 @@ def create_credit_note(instance=None, created=False, **kwargs):
 
         credit_note.amount = credit_amount
         credit_note.save()
-

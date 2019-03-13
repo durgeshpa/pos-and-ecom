@@ -7,7 +7,7 @@ from django.contrib import messages
 from shops.models import Shop
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
-from sp_to_gram.models import OrderedProduct, OrderedProductMapping, StockAdjustment, StockAdjustmentMapping
+from sp_to_gram.models import OrderedProduct, OrderedProductMapping, StockAdjustment, StockAdjustmentMapping,OrderedProductReserved
 from django.db.models import Sum,Q
 from dal import autocomplete
 from .forms import StockAdjustmentUploadForm
@@ -29,15 +29,12 @@ class ShopMappedProduct(TemplateView):
             context['shop_products'] = product_sum
 
         elif shop_obj.shop_type.shop_type=='sp':
-
             sp_grn_product = OrderedProductMapping.objects.filter(
-                    Q(ordered_product__order__ordered_cart__shop=shop_obj) |
-                    Q(ordered_product__credit_note__shop=shop_obj) |
-                    Q(stock_adjustment_mapping__stock_adjustment__shop=shop_obj),
-                    Q(ordered_product__status=OrderedProduct.ENABLED) | 
-                    Q(stock_adjustment_mapping__stock_adjustment__status=StockAdjustment.ENABLED),
+                    Q(shop=shop_obj),
                     Q(expiry_date__gt=datetime.datetime.today())
-                )
+                ).exclude(
+                        Q(ordered_product__status=OrderedProduct.DISABLED)
+                    )
 
             product_sum = sp_grn_product.values('product','product__product_name', 'product__product_gf_code').annotate(product_qty_sum=Sum('available_qty')).annotate(damaged_qty_sum=Sum('damaged_qty'))
             context['shop_products'] = product_sum
@@ -63,11 +60,9 @@ def stock_adjust_sample(request, shop_id):
     filename = "stock_correction_upload_sample.csv"
     shop = Shop.objects.get(pk=shop_id)
     sp_grn_product = OrderedProductMapping.objects.filter(
-            Q(ordered_product__order__ordered_cart__shop=shop) |
-            Q(ordered_product__credit_note__shop=shop) |
-            Q(stock_adjustment_mapping__stock_adjustment__shop=shop),
-            Q(ordered_product__status=OrderedProduct.ENABLED) | 
-            Q(stock_adjustment_mapping__stock_adjustment__status=StockAdjustment.ENABLED),
+            Q(shop=shop)
+            ).exclude(
+                Q(ordered_product__status=OrderedProduct.DISABLED)
             )
     db_available_products = sp_grn_product.filter(expiry_date__gt = datetime.datetime.today())
     db_expired_products = sp_grn_product.exclude(expiry_date__gt = datetime.datetime.today())
@@ -105,26 +100,24 @@ class StockAdjustmentView(View):
     def handle_uploaded_file(self, shop_id, f):
         reader = csv.reader(codecs.iterdecode(f, 'utf-8'))
         first_row = next(reader)
-        shop = Shop.objects.get(pk=shop_id)
-        self.stock_adjustment = StockAdjustment.objects.create(shop=shop)
+        self.shop = Shop.objects.get(pk=shop_id)
+        self.stock_adjustment = StockAdjustment.objects.create(shop=self.shop)
         for row in reader:
             gfcode = row[0]
             stock_available, stock_damaged, stock_expired = [int(i) for i in row[1:4]]
             product = Product.objects.get(product_gf_code=gfcode)
             sp_grn_product = OrderedProductMapping.objects.filter(
                     Q(product=product),
-                    Q(ordered_product__order__ordered_cart__shop=shop) |
-                    Q(ordered_product__credit_note__shop=shop) |
-                    Q(stock_adjustment_mapping__stock_adjustment__shop=shop),
-                    Q(ordered_product__status=OrderedProduct.ENABLED) | 
-                    Q(stock_adjustment_mapping__stock_adjustment__status=StockAdjustment.ENABLED),
-                    )
+                    Q(shop=self.shop)
+                    ).exclude(Q(ordered_product__status=OrderedProduct.DISABLED))
             db_available_products = sp_grn_product.filter(expiry_date__gt = datetime.datetime.today())
             db_expired_products = sp_grn_product.exclude(expiry_date__gt = datetime.datetime.today())
 
             product_available = db_available_products.aggregate(Sum('available_qty'))['available_qty__sum']
             product_damaged = db_available_products.aggregate(Sum('damaged_qty'))['damaged_qty__sum']
             product_expired = db_expired_products.aggregate(Sum('available_qty'))['available_qty__sum']
+            if not product_available:
+                product_available = 0
             if not product_expired:
                 product_expired = 0
             if not product_damaged:
@@ -195,6 +188,7 @@ class StockAdjustmentView(View):
     def increment_grn_qty(self, product, manufacture_date, expiry_date, qty, damaged=0):
         adjustment_grn = OrderedProductMapping.objects.create(
                 product = product,
+                shop=self.shop,
                 manufacture_date = manufacture_date,
                 expiry_date = expiry_date,
                 available_qty = qty,
