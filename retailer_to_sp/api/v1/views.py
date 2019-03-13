@@ -854,7 +854,7 @@ class DownloadInvoiceSP(APIView):
                 "product_tax_amount": product_tax_amount,
 
             }
-            total_tax_sum += product_tax_amount
+            total_tax_sum = total_tax_sum + product_tax_amount
             inline_sum_amount = inline_sum_amount + product_pro_price_ptr
             product_listing.append(ordered_prodcut)
             # New Code For Product Listing End
