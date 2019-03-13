@@ -775,6 +775,7 @@ class DownloadInvoiceSP(APIView):
         sum_qty = 0
         sum_amount=0
         tax_inline=0
+        total_tax_sum = 0
         taxes_list = []
         gst_tax_list= []
         cess_tax_list= []
@@ -804,7 +805,6 @@ class DownloadInvoiceSP(APIView):
 
             # New Code For Product Listing Start
             tax_sum = 0
-            total_tax_sum = 0
             basic_rate = 0
             product_tax_amount = 0
             product_pro_price_mrp =0
