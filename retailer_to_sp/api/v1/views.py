@@ -815,6 +815,8 @@ class DownloadInvoiceSP(APIView):
 
             no_of_pieces = 0
             cart_qty = 0
+            product_tax_amount = 0
+            basic_rate = 0
             product_pro_price_ptr = m.product.rt_cart_product_mapping.last().cart_product_price.price_to_retailer
             product_pro_price_mrp = m.product.rt_cart_product_mapping.last().cart_product_price.mrp
             no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
@@ -823,22 +825,29 @@ class DownloadInvoiceSP(APIView):
             tax_sum = round(tax_sum, 2)
             get_tax_val = tax_sum / 100
 
-            basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
-            base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
-            product_tax_amount = float(base_price) * float(get_tax_val)
-            product_tax_amount = round(product_tax_amount,2)
+            all_tax_list = m.product.product_pro_tax
+            if all_tax_list.exists():
+                for tax_dt in all_tax_list.all():
+                    tax_sum = float(tax_sum) + float(tax_dt.tax.tax_percentage)
+
+                tax_sum = round(tax_sum, 2)
+                get_tax_val = tax_sum / 100
+                basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
+                base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
+                product_tax_amount = float(base_price) * float(get_tax_val)
+                product_tax_amount = round(product_tax_amount, 2)
 
             ordered_prodcut = {
                 "product_sku": m.product.product_gf_code,
                 "product_short_description": m.product.product_short_description,
                 "product_hsn": m.product.product_hsn,
-                "product_tax_percentage": "" if tax_sum == 0 else str(tax_sum)+"%",
+                "product_tax_percentage": "" if tax_sum == 0 else str(tax_sum) + "%",
                 "product_mrp": product_pro_price_mrp,
                 "shipped_qty": m.shipped_qty,
                 "product_inner_case_size": m.product.product_inner_case_size,
                 "product_no_of_pices": int(m.shipped_qty),
-                "basic_rate" : basic_rate,
-                "price_to_retailer":  product_pro_price_ptr,
+                "basic_rate": basic_rate,
+                "price_to_retailer": product_pro_price_ptr,
                 "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr),
                 "product_tax_amount": product_tax_amount,
 
