@@ -817,6 +817,7 @@ class DownloadInvoiceSP(APIView):
             cart_qty = 0
             product_tax_amount = 0
             basic_rate = 0
+            original_amount = 0
             product_pro_price_ptr = m.product.rt_cart_product_mapping.last().cart_product_price.price_to_retailer
             product_pro_price_mrp = m.product.rt_cart_product_mapping.last().cart_product_price.mrp
             no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
@@ -858,7 +859,7 @@ class DownloadInvoiceSP(APIView):
 
             for n in m.product.product_pro_tax.all():
                 divisor= (1+(n.tax.tax_percentage/100))
-                original_amount= (inline_sum_amount/divisor)
+                #original_amount= (inline_sum_amount/divisor)
                 tax_amount = inline_sum_amount - original_amount
                 if n.tax.tax_type=='gst':
                     gst_tax_list.append(tax_amount)
