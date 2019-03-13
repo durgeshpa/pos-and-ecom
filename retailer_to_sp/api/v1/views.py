@@ -818,6 +818,7 @@ class DownloadInvoiceSP(APIView):
             product_tax_amount = 0
             basic_rate = 0
             inline_sum_amount = 0
+            tax_sum = 0
             product_pro_price_ptr = m.product.rt_cart_product_mapping.last().cart_product_price.price_to_retailer
             product_pro_price_mrp = m.product.rt_cart_product_mapping.last().cart_product_price.mrp
             no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
@@ -853,6 +854,7 @@ class DownloadInvoiceSP(APIView):
                 "product_tax_amount": product_tax_amount,
 
             }
+            tax_sum = tax_sum + product_tax_amount
             inline_sum_amount = inline_sum_amount + product_pro_price_ptr
             product_listing.append(ordered_prodcut)
             # New Code For Product Listing End
@@ -891,7 +893,7 @@ class DownloadInvoiceSP(APIView):
                 "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram,
                 "payment_type":payment_type,"total_amount_int":total_amount_int,"product_listing":product_listing,
                 "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
-                "address_contact_number":address_contact_number,"sum_amount_tax":product_tax_amount}
+                "address_contact_number":address_contact_number,"sum_amount_tax":tax_sum}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
