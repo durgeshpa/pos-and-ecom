@@ -77,6 +77,7 @@ class Shop(models.Model):
     class Meta:
         permissions = (
             ("can_see_all_shops", "Can See All Shops"),
+            ("can_do_reconciliation", "Can Do Reconciliation"),
         )
 
 class ShopNameDisplay(Shop):

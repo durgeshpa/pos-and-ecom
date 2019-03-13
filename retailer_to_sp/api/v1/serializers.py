@@ -93,11 +93,11 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
 
     def product_price_dt(self, obj):
         shop_id = self.context.get("parent_mapping_id",None)
-        return 0 if obj.product_pro_price.filter(shop__id=shop_id).last() is None else obj.product_pro_price.filter(shop__id=shop_id).last().price_to_retailer
+        return 0 if obj.product_pro_price.filter(shop__id=shop_id).last() is None else round(obj.product_pro_price.filter(shop__id=shop_id).last().price_to_retailer,2)
 
     def product_mrp_dt(self, obj):
         shop_id = self.context.get("parent_mapping_id",None)
-        return 0 if obj.product_pro_price.filter(shop__id=shop_id).last() is None else obj.product_pro_price.filter(shop__id=shop_id).last().mrp
+        return 0 if obj.product_pro_price.filter(shop__id=shop_id).last() is None else round(obj.product_pro_price.filter(shop__id=shop_id).last().mrp,2)
 
     def product_case_size_picies_dt(self,obj):
         return str(int(obj.product_inner_case_size)*int(obj.product_case_size))
@@ -148,7 +148,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
 
     def product_sub_total_dt(self,obj):
         shop_id = self.context.get("parent_mapping_id", None)
-        product_price = 0 if obj.cart_product.product_pro_price.filter(shop__id=shop_id).last() is None else obj.cart_product.product_pro_price.filter(shop__id=shop_id).last().price_to_retailer
+        product_price = 0 if obj.cart_product.product_pro_price.filter(shop__id=shop_id).last() is None else round(obj.cart_product.product_pro_price.filter(shop__id=shop_id).last().price_to_retailer,2)
         return float(obj.cart_product.product_inner_case_size)*float(obj.qty)*float(product_price)
 
     class Meta:
@@ -175,10 +175,10 @@ class CartSerializer(serializers.ModelSerializer):
                 self.total_amount = float(self.total_amount) + (float(pro_price.price_to_retailer) * float(cart_pro.qty) * float(pro_price.product.product_inner_case_size))
             else:
                 self.total_amount = float(self.total_amount) + 0
-        return self.total_amount
+        return round(self.total_amount,2)
 
     def sub_total_id(self, obj):
-        return self.total_amount
+        return round(self.total_amount,2)
 
     def items_count_id(self, obj):
         return self.items_count
