@@ -124,7 +124,7 @@ class CartProductMapping(models.Model):
         on_delete=models.CASCADE, null=True, blank=True
     )
     qty = models.PositiveIntegerField(default=0)
-    tax = models.PositiveIntegerField(default=0)
+    #tax = models.PositiveIntegerField(default=0)
     no_of_pieces = models.PositiveIntegerField(default=0)
     qty_error_msg = models.CharField(
         max_length=255, null=True,
