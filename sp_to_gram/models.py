@@ -258,7 +258,7 @@ class OrderedProductMapping(models.Model): #GRN Product
                 Q(shop=shop),
                 Q(expiry_date__gt=datetime.datetime.today())
             ).exclude(
-                    Q(ordered_product__status=cls.DISABLED)
+                    Q(ordered_product__status=OrderedProduct.DISABLED)
                 )
         return product_availability
     
@@ -269,7 +269,7 @@ class OrderedProductMapping(models.Model): #GRN Product
                 Q(shop=shop),
                 Q(expiry_date__lte=datetime.datetime.today())
             ).exclude(
-                    Q(ordered_product__status=cls.DISABLED)
+                    Q(ordered_product__status=OrderedProduct.DISABLED)
                 )
         return product_expired
 
