@@ -29,12 +29,7 @@ class ShopMappedProduct(TemplateView):
             context['shop_products'] = product_sum
 
         elif shop_obj.shop_type.shop_type=='sp':
-            sp_grn_product = OrderedProductMapping.objects.filter(
-                    Q(shop=shop_obj),
-                    Q(expiry_date__gt=datetime.datetime.today())
-                ).exclude(
-                        Q(ordered_product__status=OrderedProduct.DISABLED)
-                    )
+            sp_grn_product = OrderedProductMapping.get_shop_stock(shop_obj)
 
             product_sum = sp_grn_product.values('product','product__product_name', 'product__product_gf_code').annotate(product_qty_sum=Sum('available_qty')).annotate(damaged_qty_sum=Sum('damaged_qty'))
             context['shop_products'] = product_sum
@@ -59,13 +54,9 @@ class ShopRetailerAutocomplete(autocomplete.Select2QuerySetView):
 def stock_adjust_sample(request, shop_id):
     filename = "stock_correction_upload_sample.csv"
     shop = Shop.objects.get(pk=shop_id)
-    sp_grn_product = OrderedProductMapping.objects.filter(
-            Q(shop=shop)
-            ).exclude(
-                Q(ordered_product__status=OrderedProduct.DISABLED)
-            )
+    sp_grn_product = OrderedProductMapping.get_shop_stock(shop)
     db_available_products = sp_grn_product.filter(expiry_date__gt = datetime.datetime.today())
-    db_expired_products = sp_grn_product.exclude(expiry_date__gt = datetime.datetime.today())
+    db_expired_products = OrderedProductMapping.get_shop_stock_expired(shop)
 
     products_available = db_available_products.values('product','product__product_name', 'product__product_gf_code').annotate(product_qty_sum=Sum('available_qty')).annotate(damaged_qty_sum=Sum('damaged_qty'))
     products_expired = db_expired_products.values('product','product__product_name', 'product__product_gf_code').annotate(product_qty_sum=Sum('available_qty'))
@@ -77,7 +68,7 @@ def stock_adjust_sample(request, shop_id):
     writer = csv.writer(response)
     writer.writerow(['product_gf_code','Available','Damaged','Expired'])
     for product in products_available:
-        expired_product = expired_products[product['product__product_gf_code']]
+        expired_product = expired_products.get(product['product__product_gf_code'],0)
         writer.writerow([product['product__product_gf_code'],product['product_qty_sum'],product['damaged_qty_sum'],expired_product])
     return response
 
@@ -106,12 +97,8 @@ class StockAdjustmentView(View):
             gfcode = row[0]
             stock_available, stock_damaged, stock_expired = [int(i) for i in row[1:4]]
             product = Product.objects.get(product_gf_code=gfcode)
-            sp_grn_product = OrderedProductMapping.objects.filter(
-                    Q(product=product),
-                    Q(shop=self.shop)
-                    ).exclude(Q(ordered_product__status=OrderedProduct.DISABLED))
-            db_available_products = sp_grn_product.filter(expiry_date__gt = datetime.datetime.today())
-            db_expired_products = sp_grn_product.exclude(expiry_date__gt = datetime.datetime.today())
+            db_available_products = OrderedProductMapping.get_product_availability(self.shop, product)
+            db_expired_products = OrderedProductMapping.get_expired_product_qty(self.shop, product)
 
             product_available = db_available_products.aggregate(Sum('available_qty'))['available_qty__sum']
             product_damaged = db_available_products.aggregate(Sum('damaged_qty'))['damaged_qty__sum']

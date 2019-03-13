@@ -9,7 +9,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.conf import settings
 from django.db import models
-from django.db.models import Sum
+from django.db.models import Sum, Q
 
 from shops.models import Shop, ParentRetailerMapping, ShopInvoicePattern
 from brand.models import Brand
@@ -230,6 +230,48 @@ class OrderedProductMapping(models.Model): #GRN Product
     @property
     def sp_available_qty(self):
         return int(self.available_qty) - (int(self.damaged_qty) + int(self.lossed_qty) + int(self.perished_qty))
+
+    @classmethod
+    def get_shop_stock(cls, shop):
+        shop_stock = cls.objects.filter(
+                Q(shop=shop),
+                Q(expiry_date__gt=datetime.datetime.today())
+            ).exclude(
+                    Q(ordered_product__status=OrderedProduct.DISABLED)
+                )
+        return shop_stock
+
+    @classmethod
+    def get_shop_stock_expired(cls, shop):
+        shop_stock = cls.objects.filter(
+                Q(shop=shop),
+                Q(expiry_date__lte=datetime.datetime.today())
+            ).exclude(
+                    Q(ordered_product__status=OrderedProduct.DISABLED)
+                )
+        return shop_stock
+
+    @classmethod
+    def get_product_availability(cls, shop, product):
+        product_availability = cls.objects.filter(
+                Q(product=product),
+                Q(shop=shop),
+                Q(expiry_date__gt=datetime.datetime.today())
+            ).exclude(
+                    Q(ordered_product__status=cls.DISABLED)
+                )
+        return product_availability
+    
+    @classmethod
+    def get_expired_product_qty(cls, shop, product):
+        product_expired = cls.objects.filter(
+                Q(product=product),
+                Q(shop=shop),
+                Q(expiry_date__lte=datetime.datetime.today())
+            ).exclude(
+                    Q(ordered_product__status=cls.DISABLED)
+                )
+        return product_expired
 
 class OrderedProductReserved(models.Model):
     RESERVED = "reserved"

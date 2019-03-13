@@ -106,12 +106,7 @@ class GramGRNProductsList(APIView):
                     '''4th Step
                         SP mapped data shown
                     '''
-                    grn = SpMappedOrderedProductMapping.objects.filter(
-                        Q(ordered_product__order__ordered_cart__shop=parent_mapping.parent)
-                        |Q(ordered_product__credit_note__shop=parent_mapping.parent),
-                        available_qty__gt=0,expiry_date__gt=today, ordered_product__status__in=[
-                            SPOrderedProduct.ENABLED,SPOrderedProduct.ADJUSTEMENT]
-                        ).values('product_id')
+                    grn = SpMappedOrderedProductMapping.get_shop_stock(shop).values('product_id')
                     cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
                     if cart:
                         cart_products = cart.rt_cart_list.all()
@@ -405,6 +400,7 @@ class ReservedOrder(generics.ListAPIView):
 
     def post(self, request):
         shop_id = self.request.POST.get('shop_id')
+        shop = Shop.objects.get(pk=shop_id)
         msg = {'is_success': False, 'message': ['No any product available in this cart'], 'response_data': None}
 
         if checkNotShopAndMapping(shop_id):
@@ -424,12 +420,7 @@ class ReservedOrder(generics.ListAPIView):
                 for cart_product in cart_products:
 
                     #Exclude expired
-                    ordered_product_details = OrderedProductMapping.objects.filter(
-                        Q(ordered_product__order__shipping_address__shop_name=parent_mapping.parent) |
-                        Q(ordered_product__credit_note__shop=parent_mapping.parent),
-                        Q(product=cart_product.cart_product), 
-                        Q(ordered_product__status=SPOrderedProduct.ENABLED) |
-                        Q(stock_adjustment_mapping__stock_adjustment__status=StockAdjustment.ENABLED)).order_by('-expiry_date')
+                    ordered_product_details = OrderedProductMapping.get_product_availability(shop, cart_product).order_by('-expiry_date')
                     available_qty = ordered_product_details.aggregate(available_qty_sum=Sum('available_qty'))['available_qty_sum']
 
                     is_error = False
