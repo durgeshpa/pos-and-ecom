@@ -821,9 +821,9 @@ class DownloadInvoiceSP(APIView):
             product_pro_price_mrp = m.product.rt_cart_product_mapping.last().cart_product_price.mrp
             no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
             cart_qty = m.product.rt_cart_product_mapping.last().qty
-            tax_sum = m.product.rt_cart_product_mapping.last().tax
-            tax_sum = round(tax_sum, 2)
-            get_tax_val = tax_sum / 100
+            # tax_sum = m.product.rt_cart_product_mapping.last().tax
+            # tax_sum = round(tax_sum, 2)
+            # get_tax_val = tax_sum / 100
 
             all_tax_list = m.product.product_pro_tax
             if all_tax_list.exists():
