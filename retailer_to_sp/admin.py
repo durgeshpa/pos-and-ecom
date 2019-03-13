@@ -250,8 +250,11 @@ class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
     resource_class = OrderResource
     search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name',
                     'order_status',)
-    list_display = ('order_no', 'seller_shop', 'buyer_shop', 'total_final_amount',
-                    'order_status', 'created_at','payment_mode', 'paid_amount', 'total_paid_amount', 'download_pick_list')
+    list_display = (
+        'order_no', 'seller_shop', 'buyer_shop', 'total_final_amount',
+        'created_at', 'order_status', 'payment_mode', 'paid_amount',
+        'total_paid_amount', 'download_pick_list'
+    )
     readonly_fields = ('payment_mode','paid_amount', 'total_paid_amount')
 
     def get_queryset(self, request):

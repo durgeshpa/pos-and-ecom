@@ -154,7 +154,8 @@ class Order(models.Model):
     total_mrp = models.FloatField(default=0)
     total_discount_amount = models.FloatField(default=0)
     total_tax_amount = models.FloatField(default=0)
-    total_final_amount = models.FloatField(default=0)
+    total_final_amount = models.FloatField(
+        default=0, verbose_name='Ordered Amount')
     order_status = models.CharField(max_length=50,choices=ORDER_STATUS)
     ordered_by = models.ForeignKey(
         get_user_model(), related_name='rt_ordered_by_user',
@@ -425,6 +426,7 @@ class OrderedProductMapping(models.Model):
             product=self.product).aggregate(
             Sum('delivered_qty')).get('delivered_qty__sum', 0)
         return already_shipped_qty if already_shipped_qty else 0
+    already_shipped_qty.fget.short_description = "Delivered Qty"
 
     @property
     def to_be_shipped_qty(self):
@@ -437,6 +439,7 @@ class OrderedProductMapping(models.Model):
         to_be_shipped_qty = to_be_shipped_qty if to_be_shipped_qty else 0
         to_be_shipped_qty = to_be_shipped_qty - self.already_shipped_qty
         return to_be_shipped_qty
+    to_be_shipped_qty.fget.short_description = "Already Shipped Qty"
 
     @property
     def gf_code(self):

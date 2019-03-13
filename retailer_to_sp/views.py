@@ -196,7 +196,7 @@ def ordered_product_mapping_shipment(request):
             inner_case_size = int(Product.objects.get(pk=item['cart_product']).product_inner_case_size)
             ordered_no_pieces = ordered_qty * inner_case_size
 
-            if ordered_no_pieces != already_shipped_qty:
+            if ordered_no_pieces != to_be_shipped_qty + already_shipped_qty:
                 products_list.append({
                         'product': item['cart_product'],
                         'ordered_qty': ordered_no_pieces,
@@ -310,6 +310,9 @@ def trip_planning_change(request, pk):
                             for product in ordered_product_mapping:
                                 product.delivered_qty = product.shipped_qty
                                 product.save()
+                            dispatch = formset_form.save(commit=False)
+                            dispatch.shipment_status = 'FULLY_DELIVERED_AND_COMPLETED'
+                            dispatch.save()
                         else:
                             dispatch = formset_form.save(commit=False)
                             if dispatch.trip:
