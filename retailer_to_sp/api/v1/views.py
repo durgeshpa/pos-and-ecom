@@ -857,6 +857,9 @@ class DownloadInvoiceSP(APIView):
             product_listing.append(ordered_prodcut)
             # New Code For Product Listing End
 
+            sum_qty = sum_qty + int(no_of_pieces)
+            sum_amount += (int(no_of_pieces) * product_pro_price_ptr)
+            inline_sum_amount = (int(no_of_pieces) * product_pro_price_ptr)
 
             for n in m.product.product_pro_tax.all():
                 divisor= (1+(n.tax.tax_percentage/100))
