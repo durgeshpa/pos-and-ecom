@@ -477,9 +477,6 @@ class OrderedProductMapping(models.Model):
     def get_products_gst_cess(self):
         return self.product.product_pro_tax.filter(tax__tax_type='cess')
 
-class OrderedProductTaxMapping(models.Model):
-    order_product = models.ForeignKey(OrderedProductMapping, related_name='rt_order_product_tax', null=True, blank=True)
-    tax = models.ForeignKey( )
 
 class Dispatch(OrderedProduct):
     class Meta:
