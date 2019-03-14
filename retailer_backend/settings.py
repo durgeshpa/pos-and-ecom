@@ -44,7 +44,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'debug_toolbar',
     'rest_framework',
     'rest_framework.authtoken',
     'rest_auth',
@@ -92,7 +91,6 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -262,7 +260,7 @@ CRONJOBS = [
 
 INTERNAL_IPS = ['127.0.0.1','localhost']
 
-# Initiate Sentry SDK 
+# Initiate Sentry SDK
 sentry_sdk.init(
     dsn="https://2f8d192414f94cd6a0ba5b26d6461684@sentry.io/1407300",
     integrations=[DjangoIntegration()]
