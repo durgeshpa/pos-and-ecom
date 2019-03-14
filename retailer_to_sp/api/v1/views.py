@@ -420,7 +420,7 @@ class ReservedOrder(generics.ListAPIView):
                 for cart_product in cart_products:
 
                     #Exclude expired
-                    ordered_product_details = OrderedProductMapping.get_product_availability(shop, cart_product).order_by('-expiry_date')
+                    ordered_product_details = OrderedProductMapping.get_product_availability(shop, cart_product.cart_product).order_by('-expiry_date')
                     available_qty = ordered_product_details.aggregate(available_qty_sum=Sum('available_qty'))['available_qty_sum']
 
                     is_error = False
