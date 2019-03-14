@@ -2,10 +2,10 @@ from rest_framework import generics
 from .serializers import (ProductsSearchSerializer, GramGRNProductsSearchSerializer, CartProductMappingSerializer, CartSerializer,
                           OrderSerializer, CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer, PaymentNeftSerializer, GramPaymentCodSerializer, GramPaymentNeftSerializer,
 
-                          GramMappedCartSerializer, GramMappedOrderSerializer, ProductDetailSerializer)
-from products.models import Product, ProductPrice, ProductOption, ProductImage
-from sp_to_gram.models import (OrderedProductMapping, OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
-                               OrderedProduct as SPOrderedProduct)
+                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer )
+from products.models import Product, ProductPrice, ProductOption,ProductImage
+from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
+                                OrderedProduct as SPOrderedProduct, StockAdjustment)
 
 from rest_framework import permissions, authentication
 from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as GramCartProductMapping,
@@ -107,14 +107,8 @@ class GramGRNProductsList(APIView):
                     '''4th Step
                         SP mapped data shown
                     '''
-                    grn = SpMappedOrderedProductMapping.objects.filter(
-                        Q(ordered_product__order__ordered_cart__shop=parent_mapping.parent)
-                        | Q(ordered_product__credit_note__shop=parent_mapping.parent),
-                        available_qty__gt=0, expiry_date__gt=today, ordered_product__status__in=[
-                            SPOrderedProduct.ENABLED, SPOrderedProduct.ADJUSTEMENT]
-                    ).values('product_id')
-                    cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=[
-                                               'active', 'pending']).last()
+                    grn = SpMappedOrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(available_qty__gt=0).values('product_id')
+                    cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
                     if cart:
                         cart_products = cart.rt_cart_list.all()
                         cart_check = True
@@ -493,8 +487,8 @@ class ReservedOrder(generics.ListAPIView):
 
     def post(self, request):
         shop_id = self.request.POST.get('shop_id')
-        msg = {'is_success': False, 'message': [
-            'No any product available in this cart'], 'response_data': None}
+        shop = Shop.objects.get(pk=shop_id)
+        msg = {'is_success': False, 'message': ['No any product available in this cart'], 'response_data': None}
 
         if checkNotShopAndMapping(shop_id):
             return Response(msg, status=status.HTTP_200_OK)
@@ -512,15 +506,9 @@ class ReservedOrder(generics.ListAPIView):
 
                 for cart_product in cart_products:
 
-                    # Exclude expired
-                    ordered_product_details = OrderedProductMapping.objects.filter(
-                        Q(ordered_product__order__shipping_address__shop_name=parent_mapping.parent) |
-                        Q(ordered_product__credit_note__shop=parent_mapping.parent),
-                        product=cart_product.cart_product, ordered_product__status__in=[
-                            SPOrderedProduct.ENABLED, SPOrderedProduct.ADJUSTEMENT],
-                        expiry_date__gt=today).order_by('expiry_date')
-                    available_qty = ordered_product_details.aggregate(
-                        available_qty_sum=Sum(F('available_qty') - (F('damaged_qty') + F('lossed_qty') + F('perished_qty'))))['available_qty_sum']
+                    #Exclude expired
+                    ordered_product_details = OrderedProductMapping.get_product_availability(parent_mapping.parent, cart_product.cart_product).order_by('-expiry_date')
+                    available_qty = ordered_product_details.aggregate(available_qty_sum=Sum('available_qty'))['available_qty_sum']
 
                     is_error = False
                     ordered_amount = int(
