@@ -327,6 +327,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
         'price_to_retailer', 'price_to_super_retailer',
         'start_date', 'end_date', 'status'
     ]
+    autocomplete_fields=['product',]
     search_fields = [
         'product__product_name', 'product__product_gf_code',
         'product__product_brand__brand_name', 'shop__shop_name'
