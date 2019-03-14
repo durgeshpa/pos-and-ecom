@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'debug_toolbar',
     'rest_framework',
     'rest_framework.authtoken',
     'rest_auth',
@@ -91,6 +92,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -258,6 +260,7 @@ CRONJOBS = [
     ('* * * * *', 'retailer_backend.cron.CronToDeleteOrderedProductReserved', '>> /var/log/nginx/cron.log')
 ]
 
+INTERNAL_IPS = ['127.0.0.1','localhost']
 
 # Initiate Sentry SDK 
 sentry_sdk.init(

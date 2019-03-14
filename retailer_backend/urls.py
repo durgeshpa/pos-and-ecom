@@ -45,6 +45,7 @@ urlpatterns = [
     url(r'^gram/brand/', include('gram_to_brand.urls')),
     url(r'^retailer/gram/', include('retailer_to_gram.urls')),
     url(r'^services/', include('services.urls')),
+    url(r'^admin/shops/shop-mapped/(?P<pk>\d+)/product/$', ShopMappedProduct.as_view(), name='shop_mapped_product'),
 
     url('^delete-ordered-product-reserved/$', CronToDeleteOrderedProductReserved.as_view(), name='delete_ordered_product_reserved'),
     url('^terms-and-conditions/$', terms_and_conditions, name='terms_and_conditions'),
@@ -58,3 +59,13 @@ urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 if settings.DEBUG:
     urlpatterns += [url(r'^$', schema_view)]
+
+if settings.DEBUG:
+    import debug_toolbar
+    urlpatterns = [
+        path('__debug__/', include(debug_toolbar.urls)),
+
+        # For django versions before 2.0:
+        # url(r'^__debug__/', include(debug_toolbar.urls)),
+
+    ] + urlpatterns
