@@ -2,18 +2,17 @@ import csv
 from django.contrib import admin
 from .models import (
     Shop, ShopType, RetailerType, ParentRetailerMapping,
-    ShopPhoto, ShopDocument, ShopInvoicePattern, ShopAdjustmentFile
+    ShopPhoto, ShopDocument, ShopInvoicePattern
 )
 from addresses.models import Address
 from .forms import ParentRetailerMappingForm,ShopParentRetailerMappingForm
+from .views import StockAdjustmentView, stock_adjust_sample
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
 from django.utils.html import format_html
 from import_export import resources
 from django.http import HttpResponse
 from admin_auto_filters.filters import AutocompleteFilter
-from .views import ShopMappedProduct, StockCorrectionUploadSample
-from django.urls import reverse
 
 class ShopResource(resources.ModelResource):
     class Meta:
@@ -132,24 +131,26 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     list_filter = (ShopNameSearch,ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,'status')
     search_fields = ('shop_name', )
 
+    class Media:
+        css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
+
     def get_urls(self):
         from django.conf.urls import url
         urls = super(ShopAdmin, self).get_urls()
         urls = [
             url(
-                r'^shop-mapped/(?P<pk>\d+)/product/$',
-                self.admin_site.admin_view(ShopMappedProduct.as_view()),
-                name="shop_mapped_product"
+                r'^adjust-stock/(?P<shop_id>\w+)/$',
+                self.admin_site.admin_view(StockAdjustmentView.as_view()),
+                name="StockAdjustment"
             ),
-            url(r'^stock-correction-upload-sample/$',
-                self.admin_site.admin_view(StockCorrectionUploadSample),
-                name="stock_correction_upload_sample"
+            url(
+                r'^adjust-stock-sample/(?P<shop_id>\w+)/$',
+                self.admin_site.admin_view(stock_adjust_sample),
+                name="ShopStocks"
             ),
         ] + urls
         return urls
 
-    class Media:
-        css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
 
     def get_queryset(self, request):
         qs = super(ShopAdmin, self).get_queryset(request)
@@ -164,7 +165,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def shop_mapped_product(self, obj):
         if obj.shop_type.shop_type in ['gf','sp']:
-            return format_html("<a href ='%s' class ='addlink' > Product List</a>" %reverse('admin:shop_mapped_product', args=[obj.pk]))
+            return format_html("<a href = '/admin/shops/shop-mapped/%s/product/' class ='addlink' > Product List</a>"% (obj.id))
 
     shop_mapped_product.short_description = 'Product List with Qty'
 
@@ -217,11 +218,7 @@ class ParentRetailerMappingAdmin(admin.ModelAdmin):
     class Media:
         pass
 
-class ShopAdjustmentFileAdmin(admin.ModelAdmin):
-    list_display = ('shop','stock_adjustment_file','created_by','created_at',)
-
 admin.site.register(ParentRetailerMapping,ParentRetailerMappingAdmin)
 admin.site.register(ShopType)
 admin.site.register(RetailerType)
 admin.site.register(Shop,ShopAdmin)
-admin.site.register(ShopAdjustmentFile,ShopAdjustmentFileAdmin)
