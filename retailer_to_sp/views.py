@@ -181,15 +181,27 @@ def ordered_product_mapping_shipment(request):
                 ordered_product__in=Order.objects.get(
                     pk=order_id).rt_order_order_product.all(),
                 product_id=item['cart_product']).aggregate(
-                Sum('delivered_qty')).get('delivered_qty__sum', 0)
+                Sum('delivered_qty')).get('delivered_qty__sum')
+            already_shipped_qty = already_shipped_qty if already_shipped_qty else 0
+
+            to_be_shipped_qty = OrderedProductMapping.objects.filter(
+                ordered_product__in=Order.objects.get(
+                    pk=order_id).rt_order_order_product.all(),
+                product_id=item['cart_product']).aggregate(
+                Sum('shipped_qty')).get('shipped_qty__sum')
+            to_be_shipped_qty = to_be_shipped_qty if to_be_shipped_qty else 0
+            to_be_shipped_qty = to_be_shipped_qty - already_shipped_qty
+
             ordered_qty = item['qty']
             inner_case_size = int(Product.objects.get(pk=item['cart_product']).product_inner_case_size)
             ordered_no_pieces = ordered_qty * inner_case_size
-            if ordered_no_pieces != already_shipped_qty:
+
+            if ordered_no_pieces != to_be_shipped_qty + already_shipped_qty:
                 products_list.append({
                         'product': item['cart_product'],
                         'ordered_qty': ordered_no_pieces,
-                        'already_shipped_qty': already_shipped_qty if already_shipped_qty else 0
+                        'already_shipped_qty': already_shipped_qty,
+                        'to_be_shipped_qty': to_be_shipped_qty
                         })
         form_set = ordered_product_set(initial=products_list)
         form = OrderedProductForm(initial={'order': order_id})
@@ -197,6 +209,7 @@ def ordered_product_mapping_shipment(request):
     if request.method == 'POST':
         form_set = ordered_product_set(request.POST)
         form = OrderedProductForm(request.POST)
+
         if form.is_valid():
             status = form.cleaned_data.get('shipment_status')
             if status == 'CANCELLED':
@@ -209,9 +222,11 @@ def ordered_product_mapping_shipment(request):
                 ordered_product_instance = form.save()
                 for forms in form_set:
                     if forms.is_valid():
-                        formset_data = forms.save(commit=False)
-                        formset_data.ordered_product = ordered_product_instance
-                        formset_data.save()
+                        to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
+                        if to_be_ship_qty:
+                            formset_data = forms.save(commit=False)
+                            formset_data.ordered_product = ordered_product_instance
+                            formset_data.save()
                 return redirect('/admin/retailer_to_sp/shipment/')
 
     return render(
@@ -225,7 +240,7 @@ def trip_planning(request):
     TripDispatchFormset = modelformset_factory(
         Dispatch,
         fields=[
-            'selected', 'items', 'invoice_amount', 'invoice_city', 'invoice_date', 'order', 'shipment_address'
+            'selected', 'items', 'invoice_amount', 'shipment_status', 'invoice_city', 'invoice_date', 'order', 'shipment_address'
         ],
         form=DispatchForm, extra=0
     )
@@ -267,7 +282,7 @@ def trip_planning_change(request, pk):
     trip_dispatch_formset = modelformset_factory(
         Dispatch,
         fields=[
-            'selected', 'items', 'invoice_amount', 'invoice_city', 'invoice_date', 'order', 'shipment_address'
+            'selected', 'items', 'invoice_amount', 'shipment_status', 'invoice_city', 'invoice_date', 'order', 'shipment_address'
         ],
         form=DispatchForm, extra=0
     )
@@ -276,7 +291,7 @@ def trip_planning_change(request, pk):
     if request.method == 'POST':
         formset = trip_dispatch_formset(request.POST)
         form = TripForm(request.user, request.POST, instance=trip_instance)
-        if trip_status == 'READY' or trip_status == 'CANCELLED':
+        if trip_status == 'READY' or trip_status == 'STARTED' or trip_status == 'CANCELLED':
             if form.is_valid() and formset.is_valid():
                 trip = form.save()
                 current_trip_status = trip.trip_status
@@ -288,6 +303,15 @@ def trip_planning_change(request, pk):
                             dispatch.trip = trip
                             if current_trip_status == 'STARTED':
                                 dispatch.shipment_status = 'OUT_FOR_DELIVERY'
+                            dispatch.save()
+                        elif current_trip_status == 'COMPLETED':
+                            ordered_product_mapping = OrderedProductMapping.objects.filter(
+                                ordered_product=formset_form.cleaned_data.get('id'))
+                            for product in ordered_product_mapping:
+                                product.delivered_qty = product.shipped_qty
+                                product.save()
+                            dispatch = formset_form.save(commit=False)
+                            dispatch.shipment_status = 'FULLY_DELIVERED_AND_COMPLETED'
                             dispatch.save()
                         else:
                             dispatch = formset_form.save(commit=False)
@@ -313,7 +337,7 @@ def trip_planning_change(request, pk):
             trip_dispatch_formset = modelformset_factory(
                 Dispatch,
                 fields=[
-                    'selected', 'items', 'invoice_amount', 'invoice_city', 'invoice_date', 'order', 'shipment_address'
+                    'selected', 'items', 'invoice_amount', 'shipment_status', 'invoice_city', 'invoice_date', 'order', 'shipment_address'
                 ],
                 form=DispatchDisabledForm, extra=0
             )
@@ -375,7 +399,7 @@ def load_dispatches(request):
     TripDispatchFormset = modelformset_factory(
         Dispatch,
         fields=[
-            'selected', 'items', 'invoice_amount', 'invoice_city', 'invoice_date', 'order', 'shipment_address'
+            'selected', 'items', 'invoice_amount', 'shipment_status', 'invoice_city', 'invoice_date', 'order', 'shipment_address'
         ],
         form=DispatchForm, extra=0
     )
