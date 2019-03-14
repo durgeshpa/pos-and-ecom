@@ -131,11 +131,11 @@ class Order(models.Model):
         (OPDP, "Order Placed Dispatch Pending"),
     )
     seller_shop = models.ForeignKey(
-        ShopNameDisplay, related_name='rt_seller_shop_order',
+        Shop, related_name='rt_seller_shop_order',
         null=True, blank=True, on_delete=models.CASCADE
     )
     buyer_shop = models.ForeignKey(
-        ShopNameDisplay, related_name='rt_buyer_shop_order',
+        Shop, related_name='rt_buyer_shop_order',
         null=True, blank=True, on_delete=models.CASCADE
     )
     ordered_cart = models.ForeignKey(

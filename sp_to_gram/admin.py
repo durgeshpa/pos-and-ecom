@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import (Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping,OrderedProductReserved,
-                     ShopStockAdjustment, ShopStockAdjustmentsProductsMapping)
+                     StockAdjustment, StockAdjustmentMapping)
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
 from .forms import CartProductMappingForm,POGenerationForm, OrderedProductMappingForm
@@ -139,5 +139,5 @@ class OrderedProductReservedAdmin(admin.ModelAdmin):
     list_display = ('order_product_reserved','cart','product','reserved_qty','order_reserve_end_time','created_at','reserve_status')
 
 admin.site.register(OrderedProductReserved,OrderedProductReservedAdmin)
-admin.site.register(ShopStockAdjustment)
-admin.site.register(ShopStockAdjustmentsProductsMapping)
+admin.site.register(StockAdjustment)
+admin.site.register(StockAdjustmentMapping)

@@ -9,7 +9,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.conf import settings
 from django.db import models
-from django.db.models import Sum
+from django.db.models import Sum, Q
 
 from shops.models import Shop, ParentRetailerMapping, ShopInvoicePattern
 from brand.models import Brand
@@ -188,7 +188,8 @@ class OrderedProduct(models.Model): #GRN
         self.invoice_no = "SP/INVOICE/%s"%(self.pk)
         super(OrderedProduct, self).save()
 
-class OrderedProductMapping(models.Model):
+class OrderedProductMapping(models.Model): #GRN Product
+    shop = models.ForeignKey(Shop, related_name='shop_grn_list', null=True, blank=True, on_delete=models.SET_NULL)
     ordered_product = models.ForeignKey(OrderedProduct,related_name='sp_order_product_order_product_mapping',null=True,blank=True,on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='sp_product_order_product',null=True,blank=True, on_delete=models.CASCADE)
     manufacture_date = models.DateField(null=True, blank=True)
@@ -218,9 +219,59 @@ class OrderedProductMapping(models.Model):
             elif self.expiry_date < self.manufacture_date:
                 raise ValidationError(_("Expiry Date cannot be less than manufacture date"))
 
+    def save(self, *args, **kwargs):
+        # super().save(*args, **kwargs)
+        if self.ordered_product and self.ordered_product.order:
+            self.shop = self.ordered_product.order.ordered_cart.shop
+        elif self.ordered_product and self.ordered_product.credit_note:
+            self.shop = self.ordered_product.credit_note.shop
+        super().save(*args, **kwargs)
+
     @property
     def sp_available_qty(self):
         return int(self.available_qty) - (int(self.damaged_qty) + int(self.lossed_qty) + int(self.perished_qty))
+
+    @classmethod
+    def get_shop_stock(cls, shop):
+        shop_stock = cls.objects.filter(
+                Q(shop=shop),
+                Q(expiry_date__gt=datetime.datetime.today())
+            ).exclude(
+                    Q(ordered_product__status=OrderedProduct.DISABLED)
+                )
+        return shop_stock
+
+    @classmethod
+    def get_shop_stock_expired(cls, shop):
+        shop_stock = cls.objects.filter(
+                Q(shop=shop),
+                Q(expiry_date__lte=datetime.datetime.today())
+            ).exclude(
+                    Q(ordered_product__status=OrderedProduct.DISABLED)
+                )
+        return shop_stock
+
+    @classmethod
+    def get_product_availability(cls, shop, product):
+        product_availability = cls.objects.filter(
+                Q(product=product),
+                Q(shop=shop),
+                Q(expiry_date__gt=datetime.datetime.today())
+            ).exclude(
+                    Q(ordered_product__status=OrderedProduct.DISABLED)
+                )
+        return product_availability
+    
+    @classmethod
+    def get_expired_product_qty(cls, shop, product):
+        product_expired = cls.objects.filter(
+                Q(product=product),
+                Q(shop=shop),
+                Q(expiry_date__lte=datetime.datetime.today())
+            ).exclude(
+                    Q(ordered_product__status=OrderedProduct.DISABLED)
+                )
+        return product_expired
 
 class OrderedProductReserved(models.Model):
     RESERVED = "reserved"
@@ -268,6 +319,34 @@ class SpNote(models.Model):
 
     def __str__(self):
         return self.brand_note_id
+
+class StockAdjustment(models.Model):
+    ENABLED = "ENB"
+    DISABLED = "DIS"
+    STATUS_CHOICES = (
+        (ENABLED, "ENABLED"),
+        (DISABLED, "DISABLED")
+        )
+    shop = models.ForeignKey(Shop, related_name='shop_stock_adjustment', on_delete=models.CASCADE)
+    grn_product = models.ManyToManyField(OrderedProductMapping, related_name='stock_adjustment', through='StockAdjustmentMapping')
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.CharField(max_length=3, choices=STATUS_CHOICES, default=ENABLED)
+
+class StockAdjustmentMapping(models.Model):
+    DECREMENT = "dec"
+    INCREMENT = "inc"
+    ADJUSTMENT_TYPE_CHOICES = (
+        (INCREMENT, "Increment"),
+        (DECREMENT, "Decrement")
+        )
+    stock_adjustment = models.ForeignKey(StockAdjustment, on_delete=models.CASCADE, related_name='stock_adjustment_mapping')
+    grn_product = models.ForeignKey(OrderedProductMapping, on_delete=models.CASCADE, related_name='stock_adjustment_mapping')
+    adjustment_qty = models.PositiveIntegerField()
+    adjustment_type = models.CharField(max_length=5, choices=ADJUSTMENT_TYPE_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
 
 @receiver(pre_save, sender=SpNote)
 def create_brand_note_id(sender, instance=None, created=False, **kwargs):
@@ -341,41 +420,3 @@ def create_credit_note(instance=None, created=False, **kwargs):
 
         credit_note.amount = credit_amount
         credit_note.save()
-
-from shops.models import ShopAdjustmentFile
-
-class ShopStockAdjustment(models.Model):
-    POSITIVE = 'pos'
-    NEGATIVE = 'neg'
-    adjustment_type_choices = (
-        (POSITIVE, 'POSITIVE'),
-        (NEGATIVE, 'NEGATIVE')
-    )
-
-    ADJUSTED = 'adj'
-    NOT_ADJUSTED = 'nad'
-    CANCELLED = 'can'
-
-    status_choices = (
-        (ADJUSTED,'ADJUSTED'),
-        (NOT_ADJUSTED,'NOT_ADJUSTED'),
-        (CANCELLED,'CANCELLED'),
-    )
-
-    shop_adjustment_file = models.ForeignKey(ShopAdjustmentFile,null=True,blank=True,related_name='shop_stock_adjustment_file',on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
-    adjustment_type = models.CharField(max_length=20,choices=adjustment_type_choices,null=True,blank=True)
-    status = models.CharField(max_length=20,choices=status_choices,null=True,blank=True)
-
-    def save(self, *args, **kwargs):
-        ShopStockAdjustment.objects.filter(shop_adjustment_file=self.shop_adjustment_file,status='').update(status=ShopStockAdjustment.CANCELLED)
-        self.status = ''
-        super().save(*args, **kwargs)
-
-class ShopStockAdjustmentsProductsMapping(models.Model):
-    shop_stock_adjustment = models.ForeignKey(ShopStockAdjustment, related_name='shop_stock_adjustment_product',on_delete=models.CASCADE)
-    product = models.ForeignKey(Product, related_name='shop_stock_product',on_delete=models.CASCADE)
-    qty = models.IntegerField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
