@@ -114,6 +114,18 @@ class OrderIdSearch(InputFilter):
                 Q(order_id__order_no__icontains=order_id)
             )
 
+class OrderNoSearch(InputFilter):
+    parameter_name = 'order_no'
+    title = 'Order No.'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            order_no = self.value()
+            if order_no is None:
+                return
+            return queryset.filter(
+                Q(order_no__icontains=order_no)
+            )
 
 class OrderStatusSearch(InputFilter):
     parameter_name = 'order_status'
@@ -244,15 +256,26 @@ class ExportCsvMixin:
         return response
     export_as_csv.short_description = "Download CSV of Selected Objects"
 
+class SellerShopFilter(AutocompleteFilter):
+    title = 'Seller Shop'
+    field_name = 'seller_shop'
+
+class BuyerShopFilter(AutocompleteFilter):
+    title = 'Buyer Shop'
+    field_name = 'buyer_shop'
 
 class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
     actions = ["export_as_csv"]
     resource_class = OrderResource
     search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name',
-                    'order_status')
+                    'order_status',)
     list_display = ('order_no', 'seller_shop', 'buyer_shop', 'total_final_amount',
-                    'order_status', 'created_at', 'paid_amount', 'total_paid_amount', 'download_pick_list')
-    readonly_fields = ('paid_amount', 'total_paid_amount')
+                    'order_status', 'created_at', 'payment_mode', 'paid_amount', 'total_paid_amount', 'download_pick_list')
+    readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount')
+    list_filter = [SellerShopFilter,BuyerShopFilter,OrderNoSearch,('created_at', DateTimeRangeFilter),'order_status']
+
+    class Media:
+        pass
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)

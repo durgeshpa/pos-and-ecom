@@ -22,12 +22,11 @@ class GetSlotBrandListView(APIView):
         pos_name = self.kwargs.get('slot_position_name')
         shop_id = self.request.GET.get('shop_id')
         data = BrandData.objects.filter(brand_data__active_status='active')
-
-        # try:
-        #     shop = Shop.objects.get(id=shop_id)
-        # except ObjectDoesNotExist:
-        #     return Response({"message":["Shop Not Found"], "response_data": None ,"is_success": False})
+        
         if pos_name and not shop_id:
+            data = data.filter(slot__position_name=pos_name, slot__shop=None).order_by('brand_data_order')
+            brand_data_serializer = BrandDataSerializer(data,many=True)
+        elif pos_name and shop_id == '-1':
             data = data.filter(slot__position_name=pos_name, slot__shop=None).order_by('brand_data_order')
             brand_data_serializer = BrandDataSerializer(data,many=True)
         elif pos_name and shop_id:

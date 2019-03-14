@@ -1,7 +1,6 @@
 {% extends "admin/base_site.html" %}
 {% load i18n admin_urls static admin_list %}
 
-
 {% block extrastyle %}
   {{ block.super }}
   <link rel="stylesheet" type="text/css" href="{% static "admin/css/changelists.css" %}">
@@ -19,104 +18,22 @@
   {% endif %}
 {% endblock %}
 
-
-{% load staticfiles %}
-{% load i18n admin_static %}
 {% block extrahead %}
-    <script
-    src="https://code.jquery.com/jquery-3.2.1.js"
-    integrity="sha256-DZAnKJ/6XZ9si04Hgrsxu/8s717jcIzLy3oi35EouyE="
-    crossorigin="anonymous"></script>  {{ form.media }}
-  <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
-  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
-
-
-
+{{ block.super }}
 {{ media.js }}
 {% endblock %}
-
-{% block bodyclass %}{{ block.super }} app-{{ opts.app_label }} model-{{ opts.model_name }} change-list{% endblock %}
-{% block coltype %}flex{% endblock %}
-
-
-    <!---- Head ----->
-    {% block usertools %}
-        <div id="user-tools">
-            {% block welcome-msg %}
-                {% trans 'Welcome,' %}
-                <strong>{% firstof user.get_short_name user.get_username %}</strong>.
-            {% endblock %}
-            <a href="/analytics">View Site</a> /
-            {% block userlinks %}
-                {% if site_url %}
-                    <a href="{{ site_url }}">{% trans 'View site' %}</a> /
-                {% endif %}
-                {% if user.is_active and user.is_staff %}
-                    {% url 'django-admindocs-docroot' as docsroot %}
-                    {% if docsroot %}
-                        <a href="{{ docsroot }}">{% trans 'Documentation' %}</a> /
-                    {% endif %}
-                {% endif %}
-                {% if user.has_usable_password %}
-                <a href="{% url 'admin:password_change' %}">{% trans 'Change password' %}</a> /
-                {% endif %}
-                <a href="{% url 'admin:logout' %}">{% trans 'Log out' %}</a>
-            {% endblock %}
-        </div>
-    {% endblock %}
-    <!----- Head ---->
 
 {% block content %}
 
         <!-- Content -->
-
     <button onclick="window.history.back();" class="btn btn-default" type="button">Back</button>
-      <div id="content" class="flex" style="border:1px solid">
-        <h1>{{ shop.shop_name|title }} Product List</h1>
-        <ul class="object-tools">
-          <li><a href="{% url 'admin:stock_correction_upload_sample' %}" class="addlink">Get CSV sample</a></li>
-        </ul>
-
-        <form action={% url 'admin:shop_mapped_product' pk=shop.pk %} method="post" enctype="multipart/form-data" id="StockAdjustmentForm">
-        {% csrf_token %}
-        <div style="
-              background: #efefef;width: 100%;
-              float: left;text-align: center;
-              padding: 10px 0px;margin-bottom: 10px;
-        ">
-          <div style="
-                background: #d5d5d5;
-                float: right;padding: 0px 10px;
-        "><input type="submit" value="Upload" class="default" name="_save" style="float:right">
-          <!--<input type="file" name="upload_stock_update" style="float:right">-->
-          {{form.file}}
-          </div>
-        </div>
-
-        <script>
-        {% if form.errors %}
-          swal({
-          {% for field in form %}
-          {% for error in field.errors %}
-            text:"{{error}}",
-          {% endfor %}
-          {% endfor %}
-          {% for error in form.non_field_errors %}
-          text:"{{error}}",
-          {% endfor %}
-            icon: "error",
-            });
-        {% endif %}
-        </script>
-
-      </form>
-
+      <div id="content" class="flex">
+        <h1>Products List</h1>
         <div id="content-main">
           <div class="module filtered" id="changelist">
 
             <form id="changelist-form" method="post" novalidate=""><input type="hidden" name="csrfmiddlewaretoken" value="lsPDQiH5QlcaxZsIGLxx8rPWDrRCw6CZaNqTMif6IplubX0k1JX6vLhZZ9iLtVpV">
-              <div class="results" style="width:100%">
+              <div class="results">
                 <table id="result_list">
                   <thead>
                     <tr>
@@ -142,7 +59,10 @@
                         <div class="text"><a href="?o=4">Available Qty </a></div>
                         <div class="clear"></div>
                       </th>
-
+                      <th scope="col" class="sortable column-state_name">
+                        <div class="text"><a href="?o=5">Damaged Qty </a></div>
+                        <div class="clear"></div>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -153,6 +73,7 @@
                         <th class="field-country nowrap">{{ dt.product__product_gf_code }}</th>
                         <th class="field-country nowrap">{{ dt.product__product_name }}</th>
                         <td class="field-state_name">{{ dt.product_qty_sum }}</td>
+                        <td class="field-state_name">{{ dt.damaged_qty_sum }}</td>
                     </tr>
                   {% endfor %}
                   </tbody>
@@ -161,6 +82,7 @@
               <!--<p class="paginator">2 states</p>-->
             </form>
           </div>
+          <div>You can <a href="{% url 'admin:StockAdjustment' shop_id=shop.id %}">Upload Stock list</a> to update the stocks </div>
         </div>
         <br class="clear">
       </div>
@@ -171,30 +93,8 @@
         <a href="/admin/">{% trans "Home" %}</a> >
         <a href="/admin/shops/">{% trans "Shops" %}</a> >
         Product list
-    </div>
-{% endblock %}
+    </div>{% endblock %}
 {% block extrastyles %}
     {{ block.super }}
     <link rel="stylesheet" type="text/css" href="{% static 'admin/css/forms.css' %}" >
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
-
-
 {% endblock %}
-<!--<script>-->
-    <!--{% if form.errors %}-->
-        <!--alert("mukesh");-->
-      <!--swal({-->
-      <!--{% for field in form %}-->
-      <!--{% for error in field.errors %}-->
-        <!--text:"{{error}}",-->
-      <!--{% endfor %}-->
-      <!--{% endfor %}-->
-      <!--{% for error in form.non_field_errors %}-->
-      <!--text:"{{error}}",-->
-      <!--{% endfor %}-->
-        <!--icon: "error",-->
-        <!--});-->
-    <!--{% endif %}-->
-    <!--</script>-->
-

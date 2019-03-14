@@ -258,8 +258,9 @@ CRONJOBS = [
     ('* * * * *', 'retailer_backend.cron.CronToDeleteOrderedProductReserved', '>> /var/log/nginx/cron.log')
 ]
 
+INTERNAL_IPS = ['127.0.0.1','localhost']
 
-# Initiate Sentry SDK 
+# Initiate Sentry SDK
 sentry_sdk.init(
     dsn="https://2f8d192414f94cd6a0ba5b26d6461684@sentry.io/1407300",
     integrations=[DjangoIntegration()]
