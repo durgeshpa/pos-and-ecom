@@ -106,7 +106,7 @@ class GramGRNProductsList(APIView):
                     '''4th Step
                         SP mapped data shown
                     '''
-                    grn = SpMappedOrderedProductMapping.get_shop_stock(shop).values('product_id')
+                    grn = SpMappedOrderedProductMapping.get_shop_stock(parent_mapping.parent).values('product_id')
                     cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
                     if cart:
                         cart_products = cart.rt_cart_list.all()
