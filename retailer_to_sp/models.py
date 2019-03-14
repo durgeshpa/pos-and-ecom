@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.dispatch import receiver
 from django.db.models.signals import pre_save
 from django.db.models.signals import post_save
-from django.db.models import Sum
+from django.db.models import Sum,F, FloatField
 from django.utils.translation import ugettext_lazy as _
 from django.utils.safestring import mark_safe
 
@@ -17,7 +17,7 @@ from retailer_backend.common_function import (
 from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
-from products.models import Product, ProductPrice
+from products.models import Product,ProductPrice
 from otp.sms import SendSms
 from accounts.models import UserWithName
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
@@ -71,6 +71,14 @@ TRIP_STATUS = (
 
 class Cart(models.Model):
     order_id = models.CharField(max_length=255, null=True, blank=True)
+    seller_shop = models.ForeignKey(
+        Shop, related_name='rt_seller_shop_cart',
+        null=True, blank=True, on_delete=models.CASCADE
+    )
+    buyer_shop = models.ForeignKey(
+        Shop, related_name='rt_buyer_shop_cart',
+        null=True, blank=True, on_delete=models.CASCADE
+    )
     cart_status = models.CharField(
         max_length=200, choices=CART_STATUS,
         null=True, blank=True
@@ -88,6 +96,14 @@ class Cart(models.Model):
     def __str__(self):
         return self.order_id
 
+    @property
+    def subtotal(self):
+        return self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum']
+
+    @property
+    def qty_sum(self):
+        return self.rt_cart_list.aggregate(qty_sum=Sum('qty'))['qty_sum']
+
 
 @receiver(post_save, sender=Cart)
 def create_order_id(sender, instance=None, created=False, **kwargs):
@@ -103,42 +119,72 @@ class CartProductMapping(models.Model):
         Product, related_name='rt_cart_product_mapping',
         on_delete=models.CASCADE
     )
+    cart_product_price = models.ForeignKey(
+        ProductPrice, related_name='rt_cart_product_price_mapping',
+        on_delete=models.CASCADE, null=True, blank=True
+    )
     qty = models.PositiveIntegerField(default=0)
+    #tax = models.PositiveIntegerField(default=0)
+    no_of_pieces = models.PositiveIntegerField(default=0)
     qty_error_msg = models.CharField(
         max_length=255, null=True,
         blank=True, editable=False
     )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
 
     def __str__(self):
         return self.cart_product.product_name
 
 
 class Order(models.Model):
+    ACTIVE = 'active'
+    PENDING = 'pending'
+    DELETED = 'deleted'
     ORDERED = 'ordered'
     PAYMENT_DONE_APPROVAL_PENDING = 'payment_done_approval_pending'
     OPDP = 'opdp'
+    DISPATCHED = 'dispatched'
+    PARTIAL_DELIVERED = 'p_delivered'
+    DELIVERED = 'delivered'
+    CLOSED = 'closed'
+    PDAP = 'payment_done_approval_pending'
+    ORDER_PLACED_DISPATCH_PENDING = 'opdp'
 
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'),
         ('DISPATCH_PENDING', 'Dispatch Pending'),
+        (ACTIVE, "Active"),
+        (PENDING, "Pending"),
+        (DELETED, "Deleted"),
+        (ORDERED, "Ordered"),
+        (DISPATCHED, "Dispatched"),
+        (PARTIAL_DELIVERED, "Partially Delivered"),
+        (DELIVERED, "Delivered"),
+        (CLOSED, "Closed"),
+        (PDAP, "Payment Done Approval Pending"),
+        (ORDER_PLACED_DISPATCH_PENDING, "Order Placed Dispatch Pending"),
+        ('DISPATCH_PENDING', 'Dispatch Placed'),
         ('PARTIALLY_SHIPPED', 'Partially Shipped'),
         ('SHIPPED', 'Shipped'),
         ('CANCELLED', 'Cancelled'),
         ('DENIED', 'Denied'),
         (PAYMENT_DONE_APPROVAL_PENDING, "Payment Done Approval Pending"),
         (OPDP, "Order Placed Dispatch Pending"),
+
     )
+    #Todo Remove
     seller_shop = models.ForeignKey(
         Shop, related_name='rt_seller_shop_order',
         null=True, blank=True, on_delete=models.CASCADE
     )
+    #Todo Remove
     buyer_shop = models.ForeignKey(
         Shop, related_name='rt_buyer_shop_order',
         null=True, blank=True, on_delete=models.CASCADE
     )
-    ordered_cart = models.ForeignKey(
+    ordered_cart = models.OneToOneField(
         Cart, related_name='rt_order_cart_mapping',
         on_delete=models.CASCADE
     )
@@ -569,7 +615,7 @@ def order_notification(sender, instance=None, created=False, **kwargs):
             username = instance.order_id.ordered_by.phone_number
         order_no = str(instance.order_id)
         total_amount = str(instance.order_id.total_final_amount)
-        shop_name = str(instance.order_id.buyer_shop.shop_name)
+        shop_name = str(instance.order_id.ordered_cart.buyer_shop.shop_name)
         items_count = instance.order_id.ordered_cart.rt_cart_list.count()
         message = SendSms(phone=instance.order_id.ordered_by,
                           body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\

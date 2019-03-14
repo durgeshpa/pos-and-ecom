@@ -20,6 +20,8 @@ from retailer_to_sp.forms import (
     OrderedProductMappingDeliveryForm, OrderedProductDispatchForm,
     TripForm, DispatchForm, DispatchDisabledForm
 )
+from django.views.generic import TemplateView
+from django.conf import settings
 
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector, TrigramSimilarity
 
@@ -410,33 +412,35 @@ def load_dispatches(request):
     )
 
 
-class DownloadPickList(APIView):
-    permission_classes = (AllowAny,)
+class DownloadPickList(TemplateView,):
     """
-    PDF Download object
+    PDF Download Pick List
     """
     filename = 'pick_list.pdf'
     template_name = 'admin/download/retailer_sp_pick_list.html'
 
     def get(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('/admin/login/?next=%s' % request.path)
+
         order_obj = get_object_or_404(Order, pk=self.kwargs.get('pk'))
         cart_products = order_obj.ordered_cart.rt_cart_list.all()
         cart_product_list = []
 
         for cart_pro in cart_products:
             product_list = {
-                "product_name":cart_pro.cart_product.product_name,
-                "product_mrp":cart_pro.cart_product.product_pro_price.filter(shop=order_obj.seller_shop).last().mrp,
+                "product_name": cart_pro.cart_product.product_name,
+                "product_mrp":round(cart_pro.cart_product_price.mrp,2),
                 "ordered_qty":cart_pro.qty,
-                "no_of_pieces":int(cart_pro.cart_product.product_inner_case_size)*int(cart_pro.qty),
+                "no_of_pieces":cart_pro.no_of_pieces,
             }
             cart_product_list.append(product_list)
 
-
-
-
         data = {
-            "order_obj": order_obj, "cart_products":cart_product_list
+            "order_obj": order_obj,
+            "cart_products":cart_product_list,
+            "buyer_shop":order_obj.ordered_cart.buyer_shop.shop_name,
+            "buyer_contact_no":order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
         }
         cmd_option = {
             "margin-top": 10,

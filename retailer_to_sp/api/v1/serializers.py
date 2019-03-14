@@ -99,7 +99,6 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
         shop_id = self.context.get("parent_mapping_id",None)
         return 0 if obj.product_pro_price.filter(shop__id=shop_id).last() is None else round(obj.product_pro_price.filter(shop__id=shop_id).last().mrp,2)
 
-
     def product_case_size_picies_dt(self,obj):
         return str(int(obj.product_inner_case_size)*int(obj.product_case_size))
 
@@ -154,7 +153,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CartProductMapping
-        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg','is_available','no_of_pieces','product_sub_total')
+        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg','is_available','no_of_pieces','product_sub_total','cart_product_price')
 
 
 class CartSerializer(serializers.ModelSerializer):
@@ -171,8 +170,8 @@ class CartSerializer(serializers.ModelSerializer):
         for cart_pro in obj.rt_cart_list.all():
             self.items_count = self.items_count + int(cart_pro.qty)
             shop_id = self.context.get("parent_mapping_id", None)
-            pro_price = ProductPrice.objects.filter(shop__id=shop_id, product=cart_pro.cart_product).last()
-            if pro_price and pro_price.price_to_retailer:
+            if ProductPrice.objects.filter(shop__id=shop_id, product=cart_pro.cart_product).exists():
+                pro_price = ProductPrice.objects.filter(shop__id=shop_id, product=cart_pro.cart_product).last()
                 self.total_amount = float(self.total_amount) + (float(pro_price.price_to_retailer) * float(cart_pro.qty) * float(pro_price.product.product_inner_case_size))
             else:
                 self.total_amount = float(self.total_amount) + 0
@@ -216,6 +215,7 @@ class OrderedProductSerializer(serializers.ModelSerializer):
         model = OrderedProduct
         fields = ('order','invoice_no','invoice_link')
 
+#order serilizer
 class OrderSerializer(serializers.ModelSerializer):
     ordered_cart = CartSerializer()
     ordered_by = UserSerializer()
@@ -235,6 +235,73 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = ('id','ordered_cart','order_no','billing_address','shipping_address','total_mrp','total_discount_amount',
                   'total_tax_amount','total_final_amount','order_status','ordered_by','received_by','last_modified_by',
                   'created_at','modified_at','rt_order_order_product')
+
+class CartProductPrice(serializers.ModelSerializer):
+    product = ProductsSearchSerializer()
+    product_price = serializers.SerializerMethodField('product_price_dt')
+    product_mrp = serializers.SerializerMethodField('product_mrp_dt')
+
+    def product_price_dt(self,obj):
+        return obj.price_to_retailer
+
+    def product_mrp_dt(self,obj):
+        return obj.mrp
+
+    class Meta:
+        model = ProductPrice
+        fields = ('id','product','product_price','product_mrp','created_at')
+
+class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
+    cart_product = ProductsSearchSerializer()
+    cart = CartDataSerializer()
+    cart_product_price = CartProductPrice()
+    no_of_pieces = serializers.SerializerMethodField('no_pieces_dt')
+    product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
+
+    def no_pieces_dt(self, obj):
+        return int(obj.no_of_pieces)
+
+    def product_sub_total_dt(self,obj):
+        return float(obj.no_of_pieces) * float(obj.cart_product_price.price_to_retailer)
+
+    class Meta:
+        model = CartProductMapping
+        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg','no_of_pieces','product_sub_total','cart_product_price')
+
+
+class OrderedCartSerializer(serializers.ModelSerializer):
+    rt_cart_list = OrderedCartProductMappingSerializer(many=True)
+    last_modified_by = UserSerializer()
+    items_count = serializers.ReadOnlyField(source='qty_sum')
+    total_amount = serializers.ReadOnlyField(source='subtotal')
+    sub_total = serializers.ReadOnlyField(source='subtotal')
+
+    class Meta:
+        model = Cart
+        fields = ('id','order_id','cart_status','last_modified_by','created_at','modified_at','rt_cart_list','total_amount','sub_total','items_count')
+
+#order Details
+class OrderDetailSerializer(serializers.ModelSerializer):
+    ordered_cart = OrderedCartSerializer()
+    ordered_by = UserSerializer()
+    last_modified_by = UserSerializer()
+    rt_order_order_product = OrderedProductSerializer(many=True)
+    billing_address = AddressSerializer()
+    shipping_address = AddressSerializer()
+    order_status = serializers.CharField(source='get_order_status_display')
+
+    def to_representation(self, instance):
+        representation = super(OrderDetailSerializer, self).to_representation(instance)
+        representation['created_at'] = instance.created_at.strftime("%Y-%m-%d - %H:%M:%S")
+        return representation
+
+    class Meta:
+        model=Order
+        fields = ('id','ordered_cart','order_no','billing_address','shipping_address','total_mrp','total_discount_amount',
+                  'total_tax_amount','total_final_amount','order_status','ordered_by','received_by','last_modified_by',
+                  'created_at','modified_at','rt_order_order_product')
+
+
 
 class OrderNumberSerializer(serializers.ModelSerializer):
 

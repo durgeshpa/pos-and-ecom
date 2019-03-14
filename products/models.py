@@ -193,7 +193,7 @@ class ProductPrice(models.Model):
     status = models.BooleanField(default=True)
 
     def __str__(self):
-        return self.product.product_name
+        return "%s - %s"%(self.product.product_name, self.mrp)
 
 
     def save(self, *args, **kwargs):
