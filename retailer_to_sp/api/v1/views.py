@@ -800,10 +800,8 @@ class DownloadInvoiceSP(APIView):
             product_tax_amount = 0
             product_pro_price_mrp =0
             product_pro_price_ptr = 0
-            product_pro_price_mrp = m.product.product_pro_price.filter(
-                shop=m.ordered_product.order.seller_shop, status=True).last().mrp
-            product_pro_price_ptr = m.product.product_pro_price.filter(
-                shop=m.ordered_product.order.seller_shop, status=True).last().price_to_retailer
+            # product_pro_price_mrp = m.product.product_pro_price.filter(shop=m.ordered_product.order.seller_shop, status=True).last().mrp
+            # product_pro_price_ptr = m.product.product_pro_price.filter(shop=m.ordered_product.order.seller_shop, status=True).last().price_to_retailer
 
             no_of_pieces = 0
             cart_qty = 0
@@ -850,9 +848,9 @@ class DownloadInvoiceSP(APIView):
             product_listing.append(ordered_prodcut)
             # New Code For Product Listing End
 
-            sum_qty = sum_qty + int(no_of_pieces)
-            sum_amount += (int(no_of_pieces) * product_pro_price_ptr)
-            inline_sum_amount = (int(no_of_pieces) * product_pro_price_ptr)
+            sum_qty = sum_qty + int(no_of_pieces // cart_qty) * int(m.shipped_qty)
+            sum_amount += (int(no_of_pieces // cart_qty) * int(m.shipped_qty) * product_pro_price_ptr)
+            inline_sum_amount += (int(no_of_pieces // cart_qty) * int(m.shipped_qty) * product_pro_price_ptr)
 
             for n in m.product.product_pro_tax.all():
                 divisor= (1+(n.tax.tax_percentage/100))
