@@ -9,6 +9,9 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import ugettext_lazy as _
 from django.utils.safestring import mark_safe
+from django.urls import reverse
+from django.conf import settings
+from django.forms import widgets
 
 from retailer_to_sp.models import (
     CustomerCare, ReturnProductMapping, OrderedProduct,
@@ -17,6 +20,35 @@ from retailer_to_sp.models import (
 from products.models import Product
 from shops.models import Shop
 from accounts.models import UserWithName
+
+
+class PlainTextWidget(forms.Widget):
+    def render(self, name, value, attrs=None, renderer=None):
+        return mark_safe(value) if value else '---'
+
+
+class RelatedFieldWidgetCanAdd(widgets.Select):
+
+    def __init__(self, related_model, related_url=None, *args, **kw):
+
+        super(RelatedFieldWidgetCanAdd, self).__init__(*args, **kw)
+        if not related_url:
+            rel_to = related_model
+            info = (rel_to._meta.app_label, rel_to._meta.object_name.lower())
+            related_url = 'admin:%s_%s_add' % info
+
+        # Be careful that here "reverse" is not allowed
+        self.related_url = related_url
+
+    def render(self, name, value, *args, **kwargs):
+        self.related_url = reverse(self.related_url)
+        output = [super(RelatedFieldWidgetCanAdd, self).render(name, value, *args, **kwargs)]
+        output.append('<a href="%s" class="related-widget-wrapper-link add-related" id="add_id_%s" \
+            onclick="return showAddAnotherPopup(this);"> ' %
+            (self.related_url, name))
+        output.append('<img src="/static/admin/img/icon-addlink.svg" width="10" height="10" \
+            alt="Add"/>Add Delivery Boy</a>')
+        return mark_safe(''.join(output))
 
 
 class CustomerCareForm(forms.ModelForm):
@@ -50,7 +82,8 @@ class ReturnProductMappingForm(forms.ModelForm):
 
 
 class OrderedProductForm(forms.ModelForm):
-    order = forms.ModelChoiceField(queryset=Order.objects.filter(order_status__in=[Order.OPDP, 'ordered', 'PARTIALLY_SHIPPED']))
+    order = forms.ModelChoiceField(queryset=Order.objects.filter(
+        order_status__in=[Order.OPDP, 'ordered', 'PARTIALLY_SHIPPED', 'DISPATCH_PENDING']))
 
     class Meta:
         model = OrderedProduct
@@ -132,23 +165,24 @@ class OrderedProductMappingDeliveryForm(forms.ModelForm):
 class OrderedProductMappingShipmentForm(forms.ModelForm):
     ordered_qty = forms.CharField(required=False)
     already_shipped_qty = forms.CharField(required=False)
-
+    to_be_shipped_qty = forms.CharField(required=False)
 
     class Meta:
         model = OrderedProductMapping
         fields = [
             'product', 'ordered_qty', 'already_shipped_qty',
-            'shipped_qty'
+            'to_be_shipped_qty', 'shipped_qty',
         ]
 
     def clean_shipped_qty(self):
         ordered_qty = int(self.cleaned_data.get('ordered_qty'))
         shipped_qty = int(self.cleaned_data.get('shipped_qty'))
+        to_be_shipped_qty = int(self.cleaned_data.get('to_be_shipped_qty'))
         already_shipped_qty = int(self.cleaned_data.get('already_shipped_qty'))
-        if (ordered_qty - already_shipped_qty) < shipped_qty:
+        max_qty_allowed = (ordered_qty - (already_shipped_qty + to_be_shipped_qty))
+        if max_qty_allowed < shipped_qty:
             raise forms.ValidationError(
-                _('To be Ship Qty cannot be greater than difference '
-                  'of Ordered Qty and Already Shipped Qty'),
+                _('Max. Qty allowed: %s') % (max_qty_allowed),
                 )
         else:
             return shipped_qty
@@ -157,6 +191,7 @@ class OrderedProductMappingShipmentForm(forms.ModelForm):
         super(OrderedProductMappingShipmentForm, self).__init__(*args, **kwargs)
         self.fields['ordered_qty'].widget.attrs['class'] = 'hide_input_box'
         self.fields['already_shipped_qty'].widget.attrs['class'] = 'hide_input_box'
+        self.fields['to_be_shipped_qty'].widget.attrs['class'] = 'hide_input_box'
         self.fields['product'].widget.attrs = {'class': 'ui-select hide_input_box'}
 
 
@@ -195,7 +230,9 @@ class OrderedProductDispatchForm(forms.ModelForm):
 
 
 class TripForm(forms.ModelForm):
-    delivery_boy = forms.ModelChoiceField(queryset=UserWithName.objects.all())
+    delivery_boy = forms.ModelChoiceField(queryset=UserWithName.objects.all(),
+                                          widget=RelatedFieldWidgetCanAdd(
+                                              UserWithName, related_url="admin:accounts_user_add"))
     trip_status = forms.ChoiceField(choices=TRIP_STATUS)
     search_by_area = forms.CharField(required=False)
     trip_id = forms.CharField(required=False)
@@ -203,7 +240,7 @@ class TripForm(forms.ModelForm):
     class Meta:
         model = Trip
         fields = ['seller_shop', 'delivery_boy', 'vehicle_no', 'trip_status',
-                  'e_way_bill_no', 'starts_at', 'completed_at', 'search_by_area']
+                  'e_way_bill_no', 'search_by_area']
 
     class Media:
         js = ('admin/js/select2.min.js', )
@@ -229,15 +266,13 @@ class TripForm(forms.ModelForm):
             self.fields['trip_id'].initial = trip
             if trip_status == 'READY':
                 self.fields['seller_shop'].disabled = True
-                self.fields['trip_status'].choices = TRIP_STATUS[1:]
+                self.fields['trip_status'].choices = TRIP_STATUS[0], TRIP_STATUS[2], TRIP_STATUS[1]
 
             elif trip_status == 'STARTED':
                 self.fields['delivery_boy'].disabled = True
                 self.fields['seller_shop'].disabled = True
                 self.fields['vehicle_no'].disabled = True
-                self.fields['trip_status'].choices = TRIP_STATUS[3:]
-                self.fields['starts_at'].disabled = True
-                self.fields['completed_at'].required = True
+                self.fields['trip_status'].choices = TRIP_STATUS[2:]
                 self.fields['search_by_area'].widget = forms.HiddenInput()
 
             elif trip_status == 'COMPLETED':
@@ -249,28 +284,24 @@ class TripForm(forms.ModelForm):
                     self.fields[field_name].disabled = True
                 self.fields['trip_status'].choices = TRIP_STATUS[1:2]
         else:
-            self.fields['trip_status'].choices = TRIP_STATUS[:1]
-
-    # def clean(self):
-    #     data = self.cleaned_data
-    #     if data.get('starts_at') and data.get('starts_at') < datetime.datetime.today():
-    #         raise forms.ValidationError("The Start Date cannot be in the past!")
-    #     elif data.get('completed_at') and (data.get('completed_at') < data.get('starts_at')):
-    #         raise forms.ValidationError("Completed Date should be greater than the Start Date")
-    #     return data
+            self.fields['trip_status'].initial = 'READY'
+            fields = ['trip_status', 'e_way_bill_no']
+            for field in fields:
+                self.fields[field].required = False
+                self.fields[field].widget = forms.HiddenInput()
 
 
 class DispatchForm(forms.ModelForm):
     selected = forms.BooleanField(required=False)
-    invoice_city = forms.CharField(disabled=True)
+    invoice_city = forms.CharField(disabled=True, widget=PlainTextWidget)
     shipment_address = forms.CharField(widget=forms.Textarea, disabled=True)
-    invoice_amount = forms.CharField(disabled=True)
-    invoice_date = forms.CharField(disabled=True)
+    invoice_amount = forms.CharField(disabled=True, widget=PlainTextWidget)
+    invoice_date = forms.CharField(disabled=True, widget=PlainTextWidget)
     items = forms.CharField(widget=forms.Textarea, label='Invoice No', disabled=True)
 
     class Meta:
         model = Dispatch
-        fields = ['selected', 'items', 'invoice_amount', 'invoice_city', 'invoice_date', 'order', 'shipment_address']
+        fields = ['selected', 'items', 'invoice_amount', 'shipment_status', 'invoice_city', 'invoice_date', 'order', 'shipment_address']
 
     def __init__(self, *args, **kwargs):
         super(DispatchForm, self).__init__(*args, **kwargs)
@@ -293,19 +324,18 @@ class DispatchForm(forms.ModelForm):
                                                              str(pk)+'/change/" target="_blank">'+
                                                              invoice_no+'</a></b>')
             self.fields['invoice_date'].initial = instance.created_at.strftime('%d-%m-%Y %H:%M')
-            self.fields['invoice_date'].widget.attrs['id'] = 'hide_input_box'
 
             self.fields['invoice_city'].initial = instance.invoice_city
-            self.fields['invoice_city'].widget.attrs['id'] = 'hide_input_box'
 
             self.fields['invoice_amount'].initial = instance.invoice_amount
-            self.fields['invoice_amount'].widget.attrs['id'] = 'hide_input_box'
 
             self.fields['shipment_address'].initial = instance.shipment_address
             self.fields['shipment_address'].widget.attrs = {'id':'hide_input_box', "rows": "3", "cols": "25"}
 
             self.fields['order'].widget.attrs = {'id':'hide_input_box', 'class':'ui-select'}
             self.fields['order'].disabled = True
+            self.fields['shipment_status'].widget.attrs = {'id':'hide_input_box', 'class':'ui-select'}
+            self.fields['shipment_status'].disabled = True
             self.fields['selected'].widget.attrs = {'value': pk}
 
 
