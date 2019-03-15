@@ -416,7 +416,8 @@ class ReservedOrder(generics.ListAPIView):
                 cart = Cart.objects.filter(last_modified_by=self.request.user,
                                            cart_status__in=['active', 'pending']).last()
                 cart_products = CartProductMapping.objects.filter(cart=cart)
-
+                cart_product.qty_error_msg = ''
+                cart_product.save()
                 for cart_product in cart_products:
 
                     #Exclude expired
@@ -429,6 +430,9 @@ class ReservedOrder(generics.ListAPIView):
                     if available_qty and int(available_qty) >= ordered_amount: #checking if stock available and more than the order
                         remaining_amount = ordered_amount
                         for product_detail in ordered_product_details:
+                            if product_detail.available_qty <=0:
+                                continue
+
                             if remaining_amount <=0:
                                 break
 
