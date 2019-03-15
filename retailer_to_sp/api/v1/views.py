@@ -358,7 +358,19 @@ class CartDetail(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def get(self,request,*args,**kwargs):
+    def delivery_message(self):
+        date_time_now = datetime.now()
+        day = date_time_now.strftime("%A")
+        time = date_time_now.strftime("%H")
+
+        if int(time) < 16 and not (day == 'Saturday' or day == 'Sunday'):
+            return str('Order now and get delivery by {}'.format(
+                (date_time_now + timedelta(days=1)).strftime('%A')))
+        else:
+            return str('Order now and get delivery by {}'.format(
+                (date_time_now + timedelta(days=2)).strftime('%A')))
+
+    def get(self, request, *args, **kwargs):
         shop_id = self.request.GET.get('shop_id')
         msg = {'is_success': False, 'message': ['Sorry shop or shop mapping not found'], 'response_data': None}
 
@@ -378,8 +390,16 @@ class CartDetail(APIView):
                     msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
                            'response_data': None}
                 else:
-                    serializer = CartSerializer(Cart.objects.get(id=cart.id),context={'parent_mapping_id': parent_mapping.parent.id})
-                    msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
+                    serializer = CartSerializer(
+                        Cart.objects.get(id=cart.id),
+                        context={'parent_mapping_id': parent_mapping.parent.id,
+                                 'delivery_message': self.delivery_message()}
+                    )
+                    msg = {
+                        'is_success': True,
+                        'message': [''],
+                        'response_data': serializer.data
+                    }
                 return Response(msg, status=status.HTTP_200_OK)
             else:
                 msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
@@ -395,8 +415,13 @@ class CartDetail(APIView):
                 if cart.rt_cart_list.count()<=0:
                     msg =  {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],'response_data': None}
                 else:
-                    serializer = GramMappedCartSerializer(GramMappedCart.objects.get(id=cart.id),context={'parent_mapping_id': parent_mapping.parent.id})
-                    msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
+                    serializer = GramMappedCartSerializer(
+                        GramMappedCart.objects.get(id=cart.id),
+                        context={'parent_mapping_id': parent_mapping.parent.id,
+                                 'delivery_message': self.delivery_message()}
+                    )
+                    msg = {'is_success': True, 'message': [
+                        ''], 'response_data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
             else:
                 msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
