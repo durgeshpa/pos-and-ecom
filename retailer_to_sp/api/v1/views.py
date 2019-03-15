@@ -416,10 +416,9 @@ class ReservedOrder(generics.ListAPIView):
                 cart = Cart.objects.filter(last_modified_by=self.request.user,
                                            cart_status__in=['active', 'pending']).last()
                 cart_products = CartProductMapping.objects.filter(cart=cart)
-                cart_product.qty_error_msg = ''
-                cart_product.save()
                 for cart_product in cart_products:
-
+                    cart_product.qty_error_msg = ''
+                    cart_product.save()
                     #Exclude expired
                     ordered_product_details = OrderedProductMapping.get_product_availability(parent_mapping.parent, cart_product.cart_product).order_by('-expiry_date')
                     available_qty = ordered_product_details.aggregate(available_qty_sum=Sum('available_qty'))['available_qty_sum']
