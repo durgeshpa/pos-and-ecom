@@ -163,6 +163,7 @@ class CartSerializer(serializers.ModelSerializer):
     items_count = serializers.SerializerMethodField('items_count_id')
     total_amount = serializers.SerializerMethodField('total_amount_id')
     sub_total = serializers.SerializerMethodField('sub_total_id')
+    delivery_msg = serializers.SerializerMethodField()
 
     def total_amount_id(self, obj):
         self.total_amount = 0
@@ -183,9 +184,15 @@ class CartSerializer(serializers.ModelSerializer):
     def items_count_id(self, obj):
         return self.items_count
 
+    def get_delivery_msg(self, obj):
+        return self.context.get("delivery_message", None)
+
     class Meta:
         model = Cart
-        fields = ('id','order_id','cart_status','last_modified_by','created_at','modified_at','rt_cart_list','total_amount','sub_total','items_count')
+        fields = ('id', 'order_id', 'cart_status', 'last_modified_by',
+                  'created_at', 'modified_at', 'rt_cart_list', 'total_amount',
+                  'sub_total', 'items_count', 'delivery_msg')
+
 
 class NoteSerializer(serializers.ModelSerializer):
     note_link = serializers.SerializerMethodField('note_link_id')
@@ -379,6 +386,7 @@ class GramMappedCartSerializer(serializers.ModelSerializer):
     items_count = serializers.SerializerMethodField('items_count_id')
     total_amount = serializers.SerializerMethodField('total_amount_id')
     sub_total = serializers.SerializerMethodField('sub_total_id')
+    delivery_msg = serializers.SerializerMethodField()
 
     def total_amount_id(self,obj):
         self.total_amount = 0
@@ -399,6 +407,9 @@ class GramMappedCartSerializer(serializers.ModelSerializer):
     def items_count_id(self,obj):
         return self.items_count
 
+    def get_delivery_msg(self, obj):
+        return self.context.get("delivery_message", None)
+
     def to_representation(self, instance):
         representation = super(GramMappedCartSerializer, self).to_representation(instance)
         representation['created_at'] = instance.created_at.strftime("%Y-%m-%d - %H:%M:%S")
@@ -406,7 +417,10 @@ class GramMappedCartSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = GramMappedCart
-        fields = ('id','order_id','cart_status','last_modified_by','created_at','modified_at','rt_cart_list','total_amount','items_count','sub_total')
+        fields = ('id', 'order_id', 'cart_status', 'last_modified_by',
+                  'created_at', 'modified_at', 'rt_cart_list', 'total_amount',
+                  'items_count', 'sub_total', 'delivery_msg')
+
 
 class GramMappedOrderedProductSerializer(serializers.ModelSerializer):
     invoice_link = serializers.SerializerMethodField('invoice_link_id')
