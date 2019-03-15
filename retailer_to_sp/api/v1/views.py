@@ -833,8 +833,8 @@ class DownloadInvoiceSP(APIView):
             product_tax_amount = 0
             basic_rate = 0
             inline_sum_amount = 0
-            product_pro_price_ptr = m.product.rt_cart_product_mapping.last().cart_product_price.price_to_retailer
-            product_pro_price_mrp = m.product.rt_cart_product_mapping.last().cart_product_price.mrp
+            product_pro_price_ptr = round(m.product.rt_cart_product_mapping.last().cart_product_price.price_to_retailer,2)
+            product_pro_price_mrp = round(m.product.rt_cart_product_mapping.last().cart_product_price.mrp,2)
             no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
             cart_qty = m.product.rt_cart_product_mapping.last().qty
             # tax_sum = m.product.rt_cart_product_mapping.last().tax
