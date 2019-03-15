@@ -13,6 +13,7 @@ from rest_framework.decorators import list_route
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.core.exceptions import ObjectDoesNotExist
 from shops.models import Shop, ParentRetailerMapping
+from sp_to_gram.models import OrderedProductMapping
 
 class GetSlotBrandListView(APIView):
 
@@ -22,17 +23,23 @@ class GetSlotBrandListView(APIView):
         pos_name = self.kwargs.get('slot_position_name')
         shop_id = self.request.GET.get('shop_id')
         data = BrandData.objects.filter(brand_data__active_status='active')
-
-        # try:
-        #     shop = Shop.objects.get(id=shop_id)
-        # except ObjectDoesNotExist:
-        #     return Response({"message":["Shop Not Found"], "response_data": None ,"is_success": False})
         if pos_name and not shop_id:
             data = data.filter(slot__position_name=pos_name, slot__shop=None).order_by('brand_data_order')
             brand_data_serializer = BrandDataSerializer(data,many=True)
         elif pos_name and shop_id:
-            data = data.filter(slot__position_name=pos_name, slot__shop=ParentRetailerMapping.objects.get(retailer=shop_id).parent.id).order_by('brand_data_order')
+            parent = ParentRetailerMapping.objects.get(retailer=shop_id).parent.id
+            products_mappings = OrderedProductMapping.objects.filter(
+                ordered_product__order__ordered_cart__shop__id=parent,
+            )
+            product_brands = []
+            for product in products_mappings:
+                if product.available_qty > 0:
+                    product_brands.append(product.product.product_brand)
+            product_brands = set(product_brands)
+            product_brands = list(product_brands)
+            data = data.filter(slot__position_name=pos_name, slot__shop=parent, brand_data__in = product_brands).order_by('brand_data_order')
             brand_data_serializer = BrandDataSerializer(data,many=True)
+
         else:
             data = data.order_by('brand_data_order')
             brand_data_serializer = BrandDataSerializer(data,many=True)
