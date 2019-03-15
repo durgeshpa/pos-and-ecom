@@ -478,15 +478,29 @@ class OrderedProductMapping(models.Model):
     @property
     def to_be_shipped_qty(self):
         all_ordered_product = self.ordered_product.order.rt_order_order_product.all()
+        #all_ordered_product_exclude_current = all_ordered_product.exclude(id=self.ordered_product_id)
+        qty = OrderedProductMapping.objects.filter(
+            ordered_product__in=all_ordered_product,
+            product=self.product)
+        to_be_shipped_qty = qty.aggregate(
+            Sum('shipped_qty')).get('shipped_qty__sum', 0)
+        returned_qty = qty.aggregate(
+            Sum('returned_qty')).get('returned_qty__sum', 0)
+        to_be_shipped_qty = to_be_shipped_qty if to_be_shipped_qty else 0
+        to_be_shipped_qty = to_be_shipped_qty - returned_qty
+        return to_be_shipped_qty
+    to_be_shipped_qty.fget.short_description = "Already Shipped Qty"
+
+    @property
+    def shipped_qty_exclude_current(self):
+        all_ordered_product = self.ordered_product.order.rt_order_order_product.all()
         all_ordered_product_exclude_current = all_ordered_product.exclude(id=self.ordered_product_id)
         to_be_shipped_qty = OrderedProductMapping.objects.filter(
             ordered_product__in=all_ordered_product_exclude_current,
             product=self.product).aggregate(
             Sum('shipped_qty')).get('shipped_qty__sum', 0)
         to_be_shipped_qty = to_be_shipped_qty if to_be_shipped_qty else 0
-        to_be_shipped_qty = to_be_shipped_qty - self.already_shipped_qty
         return to_be_shipped_qty
-    to_be_shipped_qty.fget.short_description = "Already Shipped Qty"
 
     @property
     def gf_code(self):
@@ -536,9 +550,7 @@ class ShipmentProductMapping(OrderedProductMapping):
     def clean(self):
         ordered_qty = int(self.ordered_qty)
         shipped_qty = int(self.shipped_qty)
-        to_be_shipped_qty = int(self.to_be_shipped_qty)
-        already_shipped_qty = int(self.already_shipped_qty)
-        max_qty_allowed = ordered_qty - (to_be_shipped_qty + already_shipped_qty)
+        max_qty_allowed = ordered_qty - int(self.shipped_qty_exclude_current)
         if max_qty_allowed < shipped_qty:
             raise ValidationError(
                 _('Max. allowed Qty: %s') % max_qty_allowed,

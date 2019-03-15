@@ -186,13 +186,20 @@ def ordered_product_mapping_shipment(request):
                 Sum('delivered_qty')).get('delivered_qty__sum')
             already_shipped_qty = already_shipped_qty if already_shipped_qty else 0
 
+            returned_qty = OrderedProductMapping.objects.filter(
+                ordered_product__in=Order.objects.get(
+                    pk=order_id).rt_order_order_product.all(),
+                product_id=item['cart_product']).aggregate(
+                Sum('returned_qty')).get('returned_qty__sum')
+            returned_qty = returned_qty if returned_qty else 0
+
             to_be_shipped_qty = OrderedProductMapping.objects.filter(
                 ordered_product__in=Order.objects.get(
                     pk=order_id).rt_order_order_product.all(),
                 product_id=item['cart_product']).aggregate(
                 Sum('shipped_qty')).get('shipped_qty__sum')
             to_be_shipped_qty = to_be_shipped_qty if to_be_shipped_qty else 0
-            to_be_shipped_qty = to_be_shipped_qty - already_shipped_qty
+            to_be_shipped_qty = to_be_shipped_qty - returned_qty
 
             ordered_qty = item['qty']
             inner_case_size = int(Product.objects.get(pk=item['cart_product']).product_inner_case_size)
