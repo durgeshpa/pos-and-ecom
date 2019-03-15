@@ -395,10 +395,11 @@ class OrderedProduct(models.Model):
             ordered_products = self.rt_order_product_order_product_mapping.all()
             for product in ordered_products:
                 if product.product:
-                    product_price = ProductPrice.objects.filter(
-                        shop=seller_shop, product=product.product, status=True
-                    ).last().price_to_retailer
-                    shipped_qty = product.shipped_qty
+                    # product_price = ProductPrice.objects.filter(
+                    #     shop=seller_shop, product=product.product, status=True
+                    # ).last().price_to_retailer
+                    product_price = float(round(product.product.rt_cart_product_mapping.last().cart_product_price.price_to_retailer, 2))
+                    shipped_qty = float(product.shipped_qty)
                     amount = shipped_qty * product_price
                     total_amount.append(amount)
             return str(sum(total_amount))

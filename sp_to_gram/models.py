@@ -417,7 +417,7 @@ def create_credit_note(instance=None, created=False, **kwargs):
             # credit_amount += int(item.returned_qty) * float(item.product.product_pro_price.filter(
             #     shop=instance.order.seller_shop, status=True
             #     ).last().price_to_retailer)
-            credit_amount += int(item.returned_qty) * float(item.product.rt_cart_product_mapping.last().cart_product_price.price_to_retailer)
+            credit_amount += float(item.returned_qty) * float(round(item.product.rt_cart_product_mapping.last().cart_product_price.price_to_retailer,2))
 
         credit_note.amount = credit_amount
         credit_note.save()
