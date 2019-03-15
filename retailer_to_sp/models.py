@@ -402,7 +402,7 @@ class OrderedProduct(models.Model):
                     shipped_qty = float(product.shipped_qty)
                     amount = shipped_qty * product_price
                     total_amount.append(amount)
-            return str(sum(total_amount))
+            return str(round(sum(total_amount),2))
         return str("-")
 
     def save(self, *args, **kwargs):
