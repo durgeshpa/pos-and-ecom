@@ -376,7 +376,9 @@ def create_credit_note(instance=None, created=False, **kwargs):
     instance = instance.instance
     if created:
         return None
-    if instance.rt_order_product_order_product_mapping.last() and instance.rt_order_product_order_product_mapping.all().aggregate(Sum('returned_qty')).get('returned_qty__sum') > 0:
+    if(instance.rt_order_product_order_product_mapping.last() and 
+    instance.rt_order_product_order_product_mapping.all().aggregate(Sum('returned_qty')).get('returned_qty__sum') > 0 or 
+    instance.rt_order_product_order_product_mapping.all().aggregate(Sum('damaged_qty')).get('damaged_qty__sum')>0):
         invoice_prefix = instance.order.seller_shop.invoice_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
         last_credit_note = CreditNote.objects.filter(shop=instance.order.seller_shop, status=True).order_by('credit_note_id').last()
         if last_credit_note:
@@ -404,19 +406,19 @@ def create_credit_note(instance=None, created=False, **kwargs):
             reserved_order = OrderedProductReserved.objects.filter(cart=instance.order.ordered_cart,
                                                                  product=item.product, reserve_status=OrderedProductReserved.ORDERED).last()
             grn_item = OrderedProductMapping.objects.create(
+                shop = instance.order.seller_shop,
                 ordered_product=credit_grn,
                 product=item.product,
                 shipped_qty=item.returned_qty,
                 available_qty=item.returned_qty,
+                damaged_qty=item.damaged_qty,
                 ordered_qty = item.returned_qty,
                 delivered_qty = item.returned_qty,
                 manufacture_date= reserved_order.order_product_reserved.manufacture_date,
                 expiry_date= reserved_order.order_product_reserved.expiry_date,
                 )
             grn_item.save()
-            credit_amount += int(item.returned_qty) * float(item.product.product_pro_price.filter(
-                shop=instance.order.seller_shop, status=True
-                ).last().price_to_retailer)
+            credit_amount += (int(item.returned_qty)+int(item.damaged_qty)) * float(round(item.product.rt_cart_product_mapping.last().cart_product_price.price_to_retailer,2))
 
         credit_note.amount = credit_amount
         credit_note.save()

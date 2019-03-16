@@ -206,10 +206,13 @@
          </th>
 
 
-         <th>No. of already Shipped Pieces
+         <th>No. of delivered Pieces
 
          </th>
 
+         <th>No. of already Shipped Pieces
+
+         </th>
          <th>No. of Pieces to Ship
 
          </th>
@@ -235,6 +238,7 @@
          <div id="readonly"><td>{{ order_form.product }}</td></div>
             <td> <b>{{ order_form.ordered_qty }}</b></td>
             <td> <b>{{ order_form.already_shipped_qty }}</b></td>
+            <td> <b>{{ order_form.to_be_shipped_qty }}</b></td>
           <td>{{ order_form.shipped_qty.errors }}{{ order_form.shipped_qty }}</td>
 
         </tr>
@@ -303,9 +307,12 @@
 $(document).ready(function(){
 $("input[id$='ordered_qty']").css('border', 'none');
 $("input[id$='already_shipped_qty']").css('border', 'none');
+  $("input[id$='to_be_shipped_qty']").css('border', 'none');
+
 
   $("input[id$='ordered_qty']").attr("readOnly", true);
   $("input[id$='already_shipped_qty']").attr("readOnly", true);
+
   $('select#id_order').select2({width: '50%'});
      // $('select#id_shipment_status').val("PLANNING").attr("disabled", true);
     $('select#id_shipment_status').select2({width: '50%'});
