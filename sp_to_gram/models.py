@@ -10,6 +10,7 @@ from django.utils import timezone
 from django.conf import settings
 from django.db import models
 from django.db.models import Sum, Q
+import logging
 
 from shops.models import Shop, ParentRetailerMapping, ShopInvoicePattern
 from brand.models import Brand
@@ -20,6 +21,11 @@ from retailer_to_sp.models import Note as CreditNote, OrderedProduct as Retailer
 from retailer_backend.common_function import (
     order_id_pattern, brand_credit_note_pattern, getcredit_note_id
 )
+
+logger = logging.getLogger(__name__)
+
+
+
 ORDER_STATUS = (
     ("ordered_to_gram", "Ordered To Gramfactory"),
     ("order_shipped", "Order Shipped From Gramfactory"),
@@ -418,7 +424,12 @@ def create_credit_note(instance=None, created=False, **kwargs):
                 expiry_date= reserved_order.order_product_reserved.expiry_date,
                 )
             grn_item.save()
-            credit_amount += (int(item.returned_qty)+int(item.damaged_qty)) * float(round(item.product.rt_cart_product_mapping.last().cart_product_price.price_to_retailer,2))
-
+            try:
+                credit_amount += (int(item.returned_qty)+int(item.damaged_qty)) * float(round(item.product.rt_cart_product_mapping.last().cart_product_price.price_to_retailer,2))
+            except Exception as e:
+                logger.exception("Product price not found for {} -- {}".format(item.product, e))
+                credit_amount += int(item.returned_qty) * float(item.product.product_pro_price.filter(
+                    shop=instance.order.seller_shop, status=True
+                    ).last().price_to_retailer)
         credit_note.amount = credit_amount
         credit_note.save()
