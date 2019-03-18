@@ -133,9 +133,9 @@ class GramGRNProductsList(APIView):
             products = products.annotate(search=SearchVector('product_name', 'product_brand__brand_name', 'product_short_description')).filter(search=keyword)
 
         if is_store_active is False:
-            products_price = ProductPrice.objects.filter(product__in=products).order_by('product','-created_at').distinct('product')
+            products_price = ProductPrice.objects.filter(product__in=products, status=True).order_by('product','-created_at').distinct('product')
         else:
-            products_price = ProductPrice.objects.filter(product__in=products, shop=parent_mapping.parent).order_by('product', '-created_at').distinct('product')
+            products_price = ProductPrice.objects.filter(product__in=products, shop=parent_mapping.parent, status=True).order_by('product', '-created_at').distinct('product')
 
 
         if sort_preference:
@@ -284,12 +284,6 @@ class AddToCart(APIView):
                     cart.buyer_shop = parent_mapping.retailer
                     cart.save()
 
-                try:
-                    product_price_obj = ProductPrice.objects.get(product=product,shop=parent_mapping.parent,status=True)
-                except ObjectDoesNotExist:
-                    msg['message'] = ["Product Price not Found"]
-                    return Response(msg, status=status.HTTP_200_OK)
-
                 if int(qty) == 0:
                     if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
                         CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
@@ -297,7 +291,6 @@ class AddToCart(APIView):
                 else:
                     cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
                     cart_mapping.qty = qty
-                    cart_mapping.cart_product_price = product_price_obj
                     cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
                     cart_mapping.save()
 
@@ -633,6 +626,8 @@ class CreateOrder(APIView):
             if Cart.objects.filter(last_modified_by=self.request.user, id=cart_id).exists():
                 cart = Cart.objects.get(last_modified_by=self.request.user, id=cart_id)
                 cart.cart_status = 'ordered'
+                cart.buyer_shop = shop
+                cart.seller_shop = parent_mapping.parent
                 cart.save()
 
                 if OrderedProductReserved.objects.filter(cart=cart).exists():
@@ -647,10 +642,10 @@ class CreateOrder(APIView):
                     order.total_tax_amount = float(total_tax_amount)
                     order.total_final_amount = float(total_final_amount)
 
-                    order.order_status = 'ordered'
+                    order.order_status = order.ORDERED
                     order.save()
 
-                    # Remove Data From OrderedProductReserved
+                    # Changes OrderedProductReserved Status
                     for ordered_reserve in OrderedProductReserved.objects.filter(cart=cart):
                         ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
                         ordered_reserve.order_product_reserved.save()
@@ -737,7 +732,7 @@ class OrderList(generics.ListAPIView):
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             queryset = Order.objects.filter(last_modified_by=user).order_by('-created_at')
 
-            serializer = OrderDetailSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
+            serializer = OrderDetailSerializer(queryset, many=True, context={'parent_mapping': parent_mapping.parent,'current_url':current_url})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             queryset = GramMappedOrder.objects.filter(last_modified_by=user).order_by('-created_at')
             serializer = GramMappedOrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
@@ -766,7 +761,7 @@ class OrderDetail(generics.RetrieveAPIView):
         current_url = request.get_host()
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             queryset = Order.objects.get(id=pk)
-            serializer = OrderDetailSerializer(queryset, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
+            serializer = OrderDetailSerializer(queryset, context={'parent_mapping': parent_mapping.parent,'current_url':current_url})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             queryset = GramMappedOrder.objects.get(id=pk)
             serializer = GramMappedOrderSerializer(queryset,context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
@@ -839,12 +834,8 @@ class DownloadInvoiceSP(APIView):
             product_tax_amount = 0
             basic_rate = 0
             inline_sum_amount = 0
-            try:
-                product_pro_price_ptr = round(m.product.rt_cart_product_mapping.last().cart_product_price.price_to_retailer,2)
-                product_pro_price_mrp = round(m.product.rt_cart_product_mapping.last().cart_product_price.mrp,2)
-            except:
-                product_pro_price_mrp = m.product.product_pro_price.filter(shop=m.ordered_product.order.seller_shop, status=True).last().mrp
-                product_pro_price_ptr = m.product.product_pro_price.filter(shop=m.ordered_product.order.seller_shop, status=True).last().price_to_retailer
+            product_pro_price_ptr = round(m.product.rt_cart_product_mapping.last().get_cart_product_price(m.ordered_product.order.seller_shop).price_to_retailer,2)
+            product_pro_price_mrp = round(m.product.rt_cart_product_mapping.last().get_cart_product_price(m.ordered_product.order.seller_shop).mrp,2)
 
             no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
             cart_qty = m.product.rt_cart_product_mapping.last().qty
