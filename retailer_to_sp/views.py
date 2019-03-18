@@ -437,7 +437,7 @@ class DownloadPickList(TemplateView,):
         for cart_pro in cart_products:
             product_list = {
                 "product_name": cart_pro.cart_product.product_name,
-                "product_mrp": round(cart_pro.cart_product_price.mrp,2) if cart_pro.cart_product_price else cart_pro.get_product_latest_price(order_obj.seller_shop),
+                "product_mrp": cart_pro.get_product_latest_price(order_obj.seller_shop),
                 "ordered_qty":cart_pro.qty,
                 "no_of_pieces":cart_pro.no_of_pieces,
             }
