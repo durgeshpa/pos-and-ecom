@@ -20,7 +20,10 @@ from addresses.models import Address
 from products.models import Product,ProductPrice
 from otp.sms import SendSms
 from accounts.models import UserWithName
+import logging
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
+
+logger = logging.getLogger(__name__)
 
 ITEM_STATUS = (
     ("partially_delivered", "Partially Delivered"),
@@ -114,6 +117,7 @@ class Cart(models.Model):
         if self.cart_status == self.ORDERED:
             for cart_product in self.rt_cart_list.all():
                 cart_product.cart_product_price = cart_product.cart_product.get_current_shop_price(self.seller_shop)
+                logger.exception("Cart Product price is {}".format(cart_product.cart_product_price))
                 cart_product.save()
         super().save(*args, **kwargs)
 
