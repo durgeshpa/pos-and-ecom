@@ -22,18 +22,6 @@ from otp.sms import SendSms
 from accounts.models import UserWithName
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
 
-CART_STATUS = (
-    ("active", "Active"),
-    ("pending", "Pending"),
-    ("deleted", "Deleted"),
-    ("ordered", "Ordered"),
-    ("order_shipped", "Dispatched"),
-    ("partially_delivered", "Partially Delivered"),
-    ("delivered", "Delivered"),
-    ("closed", "Closed"),
-    ("payment_done_approval_pending", "Payment Done Approval Pending")
-)
-
 ITEM_STATUS = (
     ("partially_delivered", "Partially Delivered"),
     ("delivered", "Delivered"),
@@ -70,6 +58,24 @@ TRIP_STATUS = (
 
 
 class Cart(models.Model):
+    ACTIVE = "active"
+    PENDING = "pending"
+    DELETED = "deleted"
+    ORDERED = "ordered"
+    ORDER_SHIPPED = "order_shipped"
+    PARTIALLY_DELIVERED = "partially_delivered"
+    DELIVERED = "delivered"
+    CLOSED = "closed"
+    CART_STATUS = (
+        (ACTIVE, "Active"),
+        (PENDING, "Pending"),
+        (DELETED, "Deleted"),
+        (ORDERED, "Ordered"),
+        (ORDER_SHIPPED, "Dispatched"),
+        (PARTIALLY_DELIVERED, "Partially Delivered"),
+        (DELIVERED, "Delivered"),
+        (CLOSED, "Closed"),
+    )
     order_id = models.CharField(max_length=255, null=True, blank=True)
     seller_shop = models.ForeignKey(
         Shop, related_name='rt_seller_shop_cart',
@@ -104,6 +110,12 @@ class Cart(models.Model):
     def qty_sum(self):
         return self.rt_cart_list.aggregate(qty_sum=Sum('qty'))['qty_sum']
 
+    def save(self, *args, **kwargs):
+        if self.cart_status == self.ORDERED:
+            for cart_product in self.rt_cart_list.all():
+                cart_product.cart_product_price = cart_product.product.get_current_shop_price(self.seller_shop)
+                cart_product.save()
+        super().save(*args, **kwargs)
 
 @receiver(post_save, sender=Cart)
 def create_order_id(sender, instance=None, created=False, **kwargs):
@@ -124,7 +136,6 @@ class CartProductMapping(models.Model):
         on_delete=models.CASCADE, null=True, blank=True
     )
     qty = models.PositiveIntegerField(default=0)
-    #tax = models.PositiveIntegerField(default=0)
     no_of_pieces = models.PositiveIntegerField(default=0)
     qty_error_msg = models.CharField(
         max_length=255, null=True,
@@ -250,13 +261,6 @@ class Order(models.Model):
     def total_paid_amount(self):
         _, payment_amount = self.payments()
         return sum(payment_amount)
-
-    def save(self, *args, **kwargs):
-        if self.order_status == self.ORDERED:
-            for cart_pro in self.ordered_cart.rt_cart_list.all():
-                cart_pro.cart_product_price = cart_pro.get_latest_price_obj(self.seller_shop)
-                cart_pro.save()
-        super().save(*args, **kwargs)
 
 
 class Trip(models.Model):
