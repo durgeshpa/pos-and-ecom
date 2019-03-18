@@ -639,14 +639,8 @@ class CreateOrder(APIView):
                     order.total_tax_amount = float(total_tax_amount)
                     order.total_final_amount = float(total_final_amount)
 
-                    order.order_status = 'ordered'
+                    order.order_status = order.ORDERED
                     order.save()
-
-                    #Adding latest price object in cart
-                    for productMapping in CartProductMapping.objects.filter(cart=cart):
-                        productMapping.cart_product_price = productMapping.get_latest_price_obj(shop=parent_mapping.parent)
-                        productMapping.save()
-
 
                     # Changes OrderedProductReserved Status
                     for ordered_reserve in OrderedProductReserved.objects.filter(cart=cart):

@@ -161,7 +161,6 @@ class Order(models.Model):
         (ACTIVE, "Active"),
         (PENDING, "Pending"),
         (DELETED, "Deleted"),
-        (ORDERED, "Ordered"),
         (DISPATCHED, "Dispatched"),
         (PARTIAL_DELIVERED, "Partially Delivered"),
         (DELIVERED, "Delivered"),
@@ -251,6 +250,13 @@ class Order(models.Model):
     def total_paid_amount(self):
         _, payment_amount = self.payments()
         return sum(payment_amount)
+
+    def save(self, *args, **kwargs):
+        if self.order_status == self.ORDERED:
+            for cart_pro in self.ordered_cart.rt_cart_list.all():
+                cart_pro.cart_product_price = cart_pro.get_latest_price_obj(self.seller_shop)
+                cart_pro.save()
+        super().save(*args, **kwargs)
 
 
 class Trip(models.Model):
