@@ -311,7 +311,7 @@ class OrderedProductAdmin(admin.ModelAdmin):
     )
     exclude = ('received_by', 'last_modified_by')
     autocomplete_fields = ('order',)
-    search_fields = ('invoice_no', )
+    search_fields = ('invoice_no', 'order__order_no')
     readonly_fields = ('order', 'invoice_no', 'trip', 'shipment_status')
 
     def download_invoice(self, obj):
@@ -404,6 +404,15 @@ class DispatchAdmin(admin.ModelAdmin):
         """
         return {}
 
+    def get_queryset(self, request):
+        qs = super(DispatchAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(
+            Q(order__seller_shop__related_users=request.user) |
+            Q(order__seller_shop__shop_owner=request.user)
+                )
+
 
 class ShipmentProductMappingAdmin(admin.TabularInline):
     model = ShipmentProductMapping
@@ -449,6 +458,15 @@ class ShipmentAdmin(admin.ModelAdmin):
         super(ShipmentAdmin, self).save_related(request, form, formsets, change)
         #update_shipment_status(form, formsets)
         update_order_status(form)
+
+    def get_queryset(self, request):
+        qs = super(ShipmentAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(
+            Q(order__seller_shop__related_users=request.user) |
+            Q(order__seller_shop__shop_owner=request.user)
+                )
 
 
 class DeliveryBoySearch(InputFilter):
@@ -508,6 +526,14 @@ class TripAdmin(admin.ModelAdmin):
     class Media:
         js = ('admin/js/datetime_filter_collapse.js', )
 
+    def get_queryset(self, request):
+        qs = super(TripAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(
+            Q(seller_shop__related_users=request.user) |
+            Q(seller_shop__shop_owner=request.user)
+                )
 
 class NoteAdmin(admin.ModelAdmin):
     list_display = (
