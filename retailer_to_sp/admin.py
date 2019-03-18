@@ -311,7 +311,7 @@ class OrderedProductAdmin(admin.ModelAdmin):
     )
     exclude = ('received_by', 'last_modified_by')
     autocomplete_fields = ('order',)
-    search_fields = ('invoice_no', )
+    search_fields = ('invoice_no', 'order__order_no')
     readonly_fields = ('order', 'invoice_no', 'trip', 'shipment_status')
 
     def download_invoice(self, obj):
