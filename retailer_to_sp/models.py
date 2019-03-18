@@ -116,9 +116,8 @@ class Cart(models.Model):
     def save(self, *args, **kwargs):
         if self.cart_status == self.ORDERED:
             for cart_product in self.rt_cart_list.all():
-                cart_product.cart_product_price = cart_product.cart_product.get_current_shop_price(self.seller_shop)
+                cart_product.get_cart_product_price(self.seller_shop)
                 logger.exception("Cart Product price is {}".format(cart_product.cart_product_price))
-                cart_product.save()
         super().save(*args, **kwargs)
 
 @receiver(post_save, sender=Cart)
@@ -152,10 +151,13 @@ class CartProductMapping(models.Model):
     def __str__(self):
         return self.cart_product.product_name
 
+    def set_cart_product_price(self, shop):
+        self.cart_product_price = self.cart_product.get_current_shop_price(shop)
+        self.save()
+
     def get_cart_product_price(self, shop):
         if not self.cart_product_price:
-            self.cart_product_price = self.cart_product.get_current_shop_price(shop)
-            self.save()
+            self.set_cart_product_price(shop)
         return self.cart_product_price
 
     def get_product_latest_mrp(self,shop):

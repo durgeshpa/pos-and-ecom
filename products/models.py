@@ -145,8 +145,9 @@ class Product(models.Model):
 
     def get_current_shop_price(self, shop):
         today = datetime.datetime.today()
-        product_price = self.product_pro_price.filter(shop=shop, status=True).last()
-        # product_price = self.product_pro_price.filter(shop=shop, status=True, start_date__lte=today, end_date__gte=today).order_by('start_date').last()
+        product_price = self.product_pro_price.filter(shop=shop, status=True, start_date__lte=today, end_date__gte=today).order_by('start_date').last()
+        if not product_price:
+            product_price = self.product_pro_price.filter(shop=shop, status=True).last()
         return product_price
 
 class ProductSKUGenerator(models.Model):
