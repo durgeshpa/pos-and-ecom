@@ -729,7 +729,7 @@ class OrderList(generics.ListAPIView):
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             queryset = Order.objects.filter(last_modified_by=user).order_by('-created_at')
 
-            serializer = OrderDetailSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
+            serializer = OrderDetailSerializer(queryset, many=True, context={'parent_mapping': parent_mapping.parent,'current_url':current_url})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             queryset = GramMappedOrder.objects.filter(last_modified_by=user).order_by('-created_at')
             serializer = GramMappedOrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
@@ -758,7 +758,7 @@ class OrderDetail(generics.RetrieveAPIView):
         current_url = request.get_host()
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             queryset = Order.objects.get(id=pk)
-            serializer = OrderDetailSerializer(queryset, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
+            serializer = OrderDetailSerializer(queryset, context={'parent_mapping': parent_mapping.parent,'current_url':current_url})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             queryset = GramMappedOrder.objects.get(id=pk)
             serializer = GramMappedOrderSerializer(queryset,context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
