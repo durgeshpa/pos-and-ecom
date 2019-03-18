@@ -137,6 +137,9 @@ class CartProductMapping(models.Model):
     def __str__(self):
         return self.cart_product.product_name
 
+    def get_latest_price_obj(self,shop):
+        return self.cart_product.product_pro_price.filter(shop=shop,status=True).last()
+
 
 class Order(models.Model):
     ACTIVE = 'active'

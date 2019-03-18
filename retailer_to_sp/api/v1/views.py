@@ -284,12 +284,6 @@ class AddToCart(APIView):
                     cart.buyer_shop = parent_mapping.retailer
                     cart.save()
 
-                try:
-                    product_price_obj = ProductPrice.objects.get(product=product,shop=parent_mapping.parent,status=True)
-                except ObjectDoesNotExist:
-                    msg['message'] = ["Product Price not Found"]
-                    return Response(msg, status=status.HTTP_200_OK)
-
                 if int(qty) == 0:
                     if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
                         CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
@@ -297,7 +291,6 @@ class AddToCart(APIView):
                 else:
                     cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
                     cart_mapping.qty = qty
-                    cart_mapping.cart_product_price = product_price_obj
                     cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
                     cart_mapping.save()
 
@@ -630,6 +623,8 @@ class CreateOrder(APIView):
             if Cart.objects.filter(last_modified_by=self.request.user, id=cart_id).exists():
                 cart = Cart.objects.get(last_modified_by=self.request.user, id=cart_id)
                 cart.cart_status = 'ordered'
+                cart.buyer_shop = shop
+                cart.seller_shop = parent_mapping.parent
                 cart.save()
 
                 if OrderedProductReserved.objects.filter(cart=cart).exists():
@@ -647,7 +642,13 @@ class CreateOrder(APIView):
                     order.order_status = 'ordered'
                     order.save()
 
-                    # Remove Data From OrderedProductReserved
+                    #Adding latest price object in cart
+                    for productMapping in CartProductMapping.objects.filter(cart=cart):
+                        productMapping.cart_product_price = productMapping.get_latest_price_obj(shop=parent_mapping.parent)
+                        productMapping.save()
+
+
+                    # Changes OrderedProductReserved Status
                     for ordered_reserve in OrderedProductReserved.objects.filter(cart=cart):
                         ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
                         ordered_reserve.order_product_reserved.save()
