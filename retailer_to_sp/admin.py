@@ -184,7 +184,7 @@ class CartProductMappingAdmin(admin.TabularInline):
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     exclude = ('order_id', 'shop', 'cart_status','last_modified_by')
-    list_display = ('order_id', 'cart_status')
+    list_display = ('order_id', 'seller_shop','buyer_shop','cart_status')
     #change_form_template = 'admin/sp_to_gram/cart/change_form.html'
 
     class Media:
@@ -408,8 +408,8 @@ class DispatchAdmin(admin.ModelAdmin):
 class ShipmentProductMappingAdmin(admin.TabularInline):
     model = ShipmentProductMapping
     form = ShipmentProductMappingForm
-    fields = ['product', 'ordered_qty', 'already_shipped_qty', 'shipped_qty']
-    readonly_fields = ['product', 'ordered_qty', 'already_shipped_qty']
+    fields = ['product', 'ordered_qty', 'already_shipped_qty', 'to_be_shipped_qty','shipped_qty']
+    readonly_fields = ['product', 'ordered_qty', 'to_be_shipped_qty', 'already_shipped_qty']
     extra = 0
     max_num = 0
 
@@ -490,7 +490,7 @@ class TripAdmin(admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
     list_display = (
         'dispathces', 'delivery_boy', 'seller_shop', 'vehicle_no',
-        'trip_status', 'starts_at'
+        'trip_status', 'starts_at', 'completed_at'
     )
     readonly_fields = ('dispathces',)
     autocomplete_fields = ('seller_shop',)
@@ -548,7 +548,7 @@ class PaymentAdmin(NumericFilterModelAdmin,admin.ModelAdmin):
     exclude = ('name',)
     list_display = (
         'name', 'order_id', 'paid_amount',
-        'payment_choice', 'neft_reference_number','imei_no'
+        'payment_choice', 'neft_reference_number','imei_no','created_at',
     )
     autocomplete_fields = ('order_id',)
     search_fields = ('name',)
