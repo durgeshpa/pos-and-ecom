@@ -20,19 +20,10 @@ from addresses.models import Address
 from products.models import Product,ProductPrice
 from otp.sms import SendSms
 from accounts.models import UserWithName
+import logging
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
 
-CART_STATUS = (
-    ("active", "Active"),
-    ("pending", "Pending"),
-    ("deleted", "Deleted"),
-    ("ordered", "Ordered"),
-    ("order_shipped", "Dispatched"),
-    ("partially_delivered", "Partially Delivered"),
-    ("delivered", "Delivered"),
-    ("closed", "Closed"),
-    ("payment_done_approval_pending", "Payment Done Approval Pending")
-)
+logger = logging.getLogger(__name__)
 
 ITEM_STATUS = (
     ("partially_delivered", "Partially Delivered"),
@@ -70,6 +61,24 @@ TRIP_STATUS = (
 
 
 class Cart(models.Model):
+    ACTIVE = "active"
+    PENDING = "pending"
+    DELETED = "deleted"
+    ORDERED = "ordered"
+    ORDER_SHIPPED = "order_shipped"
+    PARTIALLY_DELIVERED = "partially_delivered"
+    DELIVERED = "delivered"
+    CLOSED = "closed"
+    CART_STATUS = (
+        (ACTIVE, "Active"),
+        (PENDING, "Pending"),
+        (DELETED, "Deleted"),
+        (ORDERED, "Ordered"),
+        (ORDER_SHIPPED, "Dispatched"),
+        (PARTIALLY_DELIVERED, "Partially Delivered"),
+        (DELIVERED, "Delivered"),
+        (CLOSED, "Closed"),
+    )
     order_id = models.CharField(max_length=255, null=True, blank=True)
     seller_shop = models.ForeignKey(
         Shop, related_name='rt_seller_shop_cart',
@@ -104,6 +113,12 @@ class Cart(models.Model):
     def qty_sum(self):
         return self.rt_cart_list.aggregate(qty_sum=Sum('qty'))['qty_sum']
 
+    def save(self, *args, **kwargs):
+        if self.cart_status == self.ORDERED:
+            for cart_product in self.rt_cart_list.all():
+                cart_product.get_cart_product_price(self.seller_shop)
+                logger.exception("Cart Product price is {}".format(cart_product.cart_product_price))
+        super().save(*args, **kwargs)
 
 @receiver(post_save, sender=Cart)
 def create_order_id(sender, instance=None, created=False, **kwargs):
@@ -124,7 +139,6 @@ class CartProductMapping(models.Model):
         on_delete=models.CASCADE, null=True, blank=True
     )
     qty = models.PositiveIntegerField(default=0)
-    #tax = models.PositiveIntegerField(default=0)
     no_of_pieces = models.PositiveIntegerField(default=0)
     qty_error_msg = models.CharField(
         max_length=255, null=True,
@@ -136,6 +150,21 @@ class CartProductMapping(models.Model):
 
     def __str__(self):
         return self.cart_product.product_name
+
+    def set_cart_product_price(self, shop):
+        self.cart_product_price = self.cart_product.get_current_shop_price(shop)
+        self.save()
+
+    def get_cart_product_price(self, shop):
+        if not self.cart_product_price:
+            self.set_cart_product_price(shop)
+        return self.cart_product_price
+
+    def get_product_latest_mrp(self,shop):
+        if self.cart_product_price:
+            return round(self.cart_product_price.mrp,2)
+        else:
+            return round(self.cart_product.get_current_shop_price(shop).mrp,2)
 
 
 class Order(models.Model):
@@ -158,7 +187,6 @@ class Order(models.Model):
         (ACTIVE, "Active"),
         (PENDING, "Pending"),
         (DELETED, "Deleted"),
-        (ORDERED, "Ordered"),
         (DISPATCHED, "Dispatched"),
         (PARTIAL_DELIVERED, "Partially Delivered"),
         (DELIVERED, "Delivered"),
@@ -395,10 +423,7 @@ class OrderedProduct(models.Model):
             ordered_products = self.rt_order_product_order_product_mapping.all()
             for product in ordered_products:
                 if product.product:
-                    # product_price = ProductPrice.objects.filter(
-                    #     shop=seller_shop, product=product.product, status=True
-                    # ).last().price_to_retailer
-                    product_price = float(round(product.product.rt_cart_product_mapping.last().cart_product_price.price_to_retailer, 2))
+                    product_price = float(round(product.product.rt_cart_product_mapping.last().get_cart_product_price(seller_shop).price_to_retailer, 2))
                     shipped_qty = float(product.shipped_qty)
                     amount = shipped_qty * product_price
                     total_amount.append(amount)
@@ -605,9 +630,11 @@ class Payment(models.Model):
     name = models.CharField(max_length=255, null=True, blank=True)
     paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
     payment_choice = models.CharField(verbose_name="Payment Mode",max_length=30,choices=PAYMENT_MODE_CHOICES, null=True)
-    neft_reference_number = models.CharField(max_length=20, null=True,blank=True)
+    neft_reference_number = models.CharField(max_length=255, null=True,blank=True)
     imei_no = models.CharField(max_length=100, null=True, blank=True)
     payment_status = models.CharField(max_length=50, null=True, blank=True,choices=PAYMENT_STATUS, default=PAYMENT_DONE_APPROVAL_PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.name
