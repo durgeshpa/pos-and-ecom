@@ -363,9 +363,12 @@ class CartDetail(APIView):
         day = date_time_now.strftime("%A")
         time = date_time_now.strftime("%H")
 
-        if int(time) < 16 and not (day == 'Saturday' or day == 'Sunday'):
+        if int(time) < 17 and not (day == 'Saturday'):
             return str('Order now and get delivery by {}'.format(
                 (date_time_now + timedelta(days=1)).strftime('%A')))
+        elif (day == 'Friday'):
+            return str('Order now and get delivery by {}'.format(
+                (date_time_now + timedelta(days=3)).strftime('%A')))
         else:
             return str('Order now and get delivery by {}'.format(
                 (date_time_now + timedelta(days=2)).strftime('%A')))
