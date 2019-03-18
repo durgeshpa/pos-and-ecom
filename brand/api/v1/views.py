@@ -15,6 +15,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from shops.models import Shop, ParentRetailerMapping
 from sp_to_gram.models import OrderedProductMapping
 
+
 class GetSlotBrandListView(APIView):
 
 
@@ -26,20 +27,27 @@ class GetSlotBrandListView(APIView):
         if pos_name and not shop_id:
             data = data.filter(slot__position_name=pos_name, slot__shop=None).order_by('brand_data_order')
             brand_data_serializer = BrandDataSerializer(data,many=True)
-        elif pos_name and shop_id:
-            parent = ParentRetailerMapping.objects.get(retailer=shop_id).parent.id
-            products_mappings = OrderedProductMapping.objects.filter(
-                ordered_product__order__ordered_cart__shop__id=parent,
-            )
-            product_brands = []
-            for product in products_mappings:
-                if product.available_qty > 0:
-                    product_brands.append(product.product.product_brand)
-            product_brands = set(product_brands)
-            product_brands = list(product_brands)
-            data = data.filter(slot__position_name=pos_name, slot__shop=parent, brand_data__in = product_brands).order_by('brand_data_order')
+        elif pos_name and shop_id == '-1':
+            data = data.filter(slot__position_name=pos_name, slot__shop=None).order_by('brand_data_order')
             brand_data_serializer = BrandDataSerializer(data,many=True)
-
+        elif pos_name and shop_id:
+            if Shop.objects.get(id=shop_id).retiler_mapping.exists():
+                parent = ParentRetailerMapping.objects.get(retailer=shop_id).parent
+                products_mappings = OrderedProductMapping.get_shop_stock(shop=parent).filter(available_qty__gt=0)
+                product_brands = [product.product.product_brand for product in products_mappings]
+                brand_subbrands = []
+                brands = data.filter(slot__position_name=pos_name, slot__shop=parent).order_by('brand_data_order')
+                for brand in brands:
+                    if brand.brand_data.brnd_parent.filter(active_status='active').count()>0:
+                        brand_subbrands.append(brand.brand_data)
+                product_brands = set(product_brands)
+                product_brands = list(product_brands)
+                total_brands_list = product_brands + brand_subbrands
+                data = data.filter(slot__position_name=pos_name, slot__shop=parent.id, brand_data__in = total_brands_list).order_by('brand_data_order')
+                brand_data_serializer = BrandDataSerializer(data,many=True)
+            else:
+                data = data.filter(slot__position_name=pos_name, slot__shop=None).order_by('brand_data_order')
+                brand_data_serializer = BrandDataSerializer(data,many=True)
         else:
             data = data.order_by('brand_data_order')
             brand_data_serializer = BrandDataSerializer(data,many=True)
@@ -53,10 +61,13 @@ class GetSubBrandsListView(APIView):
     permission_classes = (AllowAny,)
     def get(self, *args, **kwargs):
         brand_id = kwargs.get('brand')
+        shop_id = self.request.GET.get('shop_id')
         brand = Brand.objects.get(pk=brand_id)
-        data = brand.brnd_parent.filter(active_status='active')
-        is_success = True if data else False
-        brand_data_serializer = SubBrandSerializer(brand.brnd_parent.filter(active_status='active'),many=True)
+        parent = ParentRetailerMapping.objects.get(retailer=shop_id).parent
+        grns = OrderedProductMapping.get_shop_stock(shop=parent).filter(available_qty__gt=0)
+        product_subbrands = [grn.product.product_brand for grn in grns if grn.product.product_brand.brand_parent == brand ]
+        is_success = True if product_subbrands else False
+        brand_data_serializer = SubBrandSerializer(product_subbrands,many=True)
         return Response({"message":[""], "response_data": brand_data_serializer.data ,"is_success":is_success })
 
 '''class GetAllBrandListView(ListCreateAPIView):
