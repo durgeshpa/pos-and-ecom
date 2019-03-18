@@ -270,7 +270,7 @@ class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
 
     def product_sub_total_dt(self,obj):
         shop = self.context.get("parent_mapping", None)
-        return float(obj.no_of_pieces) * float(round(obj.get_cart_product_price(shop).price_to_retailer),2)
+        return float(obj.no_of_pieces) * float(round(obj.get_cart_product_price(shop).price_to_retailer,2))
 
     class Meta:
         model = CartProductMapping
