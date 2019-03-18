@@ -137,11 +137,11 @@ class CartProductMapping(models.Model):
     def __str__(self):
         return self.cart_product.product_name
 
-    def get_product_latest_price(self,shop):
+    def get_product_latest_mrp(self,shop):
         if self.cart_product_price:
-            return round(self.cart_product_price.price_to_retailer,2)
+            return round(self.cart_product_price.mrp,2)
         else:
-            return round(self.cart_product.product_pro_price.filter(shop=shop,status=True).last().price_to_retailer,2)
+            return round(self.cart_product.product_pro_price.filter(shop=shop,status=True).last().mrp,2)
 
 
 class Order(models.Model):
