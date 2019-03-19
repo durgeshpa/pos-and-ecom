@@ -269,9 +269,16 @@ class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
     resource_class = OrderResource
     search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name',
                     'order_status',)
+    fields = ('order_no', 'ordered_cart', 'order_status', 'seller_shop', 
+            'buyer_shop', 'billing_address', 'shipping_address', 'total_mrp', 
+            'total_discount_amount', 'total_tax_amount', 'total_final_amount',
+            'ordered_by', 'received_by', 'last_modified_by')
     list_display = ('order_no', 'seller_shop', 'buyer_shop', 'total_final_amount',
-                    'order_status', 'created_at', 'payment_mode', 'paid_amount', 'total_paid_amount', 'download_pick_list')
-    readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount')
+                    'order_status', 'created_at', 'payment_mode', 'paid_amount', 
+                    'total_paid_amount', 'download_pick_list', 'invoice_no', 
+                    'shipment_status', 'order_shipment_amount')
+    readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount', 
+                        'invoice_no', 'order_shipment_amount', 'shipment_status')
     list_filter = [SellerShopFilter,BuyerShopFilter,OrderNoSearch,('created_at', DateTimeRangeFilter),'order_status']
 
     class Media:
