@@ -14,6 +14,7 @@ from django.utils.text import slugify
 from django.dispatch import receiver
 from django.db.models.signals import pre_save, post_save
 from django.utils.translation import gettext_lazy as _
+import datetime
 
 SIZE_UNIT_CHOICES = (
         ('mm', 'Millimeter'),
@@ -141,6 +142,13 @@ class Product(models.Model):
             return Product.objects.all().values('pk').query
     def get_my_id(self):
         return self.id
+
+    def get_current_shop_price(self, shop):
+        today = datetime.datetime.today()
+        product_price = self.product_pro_price.filter(shop=shop, status=True, start_date__lte=today, end_date__gte=today).order_by('start_date').last()
+        if not product_price:
+            product_price = self.product_pro_price.filter(shop=shop, status=True).last()
+        return product_price
 
 class ProductSKUGenerator(models.Model):
     parent_cat_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
