@@ -444,6 +444,7 @@ class ShipmentAdmin(admin.ModelAdmin):
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
+        js = ('admin/js/sweetalert.min.js', 'admin/js/order_close_message.js')
 
     def download_invoice(self, obj):
         if obj.shipment_status == 'SHIPMENT_CREATED':
