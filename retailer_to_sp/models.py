@@ -14,6 +14,7 @@ from retailer_backend.common_function import (
     order_id_pattern, brand_credit_note_pattern, getcredit_note_id,
     retailer_sp_invoice
 )
+from .utils import order_invoices, order_shipment_status, order_shipment_amount
 from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
@@ -276,6 +277,21 @@ class Order(models.Model):
     def total_paid_amount(self):
         _, payment_amount = self.payments()
         return sum(payment_amount)
+
+    def shipments(self):
+        return self.rt_order_order_product.all()
+
+    @property
+    def invoice_no(self):
+        return order_invoices(self.shipments())
+
+    @property
+    def shipment_status(self):
+        return order_shipment_status(self.shipments())
+
+    @property
+    def order_shipment_amount(self):
+        return order_shipment_amount(self.shipments())        
 
 
 class Trip(models.Model):

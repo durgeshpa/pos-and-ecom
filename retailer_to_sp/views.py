@@ -550,5 +550,3 @@ def update_order_status(form):
     elif (ordered_qty - sum(total_delivered_qty)) > 0 and sum(total_delivered_qty) > 0:
         order.order_status = 'PARTIALLY_SHIPPED'
     order.save()
-
-
