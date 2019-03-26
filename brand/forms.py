@@ -46,14 +46,19 @@ class VendorForm(forms.ModelForm):
             reader = csv.reader(codecs.iterdecode(self.cleaned_data['vendor_products_csv'], 'utf-8'))
             first_row = next(reader)
             for id,row in enumerate(reader):
+                if not row[0]:
+                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product ID cannot be empty")
+
                 try:
                     Product.objects.get(pk=row[0])
                 except:
                     raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product does not exist with this ID")
-                if not row[0]:
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product ID cannot be empty")
+
                 if row[3] and not re.match("^\d{0,8}(\.\d{1,4})?$", row[3]):
                     raise ValidationError("Row["+str(id+1)+"] | "+first_row[3]+":"+row[3]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
+
+                if not row[4]:
+                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[4]+":"+row[4]+" | Case size cannot be empty")
             return self.cleaned_data['vendor_products_csv']
 
 

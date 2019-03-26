@@ -99,7 +99,13 @@ admin.site.register(Brand,BrandAdmin)
 
 class ProductAdmin(admin.TabularInline):
     model = ProductVendorMapping
-    #fields = ('brand_name',)
+    fields = ('product','product_price','case_size',)
+
+    def get_queryset(self, request):
+        qs = super(ProductAdmin, self).get_queryset(request)
+        return qs.filter(
+            status=True
+        )
 
 class VendorAdmin(admin.ModelAdmin):
     form = VendorForm
