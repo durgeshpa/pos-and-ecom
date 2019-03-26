@@ -12,6 +12,7 @@ from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
 from retailer_backend.admin import InputFilter
 from admin_auto_filters.filters import AutocompleteFilter
+from django_admin_listfilter_dropdown.filters import DropdownFilter, ChoiceDropdownFilter
 from .models import (
     Cart, CartProductMapping, Order, OrderedProduct,
     OrderedProductMapping, Note, CustomerCare,
@@ -168,6 +169,59 @@ class PaymentChoiceSearch(InputFilter):
                 Q(payment_choice__icontains=payment_choice)
             )
 
+class InvoiceSearch(InputFilter):
+    parameter_name = 'invoice_no'
+    title = 'Invoice No.'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            invoice_no = self.value()
+            if invoice_no is None:
+                return
+            return queryset.filter(
+                Q(invoice_no__icontains=invoice_no)
+            )
+
+class OrderInvoiceSearch(InputFilter):
+    parameter_name = 'invoice_no'
+    title = 'Invoice No.'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            invoice_no = self.value()
+            if invoice_no is None:
+                return
+            ordered_products = OrderedProduct.objects.select_related('order').filter(invoice_no__icontains=invoice_no)
+            return queryset.filter(
+                id__in=[op.order_id for op in ordered_products]
+            )
+
+class ShipmentOrderIdSearch(InputFilter):
+    parameter_name = 'order_id'
+    title = 'Order Id'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            order_id = self.value()
+            if order_id is None:
+                return
+            return queryset.filter(
+                Q(order__order_no__icontains=order_id)
+            )
+
+class ShipmentSellerShopSearch(InputFilter):
+    parameter_name = 'seller_shop_name'
+    title = 'Seller Shop'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            seller_shop_name = self.value()
+            if seller_shop_name is None:
+                return
+            return queryset.filter(
+                Q(order__seller_shop__shop_name__icontains=seller_shop_name)
+            )
+
 
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
@@ -269,10 +323,18 @@ class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
     resource_class = OrderResource
     search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name',
                     'order_status',)
+    fields = ('order_no', 'ordered_cart', 'order_status', 'seller_shop', 
+            'buyer_shop', 'billing_address', 'shipping_address', 'total_mrp', 
+            'total_discount_amount', 'total_tax_amount', 'total_final_amount',
+            'ordered_by', 'received_by', 'last_modified_by')
     list_display = ('order_no', 'seller_shop', 'buyer_shop', 'total_final_amount',
-                    'order_status', 'created_at', 'payment_mode', 'paid_amount', 'total_paid_amount', 'download_pick_list')
-    readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount')
-    list_filter = [SellerShopFilter,BuyerShopFilter,OrderNoSearch,('created_at', DateTimeRangeFilter),'order_status']
+                    'order_status', 'created_at', 'payment_mode', 'paid_amount', 
+                    'total_paid_amount', 'download_pick_list', 'invoice_no', 
+                    'shipment_status', 'order_shipment_amount')
+    readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount', 
+                        'invoice_no', 'order_shipment_amount', 'shipment_status')
+    list_filter = [SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
+        ('created_at', DateTimeRangeFilter)]
 
     class Media:
         pass
@@ -430,12 +492,16 @@ class ShipmentAdmin(admin.ModelAdmin):
     inlines = [ShipmentProductMappingAdmin]
     form = ShipmentForm
     list_display = (
-        'invoice_no', 'order', 'created_at', 'shipment_address', 'invoice_city',
-        'invoice_amount', 'payment_mode', 'shipment_status', 'download_invoice'
+        'invoice_no', 'order', 'created_at', 'shipment_address', 'seller_shop', 'invoice_city',
+        'invoice_amount', 'payment_mode', 'shipment_status', 'download_invoice',
     )
     list_filter = [
-        ('created_at', DateTimeRangeFilter), 'shipment_status',
+        ('created_at', DateTimeRangeFilter), InvoiceSearch, ShipmentOrderIdSearch, ShipmentSellerShopSearch,
+        ('shipment_status', ChoiceDropdownFilter)
+
     ]
+    search_fields = ['order__order_no', 'invoice_no', 'order__seller_shop__shop_name',
+        'order__buyer_shop__shop_name']
     fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city', 'shipment_status']
     readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city']
 
@@ -453,6 +519,9 @@ class ShipmentAdmin(admin.ModelAdmin):
             (reverse('download_invoice_sp', args=[obj.pk]))
         )
     download_invoice.short_description = 'Download Invoice'
+
+    def seller_shop(self, obj):
+        return obj.order.seller_shop.shop_name
 
     def save_related(self, request, form, formsets, change):
         super(ShipmentAdmin, self).save_related(request, form, formsets, change)

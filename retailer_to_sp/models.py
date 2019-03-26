@@ -14,6 +14,7 @@ from retailer_backend.common_function import (
     order_id_pattern, brand_credit_note_pattern, getcredit_note_id,
     retailer_sp_invoice
 )
+from .utils import order_invoices, order_shipment_status, order_shipment_amount
 from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
@@ -277,6 +278,21 @@ class Order(models.Model):
         _, payment_amount = self.payments()
         return sum(payment_amount)
 
+    def shipments(self):
+        return self.rt_order_order_product.all()
+
+    @property
+    def invoice_no(self):
+        return order_invoices(self.shipments())
+
+    @property
+    def shipment_status(self):
+        return order_shipment_status(self.shipments())
+
+    @property
+    def order_shipment_amount(self):
+        return order_shipment_amount(self.shipments())        
+
 
 class Trip(models.Model):
     seller_shop = models.ForeignKey(
@@ -482,11 +498,9 @@ class OrderedProductMapping(models.Model):
     @property
     def ordered_qty(self):
         if self.ordered_product:
-            qty = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
-                cart_product=self.product).values('qty')
-            qty = qty.first().get('qty')
-            inner_case_size = self.product.product_inner_case_size
-            no_of_pieces = int(inner_case_size) * int(qty if qty else 0)
+            no_of_pieces = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
+                cart_product=self.product).values('no_of_pieces')
+            no_of_pieces = no_of_pieces.first().get('no_of_pieces')
             return str(no_of_pieces)
         return str("-")
     ordered_qty.fget.short_description = "Ordered Pieces"
