@@ -643,7 +643,7 @@ class PaymentAdmin(NumericFilterModelAdmin,admin.ModelAdmin):
     exclude = ('name',)
     list_display = (
         'name', 'order_id', 'paid_amount',
-        'payment_choice', 'neft_reference_number','imei_no'
+        'payment_choice', 'neft_reference_number','imei_no','created_at',
     )
     autocomplete_fields = ('order_id',)
     search_fields = ('name',)
