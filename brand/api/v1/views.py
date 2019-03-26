@@ -64,23 +64,16 @@ class GetSubBrandsListView(APIView):
         brand_id = kwargs.get('brand')
         shop_id = self.request.GET.get('shop_id')
         brand = Brand.objects.get(pk=brand_id)
-        if not shop_id:
+        if shop_id and shop_id != '-1' and Shop.objects.get(id=shop_id).retiler_mapping.exists():
+            parent = ParentRetailerMapping.objects.get(retailer=shop_id).parent
+            grns = OrderedProductMapping.get_shop_stock(shop=parent).filter(available_qty__gt=0)
+            product_subbrands = [grn.product.product_brand for grn in grns if grn.product.product_brand.brand_parent == brand ]
+            product_subbrands = set(product_subbrands)
+            product_subbrands = list(product_subbrands)
+            brand_data_serializer = SubBrandSerializer(product_subbrands,many=True)
+        else:
             product_subbrands = brand.brnd_parent.filter(active_status='active')
             brand_data_serializer = SubBrandSerializer(product_subbrands,many=True)
-        elif shop_id == '-1':
-            product_subbrands = brand.brnd_parent.filter(active_status='active')
-            brand_data_serializer = SubBrandSerializer(product_subbrands,many=True)
-        elif shop_id:
-            if Shop.objects.get(id=shop_id).retiler_mapping.exists():
-                parent = ParentRetailerMapping.objects.get(retailer=shop_id).parent
-                grns = OrderedProductMapping.get_shop_stock(shop=parent).filter(available_qty__gt=0)
-                product_subbrands = [grn.product.product_brand for grn in grns if grn.product.product_brand.brand_parent == brand ]
-                product_subbrands = set(product_subbrands)
-                product_subbrands = list(product_subbrands)
-                brand_data_serializer = SubBrandSerializer(product_subbrands,many=True)
-            else:
-                product_subbrands = brand.brnd_parent.filter(active_status='active')
-                brand_data_serializer = SubBrandSerializer(product_subbrands,many=True)
 
         is_success = True if product_subbrands else False
         return Response({"message":[""], "response_data": brand_data_serializer.data ,"is_success":is_success })
