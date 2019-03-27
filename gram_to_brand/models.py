@@ -16,7 +16,7 @@ from django.db import models
 from django.db.models import Sum
 
 from shops.models import Shop, ParentRetailerMapping
-from products.models import Product
+from products.models import Product, ProductVendorMapping
 from brand.models import Brand, Vendor
 from addresses.models import Address, City, State
 from retailer_to_gram.models import (
@@ -185,10 +185,13 @@ class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='cart_list',on_delete=models.CASCADE)
     cart_product = models.ForeignKey(Product, related_name='cart_product_mapping', on_delete=models.CASCADE)
     _tax_percentage = models.FloatField(db_column="tax_percentage", null=True)
+    #Todo Remove
     inner_case_size = models.PositiveIntegerField(default=0, null=True,blank=True)
     case_size= models.PositiveIntegerField(default=0,null=True,blank=True)
     number_of_cases = models.FloatField()
-    scheme = models.FloatField(default=0,null=True,blank=True,help_text='data into percentage %')
+    scheme = models.FloatField(default=0, null=True, blank=True, help_text='data into percentage %')
+
+    vendor_product = models.ForeignKey(ProductVendorMapping, related_name='vendor_products',null=True,blank=True, on_delete=models.CASCADE)
     price = models.FloatField( verbose_name='Brand To Gram Price')
 
     def __str__(self):
@@ -221,6 +224,19 @@ class CartProductMapping(models.Model):
     def total_price(self):
         return float(self.qty) * self.price
 
+    @property
+    def gf_code(self):
+        return self.cart_product.product_gf_code
+
+    @property
+    def case_size(self):
+        return self.cart_product.product_case_size
+
+    @property
+    def no_of_case(self):
+        if self.vendor_product:
+            return self.vendor_product.case_size
+        return 0
 
     def __str__(self):
         return self.cart_product.product_name

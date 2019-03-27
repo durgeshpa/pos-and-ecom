@@ -27,14 +27,11 @@ from .views import DownloadPurchaseOrder
 
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
-    #readonly_fields = ('get_edit_link',)
     autocomplete_fields = ('cart_product',)
     search_fields =('cart_product',)
-    #formset = CartProductMappingFormset
-    fields = ('cart_product','tax_percentage', 'number_of_cases','price')
+    fields = ('cart_product', 'tax_percentage', 'case_size', 'no_of_case', 'price')
+    readonly_fields = ('tax_percentage', 'case_size')
     form = CartProductMappingForm
-    can_delete = False
-    readonly_fields=('tax_percentage',)
 
 
 class CartAdmin(admin.ModelAdmin):

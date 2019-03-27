@@ -27,10 +27,11 @@ from products.models import ProductVendorMapping
 
 class SupplierAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        qs = Vendor.objects.all()
+        qs = None
         state = self.forwarded.get('supplier_state', None)
         brand = self.forwarded.get('brand', None)
         if state and brand:
+            qs = Vendor.objects.all()
             vendos_id = ProductVendorMapping.objects.filter(
                 product__product_brand__id=brand).values('vendor')
             qs = qs.filter(state__id=state,id__in=[vendos_id])

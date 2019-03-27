@@ -104,9 +104,9 @@ class POGenerationForm(forms.ModelForm):
                         raise ValidationError("Row["+str(id+1)+"] | "+first_row[6]+":"+row[6]+" | Price does not matched with original product's brand to gram price")
             return self.cleaned_data
 
-        date = self.cleaned_data['po_validity_date']
-        if date < datetime.date.today():
-            raise forms.ValidationError("Po validity date cannot be in the past!")
+        # date = self.cleaned_data['po_validity_date']
+        # if date < datetime.date.today():
+        #     raise forms.ValidationError("Po validity date cannot be in the past!")
         return self.cleaned_data
 
 
@@ -117,13 +117,15 @@ class CartProductMappingForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='vendor-product-autocomplete', forward=('supplier_name',))
     )
     tax_percentage = forms.CharField(disabled=True, required=False)
+    case_size = forms.CharField(disabled=True, required=False)
+    no_of_case = forms.CharField(disabled=True, required=False)
     # total_price = forms.DecimalField(decimal_places=2,)
+
     class Meta:
         model = CartProductMapping
-        fields = ('cart_product','tax_percentage', 'number_of_cases','price')
+        fields = ('cart_product','tax_percentage','case_size','no_of_case','price',)
         search_fields=('cart_product',)
         exclude = ('qty',)
-
 
 class GRNOrderForm(forms.ModelForm):
     class Meta:
