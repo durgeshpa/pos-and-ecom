@@ -10,15 +10,21 @@ from django.db.models import Sum
 import json
 import csv
 from rest_framework import permissions, authentication
+from .forms import SalesReportForm
+from django.views import View
 # Create your views here.
 class SalesReport(APIView):
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (AllowAny,)
 
-    def get_sales_report(self, *args, **kwargs):
-
-        shop_id = self.request.GET.get('shop_id')
+    def get_sales_report(self, shop_id, start_date, end_date):
         seller_shop = Shop.objects.get(pk=shop_id)
         orders = Order.objects.filter(seller_shop = seller_shop).all()
+        if start_date and not end_date:
+            orders = orders.filter(created_at__gte = start_date)
+        if end_date and not start_date:
+            orders = orders.filter(created_at__lte = end_date)
+        if start_date and end_date:
+            orders = orders.filter(created_at__gte = start_date, created_at__lte = end_date)
         ordered_items = {}
         for order in orders:
             for cart_product_mapping in order.ordered_cart.rt_cart_list.all():
@@ -40,7 +46,10 @@ class SalesReport(APIView):
         return data
 
     def get(self, *args, **kwargs):
-        data = self.get_sales_report()
+        shop_id = self.request.GET.get('shop')
+        start_date = self.request.GET.get('start_date', None)
+        end_date = self.request.GET.get('end_date', None)
+        data = self.get_sales_report(shop_id, start_date, end_date)
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="sales-report.csv"'
         writer = csv.writer(response)
@@ -49,6 +58,16 @@ class SalesReport(APIView):
             writer.writerow([k,v['product_sku'],v['product_name'],v['product_brand'],v['ordered_qty'],v['delivered_qty']])
 
         return response
+
+class SalesReportFormView(View):
+    def get(self, request):
+        form = SalesReportForm()
+        return render(
+            self.request,
+            'admin/services/sales-report.html',
+            {'form': form}
+        )
+
 
 class ResizeImage(APIView):
     permission_classes = (AllowAny,)
