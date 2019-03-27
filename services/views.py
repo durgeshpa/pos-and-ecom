@@ -13,7 +13,6 @@ from rest_framework import permissions, authentication
 # Create your views here.
 class SalesReport(APIView):
     permission_classes = (permissions.IsAuthenticated,)
-    permission_classes = (AllowAny,)
 
     def get_sales_report(self, *args, **kwargs):
 
