@@ -81,6 +81,7 @@ INSTALLED_APPS = [
     'services',
     'rangefilter',
     'admin_numeric_filter',
+    'django_admin_listfilter_dropdown'
 
 ]
 

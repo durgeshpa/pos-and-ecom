@@ -267,7 +267,7 @@ class OrderedProductMapping(models.Model): #GRN Product
                     Q(ordered_product__status=OrderedProduct.DISABLED)
                 )
         return product_availability
-    
+
     @classmethod
     def get_expired_product_qty(cls, shop, product):
         product_expired = cls.objects.filter(
