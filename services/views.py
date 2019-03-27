@@ -1,13 +1,55 @@
-import requests
-from PIL import Image
-import PIL
-
 from django.shortcuts import render
 from rest_framework.views import APIView
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.http import HttpResponse, Http404
 from django.conf import settings
+from retailer_to_sp.models import Order, OrderedProductMapping
+from shops.models import Shop
+from django.db.models import Sum
+import json
+import csv
+from rest_framework import permissions, authentication
 # Create your views here.
+class SalesReport(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (AllowAny,)
+
+    def get_sales_report(self, *args, **kwargs):
+
+        shop_id = self.request.GET.get('shop_id')
+        seller_shop = Shop.objects.get(pk=shop_id)
+        orders = Order.objects.filter(seller_shop = seller_shop).all()
+        ordered_items = {}
+        for order in orders:
+            for cart_product_mapping in order.ordered_cart.rt_cart_list.all():
+                product = cart_product_mapping.cart_product
+                product_name = cart_product_mapping.cart_product.product_name
+                product_sku = cart_product_mapping.cart_product.product_sku
+                product_brand = cart_product_mapping.cart_product.product_brand.brand_name
+                ordered_qty = cart_product_mapping.no_of_pieces
+                product_shipments = OrderedProductMapping.objects.filter(
+                    product=product,
+                    ordered_product__order__seller_shop = seller_shop
+                    ).aggregate(
+                    Sum('delivered_qty'))['delivered_qty__sum']
+                if product.product_gf_code in ordered_items:
+                    ordered_items[product.product_gf_code]['ordered_qty'] += ordered_qty
+                else:
+                    ordered_items[product.product_gf_code] = {'product_sku':product_sku,'product_name':product_name,'product_brand':product_brand,'ordered_qty':ordered_qty, 'delivered_qty':product_shipments}
+        data = ordered_items
+        return data
+
+    def get(self, *args, **kwargs):
+        data = self.get_sales_report()
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="sales-report.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['GF Code', 'SKU', 'Product Name', 'Brand', 'Ordered Qty', 'Delivered Qty'])
+        for k,v in data.items():
+            writer.writerow([k,v['product_sku'],v['product_name'],v['product_brand'],v['ordered_qty'],v['delivered_qty']])
+
+        return response
 
 class ResizeImage(APIView):
     permission_classes = (AllowAny,)
@@ -21,7 +63,7 @@ class ResizeImage(APIView):
             raise Http404("Image not found")
         content_type = img_response.headers.get('Content-Type')
         if content_type not in ['image/png', 'image/jpeg', 'image/jpg']:
-            return HttpResponse(content=img_response.content, content_type=content_type) 
+            return HttpResponse(content=img_response.content, content_type=content_type)
         img_response.raw.decode_content = True
         image = Image.open(img_response.raw)
 
