@@ -19,12 +19,10 @@ class SalesReport(APIView):
     def get_sales_report(self, shop_id, start_date, end_date):
         seller_shop = Shop.objects.get(pk=shop_id)
         orders = Order.objects.filter(seller_shop = seller_shop).all()
-        if start_date and not end_date:
+        if start_date:
             orders = orders.filter(created_at__gte = start_date)
-        if end_date and not start_date:
+        if end_date:
             orders = orders.filter(created_at__lte = end_date)
-        if start_date and end_date:
-            orders = orders.filter(created_at__gte = start_date, created_at__lte = end_date)
         ordered_items = {}
         for order in orders:
             for cart_product_mapping in order.ordered_cart.rt_cart_list.all():
