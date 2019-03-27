@@ -34,8 +34,12 @@ class SalesReport(APIView):
                 product_shipments = OrderedProductMapping.objects.filter(
                     product=product,
                     ordered_product__order__seller_shop = seller_shop
-                    ).aggregate(
-                    Sum('delivered_qty'))['delivered_qty__sum']
+                    )
+                if start_date:
+                    product_shipments = product_shipments.filter(created_at__gte=start_date)
+                if end_date:
+                    product_shipments = product_shipments.filter(created_at__lte=start_date)
+                product_shipments = product_shipments.aggregate(Sum('delivered_qty'))['delivered_qty__sum']
                 if product.product_gf_code in ordered_items:
                     ordered_items[product.product_gf_code]['ordered_qty'] += ordered_qty
                 else:
