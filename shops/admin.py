@@ -13,6 +13,7 @@ from django.utils.html import format_html
 from import_export import resources
 from django.http import HttpResponse
 from admin_auto_filters.filters import AutocompleteFilter
+from services.views import SalesReportFormView, SalesReport
 
 class ShopResource(resources.ModelResource):
     class Meta:
@@ -147,6 +148,16 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                 r'^adjust-stock-sample/(?P<shop_id>\w+)/$',
                 self.admin_site.admin_view(stock_adjust_sample),
                 name="ShopStocks"
+            ),
+            url(
+                r'^shop-sales-report/$',
+                self.admin_site.admin_view(SalesReport.as_view()),
+                name="shop-sales-report"
+            ),
+            url(
+                r'^shop-sales-form/$',
+                self.admin_site.admin_view(SalesReportFormView.as_view()),
+                name="shop-sales-form"
             ),
         ] + urls
         return urls

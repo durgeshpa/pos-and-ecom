@@ -42,6 +42,7 @@ class SalesReport(APIView):
                     ordered_items[product.product_gf_code]['ordered_qty'] += ordered_qty
                 else:
                     ordered_items[product.product_gf_code] = {'product_sku':product_sku,'product_name':product_name,'product_brand':product_brand,'ordered_qty':ordered_qty, 'delivered_qty':product_shipments}
+
         data = ordered_items
         return data
 

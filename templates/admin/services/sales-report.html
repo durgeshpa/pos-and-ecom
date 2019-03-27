@@ -46,7 +46,7 @@
 
     <div class="container">
 
-      <form action="/services/shop-sales-report/" method="get" enctype="multipart/form-data" id="ProductForm" data-cities-url="{% url 'admin:ajax_load_cities' %}" data-gf-url="{% url 'admin:ajax_load_gf' %}">
+      <form action="/admin/shops/shop/shop-sales-report/" method="get" enctype="multipart/form-data" id="ProductForm" data-cities-url="{% url 'admin:ajax_load_cities' %}" data-gf-url="{% url 'admin:ajax_load_gf' %}">
         <div class="row">
           <div class="col">
             {{form.state.label}}
