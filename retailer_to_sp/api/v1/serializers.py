@@ -264,6 +264,7 @@ class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
     cart_product_price = CartProductPrice()
     no_of_pieces = serializers.SerializerMethodField('no_pieces_dt')
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
+    product_inner_case_size = serializers.SerializerMethodField('product_inner_case_size_dt')
 
     def no_pieces_dt(self, obj):
         return int(obj.no_of_pieces)
@@ -272,9 +273,12 @@ class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
         shop = self.context.get("parent_mapping", None)
         return float(obj.no_of_pieces) * float(round(obj.get_cart_product_price(shop).price_to_retailer,2))
 
+    def product_inner_case_size_dt(self,obj):
+        return int(int(obj.no_of_pieces) // int(obj.qty))
+
     class Meta:
         model = CartProductMapping
-        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg','no_of_pieces','product_sub_total','cart_product_price')
+        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg','no_of_pieces','product_sub_total','cart_product_price','product_inner_case_size')
 
 
 class OrderedCartSerializer(serializers.ModelSerializer):
