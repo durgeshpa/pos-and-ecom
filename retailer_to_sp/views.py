@@ -446,6 +446,8 @@ class DownloadPickList(TemplateView,):
             "cart_products":cart_product_list,
             "buyer_shop":order_obj.ordered_cart.buyer_shop.shop_name,
             "buyer_contact_no":order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
+            "buyer_address":order_obj.ordered_cart.buyer_shop.shop_name_address_mapping.last().address_line1,
+            "buyer_city":order_obj.ordered_cart.buyer_shop.shop_name_address_mapping.last().city.city_name,
         }
         cmd_option = {
             "margin-top": 10,
