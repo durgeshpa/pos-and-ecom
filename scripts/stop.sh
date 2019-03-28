@@ -1,1 +1,1 @@
-sudo supervisorctl restart all
+sudo supervisorctl stop all
