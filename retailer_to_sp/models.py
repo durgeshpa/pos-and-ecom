@@ -118,7 +118,6 @@ class Cart(models.Model):
         if self.cart_status == self.ORDERED:
             for cart_product in self.rt_cart_list.all():
                 cart_product.get_cart_product_price(self.seller_shop)
-                logger.exception("Cart Product price is {}".format(cart_product.cart_product_price))
         super().save(*args, **kwargs)
 
 @receiver(post_save, sender=Cart)
@@ -352,7 +351,7 @@ class Trip(models.Model):
         return str("-------")
 
 
-class OrderedProduct(models.Model):
+class OrderedProduct(models.Model): #Shipment
     SHIPMENT_STATUS = (
         ('SHIPMENT_CREATED', 'QC Pending'),
         ('READY_TO_SHIP', 'QC Passed'),
@@ -439,7 +438,8 @@ class OrderedProduct(models.Model):
             ordered_products = self.rt_order_product_order_product_mapping.all()
             for product in ordered_products:
                 if product.product:
-                    product_price = float(round(product.product.rt_cart_product_mapping.last().get_cart_product_price(seller_shop).price_to_retailer, 2))
+                    cart_product_map = self.order.ordered_cart.rt_cart_list.filter(cart_product=product.product).last()
+                    product_price = float(round(cart_product_map.get_cart_product_price(seller_shop).price_to_retailer, 2))
                     shipped_qty = float(product.shipped_qty)
                     amount = shipped_qty * product_price
                     total_amount.append(amount)
