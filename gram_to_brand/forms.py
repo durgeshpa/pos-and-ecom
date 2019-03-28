@@ -117,13 +117,14 @@ class CartProductMappingForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='vendor-product-autocomplete', forward=('supplier_name',))
     )
     tax_percentage = forms.CharField(disabled=True, required=False)
-    case_size = forms.CharField(disabled=True, required=False)
-    no_of_case = forms.CharField(disabled=True, required=False)
-    # total_price = forms.DecimalField(decimal_places=2,)
+    case_sizes = forms.CharField(disabled=True, required=False, label='case size')
+    no_of_cases = forms.CharField(required=True)
+    total_no_of_pieces = forms.CharField(disabled=True, required=False)
+    sub_total = forms.DecimalField(decimal_places=2,)
 
     class Meta:
         model = CartProductMapping
-        fields = ('cart_product','tax_percentage','case_size','no_of_case','price',)
+        fields = ('cart_product','tax_percentage','case_sizes','no_of_cases','total_no_of_pieces','price','sub_total')
         search_fields=('cart_product',)
         exclude = ('qty',)
 

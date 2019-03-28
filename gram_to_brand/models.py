@@ -152,7 +152,7 @@ class Cart(BaseCart):
 
     def clean(self):
         super(Cart, self).clean()
-        if self.po_validity_date < datetime.date.today():
+        if self.po_validity_date and self.po_validity_date < datetime.date.today():
             raise ValidationError(_("Po validity date cannot be in the past!"))
 
     def __str__(self):
@@ -179,6 +179,15 @@ class Cart(BaseCart):
     @property
     def po_amount(self):
         self.cart_list.aggregate(sum('total_price'))
+
+    def save(self, *args, **kwargs):
+        for cart_pro in self.cart_list.all():
+            if ProductVendorMapping.objects.get(vendor=self.supplier_name,product=cart_pro.cart_product,status=True).exists():
+                cart_pro.vendor_product = ProductVendorMapping.objects.get(vendor=self.supplier_name, product=cart_pro.cart_product,status=True)
+            else:
+                productVendorMapping =ProductVendorMapping.objects.create(vendor=self.supplier_name, product=cart_pro.cart_product,status=True)
+                cart_pro.vendor_product = productVendorMapping
+            cart_pro.save()
 
 
 class CartProductMapping(models.Model):
@@ -229,14 +238,22 @@ class CartProductMapping(models.Model):
         return self.cart_product.product_gf_code
 
     @property
-    def case_size(self):
+    def case_sizes(self):
         return self.cart_product.product_case_size
 
     @property
-    def no_of_case(self):
+    def no_of_cases(self):
         if self.vendor_product:
             return self.vendor_product.case_size
         return 0
+
+    @property
+    def total_no_of_pieces(self):
+        return "-"
+
+    @property
+    def sub_total(self):
+        return "-"
 
     def __str__(self):
         return self.cart_product.product_name

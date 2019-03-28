@@ -39,12 +39,14 @@ $('.help').find('a').each(function() {
                         $('#id_cart_list-'+row_no+'-price').val(response.price);
                         $('#id_cart_list-'+row_no+'-case_size').val(response.case_size);
                         $('#id_cart_list-'+row_no+'-inner_case_size').val(response.inner_case_size);
+                        $('#cart_list-'+row_no+' td.field-case_sizes p').text(response.case_size);
 
                      }else{
                         $('#cart_list-'+row_no+' td.field-tax_percentage p').text(response.tax_percentage);
                         $('#id_cart_list-'+row_no+'-price').val(0);
                         $('#id_cart_list-'+row_no+'-case_size').val(0);
                         $('#id_cart_list-'+row_no+'-inner_case_size').val(0);
+                        $('#cart_list-'+row_no+' td.field-case_sizes p').text("-");
                      }
                 },
                 error: function (request, status, error) {
@@ -52,6 +54,19 @@ $('.help').find('a').each(function() {
                 }
             });
         }
+    });
+
+    $(document).on('input', '.field-no_of_cases input[type=text]', function(index){
+        var row_id = $(this).closest(".form-row").attr("id");
+        var row_no = row_id.match(/(\d+)/g);
+        $('#cart_list-'+row_no+' td.field-total_no_of_pieces p').text(parseFloat($('#cart_list-'+row_no+' td.field-case_sizes p').text()) * parseFloat($('#id_cart_list-'+row_no+'-no_of_cases').val()));
+        $('#cart_list-'+row_no+' td.field-sub_total p').text(parseFloat($('#id_cart_list-'+row_no+'-price').val()) * (parseFloat($('#cart_list-'+row_no+' td.field-case_sizes p').text()) * parseFloat($('#id_cart_list-'+row_no+'-no_of_cases').val())));
+    });
+
+    $(document).on('input', '.field-price input[type=number]', function(index){
+        var row_id = $(this).closest(".form-row").attr("id");
+        var row_no = row_id.match(/(\d+)/g);
+        $('#cart_list-'+row_no+' td.field-sub_total p').text(parseFloat($('#id_cart_list-'+row_no+'-price').val()) * (parseFloat($('#cart_list-'+row_no+' td.field-case_sizes p').text()) * parseFloat($('#id_cart_list-'+row_no+'-no_of_cases').val())));
     });
 
     $("#id_cart_list-0-case_size,#id_cart_list-0-number_of_cases").keyup(function () {

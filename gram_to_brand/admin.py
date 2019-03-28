@@ -29,8 +29,9 @@ class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
     autocomplete_fields = ('cart_product',)
     search_fields =('cart_product',)
-    fields = ('cart_product', 'tax_percentage', 'case_size', 'no_of_case', 'price')
-    readonly_fields = ('tax_percentage', 'case_size')
+    fields = ('cart_product', 'tax_percentage','case_sizes', 'no_of_cases', 'total_no_of_pieces', 'price', 'sub_total')
+    #readonly_fields = ('tax_percentage', 'case_sizes', 'total_no_of_pieces','sub_total')
+    readonly_fields = ('tax_percentage','case_sizes','total_no_of_pieces','sub_total')
     form = CartProductMappingForm
 
 
