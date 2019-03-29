@@ -30,6 +30,9 @@ class SalesReport(APIView):
             orders = orders.filter(created_at__lte = end_date)
         ordered_items = {}
         for order in orders:
+            order_shipments = OrderedProductMapping.objects.using('readonly').filter(
+                ordered_product__order = order
+                )
             for cart_product_mapping in order.ordered_cart.rt_cart_list.all():
                 product = cart_product_mapping.cart_product
                 product_id = cart_product_mapping.cart_product.id
@@ -37,19 +40,12 @@ class SalesReport(APIView):
                 product_sku = cart_product_mapping.cart_product.product_sku
                 product_brand = cart_product_mapping.cart_product.product_brand.brand_name
                 ordered_qty = cart_product_mapping.no_of_pieces
-                product_shipments = OrderedProductMapping.objects.using('readonly').filter(
-                    product=product,
-                    ordered_product__order__seller_shop = seller_shop
-                    )
-                if start_date:
-                    product_shipments = product_shipments.filter(created_at__gte=start_date)
-                if end_date:
-                    product_shipments = product_shipments.filter(created_at__lte=end_date)
-                product_shipments = product_shipments.aggregate(Sum('delivered_qty'))['delivered_qty__sum']
                 all_tax_list = cart_product_mapping.cart_product.product_pro_tax
+
+                product_shipments = order_shipments.filter(product=product)
                 tax_sum = 0
                 if all_tax_list.exists():
-                    for tax in all_tax_list.all():
+                    for tax in all_tax_list.using('readonly').all():
                         tax_sum = float(tax_sum) + float(tax.tax.tax_percentage)
                     tax_sum = round(tax_sum, 2)
                     get_tax_val = tax_sum / 100
