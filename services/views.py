@@ -43,6 +43,7 @@ class SalesReport(APIView):
                 all_tax_list = cart_product_mapping.cart_product.product_pro_tax
 
                 product_shipments = order_shipments.filter(product=product)
+                product_shipments = product_shipments.aggregate(Sum('delivered_qty'))['delivered_qty__sum']
                 tax_sum = 0
                 if all_tax_list.exists():
                     for tax in all_tax_list.using('readonly').all():
