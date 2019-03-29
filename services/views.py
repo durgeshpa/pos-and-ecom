@@ -43,7 +43,7 @@ class SalesReport(APIView):
                 all_tax_list = cart_product_mapping.cart_product.product_pro_tax
 
                 product_shipments = order_shipments.filter(product=product)
-                product_shipments = product_shipments.aggregate(Sum('delivered_qty'))['delivered_qty__sum']
+                product_shipments = product_shipments.aggregate(Sum('delivered_qty')).get('delivered_qty__sum', 0)
                 tax_sum = 0
                 if all_tax_list.exists():
                     for tax in all_tax_list.using('readonly').all():
@@ -53,17 +53,13 @@ class SalesReport(APIView):
                 product_price_to_retailer = cart_product_mapping.cart_product_price.price_to_retailer
                 ordered_amount = round((float(product_price_to_retailer)*int(ordered_qty)) / (float(get_tax_val) + 1), 2)
                 ordered_tax_amount = round((float(ordered_amount) * float(get_tax_val)), 2)
-                if product_shipments:
-                    delivered_amount = round((float(product_price_to_retailer)*int(product_shipments)) / (float(get_tax_val) + 1), 2)
-                else:
-                    delivered_amount = 0
+                delivered_amount = round((float(product_price_to_retailer)*int(product_shipments)) / (float(get_tax_val) + 1), 2)
                 delivered_tax_amount = round((float(delivered_amount) * float(get_tax_val)), 2)
                 if product.product_gf_code in ordered_items:
                     ordered_items[product.product_gf_code]['ordered_qty'] += ordered_qty
                     ordered_items[product.product_gf_code]['ordered_amount'] += ordered_amount
                     ordered_items[product.product_gf_code]['ordered_tax_amount'] += ordered_tax_amount
-                    if product_shipments:
-                        ordered_items[product.product_gf_code]['delivered_qty'] += product_shipments
+                    ordered_items[product.product_gf_code]['delivered_qty'] += product_shipments
                     ordered_items[product.product_gf_code]['delivered_amount'] += delivered_amount
                     ordered_items[product.product_gf_code]['delivered_tax_amount'] += delivered_tax_amount
                 else:
