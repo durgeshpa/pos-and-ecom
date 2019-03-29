@@ -56,7 +56,10 @@ class SalesReport(APIView):
                 product_price_to_retailer = cart_product_mapping.cart_product_price.price_to_retailer
                 ordered_amount = round((float(product_price_to_retailer)*int(ordered_qty)) / (float(get_tax_val) + 1), 2)
                 ordered_tax_amount = round((float(ordered_amount) * float(get_tax_val)), 2)
-                delivered_amount = round((float(product_price_to_retailer)*int(product_shipments)) / (float(get_tax_val) + 1), 2)
+                if product_shipments:
+                    delivered_amount = round((float(product_price_to_retailer)*int(product_shipments)) / (float(get_tax_val) + 1), 2)
+                else:
+                    delivered_amount = 0
                 delivered_tax_amount = round((float(delivered_amount) * float(get_tax_val)), 2)
                 if product.product_gf_code in ordered_items:
                     ordered_items[product.product_gf_code]['ordered_qty'] += ordered_qty
