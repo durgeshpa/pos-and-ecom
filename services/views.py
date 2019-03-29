@@ -62,7 +62,8 @@ class SalesReport(APIView):
                     ordered_items[product.product_gf_code]['ordered_qty'] += ordered_qty
                     ordered_items[product.product_gf_code]['ordered_amount'] += ordered_amount
                     ordered_items[product.product_gf_code]['ordered_tax_amount'] += ordered_tax_amount
-                    ordered_items[product.product_gf_code]['delivered_qty'] += product_shipments
+                    if product_shipments:
+                        ordered_items[product.product_gf_code]['delivered_qty'] += product_shipments
                     ordered_items[product.product_gf_code]['delivered_amount'] += delivered_amount
                     ordered_items[product.product_gf_code]['delivered_tax_amount'] += delivered_tax_amount
                 else:
