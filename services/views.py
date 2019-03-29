@@ -25,9 +25,9 @@ class SalesReport(APIView):
         seller_shop = Shop.objects.get(pk=shop_id)
         orders = Order.objects.using('readonly').filter(seller_shop = seller_shop).all()
         if start_date:
-            orders = orders.filter(created_at__gte = start_date)
+            orders = orders.using('readonly').filter(created_at__gte = start_date)
         if end_date:
-            orders = orders.filter(created_at__lte = end_date)
+            orders = orders.using('readonly').filter(created_at__lte = end_date)
         ordered_items = {}
         for order in orders:
             order_shipments = OrderedProductMapping.objects.using('readonly').filter(
@@ -43,7 +43,9 @@ class SalesReport(APIView):
                 all_tax_list = cart_product_mapping.cart_product.product_pro_tax
 
                 product_shipments = order_shipments.filter(product=product)
-                product_shipments = product_shipments.aggregate(Sum('delivered_qty')).get('delivered_qty__sum', 0)
+                product_shipments = product_shipments.aggregate(Sum('delivered_qty'))['delivered_qty__sum']
+                if not product_shipments:
+                    product_shipments = 0
                 tax_sum = 0
                 if all_tax_list.exists():
                     for tax in all_tax_list.using('readonly').all():
@@ -63,7 +65,7 @@ class SalesReport(APIView):
                     ordered_items[product.product_gf_code]['delivered_amount'] += delivered_amount
                     ordered_items[product.product_gf_code]['delivered_tax_amount'] += delivered_tax_amount
                 else:
-                    ordered_items[product.product_gf_code] = {'product_sku':product_sku, 'product_id':product_id, 'product_name':product_name,'product_brand':product_brand,'ordered_qty':ordered_qty, 'delivered_qty':0, 'ordered_amount':ordered_amount, 'ordered_tax_amount':ordered_tax_amount, 'delivered_amount':delivered_amount, 'delivered_tax_amount':delivered_tax_amount}
+                    ordered_items[product.product_gf_code] = {'product_sku':product_sku, 'product_id':product_id, 'product_name':product_name,'product_brand':product_brand,'ordered_qty':ordered_qty, 'delivered_qty':product_shipments, 'ordered_amount':ordered_amount, 'ordered_tax_amount':ordered_tax_amount, 'delivered_amount':delivered_amount, 'delivered_tax_amount':delivered_tax_amount}
 
         data = ordered_items
         return data
