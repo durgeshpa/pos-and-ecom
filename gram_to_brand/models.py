@@ -240,7 +240,6 @@ class CartProductMapping(models.Model):
 
     @property
     def no_of_cases(self):
-        int(self.no_of_pieces)
         if self.vendor_product:
             return int(self.no_of_pieces) // int(self.vendor_product.case_size)
         return self.number_of_cases
