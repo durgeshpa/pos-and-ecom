@@ -370,6 +370,7 @@ class GRNOrderProductMapping(models.Model):
     returned_qty = models.PositiveIntegerField(default=0)
     damaged_qty = models.PositiveIntegerField(default=0)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_user_grn_order_product', null=True,blank=True, on_delete=models.CASCADE)
+    vendor_product = models.ForeignKey(ProductVendorMapping, related_name='vendor_grn_products', null=True, blank=True,on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -433,6 +434,11 @@ class GRNOrderProductMapping(models.Model):
         # else:
         #     raise ValidationError(_("Please enter all the field values"))
 
+    def save(self, *args, **kwargs):
+        if not self.vendor_product and self.grn_order.order.ordered_cart.cart_list.filter(cart_product=self.product).last().vendor_product:
+            self.vendor_product = self.grn_order.order.ordered_cart.cart_list.filter(cart_product=self.product).last().vendor_product
+
+        super(GRNOrderProductMapping, self).save(*args, **kwargs)
 
 class BrandNote(models.Model):
     NOTE_TYPE_CHOICES = (
