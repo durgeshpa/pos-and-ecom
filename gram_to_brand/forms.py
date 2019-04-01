@@ -111,7 +111,6 @@ class POGenerationForm(forms.ModelForm):
 
 
 class CartProductMappingForm(forms.ModelForm):
-
     cart_product = forms.ModelChoiceField(
         queryset=Product.objects.all(),
         widget=autocomplete.ModelSelect2(url='vendor-product-autocomplete', forward=('supplier_name',))
@@ -119,12 +118,18 @@ class CartProductMappingForm(forms.ModelForm):
     tax_percentage = forms.CharField(disabled=True, required=False)
     case_sizes = forms.CharField(disabled=True, required=False, label='case size')
     no_of_cases = forms.CharField(required=True)
-    total_no_of_pieces = forms.CharField(disabled=True, required=False)
-    sub_total = forms.DecimalField(decimal_places=2,)
+    no_of_pieces = forms.CharField(required=False)
+    sub_total = forms.CharField(disabled=True, required=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'instance' in kwargs and kwargs['instance'].pk:
+            self.fields['no_of_cases'].initial = kwargs['instance'].no_of_cases
+
 
     class Meta:
         model = CartProductMapping
-        fields = ('cart_product','tax_percentage','case_sizes','no_of_cases','total_no_of_pieces','price','sub_total')
+        fields = ('cart','cart_product','tax_percentage','case_sizes','no_of_cases','price','sub_total','no_of_pieces','vendor_product')
         search_fields=('cart_product',)
         exclude = ('qty',)
 

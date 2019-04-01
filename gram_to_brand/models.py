@@ -180,14 +180,6 @@ class Cart(BaseCart):
     def po_amount(self):
         self.cart_list.aggregate(sum('total_price'))
 
-    def save(self, *args, **kwargs):
-        for cart_pro in self.cart_list.all():
-            if ProductVendorMapping.objects.get(vendor=self.supplier_name,product=cart_pro.cart_product,status=True).exists():
-                cart_pro.vendor_product = ProductVendorMapping.objects.get(vendor=self.supplier_name, product=cart_pro.cart_product,status=True)
-            else:
-                productVendorMapping =ProductVendorMapping.objects.create(vendor=self.supplier_name, product=cart_pro.cart_product,status=True)
-                cart_pro.vendor_product = productVendorMapping
-            cart_pro.save()
 
 
 class CartProductMapping(models.Model):
@@ -197,9 +189,10 @@ class CartProductMapping(models.Model):
     #Todo Remove
     inner_case_size = models.PositiveIntegerField(default=0, null=True,blank=True)
     case_size= models.PositiveIntegerField(default=0,null=True,blank=True)
-    number_of_cases = models.FloatField()
+    number_of_cases = models.FloatField(default=0,null=True,blank=True)
     scheme = models.FloatField(default=0, null=True, blank=True, help_text='data into percentage %')
 
+    no_of_pieces = models.PositiveIntegerField(null=True,blank=True)
     vendor_product = models.ForeignKey(ProductVendorMapping, related_name='vendor_products',null=True,blank=True, on_delete=models.CASCADE)
     price = models.FloatField( verbose_name='Brand To Gram Price')
 
@@ -227,6 +220,8 @@ class CartProductMapping(models.Model):
 
     @property
     def qty(self):
+        if self.vendor_product:
+            return int(self.no_of_pieces)
         return int(int(self.cart_product.product_inner_case_size) * int(self.cart_product.product_case_size) * float(self.number_of_cases))
 
     @property
@@ -239,21 +234,28 @@ class CartProductMapping(models.Model):
 
     @property
     def case_sizes(self):
+        if self.vendor_product:
+            return self.vendor_product.case_size
         return self.cart_product.product_case_size
 
     @property
     def no_of_cases(self):
+        int(self.no_of_pieces)
         if self.vendor_product:
-            return self.vendor_product.case_size
-        return 0
+            return int(self.no_of_pieces) // int(self.vendor_product.case_size)
+        return self.number_of_cases
 
     @property
     def total_no_of_pieces(self):
-        return "-"
+        if self.vendor_product:
+            return int(self.no_of_pieces)
+        return self.qty
 
     @property
     def sub_total(self):
-        return "-"
+        if self.vendor_product:
+            return float(self.qty)* float(self.vendor_product.product_price)
+        return self.total_price
 
     def __str__(self):
         return self.cart_product.product_name
@@ -261,6 +263,19 @@ class CartProductMapping(models.Model):
     def save(self, *args, **kwargs):
         if not self.tax_percentage or self.tax_percentage == "-":
             self.tax_percentage = self.calculate_tax_percentage()
+
+        # if Product mapping exists
+        productVendorObj = ProductVendorMapping.objects.filter(vendor=self.cart.supplier_name, product=self.cart_product)
+        if productVendorObj.filter(status=True).exists():
+            self.vendor_product = productVendorObj.filter(status=True).last()
+        else:
+            case_size = productVendorObj.last().case_size if productVendorObj.exists() else self.cart_product.product_case_size
+            self.vendor_product = ProductVendorMapping.objects.create(vendor=self.cart.supplier_name,
+                                            product=self.cart_product,case_size=case_size,status=True)
+
+        # print(self.number_of_cases)
+        # print(self.no_of_pieces)
+        # self.no_of_pieces = int(self.number_of_cases) * int(self.vendor_product.case_size)
         super(CartProductMapping, self).save(*args, **kwargs)
 
 @receiver(post_save, sender=Cart)

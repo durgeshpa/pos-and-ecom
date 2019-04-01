@@ -9,18 +9,18 @@
         return c;
      }
 })
-function openDetails() {
-  alert('changed')
-}
+    function openDetails() {
+      alert('changed')
+    }
 
-$(document).on('change', '#id_supplier_name', function(index){
-$('.help').find('a').each(function() {
-  var supplier_id = $('#id_supplier_name').val();
-  var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '')+'/';
-  var csv = host + 'admin/products/product/products-vendor-mapping/'
-  $(this).attr('href',csv + supplier_id);
-});
-});
+    $(document).on('change', '#id_supplier_name', function(index){
+    $('.help').find('a').each(function() {
+      var supplier_id = $('#id_supplier_name').val();
+      var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '')+'/';
+      var csv = host + 'admin/products/product/products-vendor-mapping/'
+      $(this).attr('href',csv + supplier_id);
+    });
+    });
 
    $(document).on('change', '.select2-hidden-accessible', function(index){
         if ($(this).data("autocomplete-light-url") == '/gram/brand/vendor-product-autocomplete/'){
@@ -61,6 +61,8 @@ $('.help').find('a').each(function() {
         var row_no = row_id.match(/(\d+)/g);
         $('#cart_list-'+row_no+' td.field-total_no_of_pieces p').text(parseFloat($('#cart_list-'+row_no+' td.field-case_sizes p').text()) * parseFloat($('#id_cart_list-'+row_no+'-no_of_cases').val()));
         $('#cart_list-'+row_no+' td.field-sub_total p').text(parseFloat($('#id_cart_list-'+row_no+'-price').val()) * (parseFloat($('#cart_list-'+row_no+' td.field-case_sizes p').text()) * parseFloat($('#id_cart_list-'+row_no+'-no_of_cases').val())));
+        $('#id_cart_list-'+row_no+'-no_of_pieces').val(parseFloat($(this).val())* parseFloat($('#cart_list-'+row_no+' td.field-case_sizes p').text()));
+
     });
 
     $(document).on('input', '.field-price input[type=number]', function(index){
@@ -80,6 +82,12 @@ $('.help').find('a').each(function() {
          var row_no = row_id.match(/(\d+)/g);
          $('#id_cart_list-'+row_no+'-total_price').val(parseFloat($('#id_cart_list-'+row_no+'-price').val()) * parseFloat($('#id_cart_list-'+row_no+'-inner_case_size').val()) * parseFloat($('#id_cart_list-'+row_no+'-case_size').val()) * parseFloat($(this).val()))
      });
+
+    $(document).ready(function() {
+        console.log( "document loaded" );
+        $('.field-no_of_pieces input[type="text"]').prop('readonly', true);
+
+    });
 
    // function calculate() {
   	// 	var case_size = document.getElementById('id_cart_list-0-case_size').value;

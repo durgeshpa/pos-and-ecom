@@ -29,10 +29,11 @@ class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
     autocomplete_fields = ('cart_product',)
     search_fields =('cart_product',)
-    fields = ('cart_product', 'tax_percentage','case_sizes', 'no_of_cases', 'total_no_of_pieces', 'price', 'sub_total')
-    #readonly_fields = ('tax_percentage', 'case_sizes', 'total_no_of_pieces','sub_total')
-    readonly_fields = ('tax_percentage','case_sizes','total_no_of_pieces','sub_total')
     form = CartProductMappingForm
+
+    fields = ('cart_product', 'tax_percentage','case_sizes', 'no_of_cases', 'no_of_pieces', 'price', 'sub_total')
+    readonly_fields = ('tax_percentage', 'case_sizes','sub_total')
+    ##readonly_fields = ('tax_percentage','case_sizes','total_no_of_pieces',)
 
 
 class CartAdmin(admin.ModelAdmin):
