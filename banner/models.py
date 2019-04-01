@@ -7,6 +7,16 @@ from django.utils.translation import ugettext_lazy as _
 
 # Create your models here.
 class Banner(models.Model):
+    BRAND = "brand"
+    CATEGORY = "category"
+    PRODUCT = "product"
+    OFFER = "offer"
+    BANNER_TYPE = (
+        (BRAND, "brand"),
+        (CATEGORY, "category"),
+        (PRODUCT, "product"),
+        (OFFER, "offer"),
+    )
 
     name= models.CharField(max_length=20, blank=True, null=True)
     image = models.FileField(null=True,blank=True)
@@ -14,6 +24,8 @@ class Banner(models.Model):
     updated_at= models.DateTimeField(auto_now=True)
     banner_start_date= models.DateTimeField(blank=True, null=True)
     banner_end_date= models.DateTimeField(blank=True, null=True)
+    banner_type = models.CharField(max_length=200, choices=BANNER_TYPE,null=True, blank=True)
+    banner_type_id = models.CharField(max_length = 255, null=True, blank=True)
     status = models.BooleanField(('Status'),help_text=('Designates whether the banner is to be displayed or not.'),default=True)
     alt_text= models.CharField(max_length=20, blank=True, null=True)
     text_below_image= models.CharField(max_length=20, blank=True, null=True)

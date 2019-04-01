@@ -4,11 +4,12 @@ from rest_framework.generics import CreateAPIView, DestroyAPIView, ListAPIView, 
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import CategorySerializer,CategoryDataSerializer
+from .serializers import CategorySerializer,CategoryDataSerializer, BrandSerializer
 from categories.models import Category,CategoryData,CategoryPosation
 from rest_framework import viewsets
 from rest_framework.decorators import list_route
 from rest_framework.permissions import (AllowAny,IsAuthenticated)
+from brand.models import Brand
 
 class GetAllSubCategoryListView(viewsets.ModelViewSet):
     permission_classes = (AllowAny,)
@@ -33,3 +34,14 @@ class GetCategoryListBySlot(APIView):
         category_data_serializer = CategoryDataSerializer(category_data,many=True)
         is_success = True if category_data else False
         return Response({ "message":[""],"response_data": category_data_serializer.data,"is_success":is_success})
+
+class GetcategoryBrandListView(APIView):
+
+    permission_classes = (AllowAny,)
+    def get(self, *args, **kwargs):
+        category_id = kwargs.get('category')
+        category = Category.objects.get(pk=category_id)
+        brands = Brand.objects.filter(categories = category_id)
+        category_brand_serializer = BrandSerializer(brands,many=True)
+        is_success = True if brands else False
+        return Response({"message":[""], "response_data": category_brand_serializer.data ,"is_success":is_success })

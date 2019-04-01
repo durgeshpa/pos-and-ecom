@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from categories.models import Category,CategoryPosation,CategoryData
+from brand.models import Brand
 
 class RecursiveSerializer(serializers.Serializer):
     def to_representation(self, value):
@@ -26,3 +27,9 @@ class CategoryDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = CategoryData
         fields = ('id','category_pos','category_data','category_data_order')
+
+class BrandSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = Brand
+        fields = '__all__'
