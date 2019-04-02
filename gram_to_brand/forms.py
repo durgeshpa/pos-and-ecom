@@ -26,6 +26,7 @@ from brand.models import Brand
 from addresses.models import State, Address
 from brand.models import Vendor
 from products.models import Product, ProductVendorMapping
+from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 
 
 class OrderForm(forms.ModelForm):
@@ -86,22 +87,31 @@ class POGenerationForm(forms.ModelForm):
             reader = csv.reader(codecs.iterdecode(self.cleaned_data['cart_product_mapping_csv'], 'utf-8'))
             first_row = next(reader)
             for id,row in enumerate(reader):
+                if not row[0]:
+                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product ID cannot be empty")
+
                 try:
                     product = Product.objects.get(pk=row[0])
                 except:
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product does not exist with this ID")
-                if not row[0]:
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product ID cannot be empty")
-                #if not row[2] and not re.match("^\d+$", row[2]):
-                #    raise ValidationError("Row["+str(id+1)+"] | "+first_row[2]+":"+row[2]+" | Case size should be integer and cannot be empty")
-                if not product.product_case_size == row[3]:
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[3]+":"+row[3]+" | Case size does not matched with original product's case size")
-                #if row[3] and not re.match("^\d+$", row[3]):
-                #    raise ValidationError("Row["+str(id+1)+"] | "+first_row[3]+":"+row[3]+" | No. of cases should be integer value")
-                vendor_product = ProductVendorMapping.objects.filter(vendor=self.cleaned_data['supplier_name'], product=product).order_by('product','-created_at').distinct('product')
-                for p in vendor_product:
-                    if not p.product_price == float(row[6]):
-                        raise ValidationError("Row["+str(id+1)+"] | "+first_row[6]+":"+row[6]+" | Price does not matched with original product's brand to gram price")
+                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | "+VALIDATION_ERROR_MESSAGES[
+                    'INVALID_PRODUCT_ID'])
+
+                if not row[2] or not re.match("^[\d\,]*$", row[2]):
+                    raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
+                    'EMPTY']%("Case_Size"))
+
+                if not row[3]:
+                    raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
+                    'EMPTY']%("No_of_cases"))
+
+                if not row[4] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[4]):
+                    raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
+                    'EMPTY_OR_NOT_VALID']%("MRP"))
+
+                if not row[5] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[5]):
+                    raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
+                    'EMPTY_OR_NOT_VALID']%("Gram_to_brand"))
+
             return self.cleaned_data
 
         # date = self.cleaned_data['po_validity_date']

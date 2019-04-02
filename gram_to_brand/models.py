@@ -265,16 +265,15 @@ class CartProductMapping(models.Model):
 
         # if Product mapping exists
         productVendorObj = ProductVendorMapping.objects.filter(vendor=self.cart.supplier_name, product=self.cart_product)
-        if productVendorObj.filter(status=True).exists():
-            self.vendor_product = productVendorObj.filter(status=True).last()
+        if productVendorObj.filter(product_price=self.price,status=True).exists():
+            self.vendor_product = productVendorObj.filter(product_price=self.price,status=True).last()
         else:
             case_size = productVendorObj.last().case_size if productVendorObj.exists() else self.cart_product.product_case_size
+            mrp = productVendorObj.last().product_mrp if productVendorObj.exists() else 0
             self.vendor_product = ProductVendorMapping.objects.create(vendor=self.cart.supplier_name,
-                                            product=self.cart_product,case_size=case_size,status=True)
+                                                product=self.cart_product, case_size=case_size,
+                                                product_price=self.price, product_mrp=mrp, status=True)
 
-        # print(self.number_of_cases)
-        # print(self.no_of_pieces)
-        # self.no_of_pieces = int(self.number_of_cases) * int(self.vendor_product.case_size)
         super(CartProductMapping, self).save(*args, **kwargs)
 
 @receiver(post_save, sender=Cart)
@@ -289,11 +288,21 @@ def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
             reader = csv.reader(codecs.iterdecode(instance.cart_product_mapping_csv, 'utf-8'))
             for id,row in enumerate(reader):
                 for row in reader:
-                    if row[3]:
+                    if row[0] and row[4] and row[5] :
+                        product = Product.objects.get(id=int(row[0]))
+
+                        vendor_product = ProductVendorMapping.objects.filter(vendor=instance.supplier_name,product_id=row[0]).last()
+                        if vendor_product and (vendor_product.case_size == row[2] or vendor_product.product_price == row[5]):
+                            vendor_product_dt = vendor_product
+                        else:
+                            vendor_product_dt = ProductVendorMapping.objects.create(vendor=instance.supplier_name,
+                                                                product_id=row[0], product_price=row[5],
+                                                                product_mrp=row[4], case_size=row[2], status=True)
+
                         CartProductMapping.objects.create(cart=instance,cart_product_id = row[0],
-                         inner_case_size=int(row[2]),case_size= int(row[3]),
-                         number_of_cases = row[4],scheme = float(row[5]) if row[5] else None, price=float(row[6])
-                         )
+                         no_of_pieces = int(vendor_product_dt.case_size)*int(row[3]),
+                         price=float(row[5]),vendor_product=vendor_product_dt)
+
     order = Order.objects.get_or_create(ordered_cart=instance, order_no=instance.po_no)
 
 
