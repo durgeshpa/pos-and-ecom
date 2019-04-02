@@ -99,7 +99,7 @@ admin.site.register(Brand,BrandAdmin)
 
 class ProductAdmin(admin.TabularInline):
     model = ProductVendorMapping
-    fields = ('product','product_price','case_size',)
+    fields = ('product','product_price','product_mrp','case_size')
 
     def get_queryset(self, request):
         qs = super(ProductAdmin, self).get_queryset(request)
