@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
 
+from sp_to_gram.models import OrderedProductReserved
 from retailer_to_sp.models import (
     Cart, CartProductMapping, Order, OrderedProduct, OrderedProductMapping,
     CustomerCare, Payment, Return, ReturnProductMapping, Note, Trip, Dispatch
@@ -554,3 +555,41 @@ def update_order_status(form):
     order.save()
 
 
+class UpdateSpQuantity(object):
+    """docstring for UpdateQuantity"""
+    def __init__(self, form, formsets):
+        super(UpdateSpQuantity, self).__init__()
+        self.shipment = form
+        self.shipment_products = formsets
+
+    def get_cart(self):
+        cart = self.shipment.instance.order.ordered_cart
+        return cart
+
+    def get_sp_ordered_product_reserved(self, product):
+        cart = self.get_cart()
+        return OrderedProductReserved.objects.filter(
+            cart=cart, product=product).last()
+
+    def deduct_reserved_qty(self, product, delivered_qty):
+        ordered_product_reserved = self.get_sp_ordered_product_reserved(
+            product)
+        ordered_product_reserved.reserved_qty -= delivered_qty
+        ordered_product_reserved.save()
+
+    def update_available_qty(self, product, returned_qty):
+        ordered_product_reserved = self.get_sp_ordered_product_reserved(
+            product)
+        shipment_product = ordered_product_reserved.order_product_reserved
+        shipment_product.available_qty += returned_qty
+        shipment_product.save()
+
+    def update(self):
+        for inline_form in self.shipment_products:
+            for form in inline_form:
+                product = form.instance.product
+                delivered_qty = form.instance.delivered_qty
+                returned_qty = form.instance.returned_qty
+                if returned_qty:
+                    self.update_available_qty(product, returned_qty)
+                self.deduct_reserved_qty(product, delivered_qty)

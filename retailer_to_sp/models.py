@@ -69,6 +69,7 @@ class Cart(models.Model):
     PARTIALLY_DELIVERED = "partially_delivered"
     DELIVERED = "delivered"
     CLOSED = "closed"
+    RESERVED = "reserved"
     CART_STATUS = (
         (ACTIVE, "Active"),
         (PENDING, "Pending"),
@@ -78,6 +79,7 @@ class Cart(models.Model):
         (PARTIALLY_DELIVERED, "Partially Delivered"),
         (DELIVERED, "Delivered"),
         (CLOSED, "Closed"),
+        (RESERVED, "Reserved")
     )
     order_id = models.CharField(max_length=255, null=True, blank=True)
     seller_shop = models.ForeignKey(
@@ -120,6 +122,7 @@ class Cart(models.Model):
                 logger.exception("Cart Product price is {}".format(cart_product.cart_product_price))
         super().save(*args, **kwargs)
 
+
 @receiver(post_save, sender=Cart)
 def create_order_id(sender, instance=None, created=False, **kwargs):
     if created:
@@ -150,6 +153,14 @@ class CartProductMapping(models.Model):
 
     def __str__(self):
         return self.cart_product.product_name
+
+    @property
+    def product_case_size(self):
+        return self.product_case_size.product_case_size
+
+    @property
+    def product_inner_case_size(self):
+        return self.product_case_size.product_inner_case_size
 
     def set_cart_product_price(self, shop):
         self.cart_product_price = self.cart_product.get_current_shop_price(shop)

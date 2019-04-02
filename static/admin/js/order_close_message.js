@@ -1,9 +1,14 @@
 (function($) {
     $(document).ready(function() {
-        $('form').bind('submit', function (e) {
-                e.preventDefault(e);
-                swal("Here's the title!", "...and here's the text!");
-            
-        });
+		$('#id_close_order').on('change', function(){
+   			if(this.checked) {
+        		swal({
+        			title: "Are you sure?",
+        			text: "You will be not able to create further shipments!",
+        			icon: "warning",
+  					button: true,
+				});
+    		}
+		})
     });
 })(django.jQuery);
