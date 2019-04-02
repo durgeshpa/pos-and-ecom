@@ -466,7 +466,7 @@ def products_csv_upload_view(request):
                     logger.exception("Brand Does not exist")
                     message.error(request, "Brand doesn't exist for  {}".format(row[1]))
                     return render(request, 'admin/products/productscsvupload.html',{'form': form})
-                
+
                 try:
                     product = Product.objects.get(product_gf_code=row[3])
                 except:

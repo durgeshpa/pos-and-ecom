@@ -178,7 +178,7 @@ def ordered_product_mapping_shipment(request):
         order_product_mapping = CartProductMapping.objects.filter(
             cart=ordered_product)
         products_list = []
-        for item in order_product_mapping.values('cart_product', 'qty'):
+        for item in order_product_mapping.values('cart_product', 'no_of_pieces'):
             already_shipped_qty = OrderedProductMapping.objects.filter(
                 ordered_product__in=Order.objects.get(
                     pk=order_id).rt_order_order_product.all(),
@@ -201,9 +201,7 @@ def ordered_product_mapping_shipment(request):
             to_be_shipped_qty = to_be_shipped_qty if to_be_shipped_qty else 0
             to_be_shipped_qty = to_be_shipped_qty - returned_qty
 
-            ordered_qty = item['qty']
-            inner_case_size = int(Product.objects.get(pk=item['cart_product']).product_inner_case_size)
-            ordered_no_pieces = ordered_qty * inner_case_size
+            ordered_no_pieces = item['no_of_pieces']
 
             if ordered_no_pieces != to_be_shipped_qty + already_shipped_qty:
                 products_list.append({
@@ -448,6 +446,8 @@ class DownloadPickList(TemplateView,):
             "cart_products":cart_product_list,
             "buyer_shop":order_obj.ordered_cart.buyer_shop.shop_name,
             "buyer_contact_no":order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
+            "buyer_address":order_obj.ordered_cart.buyer_shop.shop_name_address_mapping.last().address_line1,
+            "buyer_city":order_obj.ordered_cart.buyer_shop.shop_name_address_mapping.last().city.city_name,
         }
         cmd_option = {
             "margin-top": 10,
@@ -552,5 +552,3 @@ def update_order_status(form):
     elif (ordered_qty - sum(total_delivered_qty)) > 0 and sum(total_delivered_qty) > 0:
         order.order_status = 'PARTIALLY_SHIPPED'
     order.save()
-
-
