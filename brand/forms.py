@@ -55,10 +55,13 @@ class VendorForm(forms.ModelForm):
                     raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product does not exist with this ID")
 
                 if row[3] and not re.match("^\d{0,8}(\.\d{1,4})?$", row[3]):
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[3]+":"+row[3]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
+                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[3]+":"+row[3]+" | "+VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID']%("MRP"))
 
-                if not row[4]:
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[4]+":"+row[4]+" | Case size cannot be empty")
+                if row[4] and not re.match("^\d{0,8}(\.\d{1,4})?$", row[4]):
+                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[4]+":"+row[4]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
+
+                if not row[5]:
+                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[5]+":"+row[5]+" | "+VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID']%("Case_size"))
             return self.cleaned_data['vendor_products_csv']
 
 

@@ -330,7 +330,7 @@ class ProductVendorMapping(models.Model):
     vendor = models.ForeignKey(Vendor,related_name='vendor_brand_mapping',on_delete=models.CASCADE)
     product = models.ForeignKey(Product,related_name='product_vendor_mapping',on_delete=models.CASCADE)
     product_price = models.FloatField(verbose_name='Brand To Gram Price')
-    product_mrp = models.FloatField(default=0,null=True,blank=True)
+    product_mrp = models.FloatField(null=True,blank=True)
     case_size = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -354,10 +354,10 @@ def create_product_vendor_mapping(sender, instance=None, created=False, **kwargs
         product_mapping = []
         for row in reader:
             if row[3]:
-                vendor_product = ProductVendorMapping.objects.filter(vendor=vendor, product_id=row[0])
+                vendor_product = ProductVendorMapping.objects.filter(vendor=vendor, product_id=row[0],product_price=row[3])
                 if vendor_product.exists():
                     vendor_product.update(status=False)
-                product_mapping.append(ProductVendorMapping(vendor=vendor, product_id=row[0], product_price=row[3],case_size=row[4]))
+                product_mapping.append(ProductVendorMapping(vendor=vendor, product_id=row[0], product_mrp=row[3], product_price=row[4],case_size=row[5]))
 
         ProductVendorMapping.objects.bulk_create(product_mapping)
         #ProductVendorMapping.objects.bulk_create([ProductVendorMapping(vendor=vendor, product_id = row[0], product_price=row[3]) for row in reader if row[3]])

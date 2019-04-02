@@ -269,7 +269,7 @@ class CartProductMapping(models.Model):
             self.vendor_product = productVendorObj.filter(product_price=self.price,status=True).last()
         else:
             case_size = productVendorObj.last().case_size if productVendorObj.exists() else self.cart_product.product_case_size
-            mrp = productVendorObj.last().product_mrp if productVendorObj.exists() else 0
+            mrp = productVendorObj.last().product_mrp if productVendorObj.exists() else None
             self.vendor_product = ProductVendorMapping.objects.create(vendor=self.cart.supplier_name,
                                                 product=self.cart_product, case_size=case_size,
                                                 product_price=self.price, product_mrp=mrp, status=True)
