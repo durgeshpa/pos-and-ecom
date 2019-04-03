@@ -2,8 +2,10 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 
+from django.utils.html import format_html_join, format_html
+from django.utils.safestring import mark_safe
+
 from products.models import Product
-from .models import Order
 
 
 def add_cart_user(form, request):
@@ -13,11 +15,11 @@ def add_cart_user(form, request):
 	cart.save()
 
 
-def create_order_from_cart(form, formsets, request):
+def create_order_from_cart(form, formsets, request, order):
 	cart_data = get_cart_seller_buyer_shop_address(form)
 	order_amounts = get_order_mrp_tax_discount_final_amount(formsets)
 
-	order, _ = Order.objects.get_or_create(
+	order, _ = order.objects.get_or_create(
 		ordered_cart=cart_data.get('cart'), order_no=cart_data.get('order_id'))
 
 	order.seller_shop = cart_data.get('seller_shop')
@@ -29,7 +31,7 @@ def create_order_from_cart(form, formsets, request):
 	order.total_tax_amount = order_amounts.get('total_tax_amount')
 	order.total_final_amount = order_amounts.get('total_final_amount')
 	order.ordered_by = request.user
-	order.order_status = Order.ORDER_PLACED_DISPATCH_PENDING
+	order.order_status = order.ORDER_PLACED_DISPATCH_PENDING
 	order.last_modified_by = request.user
 	order.save()
 
@@ -112,3 +114,25 @@ class GetPcsFromQty(APIView):
 		return Response({
 			"success": False
 		})
+
+def order_invoices(shipments):
+    return format_html_join(
+    "","<a href='/admin/retailer_to_sp/shipment/{}/change/' target='blank'>{}</a><br><br>",
+            ((s.pk,
+            s.invoice_no, 
+            ) for s in shipments)
+    )
+
+def order_shipment_status(shipments):
+    return format_html_join(
+    "","{}<br><br>",
+            ((s.get_shipment_status_display(),
+            ) for s in shipments)
+    )   
+
+def order_shipment_amount(shipments):
+    return format_html_join(
+    "","{}<br><br>",
+            ((s.invoice_amount,
+            ) for s in shipments)
+    )

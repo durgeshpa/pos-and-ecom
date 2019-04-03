@@ -81,6 +81,7 @@ INSTALLED_APPS = [
     'services',
     'rangefilter',
     'admin_numeric_filter',
+    'django_admin_listfilter_dropdown'
 
 ]
 
@@ -130,7 +131,15 @@ DATABASES = {
         'PASSWORD': config('DB_PASSWORD'),
         'HOST': config('DB_HOST'),
         'PORT': config('DB_PORT'),
-	}
+	},
+    'readonly': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': config('DB_NAME'),
+        'USER': config('DB_USER'),
+        'PASSWORD': config('DB_PASSWORD'),
+        'HOST': config('DB_HOST_READ'),
+        'PORT': config('DB_PORT'),
+    }
 }
 
 

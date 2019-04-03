@@ -267,7 +267,7 @@ class OrderedProductMapping(models.Model): #GRN Product
                     Q(ordered_product__status=OrderedProduct.DISABLED)
                 )
         return product_availability
-    
+
     @classmethod
     def get_expired_product_qty(cls, shop, product):
         product_expired = cls.objects.filter(
@@ -425,7 +425,8 @@ def create_credit_note(instance=None, created=False, **kwargs):
                 )
             grn_item.save()
             try:
-                credit_amount += (int(item.returned_qty)+int(item.damaged_qty)) * float(round(item.product.rt_cart_product_mapping.last().cart_product_price.price_to_retailer,2))
+                cart_product_map = instance.order.ordered_cart.rt_cart_list.filter(cart_product=item.product).last()
+                credit_amount += (int(item.returned_qty)+int(item.damaged_qty)) * float(round(cart_product_map.get_cart_product_price(instance.order.seller_shop).price_to_retailer,2))
             except Exception as e:
                 logger.exception("Product price not found for {} -- {}".format(item.product, e))
                 credit_amount += int(item.returned_qty) * float(item.product.product_pro_price.filter(
