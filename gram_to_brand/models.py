@@ -228,7 +228,7 @@ class CartProductMapping(models.Model):
     def total_price(self):
         if self.vendor_product:
             return float(self.no_of_pieces)*float(self.vendor_product.product_price)
-        return float(self.qty) * self.price
+        return float(self.qty) * float(self.price)
 
     @property
     def gf_code(self):

@@ -139,8 +139,8 @@ class DownloadPurchaseOrder(APIView):
         surcharge_tax_list = []
         for m in products:
             sum_qty = sum_qty + m.qty
-            sum_amount = sum_amount + (m.qty * m.price)
-            inline_sum_amount = (m.qty * m.price)
+            sum_amount = sum_amount + m.total_price
+            inline_sum_amount = m.total_price
             for n in m.cart_product.product_pro_tax.all():
                 divisor = (1+(n.tax.tax_percentage/100))
                 original_amount = (inline_sum_amount/divisor)
