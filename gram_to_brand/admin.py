@@ -173,7 +173,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
     exclude = ('order_item','grn_id','last_modified_by',)
     #list_display_links = None
     list_display = ('grn_id','order','invoice_no','grn_date','brand', 'supplier_state', 'supplier_name', 'po_created_by','download_debit_note')
-    list_filter = [ OrderSearch, InvoiceNoSearch, GRNSearch, ('created_at', DateRangeFilter),]
+    list_filter = [OrderSearch, InvoiceNoSearch, GRNSearch, ('created_at', DateRangeFilter),('grn_order_grn_order_product__expiry_date', DateRangeFilter)]
     form = GRNOrderForm
     fields = ('order','invoice_no','brand_invoice','e_way_bill_no','e_way_bill_document',)
     change_form_template = 'admin/gram_to_brand/grn_order/change_form.html'
@@ -208,8 +208,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
             return qs
         return qs.filter(
             Q(order__ordered_cart__gf_shipping_address__shop_name__related_users=request.user) |
-            Q(order__ordered_cart__gf_shipping_address__shop_name__shop_owner
-              =request.user)
+            Q(order__ordered_cart__gf_shipping_address__shop_name__shop_owner=request.user)
         )
 
 
