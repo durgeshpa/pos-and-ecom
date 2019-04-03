@@ -191,6 +191,7 @@ class Order(models.Model):
     CLOSED = 'closed'
     PDAP = 'payment_done_approval_pending'
     ORDER_PLACED_DISPATCH_PENDING = 'opdp'
+    PARTIALLY_SHIPPED_AND_CLOSED = 'partially_shipped_and_closed'
 
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'),
@@ -211,6 +212,7 @@ class Order(models.Model):
         ('DENIED', 'Denied'),
         (PAYMENT_DONE_APPROVAL_PENDING, "Payment Done Approval Pending"),
         (OPDP, "Order Placed Dispatch Pending"),
+        (PARTIALLY_SHIPPED_AND_CLOSED, "Partially shipped and closed")
 
     )
     #Todo Remove
@@ -363,6 +365,7 @@ class Trip(models.Model):
 
 
 class OrderedProduct(models.Model): #Shipment
+    CLOSED = "closed"
     SHIPMENT_STATUS = (
         ('SHIPMENT_CREATED', 'QC Pending'),
         ('READY_TO_SHIP', 'QC Passed'),
@@ -374,7 +377,8 @@ class OrderedProduct(models.Model): #Shipment
         ('FULLY_RETURNED_AND_CLOSED', 'Fully Returned and Closed'),
         ('PARTIALLY_DELIVERED_AND_CLOSED', 'Partially Delivered and Closed'),
         ('FULLY_DELIVERED_AND_CLOSED', 'Fully Delivered and Closed'),
-        ('CANCELLED', 'Cancelled')
+        ('CANCELLED', 'Cancelled'),
+        (CLOSED, 'Closed')
     )
     order = models.ForeignKey(
         Order, related_name='rt_order_order_product',

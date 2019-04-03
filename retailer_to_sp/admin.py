@@ -430,8 +430,6 @@ class OrderedProductAdmin(admin.ModelAdmin):
         update_shipment_status(form, formsets)
         update_order_status(form)
         create_credit_note(form)
-        update_quantity = UpdateSpQuantity(form, formsets)
-        update_quantity.update()
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
@@ -562,6 +560,8 @@ class ShipmentAdmin(admin.ModelAdmin):
         super(ShipmentAdmin, self).save_related(request, form, formsets, change)
         #update_shipment_status(form, formsets)
         update_order_status(form)
+        update_quantity = UpdateSpQuantity(form, formsets)
+        update_quantity.update()
 
     def get_queryset(self, request):
         qs = super(ShipmentAdmin, self).get_queryset(request)
