@@ -443,8 +443,8 @@ class GRNOrderProductMapping(models.Model):
             #     raise ValidationError(_("Expiry Date cannot be less than manufacture date"))
         # else:
         #     raise ValidationError(_("Please enter all the field values"))
-        if float(self.po_product_price) != float(self.product_invoice_price):
-            raise ValidationError(_("Po_Product_Price and Po_Invoice_Price are not sililar"))
+        if self.delivered_qty and float(self.po_product_price) != float(self.product_invoice_price):
+            raise ValidationError(_("Po_Product_Price and Po_Invoice_Price are not similar"))
 
 
     def save(self, *args, **kwargs):
