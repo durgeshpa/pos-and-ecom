@@ -45,3 +45,15 @@ class GetcategoryBrandListView(APIView):
         category_brand_serializer = BrandSerializer(brands,many=True)
         is_success = True if brands else False
         return Response({"message":[""], "response_data": category_brand_serializer.data ,"is_success":is_success })
+
+class GetSubCategoriesListView(APIView):
+
+    permission_classes = (AllowAny,)
+    def get(self, *args, **kwargs):
+        category_id = kwargs.get('category')
+        category = Category.objects.get(pk=category_id)
+        sub_categories = category.cat_parent.filter(status=True)
+        sub_category_data_serializer = CategorySerializer(sub_categories,many=True)
+
+        is_success = True if sub_categories else False
+        return Response({"message":[""], "response_data": sub_category_data_serializer.data ,"is_success":is_success })

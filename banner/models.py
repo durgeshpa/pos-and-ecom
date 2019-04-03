@@ -4,16 +4,24 @@ from adminsortable.models import SortableMixin
 from mptt.models import TreeForeignKey
 from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
+from categories.models import Category
+from brand.models import Brand
+from products.models import Product
+from django.core.exceptions import ValidationError
 
 # Create your models here.
 class Banner(models.Model):
     BRAND = "brand"
+    SUBBRAND = "subbrand"
     CATEGORY = "category"
+    SUBCATEGORY = "subcategory"
     PRODUCT = "product"
     OFFER = "offer"
     BANNER_TYPE = (
         (BRAND, "brand"),
+        (SUBBRAND, "subbrand"),
         (CATEGORY, "category"),
+        (SUBCATEGORY, "subcategory"),
         (PRODUCT, "product"),
         (OFFER, "offer"),
     )
@@ -24,8 +32,10 @@ class Banner(models.Model):
     updated_at= models.DateTimeField(auto_now=True)
     banner_start_date= models.DateTimeField(blank=True, null=True)
     banner_end_date= models.DateTimeField(blank=True, null=True)
-    banner_type = models.CharField(max_length=200, choices=BANNER_TYPE,null=True, blank=True)
-    banner_type_id = models.CharField(max_length = 255, null=True, blank=True)
+    banner_type = models.CharField(max_length=255, choices=BANNER_TYPE,null=True, blank=True)
+    category = models.ForeignKey(Category,max_length=255, null=True, on_delete=models.CASCADE, blank=True )
+    brand = models.ForeignKey(Brand,max_length=255, null=True, on_delete=models.CASCADE, blank=True )
+    products = models.ManyToManyField(Product, blank=True )
     status = models.BooleanField(('Status'),help_text=('Designates whether the banner is to be displayed or not.'),default=True)
     alt_text= models.CharField(max_length=20, blank=True, null=True)
     text_below_image= models.CharField(max_length=20, blank=True, null=True)
@@ -33,6 +43,15 @@ class Banner(models.Model):
     def __str__(self):
         return '{}'.format(self.image)
 
+    def clean(self):
+        super(Banner, self).clean()
+        if self.banner_type == 'brand' or self.banner_type == 'subbrand' and self.brand is None:
+            raise ValidationError('Please select the Brand')
+        if self.banner_type == 'category' or self.banner_type == 'subcategory' and self.category is None:
+            raise ValidationError('Please select the Category')
+
+        if self.products.count() == 0: 
+            raise ValidationError("No children")
 
 class Page(models.Model):
     name = models.CharField(max_length=255)

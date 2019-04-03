@@ -68,6 +68,7 @@ class GramGRNProductsList(APIView):
     serializer_class = GramGRNProductsSearchSerializer
 
     def post(self, request, format=None):
+        ids = request.data.get('ids')
         brand = request.data.get('brands')
         category = request.data.get('categories')
         keyword = request.data.get('product_name', None)
@@ -124,6 +125,8 @@ class GramGRNProductsList(APIView):
                         cart_check = True
 
         products = Product.objects.filter(pk__in=grn).order_by('product_name')
+        if ids:
+            products = products.filter(id__in=ids)
         if brand:
             products = products.filter(product_brand__in=brand)
         if category:
@@ -834,7 +837,7 @@ class DownloadInvoiceSP(APIView):
             inline_sum_amount = 0
 
             cart_product_map = order_obj.order.ordered_cart.rt_cart_list.filter(cart_product=m.product).last()
-            product_price = cart_product_map.get_cart_product_price(order_obj.order.ordered_cart.seller_shop) 
+            product_price = cart_product_map.get_cart_product_price(order_obj.order.ordered_cart.seller_shop)
 
             product_pro_price_ptr = round(product_price.price_to_retailer,2)
             product_pro_price_mrp = round(product_price.mrp,2)
