@@ -134,7 +134,9 @@ class CartProductMappingForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if 'instance' in kwargs and kwargs['instance'].pk:
-            self.fields['no_of_cases'].initial = kwargs['instance'].no_of_cases
+            self.fields['no_of_cases'].initial = kwargs['instance'].no_of_cases if kwargs['instance'].no_of_cases else \
+            int(int(kwargs['instance'].cart_product.product_inner_case_size) * int(kwargs['instance'].cart_product.product_case_size) * float(
+                kwargs['instance'].number_of_cases))
 
 
     class Meta:
