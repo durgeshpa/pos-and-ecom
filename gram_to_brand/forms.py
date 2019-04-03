@@ -134,9 +134,14 @@ class CartProductMappingForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if 'instance' in kwargs and kwargs['instance'].pk:
-            self.fields['no_of_cases'].initial = kwargs['instance'].no_of_cases if kwargs['instance'].no_of_cases else \
-            int(int(kwargs['instance'].cart_product.product_inner_case_size) * int(kwargs['instance'].cart_product.product_case_size) * float(
-                kwargs['instance'].number_of_cases))
+            # print(kwargs['instance'].cart_product.product_inner_case_size)
+            # print(kwargs['instance'].cart_product.product_case_size)
+            # print(kwargs['instance'].number_of_cases)
+            # print(kwargs['instance'].qty)
+
+            self.fields['no_of_cases'].initial = kwargs['instance'].no_of_cases
+            self.fields['no_of_pieces'].initial = kwargs['instance'].no_of_pieces if kwargs['instance'].no_of_pieces else \
+                int(kwargs['instance'].cart_product.product_inner_case_size)*int(kwargs['instance'].cart_product.product_case_size)*int(kwargs['instance'].number_of_cases)
 
 
     class Meta:
@@ -212,7 +217,7 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
                 initial.append({
                     'product' : item,
                     'po_product_quantity': item.cart_product_mapping.last().qty,
-                    'po_product_price':  item.cart_product_mapping.last().vendor_product.product_price if  item.cart_product_mapping.last().vendor_product else item.cart_product_mapping.last().price,
+                    'po_product_price':  item.cart_product_mapping.last().vendor_product.product_price if item.cart_product_mapping.last().vendor_product else item.cart_product_mapping.last().price,
                     'already_grned_product': 0 if already_grn.get('delivered_qty__sum') == None else already_grn.get('delivered_qty__sum'),
                     })
             self.extra = len(initial)
