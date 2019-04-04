@@ -23,6 +23,8 @@ from retailer_backend.filters import ( BrandFilter, SupplierStateFilter,Supplier
 
 from django.db.models import Q
 from .views import DownloadPurchaseOrder
+from django.db import models
+from django.forms import Textarea
 
 
 class CartProductMappingAdmin(admin.TabularInline):
@@ -113,10 +115,12 @@ class CartAdmin(admin.ModelAdmin):
         ] + urls
         return urls
 
-admin.site.register(Cart,CartAdmin)
-
-
-from django.utils.functional import curry
+    """
+        TextArea Rows and columns can set here
+    """
+    formfield_overrides = {
+        models.TextField: {'widget': Textarea(attrs={'rows': 2, 'cols': 33})},
+    }
 
 
 class GRNOrderForm(forms.ModelForm):
@@ -150,8 +154,6 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
             formset.order = Cart.objects.get(pk=int(cart_id))
         return formset
 
-
-
 class BrandNoteAdmin(admin.ModelAdmin):
     model = BrandNote
     list_display = ('brand_note_id','grn_order',  'amount')
@@ -177,6 +179,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
     form = GRNOrderForm
     fields = ('order','invoice_no','brand_invoice','e_way_bill_no','e_way_bill_document',)
     change_form_template = 'admin/gram_to_brand/grn_order/change_form.html'
+
     def po_created_by(self,obj):
         return obj.order.ordered_cart.po_raised_by
 
@@ -266,6 +269,7 @@ class OrderedProductReservedAdmin(admin.ModelAdmin):
     list_display = ('order_product_reserved','cart','product','reserved_qty','order_reserve_end_time','created_at','reserve_status')
 
 
+admin.site.register(Cart,CartAdmin)
 admin.site.register(OrderedProductReserved,OrderedProductReservedAdmin)
 admin.site.register(Order,OrderAdmin)
 admin.site.register(GRNOrder,GRNOrderAdmin)
