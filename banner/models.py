@@ -45,9 +45,9 @@ class Banner(models.Model):
 
     def clean(self):
         super(Banner, self).clean()
-        if self.banner_type == 'brand' or self.banner_type == 'subbrand' and self.brand is None:
+        if (self.banner_type == 'brand' and self.brand is None )or (self.banner_type == 'subbrand' and self.brand is None):
             raise ValidationError('Please select the Brand')
-        if self.banner_type == 'category' or self.banner_type == 'subcategory' and self.category is None:
+        if (self.banner_type == 'category' and self.category is None )or (self.banner_type == 'subcategory' and self.category is None):
             raise ValidationError('Please select the Category')
 
 class Page(models.Model):
