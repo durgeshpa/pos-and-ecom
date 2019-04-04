@@ -4,7 +4,7 @@ from django.urls import reverse
 import datetime, csv, codecs, re
 from django.core.exceptions import ValidationError
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
-from products.models import Product
+from products.models import Product, ProductVendorMapping
 from addresses.models import City, State
 from dal import autocomplete
 from shops.models import Shop
@@ -75,3 +75,16 @@ class BrandForm(forms.ModelForm):
     class Meta:
         Model = BrandPosition
         fields = '__all__'
+
+class ProductVendorMappingForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super(ProductVendorMappingForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+        if instance and instance.pk:
+            self.fields['product'].widget.attrs['readonly'] = True
+            self.fields['product_price'].widget.attrs['readonly'] = True
+            self.fields['product_mrp'].widget.attrs['readonly'] = True
+            self.fields['case_size'].widget.attrs['readonly'] = True
+
+    class Meta:
+        Model = ProductVendorMapping
