@@ -582,10 +582,11 @@ class DeductReservedQtyFromShipment(object):
 
     def update(self):
         for form in self.shipment_products:
-            product = form.instance.product
-            already_shipped_qty = form.instance.to_be_shipped_qty
-            ordered_qty = int(form.instance.ordered_qty)
-            self.deduct_reserved_qty(product, ordered_qty, already_shipped_qty)
+            if form.instance:
+                product = form.instance.product
+                already_shipped_qty = form.instance.to_be_shipped_qty
+                ordered_qty = int(form.instance.ordered_qty)
+                self.deduct_reserved_qty(product, ordered_qty, already_shipped_qty)
 
 
 class UpdateSpQuantity(object):
@@ -639,12 +640,13 @@ class UpdateSpQuantity(object):
     def update(self):
         for inline_form in self.shipment_products:
             for form in inline_form:
-                product = form.instance.product
-                if (
-                    self.close_order() and
-                    (self.get_shipment_status() !=
-                     self.shipment.instance.CLOSED)):
+                if form.instance:
+                    product = form.instance.product
+                    if (
+                        self.close_order() and
+                        (self.get_shipment_status() !=
+                         self.shipment.instance.CLOSED)):
 
-                    self.update_shipment_status()
-                    self.update_order_status()
-                    self.update_available_qty(product)
+                        self.update_shipment_status()
+                        self.update_order_status()
+                        self.update_available_qty(product)
