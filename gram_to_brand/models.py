@@ -185,7 +185,7 @@ class Cart(BaseCart):
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='cart_list',on_delete=models.CASCADE)
     cart_product = models.ForeignKey(Product, related_name='cart_product_mapping', on_delete=models.CASCADE)
-    _tax_percentage = models.FloatField(db_column="tax_percentage", null=True,default='-')
+    _tax_percentage = models.FloatField(db_column="tax_percentage", null=True)
     #Todo Remove
     inner_case_size = models.PositiveIntegerField(default=0, null=True,blank=True)
     case_size= models.PositiveIntegerField(default=0,null=True,blank=True)
