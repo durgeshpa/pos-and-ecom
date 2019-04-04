@@ -235,9 +235,9 @@ def ordered_product_mapping_shipment(request):
                             formset_data = forms.save(commit=False)
                             formset_data.ordered_product = ordered_product_instance
                             formset_data.save()
-                            update_qty = DeductReservedQtyFromShipment(
-                                ordered_product_instance, form_set)
-                            update_qty.update()
+                update_qty = DeductReservedQtyFromShipment(
+                    ordered_product_instance, form_set)
+                update_qty.update()
                 return redirect('/admin/retailer_to_sp/shipment/')
 
     return render(
@@ -582,11 +582,10 @@ class DeductReservedQtyFromShipment(object):
 
     def update(self):
         for form in self.shipment_products:
-            if form.instance:
-                product = form.instance.product
-                already_shipped_qty = form.instance.to_be_shipped_qty
-                ordered_qty = int(form.instance.ordered_qty)
-                self.deduct_reserved_qty(product, ordered_qty, already_shipped_qty)
+            product = form.instance.product
+            already_shipped_qty = form.instance.to_be_shipped_qty
+            ordered_qty = int(form.instance.ordered_qty)
+            self.deduct_reserved_qty(product, ordered_qty, already_shipped_qty)
 
 
 class UpdateSpQuantity(object):
@@ -640,13 +639,12 @@ class UpdateSpQuantity(object):
     def update(self):
         for inline_form in self.shipment_products:
             for form in inline_form:
-                if form.instance:
-                    product = form.instance.product
-                    if (
-                        self.close_order() and
-                        (self.get_shipment_status() !=
-                         self.shipment.instance.CLOSED)):
+                product = form.instance.product
+                if (
+                    self.close_order() and
+                    (self.get_shipment_status() !=
+                     self.shipment.instance.CLOSED)):
 
-                        self.update_shipment_status()
-                        self.update_order_status()
-                        self.update_available_qty(product)
+                    self.update_shipment_status()
+                    self.update_order_status()
+                    self.update_available_qty(product)
