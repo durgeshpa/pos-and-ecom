@@ -68,7 +68,7 @@ class GramGRNProductsList(APIView):
     serializer_class = GramGRNProductsSearchSerializer
 
     def post(self, request, format=None):
-        ids = request.data.get('ids')
+        product_ids = request.data.get('product_ids')
         brand = request.data.get('brands')
         category = request.data.get('categories')
         keyword = request.data.get('product_name', None)
@@ -125,8 +125,8 @@ class GramGRNProductsList(APIView):
                         cart_check = True
 
         products = Product.objects.filter(pk__in=grn).order_by('product_name')
-        if ids:
-            products = products.filter(id__in=ids)
+        if product_ids:
+            products = products.filter(id__in=product_ids)
         if brand:
             products = products.filter(product_brand__in=brand)
         if category:
