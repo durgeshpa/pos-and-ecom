@@ -32,6 +32,8 @@ ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=Csv())
 
 AUTH_USER_MODEL = 'accounts.user'
 
+ENVIRONMENT = config('ENVIRONMENT')
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -81,14 +83,20 @@ INSTALLED_APPS = [
     'services',
     'rangefilter',
     'admin_numeric_filter',
-    'django_admin_listfilter_dropdown'
+    'django_admin_listfilter_dropdown',
+    'debug_toolbar',
 
 ]
 
 
 SITE_ID = 1
-
-MIDDLEWARE = [
+if DEBUG:
+    MIDDLEWARE = [
+        'debug_toolbar.middleware.DebugToolbarMiddleware',
+    ]
+else:
+    MIDDLEWARE = []
+MIDDLEWARE += [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -141,7 +149,6 @@ DATABASES = {
         'PORT': config('DB_PORT'),
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/2.1/ref/settings/#auth-password-validators
@@ -270,8 +277,15 @@ CRONJOBS = [
 
 INTERNAL_IPS = ['127.0.0.1','localhost']
 
+DEBUG_TOOLBAR_CONFIG = {
+    'SHOW_TOOLBAR_CALLBACK': lambda x: True
+}
+
+DEBUG_TOOLBAR_PATCH_SETTINGS = False
+
 # Initiate Sentry SDK
-sentry_sdk.init(
-    dsn="https://2f8d192414f94cd6a0ba5b26d6461684@sentry.io/1407300",
-    integrations=[DjangoIntegration()]
-)
+if ENVIRONMENT == "PRODUCTION":
+    sentry_sdk.init(
+        dsn="https://2f8d192414f94cd6a0ba5b26d6461684@sentry.io/1407300",
+        integrations=[DjangoIntegration()]
+    )
