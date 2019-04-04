@@ -1,17 +1,23 @@
 from rest_framework import serializers
 from banner.models import Banner,BannerPosition,BannerData,BannerSlot
+from brand.models import Brand
 
 class RecursiveSerializer(serializers.Serializer):
     def to_representation(self, value):
         serializer = self.parent.parent.__class__(value, context=self.context)
         return serializer.data
 
+class BrandSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Brand
+        fields = ('id', "brand_name")
+
 class BannerSerializer(serializers.ModelSerializer):
-    cat_parent = RecursiveSerializer(many=True, read_only=True)
+    brand = BrandSerializer(read_only=True)
 
     class Meta:
         model = Banner
-        fields = '__all__'
+        fields = ('name','image','banner_type','category','brand','products','status','banner_start_date','banner_end_date','alt_text','text_below_image')
 
 class BannerPositionSerializer(serializers.ModelSerializer):
 
