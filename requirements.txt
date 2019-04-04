@@ -73,3 +73,4 @@ openpyxl==2.4.9
 django-admin-rangefilter
 sentry-sdk==0.7.4
 django-admin-list-filter-dropdown
+django-debug-toolbar
