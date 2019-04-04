@@ -50,9 +50,6 @@ class Banner(models.Model):
         if self.banner_type == 'category' or self.banner_type == 'subcategory' and self.category is None:
             raise ValidationError('Please select the Category')
 
-        if self.products.count() == 0: 
-            raise ValidationError("No children")
-
 class Page(models.Model):
     name = models.CharField(max_length=255)
 
