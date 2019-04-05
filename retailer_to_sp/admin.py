@@ -320,7 +320,7 @@ class BuyerShopFilter(AutocompleteFilter):
 
 class SKUFilter(InputFilter):
     title = 'product sku'
-    parameter_name = 'order_products'
+    parameter_name = 'product sku'
 
     def queryset(self, request, queryset):
         value = self.value()
@@ -330,7 +330,7 @@ class SKUFilter(InputFilter):
 
 class GFCodeFilter(InputFilter):
     title = 'product gf code'
-    parameter_name = 'order_products'
+    parameter_name = 'product gf code'
 
     def queryset(self, request, queryset):
         value = self.value()
@@ -340,7 +340,7 @@ class GFCodeFilter(InputFilter):
 
 class ProductNameFilter(InputFilter):
     title = 'product name'
-    parameter_name = 'order_products'
+    parameter_name = 'product name'
 
     def queryset(self, request, queryset):
         value = self.value()
