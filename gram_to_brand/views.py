@@ -27,10 +27,11 @@ from products.models import ProductVendorMapping
 
 class SupplierAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        qs = Vendor.objects.all()
+        qs = None
         state = self.forwarded.get('supplier_state', None)
         brand = self.forwarded.get('brand', None)
         if state and brand:
+            qs = Vendor.objects.all()
             vendos_id = ProductVendorMapping.objects.filter(
                 product__product_brand__id=brand).values('vendor')
             qs = qs.filter(state__id=state,id__in=[vendos_id])
@@ -138,8 +139,8 @@ class DownloadPurchaseOrder(APIView):
         surcharge_tax_list = []
         for m in products:
             sum_qty = sum_qty + m.qty
-            sum_amount = sum_amount + (m.qty * m.price)
-            inline_sum_amount = (m.qty * m.price)
+            sum_amount = sum_amount + m.total_price
+            inline_sum_amount = m.total_price
             for n in m.cart_product.product_pro_tax.all():
                 divisor = (1+(n.tax.tax_percentage/100))
                 original_amount = (inline_sum_amount/divisor)
@@ -284,11 +285,12 @@ class VendorProductPrice(APIView):
         if vendor_mapping.exists():
             product = vendor_mapping.last().product
             vendor_product_price = vendor_mapping.last().product_price
-            product_case_size = vendor_mapping.last().product.product_case_size
+            product_case_size = vendor_mapping.last().case_size if vendor_mapping.last().case_size else vendor_mapping.last().product.product_case_size
             product_inner_case_size = vendor_mapping.last().product.product_inner_case_size
             taxes = ([field.tax.tax_percentage for field in vendor_mapping.last().product.product_pro_tax.all()])
             taxes = str(sum(taxes))
             tax_percentage = taxes+'%'
+
         return Response({
             "price": vendor_product_price,
             "case_size": product_case_size,

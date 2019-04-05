@@ -32,7 +32,7 @@ class ExportCsvMixin:
         for obj in queryset:
             row = writer.writerow([getattr(obj, field) for field in field_names])
         return response
-    export_as_csv.short_description = "Download CSV of Selected Objects"
+    export_as_csv.short_description = "Download CSV of Selected Shops"
 
 class ShopNameSearch(InputFilter):
     parameter_name = 'shop_name'
@@ -127,7 +127,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
         ShopPhotosAdmin, ShopDocumentsAdmin,
         AddressAdmin, ShopInvoicePatternAdmin,ShopParentRetailerMapping
     ]
-    list_display = ('shop_name','shop_owner','shop_type','status', 'get_shop_city','shop_mapped_product')
+    list_display = ('shop_name','get_shop_parent','shop_owner','shop_type','status', 'get_shop_city','shop_mapped_product')
     filter_horizontal = ('related_users',)
     list_filter = (ShopNameSearch,ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,'status')
     search_fields = ('shop_name', )
@@ -213,6 +213,11 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
         if obj.shop_name_address_mapping.exists():
             return obj.shop_name_address_mapping.last().city
     get_shop_city.short_description = 'Shop City'
+
+    def get_shop_parent(self, obj):
+        if obj.retiler_mapping.exists():
+            return obj.retiler_mapping.last().parent
+    get_shop_parent.short_description = 'Parent Shop'
 
 class ParentFilter(AutocompleteFilter):
     title = 'Parent' # display title
