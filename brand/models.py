@@ -14,6 +14,7 @@ import datetime, csv, codecs, re
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
 from shops.models import Shop
+from categories.models import Category
 
 VENDOR_REG_PAYMENT = (
     ("paid","Paid"),
@@ -72,6 +73,7 @@ class Brand(models.Model):
     brand_parent = models.ForeignKey('self', related_name='brnd_parent', null=True, blank=True,on_delete=models.CASCADE, limit_choices_to={'brand_parent': None},)
     brand_description = models.TextField(null=True, blank=True)
     brand_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three character for SKU")
+    categories = models.ManyToManyField(Category, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     active_status = models.CharField(max_length=20,choices=CHOICES,default='active')

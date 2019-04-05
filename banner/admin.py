@@ -4,7 +4,7 @@ from django.contrib import admin
 from adminsortable.admin import NonSortableParentAdmin, SortableStackedInline
 
 from .models import Banner, BannerData,BannerPosition, BannerSlot, Page
-
+from.forms import BannerForm
 class BannerDataInline(SortableStackedInline):
     model = BannerData
 
@@ -14,13 +14,12 @@ class BannerPositionAdmin(NonSortableParentAdmin):
 
 
 admin.site.register(BannerPosition, BannerPositionAdmin)
-
 class BannerAdmin(admin.ModelAdmin):
-    fields = ('name','image','status','banner_start_date','banner_end_date','alt_text','text_below_image')
+    fields = ('name','image','banner_type','category','brand','products','status','banner_start_date','banner_end_date','alt_text','text_below_image')
     list_display = ('id','name','image','banner_start_date','banner_end_date','created_at','status')
     list_filter = ('name','image', 'created_at','updated_at')
     search_fields= ('name', 'created_at','updated_at')
-
+    form = BannerForm
 admin.site.register(Banner,BannerAdmin)
 
 class BannerSlotAdmin(admin.ModelAdmin):
