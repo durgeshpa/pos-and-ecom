@@ -328,6 +328,26 @@ class SKUFilter(InputFilter):
             return queryset.filter(ordered_cart__rt_cart_list__cart_product__product_sku=value)
         return queryset
 
+class GFCodeFilter(InputFilter):
+    title = 'product gf code'
+    parameter_name = 'order_products'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value :
+            return queryset.filter(ordered_cart__rt_cart_list__cart_product__product_gf_code=value)
+        return queryset
+
+class ProductNameFilter(InputFilter):
+    title = 'product name'
+    parameter_name = 'order_products'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value :
+            return queryset.filter(ordered_cart__rt_cart_list__cart_product__product_name=value)
+        return queryset
+
 class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
     actions = ["export_as_csv"]
     resource_class = OrderResource
@@ -343,7 +363,7 @@ class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
                     'shipment_status', 'order_shipment_amount')
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
                         'invoice_no', 'order_shipment_amount', 'shipment_status')
-    list_filter = [SKUFilter,SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
+    list_filter = [ProductNameFilter,GFCodeFilter,SKUFilter,SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
         ('created_at', DateTimeRangeFilter)]
 
     class Media:
