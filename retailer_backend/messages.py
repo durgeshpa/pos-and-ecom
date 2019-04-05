@@ -18,6 +18,10 @@ VALIDATION_ERROR_MESSAGES = {
     'INVALID_DATETIME': 'Invalid datetime. It should be of format YYYY-MM-DD HH:MM:SS(eg: 2018-10-11 13:06:56)',
     'INVALID_PRICE': 'Invalid price.(eg: 1000, 200.50)',
     'INVALID_PINCODE': 'Invalid Pincode',
+    'INVALID_PRODUCT_ID':'Invalid Product Id',
+    'EMPTY':'%s cant be empty',
+    'EMPTY_OR_NOT_VALID':'%s cant be empty or not valid( eg: 11.11)',
+
 }
 
 SUCCESS_MESSAGES = {

@@ -23,18 +23,19 @@ from retailer_backend.filters import ( BrandFilter, SupplierStateFilter,Supplier
 
 from django.db.models import Q
 from .views import DownloadPurchaseOrder
+from django.db import models
+from django.forms import Textarea
 
 
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
-    #readonly_fields = ('get_edit_link',)
     autocomplete_fields = ('cart_product',)
     search_fields =('cart_product',)
-    #formset = CartProductMappingFormset
-    fields = ('cart_product','tax_percentage', 'number_of_cases','price')
     form = CartProductMappingForm
-    can_delete = False
-    readonly_fields=('tax_percentage',)
+
+    fields = ('cart_product', 'tax_percentage','case_sizes', 'no_of_cases', 'no_of_pieces', 'price', 'sub_total')
+    readonly_fields = ('tax_percentage', 'case_sizes','sub_total')
+    ##readonly_fields = ('tax_percentage','case_sizes','total_no_of_pieces',)
 
 
 class CartAdmin(admin.ModelAdmin):
@@ -114,10 +115,12 @@ class CartAdmin(admin.ModelAdmin):
         ] + urls
         return urls
 
-admin.site.register(Cart,CartAdmin)
-
-
-from django.utils.functional import curry
+    """
+        TextArea Rows and columns can set here
+    """
+    formfield_overrides = {
+        models.TextField: {'widget': Textarea(attrs={'rows': 2, 'cols': 33})},
+    }
 
 
 class GRNOrderForm(forms.ModelForm):
@@ -151,8 +154,6 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
             formset.order = Cart.objects.get(pk=int(cart_id))
         return formset
 
-
-
 class BrandNoteAdmin(admin.ModelAdmin):
     model = BrandNote
     list_display = ('brand_note_id','grn_order',  'amount')
@@ -174,10 +175,11 @@ class GRNOrderAdmin(admin.ModelAdmin):
     exclude = ('order_item','grn_id','last_modified_by',)
     #list_display_links = None
     list_display = ('grn_id','order','invoice_no','grn_date','brand', 'supplier_state', 'supplier_name', 'po_created_by','download_debit_note')
-    list_filter = [ OrderSearch, InvoiceNoSearch, GRNSearch, ('created_at', DateRangeFilter),]
+    list_filter = [OrderSearch, InvoiceNoSearch, GRNSearch, ('created_at', DateRangeFilter),('grn_order_grn_order_product__expiry_date', DateRangeFilter)]
     form = GRNOrderForm
     fields = ('order','invoice_no','brand_invoice','e_way_bill_no','e_way_bill_document',)
     change_form_template = 'admin/gram_to_brand/grn_order/change_form.html'
+
     def po_created_by(self,obj):
         return obj.order.ordered_cart.po_raised_by
 
@@ -209,8 +211,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
             return qs
         return qs.filter(
             Q(order__ordered_cart__gf_shipping_address__shop_name__related_users=request.user) |
-            Q(order__ordered_cart__gf_shipping_address__shop_name__shop_owner
-              =request.user)
+            Q(order__ordered_cart__gf_shipping_address__shop_name__shop_owner=request.user)
         )
 
 
@@ -268,6 +269,7 @@ class OrderedProductReservedAdmin(admin.ModelAdmin):
     list_display = ('order_product_reserved','cart','product','reserved_qty','order_reserve_end_time','created_at','reserve_status')
 
 
+admin.site.register(Cart,CartAdmin)
 admin.site.register(OrderedProductReserved,OrderedProductReservedAdmin)
 admin.site.register(Order,OrderAdmin)
 admin.site.register(GRNOrder,GRNOrderAdmin)
