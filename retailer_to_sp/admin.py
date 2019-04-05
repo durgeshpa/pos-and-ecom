@@ -318,6 +318,16 @@ class BuyerShopFilter(AutocompleteFilter):
     title = 'Buyer Shop'
     field_name = 'buyer_shop'
 
+class SKUFilter(InputFilter):
+    title = 'product sku'
+    parameter_name = 'order_products'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value :
+            return queryset.filter(ordered_cart__rt_cart_list__cart_product__product_sku=value)
+        return queryset
+
 class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
     actions = ["export_as_csv"]
     resource_class = OrderResource
@@ -333,7 +343,7 @@ class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
                     'shipment_status', 'order_shipment_amount')
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
                         'invoice_no', 'order_shipment_amount', 'shipment_status')
-    list_filter = [SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
+    list_filter = [SKUFilter,SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
         ('created_at', DateTimeRangeFilter)]
 
     class Media:
@@ -357,12 +367,12 @@ class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
     download_pick_list.short_description = 'Download Pick List'
 
     def order_products(self, obj):
+        p=[]
         products = obj.ordered_cart.rt_cart_list.all()
-        return products
+        for m in products:
+            p.append(m.cart_product.product_name)
+        return p
 
-class SKUFilter(admin.SimpleListFilter):
-    title = 'order_products'
-    parameter_name = 'order_products'
 
 class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping
