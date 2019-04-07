@@ -5,7 +5,8 @@ from .models import (
     ShopPhoto, ShopDocument, ShopInvoicePattern
 )
 from addresses.models import Address
-from .forms import ParentRetailerMappingForm,ShopParentRetailerMappingForm
+from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
+                    ShopForm)
 from .views import StockAdjustmentView, stock_adjust_sample
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
@@ -14,6 +15,8 @@ from import_export import resources
 from django.http import HttpResponse
 from admin_auto_filters.filters import AutocompleteFilter
 from services.views import SalesReportFormView, SalesReport
+from .utils import GetShopType
+
 
 class ShopResource(resources.ModelResource):
     class Meta:
@@ -122,6 +125,7 @@ class ShopParentRetailerMapping(admin.TabularInline):
 
 class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ShopResource
+    form = ShopForm
     actions = ["export_as_csv"]
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin,
@@ -134,6 +138,8 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
+        js = ("admin/js/shops/toggle_shop_warehouse_code.js",)
+
 
     def get_urls(self):
         from django.conf.urls import url
@@ -158,6 +164,11 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                 r'^shop-sales-form/$',
                 self.admin_site.admin_view(SalesReportFormView.as_view()),
                 name="shop-sales-form"
+            ),
+            url(
+                r'^get-shop-type/$',
+                self.admin_site.admin_view(GetShopType.as_view()),
+                name="GetShopType"
             ),
         ] + urls
         return urls

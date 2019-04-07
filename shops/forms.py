@@ -8,6 +8,7 @@ import codecs
 from products.models import Product, ProductPrice
 import re
 
+from .models import Shop
 
 class ParentRetailerMappingForm(forms.ModelForm):
     parent = forms.ModelChoiceField(
@@ -75,3 +76,32 @@ class StockAdjustmentUploadForm(forms.Form):
 
         return self.cleaned_data['upload_file']
 
+
+class ShopForm(forms.ModelForm):
+    class Meta:
+        Model = Shop
+        fields = (
+            'shop_name', 'shop_owner', 'shop_type', 'related_users',
+            'shop_code', 'warehouse_code', 'status')
+
+    @classmethod
+    def get_shop_type(cls, data):
+        shop_type = data.cleaned_data.get('shop_type')
+        return shop_type
+
+    @classmethod
+    def shop_type_retailer(cls, data):
+        shop_type = cls.get_shop_type(data)
+        if shop_type != 'r':
+            return False
+        return True
+
+    def clean_shop_code(self):
+        if not self.shop_type_retailer(self):
+            if not self.cleaned_data.get('shop_code', None):
+                raise ValidationError(_("This field is required"))
+
+    def clean_warehouse_code(self):
+        if not self.shop_type_retailer(self):
+            if not self.cleaned_data.get('shop_code', None):
+                raise ValidationError(_("This field is required"))
