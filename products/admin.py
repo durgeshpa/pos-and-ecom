@@ -65,8 +65,8 @@ class VendorFilter(AutocompleteFilter):
     field_name = 'vendor' # name of the foreign key field
 
 class ProductVendorMappingAdmin(admin.ModelAdmin):
-    fields = ('vendor', 'product', 'product_price')
-    list_display = ('vendor', 'product', 'product_price')
+    fields = ('vendor', 'product', 'product_price','product_mrp','case_size')
+    list_display = ('vendor', 'product', 'product_price','product_mrp','case_size','created_at','status')
     list_filter = [VendorFilter,ProductFilter,]
 
     class Media:

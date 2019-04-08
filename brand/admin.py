@@ -8,7 +8,7 @@ from import_export.admin import ExportActionMixin
 from .resources import BrandResource
 from products.admin import ExportCsvMixin
 from admin_auto_filters.filters import AutocompleteFilter
-from .forms import BrandForm
+from .forms import BrandForm, ProductVendorMappingForm
 
 class BrandSearch(InputFilter):
     parameter_name = 'brand_name'
@@ -99,7 +99,13 @@ admin.site.register(Brand,BrandAdmin)
 
 class ProductAdmin(admin.TabularInline):
     model = ProductVendorMapping
-    #fields = ('brand_name',)
+    fields = ('product','product_price','product_mrp','case_size')
+    form = ProductVendorMappingForm
+    def get_queryset(self, request):
+        qs = super(ProductAdmin, self).get_queryset(request)
+        return qs.filter(
+            status=True
+        )
 
 class VendorAdmin(admin.ModelAdmin):
     form = VendorForm
