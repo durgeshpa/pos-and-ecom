@@ -8,7 +8,7 @@ import csv
 import codecs
 from products.models import Product, ProductPrice
 import re
-
+from addresses.models import State
 
 class ParentRetailerMappingForm(forms.ModelForm):
     parent = forms.ModelChoiceField(
@@ -78,6 +78,10 @@ class StockAdjustmentUploadForm(forms.Form):
 
 class AddressForm(forms.ModelForm):
     nick_name = forms.CharField(required=True)
+    address_contact_name = forms.CharField(required=True)
+    address_contact_number = forms.CharField(required=True)
+    state = forms.ModelChoiceField(queryset=State.objects.all())
+    pincode = forms.CharField(max_length=6, required=True)
 
     class Meta:
         Model = Address
