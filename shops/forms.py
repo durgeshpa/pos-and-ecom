@@ -1,5 +1,6 @@
 from django import forms
 from .models import ParentRetailerMapping, Shop, ShopType
+from addresses.models import Address
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from dal import autocomplete
@@ -74,4 +75,35 @@ class StockAdjustmentUploadForm(forms.Form):
                 raise ValidationError(_('INVALID_EXPIRED_QTY at Row[%(value)s]. It should be numeric'),params={'value': id + 1}, )
 
         return self.cleaned_data['upload_file']
+
+class AddressForm(forms.ModelForm):
+    nick_name = forms.CharField(required=True)
+
+    class Meta:
+        Model = Address
+
+from django.forms.models import BaseInlineFormSet
+
+class RequiredInlineFormSet(BaseInlineFormSet):
+    def _construct_form(self, i, **kwargs):
+        form = super(RequiredInlineFormSet, self)._construct_form(i, **kwargs)
+        if i < 1:
+            form.empty_permitted = False
+        return form
+
+class AddressInlineFormSet(BaseInlineFormSet):
+
+    def clean(self):
+        super(AddressInlineFormSet, self).clean()
+        flag = 0
+        for form in self.forms:
+            if form.cleaned_data and form.cleaned_data['address_type']=='shipping':
+                flag = 1
+
+        if flag==0:
+            raise forms.ValidationError('Please add at least one shipping address')
+
+
+
+
 
