@@ -646,7 +646,7 @@ def products_vendor_mapping(request,pk=None):
         writer.writerow(['id','product_name','case_size','number_of_cases','mrp','brand_to_gram_price'])
         vendor_products = ProductVendorMapping.objects.filter(vendor_id=int(pk)).order_by('product','-created_at').distinct('product')
         for p in vendor_products:
-            writer.writerow([p.product_id,p.product.product_name,p.product.product_case_size,'',p.product_mrp,p.product_price])
+            writer.writerow([p.product_id,p.product.product_name,p.case_size,'',p.product_mrp,p.product_price])
     except:
         writer.writerow(["Make sure you have selected vendor before downloading CSV file"])
     return response
