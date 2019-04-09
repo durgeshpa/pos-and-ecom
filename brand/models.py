@@ -78,12 +78,6 @@ class Vendor(models.Model):
             parent = parent.brand_parent
         return brand.id
 
-    def save(self,*args, **kwargs):
-        parent_brands = []
-        for brand_dt in self.vendor_brand_mapping.all().distinct():
-            parent_brands.append(self.get_parent_or_self(brand_dt))
-        self.vendor_products_brand=list(set(parent_brands))
-        super(Vendor, self).save(*args, **kwargs)
 
 class Brand(models.Model):
     brand_name = models.CharField(max_length=20)
