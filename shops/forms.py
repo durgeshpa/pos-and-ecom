@@ -107,7 +107,7 @@ class AddressInlineFormSet(BaseInlineFormSet):
                 address_form.append(form.cleaned_data.get('DELETE'))
                 flag = 1
 
-        if all(address_form):
+        if address_form and all(address_form):
             raise forms.ValidationError('You cant delete all shipping address')
         elif flag==0:
             raise forms.ValidationError('Please add at least one shipping address')
