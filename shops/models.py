@@ -49,7 +49,7 @@ class Shop(models.Model):
     status = models.BooleanField(default=False)
 
     def __str__(self):
-        return "%s - %s - %s"%(self.shop_name,self.shop_owner, self.shop_type.get_shop_type_display())
+        return "%s - %s"%(self.shop_name,self.shop_owner)
 
     def __init__(self, *args, **kwargs):
         super(Shop, self).__init__(*args, **kwargs)
