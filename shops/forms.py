@@ -100,11 +100,16 @@ class AddressInlineFormSet(BaseInlineFormSet):
     def clean(self):
         super(AddressInlineFormSet, self).clean()
         flag = 0
+        delete = False
+        address_form = []
         for form in self.forms:
-            if form.cleaned_data and form.cleaned_data['address_type']=='shipping':
+            if form.cleaned_data and form.cleaned_data['address_type'] == 'shipping':
+                address_form.append(form.cleaned_data.get('DELETE'))
                 flag = 1
 
-        if flag==0:
+        if all(address_form):
+            raise forms.ValidationError('You cant delete all shipping address')
+        elif flag==0:
             raise forms.ValidationError('Please add at least one shipping address')
 
 
