@@ -97,11 +97,15 @@ class ShopForm(forms.ModelForm):
         return True
 
     def clean_shop_code(self):
-        if not self.shop_type_retailer(self):
+        shop_code = self.cleaned_data.get('shop_code', None)
+        if not shop_code:
             if not self.cleaned_data.get('shop_code', None):
                 raise ValidationError(_("This field is required"))
+        return shop_code
 
     def clean_warehouse_code(self):
+        warehouse_code = self.cleaned_data.get('warehouse_code', None)
         if not self.shop_type_retailer(self):
-            if not self.cleaned_data.get('shop_code', None):
+            if not warehouse_code:
                 raise ValidationError(_("This field is required"))
+        return warehouse_code

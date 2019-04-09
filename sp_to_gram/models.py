@@ -388,19 +388,29 @@ def create_credit_note(instance=None, created=False, **kwargs):
         invoice_prefix = instance.order.seller_shop.invoice_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
         last_credit_note = CreditNote.objects.filter(shop=instance.order.seller_shop, status=True).order_by('credit_note_id').last()
         if last_credit_note:
-            note_id = int(getcredit_note_id(last_credit_note.credit_note_id, invoice_prefix))
-            note_id += 1
+            note_id = brand_credit_note_pattern(
+                        CreditNote, 'credit_note_id', None,
+                        instance.order.seller_shop.
+                        shop_name_address_mapping.filter(
+                                        address_type='billing'
+                                        ).last().pk)
         else:
-            note_id = 1
+            note_id = brand_credit_note_pattern(
+                        CreditNote, 'credit_note_id', None,
+                        instance.order.seller_shop.
+                        shop_name_address_mapping.filter(
+                                        address_type='billing'
+                                        ).last().pk)
 
         credit_amount = 0
-        cur_cred_note = brand_credit_note_pattern(note_id, invoice_prefix)
+
+        #cur_cred_note = brand_credit_note_pattern(note_id, invoice_prefix)
         if instance.credit_note.count():
             credit_note = instance.credit_note.last()
         else:
             credit_note = CreditNote.objects.create(
                 shop = instance.order.seller_shop,
-                credit_note_id=brand_credit_note_pattern(note_id, invoice_prefix),
+                credit_note_id=note_id,
                 shipment = instance,
                 amount = 0,
                 status=True)

@@ -1,6 +1,7 @@
 
 from django.core.exceptions import ObjectDoesNotExist
 from shops.models import Shop,ParentRetailerMapping
+from addresses.models import Address
 from rest_framework import status
 from addresses.models import InvoiceCityMapping
 from rest_framework.response import Response
@@ -42,26 +43,78 @@ def getShopMapping(shop_id):
     except ObjectDoesNotExist:
         return None
 
-def po_pattern(city_id,invoice_id):
 
-    """ PO pattern
+def get_financial_year():
+    current_month = datetime.date.today().strftime('%m')
+    current_year = datetime.date.today().strftime('%y')
 
-    Getting city code using city_id from InvoiceCityMapping.
-    If city mapping not found, default city code is usedself.
-    invoice id is the id of created instance.
-    """
+    if int(current_month) < 4:
+        current_year = str(int(datetime.date.today().strftime('%y'))-1)
+    return current_year
 
-    starts_with = getattr(settings, 'PO_STARTS_WITH', 'ADT/PO')
+
+def get_city_code_mapping(city):
     default_city_code = getattr(settings, 'DEFAULT_CITY_CODE', '07')
-    city_code_mapping = InvoiceCityMapping.objects.filter(city_id=city_id)
+    city_code_mapping = InvoiceCityMapping.objects.filter(city=city)
     if city_code_mapping.exists():
         city_code = city_code_mapping.last().city_code
     else:
         city_code = default_city_code
-    ends_with = format(invoice_id,'05d')
-    return "%s/%s/%s" % (starts_with,city_code,ends_with)
+    return str(city_code)
 
-def order_id_pattern(order_id):
+
+def get_shop_warehouse_code(shop):
+    return str(shop.shop_code), str(shop.warehouse_code)
+
+
+def get_shop_warehouse_city_code(address):
+    address = Address.objects.select_related('city',
+                                             'shop_name').get(pk=address)
+    city_code = get_city_code_mapping(address.city)
+    shop_code, warehouse_code = get_shop_warehouse_code(address.shop_name)
+    return city_code, shop_code, warehouse_code
+
+
+def get_last_no_to_increment(model, field, instance_id, starts_with):
+    instance_with_current_pattern = model.objects.filter(
+                                        **{field+'__icontains': starts_with})
+
+    if instance_with_current_pattern:
+        last_instance_no = instance_with_current_pattern.last()
+        return int(getattr(last_instance_no, field)[-7:])
+
+    else:
+        instance_with_old_pattern = model.objects.exclude(pk=instance_id)
+        if instance_with_old_pattern:
+            last_instance_exclude_self = instance_with_old_pattern.last()
+            return int(getattr(last_instance_exclude_self, field).split('/')[-1])
+
+        else:
+            return 0
+
+
+def common_pattern(model, field, instance_id, address, invoice_type):
+    city_code, shop_code, warehouse_code = get_shop_warehouse_city_code(
+                                            address)
+    financial_year = get_financial_year()
+    starts_with = "%s%s%s%s%s" % (
+                                shop_code, invoice_type, financial_year,
+                                city_code, warehouse_code)
+    last_number = get_last_no_to_increment(model, field, instance_id, starts_with)
+    last_number += 1
+    ends_with = str(format(last_number, '07d'))
+    return "%s%s" % (starts_with, ends_with)
+
+
+def po_pattern(model, field, instance_id, address):
+    return common_pattern(model, field, instance_id, address, "PO")
+
+
+def order_id_pattern(model, field, instance_id, address):
+    return common_pattern(model, field, instance_id, address, "OR")
+
+
+def order_id_pattern_r_gram(order_id):
 
     """ Order ID pattern
 
@@ -75,9 +128,10 @@ def order_id_pattern(order_id):
     ends_with = str(order_id).rjust(5, '0')
     return "%s/%s/%s" % (starts_with,city_code,ends_with)
 
+
 def grn_pattern(id):
 
-    """GRN pattern
+    """GRN patternbrand_note_id
 
     GRN year changes on 1st April(4th month).
     Getting id as instance id for auto increment.
@@ -94,17 +148,14 @@ def grn_pattern(id):
     ends_with = str(id)
     return "%s/%s" % (starts_with,ends_with)
 
-def brand_debit_note_pattern( id):
 
-    starts_with = datetime.date.today().strftime('%d%m%y')
-    ends_with = str(id)
-    return "%s/%s"%(starts_with,ends_with)
+def brand_debit_note_pattern(model, field, instance_id, address):
+    return common_pattern(model, field, instance_id, address, "DN")
 
-def brand_credit_note_pattern(cid, invoice_pattern):
 
-    starts_with = invoice_pattern
-    ends_with = str(cid).rjust(5, '0')
-    return "%s%s"%(starts_with,ends_with)
+def brand_credit_note_pattern(model, field, instance_id, address):
+    return common_pattern(model, field, instance_id, address, "CN")
+
 
 def getcredit_note_id(c_num, invoice_pattern):
     starts_with = invoice_pattern
@@ -128,31 +179,14 @@ def brand_note_pattern(note_type, id):
         ends_with = str(id).rjust(5, '0')
         return "%s/%s"%(starts_with,ends_with)
 
-def invoice_pattern(invoice_id, **kwargs):
 
-    """ Invoice pattern
-
-    Getting city code using city_id from InvoiceCityMapping.
-    If city mapping not found, default city code is used.
-    invoice id is the id of created instance.
-    """
-
-    starts_with = getattr(settings, 'INVOICE_STARTS_WITH', 'ADT')
-    default_city_code = getattr(settings, 'DEFAULT_CITY_CODE', '07')
-    city_code = default_city_code
-    if 'city_id' in kwargs:
-        city_id = kwargs.get('city_id')
-        city_code_mapping = InvoiceCityMapping.objects.filter(city_id=city_id)
-        if city_code_mapping.exists():
-            city_code = city_code_mapping.last().city_code
-    ends_with = format(invoice_id,'05d')
-    return "%s/%s/%s" % (starts_with,city_code,ends_with)
+def invoice_pattern(model, field, instance_id, address):
+    return common_pattern(model, field, instance_id, address, "IV")
 
 
-def retailer_sp_invoice(prefix, invoice_id):
-    starts_with = prefix
-    ends_with = str(invoice_id).rjust(5, '0')
-    return "%s%s" % (starts_with, ends_with)
+def retailer_sp_invoice(model, field, instance_id, address):
+    return common_pattern(model, field, instance_id, address, "IV")
+
 
 def required_fields(form, fields_list):
     for field in fields_list:
