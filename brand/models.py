@@ -85,19 +85,6 @@ class Vendor(models.Model):
         self.vendor_products_brand=list(set(parent_brands))
         super(Vendor, self).save(*args, **kwargs)
 
-        # brand = Brand.objects.filter(brand_parent_id=
-        #     Case(
-        #         When(brand_parent__isnull=True,then=F('id')),
-        #         When(brand_parent__isnull=False, then='brand_parent_id')
-        #     ),id__in=self.vendor_brand_mapping.values('product__product_brand').distinct()
-        # ).distinct()
-
-        # brand1 = Brand.objects.annotate(brand_dt=
-        # Case(
-        #     When(brand_parent__isnull=True,id__in=self.vendor_brand_mapping.values('product__product_brand').distinct(), then=F('id')),
-        #     When(brand_parent__isnull=False,id__in=self.vendor_brand_mapping.values('product__product_brand').distinct(), then='brand_parent_id')
-        # )).distinct()
-
 class Brand(models.Model):
     brand_name = models.CharField(max_length=20)
     brand_slug = models.SlugField(blank=True, null=True)
