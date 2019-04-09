@@ -7,6 +7,9 @@ from django.urls import reverse
 from django.db.models import Q
 from django_select2.forms import Select2MultipleWidget, ModelSelect2Widget
 from rangefilter.filter import DateRangeFilter, DateTimeRangeFilter
+from django.utils.translation import ugettext_lazy as _
+from django.forms.models import BaseInlineFormSet
+from django.core.exceptions import ValidationError
 
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
@@ -22,20 +25,27 @@ from .models import (
 from .forms import (
     CustomerCareForm, ReturnProductMappingForm, TripForm, DispatchForm,
     OrderedProductMappingForm, OrderedProductForm, ShipmentForm,
-    OrderedProductMappingShipmentForm, ShipmentProductMappingForm
+    OrderedProductMappingShipmentForm, ShipmentProductMappingForm,
+    CartProductMappingForm, CartForm
     )
 from retailer_to_sp.views import (
-    ordered_product_mapping_shipment, order_invoices, trip_planning, load_dispatches, trip_planning_change,
-    update_shipment_status, update_order_status, update_delivered_qty
+    ordered_product_mapping_shipment, order_invoices, trip_planning,
+    load_dispatches, trip_planning_change, update_shipment_status,
+    update_order_status, update_delivered_qty, UpdateSpQuantity
     )
-from sp_to_gram.models import create_credit_note
 
 from products.admin import ExportCsvMixin
 from .resources import OrderResource
+from .utils import add_cart_user, create_order_from_cart, GetPcsFromQty
 from admin_numeric_filter.admin import NumericFilterModelAdmin, SingleNumericFilter, RangeNumericFilter, \
     SliderNumericFilter
 from django.http import HttpResponse
 import csv
+
+from .signals import ReservedOrder
+from sp_to_gram.models import (
+    OrderedProductReserved, create_credit_note,
+    OrderedProductMapping as SpMappedOrderedProductMapping)
 
 
 class InvoiceNumberFilter(AutocompleteFilter):
@@ -169,6 +179,18 @@ class PaymentChoiceSearch(InputFilter):
                 Q(payment_choice__icontains=payment_choice)
             )
 
+
+class AtLeastOneFormSet(BaseInlineFormSet):
+    def clean(self):
+        super(AtLeastOneFormSet, self).clean()
+        non_empty_forms = 0
+        for form in self:
+            if form.cleaned_data:
+                non_empty_forms += 1
+        if non_empty_forms - len(self.deleted_forms) < 1:
+            raise ValidationError("Please add atleast one product to cart!")
+
+
 class InvoiceSearch(InputFilter):
     parameter_name = 'invoice_no'
     title = 'Invoice No.'
@@ -225,7 +247,9 @@ class ShipmentSellerShopSearch(InputFilter):
 
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
-    autocomplete_fields = ('cart_product',)
+    form = CartProductMappingForm
+    formset = AtLeastOneFormSet
+    autocomplete_fields = ('cart_product', 'cart_product_price')
     extra = 0
 
     def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
@@ -237,12 +261,14 @@ class CartProductMappingAdmin(admin.TabularInline):
 
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
-    exclude = ('order_id', 'shop', 'cart_status','last_modified_by')
+    fields = ('seller_shop', 'buyer_shop')
+    form = CartForm
     list_display = ('order_id', 'seller_shop','buyer_shop','cart_status')
     #change_form_template = 'admin/sp_to_gram/cart/change_form.html'
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
+        js = ('admin/js/product_no_of_pieces.js', 'admin/js/select2.min.js')
 
     def get_urls(self):
         from django.conf.urls import url
@@ -272,27 +298,26 @@ class CartAdmin(admin.ModelAdmin):
                r'^trip-planning/(?P<pk>\d+)/change/$',
                self.admin_site.admin_view(trip_planning_change),
                name="TripPlanningChange"
-            )
+            ),
+            url(
+               r'^get-pcs-from-qty/$',
+               self.admin_site.admin_view(GetPcsFromQty.as_view()),
+               name="GetPcsFromQty"
+            ),
         ] + urls
         return urls
 
-    def save_formset(self, request, form, formset, change):
-        import datetime
-        today = datetime.date.today()
-        instances = formset.save(commit=False)
-        flag = 0
-        new_order = ''
-        for instance in instances:
-            instance.last_modified_by = request.user
-            instance.save()
+    def save_related(self, request, form, formsets, change):
+        super(CartAdmin, self).save_related(request, form, formsets, change)
+        add_cart_user(form, request)
+        create_order_from_cart(form, formsets, request, Order)
 
-            order, _ = Order.objects.get_or_create(
-                ordered_cart=instance.cart, order_no=instance.cart.order_id)
-            order.ordered_by = request.user
-            order.order_status = 'ordered_to_gram'
-            order.last_modified_by = request.user
-            order.save()
-        formset.save_m2m()
+        reserve_order = ReservedOrder(
+            form.cleaned_data.get('seller_shop'),
+            form.cleaned_data.get('buyer_shop'),
+            Cart, CartProductMapping, SpMappedOrderedProductMapping,
+            OrderedProductReserved, request.user)
+        reserve_order.create()
 
 
 class ExportCsvMixin:
@@ -318,22 +343,62 @@ class BuyerShopFilter(AutocompleteFilter):
     title = 'Buyer Shop'
     field_name = 'buyer_shop'
 
+class SKUFilter(InputFilter):
+    title = 'product sku'
+    parameter_name = 'product sku'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value :
+            return queryset.filter(ordered_cart__rt_cart_list__cart_product__product_sku=value)
+        return queryset
+
+class GFCodeFilter(InputFilter):
+    title = 'product gf code'
+    parameter_name = 'product gf code'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value :
+            return queryset.filter(ordered_cart__rt_cart_list__cart_product__product_gf_code=value)
+        return queryset
+
+class ProductNameFilter(InputFilter):
+    title = 'product name'
+    parameter_name = 'product name'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value :
+            return queryset.filter(ordered_cart__rt_cart_list__cart_product__product_name=value)
+        return queryset
+
 class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
     actions = ["export_as_csv"]
     resource_class = OrderResource
     search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name',
                     'order_status',)
-    fields = ('order_no', 'ordered_cart', 'order_status', 'seller_shop', 
-            'buyer_shop', 'billing_address', 'shipping_address', 'total_mrp', 
-            'total_discount_amount', 'total_tax_amount', 'total_final_amount',
-            'ordered_by', 'received_by', 'last_modified_by')
-    list_display = ('order_no', 'seller_shop', 'buyer_shop', 'total_final_amount',
-                    'order_status', 'created_at', 'payment_mode', 'paid_amount', 
-                    'total_paid_amount', 'download_pick_list', 'invoice_no', 
+    list_display = (
+                    'order_no', 'seller_shop', 'buyer_shop',
+                    'total_final_amount', 'order_status', 'created_at',
+                    'payment_mode', 'paid_amount', 'total_paid_amount',
+                    'download_pick_list',  'invoice_no',
                     'shipment_status', 'order_shipment_amount')
+    fieldsets = (
+        (_('Shop Details'), {
+            'fields': ('seller_shop', 'buyer_shop',
+                       'billing_address', 'shipping_address')}),
+        (_('Order Details'), {
+            'fields': ('order_no', 'ordered_cart', 'order_status',
+                       'ordered_by', 'last_modified_by')}),
+        (_('Amount Details'), {
+            'fields': ('total_mrp', 'total_discount_amount',
+                       'total_tax_amount', 'total_final_amount')}),
+        )
+
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount', 
-                        'invoice_no', 'order_shipment_amount', 'shipment_status')
-    list_filter = [SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
+                    'invoice_no', 'order_shipment_amount', 'shipment_status')
+    list_filter = [ProductNameFilter,GFCodeFilter,SKUFilter,SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
         ('created_at', DateTimeRangeFilter)]
 
     class Media:
@@ -355,6 +420,13 @@ class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
                 (reverse('download_pick_list_sp', args=[obj.pk]))
             )
     download_pick_list.short_description = 'Download Pick List'
+
+    def order_products(self, obj):
+        p=[]
+        products = obj.ordered_cart.rt_cart_list.all()
+        for m in products:
+            p.append(m.cart_product.product_name)
+        return p
 
 
 class OrderedProductMappingAdmin(admin.TabularInline):
@@ -500,9 +572,10 @@ class ShipmentAdmin(admin.ModelAdmin):
         ('shipment_status', ChoiceDropdownFilter)
 
     ]
+    fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city', 
+        'shipment_status', 'close_order']
     search_fields = ['order__order_no', 'invoice_no', 'order__seller_shop__shop_name',
         'order__buyer_shop__shop_name']
-    fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city', 'shipment_status']
     readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city']
 
     def has_delete_permission(self, request, obj=None):
@@ -510,6 +583,7 @@ class ShipmentAdmin(admin.ModelAdmin):
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
+        js = ('admin/js/sweetalert.min.js', 'admin/js/order_close_message.js')
 
     def download_invoice(self, obj):
         if obj.shipment_status == 'SHIPMENT_CREATED':
@@ -527,6 +601,8 @@ class ShipmentAdmin(admin.ModelAdmin):
         super(ShipmentAdmin, self).save_related(request, form, formsets, change)
         #update_shipment_status(form, formsets)
         update_order_status(form)
+        update_quantity = UpdateSpQuantity(form, formsets)
+        update_quantity.update()
 
     def get_queryset(self, request):
         qs = super(ShipmentAdmin, self).get_queryset(request)

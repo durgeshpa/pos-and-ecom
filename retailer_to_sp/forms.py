@@ -13,13 +13,20 @@ from django.urls import reverse
 from django.conf import settings
 from django.forms import widgets
 
+from .signals import ReservedOrder
+from sp_to_gram.models import (
+    OrderedProductReserved,
+    OrderedProductMapping as SpMappedOrderedProductMapping)
+from retailer_backend.common_function import required_fields
 from retailer_to_sp.models import (
     CustomerCare, ReturnProductMapping, OrderedProduct,
-    OrderedProductMapping, Order, Dispatch, Trip, TRIP_STATUS, Shipment, ShipmentProductMapping
+    OrderedProductMapping, Order, Dispatch, Trip, TRIP_STATUS, Shipment, ShipmentProductMapping,
+    CartProductMapping, Cart
 )
 from products.models import Product
 from shops.models import Shop
 from accounts.models import UserWithName
+from accounts.middlewares import get_current_user
 
 
 class PlainTextWidget(forms.Widget):
@@ -348,6 +355,7 @@ class DispatchDisabledForm(DispatchForm):
 
 
 class ShipmentForm(forms.ModelForm):
+    close_order = forms.BooleanField(required=False)
 
     class Meta:
         model = Shipment
@@ -402,3 +410,62 @@ class ShipmentProductMappingForm(forms.ModelForm):
                 for field_name in self.fields:
                     self.fields[field_name].disabled = True
 
+
+class CartProductMappingForm(forms.ModelForm):
+    product_case_size = forms.CharField(
+        required=False, widget=forms.HiddenInput())
+    product_inner_case_size = forms.CharField(
+        required=False, widget=forms.HiddenInput())
+
+    class Meta:
+        model = CartProductMapping
+        fields = (
+            'cart', 'cart_product', 'cart_product_price', 'qty',
+            'no_of_pieces', 'product_case_size', 'product_inner_case_size')
+
+    def __init__(self, *args, **kwargs):
+        super(CartProductMappingForm, self).__init__(*args, **kwargs)
+        self.empty_permitted = False
+        required_fields(self, ['cart_product_price'])
+
+    def clean_no_of_pieces(self):
+        cart = self.cleaned_data.get('cart')
+        product = self.cleaned_data.get('cart_product')
+        ordered_qty = self.cleaned_data.get('no_of_pieces')
+        reserve_order = ReservedOrder(
+            cart.seller_shop,
+            cart.buyer_shop,
+            cart, CartProductMapping, SpMappedOrderedProductMapping,
+            OrderedProductReserved, get_current_user())
+        if not reserve_order.sp_product_availability(product, ordered_qty):
+            raise forms.ValidationError(
+                ('Available Qty is %(value)s'),
+                params={
+                    'value': reserve_order.sp_product_available_qty(product)
+                })
+        return ordered_qty
+
+
+class CartForm(forms.ModelForm):
+
+    class Meta:
+        model = Cart
+        fields = ('seller_shop', 'buyer_shop')
+
+    def __init__(self, *args, **kwargs):
+        super(CartForm, self).__init__(*args, **kwargs)
+        user = get_current_user()
+
+        if user.is_superuser:
+            self.fields['seller_shop'].queryset = Shop.objects.filter(
+                shop_type__shop_type='sp')
+            self.fields['buyer_shop'].queryset = Shop.objects.filter(
+                shop_type__shop_type='r')
+        else:
+            self.fields['seller_shop'].queryset = Shop.objects.filter(
+                related_users=user, shop_type__shop_type='sp')
+            self.fields['buyer_shop'].queryset = Shop.objects.filter(
+                related_users=user, shop_type__shop_type='r')
+
+        fields = ['seller_shop', 'buyer_shop']
+        required_fields(self, fields)
