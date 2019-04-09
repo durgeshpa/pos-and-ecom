@@ -394,7 +394,7 @@ def load_dispatches(request):
                         ).filter(shipment_status='READY_TO_SHIP', order__seller_shop=seller_shop).order_by('-rank')
 
     elif seller_shop:
-        dispatches = Dispatch.objects.filter(shipment_status='READY_TO_SHIP',
+        dispatches = Dispatch.objects.select_related('order', 'trip', 'order__shipping_address').filter(shipment_status='READY_TO_SHIP',
                                              order__seller_shop=seller_shop)
     elif area and trip_id:
         dispatches = Dispatch.objects.annotate(
