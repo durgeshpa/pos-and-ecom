@@ -330,8 +330,17 @@ class ProductVendorMapping(models.Model):
     vendor = models.ForeignKey(Vendor,related_name='vendor_brand_mapping',on_delete=models.CASCADE)
     product = models.ForeignKey(Product,related_name='product_vendor_mapping',on_delete=models.CASCADE)
     product_price = models.FloatField(verbose_name='Brand To Gram Price')
+    product_mrp = models.FloatField(null=True,blank=True)
+    case_size = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
+
+    def save(self, *args, **kwargs):
+        ProductVendorMapping.objects.filter(product=self.product,vendor=self.vendor,status=True).update(status=False)
+        self.status = True
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return '%s' % (self.vendor)
 
@@ -342,7 +351,16 @@ def create_product_vendor_mapping(sender, instance=None, created=False, **kwargs
     if file:
         reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
         first_row = next(reader)
-        ProductVendorMapping.objects.bulk_create([ProductVendorMapping(vendor=vendor, product_id = row[0], product_price=row[3]) for row in reader if row[3]])
+        product_mapping = []
+        for row in reader:
+            if row[3]:
+                vendor_product = ProductVendorMapping.objects.filter(vendor=vendor, product_id=row[0])
+                if vendor_product.exists():
+                    vendor_product.update(status=False)
+                product_mapping.append(ProductVendorMapping(vendor=vendor, product_id=row[0], product_mrp=row[3], product_price=row[4],case_size=row[5]))
+
+        ProductVendorMapping.objects.bulk_create(product_mapping)
+        #ProductVendorMapping.objects.bulk_create([ProductVendorMapping(vendor=vendor, product_id = row[0], product_price=row[3]) for row in reader if row[3]])
 
 @receiver(pre_save, sender=ProductCategory)
 def create_product_sku(sender, instance=None, created=False, **kwargs):

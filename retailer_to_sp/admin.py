@@ -343,6 +343,36 @@ class BuyerShopFilter(AutocompleteFilter):
     title = 'Buyer Shop'
     field_name = 'buyer_shop'
 
+class SKUFilter(InputFilter):
+    title = 'product sku'
+    parameter_name = 'product sku'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value :
+            return queryset.filter(ordered_cart__rt_cart_list__cart_product__product_sku=value)
+        return queryset
+
+class GFCodeFilter(InputFilter):
+    title = 'product gf code'
+    parameter_name = 'product gf code'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value :
+            return queryset.filter(ordered_cart__rt_cart_list__cart_product__product_gf_code=value)
+        return queryset
+
+class ProductNameFilter(InputFilter):
+    title = 'product name'
+    parameter_name = 'product name'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value :
+            return queryset.filter(ordered_cart__rt_cart_list__cart_product__product_name=value)
+        return queryset
+
 class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
     actions = ["export_as_csv"]
     resource_class = OrderResource
@@ -367,8 +397,8 @@ class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
         )
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount', 
-                        'invoice_no', 'order_shipment_amount', 'shipment_status')
-    list_filter = [SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
+                    'invoice_no', 'order_shipment_amount', 'shipment_status')
+    list_filter = [ProductNameFilter,GFCodeFilter,SKUFilter,SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
         ('created_at', DateTimeRangeFilter)]
 
     class Media:
@@ -390,6 +420,13 @@ class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
                 (reverse('download_pick_list_sp', args=[obj.pk]))
             )
     download_pick_list.short_description = 'Download Pick List'
+
+    def order_products(self, obj):
+        p=[]
+        products = obj.ordered_cart.rt_cart_list.all()
+        for m in products:
+            p.append(m.cart_product.product_name)
+        return p
 
 
 class OrderedProductMappingAdmin(admin.TabularInline):

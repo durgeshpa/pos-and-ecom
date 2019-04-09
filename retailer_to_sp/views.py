@@ -309,27 +309,33 @@ def trip_planning_change(request, pk):
                 for formset_form in formset:
                     if formset_form.is_valid():
                         selected_form = formset_form.cleaned_data.get('selected')
-                        if selected_form and not current_trip_status == 'CANCELLED':
-                            dispatch = formset_form.save(commit=False)
-                            dispatch.trip = trip
-                            if current_trip_status == 'STARTED':
-                                dispatch.shipment_status = 'OUT_FOR_DELIVERY'
-                            dispatch.save()
+                        dispatch = formset_form.save(commit=False)
+
+                        if current_trip_status == 'READY':
+                            if selected_form:
+                                dispatch.trip = trip
+                                dispatch.shipment_status = 'READY_TO_DISPATCH'
+                            else:
+                                if dispatch.trip:
+                                    dispatch.trip = None
+                                    dispatch.shipment_status = 'READY_TO_SHIP'
+
+                        elif dispatch.trip == trip and current_trip_status == 'STARTED':
+                            dispatch.shipment_status = 'OUT_FOR_DELIVERY'
+
                         elif current_trip_status == 'COMPLETED':
                             ordered_product_mapping = OrderedProductMapping.objects.filter(
                                 ordered_product=formset_form.cleaned_data.get('id'))
                             for product in ordered_product_mapping:
                                 product.delivered_qty = product.shipped_qty
                                 product.save()
-                            dispatch = formset_form.save(commit=False)
                             dispatch.shipment_status = 'FULLY_DELIVERED_AND_COMPLETED'
-                            dispatch.save()
-                        else:
-                            dispatch = formset_form.save(commit=False)
+
+                        elif current_trip_status == 'CANCELLED':
                             if dispatch.trip:
                                 dispatch.trip = None
                                 dispatch.shipment_status = 'READY_TO_SHIP'
-                                dispatch.save()
+                        dispatch.save()
                 return redirect('/admin/retailer_to_sp/trip/')
 
         else:
