@@ -12,7 +12,7 @@ class ShopAutocomplete(autocomplete.Select2QuerySetView):
 
 def save_vendor(vendor):
     parent_brands=[]
-    for brand_dt in vendor.vendor_brand_mapping.all().distinct():
+    for brand_dt in vendor.vendor_brand_mapping.filter(status=True):
         parent_brands.append(vendor.get_parent_or_self(brand_dt))
     vendor.vendor_products_brand = list(set(parent_brands))
     vendor.save()
