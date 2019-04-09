@@ -16,6 +16,8 @@ from django.utils.translation import ugettext_lazy as _
 from shops.models import Shop
 from categories.models import Category
 from django.contrib.postgres.fields import JSONField
+from django.contrib.postgres.fields import ArrayField
+from django.db.models import Case, CharField, Value, When, F
 
 VENDOR_REG_PAYMENT = (
     ("paid","Paid"),
@@ -63,10 +65,38 @@ class Vendor(models.Model):
     list_of_sku_in_NPI_formate = models.FileField(upload_to='vendor/slu_list_in_npi',null=True,blank=True)
     vendor_form = models.FileField(upload_to='vendor/vendor_form',null=True,blank=True)
     vendor_products_csv = models.FileField(upload_to='vendor/vendor_products_csv', null=True,blank=True)
-    vendor_products_brand = JSONField()
+    vendor_products_brand = ArrayField(models.PositiveIntegerField(),null=True, blank=True,editable=False)
 
     def __str__(self):
         return self.vendor_name
+
+    def get_parent_or_self(self,obj):
+        parent = obj.product.product_brand.brand_parent
+        brand = obj.product.product_brand
+        while parent is not None:
+            brand = parent
+            parent = parent.brand_parent
+        return brand.id
+
+    def save(self,*args, **kwargs):
+        parent_brands = []
+        for brand_dt in self.vendor_brand_mapping.all().distinct():
+            parent_brands.append(self.get_parent_or_self(brand_dt))
+        self.vendor_products_brand=list(set(parent_brands))
+        super(Vendor, self).save(*args, **kwargs)
+
+        # brand = Brand.objects.filter(brand_parent_id=
+        #     Case(
+        #         When(brand_parent__isnull=True,then=F('id')),
+        #         When(brand_parent__isnull=False, then='brand_parent_id')
+        #     ),id__in=self.vendor_brand_mapping.values('product__product_brand').distinct()
+        # ).distinct()
+
+        # brand1 = Brand.objects.annotate(brand_dt=
+        # Case(
+        #     When(brand_parent__isnull=True,id__in=self.vendor_brand_mapping.values('product__product_brand').distinct(), then=F('id')),
+        #     When(brand_parent__isnull=False,id__in=self.vendor_brand_mapping.values('product__product_brand').distinct(), then='brand_parent_id')
+        # )).distinct()
 
 class Brand(models.Model):
     brand_name = models.CharField(max_length=20)

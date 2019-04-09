@@ -31,11 +31,7 @@ class SupplierAutocomplete(autocomplete.Select2QuerySetView):
         state = self.forwarded.get('supplier_state', None)
         brand = self.forwarded.get('brand', None)
         if state and brand:
-            qs = Vendor.objects.all()
-            vendos_id = ProductVendorMapping.objects.filter(
-                product__product_brand__id=brand).values('vendor')
-            qs = qs.filter(state__id=state,id__in=[vendos_id])
-
+            qs = Vendor.objects.filter(state__id=state,vendor_products_brand__contains=[brand])
         if self.q:
             qs = qs.filter(shop_name__startswith=self.q)
         return qs
@@ -67,7 +63,7 @@ class BillingAddressAutocomplete(autocomplete.Select2QuerySetView):
 
 class BrandAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        qs = Brand.objects.all()
+        qs = Brand.objects.filter(brand_parent__isnull=True,active_status='active')
         if self.q:
             qs = qs.filter(brand_name__icontains=self.q)
         return qs

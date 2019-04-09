@@ -110,7 +110,7 @@ class ProductAdmin(admin.TabularInline):
 class VendorAdmin(admin.ModelAdmin):
     form = VendorForm
     inlines = [ProductAdmin]
-    list_display = ('vendor_name', 'mobile','state', 'city')
+    list_display = ('vendor_name', 'mobile','state', 'city','vendor_products_brand')
     search_fields= ('vendor_name',)
     list_filter = [VendorNameSearch, VendorContactNoSearch, StateFilter, CityFilter]
 
