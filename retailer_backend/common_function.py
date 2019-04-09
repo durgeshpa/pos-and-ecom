@@ -84,13 +84,7 @@ def get_last_no_to_increment(model, field, instance_id, starts_with):
         return int(getattr(last_instance_no, field)[-7:])
 
     else:
-        instance_with_old_pattern = model.objects.exclude(pk=instance_id)
-        if instance_with_old_pattern:
-            last_instance_exclude_self = instance_with_old_pattern.last()
-            return int(getattr(last_instance_exclude_self, field).split('/')[-1])
-
-        else:
-            return 0
+        return 0
 
 
 def common_pattern(model, field, instance_id, address, invoice_type):
