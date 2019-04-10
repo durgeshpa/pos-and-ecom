@@ -327,7 +327,7 @@ $(document).ready(function(){
         });
 
     var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '')+'/';
-    var url = host + 'admin/retailer_to_sp/cart/load-dispatches-view/';
+    var url = host + 'admin/retailer_to_sp/cart/load-dispatches/';
 
 $('#id_search_by_area').on('input', function() {
 
@@ -374,12 +374,13 @@ $("#id_seller_shop").change(function () {
         if(i%2 === 0){
           var row = "row2";
         }
-        var pk=data[i]['pk'];
-        var id="<td>"+data[i]['pk']+"</td>";
+        var pk=data['response_data'][i]['pk'];
+        var trip=data['response_data'][i]['trip'];
+        var id="<td>"+data['response_data'][i]['pk']+"</td>";
         var select = "<td><input type='checkbox' class='shipment_checkbox' value='"+pk+"'></td>";
-        var order="<td>"+data[i]['fields']['order']+"</td>";
-        var shipment_status="<td>"+data[i]['fields']['shipment_status']+"</td>";
-        var invoice_no="<td>"+data[i]['fields']['invoice_no']+"</td>";
+        var order="<td>"+data['response_data'][i]['order']+"</td>";
+        var shipment_status="<td>"+data['response_data'][i]['shipment_status']+"</td>";
+        var invoice_no="<td>"+data['response_data'][i]['invoice_no']+"</td>";
 
        $("tbody").append("<tr class="+row+">"+select+id+order+shipment_status+invoice_no+"</tr>"); 
 

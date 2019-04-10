@@ -467,6 +467,6 @@ class DispatchSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Dispatch
-        fields = ('order', 'shipment_status', 'invoice_no', 'shipment_address',
+        fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no', 'shipment_address',
                   'invoice_city', 'invoice_amount')
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount')
