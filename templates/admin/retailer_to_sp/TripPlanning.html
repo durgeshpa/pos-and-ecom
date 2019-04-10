@@ -192,6 +192,22 @@
 <div class="js-inline-admin-formset inline-group"
      data-inline-type="tabular"
      data-inline-formset="{&quot;name&quot;: &quot;#rt_order_product_order_product_mapping&quot;, &quot;options&quot;: {&quot;prefix&quot;: &quot;rt_order_product_order_product_mapping&quot;, &quot;addText&quot;: &quot;Add another Ordered product mapping&quot;, &quot;deleteText&quot;: &quot;Remove&quot;}}">
+    <div class="tabular inline-related last-related">
+      <fieldset id="inline" class="module ">
+
+     <table id="formset" class="form">
+      <tbody>
+        <thead><tr>
+          <th>Select</th>
+          <th>ID</th>
+          <th>Order</th>
+          <th>Shipment Status</th>
+          <th>Invoice No.</th>
+         </tr></thead>
+
+      </tbody>
+     </table>
+   </div>
   <div class="tabular inline-related last-related">
   {{ formset.management_form }}
   {% if formset.non_form_errors %}
@@ -291,6 +307,18 @@
 
 $(document).ready(function(){
 
+
+    $(document).on('click','.shipment_checkbox', function(){
+    if($(this).is(':checked')){
+        console.log($(this).val());
+        list.push($(this).val());
+        $('#id_selected_id').val(list);
+    } else {
+        list.pop($(this).val());
+        $('#id_selected_id').val(list);
+    }
+});
+
     $('#id_seller_shop, #id_delivery_boy').select2();
     $(":input:not([type=hidden]) #id_starts_at,:input:not([type=hidden]) #id_completed_at").flatpickr(
         {
@@ -299,7 +327,7 @@ $(document).ready(function(){
         });
 
     var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '')+'/';
-    var url = host + 'admin/retailer_to_sp/cart/load-dispatches/';
+    var url = host + 'admin/retailer_to_sp/cart/load-dispatches-view/';
 
 $('#id_search_by_area').on('input', function() {
 
@@ -337,8 +365,25 @@ $("#id_seller_shop").change(function () {
     },
     success: function (data) {
 
-      $("fieldset#inline").html(data);
+      //$("fieldset#inline").html(data);
+    //var tbl=$("<table/>").attr("id","mytable");
+    //$("#div1").append(tbl);
+    for(var i=0;i<data.length;i++)
+    {   
+        var row = "row1";
+        if(i%2 === 0){
+          var row = "row2";
+        }
+        var pk=data[i]['pk'];
+        var id="<td>"+data[i]['pk']+"</td>";
+        var select = "<td><input type='checkbox' class='shipment_checkbox' value='"+pk+"'></td>";
+        var order="<td>"+data[i]['fields']['order']+"</td>";
+        var shipment_status="<td>"+data[i]['fields']['shipment_status']+"</td>";
+        var invoice_no="<td>"+data[i]['fields']['invoice_no']+"</td>";
 
+       $("tbody").append("<tr class="+row+">"+select+id+order+shipment_status+invoice_no+"</tr>"); 
+
+    }   
     }
   });
 });
@@ -350,6 +395,8 @@ $("#id_seller_shop").change(function () {
 
 
   $('form').bind('submit', function (e) {
+      //$('#id_selected_id').val(list);
+      console.log(list);
       if($('input[type=checkbox]:checked').length) {
           var c = confirm("Click OK to continue?");
           return c;

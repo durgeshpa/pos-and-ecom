@@ -25,8 +25,10 @@ from .forms import (
     OrderedProductMappingShipmentForm, ShipmentProductMappingForm
     )
 from retailer_to_sp.views import (
-    ordered_product_mapping_shipment, order_invoices, trip_planning, load_dispatches, trip_planning_change,
-    update_shipment_status, update_order_status, update_delivered_qty
+    ordered_product_mapping_shipment, order_invoices, trip_planning,
+    load_dispatches, trip_planning_change, update_shipment_status,
+    update_order_status, update_delivered_qty,
+    LoadDispatches
     )
 from sp_to_gram.models import create_credit_note
 
@@ -265,8 +267,13 @@ class CartAdmin(admin.ModelAdmin):
             ),
             url(
                r'^load-dispatches/$',
-               self.admin_site.admin_view(load_dispatches),
+               self.admin_site.admin_view(LoadDispatches.as_view()),
                name="LoadDispatches"
+            ),
+            url(
+               r'^load-dispatches-view/$',
+               self.admin_site.admin_view(load_dispatches),
+               name="LoadDispatchesView"
             ),
             url(
                r'^trip-planning/(?P<pk>\d+)/change/$',
