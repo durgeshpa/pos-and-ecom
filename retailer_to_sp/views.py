@@ -247,7 +247,7 @@ def trip_planning(request):
     TripDispatchFormset = modelformset_factory(
         Dispatch,
         fields=[
-            'selected', 'items', 'invoice_amount', 'shipment_status', 'invoice_city', 'invoice_date', 'order', 'shipment_address'
+            'selected', 'items', 'shipment_status', 'invoice_date', 'order', 'shipment_address'
         ],
         form=DispatchForm, extra=0
     )
@@ -289,7 +289,7 @@ def trip_planning_change(request, pk):
     trip_dispatch_formset = modelformset_factory(
         Dispatch,
         fields=[
-            'selected', 'items', 'invoice_amount', 'shipment_status', 'invoice_city', 'invoice_date', 'order', 'shipment_address'
+            'selected', 'items', 'shipment_status', 'invoice_date', 'order', 'shipment_address'
         ],
         form=DispatchForm, extra=0
     )
@@ -350,7 +350,7 @@ def trip_planning_change(request, pk):
             trip_dispatch_formset = modelformset_factory(
                 Dispatch,
                 fields=[
-                    'selected', 'items', 'invoice_amount', 'shipment_status', 'invoice_city', 'invoice_date', 'order', 'shipment_address'
+                    'selected', 'items', 'shipment_status', 'invoice_date', 'order', 'shipment_address'
                 ],
                 form=DispatchDisabledForm, extra=0
             )
@@ -412,7 +412,7 @@ def load_dispatches(request):
     TripDispatchFormset = modelformset_factory(
         Dispatch,
         fields=[
-            'selected', 'items', 'invoice_amount', 'shipment_status', 'invoice_city', 'invoice_date', 'order', 'shipment_address'
+            'selected', 'items', 'shipment_status', 'invoice_date', 'order', 'shipment_address'
         ],
         form=DispatchForm, extra=0
     )

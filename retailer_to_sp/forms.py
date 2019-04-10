@@ -293,15 +293,13 @@ class TripForm(forms.ModelForm):
 
 class DispatchForm(forms.ModelForm):
     selected = forms.BooleanField(required=False)
-    invoice_city = forms.CharField(disabled=True, widget=PlainTextWidget)
     shipment_address = forms.CharField(widget=forms.Textarea, disabled=True)
-    invoice_amount = forms.CharField(disabled=True, widget=PlainTextWidget)
     invoice_date = forms.CharField(disabled=True, widget=PlainTextWidget)
     items = forms.CharField(widget=forms.Textarea, label='Invoice No', disabled=True)
 
     class Meta:
         model = Dispatch
-        fields = ['selected', 'items', 'invoice_amount', 'shipment_status', 'invoice_city', 'invoice_date', 'order', 'shipment_address']
+        fields = ['selected', 'items', 'shipment_status', 'invoice_date', 'order', 'shipment_address']
 
     def __init__(self, *args, **kwargs):
         super(DispatchForm, self).__init__(*args, **kwargs)
@@ -324,10 +322,6 @@ class DispatchForm(forms.ModelForm):
                                                              str(pk)+'/change/" target="_blank">'+
                                                              invoice_no+'</a></b>')
             self.fields['invoice_date'].initial = instance.created_at.strftime('%d-%m-%Y %H:%M')
-
-            self.fields['invoice_city'].initial = instance.invoice_city
-
-            self.fields['invoice_amount'].initial = instance.invoice_amount
 
             self.fields['shipment_address'].initial = instance.shipment_address
             self.fields['shipment_address'].widget.attrs = {'id':'hide_input_box', "rows": "3", "cols": "25"}
