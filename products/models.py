@@ -331,7 +331,7 @@ class ProductVendorMapping(models.Model):
     product = models.ForeignKey(Product,related_name='product_vendor_mapping',on_delete=models.CASCADE)
     product_price = models.FloatField(verbose_name='Brand To Gram Price')
     product_mrp = models.FloatField(null=True,blank=True)
-    case_size = models.PositiveIntegerField(default=0)
+    case_size = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
