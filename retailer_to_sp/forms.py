@@ -293,44 +293,44 @@ class TripForm(forms.ModelForm):
 
 class DispatchForm(forms.ModelForm):
     selected = forms.BooleanField(required=False)
-    shipment_address = forms.CharField(widget=forms.Textarea, disabled=True, required=False)
-    invoice_date = forms.CharField(disabled=True, widget=PlainTextWidget, required=False)
-    items = forms.CharField(widget=forms.Textarea, label='Invoice No', disabled=True, required=False)
+    shipment_address = forms.CharField(widget=forms.Textarea, disabled=True)
+    invoice_date = forms.CharField(disabled=True, widget=PlainTextWidget)
+    items = forms.CharField(widget=forms.Textarea, label='Invoice No', disabled=True)
 
     class Meta:
         model = Dispatch
         fields = ['selected', 'items', 'shipment_status', 'invoice_date', 'order', 'shipment_address']
 
-    # def __init__(self, *args, **kwargs):
-    #     super(DispatchForm, self).__init__(*args, **kwargs)
-    #     instance = getattr(self, 'instance', None)
-    #     if instance:
-    #         invoice_no = instance.invoice_no
-    #         pk = instance.pk
-    #         self.fields['items'].initial = mark_safe('<b><a href="/admin/retailer_to_sp/dispatch/' +
-    #                                                  str(pk) + '/change/" target="_blank">' +
-    #                                                  invoice_no + '</a></b>')
-    #         if instance.trip:
-    #             trip_status = instance.trip.trip_status
-    #             self.fields['selected'].initial = True
-    #             if trip_status == 'READY' or trip_status == 'STARTED':
-    #                 self.fields['items'].initial = mark_safe('<b><a href="/admin/retailer_to_sp/dispatch/'+
-    #                                                          str(pk)+'/change/" target="_blank">'+
-    #                                                          invoice_no+'</a></b>')
-    #             else:
-    #                 self.fields['items'].initial = mark_safe('<b><a href="/admin/retailer_to_sp/orderedproduct/'+
-    #                                                          str(pk)+'/change/" target="_blank">'+
-    #                                                          invoice_no+'</a></b>')
-    #         self.fields['invoice_date'].initial = instance.created_at.strftime('%d-%m-%Y %H:%M')
+    def __init__(self, *args, **kwargs):
+        super(DispatchForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+        if instance:
+            invoice_no = instance.invoice_no
+            pk = instance.pk
+            self.fields['items'].initial = mark_safe('<b><a href="/admin/retailer_to_sp/dispatch/' +
+                                                     str(pk) + '/change/" target="_blank">' +
+                                                     invoice_no + '</a></b>')
+            if instance.trip:
+                trip_status = instance.trip.trip_status
+                self.fields['selected'].initial = True
+                if trip_status == 'READY' or trip_status == 'STARTED':
+                    self.fields['items'].initial = mark_safe('<b><a href="/admin/retailer_to_sp/dispatch/'+
+                                                             str(pk)+'/change/" target="_blank">'+
+                                                             invoice_no+'</a></b>')
+                else:
+                    self.fields['items'].initial = mark_safe('<b><a href="/admin/retailer_to_sp/orderedproduct/'+
+                                                             str(pk)+'/change/" target="_blank">'+
+                                                             invoice_no+'</a></b>')
+            self.fields['invoice_date'].initial = instance.created_at.strftime('%d-%m-%Y %H:%M')
 
-    #         self.fields['shipment_address'].initial = instance.shipment_address
-    #         self.fields['shipment_address'].widget.attrs = {'id':'hide_input_box', "rows": "3", "cols": "25"}
+            self.fields['shipment_address'].initial = instance.shipment_address
+            self.fields['shipment_address'].widget.attrs = {'id':'hide_input_box', "rows": "3", "cols": "25"}
 
-    #         self.fields['order'].widget.attrs = {'id':'hide_input_box', 'class':'ui-select'}
-    #         self.fields['order'].disabled = True
-    #         self.fields['shipment_status'].widget.attrs = {'id':'hide_input_box', 'class':'ui-select'}
-    #         self.fields['shipment_status'].disabled = True
-    #         self.fields['selected'].widget.attrs = {'value': pk}
+            self.fields['order'].widget.attrs = {'id':'hide_input_box', 'class':'ui-select'}
+            self.fields['order'].disabled = True
+            self.fields['shipment_status'].widget.attrs = {'id':'hide_input_box', 'class':'ui-select'}
+            self.fields['shipment_status'].disabled = True
+            self.fields['selected'].widget.attrs = {'value': pk}
 
 
 class DispatchDisabledForm(DispatchForm):
