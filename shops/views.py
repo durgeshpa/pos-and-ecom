@@ -41,9 +41,7 @@ class ShopParentAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qs = None
         shop_type = self.forwarded.get('shop_type', None)
-        #print(shop_type)
         if shop_type:
-            print(shop_type)
             dt = {'r':'sp','sp':'gf'}
             qs = Shop.objects.filter(shop_type__shop_type=dt[ShopType.objects.get(id=shop_type).shop_type])
             if self.q:
