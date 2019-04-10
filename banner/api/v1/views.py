@@ -38,8 +38,8 @@ class GetSlotBannerListView(APIView):
             serializer = BannerDataSerializer(data,many=True)
 
             return Response({"message":[message], "response_data": serializer.data ,"is_success": is_success})
-            
-        elif pos_name and position_name:
+
+        elif pos_name and position_name and shop_id == '-1':
              data = BannerData.objects.filter(banner_data__status=True, slot__page__name=position_name,slot__bannerslot__name=pos_name, slot__shop=None).filter(Q(banner_data__banner_start_date__isnull=True) | Q(banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate))
          #else:
              #data = BannerData.objects.filter(banner_data__status=True, banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate)
