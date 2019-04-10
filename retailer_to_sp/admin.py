@@ -31,7 +31,8 @@ from .forms import (
 from retailer_to_sp.views import (
     ordered_product_mapping_shipment, order_invoices, trip_planning,
     load_dispatches, trip_planning_change, update_shipment_status,
-    update_order_status, update_delivered_qty, UpdateSpQuantity
+    update_order_status, update_delivered_qty, UpdateSpQuantity,
+    LoadDispatches
     )
 
 from products.admin import ExportCsvMixin
@@ -291,8 +292,13 @@ class CartAdmin(admin.ModelAdmin):
             ),
             url(
                r'^load-dispatches/$',
-               self.admin_site.admin_view(load_dispatches),
+               self.admin_site.admin_view(LoadDispatches.as_view()),
                name="LoadDispatches"
+            ),
+            url(
+               r'^load-dispatches-view/$',
+               self.admin_site.admin_view(load_dispatches),
+               name="LoadDispatchesView"
             ),
             url(
                r'^trip-planning/(?P<pk>\d+)/change/$',

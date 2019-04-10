@@ -192,6 +192,22 @@
 <div class="js-inline-admin-formset inline-group"
      data-inline-type="tabular"
      data-inline-formset="{&quot;name&quot;: &quot;#rt_order_product_order_product_mapping&quot;, &quot;options&quot;: {&quot;prefix&quot;: &quot;rt_order_product_order_product_mapping&quot;, &quot;addText&quot;: &quot;Add another Ordered product mapping&quot;, &quot;deleteText&quot;: &quot;Remove&quot;}}">
+    <div class="tabular inline-related last-related">
+      <fieldset id="inline" class="module ">
+
+     <table id="formset" class="form">
+      <tbody>
+        <thead><tr>
+          <th>Select</th>
+          <th>ID</th>
+          <th>Order</th>
+          <th>Shipment Status</th>
+          <th>Invoice No.</th>
+         </tr></thead>
+
+      </tbody>
+     </table>
+   </div>
   <div class="tabular inline-related last-related">
   {{ formset.management_form }}
   {% if formset.non_form_errors %}
@@ -337,8 +353,25 @@ $("#id_seller_shop").change(function () {
     },
     success: function (data) {
 
-      $("fieldset#inline").html(data);
+      //$("fieldset#inline").html(data);
+    //var tbl=$("<table/>").attr("id","mytable");
+    //$("#div1").append(tbl);
+    for(var i=0;i<data.length;i++)
+    {   
+        var row = "row1";
+        if(i%2 === 0){
+          var row = "row2";
+        }
+        var pk=data[i]['pk'];
+        var id="<td>"+data[i]['pk']+"</td>";
+        var select = "<td><input type='checkbox' value='"+pk+"'></td>";
+        var order="<td>"+data[i]['fields']['order']+"</td>";
+        var shipment_status="<td>"+data[i]['fields']['shipment_status']+"</td>";
+        var invoice_no="<td>"+data[i]['fields']['invoice_no']+"</td>";
 
+       $("tbody").append("<tr class="+row+">"+select+id+order+shipment_status+invoice_no+"</tr>"); 
+
+    }   
     }
   });
 });

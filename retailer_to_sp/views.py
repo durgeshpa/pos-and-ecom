@@ -9,6 +9,8 @@ from django.db.models import Sum, Q
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.response import Response
+from rest_framework import status
 
 from sp_to_gram.models import OrderedProductReserved
 from retailer_to_sp.models import (
@@ -25,6 +27,7 @@ from django.views.generic import TemplateView
 from django.conf import settings
 
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector, TrigramSimilarity
+from retailer_to_sp.api.v1.serializers import DispatchSerializer
 
 
 class ReturnProductAutocomplete(autocomplete.Select2QuerySetView):
@@ -258,6 +261,7 @@ def trip_planning(request):
     trip_id = request.GET.get('trip_id')
 
     if request.method == 'POST':
+        import pdb; pdb.set_trace()
         formset = TripDispatchFormset(request.POST)
         form = TripForm(request.user, request.POST)
         if form.is_valid() and formset.is_valid():
@@ -369,6 +373,79 @@ def trip_planning_change(request, pk):
     )
 
 
+class LoadDispatches(APIView):
+    """Return list of dispatches for specific seller shop
+
+    :param request: seller_shop_id
+    :return: list of dispatch
+    """
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+
+        seller_shop = request.GET.get('seller_shop_id')
+        area = request.GET.get('area')
+        trip_id = request.GET.get('trip_id')
+
+        vector = SearchVector('order__shipping_address__address_line1')
+        query = SearchQuery(area)
+        similarity = TrigramSimilarity('order__shipping_address__address_line1', area)
+
+        if seller_shop and area and trip_id:
+            dispatches = Dispatch.objects.annotate(
+                            rank=SearchRank(vector, query) + similarity
+                            ).filter(Q(shipment_status='READY_TO_SHIP') |
+                                     Q(trip=trip_id), order__seller_shop=seller_shop).order_by('-rank')
+
+        elif seller_shop and trip_id:
+            dispatches = Dispatch.objects.filter(Q(shipment_status='READY_TO_SHIP') |
+                                                 Q(trip=trip_id), order__seller_shop=seller_shop)
+        elif seller_shop and area:
+            dispatches = Dispatch.objects.annotate(
+                            rank=SearchRank(vector, query) + similarity
+                            ).filter(shipment_status='READY_TO_SHIP', order__seller_shop=seller_shop).order_by('-rank')
+
+        elif seller_shop:
+            import json
+            from django.http import HttpResponse
+            from django.core import serializers
+            dispatches = Dispatch.objects.filter(shipment_status='READY_TO_SHIP',
+                                                 order__seller_shop=seller_shop)
+            serializer = DispatchSerializer(dispatches, many=True)
+            msg = {'is_success': True, 'message': ['All Messages'], 'response_data': serializer.data}
+            return Response(msg, status=status.HTTP_201_CREATED)
+            #data = serializers.serialize('json', dispatches)
+            #return JsonResponse(dispatches, safe=False)
+            #return HttpResponse(data, content_type="application/json")
+            #return render(request, 'admin/retailer_to_sp/trip/JSONDispatchesList.html', data)
+
+        elif area and trip_id:
+            dispatches = Dispatch.objects.annotate(
+                            rank=SearchRank(vector, query) + similarity
+                            ).filter(Q(shipment_status='READY_TO_SHIP') |
+                                     Q(trip=trip_id)).order_by('-rank')
+
+        elif area:
+            dispatches = Dispatch.objects.annotate(
+                            rank=SearchRank(vector, query) + similarity
+                            ).order_by('-rank')
+
+        else:
+            dispatches = Dispatch.objects.none()
+        TripDispatchFormset = modelformset_factory(
+            Dispatch,
+            fields=[
+                'selected', 'items', 'invoice_amount', 'shipment_status', 'invoice_city', 'invoice_date', 'order', 'shipment_address'
+            ],
+            form=DispatchForm, extra=0
+        )
+        formset = TripDispatchFormset(queryset=dispatches)
+        return render(
+            request, 'admin/retailer_to_sp/DispatchesList.html',
+            {'formset': formset}
+        )
+
+
 def load_dispatches(request):
     """Return list of dispatches for specific seller shop
 
@@ -398,8 +475,19 @@ def load_dispatches(request):
                         ).filter(shipment_status='READY_TO_SHIP', order__seller_shop=seller_shop).order_by('-rank')
 
     elif seller_shop:
-        dispatches = Dispatch.objects.filter(shipment_status='READY_TO_SHIP',
+        import json
+        from django.http import HttpResponse
+        from django.core import serializers
+        dispatches = Dispatch.objects.select_related('order').filter(shipment_status='READY_TO_SHIP',
                                              order__seller_shop=seller_shop)
+        #serializer = DispatchSerializer(dispatches, many=True)
+        #msg = {'is_success': True, 'message': ['All Messages'], 'response_data': serializer.data}
+        #return Response(msg, status=status.HTTP_201_CREATED)
+        data = serializers.serialize('json', dispatches)
+        #return JsonResponse(dispatches, safe=False)
+        return HttpResponse(data, content_type="application/json")
+        #return render(request, 'admin/retailer_to_sp/trip/JSONDispatchesList.html', data)
+
     elif area and trip_id:
         dispatches = Dispatch.objects.annotate(
                         rank=SearchRank(vector, query) + similarity
