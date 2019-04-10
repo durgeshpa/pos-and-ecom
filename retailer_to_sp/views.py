@@ -257,25 +257,17 @@ def trip_planning(request):
     trip_id = request.GET.get('trip_id')
 
     if request.method == 'POST':
-        import pdb; pdb.set_trace()
-        formset = TripDispatchFormset(request.POST)
         form = TripForm(request.user, request.POST)
-        if form.is_valid() and formset.is_valid():
+
+        if form.is_valid():
+            selected_shipments = form.cleaned_data['selected_id'].split(',')
             trip = form.save()
-            for formset_form in formset:
-                if formset_form.is_valid():
-                    selected_form = formset_form.cleaned_data.get('selected')
-                    if selected_form:
-                        dispatch = formset_form.save(commit=False)
-                        dispatch.trip = trip
-                        dispatch.shipment_status = 'READY_TO_DISPATCH'
-                        dispatch.save()
-                    else:
-                        dispatch = formset_form.save(commit=False)
-                        if dispatch.trip:
-                            dispatch.trip = None
-                            dispatch.shipment_status = 'READY_TO_SHIP'
-                            dispatch.save()
+            for shipment_id in selected_shipments:
+                shipment_instance = Dispatch.objects.get(pk=shipment_id)
+                shipment_instance.trip = trip
+                shipment_instance.shipment_status = 'READY_TO_DISPATCH'
+                shipment_instance.save()
+
             return redirect('/admin/retailer_to_sp/trip/')
 
     else:

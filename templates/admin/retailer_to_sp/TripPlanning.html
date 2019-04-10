@@ -307,6 +307,18 @@
 
 $(document).ready(function(){
 
+
+    $(document).on('click','.shipment_checkbox', function(){
+    if($(this).is(':checked')){
+        console.log($(this).val());
+        list.push($(this).val());
+        $('#id_selected_id').val(list);
+    } else {
+        list.pop($(this).val());
+        $('#id_selected_id').val(list);
+    }
+});
+
     $('#id_seller_shop, #id_delivery_boy').select2();
     $(":input:not([type=hidden]) #id_starts_at,:input:not([type=hidden]) #id_completed_at").flatpickr(
         {
@@ -364,7 +376,7 @@ $("#id_seller_shop").change(function () {
         }
         var pk=data[i]['pk'];
         var id="<td>"+data[i]['pk']+"</td>";
-        var select = "<td><input type='checkbox' value='"+pk+"'></td>";
+        var select = "<td><input type='checkbox' class='shipment_checkbox' value='"+pk+"'></td>";
         var order="<td>"+data[i]['fields']['order']+"</td>";
         var shipment_status="<td>"+data[i]['fields']['shipment_status']+"</td>";
         var invoice_no="<td>"+data[i]['fields']['invoice_no']+"</td>";
@@ -383,6 +395,8 @@ $("#id_seller_shop").change(function () {
 
 
   $('form').bind('submit', function (e) {
+      //$('#id_selected_id').val(list);
+      console.log(list);
       if($('input[type=checkbox]:checked').length) {
           var c = confirm("Click OK to continue?");
           return c;

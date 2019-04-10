@@ -236,11 +236,12 @@ class TripForm(forms.ModelForm):
     trip_status = forms.ChoiceField(choices=TRIP_STATUS)
     search_by_area = forms.CharField(required=False)
     trip_id = forms.CharField(required=False)
+    selected_id = forms.CharField(widget=forms.HiddenInput())
 
     class Meta:
         model = Trip
         fields = ['seller_shop', 'delivery_boy', 'vehicle_no', 'trip_status',
-                  'e_way_bill_no', 'search_by_area']
+                  'e_way_bill_no', 'search_by_area', 'selected_id']
 
     class Media:
         js = ('admin/js/select2.min.js', )
