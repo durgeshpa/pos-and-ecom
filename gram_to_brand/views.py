@@ -263,7 +263,7 @@ class VendorProductAutocomplete(autocomplete.Select2QuerySetView):
         if supplier_id:
             qs = Product.objects.all()
             product_id = ProductVendorMapping.objects\
-                .filter(vendor__id=supplier_id).values('product')
+                .filter(vendor__id=supplier_id,case_size__gt=0,status=True).values('product')
             qs = qs.filter(id__in=[product_id])
             if self.q:
                 qs = qs.filter(product_name__icontains=self.q)
