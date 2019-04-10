@@ -46,6 +46,7 @@ from .signals import ReservedOrder
 from sp_to_gram.models import (
     OrderedProductReserved, create_credit_note,
     OrderedProductMapping as SpMappedOrderedProductMapping)
+from dal_admin_filters import AutocompleteFilter
 
 
 class InvoiceNumberFilter(AutocompleteFilter):
@@ -338,10 +339,13 @@ class ExportCsvMixin:
 class SellerShopFilter(AutocompleteFilter):
     title = 'Seller Shop'
     field_name = 'seller_shop'
+    autocomplete_url = 'seller-shop-autocomplete'
 
 class BuyerShopFilter(AutocompleteFilter):
     title = 'Buyer Shop'
     field_name = 'buyer_shop'
+    autocomplete_url = 'buyer-shop-autocomplete'
+
 
 class SKUFilter(InputFilter):
     title = 'product sku'

@@ -25,6 +25,7 @@ from django.views.generic import TemplateView
 from django.conf import settings
 
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector, TrigramSimilarity
+from shops.models import Shop
 
 
 class ReturnProductAutocomplete(autocomplete.Select2QuerySetView):
@@ -563,6 +564,21 @@ def update_order_status(form):
         order.order_status = 'PARTIALLY_SHIPPED'
     order.save()
 
+class SellerShopAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Shop.objects.filter(Q(shop_type__shop_type='sp',shop_owner=self.request.user) | Q(shop_type__shop_type='sp',related_users=self.request.user))
+
+        if self.q:
+            qs = qs.filter(shop_name__startswith=self.q)
+        return qs
+
+class BuyerShopAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Shop.objects.filter(shop_type__shop_type='r',shop_owner=self.request.user)
+
+        if self.q:
+            qs = qs.filter(shop_name__startswith=self.q)
+        return qs
 
 class DeductReservedQtyFromShipment(object):
 
