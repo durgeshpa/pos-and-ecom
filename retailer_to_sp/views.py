@@ -375,38 +375,10 @@ def load_dispatches(request):
     area = request.GET.get('area')
     trip_id = request.GET.get('trip_id')
 
-    vector = SearchVector('order__shipping_address__address_line1')
-    query = SearchQuery(area)
-    similarity = TrigramSimilarity('order__shipping_address__address_line1', area)
 
-    if seller_shop and area and trip_id:
-        dispatches = Dispatch.objects.annotate(
-                        rank=SearchRank(vector, query) + similarity
-                        ).filter(Q(shipment_status='READY_TO_SHIP') |
-                                 Q(trip=trip_id), order__seller_shop=seller_shop).order_by('-rank')
-
-    elif seller_shop and trip_id:
-        dispatches = Dispatch.objects.filter(Q(shipment_status='READY_TO_SHIP') |
-                                             Q(trip=trip_id), order__seller_shop=seller_shop)
-    elif seller_shop and area:
-        dispatches = Dispatch.objects.annotate(
-                        rank=SearchRank(vector, query) + similarity
-                        ).filter(shipment_status='READY_TO_SHIP', order__seller_shop=seller_shop).order_by('-rank')
-
-    elif seller_shop:
+    if seller_shop:
         dispatches = Dispatch.objects.select_related('order', 'order__shipping_address','order__shipping_address__city').filter(shipment_status='READY_TO_SHIP',
                                              order__seller_shop=seller_shop)
-    elif area and trip_id:
-        dispatches = Dispatch.objects.annotate(
-                        rank=SearchRank(vector, query) + similarity
-                        ).filter(Q(shipment_status='READY_TO_SHIP') |
-                                 Q(trip=trip_id)).order_by('-rank')
-
-    elif area:
-        dispatches = Dispatch.objects.annotate(
-                        rank=SearchRank(vector, query) + similarity
-                        ).order_by('-rank')
-
     else:
         dispatches = Dispatch.objects.none()
     TripDispatchFormset = modelformset_factory(
