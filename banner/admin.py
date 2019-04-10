@@ -4,11 +4,12 @@ from django.contrib import admin
 from adminsortable.admin import NonSortableParentAdmin, SortableStackedInline
 
 from .models import Banner, BannerData,BannerPosition, BannerSlot, Page
-from.forms import BannerForm
+from.forms import BannerForm, BannerPositionForm
 class BannerDataInline(SortableStackedInline):
     model = BannerData
 
 class BannerPositionAdmin(NonSortableParentAdmin):
+    form=BannerPositionForm
     inlines = [BannerDataInline]
 
 
