@@ -104,6 +104,7 @@ MIDDLEWARE += [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'accounts.middlewares.RequestMiddleware',
 ]
 
 ROOT_URLCONF = 'retailer_backend.urls'
@@ -288,3 +289,4 @@ if ENVIRONMENT == "PRODUCTION":
         dsn="https://2f8d192414f94cd6a0ba5b26d6461684@sentry.io/1407300",
         integrations=[DjangoIntegration()]
     )
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 20000
