@@ -368,36 +368,33 @@ class LoadDispatches(APIView):
 
         vector = SearchVector('order__shipping_address__address_line1')
         query = SearchQuery(area)
-        similarity = TrigramSimilarity('order__shipping_address__address_line1', area)
+        similarity = TrigramSimilarity(
+                            'order__shipping_address__address_line1', area)
 
         if seller_shop and area and trip_id:
             dispatches = Dispatch.objects.annotate(
                             rank=SearchRank(vector, query) + similarity
-                            ).filter(Q(shipment_status='READY_TO_SHIP') |
-                                     Q(trip=trip_id), order__seller_shop=seller_shop).order_by('-rank')
+                            ).filter(
+                                Q(shipment_status='READY_TO_SHIP') |
+                                Q(trip=trip_id), order__seller_shop=seller_shop
+                                ).order_by('-rank')
 
         elif seller_shop and trip_id:
-            dispatches = Dispatch.objects.filter(Q(shipment_status='READY_TO_SHIP') |
-                                                 Q(trip=trip_id), order__seller_shop=seller_shop)
-            serializer = DispatchSerializer(dispatches, many=True)
-            msg = {'is_success': True, 'message': ['All Messages'], 'response_data': serializer.data}
-            return Response(msg, status=status.HTTP_201_CREATED)
+            dispatches = Dispatch.objects.filter(
+                            Q(shipment_status='READY_TO_SHIP') |
+                            Q(trip=trip_id), order__seller_shop=seller_shop)
 
         elif seller_shop and area:
             dispatches = Dispatch.objects.annotate(
                             rank=SearchRank(vector, query) + similarity
-                            ).filter(shipment_status='READY_TO_SHIP', order__seller_shop=seller_shop).order_by('-rank')
+                        ).filter(
+                            shipment_status='READY_TO_SHIP',
+                            order__seller_shop=seller_shop).order_by('-rank')
 
         elif seller_shop:
-            import json
-            from django.http import HttpResponse
-            from django.core import serializers
-            dispatches = Dispatch.objects.filter(shipment_status='READY_TO_SHIP',
-                                                 order__seller_shop=seller_shop)
-            serializer = DispatchSerializer(dispatches, many=True)
-            msg = {'is_success': True, 'message': ['All Messages'], 'response_data': serializer.data}
-            return Response(msg, status=status.HTTP_201_CREATED)
-
+            dispatches = Dispatch.objects.filter(
+                                            shipment_status='READY_TO_SHIP',
+                                            order__seller_shop=seller_shop)
 
         elif area and trip_id:
             dispatches = Dispatch.objects.annotate(
@@ -412,18 +409,19 @@ class LoadDispatches(APIView):
 
         else:
             dispatches = Dispatch.objects.none()
-        TripDispatchFormset = modelformset_factory(
-            Dispatch,
-            fields=[
-                'selected', 'items', 'invoice_amount', 'shipment_status', 'invoice_city', 'invoice_date', 'order', 'shipment_address'
-            ],
-            form=DispatchForm, extra=0
-        )
-        formset = TripDispatchFormset(queryset=dispatches)
-        return render(
-            request, 'admin/retailer_to_sp/DispatchesList.html',
-            {'formset': formset}
-        )
+
+        if dispatches:
+            serializer = DispatchSerializer(dispatches, many=True)
+            msg = {'is_success': True,
+                   'message': None,
+                   'response_data': serializer.data}
+        else:
+            msg = {'is_success': False,
+                   'message': ("There are no shipments that"
+                               " are Ready to Ship(QC Passed)"),
+                   'response_data': None}
+        return Response(msg, status=status.HTTP_201_CREATED)
+
 
 
 def load_dispatches(request):
