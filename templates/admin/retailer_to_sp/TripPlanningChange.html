@@ -1,367 +1,297 @@
-
-<!DOCTYPE html>
-
-<html lang="en-us" >
-<head>
-<title>Trip Planning | Admin</title>
-<link rel="stylesheet" type="text/css" href="/static/admin/css/base.css">
-
-    <link rel="stylesheet" type="text/css" href="/static/admin/css/forms.css">
-    <style type="text/css">
-        /* add an asterisk using CSS */
-        .required {
-            color:#ba2121;
-        }
-        .aligned label.required:after {
-          content: '*';
-          color:#ba2121;
-        }
-
-        #hide_input_box {
-            border: none;
-            background-color: white;
-        }
-
-        .ui-select{width: 100%}
-/* This is to remove the arrow of select element in IE */
-.ui-select::-ms-expand {	display: none; }
-.ui-select {
-    -webkit-appearance: none;
-    appearance: none;
-}
-@-moz-document url-prefix(){
-	.ui-select{border: 1px solid #CCC; border-radius: 4px; box-sizing: border-box; position: relative; overflow: hidden;}
-  .ui-select { width: 110%; background-position: right 30px center !important; border: none !important;}
-}
-    </style>
-
-  <script
-    src="https://code.jquery.com/jquery-2.1.1.js"></script>  {{ form.media }}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/css/select2.min.css">
-    <link rel="stylesheet" type="text/css" href="/static/admin/css/jquery.datetimepicker.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-
-    <!--<script type="text/javascript" src="/static/admin/js/vendor/jquery/jquery.js"></script>-->
-<!--<script type="text/javascript" src="/static/admin/js/jquery.init.js"></script>-->
-<!--<script type="text/javascript" src="/static/admin/js/core.js"></script>-->
-<!--<script type="text/javascript" src="/static/admin/js/admin/RelatedObjectLookups.js"></script>-->
-<!--<script type="text/javascript" src="/static/admin/js/actions.js"></script>-->
-<!--<script type="text/javascript" src="/static/admin/js/urlify.js"></script>-->
-<!--<script type="text/javascript" src="/static/admin/js/prepopulate.js"></script>-->
-<!--<script type="text/javascript" src="/static/admin/js/vendor/xregexp/xregexp.js"></script>-->
-<!--<script type="text/javascript" src="/static/admin/js/inlines.js"></script>-->
-
-
-    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1.0, maximum-scale=1.0">
-
-    <link rel="stylesheet" type="text/css" href="/static/admin/css/responsive.css">
-
-
-<meta name="robots" content="NONE,NOARCHIVE">
-</head>
-
-
-<body class=" app-retailer_to_sp model-orderedproduct change-form"
-  data-admin-utc-offset="19800">
-
-<!-- Container -->
-<div id="container">
-
-
-    <!-- Header -->
-    <div id="header">
-        <div id="branding">
-
-<h1 id="site-name">
-    <a href="/admin/">
-        <img src="/static/admin/img/logo-1.png" height="40px" />
-    </a>
-</h1>
-
-        </div>
-
-
-        <div id="user-tools">
-
-                Welcome,
-                <strong>{% firstof user.get_short_name user.get_username %}</strong>.
-
-
-
-                    <a href="/">View site</a> /
-
-
-
-
-
-
-                <a href="/admin/password_change/">Change password</a> /
-
-                <a href="/admin/logout/">Log out</a>
-
-        </div>
-
-
-
-    </div>
-    <!-- END Header -->
-
-<div class="breadcrumbs">
-<a href="/admin/">Home</a>
-&rsaquo; <a href="/admin/retailer_to_sp/">Retailer_To_Sp</a>
-&rsaquo; <a href="/admin/retailer_to_sp/trip/">Trip</a>
-&rsaquo; <a href="/admin/retailer_to_sp/cart/trip-planning/">Trip Planning</a>
-</div>
-
-
-
-
-
-
-
-    <!-- Content -->
-    <div id="content" class="colM">
-
-        <h1>Trip Planning</h1>
-        <div id="content-main">
-
-
-  <ul class="object-tools">
-
-
-
-
-<!--<li>-->
-
-    <!--<a href="/admin/retailer_to_sp/orderedproduct/119/history/" class="historylink">History</a>-->
-<!--</li>-->
-
-
-
-
-  </ul>
-
-
-<form method="post" enctype="multipart/form-data">
-<div>
-
-
-
-
-
-
-
-  <fieldset class="module aligned ">
-
-  {% csrf_token %}
-      {% if form.errors %}
-    {% for error in form.non_field_errors %}
-            <p class="errornote">
-                {{ error|escape }}
-            </p>
-    {% endfor %}
-{% endif %}
-  {% for hidden in form.hidden_fields %}
-      {{ hidden.errors }}
-    {{ hidden }}
-{% endfor %}
-{% for field in form.visible_fields %}
-    <p><label for="{{ field.auto_id }}">{{field.label}}:    {% if field.field.required %}
-        <span class="required">*</span>
-    {% endif %}</label>{{ field.errors }}{{ field }}</p>
-    {{ field.widget.attrs.id }}
-      {% endfor %}
-
-
-
-
-
-</fieldset>
-
-
-<div class="js-inline-admin-formset inline-group"
-     data-inline-type="tabular"
-     data-inline-formset="{&quot;name&quot;: &quot;#rt_order_product_order_product_mapping&quot;, &quot;options&quot;: {&quot;prefix&quot;: &quot;rt_order_product_order_product_mapping&quot;, &quot;addText&quot;: &quot;Add another Ordered product mapping&quot;, &quot;deleteText&quot;: &quot;Remove&quot;}}">
-  <div class="tabular inline-related last-related">
-  {{ formset.management_form }}
-  {% if formset.non_form_errors %}
-      <p class="errornote">{{ formset.non_form_errors }}</p>
-    {% endif %}
-<fieldset id="inline" class="module ">
-<table id="formset" class="form">
-{% for form in formset.forms %}
-  {% if forloop.first %}
-  <thead><tr>
-    {% for field in form.visible_fields %}
-    <th>{{ field.label|capfirst }}</th>
-    {% endfor %}
-  </tr></thead>
-  {% endif %}
-  <tr class="{% cycle row1 row2 %}">
-
-  {% for field in form.visible_fields %}
-    <td>
-    {% if forloop.first %}
-      {% for hidden in form.hidden_fields %}
-      {{ hidden }}
-      {% endfor %}
-    {% endif %}
-         {% if field.name == 'items' %}
-          {{ field.non_field_errors }}
-            {{ field.errors }}
-             {{ field.value }}
-        {% else %}
-         {{ field.non_field_errors }}
-       {{ field.errors }}
-      {{ field }}
-    {% endif%}
-    </td>
-  {% endfor %}
-  </tr>
-{% endfor %}
-</table>
-
-
-</fieldset>
-  </div>
-</div>
-
-
-
-
-
-
-
-<div class="submit-row">
-
-<input type="submit" value="Save" class="default" name="_save">
-
-
-    <p class="deletelink-box"><a href="/admin/retailer_to_sp/" class="deletelink">Back</a></p>
-
-
-
-
-</div>
-
-
-
-    <!--<script type="text/javascript"-->
-            <!--id="django-admin-form-add-constants"-->
-            <!--src="/static/admin/js/change_form.js"-->
-            <!--&gt;-->
-    <!--</script>-->
-
-
-
-
-<!--<script type="text/javascript"-->
-        <!--id="django-admin-prepopulated-fields-constants"-->
-        <!--src="/static/admin/js/prepopulate_init.js"-->
-        <!--data-prepopulated-fields="[]">-->
-<!--</script>-->
-
-
-</div>
-</form></div>
-
-
-        <br class="clear">
-    </div>
-    <!-- END Content -->
-
-    <div id="footer"></div>
-</div>
-<!-- END Container -->
-
-</body>
-<script src='https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/js/select2.min.js'></script>
-
-<script>
-        var list = new Array();
-
-$(document).ready(function(){
-
-
-
-    var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '')+'/';
-    var url = host + 'admin/retailer_to_sp/cart/load-dispatches/';
-
-$('#id_search_by_area').on('input', function() {
-    var area = $(this).val();
-    var seller_shop = $('#id_seller_shop').val();
-    var trip_id = $('#id_trip_id').val();
-     if (seller_shop.length == 0 ){
-         alert("Please select Seller Shop first!");
-     }
-     else{
-           $.ajax({
-            url: url,
-            data: {
-              'seller_shop_id': seller_shop,
-                'area': area,
-                'trip_id': trip_id
-            },
-            success: function (data) {
-
-              $("fieldset#inline").html(data);
-
-            }
+{% extends 'admin/retailer_to_sp/trip/base.html' %}
+
+{% block title %}Trip Planning | Admin{% endblock %}
+{% block breadcrumb1 %}Retailer_To_Sp{% endblock %}
+{% block breadcrumb2 %}Trip{% endblock %}
+{% block breadcrumb3 %}Trip Planning{% endblock %}
+
+{% block content %}
+          <!-- Content -->
+         <div id="content" class="colM">
+            <h1>{% block content_header %}{% endblock %}</h1>
+            <div id="content-main">
+               <ul class="object-tools">
+                  <!--<li>-->
+                  <!--<a href="/admin/retailer_to_sp/orderedproduct/119/history/" class="historylink">History</a>-->
+                  <!--</li>-->
+               </ul>
+               <form method="post" enctype="multipart/form-data">
+                  <div>
+                     <fieldset class="module aligned ">
+                        {% csrf_token %}
+                        {% if form.errors %}
+                        {% for error in form.non_field_errors %}
+                        <p class="errornote">
+                           {{ error|escape }}
+                        </p>
+                        {% endfor %}
+                        {% endif %}
+                        {% for hidden in form.hidden_fields %}
+                        {{ hidden.errors }}
+                        {{ hidden }}
+                        {% endfor %}
+                        {% for field in form.visible_fields %}
+                        <p><label for="{{ field.auto_id }}">{{field.label}}:    {% if field.field.required %}
+                           <span class="required">*</span>
+                           {% endif %}
+                           </label>{{ field.errors }}{{ field }}
+                        </p>
+                        {{ field.widget.attrs.id }}
+                        {% endfor %}
+                     </fieldset>
+                     <div class="js-inline-admin-formset inline-group"
+                        data-inline-type="tabular"
+                        data-inline-formset="{&quot;name&quot;: &quot;#rt_order_product_order_product_mapping&quot;, &quot;options&quot;: {&quot;prefix&quot;: &quot;rt_order_product_order_product_mapping&quot;, &quot;addText&quot;: &quot;Add another Ordered product mapping&quot;, &quot;deleteText&quot;: &quot;Remove&quot;}}">
+                        <div class="tabular inline-related last-related">
+                           <fieldset id="inline" class="module ">
+                           <table id="formset" class="form">
+                              <tbody id="data">
+                              <thead>
+                                 <tr id="heading">
+                                    <th>Select</th>
+                                    <th>Invoice No.</th>
+                                    <th>Invoice Amount</th>
+                                    <th>Shipment Status</th>
+                                    <th>Invoice City</th>
+                                    <th>Invoice Date</th>
+                                    <th>Order</th>
+                                    <th>Shipment Address</th>
+                                 </tr>
+                                 <tr id="loading">
+                                    <th>Loading...</th>
+                                 </tr>
+                               </thead>
+                              </tbody>
+                           </table>
+                        </div>
+                     </div>
+                     <div class="submit-row">
+                        <input type="submit" value="Save" class="default" name="_save">
+                        <p class="deletelink-box"><a href="/admin/retailer_to_sp/" class="deletelink">Back</a></p>
+                     </div>
+                  </div>
+               </form>
+            </div>
+            <br class="clear">
+         </div>
+         <!-- END Content -->
+{% endblock %}
+
+{% block javascript %}
+<script >
+    
+  var list = new Array();
+  var uncheckedlist = new Array();
+
+  $(document).ready(function() {
+    HideField('tr#heading');
+    HideField('tr#loading');
+    Select2Field('#id_seller_shop');
+    Select2Field('#id_delivery_boy');
+    SubmitFormConfirmDialog();
+    GetResultOnTypingArea();
+    AddCheckedIDToList();
+    CallAPI();
   });
-     }
-    });
-$("#id_seller_shop").change(function () {
-  $('option:selected', $(this)).each(function() {
-      var seller_shop_id = $("option:selected").val();
-      console.log(seller_shop_id);
-  $.ajax({
-    url: url,
-    data: {
-      'seller_shop_id': seller_shop_id
-    },
-    success: function (data) {
-
-      $("fieldset#inline").html(data);
-
-    }
-  });
-});
-
-});
 
 
 
-  {#  #}
-  {#$("input[id$='ordered_qty']").attr("readOnly", true);#}
-  {#$("input[id$='already_shipped_qty']").attr("readOnly", true);#}
-  {#$('select#id_order').select2({width: '50%'});#}
-  {#    $('select#id_shipment_status').val("READY_TO_SHIP").attr("disabled", true);#}
-  {#  $('select#id_shipment_status').select2({width: '50%'});#}
-  {##}
-  {#$("select[id$='product']").attr("disabled", true);#}
-  {##}
-  {#  $("select#id_order").change(function(){#}
-  {#      $("#submitbutton").hide();#}
-  {#      $("table").html('Loading! Please wait...');#}
-  {#       var selectedOrder= $(this).children("option:selected").val();#}
-  {#       var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '')+'/';#}
-  {#       var url = host + 'admin/retailer_to_sp/cart/order-product-mapping-shipment/?order_id=' + selectedOrder;#}
-  {#       location.href=url;#}
-  {#      });#}
+function Select2Field(id) {
+  $(id).select2();
+}
 
-});
+function HideField(id){
+  $(id).hide();
+}
 
-  $('form').bind('submit', function (e) {
-      if($('input[type=checkbox]:checked').length) {
+function ShowField(id){
+  $(id).show();
+}
+
+function SubmitFormConfirmDialog(){
+  $('form').bind('submit', function(e) {
+      if ($('input[type=checkbox]:checked').length) {
           var c = confirm("Click OK to continue?");
           return c;
-      }
-      else{
-            e.preventDefault(e);
+      } else {
+          e.preventDefault(e);
           alert("Please select at least one shipment");
 
       }
+  }); 
+}
+
+function GetURL() {
+  var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '') + '/';
+  var url = host + 'admin/retailer_to_sp/cart/load-dispatches/';
+  return url;
+}
+
+function GetResultOnTypingArea(){
+  $('#id_search_by_area').on('input', function() {
+      EmptyElement('tbody#data');
+      HideField('tr#heading');
+      ShowField('tr#loading');
+      var area = $(this).val();
+      var seller_shop = $('#id_seller_shop').val();
+      var trip_id = $('#id_trip_id').val();
+
+      if (seller_shop.length == 0) {
+          alert("Please select Seller Shop first!");
+      } else {
+          $.ajax({
+              url: GetURL(),
+              data: {
+                  'seller_shop_id': seller_shop,
+                  'area': area,
+                  'trip_id': trip_id
+
+              },
+              success: function(data) {
+                CheckResponse(data);
+              }
+          });
+      }
   });
+}
+
+function GetResultByTripAndSellerShop() {
+  var seller_shop_id = $('select#id_seller_shop').val();
+  var trip_id = $('#id_trip_id').val();
+  EmptyElement('tbody#data');
+  HideField('tr#heading');
+  ShowField('tr#loading');
+  var seller_shop_id = $("option:selected").val();
+  $.ajax({
+      url: GetURL(),
+      data: {
+          'seller_shop_id': seller_shop_id,
+          'trip_id': trip_id
+      },
+      success: function(data) {
+        CheckResponse(data);
+      }
+  });
+}
+
+function GetResultByTripID() {
+  var trip_id = $('#id_trip_id').val();
+  EmptyElement('tbody#data');
+  HideField('tr#heading');
+  ShowField('tr#loading');
+  var seller_shop_id = $("option:selected").val();
+  $.ajax({
+      url: GetURL(),
+      data: {
+          'trip_id': trip_id
+      },
+      success: function(data) {
+        CheckResponse(data);
+      }
+  });
+}
+
+function CheckResponse(data){
+  if (data['is_success']){
+    EmptyElement('tbody#data');
+    ShowField('tr#heading');
+    HideField('tr#loading');
+    CreateResponseTable(data);
+  } else{
+    EmptyElement('tbody#data');
+    HideField('tr#heading');
+    HideField('tr#loading');
+    ShowMessage(data['message']);
+  }
+}
+
+function ShowMessage(msg){
+  $("tbody#data").append("<tr><td>"+msg+"<td></tr>");
+}
+
+function CreateResponseTable(data){
+  var trip_id = $('#id_trip_id').val();
+  for (var i = 0; i < data['response_data'].length; i++) {
+      var row = "row1";
+      if (i % 2 === 0) {
+          var row = "row2";
+      }
+      var pk = data['response_data'][i]['pk'];
+      var trip = data['response_data'][i]['trip'];
+      if(trip==trip_id){
+        if (GetTripStatus() != ('READY')){
+            var select = "<td><input type='checkbox' class='shipment_checkbox' value='"+pk+"' checked disabled='disabled'></td>";
+        }
+        else{
+          var select = "<td><input type='checkbox' class='shipment_checkbox' value='"+pk+"' checked></td>";
+        }
+        list.push(pk);
+        $('#id_selected_id').val(list);
+      }
+      else{
+        var select = "<td><input type='checkbox' class='shipment_checkbox' value='"+pk+"'></td>";
+      }
+      var order = "<td>" + data['response_data'][i]['order'] + "</td>";
+      var shipment_status = "<td>" + data['response_data'][i]['shipment_status'] + "</td>";
+      if (GetTripStatus() == ('COMPLETED')){
+        var invoice_no = "<td><a href='/admin/retailer_to_sp/orderedproduct/"+pk+"/change/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
+      }else {
+        var invoice_no = "<td><a href='/admin/retailer_to_sp/dispatch/"+pk+"/change/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
+      }
+      var invoice_amount = "<td>" + data['response_data'][i]['invoice_amount'] + "</td>";
+      var invoice_city = "<td>" + data['response_data'][i]['invoice_city'] + "</td>";
+      var shipment_address = "<td>" + data['response_data'][i]['shipment_address'] + "</td>";
+      var created_at = "<td>" + data['response_data'][i]['created_at'] + "</td>";
+
+      $("tbody#data").append("<tr class=" + row + ">" + select + invoice_no + invoice_amount + shipment_status + invoice_city + created_at + order + shipment_address +"</tr>");
+  }
+}
+
+function EmptyElement(id){
+  $(id).empty();
+}
+
+function AddCheckedIDToList(){
+  $(document).on('click', '.shipment_checkbox', function() {
+      if ($(this).is(':checked')) {
+          GetUncheckedFields();
+          list.push($(this).val());
+          $('#id_selected_id').val(list);
+      } else {
+          GetUncheckedFields();
+          list.pop($(this).val());
+          $('#id_selected_id').val(list);
+      }
+  });
+}
+
+function GetUncheckedFields() {
+  $('.shipment_checkbox').each(function(){
+    if (!$(this).is(':checked')) {
+      uncheckedlist.push($(this).val());
+      $('#id_unselected_id').val(uncheckedlist);
+    }
+  });
+}
+
+function DisableCheckBox() {
+  $('.shipment_checkbox').each(function(){
+    console.log("ADFAS");
+    $(this).attr('disabled','disabled');
+  });
+}
+
+function GetTripStatus(){
+  return $('select#id_trip_status').val();
+}
+
+function CallAPI(){
+  if (GetTripStatus() != ('READY')){
+    GetResultByTripID();
+  }
+  else{
+    GetResultByTripAndSellerShop();
+  }
+}
 </script>
-</html>
+{% endblock %}

@@ -216,8 +216,8 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
                 already_grn = item.product_grn_order_product.filter(grn_order__order__ordered_cart=ordered_cart).aggregate(Sum('delivered_qty'))
                 initial.append({
                     'product' : item,
-                    'po_product_quantity': item.cart_product_mapping.last().qty,
-                    'po_product_price':  item.cart_product_mapping.last().vendor_product.product_price if item.cart_product_mapping.last().vendor_product else item.cart_product_mapping.last().price,
+                    'po_product_quantity': item.cart_product_mapping.filter(cart=ordered_cart).last().qty,
+                    'po_product_price':  item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product.product_price if item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product else item.cart_product_mapping.filter(cart=ordered_cart).last().price,
                     'already_grned_product': 0 if already_grn.get('delivered_qty__sum') == None else already_grn.get('delivered_qty__sum'),
                     })
             self.extra = len(initial)
