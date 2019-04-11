@@ -29,7 +29,7 @@
               }
             });
         });
-		$('#id_close_order').on('change', function(){
+	$('#id_close_order').on('change', function(){
    			if(this.checked) {
         		swal({
         			title: "Are you sure?",

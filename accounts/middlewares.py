@@ -1,5 +1,6 @@
 import threading
 
+
 class RequestMiddleware:
 
   def __init__(self, get_response, thread_local=threading.local()):
