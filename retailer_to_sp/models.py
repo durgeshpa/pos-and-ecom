@@ -419,9 +419,8 @@ class OrderedProduct(models.Model): #Shipment
 
     @property
     def shipment_address(self):
-        if self.order:
-            address = Address.objects.select_related(
-                'shop_name').get(pk=self.order.shipping_address_id)
+        if self.order and self.order.shipping_address:
+            address = self.order.shipping_address
             address_line = address.address_line1
             contact = address.address_contact_number
             shop_name = address.shop_name.shop_name
@@ -447,6 +446,8 @@ class OrderedProduct(models.Model): #Shipment
 
     @property
     def invoice_city(self):
+        if not self.order.shipping_address:
+            return "--"
         city = self.order.shipping_address.city
         return str(city)
 

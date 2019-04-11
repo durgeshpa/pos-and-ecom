@@ -17,15 +17,15 @@
               })
                 .then(willDelete => {
                 if (willDelete){
-                  $("form[id='shipment_form']").submit();
+                  $('form#shipment_form').submit();
                 } else {
                   $('#id_close_order').attr('checked', false);
-                  $("form[id='shipment_form']").submit();
+                  $('form#shipment_form').submit();
                 }
               });
               } else {
                 $('#id_close_order').attr('checked', false);
-                $("form[id='shipment_form']").submit();
+                $('form#shipment_form').submit();
               }
             });
         });

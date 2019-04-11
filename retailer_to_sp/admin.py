@@ -555,6 +555,7 @@ class ShipmentProductMappingAdmin(admin.TabularInline):
     readonly_fields = ['product', 'ordered_qty', 'to_be_shipped_qty', 'already_shipped_qty']
     extra = 0
     max_num = 0
+    list_select_related = ('product',)
 
     def has_delete_permission(self, request, obj=None):
         return False
@@ -563,6 +564,9 @@ class ShipmentProductMappingAdmin(admin.TabularInline):
 class ShipmentAdmin(admin.ModelAdmin):
     inlines = [ShipmentProductMappingAdmin]
     form = ShipmentForm
+    list_select_related = ('order', 'trip', 'order__shipping_address', 'order__seller_shop',
+        'order__buyer_shop', 'order__shipping_address__city', 'order__ordered_cart')
+
     list_display = (
         'invoice_no', 'order', 'created_at', 'shipment_address', 'seller_shop', 'invoice_city',
         'invoice_amount', 'payment_mode', 'shipment_status', 'download_invoice',
