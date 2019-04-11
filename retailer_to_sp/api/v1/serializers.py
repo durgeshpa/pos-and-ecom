@@ -1,7 +1,9 @@
 from rest_framework import serializers
 from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMapping,ProductOption,
                              Size,Color,Fragrance,Flavor,Weight,PackageSize)
-from retailer_to_sp.models import CartProductMapping,Cart,Order,OrderedProduct,Note, CustomerCare, Payment
+from retailer_to_sp.models import (CartProductMapping, Cart, Order,
+                                   OrderedProduct, Note, CustomerCare, 
+                                   Payment, Dispatch)
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
 
                                       OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment)
@@ -459,3 +461,17 @@ class GramMappedOrderSerializer(serializers.ModelSerializer):
         fields = ('id','ordered_cart','order_no','billing_address','shipping_address','total_mrp','total_discount_amount',
                   'total_tax_amount','total_final_amount','order_status','ordered_by','received_by','last_modified_by',
                   'created_at','modified_at','rt_order_order_product')
+
+
+class DispatchSerializer(serializers.ModelSerializer):
+    shipment_status = serializers.CharField(
+                                        source='get_shipment_status_display')
+    order = serializers.SlugRelatedField(read_only=True, slug_field='order_no')
+    created_at = serializers.DateTimeField()
+
+    class Meta:
+        model = Dispatch
+        fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
+                  'shipment_address', 'invoice_city', 'invoice_amount',
+                  'created_at')
+        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount')
