@@ -42,7 +42,7 @@ class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     exclude = ('po_no', 'po_status','last_modified_by')
     autocomplete_fields = ('brand',)
-    list_display = ('po_no','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','is_approve','po_raised_by','po_status', 'download_purchase_order')
+    list_display = ('po_no','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_raised_by','po_status', 'download_purchase_order')
     list_filter = [BrandFilter,SupplierStateFilter ,SupplierFilter,('po_creation_date', DateRangeFilter),('po_validity_date', DateRangeFilter),POAmountSearch,PORaisedBy]
     form = POGenerationForm
 
@@ -62,45 +62,63 @@ class CartAdmin(admin.ModelAdmin):
 
     download_purchase_order.short_description = 'Download Purchase Order'
 
-    def response_change(self, request, obj):
+    # def response_change(self, request, obj):
+    #     get_po_msg = Po_Message.objects.create(message=request.POST.get('message'), created_by=request.user) if request.POST.get('message') else None
+    #
+    #     if "_approve" in request.POST:
+    #         obj.po_status = obj.FINANCE_APPROVED
+    #     elif "_disapprove" in request.POST:
+    #         obj.po_status = obj.DISAPPROVED
+    #     elif "_send" in request.POST:
+    #         obj.po_status = obj.APPROVAL_AWAITED
+    #     else:
+    #         obj.po_status = obj.OPEN
+    #     obj.po_message = get_po_msg
+    #     obj.po_raised_by= request.user
+    #     obj.last_modified_by= request.user
+    #     obj.save()
+    #
+    #     super().response_change(request, obj)
+    #     return HttpResponseRedirect("/admin/gram_to_brand/cart/")
+    #
+    # def save_model(self, request, obj, form, change):
+    #     print(request)
+    #     print(obj)
+    #     print(form.instance)
+    #     print(change)
+    #     if change==False:
+    #         pass
+    #         #obj.is_approve = ''
+    #         # obj.po_status = obj.OPEN
+    #         # obj.po_raised_by = request.user
+    #         # obj.last_modified_by = request.user
+    #     obj.save()
+
+    def save_formset(self, request, form, formset, change):
+        obj = form.instance
+        flag = False
+        get_po_msg = Po_Message.objects.create(message=request.POST.get('message'),
+                                               created_by=request.user) if request.POST.get('message') else None
+
         if "_approve" in request.POST:
-            if request.POST.get('message'):
-                get_po_msg,_ = Po_Message.objects.get_or_create(message=request.POST.get('message'))
-                obj.po_message = get_po_msg
-            obj.is_approve = True
             obj.po_status = obj.FINANCE_APPROVED
-            obj.created_by = request.user
-            obj.last_modified_by = request.user
-            obj.save()
-
-            return HttpResponseRedirect("/admin/gram_to_brand/cart/")
+            flag = True
         elif "_disapprove" in request.POST:
-            if request.POST.get('message'):
-                get_po_msg, _ = Po_Message.objects.get_or_create(message=request.POST.get('message'))
-                obj.po_message = get_po_msg
-            obj.is_approve = False
-            obj.po_status = obj.UNAPPROVED
-            obj.created_by = request.user
-            obj.last_modified_by = request.user
-            obj.save()
-
-            return HttpResponseRedirect("/admin/gram_to_brand/cart/")
+            obj.po_status = obj.DISAPPROVED
+            flag = True
+        elif "_send" in request.POST:
+            obj.po_status = obj.APPROVAL_AWAITED
+            flag = True
         else:
-            obj.is_approve = ''
-            obj.po_status = obj.APPROVAL_AWAITED
-            obj.po_raised_by= request.user
-            obj.last_modified_by= request.user
-            obj.save()
+            obj.po_status = obj.OPEN
+        obj.po_message = get_po_msg
+        obj.po_raised_by = request.user
+        obj.last_modified_by = request.user
+        obj.save()
+        formset.save()
+        if flag:
+            return HttpResponseRedirect("/admin/gram_to_brand/cart/")
 
-        return super().response_change(request, obj)
-
-    def save_model(self, request, obj, form, change):
-        if change==False:
-            obj.is_approve = ''
-            obj.po_status = obj.APPROVAL_AWAITED
-            obj.po_raised_by = request.user
-            obj.last_modified_by = request.user
-            obj.save()
 
     class Media:
             pass
@@ -213,7 +231,6 @@ class GRNOrderAdmin(admin.ModelAdmin):
             Q(order__ordered_cart__gf_shipping_address__shop_name__related_users=request.user) |
             Q(order__ordered_cart__gf_shipping_address__shop_name__shop_owner=request.user)
         )
-
 
     def download_debit_note(self,obj):
         if obj.grn_order_brand_note.count()>0 and obj.grn_order_brand_note.filter(status=True):

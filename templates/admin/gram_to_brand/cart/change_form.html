@@ -10,6 +10,7 @@
                 <textarea rows="4" name="message" cols="50"></textarea>
                 <input type="submit" value="Approve" name="_approve">
                 <input type="submit" value="Dis-approve" style="background:#ba2121" name="_disapprove">
+                <input type="submit" class="default" value="Send for Approval" name="_send">
         </div>
     {% else %}
         {%  if perms.gram_to_brand.can_approve_and_disapprove %}
@@ -17,6 +18,10 @@
                 <textarea rows="4" name="message" cols="50"></textarea>
                 <input type="submit" value="Approve" name="_approve">
                 <input type="submit" value="Dis-approve" style="background:#ba2121" name="_disapprove">
+        </div>
+        {%  elif perms.gram_to_brand.can_create_po %}
+        <div class="submit-row">
+                <input type="submit" class="default" value="Send for Approval" name="_send">
         </div>
         {% else %}
             {{ block.super }}

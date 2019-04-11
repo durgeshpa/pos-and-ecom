@@ -75,20 +75,23 @@ class Po_Message(models.Model):
 
 class Cart(BaseCart):
     """PO Generation"""
+    OPEN = "OPEN"
     APPROVAL_AWAITED = "WAIT"
     FINANCE_APPROVED = "APRW"
-    UNAPPROVED = "RJCT"
+    DISAPPROVED = "RJCT"
     SENT_TO_BRAND = "SENT"
     PARTIAL_DELIVERED = "PDLV"
+    PARTIAL_DELIVERED_CLOSE = "PDLC"
     DELIVERED = "DLVR"
     CANCELED = "CNCL"
     ORDER_STATUS = (
-        (SENT_TO_BRAND, "Send To Brand"),
+        (OPEN,"Open"),
         (APPROVAL_AWAITED, "Waiting For Finance Approval"),
         (FINANCE_APPROVED, "Finance Approved"),
-        (UNAPPROVED, "Finance Not Approved"),
+        (DISAPPROVED, "Finance Not Approved"),
         (PARTIAL_DELIVERED, "Partial Delivered"),
-        (DELIVERED, "Delivered"),
+        (PARTIAL_DELIVERED_CLOSE, "Partial Delivered and Closed"),
+        (DELIVERED, "Completely delivered and Closed"),
         (CANCELED, "Canceled"),
     )
 
@@ -148,6 +151,7 @@ class Cart(BaseCart):
         verbose_name = "PO Generation"
         permissions = (
             ("can_approve_and_disapprove", "Can approve and dis-approve"),
+            ("can_create_po", "Can create po"),
         )
 
     def clean(self):
