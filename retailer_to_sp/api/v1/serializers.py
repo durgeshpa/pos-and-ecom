@@ -464,9 +464,14 @@ class GramMappedOrderSerializer(serializers.ModelSerializer):
 
 
 class DispatchSerializer(serializers.ModelSerializer):
+    shipment_status = serializers.CharField(
+                                        source='get_shipment_status_display')
+    order = serializers.SlugRelatedField(read_only=True, slug_field='order_no')
+    created_at = serializers.DateTimeField()
 
     class Meta:
         model = Dispatch
-        fields = ('order', 'shipment_status', 'invoice_no', 'shipment_address',
-                  'invoice_city', 'invoice_amount')
+        fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
+                  'shipment_address', 'invoice_city', 'invoice_amount',
+                  'created_at')
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount')
