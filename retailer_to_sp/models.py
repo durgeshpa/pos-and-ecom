@@ -303,7 +303,7 @@ class Order(models.Model):
 
     @property
     def order_shipment_amount(self):
-        return order_shipment_amount(self.shipments())        
+        return order_shipment_amount(self.shipments())
 
 
 class Trip(models.Model):
@@ -823,6 +823,3 @@ class Note(models.Model):
 #         rt_order_product_order_product_mapping.all()
 #     import pdb;pdb.set_trace()
 #     shipment_status =  instance.ordered_product.shipment_status
-
-
-

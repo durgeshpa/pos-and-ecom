@@ -396,7 +396,7 @@ class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
                        'total_tax_amount', 'total_final_amount')}),
         )
 
-    readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount', 
+    readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
                     'invoice_no', 'order_shipment_amount', 'shipment_status')
     list_filter = [ProductNameFilter,GFCodeFilter,SKUFilter,SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
         ('created_at', DateTimeRangeFilter)]
@@ -576,7 +576,7 @@ class ShipmentAdmin(admin.ModelAdmin):
         ('shipment_status', ChoiceDropdownFilter)
 
     ]
-    fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city', 
+    fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
         'shipment_status', 'close_order']
     search_fields = ['order__order_no', 'invoice_no', 'order__seller_shop__shop_name',
         'order__buyer_shop__shop_name']
@@ -657,7 +657,7 @@ class TripAdmin(admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
     list_display = (
         'dispathces', 'delivery_boy', 'seller_shop', 'vehicle_no',
-        'trip_status', 'starts_at', 'completed_at'
+        'trip_status', 'starts_at', 'completed_at', 'download_trip_pdf'
     )
     readonly_fields = ('dispathces',)
     autocomplete_fields = ('seller_shop',)
@@ -683,6 +683,10 @@ class TripAdmin(admin.ModelAdmin):
             Q(seller_shop__related_users=request.user) |
             Q(seller_shop__shop_owner=request.user)
                 )
+
+    def download_trip_pdf(self, obj):
+        return format_html("<a href= '%s' >Download Trip PDF</a>"%(reverse('download_trip_pdf', args=[obj.pk])))
+    download_trip_pdf.short_description = 'Trip Details'
 
 class NoteAdmin(admin.ModelAdmin):
     list_display = (
