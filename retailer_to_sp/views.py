@@ -382,7 +382,7 @@ class LoadDispatches(APIView):
         elif seller_shop:
             dispatches = Dispatch.objects.filter(
                                             shipment_status='READY_TO_SHIP',
-                                            order__seller_shop=seller_shop)
+                                            order__seller_shop=seller_shop).order_by('invoice_no')
 
         elif area and trip_id:
             dispatches = Dispatch.objects.annotate(
