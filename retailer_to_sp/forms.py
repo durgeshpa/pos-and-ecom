@@ -230,18 +230,22 @@ class OrderedProductDispatchForm(forms.ModelForm):
 
 
 class TripForm(forms.ModelForm):
-    delivery_boy = forms.ModelChoiceField(queryset=UserWithName.objects.all(),
-                                          widget=RelatedFieldWidgetCanAdd(
-                                              UserWithName, related_url="admin:accounts_user_add"))
+    delivery_boy = forms.ModelChoiceField(
+                        queryset=UserWithName.objects.all(),
+                        widget=RelatedFieldWidgetCanAdd(
+                                UserWithName,
+                                related_url="admin:accounts_user_add"))
     trip_status = forms.ChoiceField(choices=TRIP_STATUS)
     search_by_area = forms.CharField(required=False)
     trip_id = forms.CharField(required=False)
-    selected_id = forms.CharField(widget=forms.HiddenInput())
+    selected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
+    unselected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
 
     class Meta:
         model = Trip
         fields = ['seller_shop', 'delivery_boy', 'vehicle_no', 'trip_status',
-                  'e_way_bill_no', 'search_by_area', 'selected_id']
+                  'e_way_bill_no', 'search_by_area', 'selected_id',
+                  'unselected_id']
 
     class Media:
         js = ('admin/js/select2.min.js', )
