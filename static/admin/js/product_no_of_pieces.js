@@ -15,6 +15,7 @@
     function OnChangeProduct(){
         var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '')+'/';
 
+
         $("[id$='cart_product']").change(function() {
             var row_id = $(this).closest(".form-row").attr("id");
             var row_no = row_id.match(/(\d+)/g);
