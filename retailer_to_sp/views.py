@@ -380,7 +380,7 @@ class LoadDispatches(APIView):
                             order__seller_shop=seller_shop).order_by('-rank')
 
         elif seller_shop:
-            dispatches = Dispatch.objects.filter(
+            dispatches = Dispatch.objects.select_related('order', 'order__shipping_address', 'order__ordered_cart').filter(
                                             shipment_status='READY_TO_SHIP',
                                             order__seller_shop=seller_shop).order_by('invoice_no')
 

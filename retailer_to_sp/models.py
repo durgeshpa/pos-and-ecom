@@ -400,8 +400,7 @@ class OrderedProduct(models.Model): #Shipment
     @property
     def shipment_address(self):
         if self.order:
-            address = Address.objects.select_related(
-                'shop_name').get(pk=self.order.shipping_address_id)
+            address = self.order.shipping_address
             address_line = address.address_line1
             contact = address.address_contact_number
             shop_name = address.shop_name.shop_name
