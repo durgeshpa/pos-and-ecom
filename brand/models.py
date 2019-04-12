@@ -15,6 +15,9 @@ from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
 from shops.models import Shop
 from categories.models import Category
+from django.contrib.postgres.fields import JSONField
+from django.contrib.postgres.fields import ArrayField
+from django.db.models import Case, CharField, Value, When, F
 
 VENDOR_REG_PAYMENT = (
     ("paid","Paid"),
@@ -62,9 +65,19 @@ class Vendor(models.Model):
     list_of_sku_in_NPI_formate = models.FileField(upload_to='vendor/slu_list_in_npi',null=True,blank=True)
     vendor_form = models.FileField(upload_to='vendor/vendor_form',null=True,blank=True)
     vendor_products_csv = models.FileField(upload_to='vendor/vendor_products_csv', null=True,blank=True)
+    vendor_products_brand = ArrayField(models.PositiveIntegerField(),null=True, blank=True,editable=False)
 
     def __str__(self):
         return self.vendor_name
+
+    def get_parent_or_self(self,obj):
+        parent = obj.product.product_brand.brand_parent
+        brand = obj.product.product_brand
+        while parent is not None:
+            brand = parent
+            parent = parent.brand_parent
+        return brand.id
+
 
 class Brand(models.Model):
     brand_name = models.CharField(max_length=20)

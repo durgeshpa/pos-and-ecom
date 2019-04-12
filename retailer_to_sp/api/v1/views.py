@@ -16,7 +16,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
 
-from retailer_to_sp.models import Cart,CartProductMapping,Order,OrderedProduct, Payment, CustomerCare,Return
+from retailer_to_sp.models import (Cart, CartProductMapping, Order,
+                                   OrderedProduct, Payment, CustomerCare,
+                                   Return)
 
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
                                       OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment, CustomerCare as GramMappedCustomerCare )
