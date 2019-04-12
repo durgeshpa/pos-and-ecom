@@ -971,6 +971,9 @@ class DownloadDebitNote(APIView):
 
 class CustomerCareApi(APIView):
 
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
     def get(self, request):
         queryset = CustomerCare.objects.all()
         serializer = CustomerCareSerializer(queryset, many=True)
@@ -987,7 +990,7 @@ class CustomerCareApi(APIView):
         msg = {'is_success': False,'message': [''],'response_data': None}
 
         try:
-            order = GramMappedOrder.objects.get(id=order_id)
+            order = Order.objects.get(id=order_id)
         except ObjectDoesNotExist:
             msg['message'] = ["No order with this name"]
             return Response(msg, status=status.HTTP_200_OK)
@@ -1009,10 +1012,13 @@ class CustomerCareApi(APIView):
 
 class CustomerOrdersList(APIView):
 
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
     def get(self, request):
         #msg = {'is_success': True, 'message': ['No Orders of the logged in user'], 'response_data': None}
         #if request.user.is_authenticated:
-            queryset = GramMappedOrder.objects.filter(ordered_by=request.user)
+            queryset = Order.objects.filter(ordered_by=request.user)
             serializer = OrderNumberSerializer(queryset, many=True)
             msg = {'is_success': True, 'message': ['All Orders of the logged in user'], 'response_data': serializer.data}
             return Response(msg, status=status.HTTP_201_CREATED)
