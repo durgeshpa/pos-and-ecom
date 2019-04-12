@@ -45,10 +45,8 @@ class Shop(models.Model):
     shop_owner = models.ForeignKey(get_user_model(), related_name='shop_owner_shop',on_delete=models.CASCADE)
     shop_type = models.ForeignKey(ShopType,related_name='shop_type_shop',on_delete=models.CASCADE)
     related_users = models.ManyToManyField(get_user_model(),blank=True, related_name='related_shop_user')
-    shop_code = models.CharField(max_length=1, blank=True, null=True,
-                                 validators=[MinLengthValidator(1)])
-    warehouse_code = models.CharField(max_length=2, blank=True, null=True,
-                                      validators=[MinLengthValidator(2)])
+    shop_code = models.CharField(max_length=1, blank=True, null=True)
+    warehouse_code = models.CharField(max_length=2, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=False)
@@ -80,7 +78,6 @@ class Shop(models.Model):
     #                     product=product).order_by('-expiry_date')
 
     class Meta:
-        unique_together = ('shop_code', 'warehouse_code')
         permissions = (
             ("can_see_all_shops", "Can See All Shops"),
             ("can_do_reconciliation", "Can Do Reconciliation"),
