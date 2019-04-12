@@ -603,8 +603,8 @@ class CustomerCare(models.Model):
         Order, on_delete=models.CASCADE, null=True
     )
     name = models.CharField(max_length=255, null=True, blank=True)
-    email_us = models.URLField(default='info@grmafactory.com')
-    contact_us = models.CharField(max_length=10, default='7607846774')
+    email_us = models.URLField(default='help@grmafactory.com')
+    contact_us = models.CharField(max_length=10, default='9319404555')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     order_status = models.CharField(
