@@ -46,9 +46,9 @@ MESSAGE_STATUS = (
     ("resolved", "Resolved"),
 )
 SELECT_ISSUE = (
-    ("cancellation", "Cancellation"),
-    ("return", "Return"),
-    ("others", "Others")
+    ("Cancellation", "cancellation"),
+    ("Return", "return"),
+    ("Others", "others")
 )
 
 TRIP_STATUS = (
