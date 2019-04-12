@@ -15,7 +15,7 @@ from brand.models import Brand
 from addresses.models import State,Address
 from brand.models import Vendor
 from shops.models import Shop
-from gram_to_brand.forms import (OrderForm, CartProductMappingForm, GRNOrderForm, GRNOrderProductForm, GRNOrderProductFormset)
+from gram_to_brand.forms import (OrderForm, CartProductMappingForm, GRNOrderForm, GRNOrderProductForm, GRNOrderProductFormset, POGenerationAccountForm)
 from .forms import POGenerationForm
 from django.http import HttpResponse, HttpResponseRedirect
 from retailer_backend.filters import ( BrandFilter, SupplierStateFilter,SupplierFilter, OrderSearch, QuantitySearch, InvoiceNoSearch,
@@ -35,32 +35,42 @@ class CartProductMappingAdmin(admin.TabularInline):
 
     fields = ('cart_product', 'tax_percentage','case_sizes', 'no_of_cases', 'no_of_pieces', 'price', 'sub_total')
     readonly_fields = ('tax_percentage', 'case_sizes','sub_total')
-    ##readonly_fields = ('tax_percentage','case_sizes','total_no_of_pieces',)
-
 
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     exclude = ('po_no', 'po_status','last_modified_by')
     autocomplete_fields = ('brand',)
-    list_display = ('po_no','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_raised_by','po_status', 'download_purchase_order')
+    #list_display = ('po_no','po_edit_link','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_raised_by','po_status', 'download_purchase_order')
     list_filter = [BrandFilter,SupplierStateFilter ,SupplierFilter,('po_creation_date', DateRangeFilter),('po_validity_date', DateRangeFilter),POAmountSearch,PORaisedBy]
     form = POGenerationForm
+    list_display_links = None
 
     def get_queryset(self, request):
         qs = super(CartAdmin, self).get_queryset(request)
         if request.user.is_superuser:
             return qs
         if request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
-            return qs
+            return qs.exclude(po_status='OPEN')
         return qs.filter(
             Q(gf_shipping_address__shop_name__related_users=request.user) |
             Q(gf_shipping_address__shop_name__shop_owner=request.user)
-                )
+        )
 
     def download_purchase_order(self,obj):
         return format_html("<a href= '%s' >Download PO</a>"%(reverse('admin:download_purchase_order', args=[obj.pk])))
-
     download_purchase_order.short_description = 'Download Purchase Order'
+
+    def get_list_display(self, request):
+
+        def po_edit_link(obj):
+            if request.user.is_superuser:
+                return format_html("<a href= '/admin/gram_to_brand/cart/%s/change/' >%s</a>" % (obj.pk, obj.po_no))
+            if request.user.has_perm('gram_to_brand.can_create_po') and obj.po_status == obj.APPROVAL_AWAITED:
+                return format_html("%s" %obj.po_no)
+            return format_html("<a href= '/admin/gram_to_brand/cart/%s/change/' >%s</a>" % (obj.pk,obj.po_no))
+        po_edit_link.short_description = 'Po No'
+
+        return [po_edit_link,'brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_raised_by','po_status', 'download_purchase_order']
 
     # def response_change(self, request, obj):
     #     get_po_msg = Po_Message.objects.create(message=request.POST.get('message'), created_by=request.user) if request.POST.get('message') else None
@@ -119,7 +129,6 @@ class CartAdmin(admin.ModelAdmin):
         if flag:
             return HttpResponseRedirect("/admin/gram_to_brand/cart/")
 
-
     class Media:
             pass
 
@@ -140,6 +149,19 @@ class CartAdmin(admin.ModelAdmin):
         models.TextField: {'widget': Textarea(attrs={'rows': 2, 'cols': 33})},
     }
 
+    def get_readonly_fields(self, request, obj=None):
+        if request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
+            return 'brand', 'supplier_state','supplier_name', 'gf_shipping_address','gf_billing_address', 'po_validity_date', 'payment_term','delivery_term',
+        return ''
+
+    def get_form(self, request, obj=None, **kwargs):
+        defaults = {}
+        if request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
+            defaults['form'] = POGenerationAccountForm
+        else:
+            defaults['form'] = POGenerationForm
+        defaults.update(kwargs)
+        return super().get_form(request, obj, **defaults)
 
 class GRNOrderForm(forms.ModelForm):
     order = forms.ModelChoiceField(

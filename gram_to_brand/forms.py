@@ -112,12 +112,30 @@ class POGenerationForm(forms.ModelForm):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY_OR_NOT_VALID']%("Gram_to_brand"))
 
-            return self.cleaned_data
-
-        # date = self.cleaned_data['po_validity_date']
-        # if date < datetime.date.today():
-        #     raise forms.ValidationError("Po validity date cannot be in the past!")
         return self.cleaned_data
+
+class POGenerationAccountForm(forms.ModelForm):
+
+    # def __init__(self, *args, **kwargs):
+    #     super(POGenerationAccountForm, self).__init__(*args, **kwargs)
+    #     self.fields['brand'].widget.attrs['disabled'] = 'disabled'
+    #     self.fields['supplier_state'].widget.attrs['readonly'] = True
+    #     self.fields['supplier_name'].widget.attrs['readonly'] = True
+    #     self.fields['gf_shipping_address'].widget.attrs['readonly'] = True
+    #     self.fields['gf_billing_address'].widget.attrs['readonly'] = True
+    #     self.fields['po_validity_date'].widget.attrs['readonly'] = True
+    #     self.fields['payment_term'].widget.attrs['readonly'] = True
+    #     self.fields['delivery_term'].widget.attrs['readonly'] = True
+
+    class Media:
+        pass
+        js = ('/static/admin/css/po_generation.css',)
+
+    class Meta:
+        model = Cart
+        fields = ('brand', 'supplier_state','supplier_name', 'gf_shipping_address',
+                  'gf_billing_address', 'po_validity_date', 'payment_term',
+                  'delivery_term')
 
 
 class CartProductMappingForm(forms.ModelForm):
@@ -134,15 +152,9 @@ class CartProductMappingForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if 'instance' in kwargs and kwargs['instance'].pk:
-            # print(kwargs['instance'].cart_product.product_inner_case_size)
-            # print(kwargs['instance'].cart_product.product_case_size)
-            # print(kwargs['instance'].number_of_cases)
-            # print(kwargs['instance'].qty)
-
             self.fields['no_of_cases'].initial = kwargs['instance'].no_of_cases
             self.fields['no_of_pieces'].initial = kwargs['instance'].no_of_pieces if kwargs['instance'].no_of_pieces else \
                 int(kwargs['instance'].cart_product.product_inner_case_size)*int(kwargs['instance'].cart_product.product_case_size)*int(kwargs['instance'].number_of_cases)
-
 
     class Meta:
         model = CartProductMapping

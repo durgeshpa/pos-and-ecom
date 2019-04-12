@@ -184,8 +184,6 @@ class Cart(BaseCart):
     def po_amount(self):
         self.cart_list.aggregate(sum('total_price'))
 
-
-
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='cart_list',on_delete=models.CASCADE)
     cart_product = models.ForeignKey(Product, related_name='cart_product_mapping', on_delete=models.CASCADE)
