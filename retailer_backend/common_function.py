@@ -53,26 +53,16 @@ def get_financial_year():
     return current_year
 
 
-def get_city_code_mapping(city):
-    default_city_code = getattr(settings, 'DEFAULT_CITY_CODE', '07')
-    city_code_mapping = InvoiceCityMapping.objects.filter(city=city)
-    if city_code_mapping.exists():
-        city_code = city_code_mapping.last().city_code
-    else:
-        city_code = default_city_code
-    return str(city_code)
-
-
 def get_shop_warehouse_code(shop):
     return str(shop.shop_code), str(shop.warehouse_code)
 
 
-def get_shop_warehouse_city_code(address):
-    address = Address.objects.select_related('city',
+def get_shop_warehouse_state_code(address):
+    address = Address.objects.select_related('state',
                                              'shop_name').get(pk=address)
-    city_code = get_city_code_mapping(address.city)
+    state_code = format(address.state_id, '02d')
     shop_code, warehouse_code = get_shop_warehouse_code(address.shop_name)
-    return city_code, shop_code, warehouse_code
+    return state_code, shop_code, warehouse_code
 
 
 def get_last_no_to_increment(model, field, instance_id, starts_with):
@@ -88,12 +78,12 @@ def get_last_no_to_increment(model, field, instance_id, starts_with):
 
 
 def common_pattern(model, field, instance_id, address, invoice_type):
-    city_code, shop_code, warehouse_code = get_shop_warehouse_city_code(
+    state_code, shop_code, warehouse_code = get_shop_warehouse_state_code(
                                             address)
     financial_year = get_financial_year()
     starts_with = "%s%s%s%s%s" % (
                                 shop_code, invoice_type, financial_year,
-                                city_code, warehouse_code)
+                                state_code, warehouse_code)
     last_number = get_last_no_to_increment(model, field, instance_id, starts_with)
     last_number += 1
     ends_with = str(format(last_number, '07d'))
