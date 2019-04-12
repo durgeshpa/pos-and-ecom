@@ -70,6 +70,7 @@ class Cart(models.Model):
     PARTIALLY_DELIVERED = "partially_delivered"
     DELIVERED = "delivered"
     CLOSED = "closed"
+    RESERVED = "reserved"
     CART_STATUS = (
         (ACTIVE, "Active"),
         (PENDING, "Pending"),
@@ -79,6 +80,7 @@ class Cart(models.Model):
         (PARTIALLY_DELIVERED, "Partially Delivered"),
         (DELIVERED, "Delivered"),
         (CLOSED, "Closed"),
+        (RESERVED, "Reserved")
     )
     order_id = models.CharField(max_length=255, null=True, blank=True)
     seller_shop = models.ForeignKey(
@@ -120,6 +122,7 @@ class Cart(models.Model):
                 cart_product.get_cart_product_price(self.seller_shop)
         super().save(*args, **kwargs)
 
+
 @receiver(post_save, sender=Cart)
 def create_order_id(sender, instance=None, created=False, **kwargs):
     if created:
@@ -155,6 +158,14 @@ class CartProductMapping(models.Model):
     def __str__(self):
         return self.cart_product.product_name
 
+    @property
+    def product_case_size(self):
+        return self.product_case_size.product_case_size
+
+    @property
+    def product_inner_case_size(self):
+        return self.product_case_size.product_inner_case_size
+
     def set_cart_product_price(self, shop):
         self.cart_product_price = self.cart_product.get_current_shop_price(shop)
         self.save()
@@ -184,6 +195,7 @@ class Order(models.Model):
     CLOSED = 'closed'
     PDAP = 'payment_done_approval_pending'
     ORDER_PLACED_DISPATCH_PENDING = 'opdp'
+    PARTIALLY_SHIPPED_AND_CLOSED = 'partially_shipped_and_closed'
 
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'),
@@ -204,6 +216,7 @@ class Order(models.Model):
         ('DENIED', 'Denied'),
         (PAYMENT_DONE_APPROVAL_PENDING, "Payment Done Approval Pending"),
         (OPDP, "Order Placed Dispatch Pending"),
+        (PARTIALLY_SHIPPED_AND_CLOSED, "Partially shipped and closed")
 
     )
     #Todo Remove
@@ -358,7 +371,6 @@ class Trip(models.Model):
 class OrderedProduct(models.Model): #Shipment
     CLOSED = "closed"
     READY_TO_SHIP = "READY_TO_SHIP"
-
     SHIPMENT_STATUS = (
         ('SHIPMENT_CREATED', 'QC Pending'),
         (READY_TO_SHIP, 'QC Passed'),
@@ -370,7 +382,8 @@ class OrderedProduct(models.Model): #Shipment
         ('FULLY_RETURNED_AND_CLOSED', 'Fully Returned and Closed'),
         ('PARTIALLY_DELIVERED_AND_CLOSED', 'Partially Delivered and Closed'),
         ('FULLY_DELIVERED_AND_CLOSED', 'Fully Delivered and Closed'),
-        ('CANCELLED', 'Cancelled')
+        ('CANCELLED', 'Cancelled'),
+        (CLOSED, 'Closed')
     )
     order = models.ForeignKey(
         Order, related_name='rt_order_order_product',

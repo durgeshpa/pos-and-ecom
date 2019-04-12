@@ -175,3 +175,4 @@ def retailer_sp_invoice(model, field, instance_id, address):
 def required_fields(form, fields_list):
     for field in fields_list:
         form.fields[field].required = True
+
