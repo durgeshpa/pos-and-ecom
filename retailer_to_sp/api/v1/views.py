@@ -983,7 +983,7 @@ class CustomerCareApi(APIView):
 
     def post(self,request):
         order_id=self.request.POST.get('order_id')
-        select_issue=self.request.POST.get('select_issue')
+        select_issue=self.request.POST.get('select_issue').lower()
         complaint_detail=self.request.POST.get('complaint_detail')
         msg = {'is_success': False,'message': [''],'response_data': None}
 
