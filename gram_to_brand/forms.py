@@ -37,7 +37,7 @@ class OrderForm(forms.ModelForm):
 
 class POGenerationForm(forms.ModelForm):
     brand = forms.ModelChoiceField(
-        queryset=Brand.objects.all(),
+        queryset=Brand.objects.filter(brand_parent__isnull=True,active_status='active'),
         widget=autocomplete.ModelSelect2(url='brand-autocomplete',)
     )
     supplier_state = forms.ModelChoiceField(
