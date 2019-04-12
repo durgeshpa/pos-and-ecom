@@ -5,7 +5,7 @@ from .models import (
     ShopPhoto, ShopDocument, ShopInvoicePattern
 )
 from addresses.models import Address
-from .forms import ParentRetailerMappingForm,ShopParentRetailerMappingForm
+from .forms import ParentRetailerMappingForm,ShopParentRetailerMappingForm,AddressForm,RequiredInlineFormSet, AddressInlineFormSet
 from .views import StockAdjustmentView, stock_adjust_sample
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
@@ -83,15 +83,8 @@ class ShopPhotosAdmin(admin.TabularInline):
     model = ShopPhoto
     fields = ( 'shop_photo','shop_photo_thumbnail', )
     readonly_fields = ('shop_photo_thumbnail',)
+    formset = RequiredInlineFormSet
     extra = 2
-
-from django.forms.models import BaseInlineFormSet
-class RequiredInlineFormSet(BaseInlineFormSet):
-    def _construct_form(self, i, **kwargs):
-        form = super(RequiredInlineFormSet, self)._construct_form(i, **kwargs)
-        if i < 1:
-            form.empty_permitted = False
-        return form
 
 class ShopDocumentsAdmin(admin.TabularInline):
     model = ShopDocument
@@ -109,7 +102,9 @@ class ShopInvoicePatternAdmin(admin.TabularInline):
 
 class AddressAdmin(admin.TabularInline):
     model = Address
-    fields = ('address_contact_name','address_contact_number','address_type','address_line1','state','city','pincode',)
+    formset = AddressInlineFormSet
+    form = AddressForm
+    fields = ('nick_name','address_contact_name','address_contact_number','address_type','address_line1','state','city','pincode',)
     extra = 2
 
 class ShopParentRetailerMapping(admin.TabularInline):

@@ -659,7 +659,7 @@ class TripAdmin(admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
     list_display = (
         'dispathces', 'delivery_boy', 'seller_shop', 'vehicle_no',
-        'trip_status', 'starts_at', 'completed_at'
+        'trip_status', 'starts_at', 'completed_at', 'download_trip_pdf'
     )
     readonly_fields = ('dispathces',)
     autocomplete_fields = ('seller_shop',)
@@ -685,6 +685,10 @@ class TripAdmin(admin.ModelAdmin):
             Q(seller_shop__related_users=request.user) |
             Q(seller_shop__shop_owner=request.user)
                 )
+
+    def download_trip_pdf(self, obj):
+        return format_html("<a href= '%s' >Download Trip PDF</a>"%(reverse('download_trip_pdf', args=[obj.pk])))
+    download_trip_pdf.short_description = 'Trip Details'
 
 class NoteAdmin(admin.ModelAdmin):
     list_display = (
