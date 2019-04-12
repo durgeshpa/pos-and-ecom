@@ -1,5 +1,6 @@
 from django import forms
 from .models import ParentRetailerMapping, Shop, ShopType
+from addresses.models import Address
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from dal import autocomplete
@@ -7,8 +8,8 @@ import csv
 import codecs
 from products.models import Product, ProductPrice
 import re
-
 from .models import Shop
+from addresses.models import State
 
 class ParentRetailerMappingForm(forms.ModelForm):
     parent = forms.ModelChoiceField(
@@ -38,7 +39,7 @@ class ParentRetailerMappingForm(forms.ModelForm):
 class ShopParentRetailerMappingForm(forms.ModelForm):
     parent = forms.ModelChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type__in=['sp','gf']),
-        widget=autocomplete.ModelSelect2(url='shop-parent-autocomplete', )
+        widget=autocomplete.ModelSelect2(url='shop-parent-autocomplete',forward=('shop_type',))
     )
 
     class Meta:
@@ -109,3 +110,41 @@ class ShopForm(forms.ModelForm):
             if not warehouse_code:
                 raise ValidationError(_("This field is required"))
         return warehouse_code
+
+
+class AddressForm(forms.ModelForm):
+    nick_name = forms.CharField(required=True)
+    address_contact_name = forms.CharField(required=True)
+    address_contact_number = forms.CharField(required=True)
+    state = forms.ModelChoiceField(queryset=State.objects.all())
+    pincode = forms.CharField(max_length=6, required=True)
+
+    class Meta:
+        Model = Address
+
+from django.forms.models import BaseInlineFormSet
+
+class RequiredInlineFormSet(BaseInlineFormSet):
+    def _construct_form(self, i, **kwargs):
+        form = super(RequiredInlineFormSet, self)._construct_form(i, **kwargs)
+        if i < 1:
+            form.empty_permitted = False
+        return form
+
+class AddressInlineFormSet(BaseInlineFormSet):
+
+    def clean(self):
+        super(AddressInlineFormSet, self).clean()
+        flag = 0
+        delete = False
+        address_form = []
+        for form in self.forms:
+            if form.cleaned_data and form.cleaned_data['address_type'] == 'shipping':
+                address_form.append(form.cleaned_data.get('DELETE'))
+                flag = 1
+
+        if address_form and all(address_form):
+            raise forms.ValidationError('You cant delete all shipping address')
+        elif flag==0:
+            raise forms.ValidationError('Please add at least one shipping address')
+

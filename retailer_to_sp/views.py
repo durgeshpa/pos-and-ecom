@@ -315,7 +315,7 @@ def trip_planning_change(request, pk):
                                 shipment_instance.trip = None
                                 shipment_instance.shipment_status = 'READY_TO_SHIP'
                         shipment_instance.save()
-                
+
                 if unselected_shipment_ids and current_trip_status == 'READY':
                     unselected_shipments = unselected_shipment_ids.split(',')
                     unselected_shipments = Dispatch.objects.filter(
@@ -612,3 +612,158 @@ def update_order_status(form):
     elif (ordered_qty - sum(total_delivered_qty)) > 0 and sum(total_delivered_qty) > 0:
         order.order_status = 'PARTIALLY_SHIPPED'
     order.save()
+
+
+class DeductReservedQtyFromShipment(object):
+
+    def __init__(self, form, formsets):
+        super(DeductReservedQtyFromShipment, self).__init__()
+        self.shipment = form
+        self.shipment_products = formsets
+
+    def get_cart(self):
+        cart = self.shipment.order.ordered_cart
+        return cart
+
+    def get_sp_ordered_product_reserved(self, product):
+        cart = self.get_cart()
+        return OrderedProductReserved.objects.filter(
+            cart=cart, product=product).last()
+
+    def deduct_reserved_qty(self, product, ordered_qty, already_shipped_qty):
+        ordered_product_reserved = self.get_sp_ordered_product_reserved(
+            product)
+        ordered_product_reserved.reserved_qty = (ordered_qty - already_shipped_qty)
+        ordered_product_reserved.save()
+
+    def update(self):
+        for form in self.shipment_products:
+            product = form.instance.product
+            already_shipped_qty = form.instance.to_be_shipped_qty
+            ordered_qty = int(form.instance.ordered_qty)
+            self.deduct_reserved_qty(product, ordered_qty, already_shipped_qty)
+
+
+class UpdateSpQuantity(object):
+
+    def __init__(self, form, formsets):
+        super(UpdateSpQuantity, self).__init__()
+        self.shipment = form
+        self.shipment_products = formsets
+
+    def get_cart(self):
+        cart = self.shipment.instance.order.ordered_cart
+        return cart
+
+    def get_sp_ordered_product_reserved(self, product):
+        cart = self.get_cart()
+        return OrderedProductReserved.objects.filter(
+            cart=cart, product=product).last()
+
+    def get_shipment_status(self):
+        shipment_status = self.shipment.instance.shipment_status
+        return shipment_status
+
+    def update_shipment_status(self):
+        self.shipment.instance.shipment_status = self.shipment.instance.CLOSED
+        self.shipment.instance.save()
+
+    def close_order(self):
+        status = self.shipment.cleaned_data.get('close_order')
+        return status
+
+    def get_reserved_qty(self, product):
+        ordered_product_reserved = self.get_sp_ordered_product_reserved(
+            product)
+        reserved_qty = ordered_product_reserved.reserved_qty
+        ordered_product_reserved.reserved_qty = 0
+        ordered_product_reserved.save()
+        return reserved_qty
+
+    def update_order_status(self):
+        self.shipment.instance.order.order_status = self.shipment.instance.\
+            order.PARTIALLY_SHIPPED_AND_CLOSED
+        self.shipment.instance.order.save()
+
+    def update_available_qty(self, product):
+        ordered_product_reserved = self.get_sp_ordered_product_reserved(
+            product)
+        shipment_product = ordered_product_reserved.order_product_reserved
+        shipment_product.available_qty += self.get_reserved_qty(product)
+        shipment_product.save()
+
+    def update(self):
+        for inline_form in self.shipment_products:
+            for form in inline_form:
+                product = form.instance.product
+                if (
+                    self.close_order() and
+                    (self.get_shipment_status() !=
+                     self.shipment.instance.CLOSED)):
+
+                    self.update_shipment_status()
+                    self.update_order_status()
+                    self.update_available_qty(product)
+
+class DownloadTripPdf(APIView):
+    permission_classes = (AllowAny,)
+    """
+    PDF Download object
+    """
+    filename = 'trip.pdf'
+    template_name = 'admin/trip/trip.html'
+
+    def get(self, request, *args, **kwargs):
+        trip_obj = get_object_or_404(Trip, pk=self.kwargs.get('pk'))
+        pk = self.kwargs.get('pk')
+        trip = Trip.objects.get(pk=pk)
+        trip_no = trip.dispatch_no
+        delivery_boy = trip.delivery_boy
+        trip_date = trip.created_at
+        no_of_orders = trip.rt_invoice_trip.all().count()
+        amount = 0
+        invoices = trip.rt_invoice_trip.all()
+        trip_detail_list =[]
+        for invoice in invoices:
+            products=[]
+            amount += float(invoice.invoice_amount)
+            for n in invoice.rt_order_product_order_product_mapping.all():
+                products.append(n.product)
+            no_of_products = len(list(set(products)))
+            trip_invoice_details = {
+                        "invoice_no":  invoice.invoice_no,
+                        "retailer_address": invoice.shipment_address,
+                        "no_of_products": no_of_products,
+                        "invoice_amount": invoice.invoice_amount
+
+            }
+            trip_detail_list.append(trip_invoice_details)
+        total_invoice_amount = round(amount, 2)
+        data = {
+            "object": trip_obj,
+            "trip": trip,
+            "trip_no": trip_no,
+            "delivery_boy": delivery_boy,
+            "trip_date": trip_date,
+            "no_of_orders": no_of_orders,
+            "total_invoice_amount": total_invoice_amount,
+            "url": request.get_host(),
+            "scheme": request.is_secure() and "https" or "http",
+            "trip_detail_list":trip_detail_list
+
+        }
+
+        cmd_option = {
+            "margin-top": 10,
+            "zoom": 1,
+            "javascript-delay": 1000,
+            "footer-center": "[page]/[topage]",
+            "no-stop-slow-scripts": True,
+            "quiet": True
+        }
+        response = PDFTemplateResponse(
+            request=request, template=self.template_name,
+            filename=self.filename, context=data,
+            show_content_in_browser=False, cmd_options=cmd_option
+        )
+        return response
