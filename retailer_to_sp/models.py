@@ -613,7 +613,7 @@ class CustomerCare(models.Model):
     )
     select_issue = models.CharField(
         verbose_name="Issue", max_length=100,
-        choices=SELECT_ISSUE, null=True
+        choices=SELECT_ISSUE, null=True, blank=True
     )
     complaint_detail = models.CharField(max_length=2000, null=True)
 
