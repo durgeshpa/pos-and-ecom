@@ -3,6 +3,8 @@ from retailer_backend.validators import (NameValidator, AddressNameValidator,
         MobileNumberValidator, PinCodeValidator)
 from shops.models import Shop
 from django.utils.translation import ugettext_lazy as _
+from django.core.exceptions import ValidationError
+
 
 address_type_choices = (
     ("billing","Billing"),
@@ -73,7 +75,27 @@ class Address(models.Model):
     status = models.BooleanField(default=True)
 
     def __str__(self):
-        return "%s - %s"%(self.shop_name , self.address_line1)
+        return "%s - %s" % (self.shop_name, self.address_line1)
+
+    @classmethod
+    def check_warehouse_code(cls, obj):
+        shop = obj.shop_name
+        if shop:
+            shop_warehouse_code = shop.warehouse_code
+            if shop_warehouse_code:
+                warehouse_code = Address.objects.filter(
+                        state=obj.state,
+                        shop_name__warehouse_code=shop.warehouse_code,
+                        shop_name__shop_type__shop_type__in=['sp', 'gf'])
+                if warehouse_code.exists():
+                    raise ValidationError(
+                        _('Please change the warehouse code above.'
+                          'It is already used in this state'),
+                    )
+
+    def clean(self):
+        return self.__class__.check_warehouse_code(self)
+
 
 class InvoiceCityMapping(models.Model):
 

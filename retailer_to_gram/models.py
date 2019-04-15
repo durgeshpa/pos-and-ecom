@@ -7,7 +7,7 @@ from products.models import Product
 from django.dispatch import receiver
 from django.db.models.signals import pre_save, post_save
 from retailer_backend.common_function import(po_pattern, grn_pattern,
-    brand_note_pattern, order_id_pattern, invoice_pattern)
+    brand_note_pattern, order_id_pattern_r_gram, invoice_pattern)
 from django.core.validators import MinValueValidator
 
 from otp.sms import SendSms
@@ -70,8 +70,9 @@ class Cart(models.Model):
 @receiver(post_save, sender=Cart)
 def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
     if created:
-        instance.order_id = order_id_pattern(instance.pk)
+        instance.order_id = order_id_pattern_r_gram(instance.pk)
         instance.save()
+
 
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='rt_cart_list',on_delete=models.CASCADE)
@@ -137,14 +138,17 @@ class OrderedProduct(models.Model):
     class Meta:
         verbose_name= 'Shipment Planning'
 
+
 @receiver(post_save, sender=OrderedProduct)
 def create_invoice_no(sender, instance=None, created=False, **kwargs):
     if created:
-        try:
-            city_id = instance.order.billing_address.city_id
-            instance.invoice_no = invoice_pattern(instance.pk, city_id=city_id)
-        except:
-            instance.invoice_no = invoice_pattern(instance.pk)
+        instance.invoice_no = invoice_pattern(
+                                sender, 'invoice_no',
+                                instance.pk, instance.order.seller_shop.
+                                shop_name_address_mapping.filter(
+                                                address_type='billing'
+                                                ).last().pk)
+
         instance.save()
 
 
