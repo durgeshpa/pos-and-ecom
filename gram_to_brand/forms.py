@@ -112,24 +112,12 @@ class POGenerationForm(forms.ModelForm):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY_OR_NOT_VALID']%("Gram_to_brand"))
 
+        if 'po_validity_date' in self.cleaned_data and self.cleaned_data['po_validity_date'] < datetime.date.today():
+            raise ValidationError(_("Po validity date cannot be in the past!"))
+
         return self.cleaned_data
 
 class POGenerationAccountForm(forms.ModelForm):
-
-    # def __init__(self, *args, **kwargs):
-    #     super(POGenerationAccountForm, self).__init__(*args, **kwargs)
-    #     self.fields['brand'].widget.attrs['disabled'] = 'disabled'
-    #     self.fields['supplier_state'].widget.attrs['readonly'] = True
-    #     self.fields['supplier_name'].widget.attrs['readonly'] = True
-    #     self.fields['gf_shipping_address'].widget.attrs['readonly'] = True
-    #     self.fields['gf_billing_address'].widget.attrs['readonly'] = True
-    #     self.fields['po_validity_date'].widget.attrs['readonly'] = True
-    #     self.fields['payment_term'].widget.attrs['readonly'] = True
-    #     self.fields['delivery_term'].widget.attrs['readonly'] = True
-
-    class Media:
-        pass
-        js = ('/static/admin/css/po_generation.css',)
 
     class Meta:
         model = Cart

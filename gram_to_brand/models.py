@@ -154,10 +154,10 @@ class Cart(BaseCart):
             ("can_create_po", "Can create po"),
         )
 
-    def clean(self):
-        super(Cart, self).clean()
-        if self.po_validity_date and self.po_validity_date < datetime.date.today():
-            raise ValidationError(_("Po validity date cannot be in the past!"))
+    # def clean(self):
+    #     super(Cart, self).clean()
+    #     if self.po_validity_date and self.po_validity_date < datetime.date.today():
+    #         raise ValidationError(_("Po validity date cannot be in the past!"))
 
     def __str__(self):
         return str(self.po_no)

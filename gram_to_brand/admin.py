@@ -36,6 +36,13 @@ class CartProductMappingAdmin(admin.TabularInline):
     fields = ('cart_product', 'tax_percentage','case_sizes', 'no_of_cases', 'no_of_pieces', 'price', 'sub_total')
     readonly_fields = ('tax_percentage', 'case_sizes','sub_total')
 
+    def get_readonly_fields(self, request, obj=None):
+        if request.user.is_superuser:
+            return 'tax_percentage', 'case_sizes','sub_total'
+        elif request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
+            return 'cart_product', 'tax_percentage','case_sizes', 'no_of_cases', 'no_of_pieces', 'price', 'sub_total'
+        return 'tax_percentage', 'case_sizes','sub_total'
+
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     exclude = ('po_no', 'po_status','last_modified_by')
@@ -150,13 +157,17 @@ class CartAdmin(admin.ModelAdmin):
     }
 
     def get_readonly_fields(self, request, obj=None):
-        if request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
+        if request.user.is_superuser:
+            return ''
+        elif request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
             return 'brand', 'supplier_state','supplier_name', 'gf_shipping_address','gf_billing_address', 'po_validity_date', 'payment_term','delivery_term',
         return ''
 
     def get_form(self, request, obj=None, **kwargs):
         defaults = {}
-        if request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
+        if request.user.is_superuser:
+            defaults['form'] = POGenerationForm
+        elif request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
             defaults['form'] = POGenerationAccountForm
         else:
             defaults['form'] = POGenerationForm
