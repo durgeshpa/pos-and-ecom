@@ -600,7 +600,7 @@ ShipmentProductMapping._meta.get_field('shipped_qty').verbose_name = 'No. of Pie
 
 class CustomerCare(models.Model):
     order_id = models.ForeignKey(
-        Order, on_delete=models.CASCADE, null=True
+        Order, on_delete=models.CASCADE, null=True, blank=True
     )
     name = models.CharField(max_length=255, null=True, blank=True)
     email_us = models.URLField(default='help@grmafactory.com')
@@ -609,7 +609,7 @@ class CustomerCare(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     order_status = models.CharField(
         max_length=20, choices=MESSAGE_STATUS,
-        default='pending', null=True
+        default='pending', null=True, blank=True
     )
     select_issue = models.CharField(
         verbose_name="Issue", max_length=100,
