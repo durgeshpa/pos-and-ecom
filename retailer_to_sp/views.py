@@ -12,6 +12,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 
+from sp_to_gram.models import OrderedProductReserved
 from retailer_to_sp.models import (
     Cart, CartProductMapping, Order, OrderedProduct, OrderedProductMapping,
     CustomerCare, Payment, Return, ReturnProductMapping, Note, Trip, Dispatch
@@ -241,6 +242,9 @@ def ordered_product_mapping_shipment(request):
                             formset_data = forms.save(commit=False)
                             formset_data.ordered_product = ordered_product_instance
                             formset_data.save()
+                update_qty = DeductReservedQtyFromShipment(
+                    ordered_product_instance, form_set)
+                update_qty.update()
                 return redirect('/admin/retailer_to_sp/shipment/')
 
     return render(

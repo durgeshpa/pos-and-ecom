@@ -2,7 +2,7 @@ from rest_framework import serializers
 from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMapping,ProductOption,
                              Size,Color,Fragrance,Flavor,Weight,PackageSize)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order,
-                                   OrderedProduct, Note, CustomerCare, 
+                                   OrderedProduct, Note, CustomerCare,
                                    Payment, Dispatch)
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
 
@@ -320,7 +320,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
 class OrderNumberSerializer(serializers.ModelSerializer):
 
     class Meta:
-        model=GramMappedOrder
+        model=Order
         fields=('id','order_no',)
 
 class CustomerCareSerializer(serializers.ModelSerializer):
