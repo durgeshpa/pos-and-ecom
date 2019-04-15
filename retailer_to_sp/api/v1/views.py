@@ -982,8 +982,6 @@ class CustomerCareApi(APIView):
 
 
     def post(self,request):
-        #import pdb; pdb.set_trace()
-        #msg = {'is_success': False,'message': ['Sorry no message entered!'],'response_data': None}
         order_id=self.request.POST.get('order_id')
         select_issue=self.request.POST.get('select_issue')
         complaint_detail=self.request.POST.get('complaint_detail')
