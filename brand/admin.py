@@ -9,6 +9,7 @@ from .resources import BrandResource
 from products.admin import ExportCsvMixin
 from admin_auto_filters.filters import AutocompleteFilter
 from .forms import BrandForm, ProductVendorMappingForm
+from .views import save_vendor
 
 class BrandSearch(InputFilter):
     parameter_name = 'brand_name'
@@ -110,11 +111,16 @@ class ProductAdmin(admin.TabularInline):
 class VendorAdmin(admin.ModelAdmin):
     form = VendorForm
     inlines = [ProductAdmin]
-    list_display = ('vendor_name', 'mobile','state', 'city')
+    list_display = ('vendor_name', 'mobile','state', 'city','vendor_products_brand')
     search_fields= ('vendor_name',)
     list_filter = [VendorNameSearch, VendorContactNoSearch, StateFilter, CityFilter]
 
     class Media:
         pass
+
+    def save_formset(self, request, form, formset, change):
+        formset.save()
+        save_vendor(form.instance)
+        form.instance.save()
 
 admin.site.register(Vendor,VendorAdmin)
