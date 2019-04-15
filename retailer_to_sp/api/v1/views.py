@@ -990,7 +990,7 @@ class CustomerCareApi(APIView):
             msg['message']= ["Please typle the complaint_detail"]
             return Response(msg, status=status.HTTP_400_BAD_REQUEST)
 
-            serializer = CustomerCareSerializer(data=request.data)
+        serializer = CustomerCareSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
             msg = {'is_success': True, 'message': ['Message Sent'], 'response_data': serializer.data}
