@@ -131,6 +131,8 @@ class ShopDocument(models.Model):
         super(ShopDocument, self).clean()
         if self.shop_document_type == 'gstin' and len(self.shop_document_number) >15 or self.shop_document_type == 'gstin' and len(self.shop_document_number) <15:
             raise ValidationError(_("GSTIN Number must be equal to 15 digits only"))
+        if self.shop_document_type =='gstin' and not re.match("^[a-zA-Z0-9]*$", self.shop_document_number):
+            raise ValidationError(_("GSTIN values must be alphanumeric only"))
 
 class ShopInvoicePattern(models.Model):
     ACTIVE = 'ACT'
