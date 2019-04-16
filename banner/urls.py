@@ -2,7 +2,7 @@ from django.conf.urls import include, url
 from django.contrib import admin
 from banner import views
 from . import views
-from .views import BrandAutocomplete,CategoryAutocomplete,ProductAutocomplete
+from .views import BrandAutocomplete,CategoryAutocomplete,ProductAutocomplete,BannerShopAutocomplete
 
 urlpatterns = [
 
@@ -16,4 +16,5 @@ url(r'^category-autocomplete/$',
 url(r'^banner-product-autocomplete/$',
     ProductAutocomplete.as_view(),
     name='banner-product-autocomplete', ),
+url(r'^banner-shop-autocomplete/$', BannerShopAutocomplete.as_view(), name='banner-shop-autocomplete',),
 ]

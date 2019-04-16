@@ -46,23 +46,8 @@
 
     <div class="container">
 
-      <form action="/admin/shops/shop/shop-sales-report/" method="get" enctype="multipart/form-data" id="ProductForm" data-cities-url="{% url 'admin:ajax_load_cities' %}" data-gf-url="{% url 'admin:ajax_load_gf' %}">
-        <div class="row">
-          <div class="col">
-            {{form.state.label}}
-            {{form.state}}
-          </div>
+      <form action="/admin/shops/shop/shop-sales-report/" method="get" enctype="multipart/form-data">
 
-          <div class="col">
-            {{form.city.label}}
-            {{form.city}}
-          </div>
-
-
-
-        </div>
-
-        {{form.gf_list}}
       </br>
       <div class="jumbotron jumbotron-fluid">
         <div class="container text-center">
@@ -113,45 +98,6 @@
   <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
 
 
-  <script>
-  $("#id_state").change(function () {
-    var url = $("#ProductForm").attr("data-cities-url");
-    var stateId = $(this).val();
-
-    $.ajax({
-      url: url,
-      data: {
-        'state': stateId
-      },
-      success: function (data) {
-        $("#id_city").html(data);
-        $("#id_gf_list").empty();
-      }
-    });
-  });
-</script>
-
-
-
-<script>
-$("#id_city").change(function () {
-  var url = $("#ProductForm").attr("data-gf-url");
-  var state = $("#id_state").val();
-  var city = $(this).val();
-
-  $.ajax({
-    url: url,
-    data: {
-      'state_id': state,
-      'city_id': city
-    },
-    success: function (data) {
-    $("#id_gf_list").html(data);
-    }
-  });
-});
-</script>
-
 <script>
 {% if form.errors %}
   swal({
@@ -194,26 +140,4 @@ $('option').mousedown(function(e) {
 });
 </script>-->
 
-<script>
-
-$("#id_category").change(function () {
-
-  $('option:selected', $(this)).each(function() {
-
-  var url = $("#ProductFilterForm").attr("data-brands-url");
-  var categoryId = $("option:selected").map(function(){ return this.value }).get().join(",");
-
-  $.ajax({
-    url: url,
-    data: {
-      'category_id': categoryId
-    },
-    success: function (data) {
-      $("#id_brand").html(data);
-
-    }
-  });
-});
-});
-</script>
 </html>

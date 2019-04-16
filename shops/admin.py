@@ -5,7 +5,9 @@ from .models import (
     ShopPhoto, ShopDocument, ShopInvoicePattern
 )
 from addresses.models import Address
-from .forms import ParentRetailerMappingForm,ShopParentRetailerMappingForm,AddressForm,RequiredInlineFormSet, AddressInlineFormSet
+from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
+                    ShopForm, AddressForm, RequiredInlineFormSet,
+                    AddressInlineFormSet)
 from .views import StockAdjustmentView, stock_adjust_sample
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
@@ -15,6 +17,7 @@ from django.http import HttpResponse
 from admin_auto_filters.filters import AutocompleteFilter
 from services.views import SalesReportFormView, SalesReport
 from rangefilter.filter import DateRangeFilter, DateTimeRangeFilter
+
 
 class ShopResource(resources.ModelResource):
     class Meta:
@@ -127,6 +130,7 @@ class ServicePartnerFilter(InputFilter):
 
 class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ShopResource
+    form = ShopForm
     actions = ["export_as_csv"]
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin,

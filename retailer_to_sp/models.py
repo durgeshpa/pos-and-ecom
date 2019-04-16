@@ -46,9 +46,9 @@ MESSAGE_STATUS = (
     ("resolved", "Resolved"),
 )
 SELECT_ISSUE = (
-    ("cancellation", "Cancellation"),
-    ("return", "Return"),
-    ("others", "Others")
+    ("Cancellation", "cancellation"),
+    ("Return", "return"),
+    ("Others", "others")
 )
 
 TRIP_STATUS = (
@@ -70,6 +70,7 @@ class Cart(models.Model):
     PARTIALLY_DELIVERED = "partially_delivered"
     DELIVERED = "delivered"
     CLOSED = "closed"
+    RESERVED = "reserved"
     CART_STATUS = (
         (ACTIVE, "Active"),
         (PENDING, "Pending"),
@@ -79,6 +80,7 @@ class Cart(models.Model):
         (PARTIALLY_DELIVERED, "Partially Delivered"),
         (DELIVERED, "Delivered"),
         (CLOSED, "Closed"),
+        (RESERVED, "Reserved")
     )
     order_id = models.CharField(max_length=255, null=True, blank=True)
     seller_shop = models.ForeignKey(
@@ -120,10 +122,15 @@ class Cart(models.Model):
                 cart_product.get_cart_product_price(self.seller_shop)
         super().save(*args, **kwargs)
 
+
 @receiver(post_save, sender=Cart)
 def create_order_id(sender, instance=None, created=False, **kwargs):
     if created:
-        instance.order_id = order_id_pattern(instance.pk)
+        instance.order_id = order_id_pattern(
+                                    sender, 'order_id', instance.pk,
+                                    instance.seller_shop.
+                                    shop_name_address_mapping.filter(
+                                        address_type='billing').last().pk)
         instance.save()
 
 
@@ -150,6 +157,14 @@ class CartProductMapping(models.Model):
 
     def __str__(self):
         return self.cart_product.product_name
+
+    @property
+    def product_case_size(self):
+        return self.product_case_size.product_case_size
+
+    @property
+    def product_inner_case_size(self):
+        return self.product_case_size.product_inner_case_size
 
     def set_cart_product_price(self, shop):
         self.cart_product_price = self.cart_product.get_current_shop_price(shop)
@@ -180,6 +195,7 @@ class Order(models.Model):
     CLOSED = 'closed'
     PDAP = 'payment_done_approval_pending'
     ORDER_PLACED_DISPATCH_PENDING = 'opdp'
+    PARTIALLY_SHIPPED_AND_CLOSED = 'partially_shipped_and_closed'
 
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'),
@@ -200,6 +216,7 @@ class Order(models.Model):
         ('DENIED', 'Denied'),
         (PAYMENT_DONE_APPROVAL_PENDING, "Payment Done Approval Pending"),
         (OPDP, "Order Placed Dispatch Pending"),
+        (PARTIALLY_SHIPPED_AND_CLOSED, "Partially shipped and closed")
 
     )
     #Todo Remove
@@ -352,9 +369,11 @@ class Trip(models.Model):
 
 
 class OrderedProduct(models.Model): #Shipment
+    CLOSED = "closed"
+    READY_TO_SHIP = "READY_TO_SHIP"
     SHIPMENT_STATUS = (
         ('SHIPMENT_CREATED', 'QC Pending'),
-        ('READY_TO_SHIP', 'QC Passed'),
+        (READY_TO_SHIP, 'QC Passed'),
         ('READY_TO_DISPATCH', 'Ready to Dispatch'),
         ('OUT_FOR_DELIVERY', 'Out for Delivery'),
         ('FULLY_RETURNED_AND_COMPLETED', 'Fully Returned and Completed'),
@@ -363,7 +382,8 @@ class OrderedProduct(models.Model): #Shipment
         ('FULLY_RETURNED_AND_CLOSED', 'Fully Returned and Closed'),
         ('PARTIALLY_DELIVERED_AND_CLOSED', 'Partially Delivered and Closed'),
         ('FULLY_DELIVERED_AND_CLOSED', 'Fully Delivered and Closed'),
-        ('CANCELLED', 'Cancelled')
+        ('CANCELLED', 'Cancelled'),
+        (CLOSED, 'Closed')
     )
     order = models.ForeignKey(
         Order, related_name='rt_order_order_product',
@@ -446,19 +466,27 @@ class OrderedProduct(models.Model): #Shipment
         return str("-")
 
     def save(self, *args, **kwargs):
-        if self._state.adding:
-            invoice_prefix = self.order.seller_shop.invoice_pattern.filter(
-                status='ACT').last().pattern
-            last_invoice = OrderedProduct.objects.filter(
-                order__in=self.order.seller_shop.rt_seller_shop_order.all()
-            ).order_by('invoice_no').last()
-            if last_invoice:
-                invoice_id = getcredit_note_id(last_invoice.invoice_no,
-                                               invoice_prefix)
-                invoice_id += 1
-            else:
-                invoice_id = 1
-            self.invoice_no = retailer_sp_invoice(invoice_prefix, invoice_id)
+        # if self._state.adding:
+        #     invoice_prefix = self.order.seller_shop.invoice_pattern.filter(
+        #         status='ACT').last().pattern
+        #     last_invoice = OrderedProduct.objects.filter(
+        #         order__in=self.order.seller_shop.rt_seller_shop_order.all()
+        #     ).order_by('invoice_no').last()
+        #     if last_invoice:
+        #         invoice_id = getcredit_note_id(last_invoice.invoice_no,
+        #                                        invoice_prefix)
+        #         invoice_id += 1
+        #     else:
+        #         invoice_id = 1
+        #     self.invoice_no = retailer_sp_invoice(invoice_prefix, invoice_id)
+        if not self.invoice_no:
+            if self.shipment_status == self.READY_TO_SHIP:
+                self.invoice_no = retailer_sp_invoice(
+                                        self.__class__, 'invoice_no',
+                                        self.pk, self.order.seller_shop.
+                                        shop_name_address_mapping.filter(
+                                                        address_type='billing'
+                                                        ).last().pk)
         super().save(*args, **kwargs)
 
 

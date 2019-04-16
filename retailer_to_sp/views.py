@@ -12,6 +12,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 
+from sp_to_gram.models import OrderedProductReserved
 from retailer_to_sp.models import (
     Cart, CartProductMapping, Order, OrderedProduct, OrderedProductMapping,
     CustomerCare, Payment, Return, ReturnProductMapping, Note, Trip, Dispatch
@@ -26,6 +27,7 @@ from django.views.generic import TemplateView
 from django.conf import settings
 
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector, TrigramSimilarity
+from shops.models import Shop
 from retailer_to_sp.api.v1.serializers import DispatchSerializer
 import json
 from django.http import HttpResponse
@@ -240,6 +242,9 @@ def ordered_product_mapping_shipment(request):
                             formset_data = forms.save(commit=False)
                             formset_data.ordered_product = ordered_product_instance
                             formset_data.save()
+                update_qty = DeductReservedQtyFromShipment(
+                    ordered_product_instance, form_set)
+                update_qty.update()
                 return redirect('/admin/retailer_to_sp/shipment/')
 
     return render(
@@ -613,6 +618,21 @@ def update_order_status(form):
         order.order_status = 'PARTIALLY_SHIPPED'
     order.save()
 
+class SellerShopAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Shop.objects.filter(Q(shop_type__shop_type='sp',shop_owner=self.request.user) | Q(shop_type__shop_type='sp',related_users=self.request.user))
+
+        if self.q:
+            qs = qs.filter(shop_name__startswith=self.q)
+        return qs
+
+class BuyerShopAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Shop.objects.filter(shop_type__shop_type='r',shop_owner=self.request.user)
+
+        if self.q:
+            qs = qs.filter(shop_name__startswith=self.q)
+        return qs
 
 class DeductReservedQtyFromShipment(object):
 
