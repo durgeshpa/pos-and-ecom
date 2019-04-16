@@ -3,25 +3,9 @@
   var uncheckedlist = new Array();
 
   $(document).ready(function() {
-    SubmitFormConfirmDialog();
-    GetResultOnTypingArea();
-    AddCheckedIDToList();
     CallAPI();
   });
 
-
-function SubmitFormConfirmDialog(){
-  $('form').bind('submit', function(e) {
-      if ($('input[type=checkbox]:checked').length) {
-          var c = confirm("Click OK to continue?");
-          return c;
-      } else {
-          e.preventDefault(e);
-          alert("Please select at least one shipment");
-
-      }
-  }); 
-}
 
 function GetURL() {
   var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '') + '/';
@@ -29,52 +13,15 @@ function GetURL() {
   return url;
 }
 
-function GetResultOnTypingArea(){
-  $('#id_search_by_area').on('input', function() {
-      EmptyElement('tbody#data');
-      var area = $(this).val();
-      var seller_shop = $('#id_seller_shop').val();
-      var trip_id = $('#id_trip_id').val();
-
-      if (seller_shop.length == 0) {
-          alert("Please select Seller Shop first!");
-      } else {
-          $.ajax({
-              url: GetURL(),
-              data: {
-                  'seller_shop_id': seller_shop,
-                  'area': area,
-                  'trip_id': trip_id
-
-              },
-              success: function(data) {
-                CheckResponse(data);
-              }
-          });
-      }
-  });
-}
-
-function GetResultByTripAndSellerShop() {
-  var seller_shop_id = $('select#id_seller_shop').val();
-  var trip_id = $('#id_trip_id').val();
-  EmptyElement('tbody#data');
-  var seller_shop_id = $("option:selected").val();
-  $.ajax({
-      url: GetURL(),
-      data: {
-          'seller_shop_id': seller_shop_id,
-          'trip_id': trip_id
-      },
-      success: function(data) {
-        CheckResponse(data);
-      }
-  });
+function GetTripID() {
+  var url = window.location.href;
+  url = url.split("/")
+  trip_id = url[url.length - 3];
+  return trip_id
 }
 
 function GetResultByTripID() {
-  var trip_id = $('#id_trip_id').val();
-  EmptyElement('tbody#data');
+  var trip_id = GetTripID();
   var seller_shop_id = $("option:selected").val();
   $.ajax({
       url: GetURL(),
@@ -110,26 +57,9 @@ function CreateResponseTable(data){
       }
       var pk = data['response_data'][i]['pk'];
       var trip = data['response_data'][i]['trip'];
-      if(trip==trip_id){
-        if (GetTripStatus() != ('READY')){
-            var select = "<td><input type='checkbox' class='shipment_checkbox' value='"+pk+"' checked disabled='disabled'></td>";
-        }
-        else{
-          var select = "<td><input type='checkbox' class='shipment_checkbox' value='"+pk+"' checked></td>";
-        }
-        list.push(pk);
-        $('#id_selected_id').val(list);
-      }
-      else{
-        var select = "<td><input type='checkbox' class='shipment_checkbox' value='"+pk+"'></td>";
-      }
       var order = "<td>" + data['response_data'][i]['order'] + "</td>";
       var shipment_status = "<td>" + data['response_data'][i]['shipment_status'] + "</td>";
-      if (GetTripStatus() == ('COMPLETED')){
-        var invoice_no = "<td><a href='/admin/retailer_to_sp/orderedproduct/"+pk+"/change/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
-      }else {
-        var invoice_no = "<td><a href='/admin/retailer_to_sp/dispatch/"+pk+"/change/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
-      }
+      var invoice_no = "<td><a href='/admin/retailer_to_sp/orderedproduct/"+pk+"/change/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
       var invoice_amount = "<td>" + data['response_data'][i]['invoice_amount'] + "</td>";
       var invoice_city = "<td>" + data['response_data'][i]['invoice_city'] + "</td>";
       var shipment_address = "<td>" + data['response_data'][i]['shipment_address'] + "</td>";
@@ -139,50 +69,7 @@ function CreateResponseTable(data){
   }
 }
 
-function EmptyElement(id){
-  $(id).empty();
-}
-
-function AddCheckedIDToList(){
-  $(document).on('click', '.shipment_checkbox', function() {
-      if ($(this).is(':checked')) {
-          GetUncheckedFields();
-          list.push($(this).val());
-          $('#id_selected_id').val(list);
-      } else {
-          GetUncheckedFields();
-          list.pop($(this).val());
-          $('#id_selected_id').val(list);
-      }
-  });
-}
-
-function GetUncheckedFields() {
-  $('.shipment_checkbox').each(function(){
-    if (!$(this).is(':checked')) {
-      uncheckedlist.push($(this).val());
-      $('#id_unselected_id').val(uncheckedlist);
-    }
-  });
-}
-
-function DisableCheckBox() {
-  $('.shipment_checkbox').each(function(){
-    console.log("ADFAS");
-    $(this).attr('disabled','disabled');
-  });
-}
-
-function GetTripStatus(){
-  return $('select#id_trip_status').val();
-}
-
 function CallAPI(){
-  if (GetTripStatus() != ('READY')){
     GetResultByTripID();
-  }
-  else{
-    GetResultByTripAndSellerShop();
-  }
 }
 })(django.jQuery);
