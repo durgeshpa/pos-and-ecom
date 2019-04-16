@@ -716,7 +716,6 @@ class UpdateSpQuantity(object):
                     self.close_order() and
                     (self.get_shipment_status() !=
                      self.shipment.instance.CLOSED)):
-
                     self.update_order_status()
                     self.update_available_qty(product)
 
