@@ -684,10 +684,6 @@ class UpdateSpQuantity(object):
         shipment_status = self.shipment.instance.shipment_status
         return shipment_status
 
-    def update_shipment_status(self):
-        self.shipment.instance.shipment_status = self.shipment.instance.CLOSED
-        self.shipment.instance.save()
-
     def close_order(self):
         status = self.shipment.cleaned_data.get('close_order')
         return status
@@ -720,8 +716,6 @@ class UpdateSpQuantity(object):
                     self.close_order() and
                     (self.get_shipment_status() !=
                      self.shipment.instance.CLOSED)):
-
-                    self.update_shipment_status()
                     self.update_order_status()
                     self.update_available_qty(product)
 
