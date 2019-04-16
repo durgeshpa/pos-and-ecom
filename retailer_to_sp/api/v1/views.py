@@ -970,9 +970,7 @@ class DownloadDebitNote(APIView):
         return response
 
 class CustomerCareApi(APIView):
-
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (AllowAny,)
 
     def get(self, request):
         queryset = CustomerCare.objects.all()
