@@ -20,7 +20,8 @@ from .models import (
     Cart, CartProductMapping, Order, OrderedProduct,
     OrderedProductMapping, Note, CustomerCare,
     Payment, Return, ReturnProductMapping, Dispatch,
-    DispatchProductMapping, Trip, Shipment, ShipmentProductMapping
+    DispatchProductMapping, Trip, Shipment, ShipmentProductMapping,
+    Commercial
 )
 from .forms import (
     CustomerCareForm, ReturnProductMappingForm, TripForm, DispatchForm,
@@ -690,6 +691,50 @@ class TripAdmin(admin.ModelAdmin):
         return format_html("<a href= '%s' >Download Trip PDF</a>"%(reverse('download_trip_pdf', args=[obj.pk])))
     download_trip_pdf.short_description = 'Trip Details'
 
+
+class CommercialAdmin(admin.ModelAdmin):
+    #change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
+    list_display = (
+        'dispatch_no', 'delivery_boy', 'seller_shop', 'vehicle_no',
+        'trip_status', 'starts_at', 'completed_at', 'download_trip_pdf'
+    )
+    list_display_links = ('dispatch_no', )
+    list_per_page = 10
+    list_max_show_all = 100
+    list_select_related = ('delivery_boy', 'seller_shop')
+    readonly_fields = ('dispatch_no', 'delivery_boy', 'seller_shop',
+                       'vehicle_no', 'trip_status', 'starts_at',
+                       'completed_at', 'e_way_bill_no')
+    autocomplete_fields = ('seller_shop',)
+    search_fields = [
+        'delivery_boy__first_name', 'delivery_boy__last_name', 'delivery_boy__phone_number',
+        'vehicle_no', 'dispatch_no', 'seller_shop__shop_name'
+    ]
+
+    list_filter = [
+        'trip_status', ('created_at', DateTimeRangeFilter), ('starts_at', DateTimeRangeFilter),
+        ('completed_at', DateTimeRangeFilter), DeliveryBoySearch, VehicleNoSearch, DispatchNoSearch
+    ]
+
+    class Media:
+        js = ('admin/js/datetime_filter_collapse.js',
+              'admin/js/CommercialLoadShipments.js')
+
+    def get_queryset(self, request):
+        qs = super(CommercialAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs.filter(trip_status='COMPLETED')
+        return qs.filter(
+            Q(seller_shop__related_users=request.user) |
+            Q(seller_shop__shop_owner=request.user),
+            trip_status='COMPLETED'
+            )
+
+    def download_trip_pdf(self, obj):
+        return format_html("<a href= '%s' >Download Trip PDF</a>"%(reverse('download_trip_pdf', args=[obj.pk])))
+    download_trip_pdf.short_description = 'Trip Details'
+
+
 class NoteAdmin(admin.ModelAdmin):
     list_display = (
         'credit_note_id', 'shipment',
@@ -780,3 +825,4 @@ admin.site.register(Payment, PaymentAdmin)
 admin.site.register(Dispatch, DispatchAdmin)
 admin.site.register(Trip, TripAdmin)
 admin.site.register(Shipment, ShipmentAdmin)
+admin.site.register(Commercial, CommercialAdmin)

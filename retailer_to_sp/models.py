@@ -325,6 +325,10 @@ class Trip(models.Model):
     e_way_bill_no = models.CharField(max_length=50, blank=True, null=True)
     starts_at = models.DateTimeField(blank=True, null=True)
     completed_at = models.DateTimeField(blank=True, null=True)
+    trip_amount = models.DecimalField(blank=True, null=True,
+                                      max_digits=19, decimal_places=2)
+    recieved_amount = models.DecimalField(blank=True, null=True,
+                                          max_digits=19, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -334,21 +338,27 @@ class Trip(models.Model):
             self.delivery_boy.first_name if self.delivery_boy.first_name else self.delivery_boy.phone_number
         )
 
+    @classmethod
+    def create_dispatch_no(cls, obj):
+        date = datetime.date.today().strftime('%d%m%y')
+        shop = obj.seller_shop_id
+        shop_id_date = "%s/%s" % (shop, date)
+        last_dispatch_no = Trip.objects.filter(
+            dispatch_no__contains=shop_id_date)
+        if last_dispatch_no:
+            dispatch_attempt = int(
+                last_dispatch_no.last().dispatch_no.split('/')[-1])
+            dispatch_attempt += 1
+        else:
+            dispatch_attempt = 1
+        final_dispatch_no = "%s/%s/%s" % (
+                                        'DIS', shop_id_date,
+                                        dispatch_attempt)
+        obj.dispatch_no = final_dispatch_no
+
     def save(self, *args, **kwargs):
         if self._state.adding:
-            date = datetime.date.today().strftime('%d%m%y')
-            shop = self.seller_shop_id
-            shop_id_date = "%s/%s" % (shop, date)
-            last_dispatch_no = Trip.objects.filter(
-                dispatch_no__contains=shop_id_date)
-            if last_dispatch_no:
-                dispatch_attempt = int(
-                    last_dispatch_no.last().dispatch_no.split('/')[-1])
-                dispatch_attempt += 1
-            else:
-                dispatch_attempt = 1
-            final_dispatch_no = "%s/%s/%s" % ('DIS', shop_id_date, dispatch_attempt)
-            self.dispatch_no = final_dispatch_no
+            self.create_dispatch_no(self)
         if self.trip_status == 'STARTED':
             self.starts_at = datetime.datetime.now()
         elif self.trip_status == 'COMPLETED':
@@ -624,6 +634,13 @@ class ShipmentProductMapping(OrderedProductMapping):
 
 
 ShipmentProductMapping._meta.get_field('shipped_qty').verbose_name = 'No. of Pieces to Ship'
+
+
+class Commercial(Trip):
+    class Meta:
+        proxy = True
+        verbose_name = _("Commercial")
+        verbose_name_plural = _("Commercial")
 
 
 class CustomerCare(models.Model):

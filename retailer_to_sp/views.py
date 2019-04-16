@@ -632,7 +632,8 @@ class DeductReservedQtyFromShipment(object):
     def get_sp_ordered_product_reserved(self, product):
         cart = self.get_cart()
         return OrderedProductReserved.objects.filter(
-            cart=cart, product=product).last()
+            cart=cart, product=product,
+            status=OrderedProductReserved.ORDERED).last()
 
     def deduct_reserved_qty(self, product, ordered_qty, already_shipped_qty):
         ordered_product_reserved = self.get_sp_ordered_product_reserved(
