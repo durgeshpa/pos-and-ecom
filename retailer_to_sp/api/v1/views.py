@@ -651,10 +651,10 @@ class CreateOrder(APIView):
                     order.save()
 
                     # Changes OrderedProductReserved Status
-                    for ordered_reserve in OrderedProductReserved.objects.filter(cart=cart):
+                    for ordered_reserve in OrderedProductReserved.objects.filter(cart=cart, reserve_status=OrderedProductReserved.RESERVED):
                         ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
                         ordered_reserve.order_product_reserved.save()
-                        ordered_reserve.reserve_status = 'ordered'
+                        ordered_reserve.reserve_status = OrderedProductReserved.ORDERED
                         ordered_reserve.save()
 
                     serializer = OrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
