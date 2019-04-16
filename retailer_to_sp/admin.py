@@ -47,6 +47,8 @@ from .signals import ReservedOrder
 from sp_to_gram.models import (
     OrderedProductReserved, create_credit_note,
     OrderedProductMapping as SpMappedOrderedProductMapping)
+from dal_admin_filters import AutocompleteFilter
+from django.utils.translation import ugettext_lazy as _
 
 
 class InvoiceNumberFilter(AutocompleteFilter):
@@ -339,15 +341,18 @@ class ExportCsvMixin:
         for obj in queryset:
             row = writer.writerow([getattr(obj, field) for field in field_names])
         return response
-    export_as_csv.short_description = "Download CSV of Selected Objects"
+    export_as_csv.short_description = "Download CSV of Selected Orders"
 
 class SellerShopFilter(AutocompleteFilter):
     title = 'Seller Shop'
     field_name = 'seller_shop'
+    autocomplete_url = 'seller-shop-autocomplete'
 
 class BuyerShopFilter(AutocompleteFilter):
     title = 'Buyer Shop'
     field_name = 'buyer_shop'
+    autocomplete_url = 'buyer-shop-autocomplete'
+
 
 class SKUFilter(InputFilter):
     title = 'product sku'
@@ -379,17 +384,11 @@ class ProductNameFilter(InputFilter):
             return queryset.filter(ordered_cart__rt_cart_list__cart_product__product_name=value)
         return queryset
 
-class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
+class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     actions = ["export_as_csv"]
     resource_class = OrderResource
     search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name',
                     'order_status',)
-    list_display = (
-                    'order_no', 'seller_shop', 'buyer_shop',
-                    'total_final_amount', 'order_status', 'created_at',
-                    'payment_mode', 'paid_amount', 'total_paid_amount',
-                    'download_pick_list',  'invoice_no',
-                    'shipment_status', 'order_shipment_amount')
     fieldsets = (
         (_('Shop Details'), {
             'fields': ('seller_shop', 'buyer_shop',
@@ -401,11 +400,17 @@ class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
             'fields': ('total_mrp', 'total_discount_amount',
                        'total_tax_amount', 'total_final_amount')}),
         )
+    list_display = (
+                    'order_no', 'seller_shop', 'buyer_shop',
+                    'total_final_amount', 'order_status', 'created_at',
+                    'payment_mode', 'paid_amount', 'total_paid_amount',
+                    'download_pick_list',  'invoice_no',
+                    'shipment_status', 'order_shipment_amount')
 
-    readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount', 
+    readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
                         'invoice_no', 'order_shipment_amount', 'shipment_status')
-    list_filter = [ProductNameFilter,GFCodeFilter,SKUFilter,SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
-        ('created_at', DateTimeRangeFilter)]
+    list_filter = [SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
+        ('created_at', DateTimeRangeFilter), ('total_final_amount', SliderNumericFilter)]
 
     class Media:
         pass
@@ -578,7 +583,7 @@ class ShipmentAdmin(admin.ModelAdmin):
         ('shipment_status', ChoiceDropdownFilter)
 
     ]
-    fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city', 
+    fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
         'shipment_status', 'close_order']
     search_fields = ['order__order_no', 'invoice_no', 'order__seller_shop__shop_name',
         'order__buyer_shop__shop_name']

@@ -9,6 +9,8 @@ import datetime,re
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from retailer_backend.validators import *
+import datetime
+from django.core.validators import MinLengthValidator
 
 
 SHOP_TYPE_CHOICES = (
@@ -47,6 +49,8 @@ class Shop(models.Model):
     shop_owner = models.ForeignKey(get_user_model(), related_name='shop_owner_shop',on_delete=models.CASCADE)
     shop_type = models.ForeignKey(ShopType,related_name='shop_type_shop',on_delete=models.CASCADE)
     related_users = models.ManyToManyField(get_user_model(),blank=True, related_name='related_shop_user')
+    shop_code = models.CharField(max_length=1, blank=True, null=True)
+    warehouse_code = models.CharField(max_length=2, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=False)

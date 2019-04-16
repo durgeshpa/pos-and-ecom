@@ -4,8 +4,8 @@ from dal import autocomplete
 from django_select2.forms import Select2MultipleWidget, ModelSelect2Widget
 from brand.models import Brand
 from categories.models import Category
-from .models import Banner
-
+from .models import Banner , BannerPosition
+from shops.models import Shop
 from products.models import Product
 
 class BannerForm(forms.ModelForm):
@@ -39,11 +39,13 @@ class BannerForm(forms.ModelForm):
         super(BannerForm, self).__init__(*args, **kwargs)
         self.fields['products'].help_text = '<br/>You can select multiple list of products.'
 
-    # def clean(self):
-    #
-    #     products = self.cleaned_data.get('products')
-    #     banner_type = self.cleaned_data.get('banner_type')
-    #     if banner_type == 'product':
-    #         if products in banner.product_set.all():
-    #             raise ValidationError("dsffdsew")
-    #     return self.cleaned_data
+class BannerPositionForm(forms.ModelForm):
+    shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['sp',]),
+        widget=autocomplete.ModelSelect2(url='banner-shop-autocomplete', ),
+        required=False
+    )
+
+    class Meta:
+        Model = BannerPosition
+        fields = '__all__'
