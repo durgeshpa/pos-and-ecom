@@ -468,3 +468,14 @@ class CartForm(forms.ModelForm):
 
         fields = ['seller_shop', 'buyer_shop']
         required_fields(self, fields)
+
+
+class CommercialForm(forms.ModelForm):
+    class Meta:
+        model = Trip
+        fields = ['dispatch_no', 'delivery_boy', 'seller_shop', 'trip_status',
+                  'starts_at', 'completed_at', 'e_way_bill_no', 'vehicle_no',
+                  'trip_amount', 'cash_to_be_collected', 'received_amount']
+
+    class Media:
+        js = ('admin/js/CommercialLoadShipments.js', )

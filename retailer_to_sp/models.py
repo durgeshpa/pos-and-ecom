@@ -326,9 +326,11 @@ class Trip(models.Model):
     starts_at = models.DateTimeField(blank=True, null=True)
     completed_at = models.DateTimeField(blank=True, null=True)
     trip_amount = models.DecimalField(blank=True, null=True,
-                                      max_digits=19, decimal_places=2)
-    recieved_amount = models.DecimalField(blank=True, null=True,
-                                          max_digits=19, decimal_places=2)
+                                    max_digits=19, decimal_places=2)
+    received_amount = models.DecimalField(blank=True, null=True,
+                                    max_digits=19, decimal_places=2)
+    cash_to_be_collected = models.DecimalField(blank=True, null=True,
+                                    max_digits=19, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -360,6 +362,12 @@ class Trip(models.Model):
         if self._state.adding:
             self.create_dispatch_no(self)
         if self.trip_status == 'STARTED':
+            import pdb; pdb.set_trace()
+            trip_amount = []
+            trip_shipments = self.rt_invoice_trip.all()
+            for shipment in trip_shipments:
+                trip_amount.append(shipment.invoice_amount)
+
             self.starts_at = datetime.datetime.now()
         elif self.trip_status == 'COMPLETED':
             self.completed_at = datetime.datetime.now()

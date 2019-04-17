@@ -27,7 +27,7 @@ from .forms import (
     CustomerCareForm, ReturnProductMappingForm, TripForm, DispatchForm,
     OrderedProductMappingForm, OrderedProductForm, ShipmentForm,
     OrderedProductMappingShipmentForm, ShipmentProductMappingForm,
-    CartProductMappingForm, CartForm
+    CartProductMappingForm, CartForm, CommercialForm
     )
 from retailer_to_sp.views import (
     ordered_product_mapping_shipment, order_invoices, trip_planning,
@@ -715,10 +715,10 @@ class CommercialAdmin(admin.ModelAdmin):
         'trip_status', ('created_at', DateTimeRangeFilter), ('starts_at', DateTimeRangeFilter),
         ('completed_at', DateTimeRangeFilter), DeliveryBoySearch, VehicleNoSearch, DispatchNoSearch
     ]
+    form = CommercialForm
 
     class Media:
-        js = ('admin/js/datetime_filter_collapse.js',
-              'admin/js/CommercialLoadShipments.js')
+        js = ('admin/js/datetime_filter_collapse.js',)
 
     def get_queryset(self, request):
         qs = super(CommercialAdmin, self).get_queryset(request)
