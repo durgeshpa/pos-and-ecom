@@ -8,6 +8,7 @@ import codecs
 from products.models import Product, ProductPrice
 import datetime, csv, codecs, re
 from tempus_dominus.widgets import DatePicker, TimePicker, DateTimePicker
+from django.db.models import Q
 
 class SalesReportForm(forms.Form):
     shop = forms.ModelChoiceField(
@@ -27,3 +28,11 @@ class SalesReportForm(forms.Form):
             }
         ),
     )
+
+    def __init__(self, request, *args, **kwargs):
+        super(SalesReportForm, self).__init__(*args, **kwargs)
+        if request.user:
+            queryset = Shop.objects.filter(shop_type__shop_type__in=['sp'])
+            queryset = queryset.filter(Q(related_users=request.user) | Q(shop_owner=request.user))
+        latest = queryset.latest('id')
+        self.fields['shop'].queryset = queryset

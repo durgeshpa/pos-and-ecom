@@ -46,9 +46,9 @@ MESSAGE_STATUS = (
     ("resolved", "Resolved"),
 )
 SELECT_ISSUE = (
-    ("cancellation", "Cancellation"),
-    ("return", "Return"),
-    ("others", "Others")
+    ("Cancellation", "cancellation"),
+    ("Return", "return"),
+    ("Others", "others")
 )
 
 TRIP_STATUS = (
@@ -653,20 +653,20 @@ class Commercial(Trip):
 
 class CustomerCare(models.Model):
     order_id = models.ForeignKey(
-        Order, on_delete=models.CASCADE, null=True
+        Order, on_delete=models.CASCADE, null=True, blank=True
     )
     name = models.CharField(max_length=255, null=True, blank=True)
-    email_us = models.URLField(default='info@grmafactory.com')
-    contact_us = models.CharField(max_length=10, default='7607846774')
+    email_us = models.URLField(default='help@grmafactory.com')
+    contact_us = models.CharField(max_length=10, default='9319404555')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     order_status = models.CharField(
         max_length=20, choices=MESSAGE_STATUS,
-        default='pending', null=True
+        default='pending', null=True, blank=True
     )
     select_issue = models.CharField(
         verbose_name="Issue", max_length=100,
-        choices=SELECT_ISSUE, null=True
+        choices=SELECT_ISSUE, null=True, blank=True
     )
     complaint_detail = models.CharField(max_length=2000, null=True)
 

@@ -651,10 +651,10 @@ class CreateOrder(APIView):
                     order.save()
 
                     # Changes OrderedProductReserved Status
-                    for ordered_reserve in OrderedProductReserved.objects.filter(cart=cart):
+                    for ordered_reserve in OrderedProductReserved.objects.filter(cart=cart, reserve_status=OrderedProductReserved.RESERVED):
                         ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
                         ordered_reserve.order_product_reserved.save()
-                        ordered_reserve.reserve_status = 'ordered'
+                        ordered_reserve.reserve_status = OrderedProductReserved.ORDERED
                         ordered_reserve.save()
 
                     serializer = OrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
@@ -970,6 +970,7 @@ class DownloadDebitNote(APIView):
         return response
 
 class CustomerCareApi(APIView):
+    permission_classes = (AllowAny,)
 
     def get(self, request):
         queryset = CustomerCare.objects.all()
@@ -979,25 +980,12 @@ class CustomerCareApi(APIView):
 
 
     def post(self,request):
-        #import pdb; pdb.set_trace()
-        #msg = {'is_success': False,'message': ['Sorry no message entered!'],'response_data': None}
         order_id=self.request.POST.get('order_id')
         select_issue=self.request.POST.get('select_issue')
         complaint_detail=self.request.POST.get('complaint_detail')
         msg = {'is_success': False,'message': [''],'response_data': None}
-
-        try:
-            order = GramMappedOrder.objects.get(id=order_id)
-        except ObjectDoesNotExist:
-            msg['message'] = ["No order with this name"]
-            return Response(msg, status=status.HTTP_200_OK)
-
-        if not select_issue :
-            msg['message']= ["Please select the issue"]
-            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
-
         if not complaint_detail :
-            msg['message']= ["Please typle the complaint_detail"]
+            msg['message']= ["Please type the complaint_detail"]
             return Response(msg, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = CustomerCareSerializer(data=request.data)
@@ -1005,16 +993,23 @@ class CustomerCareApi(APIView):
             serializer.save()
             msg = {'is_success': True, 'message': ['Message Sent'], 'response_data': serializer.data}
             return Response( msg, status=status.HTTP_201_CREATED)
-        #return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class CustomerOrdersList(APIView):
+
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
         #msg = {'is_success': True, 'message': ['No Orders of the logged in user'], 'response_data': None}
         #if request.user.is_authenticated:
-            queryset = GramMappedOrder.objects.filter(ordered_by=request.user)
-            serializer = OrderNumberSerializer(queryset, many=True)
-            msg = {'is_success': True, 'message': ['All Orders of the logged in user'], 'response_data': serializer.data}
+            queryset = Order.objects.filter(ordered_by=request.user)
+            if queryset.count()>1:
+                serializer = OrderNumberSerializer(queryset, many=True)
+                msg = {'is_success': True, 'message': ['All Orders of the logged in user'], 'response_data': serializer.data}
+            else:
+                serializer = OrderNumberSerializer(queryset, many=True)
+                msg = {'is_success': False, 'message': ['No Orders of the logged in user'], 'response_data': serializer.data}
             return Response(msg, status=status.HTTP_201_CREATED)
         #else:
             #return Response(msg, status=status.HTTP_201_CREATED)
