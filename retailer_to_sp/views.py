@@ -27,6 +27,7 @@ from django.views.generic import TemplateView
 from django.conf import settings
 
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector, TrigramSimilarity
+from shops.models import Shop
 from retailer_to_sp.api.v1.serializers import DispatchSerializer
 import json
 from django.http import HttpResponse
@@ -617,6 +618,21 @@ def update_order_status(form):
         order.order_status = 'PARTIALLY_SHIPPED'
     order.save()
 
+class SellerShopAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Shop.objects.filter(Q(shop_type__shop_type='sp',shop_owner=self.request.user) | Q(shop_type__shop_type='sp',related_users=self.request.user))
+
+        if self.q:
+            qs = qs.filter(shop_name__startswith=self.q)
+        return qs
+
+class BuyerShopAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Shop.objects.filter(shop_type__shop_type='r',shop_owner=self.request.user)
+
+        if self.q:
+            qs = qs.filter(shop_name__startswith=self.q)
+        return qs
 
 class DeductReservedQtyFromShipment(object):
 
@@ -632,20 +648,30 @@ class DeductReservedQtyFromShipment(object):
     def get_sp_ordered_product_reserved(self, product):
         cart = self.get_cart()
         return OrderedProductReserved.objects.filter(
-            cart=cart, product=product).last()
+            cart=cart, product=product, reserved_qty__gt=0).order_by('reserved_qty')
 
-    def deduct_reserved_qty(self, product, ordered_qty, already_shipped_qty):
-        ordered_product_reserved = self.get_sp_ordered_product_reserved(
+    def deduct_reserved_qty(self, product, ordered_qty, shipped_qty):
+        ordered_products_reserved = self.get_sp_ordered_product_reserved(
             product)
-        ordered_product_reserved.reserved_qty = (ordered_qty - already_shipped_qty)
-        ordered_product_reserved.save()
+        remaining_amount = shipped_qty
+        for ordered_product_reserved in ordered_products_reserved:
+            if remaining_amount <= 0:
+                break
+            if ordered_product_reserved.reserved_qty >= remaining_amount:
+                deduct_qty = remaining_amount
+            else:
+                deduct_qty = ordered_product_reserved.reserved_qty
+
+            ordered_product_reserved.reserved_qty -= deduct_qty
+            remaining_amount -= deduct_qty
+            ordered_product_reserved.save()
 
     def update(self):
         for form in self.shipment_products:
             product = form.instance.product
-            already_shipped_qty = form.instance.to_be_shipped_qty
+            shipped_qty = form.instance.shipped_qty
             ordered_qty = int(form.instance.ordered_qty)
-            self.deduct_reserved_qty(product, ordered_qty, already_shipped_qty)
+            self.deduct_reserved_qty(product, ordered_qty, shipped_qty)
 
 
 class UpdateSpQuantity(object):
@@ -662,27 +688,16 @@ class UpdateSpQuantity(object):
     def get_sp_ordered_product_reserved(self, product):
         cart = self.get_cart()
         return OrderedProductReserved.objects.filter(
-            cart=cart, product=product).last()
+            cart=cart, product=product,
+            reserved_qty__gt=0).order_by('reserved_qty')
 
     def get_shipment_status(self):
         shipment_status = self.shipment.instance.shipment_status
         return shipment_status
 
-    def update_shipment_status(self):
-        self.shipment.instance.shipment_status = self.shipment.instance.CLOSED
-        self.shipment.instance.save()
-
     def close_order(self):
         status = self.shipment.cleaned_data.get('close_order')
         return status
-
-    def get_reserved_qty(self, product):
-        ordered_product_reserved = self.get_sp_ordered_product_reserved(
-            product)
-        reserved_qty = ordered_product_reserved.reserved_qty
-        ordered_product_reserved.reserved_qty = 0
-        ordered_product_reserved.save()
-        return reserved_qty
 
     def update_order_status(self):
         self.shipment.instance.order.order_status = self.shipment.instance.\
@@ -690,11 +705,14 @@ class UpdateSpQuantity(object):
         self.shipment.instance.order.save()
 
     def update_available_qty(self, product):
-        ordered_product_reserved = self.get_sp_ordered_product_reserved(
+        ordered_products_reserved = self.get_sp_ordered_product_reserved(
             product)
-        shipment_product = ordered_product_reserved.order_product_reserved
-        shipment_product.available_qty += self.get_reserved_qty(product)
-        shipment_product.save()
+        for ordered_product_reserved in ordered_products_reserved:
+            grn = ordered_product_reserved.order_product_reserved
+            grn.available_qty += ordered_product_reserved.reserved_qty
+            grn.save()
+            ordered_product_reserved.reserved_qty = 0
+            ordered_product_reserved.save()
 
     def update(self):
         for inline_form in self.shipment_products:
@@ -704,8 +722,6 @@ class UpdateSpQuantity(object):
                     self.close_order() and
                     (self.get_shipment_status() !=
                      self.shipment.instance.CLOSED)):
-
-                    self.update_shipment_status()
                     self.update_order_status()
                     self.update_available_qty(product)
 

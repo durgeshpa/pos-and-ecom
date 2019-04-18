@@ -3,11 +3,13 @@ from .models import ParentRetailerMapping, Shop, ShopType
 from addresses.models import Address
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
+from django.core.validators import RegexValidator
 from dal import autocomplete
 import csv
 import codecs
 from products.models import Product, ProductPrice
 import re
+from .models import Shop
 from addresses.models import State
 
 class ParentRetailerMappingForm(forms.ModelForm):
@@ -76,6 +78,58 @@ class StockAdjustmentUploadForm(forms.Form):
 
         return self.cleaned_data['upload_file']
 
+
+class ShopForm(forms.ModelForm):
+    shop_code = forms.CharField(
+                        max_length=1, min_length=1,
+                        required=False, validators=[
+                            RegexValidator(
+                                regex='^[a-zA-Z0-9]*$',
+                                message='Shop Code must be Alphanumeric',
+                                code='invalid_code_code'
+                            ),
+                        ])
+    warehouse_code = forms.CharField(
+                        max_length=2, min_length=2,
+                        required=False, validators=[
+                            RegexValidator(
+                                regex='^[a-zA-Z0-9]*$',
+                                message='Warehouse Code must be Alphanumeric',
+                                code='invalid_warehouse_code'
+                            ),
+                        ])
+
+    class Meta:
+        Model = Shop
+        fields = (
+            'shop_name', 'shop_owner', 'shop_type', 'related_users',
+            'shop_code', 'warehouse_code', 'status')
+
+    @classmethod
+    def get_shop_type(cls, data):
+        shop_type = data.cleaned_data.get('shop_type')
+        return shop_type
+
+    @classmethod
+    def shop_type_retailer(cls, data):
+        shop_type = cls.get_shop_type(data)
+        if shop_type.shop_type != 'r':
+            return False
+        return True
+
+    def clean_shop_code(self):
+        shop_code = self.cleaned_data.get('shop_code', None)
+        if not self.shop_type_retailer(self) and not shop_code:
+            raise ValidationError(_("This field is required"))
+        return shop_code
+
+    def clean_warehouse_code(self):
+        warehouse_code = self.cleaned_data.get('warehouse_code', None)
+        if not self.shop_type_retailer(self) and not warehouse_code:
+            raise ValidationError(_("This field is required"))
+        return warehouse_code
+
+
 class AddressForm(forms.ModelForm):
     nick_name = forms.CharField(required=True)
     address_contact_name = forms.CharField(required=True)
@@ -111,8 +165,4 @@ class AddressInlineFormSet(BaseInlineFormSet):
             raise forms.ValidationError('You cant delete all shipping address')
         elif flag==0:
             raise forms.ValidationError('Please add at least one shipping address')
-
-
-
-
 

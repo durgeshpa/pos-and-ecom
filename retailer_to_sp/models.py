@@ -126,7 +126,11 @@ class Cart(models.Model):
 @receiver(post_save, sender=Cart)
 def create_order_id(sender, instance=None, created=False, **kwargs):
     if created:
-        instance.order_id = order_id_pattern(instance.pk)
+        instance.order_id = order_id_pattern(
+                                    sender, 'order_id', instance.pk,
+                                    instance.seller_shop.
+                                    shop_name_address_mapping.filter(
+                                        address_type='billing').last().pk)
         instance.save()
 
 
@@ -366,9 +370,10 @@ class Trip(models.Model):
 
 class OrderedProduct(models.Model): #Shipment
     CLOSED = "closed"
+    READY_TO_SHIP = "READY_TO_SHIP"
     SHIPMENT_STATUS = (
         ('SHIPMENT_CREATED', 'QC Pending'),
-        ('READY_TO_SHIP', 'QC Passed'),
+        (READY_TO_SHIP, 'QC Passed'),
         ('READY_TO_DISPATCH', 'Ready to Dispatch'),
         ('OUT_FOR_DELIVERY', 'Out for Delivery'),
         ('FULLY_RETURNED_AND_COMPLETED', 'Fully Returned and Completed'),
@@ -461,19 +466,27 @@ class OrderedProduct(models.Model): #Shipment
         return str("-")
 
     def save(self, *args, **kwargs):
-        if self._state.adding:
-            invoice_prefix = self.order.seller_shop.invoice_pattern.filter(
-                status='ACT').last().pattern
-            last_invoice = OrderedProduct.objects.filter(
-                order__in=self.order.seller_shop.rt_seller_shop_order.all()
-            ).order_by('invoice_no').last()
-            if last_invoice:
-                invoice_id = getcredit_note_id(last_invoice.invoice_no,
-                                               invoice_prefix)
-                invoice_id += 1
-            else:
-                invoice_id = 1
-            self.invoice_no = retailer_sp_invoice(invoice_prefix, invoice_id)
+        # if self._state.adding:
+        #     invoice_prefix = self.order.seller_shop.invoice_pattern.filter(
+        #         status='ACT').last().pattern
+        #     last_invoice = OrderedProduct.objects.filter(
+        #         order__in=self.order.seller_shop.rt_seller_shop_order.all()
+        #     ).order_by('invoice_no').last()
+        #     if last_invoice:
+        #         invoice_id = getcredit_note_id(last_invoice.invoice_no,
+        #                                        invoice_prefix)
+        #         invoice_id += 1
+        #     else:
+        #         invoice_id = 1
+        #     self.invoice_no = retailer_sp_invoice(invoice_prefix, invoice_id)
+        if not self.invoice_no:
+            if self.shipment_status == self.READY_TO_SHIP:
+                self.invoice_no = retailer_sp_invoice(
+                                        self.__class__, 'invoice_no',
+                                        self.pk, self.order.seller_shop.
+                                        shop_name_address_mapping.filter(
+                                                        address_type='billing'
+                                                        ).last().pk)
         super().save(*args, **kwargs)
 
 
@@ -615,7 +628,7 @@ ShipmentProductMapping._meta.get_field('shipped_qty').verbose_name = 'No. of Pie
 
 class CustomerCare(models.Model):
     order_id = models.ForeignKey(
-        Order, on_delete=models.CASCADE, null=True
+        Order, on_delete=models.CASCADE, null=True, blank=True
     )
     name = models.CharField(max_length=255, null=True, blank=True)
     email_us = models.URLField(default='help@grmafactory.com')
@@ -624,11 +637,11 @@ class CustomerCare(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     order_status = models.CharField(
         max_length=20, choices=MESSAGE_STATUS,
-        default='pending', null=True
+        default='pending', null=True, blank=True
     )
     select_issue = models.CharField(
         verbose_name="Issue", max_length=100,
-        choices=SELECT_ISSUE, null=True
+        choices=SELECT_ISSUE, null=True, blank=True
     )
     complaint_detail = models.CharField(max_length=2000, null=True)
 
