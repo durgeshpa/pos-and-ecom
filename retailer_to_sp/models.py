@@ -358,16 +358,27 @@ class Trip(models.Model):
                                         dispatch_attempt)
         obj.dispatch_no = final_dispatch_no
 
+    __trip_status = None
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__trip_status = self.trip_status
+
     def save(self, *args, **kwargs):
         if self._state.adding:
             self.create_dispatch_no(self)
-        if self.trip_status == 'STARTED':
-            import pdb; pdb.set_trace()
-            trip_amount = []
+        if self.trip_status != self.__trip_status and self.trip_status == 'STARTED':
+            print("pehli war")
             trip_shipments = self.rt_invoice_trip.all()
-            for shipment in trip_shipments:
-                trip_amount.append(shipment.invoice_amount)
-
+            trip_amount = [float(shipment.invoice_amount) for shipment in trip_shipments]
+            cash_to_be_collected = []
+            orders = [shipment.order for shipment in trip_shipments]
+            orders = list(set(orders))
+            for order in orders:
+                for payment in order.rt_payment.filter(payment_choice='cash_on_delivery'):
+                    cash_to_be_collected.append(payment.paid_amount)
+            self.trip_amount = sum(trip_amount)
+            self.cash_to_be_collected = sum(cash_to_be_collected)
             self.starts_at = datetime.datetime.now()
         elif self.trip_status == 'COMPLETED':
             self.completed_at = datetime.datetime.now()
