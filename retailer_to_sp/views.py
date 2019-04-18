@@ -668,10 +668,11 @@ class DeductReservedQtyFromShipment(object):
 
     def update(self):
         for form in self.shipment_products:
-            product = form.instance.product
-            shipped_qty = form.instance.shipped_qty
-            ordered_qty = int(form.instance.ordered_qty)
-            self.deduct_reserved_qty(product, ordered_qty, shipped_qty)
+            if form.instance.pk:
+                product = form.instance.product
+                shipped_qty = form.instance.shipped_qty
+                ordered_qty = int(form.instance.ordered_qty)
+                self.deduct_reserved_qty(product, ordered_qty, shipped_qty)
 
 
 class UpdateSpQuantity(object):
