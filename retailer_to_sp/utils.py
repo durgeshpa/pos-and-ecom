@@ -136,3 +136,23 @@ def order_shipment_amount(shipments):
             ((s.invoice_amount,
             ) for s in shipments)
     )
+
+
+class UpdateCashToBeCollected(object):
+	"""Update trip's cash to be collected amount"""
+	def __init__(self, form, formset):
+		super(UpdateCashToBeCollected, self).__init__()
+		self.shipment = form
+		self.shipment_products = formset
+
+	def deduct_amount(self):
+		for inline_forms in self.shipment_products:
+			for inline_form in inline_forms:
+				instance = getattr(inline_form, 'instance', None)
+
+				import ipdb; ipdb.set_trace()
+
+				update_delivered_qty(instance, inline_form)
+				shipped_qty_list.append(instance.shipped_qty if instance else 0)
+				returned_qty_list.append(inline_form.cleaned_data.get('returned_qty', 0))
+				damaged_qty_list.append(inline_form.cleaned_data.get('damaged_qty', 0))

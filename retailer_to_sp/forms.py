@@ -475,7 +475,7 @@ class CommercialForm(forms.ModelForm):
         model = Trip
         fields = ['dispatch_no', 'delivery_boy', 'seller_shop', 'trip_status',
                   'starts_at', 'completed_at', 'e_way_bill_no', 'vehicle_no',
-                  'trip_amount', 'cash_to_be_collected', 'received_amount']
+                  'trip_amount', 'received_amount']
 
     class Media:
         js = ('admin/js/CommercialLoadShipments.js', )

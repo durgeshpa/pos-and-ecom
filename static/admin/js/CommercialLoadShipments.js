@@ -31,7 +31,8 @@ function GetResultByTripID() {
   $.ajax({
       url: GetURL(),
       data: {
-          'trip_id': trip_id
+          'trip_id': trip_id,
+          'commercial': 'commercial'
       },
       complete: function(){
         $("#loading").hide();
@@ -67,11 +68,12 @@ function CreateResponseTable(data){
       var shipment_status = "<td>" + data['response_data'][i]['shipment_status'] + "</td>";
       var invoice_no = "<td><a href='/admin/retailer_to_sp/orderedproduct/"+pk+"/change/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
       var invoice_amount = "<td>" + data['response_data'][i]['invoice_amount'] + "</td>";
+      var cash_to_be_collected = "<td>" + data['response_data'][i]['cash_to_be_collected'] + "</td>";
       var invoice_city = "<td>" + data['response_data'][i]['invoice_city'] + "</td>";
       var shipment_address = "<td>" + data['response_data'][i]['shipment_address'] + "</td>";
       var created_at = "<td>" + data['response_data'][i]['created_at'] + "</td>";
 
-      $("tbody#data").append("<tr class="+ row +"><td class='original'></td>" + invoice_no + invoice_amount + shipment_status + invoice_city + created_at + order + shipment_address +"</tr>");
+      $("tbody#data").append("<tr class="+ row +"><td class='original'></td>" + invoice_no + invoice_amount + cash_to_be_collected + shipment_status + invoice_city + created_at + order + shipment_address +"</tr>");
   }
 }
 

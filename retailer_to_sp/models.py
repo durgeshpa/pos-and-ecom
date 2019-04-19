@@ -22,6 +22,8 @@ from products.models import Product,ProductPrice
 from otp.sms import SendSms
 from accounts.models import UserWithName
 import logging
+from decimal import Decimal
+
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
 
 logger = logging.getLogger(__name__)
@@ -329,8 +331,6 @@ class Trip(models.Model):
                                     max_digits=19, decimal_places=2)
     received_amount = models.DecimalField(blank=True, null=True,
                                     max_digits=19, decimal_places=2)
-    cash_to_be_collected = models.DecimalField(blank=True, null=True,
-                                    max_digits=19, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -358,6 +358,15 @@ class Trip(models.Model):
                                         dispatch_attempt)
         obj.dispatch_no = final_dispatch_no
 
+    @classmethod
+    def cash_to_be_collected(cls, trip):
+        cash_to_be_collected = []
+        trip_shipments = trip.rt_invoice_trip.all()
+        for shipment in trip_shipments:
+            cash_to_be_collected.append(
+                shipment.__class__.cash_to_be_collected(shipment))
+        return round(sum(cash_to_be_collected), 2)
+
     __trip_status = None
 
     def __init__(self, *args, **kwargs):
@@ -368,17 +377,13 @@ class Trip(models.Model):
         if self._state.adding:
             self.create_dispatch_no(self)
         if self.trip_status != self.__trip_status and self.trip_status == 'STARTED':
-            print("pehli war")
             trip_shipments = self.rt_invoice_trip.all()
-            trip_amount = [float(shipment.invoice_amount) for shipment in trip_shipments]
+            trip_amount = []
             cash_to_be_collected = []
-            orders = [shipment.order for shipment in trip_shipments]
-            orders = list(set(orders))
-            for order in orders:
-                for payment in order.rt_payment.filter(payment_choice='cash_on_delivery'):
-                    cash_to_be_collected.append(payment.paid_amount)
+            for shipment in trip_shipments:
+                invoice_amount = float(shipment.invoice_amount)
+                trip_amount.append(invoice_amount)
             self.trip_amount = sum(trip_amount)
-            self.cash_to_be_collected = sum(cash_to_be_collected)
             self.starts_at = datetime.datetime.now()
         elif self.trip_status == 'COMPLETED':
             self.completed_at = datetime.datetime.now()
@@ -478,36 +483,39 @@ class OrderedProduct(models.Model): #Shipment
         city = self.order.shipping_address.city
         return str(city)
 
+    @classmethod
+    def cash_to_be_collected(cls, shipment):
+        cod_payment = shipment.order.rt_payment.filter(payment_choice='cash_on_delivery')
+        if cod_payment.exists():
+            return cls.shipment_qty_product_price(shipment, 'delivered_qty')
+        return 0
+
+    @classmethod
+    def shipment_qty_product_price(cls, shipment, qty):
+        total_amount = []
+        seller_shop = shipment.order.seller_shop
+        shipment_products = shipment.rt_order_product_order_product_mapping.all()
+        for product in shipment_products:
+            if product.product:
+                cart_product_map = shipment.order.ordered_cart.rt_cart_list.\
+                                    filter(cart_product=product.product).last()
+                product_price = float(round(
+                                    cart_product_map.get_cart_product_price(
+                                            seller_shop).price_to_retailer, 2
+                                    ))
+                product_qty = float(getattr(product, qty))
+                amount = product_price * product_qty
+                total_amount.append(amount)
+        return round(sum(total_amount), 2)
+
     @property
     def invoice_amount(self):
         if self.order:
-            total_amount = []
-            seller_shop = self.order.seller_shop
-            ordered_products = self.rt_order_product_order_product_mapping.all()
-            for product in ordered_products:
-                if product.product:
-                    cart_product_map = self.order.ordered_cart.rt_cart_list.filter(cart_product=product.product).last()
-                    product_price = float(round(cart_product_map.get_cart_product_price(seller_shop).price_to_retailer, 2))
-                    shipped_qty = float(product.shipped_qty)
-                    amount = shipped_qty * product_price
-                    total_amount.append(amount)
-            return str(round(sum(total_amount),2))
+            amount = self.shipment_qty_product_price(self, 'shipped_qty')
+            return str(amount)
         return str("-")
 
     def save(self, *args, **kwargs):
-        # if self._state.adding:
-        #     invoice_prefix = self.order.seller_shop.invoice_pattern.filter(
-        #         status='ACT').last().pattern
-        #     last_invoice = OrderedProduct.objects.filter(
-        #         order__in=self.order.seller_shop.rt_seller_shop_order.all()
-        #     ).order_by('invoice_no').last()
-        #     if last_invoice:
-        #         invoice_id = getcredit_note_id(last_invoice.invoice_no,
-        #                                        invoice_prefix)
-        #         invoice_id += 1
-        #     else:
-        #         invoice_id = 1
-        #     self.invoice_no = retailer_sp_invoice(invoice_prefix, invoice_id)
         if not self.invoice_no:
             if self.shipment_status == self.READY_TO_SHIP:
                 self.invoice_no = retailer_sp_invoice(
@@ -851,22 +859,3 @@ class Note(models.Model):
         if self.shipment:
             return self.shipment.invoice_no
 
-
-# @receiver(post_save, sender=OrderedProduct)
-# def change_order_status(sender, instance=None, created=False, **kwargs):
-#     import pdb;pdb.set_trace()
-#
-#     if created:
-#         ordered_products = instance.order.rt_order_order_product.all()
-#         all_shipment_status = [ordered_product.shipment_status
-#                                for ordered_product in ordered_products]
-#         all_shipment_status = list(set(all_shipment_status))
-#
-#
-# @receiver(post_save, sender=OrderedProductMapping)
-# def change_order_status(sender, instance=None, created=False, **kwargs):
-#     import pdb;pdb.set_trace()
-#     ordered_product_mapping = instance.ordered_product.\
-#         rt_order_product_order_product_mapping.all()
-#     import pdb;pdb.set_trace()
-#     shipment_status =  instance.ordered_product.shipment_status

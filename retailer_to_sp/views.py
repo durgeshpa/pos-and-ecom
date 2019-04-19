@@ -28,7 +28,7 @@ from django.conf import settings
 
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector, TrigramSimilarity
 from shops.models import Shop
-from retailer_to_sp.api.v1.serializers import DispatchSerializer
+from retailer_to_sp.api.v1.serializers import DispatchSerializer, CommercialShipmentSerializer
 import json
 from django.http import HttpResponse
 from django.core import serializers
@@ -354,7 +354,7 @@ class LoadDispatches(APIView):
         seller_shop = request.GET.get('seller_shop_id')
         area = request.GET.get('area')
         trip_id = request.GET.get('trip_id')
-
+        commercial = request.GET.get('commercial')
         vector = SearchVector('order__shipping_address__address_line1')
         query = SearchQuery(area)
         similarity = TrigramSimilarity(
@@ -403,7 +403,12 @@ class LoadDispatches(APIView):
         else:
             dispatches = Dispatch.objects.none()
 
-        if dispatches:
+        if dispatches and commercial:
+            serializer = CommercialShipmentSerializer(dispatches, many=True)
+            msg = {'is_success': True,
+                   'message': None,
+                   'response_data': serializer.data}
+        elif dispatches:
             serializer = DispatchSerializer(dispatches, many=True)
             msg = {'is_success': True,
                    'message': None,

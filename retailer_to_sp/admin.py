@@ -38,7 +38,7 @@ from retailer_to_sp.views import (
 
 from products.admin import ExportCsvMixin
 from .resources import OrderResource
-from .utils import add_cart_user, create_order_from_cart, GetPcsFromQty
+from .utils import (add_cart_user, create_order_from_cart, GetPcsFromQty)
 from admin_numeric_filter.admin import NumericFilterModelAdmin, SingleNumericFilter, RangeNumericFilter, \
     SliderNumericFilter
 from django.http import HttpResponse
@@ -700,27 +700,34 @@ class TripAdmin(admin.ModelAdmin):
 class CommercialAdmin(admin.ModelAdmin):
     #change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
     list_display = (
-        'dispatch_no', 'delivery_boy', 'seller_shop', 'vehicle_no',
-        'trip_status', 'starts_at', 'completed_at', 'download_trip_pdf'
-    )
+        'dispatch_no', 'trip_amount', 'received_amount',
+        'cash_to_be_collected', 'download_trip_pdf', 'delivery_boy',
+        'vehicle_no', 'trip_status', 'starts_at', 'completed_at',
+        'seller_shop',)
     list_display_links = ('dispatch_no', )
     list_per_page = 10
     list_max_show_all = 100
     list_select_related = ('delivery_boy', 'seller_shop')
     readonly_fields = ('dispatch_no', 'delivery_boy', 'seller_shop',
                        'vehicle_no', 'trip_status', 'starts_at',
-                       'completed_at', 'e_way_bill_no')
+                       'completed_at', 'e_way_bill_no', 'cash_to_be_collected')
     autocomplete_fields = ('seller_shop',)
     search_fields = [
         'delivery_boy__first_name', 'delivery_boy__last_name', 'delivery_boy__phone_number',
         'vehicle_no', 'dispatch_no', 'seller_shop__shop_name'
     ]
-
+    fields = ['trip_amount', 'received_amount', 'cash_to_be_collected',
+              'dispatch_no', 'delivery_boy', 'seller_shop', 'trip_status',
+              'starts_at', 'completed_at', 'e_way_bill_no', 'vehicle_no']
     list_filter = [
         'trip_status', ('created_at', DateTimeRangeFilter), ('starts_at', DateTimeRangeFilter),
         ('completed_at', DateTimeRangeFilter), DeliveryBoySearch, VehicleNoSearch, DispatchNoSearch
     ]
     form = CommercialForm
+
+    def cash_to_be_collected(self, obj):
+        return obj.__class__.cash_to_be_collected(obj)
+        cash_to_be_collected.short_description = 'Cash to be Collected'
 
     class Media:
         js = ('admin/js/datetime_filter_collapse.js',)
