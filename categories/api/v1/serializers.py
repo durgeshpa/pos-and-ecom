@@ -14,6 +14,12 @@ class CategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = ('id','category_name','category_desc','cat_parent','category_sku_part','category_image','is_created','is_modified','status')
 
+class SubCategorySerializer(serializers.ModelSerializer):
+
+    category_name = CategorySerializer()
+    class Meta:
+        model = Category
+        fields = ('id','category_name','category_desc','category_sku_part','category_image','is_created','is_modified','status')
 
 class CategoryPosSerializer(serializers.ModelSerializer):
     class Meta:
@@ -29,7 +35,7 @@ class CategoryDataSerializer(serializers.ModelSerializer):
         fields = ('id','category_pos','category_data','category_data_order')
 
 class BrandSerializer(serializers.ModelSerializer):
-    
+
     class Meta:
         model = Brand
         fields = '__all__'
