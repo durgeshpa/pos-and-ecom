@@ -33,7 +33,7 @@ class GetSlotBrandListView(APIView):
             brand_data_serializer = BrandDataSerializer(data,many=True)
         elif pos_name and shop_id:
             if Shop.objects.get(id=shop_id).retiler_mapping.exists():
-                parent = ParentRetailerMapping.objects.get(retailer=shop_id).parent
+                parent = ParentRetailerMapping.objects.get(retailer=shop_id, status=True).parent
                 products_mappings = OrderedProductMapping.get_shop_stock(shop=parent).filter(available_qty__gt=0)
                 product_brands = [product.product.product_brand for product in products_mappings]
                 brand_subbrands = []
@@ -65,7 +65,7 @@ class GetSubBrandsListView(APIView):
         shop_id = self.request.GET.get('shop_id')
         brand = Brand.objects.get(pk=brand_id)
         if shop_id and shop_id != '-1' and Shop.objects.get(id=shop_id).retiler_mapping.exists():
-            parent = ParentRetailerMapping.objects.get(retailer=shop_id).parent
+            parent = ParentRetailerMapping.objects.get(retailer=shop_id, status=True).parent
             grns = OrderedProductMapping.get_shop_stock(shop=parent).filter(available_qty__gt=0)
             product_subbrands = [grn.product.product_brand for grn in grns if grn.product.product_brand.brand_parent == brand ]
             product_subbrands = set(product_subbrands)
