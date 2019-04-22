@@ -20,6 +20,19 @@ pipelines:
             - zip -r /tmp/artifact.zip appspec.yml scripts/* /tmp/retailer_backend
             - python codedeploy_deploy.py
 
+    staging:
+      - step:
+          name: Deploy
+          image: python:3.5.1
+          script:
+            - echo "This script runs only on commit to the master branch."
+            - apt-get update
+            - apt-get install -y zip
+            - pip install boto3==1.3.0
+            - cp -R . /tmp/retailer_backend
+            - zip -r /tmp/artifact.zip appspec.yml scripts/* /tmp/retailer_backend
+            - python codedeploy_deploy.py
+
     dev:
       - step:
           name: Dev Deploy
