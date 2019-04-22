@@ -87,6 +87,7 @@ class Address(models.Model):
                         state=obj.state,
                         shop_name__warehouse_code=shop.warehouse_code,
                         shop_name__shop_type__shop_type__in=['sp', 'gf'])
+                warehouse_code = warehouse_code.exclude(shop_name=shop)
                 if warehouse_code.exists():
                     raise ValidationError(
                         _('Please change the warehouse code above.'
