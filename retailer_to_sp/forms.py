@@ -479,3 +479,14 @@ class CommercialForm(forms.ModelForm):
 
     class Media:
         js = ('admin/js/CommercialLoadShipments.js', )
+
+    def __init__(self, *args, **kwargs):
+        super(CommercialForm, self).__init__(*args, **kwargs)
+        self.fields['trip_status'].choices = TRIP_STATUS[-2:]
+
+    def clean_received_amount(self):
+        trip_status = self.cleaned_data.get('trip_status')
+        received_amount = self.cleaned_data.get('received_amount')
+        if trip_status == 'CLOSED' and not received_amount:
+            raise forms.ValidationError(('This field is required'),)
+        return received_amount

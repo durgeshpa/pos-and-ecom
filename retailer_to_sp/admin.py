@@ -709,15 +709,16 @@ class CommercialAdmin(admin.ModelAdmin):
     list_max_show_all = 100
     list_select_related = ('delivery_boy', 'seller_shop')
     readonly_fields = ('dispatch_no', 'delivery_boy', 'seller_shop',
-                       'vehicle_no', 'trip_status', 'starts_at',
+                       'vehicle_no', 'starts_at', 'trip_amount',
                        'completed_at', 'e_way_bill_no', 'cash_to_be_collected')
     autocomplete_fields = ('seller_shop',)
     search_fields = [
-        'delivery_boy__first_name', 'delivery_boy__last_name', 'delivery_boy__phone_number',
-        'vehicle_no', 'dispatch_no', 'seller_shop__shop_name'
+        'delivery_boy__first_name', 'delivery_boy__last_name',
+        'delivery_boy__phone_number', 'vehicle_no', 'dispatch_no',
+        'seller_shop__shop_name'
     ]
-    fields = ['trip_amount', 'received_amount', 'cash_to_be_collected',
-              'dispatch_no', 'delivery_boy', 'seller_shop', 'trip_status',
+    fields = ['trip_status', 'trip_amount', 'cash_to_be_collected',
+              'received_amount', 'dispatch_no', 'delivery_boy', 'seller_shop',
               'starts_at', 'completed_at', 'e_way_bill_no', 'vehicle_no']
     list_filter = [
         'trip_status', ('created_at', DateTimeRangeFilter), ('starts_at', DateTimeRangeFilter),
@@ -735,11 +736,11 @@ class CommercialAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         qs = super(CommercialAdmin, self).get_queryset(request)
         if request.user.is_superuser:
-            return qs.filter(trip_status='COMPLETED')
+            return qs.filter(trip_status__in=['COMPLETED', 'CLOSED'])
         return qs.filter(
             Q(seller_shop__related_users=request.user) |
             Q(seller_shop__shop_owner=request.user),
-            trip_status='COMPLETED'
+            trip_status__in=['COMPLETED', 'CLOSED']
             )
 
     def download_trip_pdf(self, obj):

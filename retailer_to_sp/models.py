@@ -57,9 +57,9 @@ TRIP_STATUS = (
     ('READY', 'Ready'),
     ('CANCELLED', 'Cancelled'),
     ('STARTED', 'Started'),
-    ('COMPLETED', 'Completed')
+    ('COMPLETED', 'Completed'),
 #   ('READY_FOR_COMMERCIAL', 'Ready for commercial'),
-#   ('CLOSED', 'Closed')
+   ('CLOSED', 'Closed')
 )
 
 
@@ -367,6 +367,15 @@ class Trip(models.Model):
                 shipment.__class__.cash_to_be_collected(shipment))
         return round(sum(cash_to_be_collected), 2)
 
+    @classmethod
+    def total_trip_amount(cls, trip):
+        trip_shipments = trip.rt_invoice_trip.all()
+        trip_amount = []
+        for shipment in trip_shipments:
+            invoice_amount = float(shipment.invoice_amount)
+            trip_amount.append(invoice_amount)
+        return sum(trip_amount)
+
     __trip_status = None
 
     def __init__(self, *args, **kwargs):
@@ -377,13 +386,7 @@ class Trip(models.Model):
         if self._state.adding:
             self.create_dispatch_no(self)
         if self.trip_status != self.__trip_status and self.trip_status == 'STARTED':
-            trip_shipments = self.rt_invoice_trip.all()
-            trip_amount = []
-            cash_to_be_collected = []
-            for shipment in trip_shipments:
-                invoice_amount = float(shipment.invoice_amount)
-                trip_amount.append(invoice_amount)
-            self.trip_amount = sum(trip_amount)
+            self.trip_amount = self.__class__.total_trip_amount(self)
             self.starts_at = datetime.datetime.now()
         elif self.trip_status == 'COMPLETED':
             self.completed_at = datetime.datetime.now()
@@ -668,6 +671,30 @@ class Commercial(Trip):
         proxy = True
         verbose_name = _("Commercial")
         verbose_name_plural = _("Commercial")
+
+    @classmethod
+    def change_shipment_status(cls, trip):
+        trip_shipments = trip.rt_invoice_trip.all()
+        for shipment in trip_shipments:
+            if shipment.shipment_status == 'FULLY_RETURNED_AND_COMPLETED':
+                shipment.shipment_status = 'FULLY_RETURNED_AND_CLOSED'
+            if shipment.shipment_status == 'PARTIALLY_DELIVERED_AND_COMPLETED':
+                shipment.shipment_status = 'PARTIALLY_DELIVERED_AND_CLOSED'
+            if shipment.shipment_status == 'FULLY_DELIVERED_AND_COMPLETED':
+                shipment.shipment_status = 'FULLY_DELIVERED_AND_CLOSED'
+            shipment.save()
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if self.trip_status == 'CLOSED':
+            self.__class__.change_shipment_status(self)
+
+    def clean(self):
+        if self.received_amount and \
+                (self.received_amount >
+                 self.__class__.cash_to_be_collected(self)):
+            raise ValidationError(
+                _('Received amount should be less than Cash to be Collected'),)
 
 
 class CustomerCare(models.Model):
