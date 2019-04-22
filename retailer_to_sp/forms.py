@@ -363,12 +363,14 @@ class ShipmentForm(forms.ModelForm):
     class Media:
         js = (
             'https://cdnjs.cloudflare.com/ajax/libs/select2/'
-            '4.0.6-rc.0/js/select2.min.js',
+            '4.0.6-rc.0/js/select2.min.js', 'admin/js/sweetalert.min.js',
+            'admin/js/order_close_message.js'
         )
         css = {
             'all': (
                 'https://cdnjs.cloudflare.com/ajax/libs/select2/'
                 '4.0.6-rc.0/css/select2.min.css',
+                'admin/css/hide_admin_inline_object_name.css'
             )
         }
 
