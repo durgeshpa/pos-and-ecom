@@ -253,7 +253,7 @@ class CartProductMapping(models.Model):
     @property
     def sub_total(self):
         if self.vendor_product:
-            return float(self.qty)* float(self.vendor_product.product_price)
+            return round(float(self.qty)* float(self.vendor_product.product_price),2)
         return self.total_price
 
     def __str__(self):
