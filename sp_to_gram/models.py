@@ -254,7 +254,7 @@ class OrderedProductMapping(models.Model): #GRN Product
                     Q(shop=shop),
                     Q(expiry_date__gt=datetime.datetime.today()),
                     Q(available_qty__gt=0),
-                    Q(ordered_product__product_brand__brand_parent=brand)
+                    Q(product__product_brand__brand_parent=brand)
                 ).exclude(
                         Q(ordered_product__status=OrderedProduct.DISABLED)
                     )
@@ -262,7 +262,7 @@ class OrderedProductMapping(models.Model): #GRN Product
             shop_stock = cls.objects.filter(
                     Q(shop=shop),
                     Q(expiry_date__gt=datetime.datetime.today()),
-                    Q(ordered_product__product_brand__brand_parent=brand)
+                    Q(product__product_brand__brand_parent=brand)
                 ).exclude(
                         Q(ordered_product__status=OrderedProduct.DISABLED)
                     )
