@@ -35,25 +35,20 @@ class GetSlotBrandListView(APIView):
         elif pos_name and shop_id:
             if Shop.objects.get(id=shop_id).retiler_mapping.exists():
                 parent = ParentRetailerMapping.objects.get(retailer=shop_id).parent
-                product_brands = []
-                products_mappings = OrderedProductMapping.get_shop_stock(shop=parent, show_available=True).order_by('product__product_brand')
                 prev_brand = ''
-                for grn in products_mappings:
-                    if prev_brand == grn.product.product_brand:
-                        continue
-                    else:
-                        product_brands.append(grn.product.product_brand)
-                        prev_brand = grn.product.product_brand
+                product_brands = {}
+
                 brand_subbrands = []
-                leaf_brand_list = []
-                brand_slots = brand_slots.filter(slot__position_name=pos_name, slot__shop=parent).order_by('brand_data_order')
+                leaf_brands = {}
+                products_mappings = OrderedProductMapping.get_shop_stock(shop=parent).values('product__product_brand').annotate(num=Count('product__product_brand')).order_by('product__product_brand')
+                brands_count = {product['product__product_brand']:product['num'] for product in products_mappings}
+                brand_slots = brand_slots.filter(slot__position_name=pos_name, slot__shop=parent, brand_data__active_status=CHOICES).order_by('brand_data_order')
+                
                 for brand_slot in brand_slots:
-                    if brand_slot.brand_data.brnd_parent.filter(active_status='active').count()>0:
-                        brand_subbrands.append(brand_slot.brand_data)
-                    else:
-                        leaf_brand_list.append(brand_slot.brand_data)
-                total_brands_list = [brand for brand in product_brands if brand in leaf_brand_list] + brand_subbrands
-                brand_data_serializer = BrandDataSerializer(total_brands_list,many=True)
+                    if brands_count.get(brand_slot.brand_data.id) or brand_slot.brand_data.brnd_parent.filter(active_status='active').count()>0:
+                        brand_subbrands.append(brand_slot)
+
+                brand_data_serializer = BrandDataSerializer(brand_subbrands,many=True)
             else:
                 brand_slots = brand_slots.filter(slot__position_name=pos_name, slot__shop=None).order_by('brand_data_order')
                 brand_data_serializer = BrandDataSerializer(brand_slots,many=True)
