@@ -39,13 +39,14 @@ class ShopMappedProduct(TemplateView):
 
 class ShopParentAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        qs = None
         shop_type = self.forwarded.get('shop_type', None)
         if shop_type:
             dt = {'r':'sp','sp':'gf'}
             qs = Shop.objects.filter(shop_type__shop_type=dt[ShopType.objects.get(id=shop_type).shop_type])
-            if self.q:
-                qs = qs.filter(Q(shop_owner__phone_number__icontains=self.q) | Q(shop_name__icontains=self.q))
+        else:
+            qs = Shop.objects.filter(shop_type__shop_type__in=['gf','sp'])
+        if self.q:
+            qs = qs.filter(Q(shop_owner__phone_number__icontains=self.q) | Q(shop_name__icontains=self.q))
         return qs
 
 class ShopRetailerAutocomplete(autocomplete.Select2QuerySetView):
