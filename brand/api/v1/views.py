@@ -14,7 +14,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.core.exceptions import ObjectDoesNotExist
 from shops.models import Shop, ParentRetailerMapping
 from sp_to_gram.models import OrderedProductMapping
-
+from django.db.models import Count
 
 class GetSlotBrandListView(APIView):
 
