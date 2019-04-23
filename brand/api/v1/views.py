@@ -42,7 +42,7 @@ class GetSlotBrandListView(APIView):
                 leaf_brands = {}
                 products_mappings = OrderedProductMapping.get_shop_stock(shop=parent).values('product__product_brand').annotate(num=Count('product__product_brand')).order_by('product__product_brand')
                 brands_count = {product['product__product_brand']:product['num'] for product in products_mappings}
-                brand_slots = brand_slots.filter(slot__position_name=pos_name, slot__shop=parent, brand_data__active_status=CHOICES).order_by('brand_data_order')
+                brand_slots = brand_slots.filter(slot__position_name=pos_name, slot__shop=parent).order_by('brand_data_order')
                 
                 for brand_slot in brand_slots:
                     if brands_count.get(brand_slot.brand_data.id) or brand_slot.brand_data.brnd_parent.filter(active_status='active').count()>0:
