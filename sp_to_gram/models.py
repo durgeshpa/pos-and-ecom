@@ -248,6 +248,28 @@ class OrderedProductMapping(models.Model): #GRN Product
         return shop_stock
 
     @classmethod
+    def get_brand_in_shop_stock(cls, shop, brand, show_available=False):
+        if show_available:
+            shop_stock = cls.objects.filter(
+                    Q(shop=shop),
+                    Q(expiry_date__gt=datetime.datetime.today()),
+                    Q(available_qty__gt=0),
+                    Q(product__product_brand__brand_parent=brand)
+                ).exclude(
+                        Q(ordered_product__status=OrderedProduct.DISABLED)
+                    )
+        else:
+            shop_stock = cls.objects.filter(
+                    Q(shop=shop),
+                    Q(expiry_date__gt=datetime.datetime.today()),
+                    Q(product__product_brand__brand_parent=brand)
+                ).exclude(
+                        Q(ordered_product__status=OrderedProduct.DISABLED)
+                    )
+        return shop_stock
+
+
+    @classmethod
     def get_shop_stock_expired(cls, shop):
         shop_stock = cls.objects.filter(
                 Q(shop=shop),
