@@ -66,7 +66,7 @@ class GetSubBrandsListView(APIView):
         brand = Brand.objects.get(pk=brand_id)
         if shop_id and shop_id != '-1' and Shop.objects.get(id=shop_id).retiler_mapping.exists():
             parent = ParentRetailerMapping.objects.get(retailer=shop_id).parent
-            grns = OrderedProductMapping.get_shop_stock(shop=parent, show_available=True)
+            grns = OrderedProductMapping.get_brand_in_shop_stock(shop=parent, brand=brand, show_available=True)
             product_subbrands = []
             
             for grn in grns:
