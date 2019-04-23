@@ -48,10 +48,10 @@ class GetSlotBrandListView(APIView):
                 leaf_brand_list = []
                 brand_slots = brand_slots.filter(slot__position_name=pos_name, slot__shop=parent).order_by('brand_data_order')
                 for brand_slot in brand_slots:
-                    if brand.brand_data.brnd_parent.filter(active_status='active').count()>0:
-                        brand_subbrands.append(brand.brand_data)
+                    if brand_slot.brand_data.brnd_parent.filter(active_status='active').count()>0:
+                        brand_subbrands.append(brand_slot.brand_data)
                     else:
-                        leaf_brand_list.append(brand.brand_data)
+                        leaf_brand_list.append(brand_slot.brand_data)
                 total_brands_list = [brand for brand in product_brands if brand in leaf_brand_list] + brand_subbrands
                 brand_data_serializer = BrandDataSerializer(total_brands_list,many=True)
             else:
