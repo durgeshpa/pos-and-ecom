@@ -304,8 +304,9 @@ def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
                          no_of_pieces = int(vendor_product_dt.case_size)*int(row[3]),
                          price=float(row[5]),vendor_product=vendor_product_dt)
 
-    order = Order.objects.get_or_create(ordered_cart=instance, order_no=instance.po_no)
-
+    order,_ = Order.objects.get_or_create(ordered_cart=instance)
+    order.order_no = instance.po_no
+    order.save()
 
 class Order(BaseOrder):
     ordered_cart = models.OneToOneField(Cart,related_name='order_cart_mapping',on_delete=models.CASCADE)
