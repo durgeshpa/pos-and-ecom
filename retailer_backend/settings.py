@@ -85,6 +85,8 @@ INSTALLED_APPS = [
     'admin_numeric_filter',
     'django_admin_listfilter_dropdown',
     'debug_toolbar',
+    'django_celery_beat',
+    'django_celery_results',
 
 ]
 
@@ -292,3 +294,10 @@ if ENVIRONMENT == "PRODUCTION":
         integrations=[DjangoIntegration()]
     )
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 20000
+
+CELERY_BROKER_URL = 'redis://localhost:6379'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379'
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
