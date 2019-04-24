@@ -33,7 +33,7 @@ from retailer_to_sp.views import (
     ordered_product_mapping_shipment, order_invoices, trip_planning,
     load_dispatches, trip_planning_change, update_shipment_status,
     update_order_status, update_delivered_qty,
-    LoadDispatches, UpdateSpQuantity
+    LoadDispatches, UpdateSpQuantity, commercial_shipment_details
     )
 
 from products.admin import ExportCsvMixin
@@ -313,6 +313,10 @@ class CartAdmin(admin.ModelAdmin):
                self.admin_site.admin_view(GetPcsFromQty.as_view()),
                name="GetPcsFromQty"
             ),
+            url(r'^commercial/(?P<pk>\d+)/shipment-details/$',
+                self.admin_site.admin_view(commercial_shipment_details),
+                name="CommercialShipmentDetails"
+                ),
         ] + urls
         return urls
 
@@ -716,28 +720,41 @@ class CommercialAdmin(admin.ModelAdmin):
     fields = ['trip_status', 'trip_amount', 'cash_to_be_collected',
               'received_amount', 'dispatch_no', 'delivery_boy', 'seller_shop',
               'starts_at', 'completed_at', 'e_way_bill_no', 'vehicle_no']
-    list_filter = [
-        'trip_status', ('created_at', DateTimeRangeFilter), ('starts_at', DateTimeRangeFilter),
-        ('completed_at', DateTimeRangeFilter), DeliveryBoySearch, VehicleNoSearch, DispatchNoSearch
-    ]
+    list_filter = ['trip_status', ('created_at', DateTimeRangeFilter),
+                   ('starts_at', DateTimeRangeFilter), DeliveryBoySearch,
+                   ('completed_at', DateTimeRangeFilter), VehicleNoSearch,
+                   DispatchNoSearch]
     form = CommercialForm
+    actions = ['change_trip_status']
+
+    def change_trip_status(self, request, queryset):
+        queryset.update(trip_status='TRANSFERRED')
+    change_trip_status.short_description = "Mark selected Trips as Transferred"
 
     def cash_to_be_collected(self, obj):
         return obj.__class__.cash_to_be_collected(obj)
         cash_to_be_collected.short_description = 'Cash to be Collected'
 
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
     class Media:
-        js = ('admin/js/datetime_filter_collapse.js',)
+        js = ('admin/js/datetime_filter_collapse.js',
+              'admin/js/sweetalert.min.js',
+              'admin/js/commercial_trip_status_change.js')
 
     def get_queryset(self, request):
         qs = super(CommercialAdmin, self).get_queryset(request)
         if request.user.is_superuser:
-            return qs.filter(trip_status__in=['COMPLETED', 'CLOSED'])
+            return qs.filter(trip_status__in=['COMPLETED', 'CLOSED',
+                                              'TRANSFERRED'])
         return qs.filter(
             Q(seller_shop__related_users=request.user) |
             Q(seller_shop__shop_owner=request.user),
-            trip_status__in=['COMPLETED', 'CLOSED']
-            )
+            trip_status__in=['COMPLETED', 'CLOSED', 'TRANSFERRED'])
 
     def download_trip_pdf(self, obj):
         return format_html("<a href= '%s' >Download Trip PDF</a>"%(reverse('download_trip_pdf', args=[obj.pk])))

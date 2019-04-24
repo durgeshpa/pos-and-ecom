@@ -66,7 +66,7 @@ function CreateResponseTable(data){
       var trip = data['response_data'][i]['trip'];
       var order = "<td>" + data['response_data'][i]['order'] + "</td>";
       var shipment_status = "<td>" + data['response_data'][i]['shipment_status'] + "</td>";
-      var invoice_no = "<td><a href='/admin/retailer_to_sp/orderedproduct/"+pk+"/change/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
+      var invoice_no = "<td><a href='/admin/retailer_to_sp/cart/commercial/"+pk+"/shipment-details/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
       var invoice_amount = "<td>" + data['response_data'][i]['invoice_amount'] + "</td>";
       var cash_to_be_collected = "<td>" + data['response_data'][i]['cash_to_be_collected'] + "</td>";
       var invoice_city = "<td>" + data['response_data'][i]['invoice_city'] + "</td>";

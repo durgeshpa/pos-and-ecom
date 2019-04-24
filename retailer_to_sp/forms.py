@@ -284,7 +284,7 @@ class TripForm(forms.ModelForm):
                 self.fields['delivery_boy'].disabled = True
                 self.fields['seller_shop'].disabled = True
                 self.fields['vehicle_no'].disabled = True
-                self.fields['trip_status'].choices = TRIP_STATUS[2:]
+                self.fields['trip_status'].choices = TRIP_STATUS[2:4]
                 self.fields['search_by_area'].widget = forms.HiddenInput()
 
             elif trip_status == 'COMPLETED':
@@ -484,7 +484,14 @@ class CommercialForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(CommercialForm, self).__init__(*args, **kwargs)
-        self.fields['trip_status'].choices = TRIP_STATUS[-2:]
+        self.fields['trip_status'].choices = TRIP_STATUS[3:5]
+        instance = getattr(self, 'instance', None)
+        if instance.pk:
+            if (instance.trip_status == 'TRANSFERRED' or
+                    instance.trip_status == 'CLOSED'):
+                self.fields['trip_status'].choices = TRIP_STATUS[-3:]
+                for field_name in self.fields:
+                    self.fields[field_name].disabled = True
 
     def clean_received_amount(self):
         trip_status = self.cleaned_data.get('trip_status')

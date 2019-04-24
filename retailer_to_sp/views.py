@@ -793,3 +793,14 @@ class DownloadTripPdf(APIView):
             show_content_in_browser=False, cmd_options=cmd_option
         )
         return response
+
+
+def commercial_shipment_details(request, pk):
+    shipment = OrderedProduct.objects.select_related('order').get(pk=pk)
+    shipment_products = OrderedProductMapping.objects.\
+        select_related('product').filter(ordered_product=shipment)
+    return render(
+        request,
+        'admin/retailer_to_sp/CommercialShipmentDetails.html',
+        {'shipment': shipment, 'shipment_products': shipment_products}
+    )

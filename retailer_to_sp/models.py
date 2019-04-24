@@ -59,7 +59,8 @@ TRIP_STATUS = (
     ('STARTED', 'Started'),
     ('COMPLETED', 'Completed'),
 #   ('READY_FOR_COMMERCIAL', 'Ready for commercial'),
-   ('CLOSED', 'Closed')
+    ('CLOSED', 'Closed'),
+    ('TRANSFERRED', 'Transferred')
 )
 
 
@@ -690,11 +691,12 @@ class Commercial(Trip):
             self.__class__.change_shipment_status(self)
 
     def clean(self):
-        if self.received_amount and \
-                (self.received_amount >
-                 self.__class__.cash_to_be_collected(self)):
-            raise ValidationError(
-                _('Received amount should be less than Cash to be Collected'),)
+        if (self.received_amount and
+                (self.received_amount !=
+                    self.__class__.cash_to_be_collected(self))):
+                raise ValidationError(_(
+                    'Received amount should be equal to Cash to be Collected'
+                ),)
 
 
 class CustomerCare(models.Model):
