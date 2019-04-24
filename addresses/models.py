@@ -27,6 +27,7 @@ class Country(models.Model):
 class State(models.Model):
     country = models.ForeignKey(Country,related_name='country_state',null=True,blank=True,on_delete=models.CASCADE)
     state_name = models.CharField(max_length=255,validators=[NameValidator])
+    state_code = models.CharField(max_length=255,null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
