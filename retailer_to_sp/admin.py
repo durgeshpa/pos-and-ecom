@@ -26,7 +26,7 @@ from .forms import (
     CustomerCareForm, ReturnProductMappingForm, TripForm, DispatchForm,
     OrderedProductMappingForm, OrderedProductForm, ShipmentForm,
     OrderedProductMappingShipmentForm, ShipmentProductMappingForm,
-    CartProductMappingForm, CartForm
+    CartProductMappingForm, CartForm, OrderForm
     )
 from retailer_to_sp.views import (
     ordered_product_mapping_shipment, order_invoices, trip_planning,
@@ -387,8 +387,8 @@ class ProductNameFilter(InputFilter):
 class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     actions = ["export_as_csv"]
     resource_class = OrderResource
-    search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name',
-                    'order_status',)
+    search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name','order_status',)
+    form = OrderForm
     fieldsets = (
         (_('Shop Details'), {
             'fields': ('seller_shop', 'buyer_shop',
