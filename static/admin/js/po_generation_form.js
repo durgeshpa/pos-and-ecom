@@ -59,8 +59,9 @@
     $(document).on('input', '.field-no_of_cases input[type=text]', function(index){
         var row_id = $(this).closest(".form-row").attr("id");
         var row_no = row_id.match(/(\d+)/g);
+        var sub_total = parseFloat($('#id_cart_list-'+row_no+'-price').val()) * (parseFloat($('#cart_list-'+row_no+' td.field-case_sizes p').text()) * parseFloat($('#id_cart_list-'+row_no+'-no_of_cases').val()))
         $('#cart_list-'+row_no+' td.field-total_no_of_pieces p').text(parseFloat($('#cart_list-'+row_no+' td.field-case_sizes p').text()) * parseFloat($('#id_cart_list-'+row_no+'-no_of_cases').val()));
-        $('#cart_list-'+row_no+' td.field-sub_total p').text(parseFloat($('#id_cart_list-'+row_no+'-price').val()) * (parseFloat($('#cart_list-'+row_no+' td.field-case_sizes p').text()) * parseFloat($('#id_cart_list-'+row_no+'-no_of_cases').val())));
+        $('#cart_list-'+row_no+' td.field-sub_total p').text(sub_total.toFixed(2));
         $('#id_cart_list-'+row_no+'-no_of_pieces').val(parseFloat($(this).val())* parseFloat($('#cart_list-'+row_no+' td.field-case_sizes p').text()));
 
     });
@@ -68,7 +69,8 @@
     $(document).on('input', '.field-price input[type=number]', function(index){
         var row_id = $(this).closest(".form-row").attr("id");
         var row_no = row_id.match(/(\d+)/g);
-        $('#cart_list-'+row_no+' td.field-sub_total p').text(parseFloat($('#id_cart_list-'+row_no+'-price').val()) * (parseFloat($('#cart_list-'+row_no+' td.field-case_sizes p').text()) * parseFloat($('#id_cart_list-'+row_no+'-no_of_cases').val())));
+        var sub_total = parseFloat($('#id_cart_list-'+row_no+'-price').val()) * (parseFloat($('#cart_list-'+row_no+' td.field-case_sizes p').text()) * parseFloat($('#id_cart_list-'+row_no+'-no_of_cases').val()))
+        $('#cart_list-'+row_no+' td.field-sub_total p').text(sub_total.toFixed(2));
     });
 
     $("#id_cart_list-0-case_size,#id_cart_list-0-number_of_cases").keyup(function () {
