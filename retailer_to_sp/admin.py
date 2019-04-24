@@ -728,7 +728,7 @@ class CommercialAdmin(admin.ModelAdmin):
     actions = ['change_trip_status']
 
     def change_trip_status(self, request, queryset):
-        queryset.update(trip_status='TRANSFERRED')
+        queryset.filter(trip_status='CLOSED').update(trip_status='TRANSFERRED')
     change_trip_status.short_description = "Mark selected Trips as Transferred"
 
     def cash_to_be_collected(self, obj):
