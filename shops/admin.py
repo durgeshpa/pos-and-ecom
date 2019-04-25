@@ -243,7 +243,7 @@ class ParentRetailerMappingAdmin(admin.ModelAdmin):
     class Media:
         pass
 
-#admin.site.register(ParentRetailerMapping,ParentRetailerMappingAdmin)
+admin.site.register(ParentRetailerMapping,ParentRetailerMappingAdmin)
 admin.site.register(ShopType)
 admin.site.register(RetailerType)
 admin.site.register(Shop,ShopAdmin)
