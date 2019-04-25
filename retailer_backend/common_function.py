@@ -70,7 +70,7 @@ def get_last_no_to_increment(model, field, instance_id, starts_with):
                                         **{field+'__icontains': starts_with})
 
     if instance_with_current_pattern:
-        last_instance_no = instance_with_current_pattern.last()
+        last_instance_no = instance_with_current_pattern.order_by(field).last()
         return int(getattr(last_instance_no, field)[-7:])
 
     else:
