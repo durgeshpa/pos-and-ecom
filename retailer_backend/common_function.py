@@ -60,7 +60,7 @@ def get_shop_warehouse_code(shop):
 def get_shop_warehouse_state_code(address):
     address = Address.objects.select_related('state',
                                              'shop_name').get(pk=address)
-    state_code = format(address.state_id, '02d')
+    state_code = format(int(address.state.state_code), '02d')
     shop_code, warehouse_code = get_shop_warehouse_code(address.shop_name)
     return state_code, shop_code, warehouse_code
 
