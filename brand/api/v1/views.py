@@ -31,10 +31,10 @@ class GetSlotBrandListView(APIView):
         elif pos_name and shop_id == '-1':
             brand_slots = brand_slots.filter(slot__position_name=pos_name, slot__shop=None).order_by('brand_data_order')
             brand_data_serializer = BrandDataSerializer(brand_slots,many=True)
-        
+
         elif pos_name and shop_id:
             if Shop.objects.get(id=shop_id).retiler_mapping.exists():
-                parent = ParentRetailerMapping.objects.get(retailer=shop_id).parent
+                parent = ParentRetailerMapping.objects.get(retailer=shop_id, status = True).parent
                 prev_brand = ''
                 product_brands = {}
 
@@ -43,7 +43,7 @@ class GetSlotBrandListView(APIView):
                 products_mappings = OrderedProductMapping.get_shop_stock(shop=parent).values('product__product_brand').annotate(num=Count('product__product_brand')).order_by('product__product_brand')
                 brands_count = {product['product__product_brand']:product['num'] for product in products_mappings}
                 brand_slots = brand_slots.filter(slot__position_name=pos_name, slot__shop=parent).order_by('brand_data_order')
-                
+
                 for brand_slot in brand_slots:
                     if brands_count.get(brand_slot.brand_data.id) or brand_slot.brand_data.brnd_parent.filter(active_status='active').count()>0:
                         brand_subbrands.append(brand_slot)
@@ -68,10 +68,10 @@ class GetSubBrandsListView(APIView):
         shop_id = self.request.GET.get('shop_id')
         brand = Brand.objects.get(pk=brand_id)
         if shop_id and shop_id != '-1' and Shop.objects.get(id=shop_id).retiler_mapping.exists():
-            parent = ParentRetailerMapping.objects.get(retailer=shop_id).parent
+            parent = ParentRetailerMapping.objects.get(retailer=shop_id, status= True).parent
             grns = OrderedProductMapping.get_brand_in_shop_stock(shop=parent, brand=brand, show_available=True)
             product_subbrands = []
-            
+
             for grn in grns:
                 if grn.product.product_brand in product_subbrands:
                     continue
