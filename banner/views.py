@@ -5,20 +5,7 @@ from categories.models import Category
 
 class BrandAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        qs = Brand.objects.filter(brand_parent=None)
-        category_id = self.forwarded.get('category', None)
-        if category_id:
-            qs = qs.filter(categories=category_id).order_by('brand_name')
-        else:
-            qs = qs
-
-        if self.q:
-            qs = qs.filter(brand_name__istartswith=self.q)
-        return qs
-
-class SubBrandAutocomplete(autocomplete.Select2QuerySetView):
-    def get_queryset(self, *args, **kwargs):
-        qs = Brand.objects.filter(brand_parent__isnull=False)
+        qs = Brand.objects.all()
         category_id = self.forwarded.get('category', None)
         if category_id:
             qs = qs.filter(categories=category_id).order_by('brand_name')
@@ -31,15 +18,7 @@ class SubBrandAutocomplete(autocomplete.Select2QuerySetView):
 
 class CategoryAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        qs = Category.objects.filter(category_parent=None)
-
-        if self.q:
-            qs = qs.filter(category_name__istartswith=self.q)
-        return qs
-
-class SubCategoryAutocomplete(autocomplete.Select2QuerySetView):
-    def get_queryset(self, *args, **kwargs):
-        qs = Category.objects.filter(category_parent__isnull=False)
+        qs = Category.objects.all()
 
         if self.q:
             qs = qs.filter(category_name__istartswith=self.q)

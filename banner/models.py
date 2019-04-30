@@ -35,9 +35,7 @@ class Banner(models.Model):
     banner_end_date= models.DateTimeField(blank=True, null=True)
     banner_type = models.CharField(max_length=255, choices=BANNER_TYPE,null=True, blank=True)
     category = models.ForeignKey(Category,max_length=255, null=True, on_delete=models.CASCADE, blank=True )
-    sub_category = models.ForeignKey(Category, related_name='banner_subcategory',max_length=255, null=True, on_delete=models.CASCADE, blank=True )
     brand = models.ForeignKey(Brand,max_length=255, null=True, on_delete=models.CASCADE, blank=True )
-    sub_brand = models.ForeignKey(Brand, related_name='banner_subbrand',max_length=255, null=True, on_delete=models.CASCADE, blank=True )
     products = models.ManyToManyField(Product, blank=True )
     status = models.BooleanField(('Status'),help_text=('Designates whether the banner is to be displayed or not.'),default=True)
     alt_text= models.CharField(max_length=20, blank=True, null=True)
@@ -48,14 +46,10 @@ class Banner(models.Model):
 
     def clean(self):
         super(Banner, self).clean()
-        if (self.banner_type == 'brand' and self.brand is None ):
+        if (self.banner_type == 'brand' and self.brand is None )or (self.banner_type == 'subbrand' and self.brand is None):
             raise ValidationError('Please select the Brand')
-        if (self.banner_type == 'category' and self.category is None ):
+        if (self.banner_type == 'category' and self.category is None )or (self.banner_type == 'subcategory' and self.category is None):
             raise ValidationError('Please select the Category')
-        if (self.banner_type == 'subbrand' and self.sub_brand is None ):
-            raise ValidationError('Please select the SubBrand')
-        if (self.banner_type == 'subcategory' and self.sub_category is None ):
-            raise ValidationError('Please select the SubCategory')
 
 class Page(models.Model):
     name = models.CharField(max_length=255)
