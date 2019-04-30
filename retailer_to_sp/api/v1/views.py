@@ -36,7 +36,7 @@ from addresses.models import Address
 from retailer_backend.common_function import getShopMapping,checkNotShopAndMapping,getShop
 from retailer_backend.messages import ERROR_MESSAGES
 from django.contrib.postgres.search import SearchVector
-from retailer_to_sp.tasks import update_reserve_quatity
+from retailer_to_sp.tasks import update_reserve_quatity, release_blocking
 today = datetime.today()
 
 
@@ -211,23 +211,6 @@ class GramGRNProductsList(APIView):
         return Response(msg,
                          status=200)
 
-
-def release_blocking(parent_mapping,cart_id):
-    if parent_mapping.parent.shop_type.shop_type == 'sp':
-        if OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved').exists():
-            for ordered_reserve in OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved'):
-                ordered_reserve.order_product_reserved.available_qty = int(
-                    ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
-                ordered_reserve.order_product_reserved.save()
-                ordered_reserve.delete()
-    elif parent_mapping.parent.shop_type.shop_type == 'gf':
-        if GramOrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved').exists():
-            for ordered_reserve in GramOrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved'):
-                ordered_reserve.order_product_reserved.available_qty = int(
-                    ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
-                ordered_reserve.order_product_reserved.save()
-                ordered_reserve.delete()
-    return True
 
 class ProductDetail(APIView):
 
@@ -507,19 +490,10 @@ class ReservedOrder(generics.ListAPIView):
                             product_detail.save()
 
                             update_reserve_quatity(
-                                model=OrderedProductReserved,
                                 product=product_detail.product,
                                 reserved_qty=deduct_qty,
                                 order_product_reserved=product_detail,
                                 cart=cart)
-                            # order_product_reserved = OrderedProductReserved.\
-                            #     objects.filter(
-                            #         product=product_detail.product,
-                            #         reserved_qty=deduct_qty
-                            #     ).update(
-                            #         order_product_reserved=product_detail,
-                            #         cart=cart,
-                            #         reserve_status='reserved')
 
                         serializer = CartSerializer(cart, context={
                             'parent_mapping_id': parent_mapping.parent.id})
