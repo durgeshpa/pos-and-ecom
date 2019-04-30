@@ -1,6 +1,10 @@
 from django import forms
 from .models import Address, City, State
 from django.urls import reverse
+from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
+from django.core.validators import RegexValidator
+
 
 class AddressForm(forms.ModelForm):
     state = forms.ModelChoiceField(queryset=State.objects.order_by('state_name'))
@@ -29,3 +33,17 @@ class AddressForm(forms.ModelForm):
             'data-cities-url': reverse('admin:ajax_load_cities'),
             'style':'width: 25%'
             }
+
+
+class StateForm(forms.ModelForm):
+    state_code = forms.CharField(max_length=2, min_length=1,
+                                 required=True,
+                                 validators=[RegexValidator(
+                                             regex='^[0-9]*$',
+                                             message=("State Code should"
+                                                      " be numeric"),
+                                             code='invalid_code_code'), ])
+
+    class Meta:
+        Model = State
+        fields = ('country', 'state_name', 'state_code', 'status',)

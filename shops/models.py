@@ -5,6 +5,10 @@ from django.utils.safestring import mark_safe
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from otp.sms import SendSms
+import datetime,re
+from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
+from retailer_backend.validators import *
 import datetime
 from django.core.validators import MinLengthValidator
 
@@ -127,6 +131,12 @@ class ShopDocument(models.Model):
     def __str__(self):
         return "%s - %s"%(self.shop_document_number, self.shop_document_photo.url)
 
+    def clean(self):
+        super(ShopDocument, self).clean()
+        if self.shop_document_type == 'gstin' and len(self.shop_document_number) >15 or self.shop_document_type == 'gstin' and len(self.shop_document_number) <15:
+            raise ValidationError(_("GSTIN Number must be equal to 15 digits only"))
+        if self.shop_document_type =='gstin' and not re.match("^[a-zA-Z0-9]*$", self.shop_document_number):
+            raise ValidationError(_("GSTIN values must be alphanumeric only"))
 
 class ShopInvoicePattern(models.Model):
     ACTIVE = 'ACT'

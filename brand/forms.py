@@ -54,10 +54,10 @@ class VendorForm(forms.ModelForm):
                 except:
                     raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product does not exist with this ID")
 
-                if not row[3] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[3]):
+                if not row[3] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[3]):
                     raise ValidationError("Row["+str(id+1)+"] | "+first_row[3]+":"+row[3]+" | "+VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID']%("MRP"))
 
-                if not row[4] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[4]):
+                if not row[4] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[4]):
                     raise ValidationError("Row["+str(id+1)+"] | "+first_row[4]+":"+row[4]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
 
                 if not row[5] or not re.match("^[\d\,]*$", row[5]):
