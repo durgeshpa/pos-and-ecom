@@ -15,23 +15,10 @@ class BannerForm(forms.ModelForm):
             url='category-autocomplete',
         )
      )
-    sub_category = forms.ModelChoiceField(required=False,
-        queryset=Category.objects.all(),
-        widget=autocomplete.ModelSelect2(
-            url='sub-category-autocomplete',
-        )
-     )
     brand = forms.ModelChoiceField(required=False,
         queryset=Brand.objects.all(),
         widget=autocomplete.ModelSelect2(
             url='banner-brand-autocomplete',
-            forward=('category',)
-        )
-     )
-    sub_brand = forms.ModelChoiceField(required=False,
-        queryset=Brand.objects.all(),
-        widget=autocomplete.ModelSelect2(
-            url='banner-sub-brand-autocomplete',
             forward=('category',)
         )
      )
@@ -47,18 +34,10 @@ class BannerForm(forms.ModelForm):
         model = Banner
         fields = ('__all__')
 
-    class Media:
-        js = ('admin/js/banner.js',)
-
 
     def __init__(self, *args, **kwargs):
         super(BannerForm, self).__init__(*args, **kwargs)
         self.fields['products'].help_text = '<br/>You can select multiple list of products.'
-        self.fields['category'].widget.attrs['class'] = 'banner-select2'
-        self.fields['sub_category'].widget.attrs['class'] = 'banner-select2'
-        self.fields['brand'].widget.attrs['class'] = 'banner-select2'
-        self.fields['sub_brand'].widget.attrs['class'] = 'banner-select2'
-        self.fields['products'].widget.attrs['class'] = 'banner-select2'
 
 class BannerPositionForm(forms.ModelForm):
     shop = forms.ModelChoiceField(
