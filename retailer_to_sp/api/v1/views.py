@@ -36,6 +36,7 @@ from addresses.models import Address
 from retailer_backend.common_function import getShopMapping,checkNotShopAndMapping,getShop
 from retailer_backend.messages import ERROR_MESSAGES
 from django.contrib.postgres.search import SearchVector
+from retailer_to_sp.tasks import update_reserve_quatity
 today = datetime.today()
 
 
@@ -433,49 +434,70 @@ class CartDetail(APIView):
             msg = {'is_success': False, 'message': ['Sorry shop is not associated with any Gramfactory or any SP'],'response_data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
+
 class ReservedOrder(generics.ListAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request):
         shop_id = self.request.POST.get('shop_id')
-        shop = Shop.objects.get(pk=shop_id)
-        msg = {'is_success': False, 'message': ['No any product available in this cart'], 'response_data': None}
+        msg = {'is_success': False,
+               'message': ['No any product available in this cart'],
+               'response_data': None}
 
         if checkNotShopAndMapping(shop_id):
             return Response(msg, status=status.HTTP_200_OK)
 
         parent_mapping = getShopMapping(shop_id)
-        if parent_mapping is None:
+        if not parent_mapping:
             return Response(msg, status=status.HTTP_200_OK)
 
+        parent_shop_type = parent_mapping.parent.shop_type.shop_type
         # if shop mapped with sp
-        if parent_mapping.parent.shop_type.shop_type == 'sp':
-            if Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).exists():
-                cart = Cart.objects.filter(last_modified_by=self.request.user,
-                                           cart_status__in=['active', 'pending']).last()
-                cart_products = CartProductMapping.objects.filter(cart=cart)
+        if parent_shop_type == 'sp':
+            cart = Cart.objects.filter(last_modified_by=self.request.user,
+                                       cart_status__in=['active', 'pending'])
+            if cart.exists():
+                cart = cart.last()
+                cart_products = CartProductMapping.objects.select_related(
+                    'cart_product'
+                ).values(
+                    'id',
+                    'qty',
+                    'cart_product__product_inner_case_size'
+                ).filter(
+                    cart=cart
+                ).update(qty_error_msg='')
                 for cart_product in cart_products:
-                    cart_product.qty_error_msg = ''
-                    cart_product.save()
-                    #Exclude expired
-                    ordered_product_details = OrderedProductMapping.get_product_availability(parent_mapping.parent, cart_product.cart_product).order_by('-expiry_date')
-                    available_qty = ordered_product_details.aggregate(available_qty_sum=Sum('available_qty'))['available_qty_sum']
+                    # Exclude expired
+                    ordered_product_details = OrderedProductMapping.\
+                        get_product_availability(
+                            parent_mapping.parent,
+                            cart_product.cart_product
+                        ).order_by('-expiry_date')
+                    available_qty = ordered_product_details.\
+                        aggregate(
+                            available_qty_sum=Sum('available_qty')
+                        )['available_qty_sum']
 
                     is_error = False
-                    ordered_amount = int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size)
-
-                    if available_qty and int(available_qty) >= ordered_amount: #checking if stock available and more than the order
+                    ordered_amount = (
+                        int(cart_product['qty']) *
+                        int(cart_product[
+                            'cart_product__product_inner_case_size']))
+                    # checking if stock available and more than the order
+                    if available_qty and int(available_qty) >= ordered_amount:
                         remaining_amount = ordered_amount
                         for product_detail in ordered_product_details:
-                            if product_detail.available_qty <=0:
+                            if product_detail.available_qty <= 0:
                                 continue
 
-                            if remaining_amount <=0:
+                            if remaining_amount <= 0:
                                 break
 
                             # Todo available_qty replace to sp_available_qty
-                            if product_detail.available_qty >= remaining_amount:
+                            if (product_detail.available_qty >=
+                                    remaining_amount):
                                 deduct_qty = remaining_amount
                             else:
                                 deduct_qty = product_detail.available_qty
@@ -484,30 +506,55 @@ class ReservedOrder(generics.ListAPIView):
                             remaining_amount -= deduct_qty
                             product_detail.save()
 
-                            order_product_reserved = OrderedProductReserved(product=product_detail.product,
-                                                                            reserved_qty=deduct_qty)
-                            order_product_reserved.order_product_reserved = product_detail
-                            order_product_reserved.cart = cart
-                            order_product_reserved.reserve_status = 'reserved'
-                            order_product_reserved.save()
-                        serializer = CartSerializer(cart,context={'parent_mapping_id': parent_mapping.parent.id})
-                        msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
+                            update_reserve_quatity(
+                                model=OrderedProductReserved,
+                                product=product_detail.product,
+                                reserved_qty=deduct_qty,
+                                order_product_reserved=product_detail,
+                                cart=cart)
+                            # order_product_reserved = OrderedProductReserved.\
+                            #     objects.filter(
+                            #         product=product_detail.product,
+                            #         reserved_qty=deduct_qty
+                            #     ).update(
+                            #         order_product_reserved=product_detail,
+                            #         cart=cart,
+                            #         reserve_status='reserved')
+
+                        serializer = CartSerializer(cart, context={
+                            'parent_mapping_id': parent_mapping.parent.id})
+                        msg = {'is_success': True,
+                               'message': [''],
+                               'response_data': serializer.data}
                     else:
-                        msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
+                        msg = {'is_success': False,
+                               'message': ['available_qty is none'],
+                               'response_data': None}
                         if int(available_qty) < ordered_amount:
-                            cart_product.qty_error_msg = ERROR_MESSAGES['AVAILABLE_PRODUCT'].format(int(available_qty))
-                            cart_product.save()
-                            serializer = CartSerializer(cart,context={'parent_mapping_id': parent_mapping.parent.id})
-                            msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
+                            CartProductMapping.objects.filter(
+                                id=cart_product['id']
+                            ).update(
+                                qty_error_msg=ERROR_MESSAGES[
+                                    'AVAILABLE_PRODUCT'
+                                ].format(int(available_qty)))
+                            serializer = CartSerializer(
+                                cart,
+                                context={
+                                    'parent_mapping_id':parent_mapping.parent.id
+                                })
+                            msg = {'is_success': True,
+                                   'message': [''],
+                                   'response_data': serializer.data}
                         release_blocking(parent_mapping, cart.id)
                         return Response(msg, status=status.HTTP_200_OK)
                 if CartProductMapping.objects.filter(cart=cart).count() <= 0:
-                    msg = {'is_success': False, 'message': ['No product is available in cart'],
+                    msg = {'is_success': False,
+                           'message': ['No product is available in cart'],
                            'response_data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
         # if shop mapped with gf
-        elif parent_mapping.parent.shop_type.shop_type == 'gf':
+        elif parent_shop_type == 'gf':
             if GramMappedCart.objects.filter(last_modified_by=self.request.user,
                                              cart_status__in=['active', 'pending']).exists():
                 cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,
