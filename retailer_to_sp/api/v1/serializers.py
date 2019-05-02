@@ -485,7 +485,7 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
     created_at = serializers.DateTimeField()
 
     def get_cash_to_be_collected(self, obj):
-        return obj.__class__.cash_to_be_collected(obj)
+        return obj.cash_to_be_collected()
 
     class Meta:
         model = OrderedProduct

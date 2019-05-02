@@ -732,7 +732,7 @@ class CommercialAdmin(admin.ModelAdmin):
     change_trip_status.short_description = "Mark selected Trips as Transferred"
 
     def cash_to_be_collected(self, obj):
-        return obj.__class__.cash_to_be_collected(obj)
+        return obj.cash_to_be_collected()
         cash_to_be_collected.short_description = 'Cash to be Collected'
 
     def has_add_permission(self, request, obj=None):

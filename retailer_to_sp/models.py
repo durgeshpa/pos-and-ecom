@@ -341,10 +341,9 @@ class Trip(models.Model):
             self.delivery_boy.first_name if self.delivery_boy.first_name else self.delivery_boy.phone_number
         )
 
-    @classmethod
-    def create_dispatch_no(cls, obj):
+    def create_dispatch_no(self):
         date = datetime.date.today().strftime('%d%m%y')
-        shop = obj.seller_shop_id
+        shop = self.seller_shop_id
         shop_id_date = "%s/%s" % (shop, date)
         last_dispatch_no = Trip.objects.filter(
             dispatch_no__contains=shop_id_date)
@@ -357,20 +356,18 @@ class Trip(models.Model):
         final_dispatch_no = "%s/%s/%s" % (
                                         'DIS', shop_id_date,
                                         dispatch_attempt)
-        obj.dispatch_no = final_dispatch_no
+        self.dispatch_no = final_dispatch_no
 
-    @classmethod
-    def cash_to_be_collected(cls, trip):
+    def cash_to_be_collected(self):
         cash_to_be_collected = []
-        trip_shipments = trip.rt_invoice_trip.all()
+        trip_shipments = self.rt_invoice_trip.all()
         for shipment in trip_shipments:
             cash_to_be_collected.append(
-                shipment.__class__.cash_to_be_collected(shipment))
+                shipment.cash_to_be_collected())
         return round(sum(cash_to_be_collected), 2)
 
-    @classmethod
-    def total_trip_amount(cls, trip):
-        trip_shipments = trip.rt_invoice_trip.all()
+    def total_trip_amount(self):
+        trip_shipments = self.rt_invoice_trip.all()
         trip_amount = []
         for shipment in trip_shipments:
             invoice_amount = float(shipment.invoice_amount)
@@ -385,9 +382,9 @@ class Trip(models.Model):
 
     def save(self, *args, **kwargs):
         if self._state.adding:
-            self.create_dispatch_no(self)
+            self.create_dispatch_no()
         if self.trip_status != self.__trip_status and self.trip_status == 'STARTED':
-            self.trip_amount = self.__class__.total_trip_amount(self)
+            self.trip_amount = self.total_trip_amount()
             self.starts_at = datetime.datetime.now()
         elif self.trip_status == 'COMPLETED':
             self.completed_at = datetime.datetime.now()
@@ -487,21 +484,19 @@ class OrderedProduct(models.Model): #Shipment
         city = self.order.shipping_address.city
         return str(city)
 
-    @classmethod
-    def cash_to_be_collected(cls, shipment):
-        cod_payment = shipment.order.rt_payment.filter(payment_choice='cash_on_delivery')
+    def cash_to_be_collected(self):
+        cod_payment = self.order.rt_payment.filter(payment_choice='cash_on_delivery')
         if cod_payment.exists():
-            return cls.shipment_qty_product_price(shipment, 'delivered_qty')
+            return self.shipment_qty_product_price('delivered_qty')
         return 0
 
-    @classmethod
-    def shipment_qty_product_price(cls, shipment, qty):
+    def shipment_qty_product_price(self, qty):
         total_amount = []
-        seller_shop = shipment.order.seller_shop
-        shipment_products = shipment.rt_order_product_order_product_mapping.all()
+        seller_shop = self.order.seller_shop
+        shipment_products = self.rt_order_product_order_product_mapping.all()
         for product in shipment_products:
             if product.product:
-                cart_product_map = shipment.order.ordered_cart.rt_cart_list.\
+                cart_product_map = self.order.ordered_cart.rt_cart_list.\
                                     filter(cart_product=product.product).last()
                 product_price = float(round(
                                     cart_product_map.get_cart_product_price(
@@ -515,7 +510,7 @@ class OrderedProduct(models.Model): #Shipment
     @property
     def invoice_amount(self):
         if self.order:
-            amount = self.shipment_qty_product_price(self, 'shipped_qty')
+            amount = self.shipment_qty_product_price('shipped_qty')
             return str(amount)
         return str("-")
 
@@ -673,8 +668,7 @@ class Commercial(Trip):
         verbose_name = _("Commercial")
         verbose_name_plural = _("Commercial")
 
-    @classmethod
-    def change_shipment_status(cls, trip):
+    def change_shipment_status(self):
         trip_shipments = trip.rt_invoice_trip.all()
         for shipment in trip_shipments:
             if shipment.shipment_status == 'FULLY_RETURNED_AND_COMPLETED':
@@ -688,19 +682,19 @@ class Commercial(Trip):
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         if self.trip_status == 'CLOSED':
-            self.__class__.change_shipment_status(self)
+            self.change_shipment_status()
 
     def clean(self):
         if self.received_amount:
             if (self.trip_status == 'CLOSED' and
                     (self.received_amount !=
-                        self.__class__.cash_to_be_collected(self))):
+                        self.cash_to_be_collected())):
                     raise ValidationError(_("Received amount should be equal"
                                             " to Cash to be Collected"
                                             ),)
             if (self.trip_status == 'COMPLETED' and
                     (self.received_amount >
-                        self.__class__.cash_to_be_collected(self))):
+                        self.cash_to_be_collected())):
                     raise ValidationError(_("Received amount should be less"
                                             " than Cash to be Collected"
                                             ),)
