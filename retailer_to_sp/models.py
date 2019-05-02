@@ -669,7 +669,7 @@ class Commercial(Trip):
         verbose_name_plural = _("Commercial")
 
     def change_shipment_status(self):
-        trip_shipments = trip.rt_invoice_trip.all()
+        trip_shipments = self.rt_invoice_trip.all()
         for shipment in trip_shipments:
             if shipment.shipment_status == 'FULLY_RETURNED_AND_COMPLETED':
                 shipment.shipment_status = 'FULLY_RETURNED_AND_CLOSED'
