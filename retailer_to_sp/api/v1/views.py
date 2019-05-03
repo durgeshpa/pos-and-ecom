@@ -488,7 +488,7 @@ class ReservedOrder(generics.ListAPIView):
                             update_reserve_quatity.delay(
                                 product=product_detail.product,
                                 reserved_qty=deduct_qty,
-                                order_product_reserved=product_detail,
+                                order_product_reserved_id=product_detail.id,
                                 cart_id=cart.id)
 
                         serializer = CartSerializer(cart, context={

@@ -10,7 +10,7 @@ def update_reserve_quatity(**kwargs):
         product=kwargs.get('product'),
         reserved_qty=kwargs.get('reserved_qty')
     ).update(
-        order_product_reserved=kwargs.get('order_product_reserved'),
+        order_product_reserved_id=kwargs.get('order_product_reserved_id'),
         cart_id=kwargs.get('cart_id'),
         reserve_status='reserved')
 
