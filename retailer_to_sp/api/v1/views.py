@@ -444,10 +444,6 @@ class ReservedOrder(generics.ListAPIView):
                 cart = cart.last()
                 cart_products = CartProductMapping.objects.select_related(
                     'cart_product'
-                ).values(
-                    'id',
-                    'qty',
-                    'cart_product__product_inner_case_size'
                 ).filter(
                     cart=cart
                 ).update(qty_error_msg='')
@@ -465,9 +461,8 @@ class ReservedOrder(generics.ListAPIView):
 
                     is_error = False
                     ordered_amount = (
-                        int(cart_product['qty']) *
-                        int(cart_product[
-                            'cart_product__product_inner_case_size']))
+                        int(cart_product.qty) *
+                        int(cart_product.cart_product.product_inner_case_size))
                     # checking if stock available and more than the order
                     if available_qty and int(available_qty) >= ordered_amount:
                         remaining_amount = ordered_amount
@@ -506,7 +501,7 @@ class ReservedOrder(generics.ListAPIView):
                                'response_data': None}
                         if int(available_qty) < ordered_amount:
                             CartProductMapping.objects.filter(
-                                id=cart_product['id']
+                                id=cart_product.id
                             ).update(
                                 qty_error_msg=ERROR_MESSAGES[
                                     'AVAILABLE_PRODUCT'
