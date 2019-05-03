@@ -486,7 +486,7 @@ class ReservedOrder(generics.ListAPIView):
                             product_detail.save()
 
                             update_reserve_quatity.delay(
-                                product=product_detail.product,
+                                product_id=product_detail.product_id,
                                 reserved_qty=deduct_qty,
                                 order_product_reserved_id=product_detail.id,
                                 cart_id=cart.id)
