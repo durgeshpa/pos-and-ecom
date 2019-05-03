@@ -180,7 +180,7 @@ def ordered_product_mapping_shipment(request):
                                           )
     form = OrderedProductForm()
     form_set = ordered_product_set()
-    if order_id:
+    if order_id and request.method == 'GET':
         ordered_product = Cart.objects.filter(pk=order_id)
         ordered_product = Order.objects.get(pk=order_id).ordered_cart
         order_product_mapping = CartProductMapping.objects.filter(
