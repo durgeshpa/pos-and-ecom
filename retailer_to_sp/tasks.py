@@ -7,7 +7,6 @@ from celery.contrib import rdb
 
 @task
 def update_reserve_quatity(**kwargs):
-    rdb.set_trace()
     order_product_reserved = OrderedProductReserved(
         product_id=kwargs.get('product_id'),
         reserved_qty=kwargs.get('reserved_qty')
