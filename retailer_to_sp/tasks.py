@@ -6,10 +6,14 @@ from gram_to_brand.models import (
 
 @task
 def update_reserve_quatity(**kwargs):
-    OrderedProductReserved.objects.filter(
+    product_reserved = OrderedProductReserved.objects.filter(
         product_id=kwargs.get('product_id'),
         reserved_qty=kwargs.get('reserved_qty')
-    ).update(
+    )
+    print(product_reserved)
+    print("############")
+    print(**kwargs)
+    product_reserved.update(
         order_product_reserved_id=kwargs.get('order_product_reserved_id'),
         cart_id=kwargs.get('cart_id'),
         reserve_status='reserved')
