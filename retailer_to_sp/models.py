@@ -14,7 +14,7 @@ from retailer_backend.common_function import (
     order_id_pattern, brand_credit_note_pattern, getcredit_note_id,
     retailer_sp_invoice
 )
-from .utils import order_invoices, order_shipment_status, order_shipment_amount
+from .utils import order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util
 from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
@@ -309,6 +309,15 @@ class Order(models.Model):
     def order_shipment_amount(self):
         return order_shipment_amount(self.shipments())
 
+
+    @property
+    def order_shipment_details(self):
+        return order_shipment_details_util(self.shipments())
+
+    @property
+    def shipment_returns(self):
+        return self._shipment_returns
+    
 
 class Trip(models.Model):
     seller_shop = models.ForeignKey(

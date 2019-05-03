@@ -332,14 +332,15 @@ class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
         list_display = ['order_no', 'seller_shop', 'buyer_shop', 'total_final_amount',
-                        'order_status', 'created_at', 'payment_amount', 'payment_mode']
+                        'order_status', 'created_at', 'payment_mode', 'paid_amount', 
+                        'total_paid_amount', 'shipment_status', 'order_shipment_amount', 'order_shipment_details']
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
         writer = csv.writer(response)
-        writer.writerow(field_names)
+        writer.writerow(list_display)
         for obj in queryset:
-            row = writer.writerow([getattr(obj, field) for field in field_names])
+            row = writer.writerow([getattr(obj, field) for field in list_display])
         return response
     export_as_csv.short_description = "Download CSV of Selected Orders"
 
