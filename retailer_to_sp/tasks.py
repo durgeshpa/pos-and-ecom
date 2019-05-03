@@ -2,18 +2,16 @@ from celery.task import task
 from sp_to_gram.models import OrderedProductReserved
 from gram_to_brand.models import (
     OrderedProductReserved as GramOrderedProductReserved)
+from celery.contrib import rdb
 
 
 @task
 def update_reserve_quatity(**kwargs):
-    product_reserved = OrderedProductReserved.objects.filter(
+    rdb.set_trace()
+    OrderedProductReserved.objects.filter(
         product_id=kwargs.get('product_id'),
         reserved_qty=kwargs.get('reserved_qty')
-    )
-    print(product_reserved)
-    print("############")
-    print(**kwargs)
-    product_reserved.update(
+    ).update(
         order_product_reserved_id=kwargs.get('order_product_reserved_id'),
         cart_id=kwargs.get('cart_id'),
         reserve_status='reserved')
