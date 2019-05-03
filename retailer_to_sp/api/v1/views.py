@@ -485,7 +485,7 @@ class ReservedOrder(generics.ListAPIView):
                             remaining_amount -= deduct_qty
                             product_detail.save()
 
-                            update_reserve_quatity(
+                            update_reserve_quatity.delay(
                                 product=product_detail.product,
                                 reserved_qty=deduct_qty,
                                 order_product_reserved=product_detail,
@@ -515,7 +515,7 @@ class ReservedOrder(generics.ListAPIView):
                             msg = {'is_success': True,
                                    'message': [''],
                                    'response_data': serializer.data}
-                        release_blocking(parent_mapping, cart.id)
+                        release_blocking.delay(parent_mapping, cart.id)
                         return Response(msg, status=status.HTTP_200_OK)
                 if CartProductMapping.objects.filter(cart=cart).count() <= 0:
                     msg = {'is_success': False,
