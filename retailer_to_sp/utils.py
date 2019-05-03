@@ -136,3 +136,10 @@ def order_shipment_amount(shipments):
             ((s.invoice_amount,
             ) for s in shipments)
     )
+
+def order_shipment_details_util(shipments):
+    return format_html_join(
+    "","{}-{}-{}<br><br>",
+            ((s.invoice_amount,s.get_shipment_status_display(),s.trip.completed_at if s.trip else '--'
+            ) for s in shipments)
+    )
