@@ -489,7 +489,7 @@ class ReservedOrder(generics.ListAPIView):
                                 product=product_detail.product,
                                 reserved_qty=deduct_qty,
                                 order_product_reserved=product_detail,
-                                cart=cart)
+                                cart_id=cart.id)
 
                         serializer = CartSerializer(cart, context={
                             'parent_mapping_id': parent_mapping.parent.id})
