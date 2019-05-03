@@ -26,6 +26,7 @@ pipelines:
           image: python:3.6.8-stretch
           script:
             - echo "This script runs only on commit to the staging branch."
+            - apt-get update
             - apt-get install -y zip
             - pip install boto3==1.3.0
             - cp -R . /tmp/retailer_backend
