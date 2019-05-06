@@ -746,8 +746,9 @@ class CustomerCareAdmin(admin.ModelAdmin):
 
     def retailer_name(self, obj):
         if obj.order_id:
-            if obj.order_id.buyer_shop.shop_owner.first_name:
-                return obj.order_id.buyer_shop.shop_owner.first_name
+            if obj.order_id.buyer_shop:
+                if obj.order_id.buyer_shop.shop_owner.first_name:
+                    return obj.order_id.buyer_shop.shop_owner.first_name
 
 class PaymentAdmin(NumericFilterModelAdmin,admin.ModelAdmin):
     model = Payment
