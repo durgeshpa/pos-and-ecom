@@ -1,0 +1,122 @@
+{% extends 'admin/retailer_to_sp/trip/base.html' %}
+
+{% block title %}Shipment Details | Admin{% endblock %}
+{% block breadcrumb1 %}Retailer_To_Sp{% endblock %}
+{% block breadcrumb2 %}Commercial{% endblock %}
+{% block breadcrumb3 %}Shipment Details{% endblock %}
+
+{% block content %}
+          <!-- Content -->
+         <div id="content" class="colM">
+            <h1>{% block content_header %}{% endblock %}</h1>
+            <div id="content-main">
+               <ul class="object-tools">
+                  <!--<li>-->
+                  <!--<a href="/admin/retailer_to_sp/orderedproduct/119/history/" class="historylink">History</a>-->
+                  <!--</li>-->
+               </ul>
+               <form method="post" enctype="multipart/form-data">
+                  <div>
+                     <fieldset class="module aligned ">
+                        <div class="form-row field-order">
+                         <div>
+                            <label>Order:</label>
+                            <div class="readonly">{{shipment.order}}</div>
+                         </div>
+                      </div>
+                      <div class="form-row field-invoice_no">
+                         <div>
+                            <label>Invoice no:</label>
+                            <div class="readonly">{{shipment.invoice_no}}</div>
+                         </div>
+                      </div>
+                      <div class="form-row field-invoice_amount">
+                         <div>
+                            <label>Invoice amount:</label>
+                            <div class="readonly">{{shipment.invoice_amount}}</div>
+                         </div>
+                      </div>
+                      <div class="form-row field-shipment_address">
+                         <div>
+                            <label>Shipment address:</label>
+                            <div class="readonly">{{shipment.shipment_address}}</div>
+                         </div>
+                      </div>
+                      <div class="form-row field-invoice_city">
+                         <div>
+                            <label>Invoice city:</label>
+                            <div class="readonly">{{shipment.invoice_city}}</div>
+                         </div>
+                      </div>
+                      <div class="form-row field-shipment_status">
+                         <div>
+                            <label for="id_shipment_status">Current Shipment Status:</label>
+                            <div class="readonly">{{shipment.get_shipment_status_display}}</div>
+                         </div>
+                      </div>
+                     </fieldset>
+                     <div class="js-inline-admin-formset inline-group"
+                        data-inline-type="tabular"
+                        data-inline-formset="{&quot;name&quot;: &quot;#rt_order_product_order_product_mapping&quot;, &quot;options&quot;: {&quot;prefix&quot;: &quot;rt_order_product_order_product_mapping&quot;, &quot;addText&quot;: &quot;Add another Ordered product mapping&quot;, &quot;deleteText&quot;: &quot;Remove&quot;}}">
+                        <div class="tabular inline-related last-related">
+                          <fieldset class="module ">
+                             <h2>Invoice Product Details</h2>
+                             <table>
+                                <thead>
+                                   <tr>
+                                      <th>Product
+                                      </th>
+                                      <th>Gf code
+                                      </th>
+                                      <th>Ordered Pieces
+                                      </th>
+                                      <th>No. of Pieces to Ship
+                                      </th>
+                                      <th>Returned Pieces
+                                      </th>
+                                      <th>Damaged Pieces
+                                      </th>
+                                      <th>Delivered Pieces
+                                      </th>
+                                   </tr>
+                                </thead>
+                                <tbody>
+                                  {%for shipment_product in shipment_products%}
+                                   <tr class="form-row {% cycle 'row1' 'row2' %}">
+                                      <td class="field-product">
+                                         <p>{{shipment_product.product}}</p>
+                                      </td>
+                                      <td class="field-gf_code">
+                                         <p>{{shipment_product.gf_code}}</p>
+                                      </td>
+                                      <td class="field-ordered_qty">
+                                         <p>{{shipment_product.ordered_qty}}</p>
+                                      </td>
+                                      <td class="field-shipped_qty">
+                                         <p>{{shipment_product.shipped_qty}}</p>
+                                      </td>
+                                      <td class="field-returned_qty">
+                                         <p>{{shipment_product.returned_qty}}</p>
+                                      </td>
+                                      <td class="field-damaged_qty">
+                                         <p>{{shipment_product.damaged_qty}}</p>
+                                      </td>
+                                      <td class="field-delivered_qty">
+                                         <p>{{shipment_product.delivered_qty}}</p>
+                                      </td>
+                                   </tr>
+                                  {% endfor %}
+                                </tbody>
+                             </table>
+                          </fieldset>
+                        </div>
+                     </div>
+                  </div>
+               </form>
+            </div>
+            <br class="clear">
+         </div>
+         <!-- END Content -->
+{% endblock %}
+
+

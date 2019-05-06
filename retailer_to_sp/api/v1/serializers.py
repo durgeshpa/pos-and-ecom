@@ -475,3 +475,21 @@ class DispatchSerializer(serializers.ModelSerializer):
                   'shipment_address', 'invoice_city', 'invoice_amount',
                   'created_at')
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount')
+
+
+class CommercialShipmentSerializer(serializers.ModelSerializer):
+    shipment_status = serializers.CharField(
+                                        source='get_shipment_status_display')
+    order = serializers.SlugRelatedField(read_only=True, slug_field='order_no')
+    cash_to_be_collected = serializers.SerializerMethodField()
+    created_at = serializers.DateTimeField()
+
+    def get_cash_to_be_collected(self, obj):
+        return obj.cash_to_be_collected()
+
+    class Meta:
+        model = OrderedProduct
+        fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
+                  'shipment_address', 'invoice_city', 'invoice_amount',
+                  'created_at', 'cash_to_be_collected')
+        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 'cash_to_be_collected')
