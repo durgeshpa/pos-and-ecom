@@ -327,8 +327,8 @@ class CustomerCareSerializer(serializers.ModelSerializer):
     #order_id=OrderNumberSerializer(read_only=True)
     class Meta:
         model=CustomerCare
-        fields=('name','email_us','contact_us','order_id', 'order_status', 'select_issue','complaint_detail')
-        read_only_fields=('name','email_us','contact_us','order_status')
+        fields=('complaint_id','email_us', 'order_id', 'issue_status', 'select_issue','complaint_detail')
+        read_only_fields=('complaint_id','email_us','issue_status')
 
 class PaymentCodSerializer(serializers.ModelSerializer):
 
@@ -475,3 +475,21 @@ class DispatchSerializer(serializers.ModelSerializer):
                   'shipment_address', 'invoice_city', 'invoice_amount',
                   'created_at')
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount')
+
+
+class CommercialShipmentSerializer(serializers.ModelSerializer):
+    shipment_status = serializers.CharField(
+                                        source='get_shipment_status_display')
+    order = serializers.SlugRelatedField(read_only=True, slug_field='order_no')
+    cash_to_be_collected = serializers.SerializerMethodField()
+    created_at = serializers.DateTimeField()
+
+    def get_cash_to_be_collected(self, obj):
+        return obj.cash_to_be_collected()
+
+    class Meta:
+        model = OrderedProduct
+        fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
+                  'shipment_address', 'invoice_city', 'invoice_amount',
+                  'created_at', 'cash_to_be_collected')
+        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 'cash_to_be_collected')
