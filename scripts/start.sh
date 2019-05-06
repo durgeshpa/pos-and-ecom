@@ -8,7 +8,7 @@ python manage.py migrate --fake
 echo "############################-----User Is ------####### "
 echo "$USER"
 #pull latest code
-git pull
+/bin/su -c "/home/ubuntu/project/scripts/pull.sh" - ubuntu
 
 #create new migrations and migrate
 python manage.py makemigrations
