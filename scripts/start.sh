@@ -4,9 +4,7 @@ cd /home/ubuntu/project/retailer-backend/
 #fake all previous migrations
 python manage.py makemigrations
 python manage.py migrate --fake
-su ubuntu
-echo "############################-----User Is ------####### "
-echo "$USER"
+
 #pull latest code
 git pull
 
