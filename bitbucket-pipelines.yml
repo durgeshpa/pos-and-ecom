@@ -3,14 +3,15 @@
 # Only use spaces to indent your .yml configuration.
 # -----
 # You can specify a custom docker image from Docker Hub as your build environment.
-image: atlassian/default-image:2
+image: python:3.6.8-stretch
 
 pipelines:
   branches:
     master:
       - step:
           name: Deploy
-          image: atlassian/default-image:2
+          image: python:3.6.8-stretch
+          deployment: production
           script:
             - echo "This script runs only on commit to the master branch."
             - apt-get update
@@ -24,6 +25,7 @@ pipelines:
       - step:
           name: Deploy
           image: python:3.6.8-stretch
+          deployment: staging
           script:
             - echo "This script runs only on commit to the staging branch."
             - apt-get update
@@ -36,5 +38,6 @@ pipelines:
       - step:
           name: Dev Deploy
           image: python:3.5.1
+          deployment: test
           script:
             - echo "This script runs only on commit to the dev branch."
