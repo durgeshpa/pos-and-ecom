@@ -7,7 +7,7 @@ from celery.contrib import rdb
 
 @task
 def ordered_product_available_qty_update(
-        ordered_product_ids, ordered_amount, cart):
+        ordered_product_ids, ordered_amount, cart_id):
     queryset = OrderedProductMapping.objects.filter(
         id__in=ordered_product_ids
     )
@@ -34,7 +34,7 @@ def ordered_product_available_qty_update(
             reserved_qty=deduct_qty
         )
         order_product_reserved.order_product_reserved = product_detail
-        order_product_reserved.cart = cart
+        order_product_reserved.cart_id = cart_id
         order_product_reserved.reserve_status = 'reserved'
         order_product_reserved.save()
 
