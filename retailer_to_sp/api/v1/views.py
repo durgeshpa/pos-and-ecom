@@ -468,9 +468,9 @@ class ReservedOrder(generics.ListAPIView):
                     # checking if stock available and more than the order
                     if available_qty and int(available_qty) >= ordered_amount:
                         ordered_product_available_qty_update.delay(
-                            ordered_product_details.values_list(
+                            list(ordered_product_details.values_list(
                                 'id', flat=True
-                            ),
+                            )),
                             ordered_amount, cart
                         )
                         serializer = CartSerializer(cart, context={
