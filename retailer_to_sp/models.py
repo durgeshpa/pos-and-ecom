@@ -317,7 +317,7 @@ class Order(models.Model):
     @property
     def shipment_returns(self):
         return self._shipment_returns
-    
+
 
 class Trip(models.Model):
     seller_shop = models.ForeignKey(
@@ -639,12 +639,11 @@ class CustomerCare(models.Model):
     order_id = models.ForeignKey(
         Order, on_delete=models.CASCADE, null=True, blank=True
     )
-    name = models.CharField(max_length=255, null=True, blank=True)
-    email_us = models.URLField(default='help@grmafactory.com')
-    contact_us = models.CharField(max_length=10, default='9319404555')
-    created_at = models.DateTimeField(auto_now_add=True)
+    complaint_id = models.CharField(max_length=255, null=True, blank=True)
+    email_us = models.URLField(default='help@gramfactory.com')
+    issue_date = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-    order_status = models.CharField(
+    issue_status = models.CharField(
         max_length=20, choices=MESSAGE_STATUS,
         default='pending', null=True, blank=True
     )
@@ -655,11 +654,11 @@ class CustomerCare(models.Model):
     complaint_detail = models.CharField(max_length=2000, null=True)
 
     def __str__(self):
-        return self.name
+        return self.complaint_id
 
     def save(self, *args, **kwargs):
         super(CustomerCare, self).save()
-        self.name = "CustomerCare/Message/%s" % self.pk
+        self.complaint_id = "CustomerCare/Message/%s" % self.pk
         super(CustomerCare, self).save()
 
 
