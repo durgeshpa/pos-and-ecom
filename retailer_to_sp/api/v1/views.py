@@ -36,7 +36,9 @@ from addresses.models import Address
 from retailer_backend.common_function import getShopMapping,checkNotShopAndMapping,getShop
 from retailer_backend.messages import ERROR_MESSAGES
 from django.contrib.postgres.search import SearchVector
-from retailer_to_sp.tasks import update_reserve_quatity, release_blocking
+from retailer_to_sp.tasks import (
+    ordered_product_available_qty_update, release_blocking
+)
 today = datetime.today()
 
 
@@ -455,44 +457,22 @@ class ReservedOrder(generics.ListAPIView):
                             parent_mapping.parent,
                             cart_product.cart_product
                         ).order_by('-expiry_date')
-                    from celery.contrib import rdb
-                    rdb.set_trace()
                     available_qty = ordered_product_details.\
                         aggregate(
                             available_qty_sum=Sum('available_qty')
                         )['available_qty_sum']
-
                     is_error = False
                     ordered_amount = (
                         int(cart_product.qty) *
                         int(cart_product.cart_product.product_inner_case_size))
                     # checking if stock available and more than the order
                     if available_qty and int(available_qty) >= ordered_amount:
-                        remaining_amount = ordered_amount
-                        for product_detail in ordered_product_details:
-                            if product_detail.available_qty <= 0:
-                                continue
-
-                            if remaining_amount <= 0:
-                                break
-
-                            # Todo available_qty replace to sp_available_qty
-                            if (product_detail.available_qty >=
-                                    remaining_amount):
-                                deduct_qty = remaining_amount
-                            else:
-                                deduct_qty = product_detail.available_qty
-
-                            product_detail.available_qty -= deduct_qty
-                            remaining_amount -= deduct_qty
-                            product_detail.save()
-
-                            update_reserve_quatity.delay(
-                                product_id=product_detail.product_id,
-                                reserved_qty=deduct_qty,
-                                order_product_reserved_id=product_detail.id,
-                                cart_id=cart.id)
-
+                        ordered_product_available_qty_update.delay(
+                            ordered_product_details.values_list(
+                                'id', flat=True
+                            ),
+                            ordered_amount, cart
+                        )
                         serializer = CartSerializer(cart, context={
                             'parent_mapping_id': parent_mapping.parent.id})
                         msg = {'is_success': True,

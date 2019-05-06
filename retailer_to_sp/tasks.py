@@ -1,27 +1,42 @@
 from celery.task import task
-from sp_to_gram.models import OrderedProductReserved
+from sp_to_gram.models import OrderedProductReserved, OrderedProductMapping
 from gram_to_brand.models import (
     OrderedProductReserved as GramOrderedProductReserved)
 from celery.contrib import rdb
 
 
 @task
-def update_reserve_quatity(**kwargs):
-    order_product_reserved = OrderedProductReserved(
-        product_id=kwargs.get('product_id'),
-        reserved_qty=kwargs.get('reserved_qty')
+def ordered_product_available_qty_update(
+        ordered_product_ids, ordered_amount, cart):
+    queryset = OrderedProductMapping.objects.filter(
+        id__in=ordered_product_ids
     )
-    order_product_reserved.order_product_reserved_id = kwargs.get(
-        'order_product_reserved_id')
-    order_product_reserved.cart_id = kwargs.get('cart_id')
-    order_product_reserved.reserve_status = 'reserved'
-    order_product_reserved.save()
+    remaining_amount = ordered_amount
+    for product_detail in queryset:
+        if product_detail.available_qty <= 0:
+            continue
 
+        if remaining_amount <= 0:
+            break
 
-@task
-def ordered_product_available_qty_update(ordered_product_id):
-    pass
+        # Todo available_qty replace to sp_available_qty
+        if (product_detail.available_qty >=
+                remaining_amount):
+            deduct_qty = remaining_amount
+        else:
+            deduct_qty = product_detail.available_qty
 
+        product_detail.available_qty -= deduct_qty
+        remaining_amount -= deduct_qty
+        product_detail.save()
+        order_product_reserved = OrderedProductReserved(
+            product=product_detail.product,
+            reserved_qty=deduct_qty
+        )
+        order_product_reserved.order_product_reserved = product_detail
+        order_product_reserved.cart = cart
+        order_product_reserved.reserve_status = 'reserved'
+        order_product_reserved.save()
 
 
 @task
