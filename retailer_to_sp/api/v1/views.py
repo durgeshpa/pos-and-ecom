@@ -515,7 +515,7 @@ class ReservedOrder(generics.ListAPIView):
                             msg = {'is_success': True,
                                    'message': [''],
                                    'response_data': serializer.data}
-                        release_blocking.delay(parent_mapping, cart.id)
+                        release_blocking.delay(parent_shop_type, cart.id)
                         return Response(msg, status=status.HTTP_200_OK)
                 if CartProductMapping.objects.filter(cart=cart).count() <= 0:
                     msg = {'is_success': False,

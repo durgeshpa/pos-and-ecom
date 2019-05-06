@@ -19,8 +19,7 @@ def update_reserve_quatity(**kwargs):
 
 
 @task
-def release_blocking(parent_mapping, cart_id):
-    parent_shop_type = parent_mapping.parent.shop_type.shop_type
+def release_blocking(parent_shop_type, cart_id):
     if parent_shop_type == 'sp':
         ordered_product_reserved = OrderedProductReserved.objects.filter(
             cart__id=cart_id, reserve_status='reserved')
