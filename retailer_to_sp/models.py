@@ -696,14 +696,14 @@ class Commercial(Trip):
     def clean(self):
         if self.received_amount:
             if (self.trip_status == 'CLOSED' and
-                    (self.received_amount !=
-                        self.cash_to_be_collected())):
+                    (int(self.received_amount) !=
+                        int(self.cash_to_be_collected()))):
                     raise ValidationError(_("Received amount should be equal"
                                             " to Cash to be Collected"
                                             ),)
             if (self.trip_status == 'COMPLETED' and
-                    (self.received_amount >
-                        self.cash_to_be_collected())):
+                    (int(self.received_amount) >
+                        int(self.cash_to_be_collected()))):
                     raise ValidationError(_("Received amount should be less"
                                             " than Cash to be Collected"
                                             ),)
