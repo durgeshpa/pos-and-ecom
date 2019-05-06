@@ -19,6 +19,12 @@ def update_reserve_quatity(**kwargs):
 
 
 @task
+def ordered_product_available_qty_update(ordered_product_id):
+    pass
+
+
+
+@task
 def release_blocking(parent_shop_type, cart_id):
     if parent_shop_type == 'sp':
         ordered_product_reserved = OrderedProductReserved.objects.filter(

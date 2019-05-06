@@ -455,6 +455,8 @@ class ReservedOrder(generics.ListAPIView):
                             parent_mapping.parent,
                             cart_product.cart_product
                         ).order_by('-expiry_date')
+                    from celery.contrib import rdb
+                    rdb.set_trace()
                     available_qty = ordered_product_details.\
                         aggregate(
                             available_qty_sum=Sum('available_qty')
@@ -523,77 +525,11 @@ class ReservedOrder(generics.ListAPIView):
                            'response_data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
-        # if shop mapped with gf
-        elif parent_shop_type == 'gf':
-            if GramMappedCart.objects.filter(last_modified_by=self.request.user,
-                                             cart_status__in=['active', 'pending']).exists():
-                cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,
-                                                     cart_status__in=['active', 'pending']).last()
-                cart_products = GramMappedCartProductMapping.objects.filter(cart=cart)
-                pick_list,_ = PickList.objects.get_or_create(cart=cart)
-                pick_list.save()
-
-                is_error = False
-                for cart_product in cart_products:
-                    ordered_product_details = GRNOrderProductMapping.objects.filter(
-                        grn_order__order__ordered_cart__gf_shipping_address__shop_name=parent_mapping.parent,
-                        product=cart_product.cart_product).order_by('-expiry_date')
-                    ordered_product_sum = ordered_product_details.aggregate(available_qty_sum=Sum('available_qty'))
-
-                    if ordered_product_sum['available_qty_sum'] is not None:
-                        if int(ordered_product_sum['available_qty_sum']) < int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size):
-                            available_qty = int(ordered_product_sum['available_qty_sum'])
-                            cart_product.qty_error_msg = ERROR_MESSAGES['AVAILABLE_PRODUCT'].format(int(available_qty))
-                            is_error = True
-                        else:
-                            available_qty = int(cart_product.qty)*int(cart_product.cart_product.product_inner_case_size)
-                            cart_product.qty_error_msg = ''
-
-                        cart_product.save()
-
-                        for product_detail in ordered_product_details:
-                            deduct_qty = 0
-                            if available_qty <= 0:
-                                break
-
-                            if available_qty > product_detail.available_qty:
-                                deduct_qty = product_detail.available_qty
-                            else:
-                                deduct_qty = available_qty
-
-                            product_detail.available_qty = 0 if available_qty > product_detail.available_qty else int(
-                                product_detail.available_qty) - int(available_qty)
-                            product_detail.save()
-
-                            order_product_reserved_dt = GramOrderedProductReserved(product=product_detail.product,
-                                                                                reserved_qty=available_qty)
-                            order_product_reserved_dt.order_product_reserved = product_detail
-                            order_product_reserved_dt.cart = cart
-                            order_product_reserved_dt.reserve_status = 'reserved'
-                            order_product_reserved_dt.save()
-
-                            pick_list_item = PickListItems(pick_list=pick_list, grn_order=product_detail.grn_order,
-                                                           pick_qty=available_qty)
-                            pick_list_item.product = product_detail.product
-                            pick_list_item.save()
-                            available_qty = available_qty - int(deduct_qty)
-
-                        serializer = GramMappedCartSerializer(cart, context={'parent_mapping_id': parent_mapping.parent.id})
-                        if is_error:
-                            release_blocking(parent_mapping, cart.id)
-                        msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
-                    else:
-                        release_blocking(parent_mapping,cart.id)
-                        msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
-                        return Response(msg, status=status.HTTP_200_OK)
-                if GramMappedCartProductMapping.objects.filter(cart=cart).count() <= 0:
-                    msg = {'is_success': False, 'message': ['No any product available ins this cart'],
-                           'response_data': None}
-            else:
-                msg = {'is_success': False, 'message': ['Sorry shop is not associated with any Gramfactory or any SP'],
-                       'response_data': None}
-                return Response(msg, status=status.HTTP_200_OK)
+        else:
+            msg = {'is_success': False, 'message': ['Sorry shop is not associated with any Gramfactory or any SP'],
+                   'response_data': None}
             return Response(msg, status=status.HTTP_200_OK)
+        return Response(msg, status=status.HTTP_200_OK)
 
     # def sp_mapping_order_reserve(self):
     #     pass
