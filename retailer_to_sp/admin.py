@@ -49,6 +49,7 @@ from sp_to_gram.models import (
     OrderedProductMapping as SpMappedOrderedProductMapping)
 from dal_admin_filters import AutocompleteFilter
 from django.utils.translation import ugettext_lazy as _
+from shops.models import Shop, ParentRetailerMapping
 
 
 class InvoiceNumberFilter(AutocompleteFilter):
@@ -102,6 +103,19 @@ class NameSearch(InputFilter):
                 Q(name__icontains=name)
             )
 
+class ComplaintIDSearch(InputFilter):
+    parameter_name = 'complaint_id'
+    title = 'Complaint ID'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            complaint_id = self.value()
+            if complaint_id is None:
+                return
+            return queryset.filter(
+                Q(complaint_id__icontains=complaint_id)
+            )
+
 class NEFTSearch(InputFilter):
     parameter_name = 'neft_reference_number'
     title = 'neft reference number'
@@ -141,17 +155,17 @@ class OrderNoSearch(InputFilter):
                 Q(order_no__icontains=order_no)
             )
 
-class OrderStatusSearch(InputFilter):
-    parameter_name = 'order_status'
+class IssueStatusSearch(InputFilter):
+    parameter_name = 'issue_status'
     title = 'Order Status'
 
     def queryset(self, request, queryset):
         if self.value() is not None:
-            order_status = self.value()
-            if order_status is None:
+            issue_status = self.value()
+            if issue_status is None:
                 return
             return queryset.filter(
-                Q(order_status__icontains=order_status)
+                Q(issue_status__icontains=issue_status)
             )
 
 
@@ -332,7 +346,7 @@ class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
         list_display = ['order_no', 'seller_shop', 'buyer_shop', 'total_final_amount',
-                        'order_status', 'created_at', 'payment_mode', 'paid_amount', 
+                        'order_status', 'created_at', 'payment_mode', 'paid_amount',
                         'total_paid_amount', 'shipment_status', 'order_shipment_amount', 'order_shipment_details']
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
@@ -712,15 +726,29 @@ class CustomerCareAdmin(admin.ModelAdmin):
     model = CustomerCare
     form = CustomerCareForm
     fields = (
-        'email_us', 'contact_us', 'order_id', 'order_status',
-        'select_issue', 'complaint_detail'
+        'email_us', 'order_id', 'issue_status',
+        'select_issue', 'complaint_detail', 'issue_date', 'seller_shop', 'retailer_shop', 'retailer_name'
     )
-    exclude = ('name',)
-    list_display = ('name', 'order_id', 'order_status', 'select_issue')
+    exclude = ('complaint_id',)
+    list_display = ('complaint_id', 'retailer_shop', 'retailer_name', 'seller_shop', 'order_id', 'issue_status', 'select_issue', 'issue_date')
     autocomplete_fields = ('order_id',)
-    search_fields = ('name',)
-    list_filter = [NameSearch, OrderIdSearch, OrderStatusSearch, IssueSearch]
+    search_fields = ('complaint_id',)
+    readonly_fields = ('issue_date', 'seller_shop', 'retailer_shop', 'retailer_name')
+    list_filter = [ComplaintIDSearch, OrderIdSearch, IssueStatusSearch, IssueSearch]
 
+    def seller_shop(self, obj):
+        if obj.order_id:
+            return obj.order_id.seller_shop
+
+    def retailer_shop(self, obj):
+        if obj.order_id:
+            return obj.order_id.buyer_shop
+
+    def retailer_name(self, obj):
+        if obj.order_id:
+            if obj.order_id.buyer_shop:
+                if obj.order_id.buyer_shop.shop_owner.first_name:
+                    return obj.order_id.buyer_shop.shop_owner.first_name
 
 class PaymentAdmin(NumericFilterModelAdmin,admin.ModelAdmin):
     model = Payment
