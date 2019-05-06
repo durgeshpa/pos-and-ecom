@@ -20,24 +20,25 @@ from .models import (
     Cart, CartProductMapping, Order, OrderedProduct,
     OrderedProductMapping, Note, CustomerCare,
     Payment, Return, ReturnProductMapping, Dispatch,
-    DispatchProductMapping, Trip, Shipment, ShipmentProductMapping
+    DispatchProductMapping, Trip, Shipment, ShipmentProductMapping,
+    Commercial
 )
 from .forms import (
     CustomerCareForm, ReturnProductMappingForm, TripForm, DispatchForm,
     OrderedProductMappingForm, OrderedProductForm, ShipmentForm,
     OrderedProductMappingShipmentForm, ShipmentProductMappingForm,
-    CartProductMappingForm, CartForm
+    CartProductMappingForm, CartForm, CommercialForm
     )
 from retailer_to_sp.views import (
     ordered_product_mapping_shipment, order_invoices, trip_planning,
     load_dispatches, trip_planning_change, update_shipment_status,
     update_order_status, update_delivered_qty,
-    LoadDispatches, UpdateSpQuantity
+    LoadDispatches, UpdateSpQuantity, commercial_shipment_details
     )
 
 from products.admin import ExportCsvMixin
 from .resources import OrderResource
-from .utils import add_cart_user, create_order_from_cart, GetPcsFromQty
+from .utils import (add_cart_user, create_order_from_cart, GetPcsFromQty)
 from admin_numeric_filter.admin import NumericFilterModelAdmin, SingleNumericFilter, RangeNumericFilter, \
     SliderNumericFilter
 from django.http import HttpResponse
@@ -326,6 +327,10 @@ class CartAdmin(admin.ModelAdmin):
                self.admin_site.admin_view(GetPcsFromQty.as_view()),
                name="GetPcsFromQty"
             ),
+            url(r'^commercial/(?P<pk>\d+)/shipment-details/$',
+                self.admin_site.admin_view(commercial_shipment_details),
+                name="CommercialShipmentDetails"
+                ),
         ] + urls
         return urls
 
@@ -706,6 +711,71 @@ class TripAdmin(admin.ModelAdmin):
         return format_html("<a href= '%s' >Download Trip PDF</a>"%(reverse('download_trip_pdf', args=[obj.pk])))
     download_trip_pdf.short_description = 'Trip Details'
 
+
+class CommercialAdmin(admin.ModelAdmin):
+    #change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
+    list_display = (
+        'dispatch_no', 'trip_amount', 'received_amount',
+        'cash_to_be_collected', 'download_trip_pdf', 'delivery_boy',
+        'vehicle_no', 'trip_status', 'starts_at', 'completed_at',
+        'seller_shop',)
+    list_display_links = ('dispatch_no', )
+    list_per_page = 10
+    list_max_show_all = 100
+    list_select_related = ('delivery_boy', 'seller_shop')
+    readonly_fields = ('dispatch_no', 'delivery_boy', 'seller_shop',
+                       'vehicle_no', 'starts_at', 'trip_amount',
+                       'completed_at', 'e_way_bill_no', 'cash_to_be_collected')
+    autocomplete_fields = ('seller_shop',)
+    search_fields = [
+        'delivery_boy__first_name', 'delivery_boy__last_name',
+        'delivery_boy__phone_number', 'vehicle_no', 'dispatch_no',
+        'seller_shop__shop_name'
+    ]
+    fields = ['trip_status', 'trip_amount', 'cash_to_be_collected',
+              'received_amount', 'dispatch_no', 'delivery_boy', 'seller_shop',
+              'starts_at', 'completed_at', 'e_way_bill_no', 'vehicle_no']
+    list_filter = ['trip_status', ('created_at', DateTimeRangeFilter),
+                   ('starts_at', DateTimeRangeFilter), DeliveryBoySearch,
+                   ('completed_at', DateTimeRangeFilter), VehicleNoSearch,
+                   DispatchNoSearch]
+    form = CommercialForm
+    actions = ['change_trip_status']
+
+    def change_trip_status(self, request, queryset):
+        queryset.filter(trip_status='CLOSED').update(trip_status='TRANSFERRED')
+    change_trip_status.short_description = "Mark selected Trips as Transferred"
+
+    def cash_to_be_collected(self, obj):
+        return obj.cash_to_be_collected()
+        cash_to_be_collected.short_description = 'Cash to be Collected'
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        js = ('admin/js/datetime_filter_collapse.js',
+              'admin/js/sweetalert.min.js',
+              'admin/js/commercial_trip_status_change.js')
+
+    def get_queryset(self, request):
+        qs = super(CommercialAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs.filter(trip_status__in=['COMPLETED', 'CLOSED',
+                                              'TRANSFERRED'])
+        return qs.filter(
+            Q(seller_shop__related_users=request.user) |
+            Q(seller_shop__shop_owner=request.user),
+            trip_status__in=['COMPLETED', 'CLOSED', 'TRANSFERRED'])
+
+    def download_trip_pdf(self, obj):
+        return format_html("<a href= '%s' >Download Trip PDF</a>"%(reverse('download_trip_pdf', args=[obj.pk])))
+    download_trip_pdf.short_description = 'Trip Details'
+
+
 class NoteAdmin(admin.ModelAdmin):
     list_display = (
         'credit_note_id', 'shipment',
@@ -810,3 +880,4 @@ admin.site.register(Payment, PaymentAdmin)
 admin.site.register(Dispatch, DispatchAdmin)
 admin.site.register(Trip, TripAdmin)
 admin.site.register(Shipment, ShipmentAdmin)
+admin.site.register(Commercial, CommercialAdmin)
