@@ -727,13 +727,13 @@ class CustomerCareAdmin(admin.ModelAdmin):
     form = CustomerCareForm
     fields = (
         'email_us', 'order_id', 'issue_status',
-        'select_issue', 'complaint_detail', 'issue_date'
+        'select_issue', 'complaint_detail', 'issue_date', 'seller_shop', 'retailer_shop', 'retailer_name'
     )
     exclude = ('complaint_id',)
     list_display = ('complaint_id', 'retailer_shop', 'retailer_name', 'seller_shop', 'order_id', 'issue_status', 'select_issue', 'issue_date')
     autocomplete_fields = ('order_id',)
     search_fields = ('complaint_id',)
-    readonly_fields = ('issue_date',)
+    readonly_fields = ('issue_date', 'seller_shop', 'retailer_shop', 'retailer_name')
     list_filter = [ComplaintIDSearch, OrderIdSearch, IssueStatusSearch, IssueSearch]
 
     def seller_shop(self, obj):
