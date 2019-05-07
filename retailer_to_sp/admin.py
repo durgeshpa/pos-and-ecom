@@ -359,7 +359,7 @@ class ExportCsvMixin:
         writer = csv.writer(response)
         writer.writerow(list_display)
         for obj in queryset:
-            row = writer.writerow([getattr(obj, field) for field in list_display])
+            row = writer.writerow([ getattr(obj, field).replace('<br>','\n') if field in ['shipment_status', 'order_shipment_amount', 'order_shipment_details'] else getattr(obj, field) for field in list_display])
         return response
     export_as_csv.short_description = "Download CSV of Selected Orders"
 
