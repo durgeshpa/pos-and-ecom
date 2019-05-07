@@ -81,7 +81,7 @@ class GramGRNProductsList(APIView):
         shop_id = request.data.get('shop_id')
         offset = request.data.get('offset')
         pro_count = request.data.get('pro_count')
-
+        grn_dict = None
         cart_check = False
         is_store_active = True
         sort_preference = request.data.get('sort_by_price')
@@ -130,8 +130,11 @@ class GramGRNProductsList(APIView):
                     if cart:
                         cart_products = cart.rt_cart_list.all()
                         cart_check = True
+        if grn_dict:
+            products = Product.objects.filter(pk__in=grn_dict.keys()).order_by('product_name')
+        else:
+            products = Product.objects.filter(pk__in=grn).order_by('product_name')
 
-        products = Product.objects.filter(pk__in=grn_dict.keys()).order_by('product_name')
         if product_ids:
             products = products.filter(id__in=product_ids)
         if brand:
