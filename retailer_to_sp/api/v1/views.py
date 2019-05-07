@@ -131,16 +131,17 @@ class GramGRNProductsList(APIView):
                         cart_products = cart.rt_cart_list.all()
                         cart_check = True
         if grn_dict:
-            products = Product.objects.filter(pk__in=grn_dict.keys()).order_by('product_name')
+            grn_list = grn_dict.keys()
         else:
-            products = Product.objects.filter(pk__in=grn).order_by('product_name')
+            grn_list = grn
+        products = Product.objects.filter(pk__in=grn_list).order_by('product_name')
 
         if product_ids:
             products = products.filter(id__in=product_ids)
         if brand:
             products = products.filter(product_brand__in=brand)
         if category:
-            product_ids = ProductCategory.objects.filter(product__in=grn, category__in=category).values_list('product_id')
+            product_ids = ProductCategory.objects.filter(product__in=grn_list, category__in=category).values_list('product_id')
             products = products.filter(pk__in=product_ids)
         if keyword:
             products = products.annotate(search=SearchVector('product_name', 'product_brand__brand_name', 'product_short_description')).filter(search=keyword)
