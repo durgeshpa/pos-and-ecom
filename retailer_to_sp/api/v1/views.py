@@ -181,7 +181,7 @@ class GramGRNProductsList(APIView):
             except Exception as e:
                 logger.exception("pack size is not defined for {}".format(p.product.product_name))
                 continue
-            if int(pack_size) > int(grn_dict[p.product.id]):
+            if grn_dict and int(pack_size) > int(grn_dict[p.product.id]):
                 continue
             try:
                 for p_o in product_opt:
