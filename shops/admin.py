@@ -136,7 +136,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
         ShopPhotosAdmin, ShopDocumentsAdmin,
         AddressAdmin, ShopInvoicePatternAdmin,ShopParentRetailerMapping
     ]
-    list_display = ('shop_name','get_shop_parent','shop_owner','shop_type','created_at','status', 'get_shop_city','shop_mapped_product')
+    list_display = ('shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent','shop_owner','shop_type','created_at','status', 'get_shop_city','shop_mapped_product')
     filter_horizontal = ('related_users',)
     list_filter = (ServicePartnerFilter,ShopNameSearch,ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,'status',('created_at', DateTimeRangeFilter))
     search_fields = ('shop_name', )
@@ -170,6 +170,18 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
             ),
         ] + urls
         return urls
+
+    def get_shop_shipping_address(self, obj):
+        if obj.shop_name_address_mapping.exists():
+            for address in obj.shop_name_address_mapping.filter(address_type ='shipping').all():
+                return address.address_line1
+    get_shop_shipping_address.short_description = 'Shipping Address'
+
+    def get_shop_pin_code(self, obj):
+        if obj.shop_name_address_mapping.exists():
+            for address in obj.shop_name_address_mapping.filter(address_type ='shipping').all():
+                return address.pincode
+    get_shop_pin_code.short_description = 'PinCode'
 
 
     def get_queryset(self, request):
