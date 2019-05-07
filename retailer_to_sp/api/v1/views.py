@@ -130,8 +130,10 @@ class GramGRNProductsList(APIView):
                     if cart:
                         cart_products = cart.rt_cart_list.all()
                         cart_check = True
-
-        products = Product.objects.filter(pk__in=grn_dict.keys()).order_by('product_name')
+        if parent_mapping.parent.shop_type.shop_type == 'sp':
+            products = Product.objects.filter(pk__in=grn_dict.keys()).order_by('product_name')
+        else:
+            products = Product.objects.filter(pk__in=grn).order_by('product_name')
         if product_ids:
             products = products.filter(id__in=product_ids)
         if brand:
