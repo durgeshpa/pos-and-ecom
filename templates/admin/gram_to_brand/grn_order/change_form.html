@@ -4,6 +4,7 @@
 <script type="text/javascript" >
 if( $("select[id$='product']").has('option').length > 0 ) {
 $("select[id$='product']").attr('disabled', true);
+$("select[id$='order']").attr('disabled', true);
 }
 $("input[id$='po_product_quantity']").prop('readonly', true).css('border','none');
 $("input[id$='po_product_price']").prop('readonly', true).css('border','none');
@@ -11,6 +12,7 @@ $("input[id$='already_grned_product']").prop('readonly', true).css('border','non
 
 $( "form" ).submit(function( event ) {
   $("select[id$='product']").attr('disabled', false);
+  $("select[id$='order']").attr('disabled', false);
 });
 </script>
 {% endblock %}
