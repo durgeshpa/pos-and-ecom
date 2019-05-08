@@ -59,7 +59,7 @@ def deploy_new_revision():
 
     try:
         response = client.create_deployment(
-            applicationName=str(os.getenv('APPLICATION_NAME')),
+            applicationName='str(os.getenv('APPLICATION_NAME'))',
             deploymentGroupName=str(os.getenv('DEPLOYMENT_GROUP_NAME')),
             revision={
                 'revisionType': 'S3',
