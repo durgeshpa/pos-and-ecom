@@ -27,7 +27,7 @@ table tr td,th,h4,span,address{
     <div class="container-fluid">
 			<div class="row">
 			<div class="col-sm-6">
-			<img src="{{scheme}}://{{url}}/static/admin/img/logo2.png" style="width: 150px; padding: 10px 0px 10px">
+			<img src="{{scheme}}://{{url}}/static/admin/img/logo.png" style="width: 150px; padding: 10px 0px 10px">
 			</div>
 
 		</div>
@@ -43,28 +43,28 @@ table tr td,th,h4,span,address{
     			<div class="col-xs-6">
     				<address>
 						<span>Invoice To :</span><br>
-    				<strong>{{shop.gf_billing_address.shop_name}}</strong><br>
+    				<strong>{{shop.gf_billing_address.shop_name.shop_name}}</strong><br>
     				{{shop.gf_billing_address.nick_name}}, {{shop.gf_billing_address.address_line1}}, {{shop.gf_billing_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{% if gram_factory_billing_gstin %}{{ gram_factory_billing_gstin.shop_document_number }}{% else %} ---- {% endif %}</span><br>
 						<strong>State Name:</strong> <span>{{shop.gf_billing_address.state}} </span><strong>Code:</strong> <span>{{shop.gf_billing_address.pincode}}</span><br>
-						<strong>CIN:</strong> <span>09AAQCA9570J1ZW</span>
+						<strong>CIN:</strong> <span>---</span>
     				</address>
 
 					<address>
 						<span>Dispatch To :</span><br>
-    				<strong>{{shop.gf_shipping_address.shop_name}}</strong><br>
+    				<strong>{{shop.gf_shipping_address.shop_name.shop_name}}</strong><br>
     				{{shop.gf_shipping_address.nick_name}}, {{shop.gf_shipping_address.address_line1}}, {{shop.gf_shipping_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{% if gram_factory_shipping_gstin %}{{ gram_factory_shipping_gstin.shop_document_number  }}{% else %} ---- {% endif %}</span><br>
 						<strong>State Name:</strong> <span>{{shop.gf_shipping_address.state}} </span><strong>Code:</strong> <span>{{shop.gf_shipping_address.pincode}}</span><br>
-						<strong>CIN:</strong> <span>09AAQCA9570J1ZW</span>
+						<strong>CIN:</strong> <span>---</span>
     				</address>
 					<address>
 						<span>Party :</span><br>
     				<strong>{{shop.supplier_name.vendor_name}}</strong><br>
-    				{{shop.supplier_name.company_name}}, {{shop.supplier_name.city}}<br>
+    				{{shop.supplier_name.company_name}}, {{shop.supplier_name.address_line1}}, {{shop.supplier_name.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{{shop.supplier_name.GST_number}}</span><br>
 						<strong>State Name:</strong> <span>{{shop.supplier_name.state}} </span><strong>Code:</strong> <span>{{shop.supplier_name.pincode}}</span><br>
-						<strong>CIN:</strong> <span>09AAQCA9570J1ZW</span>
+						<strong>CIN:</strong> <span>---</span>
     				</address>
     			</div>
     			<div class="col-xs-6 text-right">
@@ -147,7 +147,7 @@ table tr td,th,h4,span,address{
 
 												<td class="text-center"><strong>SKU</strong></td>
         							<td class="text-center"><strong>Description of Goods</strong></td>
-											<td class="text-center"><strong>MRP</strong></td>
+
         							<td class="text-center"><strong>HSN/SAC</strong></td>
 
 									    <td class="text-center"><strong>GST Rate</strong></td>
@@ -165,18 +165,16 @@ table tr td,th,h4,span,address{
     								<td><strong>{{forloop.counter}}</strong></td>
 										<td class="text-center">{{ m.cart_product.product_sku}}</td>
     								<td class="text-center">{{ m.cart_product.product_short_description}}</td>
-										  {% for h in m.cart_product.product_pro_price.all %}
 
-										<td class="text-center">{{ h.mrp}}</td>
 
-										  {% endfor %}
+
     								<td class="text-center">{{ m.cart_product.product_hsn}}</td>
 										   {% for n in m.cart_product.product_pro_tax.all %}
 											 		{% if n.tax.tax_type == 'gst' %}
 		    										<td class="text-center">{{n.tax.tax_percentage}}%</td>
 													{% endif %}
 												{% endfor %}
-									<td class="text-center">{{ m.number_of_cases }}</td>
+									<td class="text-center">{{ m.no_of_cases }}</td>
 
 
 									<td class="text-center">{{m.qty}}</td>
@@ -184,7 +182,7 @@ table tr td,th,h4,span,address{
     								<td class="text-center">PCS</td>
 										   <div style="display:none"> {{m.qty| qty}}</div>
 
-    								<td class="text-right">{{m.price| price | intcomma }}/-</td>
+    								<td class="text-right">{{m.price| price | floatformat:2 | intcomma }}/-</td>
     							</tr>
 									{% endfor %}
 
@@ -193,7 +191,7 @@ table tr td,th,h4,span,address{
 
 									<td></td>
 									<td><strong></strong></td>
-						 <td></td>
+
 									<td></td>
 									<td></td>
 
@@ -201,7 +199,7 @@ table tr td,th,h4,span,address{
 								  <td class="thick-line text-center"><strong>{{sum_qty}} PCS</strong></td>
     								<td class="thick-line"></td>
     								<td class="thick-line text-center"><strong></strong></td>
-    								<td class="thick-line text-right"><strong>₹{{sum_amount | intcomma }}/-</strong></td>
+    								<td class="thick-line text-right"><strong>₹{{sum_amount | floatformat:2 | intcomma }}/-</strong></td>
     							</tr>
 									{% if shop.supplier_state == shop.gf_shipping_address.state %}
     							<tr>
@@ -209,7 +207,7 @@ table tr td,th,h4,span,address{
 									<td class="no-line"></td>
 									<td class="no-line"></td>
 									<td class="no-line"></td>
-    								<td class="no-line"></td>
+
 									<td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line"></td>
@@ -223,7 +221,7 @@ table tr td,th,h4,span,address{
     								<td class="no-line"></td>
 									<td class="no-line"></td>
 										<td class="no-line"></td>
-    								<td class="no-line"></td>
+
 									<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
@@ -238,7 +236,7 @@ table tr td,th,h4,span,address{
 	    								<td class="no-line"></td>
 										<td class="no-line"></td>
 											<td class="no-line"></td>
-	    								<td class="no-line"></td>
+
 										<td class="no-line"></td>
 										<td class="no-line"></td>
 	    								<td class="no-line"></td>
@@ -254,7 +252,7 @@ table tr td,th,h4,span,address{
     								<td class="no-line"></td>
 									<td class="no-line"></td>
 									<td class="no-line"></td>
-										<td class="no-line"></td>
+
     								<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
@@ -269,7 +267,7 @@ table tr td,th,h4,span,address{
 	    								<td class="no-line"></td>
 										<td class="no-line"></td>
 										<td class="no-line"></td>
-											<td class="no-line"></td>
+
 	    								<td class="no-line"></td>
 										<td class="no-line"></td>
 	    								<td class="no-line"></td>
@@ -284,14 +282,14 @@ table tr td,th,h4,span,address{
 										<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
-									<td class="no-line"></td>
+
     								<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line text-center"><strong>Total</strong></td>
-    								<td class="no-line text-right" style="width:120px"><strong>₹ {{total_amount | intcomma}}/- </strong></td>
+    								<td class="no-line text-right" style="width:120px"><strong>₹ {{total_amount | floatformat:2 | intcomma}}/- </strong></td>
     							</tr>
 
 								<tr>
@@ -302,7 +300,7 @@ table tr td,th,h4,span,address{
         							<td class="no-line">E . &amp; O . E</td>
                                 </tr>
 								<tr>
-        							<td colspan="11"><strong>{{total_amount | amount}}</strong></td>
+        							<td colspan="11"><strong>{{total_amount | floatformat:2 | amount }}</strong></td>
 
                                 </tr>
     						</tbody>
@@ -323,7 +321,7 @@ table tr td,th,h4,span,address{
 
 
 						<strong>Supplier's Service Tax No:</strong> <span>NA</span><br>
-										<strong>Company's PAN:</strong> <span>09AAQCA9570J1ZW</span><br>
+										<strong>Company's PAN:</strong> <span>NA</span><br>
 
 									</td>
 
@@ -348,7 +346,8 @@ We declare that this invoice shows the actual price of the goods described and t
         							<td class="text-right" colspan="5" height="100">
 
 										<strong>For Addistro Technologies Pvt Ltd</strong> <br>
- Authorised Signatory
+ 												Authorised Signatory
+												<br>Navneet Singh
 									</td>
 
 

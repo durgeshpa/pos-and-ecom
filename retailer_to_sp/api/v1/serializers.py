@@ -1,7 +1,9 @@
 from rest_framework import serializers
 from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMapping,ProductOption,
                              Size,Color,Fragrance,Flavor,Weight,PackageSize)
-from retailer_to_sp.models import CartProductMapping,Cart,Order,OrderedProduct,Note, CustomerCare, Payment
+from retailer_to_sp.models import (CartProductMapping, Cart, Order,
+                                   OrderedProduct, Note, CustomerCare,
+                                   Payment, Dispatch)
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
 
                                       OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment)
@@ -93,12 +95,11 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
 
     def product_price_dt(self, obj):
         shop_id = self.context.get("parent_mapping_id",None)
-        return 0 if obj.product_pro_price.filter(shop__id=shop_id).last() is None else obj.product_pro_price.filter(shop__id=shop_id).last().price_to_retailer
+        return 0 if obj.product_pro_price.filter(shop__id=shop_id).last() is None else round(obj.product_pro_price.filter(shop__id=shop_id).last().price_to_retailer,2)
 
     def product_mrp_dt(self, obj):
         shop_id = self.context.get("parent_mapping_id",None)
-        return 0 if obj.product_pro_price.filter(shop__id=shop_id).last() is None else obj.product_pro_price.filter(shop__id=shop_id).last().mrp
-
+        return 0 if obj.product_pro_price.filter(shop__id=shop_id).last() is None else round(obj.product_pro_price.filter(shop__id=shop_id).last().mrp,2)
 
     def product_case_size_picies_dt(self,obj):
         return str(int(obj.product_inner_case_size)*int(obj.product_case_size))
@@ -122,6 +123,8 @@ class GramGRNProductsSearchSerializer(serializers.Serializer):
     brands = serializers.CharField(write_only=True)
     sort_by_price = serializers.CharField(write_only=True)
     shop_id = serializers.CharField(write_only=True)
+    offset = serializers.CharField(write_only=True)
+    pro_count = serializers.CharField(write_only=True)
 
 class CartDataSerializer(serializers.ModelSerializer):
     last_modified_by = UserSerializer()
@@ -147,7 +150,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
 
     def product_sub_total_dt(self,obj):
         shop_id = self.context.get("parent_mapping_id", None)
-        product_price = 0 if obj.cart_product.product_pro_price.filter(shop__id=shop_id).last() is None else obj.cart_product.product_pro_price.filter(shop__id=shop_id).last().price_to_retailer
+        product_price = 0 if obj.cart_product.product_pro_price.filter(shop__id=shop_id).last() is None else round(obj.cart_product.product_pro_price.filter(shop__id=shop_id).last().price_to_retailer,2)
         return float(obj.cart_product.product_inner_case_size)*float(obj.qty)*float(product_price)
 
     class Meta:
@@ -162,6 +165,7 @@ class CartSerializer(serializers.ModelSerializer):
     items_count = serializers.SerializerMethodField('items_count_id')
     total_amount = serializers.SerializerMethodField('total_amount_id')
     sub_total = serializers.SerializerMethodField('sub_total_id')
+    delivery_msg = serializers.SerializerMethodField()
 
     def total_amount_id(self, obj):
         self.total_amount = 0
@@ -169,22 +173,28 @@ class CartSerializer(serializers.ModelSerializer):
         for cart_pro in obj.rt_cart_list.all():
             self.items_count = self.items_count + int(cart_pro.qty)
             shop_id = self.context.get("parent_mapping_id", None)
-            pro_price = ProductPrice.objects.filter(shop__id=shop_id, product=cart_pro.cart_product).last()
-            if pro_price and pro_price.price_to_retailer:
+            if ProductPrice.objects.filter(shop__id=shop_id, product=cart_pro.cart_product).exists():
+                pro_price = ProductPrice.objects.filter(shop__id=shop_id, product=cart_pro.cart_product).last()
                 self.total_amount = float(self.total_amount) + (float(pro_price.price_to_retailer) * float(cart_pro.qty) * float(pro_price.product.product_inner_case_size))
             else:
                 self.total_amount = float(self.total_amount) + 0
-        return self.total_amount
+        return round(self.total_amount,2)
 
     def sub_total_id(self, obj):
-        return self.total_amount
+        return round(self.total_amount,2)
 
     def items_count_id(self, obj):
         return self.items_count
 
+    def get_delivery_msg(self, obj):
+        return self.context.get("delivery_message", None)
+
     class Meta:
         model = Cart
-        fields = ('id','order_id','cart_status','last_modified_by','created_at','modified_at','rt_cart_list','total_amount','sub_total','items_count')
+        fields = ('id', 'order_id', 'cart_status', 'last_modified_by',
+                  'created_at', 'modified_at', 'rt_cart_list', 'total_amount',
+                  'sub_total', 'items_count', 'delivery_msg')
+
 
 class NoteSerializer(serializers.ModelSerializer):
     note_link = serializers.SerializerMethodField('note_link_id')
@@ -204,16 +214,17 @@ class NoteSerializer(serializers.ModelSerializer):
 
 class OrderedProductSerializer(serializers.ModelSerializer):
     invoice_link = serializers.SerializerMethodField('invoice_link_id')
-    rt_order_product_note = NoteSerializer(many=True)
+    #rt_order_product_note = NoteSerializer(many=True)
 
     def invoice_link_id(self, obj):
-        request = self.context.get("request")
-        return "{0}{1}".format(request.get_host(),reverse('download_invoice', args=[obj.pk]))
+        current_url = self.context.get("current_url", None)
+        return "{0}{1}".format(current_url,reverse('download_invoice_sp', args=[obj.pk]))
 
     class Meta:
         model = OrderedProduct
-        fields = ('order','invoice_no','vehicle_no','shipped_by','received_by','last_modified_by','created_at','modified_at','invoice_link','rt_order_product_note')
+        fields = ('order','invoice_no','invoice_link')
 
+#order serilizer
 class OrderSerializer(serializers.ModelSerializer):
     ordered_cart = CartSerializer()
     ordered_by = UserSerializer()
@@ -221,6 +232,12 @@ class OrderSerializer(serializers.ModelSerializer):
     rt_order_order_product = OrderedProductSerializer(many=True)
     billing_address = AddressSerializer()
     shipping_address = AddressSerializer()
+    order_status = serializers.CharField(source='get_order_status_display')
+
+    def to_representation(self, instance):
+        representation = super(OrderSerializer, self).to_representation(instance)
+        representation['created_at'] = instance.created_at.strftime("%Y-%m-%d - %H:%M:%S")
+        return representation
 
     class Meta:
         model=Order
@@ -228,18 +245,90 @@ class OrderSerializer(serializers.ModelSerializer):
                   'total_tax_amount','total_final_amount','order_status','ordered_by','received_by','last_modified_by',
                   'created_at','modified_at','rt_order_order_product')
 
+class CartProductPrice(serializers.ModelSerializer):
+    product = ProductsSearchSerializer()
+    product_price = serializers.SerializerMethodField('product_price_dt')
+    product_mrp = serializers.SerializerMethodField('product_mrp_dt')
+
+    def product_price_dt(self,obj):
+        return obj.price_to_retailer
+
+    def product_mrp_dt(self,obj):
+        return obj.mrp
+
+    class Meta:
+        model = ProductPrice
+        fields = ('id','product','product_price','product_mrp','created_at')
+
+class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
+    cart_product = ProductsSearchSerializer()
+    cart = CartDataSerializer()
+    cart_product_price = CartProductPrice()
+    no_of_pieces = serializers.SerializerMethodField('no_pieces_dt')
+    product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
+    product_inner_case_size = serializers.SerializerMethodField('product_inner_case_size_dt')
+
+    def no_pieces_dt(self, obj):
+        return int(obj.no_of_pieces)
+
+    def product_sub_total_dt(self,obj):
+        shop = self.context.get("parent_mapping", None)
+        return float(obj.no_of_pieces) * float(round(obj.get_cart_product_price(shop).price_to_retailer,2))
+
+    def product_inner_case_size_dt(self,obj):
+        return int(int(obj.no_of_pieces) // int(obj.qty))
+
+    class Meta:
+        model = CartProductMapping
+        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg','no_of_pieces','product_sub_total','cart_product_price','product_inner_case_size')
+
+
+class OrderedCartSerializer(serializers.ModelSerializer):
+    rt_cart_list = OrderedCartProductMappingSerializer(many=True)
+    last_modified_by = UserSerializer()
+    items_count = serializers.ReadOnlyField(source='qty_sum')
+    total_amount = serializers.ReadOnlyField(source='subtotal')
+    sub_total = serializers.ReadOnlyField(source='subtotal')
+
+    class Meta:
+        model = Cart
+        fields = ('id','order_id','cart_status','last_modified_by','created_at','modified_at','rt_cart_list','total_amount','sub_total','items_count')
+
+#order Details
+class OrderDetailSerializer(serializers.ModelSerializer):
+    ordered_cart = OrderedCartSerializer()
+    ordered_by = UserSerializer()
+    last_modified_by = UserSerializer()
+    rt_order_order_product = OrderedProductSerializer(many=True)
+    billing_address = AddressSerializer()
+    shipping_address = AddressSerializer()
+    order_status = serializers.CharField(source='get_order_status_display')
+
+    def to_representation(self, instance):
+        representation = super(OrderDetailSerializer, self).to_representation(instance)
+        representation['created_at'] = instance.created_at.strftime("%Y-%m-%d - %H:%M:%S")
+        return representation
+
+    class Meta:
+        model=Order
+        fields = ('id','ordered_cart','order_no','billing_address','shipping_address','total_mrp','total_discount_amount',
+                  'total_tax_amount','total_final_amount','order_status','ordered_by','received_by','last_modified_by',
+                  'created_at','modified_at','rt_order_order_product')
+
+
+
 class OrderNumberSerializer(serializers.ModelSerializer):
 
     class Meta:
-        model=GramMappedOrder
+        model=Order
         fields=('id','order_no',)
 
 class CustomerCareSerializer(serializers.ModelSerializer):
     #order_id=OrderNumberSerializer(read_only=True)
     class Meta:
         model=CustomerCare
-        fields=('name','email_us','contact_us','order_id', 'order_status', 'select_issue','complaint_detail')
-        read_only_fields=('name','email_us','contact_us','order_status')
+        fields=('complaint_id','email_us', 'order_id', 'issue_status', 'select_issue','complaint_detail')
+        read_only_fields=('complaint_id','email_us','issue_status')
 
 class PaymentCodSerializer(serializers.ModelSerializer):
 
@@ -304,6 +393,7 @@ class GramMappedCartSerializer(serializers.ModelSerializer):
     items_count = serializers.SerializerMethodField('items_count_id')
     total_amount = serializers.SerializerMethodField('total_amount_id')
     sub_total = serializers.SerializerMethodField('sub_total_id')
+    delivery_msg = serializers.SerializerMethodField()
 
     def total_amount_id(self,obj):
         self.total_amount = 0
@@ -324,6 +414,9 @@ class GramMappedCartSerializer(serializers.ModelSerializer):
     def items_count_id(self,obj):
         return self.items_count
 
+    def get_delivery_msg(self, obj):
+        return self.context.get("delivery_message", None)
+
     def to_representation(self, instance):
         representation = super(GramMappedCartSerializer, self).to_representation(instance)
         representation['created_at'] = instance.created_at.strftime("%Y-%m-%d - %H:%M:%S")
@@ -331,19 +424,22 @@ class GramMappedCartSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = GramMappedCart
-        fields = ('id','order_id','cart_status','last_modified_by','created_at','modified_at','rt_cart_list','total_amount','items_count','sub_total')
+        fields = ('id', 'order_id', 'cart_status', 'last_modified_by',
+                  'created_at', 'modified_at', 'rt_cart_list', 'total_amount',
+                  'items_count', 'sub_total', 'delivery_msg')
+
 
 class GramMappedOrderedProductSerializer(serializers.ModelSerializer):
     invoice_link = serializers.SerializerMethodField('invoice_link_id')
-    rt_order_product_note = NoteSerializer(many=True)
+    rtg_order_product_note = NoteSerializer(many=True)
 
     def invoice_link_id(self, obj):
-        request = self.context.get("request")
-        return "{0}{1}".format(request.get_host(),reverse('download_invoice', args=[obj.pk]))
+        current_url = self.context.get("current_url", None)
+        return "{0}{1}".format(current_url,reverse('download_invoice', args=[obj.pk]))
 
     class Meta:
         model = GramMappedOrderedProduct
-        fields = ('order','invoice_no','vehicle_no','shipped_by','received_by','last_modified_by','created_at','modified_at','invoice_link','rt_order_product_note')
+        fields = ('order','invoice_no','vehicle_no','shipped_by','received_by','last_modified_by','created_at','modified_at','rtg_order_product_note','invoice_link')
 
 
 class GramMappedOrderSerializer(serializers.ModelSerializer):
@@ -365,3 +461,35 @@ class GramMappedOrderSerializer(serializers.ModelSerializer):
         fields = ('id','ordered_cart','order_no','billing_address','shipping_address','total_mrp','total_discount_amount',
                   'total_tax_amount','total_final_amount','order_status','ordered_by','received_by','last_modified_by',
                   'created_at','modified_at','rt_order_order_product')
+
+
+class DispatchSerializer(serializers.ModelSerializer):
+    shipment_status = serializers.CharField(
+                                        source='get_shipment_status_display')
+    order = serializers.SlugRelatedField(read_only=True, slug_field='order_no')
+    created_at = serializers.DateTimeField()
+
+    class Meta:
+        model = Dispatch
+        fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
+                  'shipment_address', 'invoice_city', 'invoice_amount',
+                  'created_at')
+        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount')
+
+
+class CommercialShipmentSerializer(serializers.ModelSerializer):
+    shipment_status = serializers.CharField(
+                                        source='get_shipment_status_display')
+    order = serializers.SlugRelatedField(read_only=True, slug_field='order_no')
+    cash_to_be_collected = serializers.SerializerMethodField()
+    created_at = serializers.DateTimeField()
+
+    def get_cash_to_be_collected(self, obj):
+        return obj.cash_to_be_collected()
+
+    class Meta:
+        model = OrderedProduct
+        fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
+                  'shipment_address', 'invoice_city', 'invoice_amount',
+                  'created_at', 'cash_to_be_collected')
+        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 'cash_to_be_collected')

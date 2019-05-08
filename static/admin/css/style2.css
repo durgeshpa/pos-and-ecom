@@ -1,0 +1,71 @@
+@charset "UTF-8";
+/* CSS Document */
+
+table tr td,th,h4,span,address{
+
+			font-size:15px
+		}
+
+	@media print {
+     body{
+         width: 22cm;
+         height: 29.7cm;
+
+         /* change the margins as you want them to be. */
+    }
+
+		table tr td,th,h4,span,address{
+
+			font-size:12px
+		}
+
+		.table > thead > tr > th, .table > tbody > tr > th, .table > tfoot > tr > th, .table > thead > tr > td, .table > tbody > tr > td, .table > tfoot > tr > td{ padding: 6px
+		}
+		
+		#Header, #Footer { display: none !important; }
+ }
+
+
+
+h4.invoice{
+	float: left;		
+}
+
+.invoice-title
+{
+float: left;
+border-bottom: #d5d4d4 solid 1px;
+display: block;
+margin-bottom: 20px;
+width: 100%;
+	
+}
+
+.invoice-title.order_id{	
+	
+}
+
+.invoice_no,.order_id_no{
+	font-weight: normal;
+	
+}
+
+
+	.invoice-title h2, .invoice-title h3 {
+    display: inline-block;
+}
+
+.table > tbody > tr > .no-line {
+    border-top: none;
+}
+
+.table > thead > tr > .no-line {
+    border-bottom: none;
+}
+
+.table > tbody > tr > .thick-line {
+    border-top: 2px solid;
+}
+.no-border{
+    border-bottom: none !important;
+}

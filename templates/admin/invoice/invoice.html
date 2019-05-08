@@ -1,7 +1,7 @@
 {% load i18n %}
 {% load static %}
 {% load staticfiles %}
-{% load app_filters%}
+{% load app_filters_gf_invoice%}
 {% load humanize %}
 
 <html>
@@ -24,20 +24,27 @@ table tr td,th,h4,span,address{
 
 
 <body>
-    <div class="container-fluid">
+    <div style="display:none"class="container-fluid">
 			<div class="row">
 			<div class="col-sm-6">
-			<img src="{{scheme}}://{{url}}/static/admin/img/logo2.png" style="width: 150px; padding: 10px 0px 10px">
+			<img src="{{scheme}}://{{url}}/static/admin/img/logo.png" style="width: 150px; padding: 10px 0px 10px">
 			</div>
 
 		</div>
 
 		</div>
-    <div class="row">
+		<div class="row">
         <div class="col-xs-12">
-    		<div class="invoice-title">
-    			<h4 class="invoice">Tax Invoice No:- <span class="invoice_no"> <strong>{{shop.invoice_no}}</strong></span></h4><h4 class="pull-right order_id">Order Id: <span class="order_id_no"><strong>{{ order_id }}</strong></span></h4>
-    		</div>
+          <div class="invoice-title col-md-12">
+      			<div class="invoice col-sm-6"><strong><h4> Tax Invoice No: <span style="font-size:30px"class="invoice_no">{{shop.invoice_no}}</span></h4></strong></div>
+						<div class="pull-right order_id col-sm-6">
+	            {% if payment_type == 'neft' %}
+	                <h4 style="font-size:30px">Prepaid Order</h4>
+	            {% else %}
+	                <h4 style="font-size:30px">Cash On Delivery</h4>
+	            {% endif %}
+  				<div class="pull-right"><strong><h4>Order Id: <span style="font-size:30px"class=" order_id_no ">{{ order_id }}</span></h4></strong></div></div>
+      		</div>
 
     		<div class="row">
     			<div class="col-xs-6">
@@ -47,7 +54,7 @@ table tr td,th,h4,span,address{
     				{{shop.order.billing_address.nick_name}}, {{shop.order.billing_address.address_line1}}, {{shop.order.billing_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>dfsfds</span><br>
 						<strong>State Name:</strong> <span>{{shop.order.billing_address.state}} </span><strong>Code:</strong> <span>{{shop.order.billing_address.pincode}}</span><br>
-						<strong>CIN:</strong> <span>09AAQCA9570J1ZW</span>
+						<strong>CIN:</strong> <span>---</span>
     				</address>
 
 					<address>
@@ -56,7 +63,7 @@ table tr td,th,h4,span,address{
     				{{shop.order.shipping_address.nick_name}}, {{shop.order.shipping_address.address_line1}}, {{shop.order.shipping_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>09AAQCA9570J1ZW</span><br>
 						<strong>State Name:</strong> <span>{{shop.order.shipping_address.state}} </span><strong>Code:</strong> <span>{{shop.order.shipping_address.pincode}}</span><br>
-						<strong>CIN:</strong> <span>09AAQCA9570J1ZW</span>
+						<strong>CIN:</strong> <span>---</span>
     				</address>
 					<address>
 						<span>GramFactory :</span><br>
@@ -65,7 +72,7 @@ table tr td,th,h4,span,address{
     				{{nick_name_gram}}, {{address_line1_gram}}, {{city_gram}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{{m.GST_number}}</span><br>
 						<strong>State Name:</strong> <span>{{state_gram}} </span><strong>Code:</strong> <span>{{pincode_gram}}</span><br>
-						<strong>CIN:</strong> <span>09AAQCA9570J1ZW</span>
+						<strong>CIN:</strong> <span>---</span>
 
     				</address>
     			</div>
@@ -79,7 +86,7 @@ table tr td,th,h4,span,address{
 									<span>{{shop.po_no}}</span>
 									</td>
         							<td class="text-center"><strong>Dated <br>
-{{shop.po_creation_date}}</strong></td>
+{{shop.created_at}}</strong></td>
 
 
                                 </tr>
@@ -149,10 +156,11 @@ table tr td,th,h4,span,address{
 
 												<td class="text-center"><strong>SKU</strong></td>
         							<td class="text-center"><strong>Description of Goods</strong></td>
-											<td class="text-center"><strong>MRP</strong></td>
+
         							<td class="text-center"><strong>HSN/SAC</strong></td>
 
-									    <td class="text-center"><strong>GST Rate</strong></td>
+											<td class="text-center"><strong>Tax Rate (GST+CESS)</strong></td>
+                      <td class="text-center"><strong>Tax Amount</strong></td>
 						  <td class="text-center"><strong>Inner Case Size</strong></td>
 									    <td class="text-center"><strong>Quantity</strong></td>
 											<td class="text-center"><strong>No. of Pieces</strong></td>
@@ -168,27 +176,25 @@ table tr td,th,h4,span,address{
     								<td><strong>{{forloop.counter}}</strong></td>
 										<td class="text-center">{{ m.product.product_sku}}</td>
     								<td class="text-center">{{ m.product.product_short_description}}</td>
-										  {% for h in m.product.product_pro_price.all %}
-										<td class="text-center">{{ h.mrp}}</td>
-										  {% endfor %}
     								<td class="text-center">{{ m.product.product_hsn}}</td>
-										   {% for n in m.product.product_pro_tax.all %}
-											 		{% if n.tax.tax_type == 'gst' %}
-		    										<td class="text-center">{{n.tax.tax_percentage}}%</td>
-													{% endif %}
-												{% endfor %}
+										{% if m.get_products_gst_cess_gf %}
+									 <td class="text-center"><strong>{{ m.get_products_gst_tax_gf.last.tax.tax_percentage |add:m.get_products_gst_cess_gf.last.tax.tax_percentage }}%</strong></td>
+										{% else %}
+										<td class="text-center"><strong>{{ m.get_products_gst_tax_gf.last.tax.tax_percentage}}%</strong></td>
+										{% endif %}
 									<td class="text-center">{{ m.product.product_inner_case_size }}</td>
 
 
 									<td class="text-center">{{m.shipped_qty}}</td>
 									<div style="display:none"> {{m.shipped_qty | shipped_qty}}</div>
 									<td class="text-center">{{m.product.product_inner_case_size | inner_case_size}}</td>
-									{% for h in m.product.product_pro_price.all %}
+									{% for h in m.get_shop_specific_products_prices %}
     								<td class="text-center">{{h.price_to_retailer}}</td>
 										{% endfor %}
     								<td class="text-center">PCS</td>
 										   <div style="display:none"> {{m.shipped_qty | shipped_qty}}</div>
-                    {% for h in m.product.product_pro_price.all %}
+											 <div style="display:none"> {{m.product.product_inner_case_size | inner_case_size}}</div>
+                    {% for h in m.get_shop_specific_products_prices %}
     								<td class="text-right">{{h.price_to_retailer | price_to_retailer | intcomma }}/-</td>
 										{% endfor %}
     							</tr>
@@ -199,7 +205,7 @@ table tr td,th,h4,span,address{
 
 									<td></td>
 									<td><strong></strong></td>
-						 <td></td>
+
 									<td></td>
 									<td></td>
 									<td></td>
@@ -212,12 +218,12 @@ table tr td,th,h4,span,address{
     								<td class="thick-line text-right"><strong>₹{{sum_amount | intcomma }}/-</strong></td>
     							</tr>
 									{% if shop.order.seller_shop.shop_name_address_mapping.all == shop.order.shipping_address %}
-    							<tr>
+    							<tr style="display:none">
 
 									<td class="no-line"></td>
 									<td class="no-line"></td>
 									<td class="no-line"></td>
-    								<td class="no-line"></td>
+
 									<td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line"></td>
@@ -227,12 +233,12 @@ table tr td,th,h4,span,address{
     								<td class="no-line text-center"><strong>CGST</strong></td>
     								<td class="no-line text-right"><strong>₹{{cgst | floatformat:2 }}/-</strong></td>
     							</tr>
-								<tr>
+								<tr style="display:none">
 
     								<td class="no-line"></td>
 									<td class="no-line"></td>
 										<td class="no-line"></td>
-    								<td class="no-line"></td>
+
 									<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
@@ -243,12 +249,12 @@ table tr td,th,h4,span,address{
     								<td class="no-line text-right"><strong>₹ {{sgst | floatformat:2 }}/-</strong></td>
     							</tr>
 									{% else %}
-									<tr>
+									<tr style="display:none">
 
 	    								<td class="no-line"></td>
 										<td class="no-line"></td>
 											<td class="no-line"></td>
-	    								<td class="no-line"></td>
+
 										<td class="no-line"></td>
 										<td class="no-line"></td>
 	    								<td class="no-line"></td>
@@ -259,13 +265,13 @@ table tr td,th,h4,span,address{
 	    								<td class="no-line text-right"><strong>₹ {{igst | floatformat:2 }}/-</strong></td>
 	    							</tr>
 										{% endif %}
-								<tr>
+								<tr style="display:none">
 
 
     								<td class="no-line"></td>
 									<td class="no-line"></td>
 									<td class="no-line"></td>
-										<td class="no-line"></td>
+
     								<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
@@ -281,7 +287,7 @@ table tr td,th,h4,span,address{
 	    								<td class="no-line"></td>
 										<td class="no-line"></td>
 										<td class="no-line"></td>
-											<td class="no-line"></td>
+
 	    								<td class="no-line"></td>
 										<td class="no-line"></td>
 	    								<td class="no-line"></td>
@@ -297,7 +303,7 @@ table tr td,th,h4,span,address{
 										<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
-									<td class="no-line"></td>
+
     								<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
@@ -316,8 +322,11 @@ table tr td,th,h4,span,address{
         							<td class="no-line">E . &amp; O . E</td>
                                 </tr>
 								<tr>
-        							<td colspan="12"><strong>{{total_amount | amount }}</strong></td>
-
+									{% if total_amount.is_integer %}
+												<td colspan="11"><strong>INR {{total_amount_int | amount }} only</strong></td>
+												{% else %}
+												<td colspan="11"><strong>INR {{total_amount | amount }} paise only</strong></td>
+												{% endif %}
                                 </tr>
     						</tbody>
     					</table>

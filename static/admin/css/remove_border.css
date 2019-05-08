@@ -1,0 +1,17 @@
+
+.hide_input_box {
+    border: none;
+    background-color: white;
+}
+
+    .ui-select{width: 100%}
+    /* This is to remove the arrow of select element in IE */
+    .ui-select::-ms-expand {	display: none; }
+    .ui-select {
+    -webkit-appearance: none;
+    appearance: none;
+    }
+    @-moz-document url-prefix(){
+    .ui-select{border: 1px solid #CCC; border-radius: 4px; box-sizing: border-box; position: relative; overflow: hidden;}
+    .ui-select { width: 110%; background-position: right 30px center !important; border: none !important;}
+    }

@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping,OrderedProductReserved
+from .models import (Cart,CartProductMapping,Order,OrderedProduct,OrderedProductMapping,OrderedProductReserved,
+                     StockAdjustment, StockAdjustmentMapping)
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
 from .forms import CartProductMappingForm,POGenerationForm, OrderedProductMappingForm
@@ -7,6 +8,11 @@ from retailer_backend.filters import BrandFilter,SupplierFilter,POAmountSearch,P
 from daterange_filter.filter import DateRangeFilter
 from django.utils.html import format_html
 from django.urls import reverse
+from admin_numeric_filter.admin import NumericFilterModelAdmin, SingleNumericFilter, RangeNumericFilter, \
+    SliderNumericFilter
+from dal_admin_filters import AutocompleteFilter
+from retailer_backend.admin import InputFilter
+from django.db.models import Q
 
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
@@ -17,14 +23,31 @@ class CartProductMappingAdmin(admin.TabularInline):
     form = CartProductMappingForm
 
 #admin.site.register(CartProductMapping, CartProductMappingAdmin)
-class CartAdmin(admin.ModelAdmin):
+class RecipientWarehouseFilter(AutocompleteFilter):
+    title = 'Recipient Warehouse'                    # filter's title
+    field_name = 'shop'           # field name - ForeignKey to Country model
+    autocomplete_url = 'my-shop-autocomplete' # url name of Country autocomplete view
+
+class POSearch(InputFilter):
+    parameter_name = 'po_no'
+    title = 'PO No'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            po_no = self.value()
+            if po_no is None:
+                return
+            return queryset.filter(po_no__icontains=po_no)
+
+
+class CartAdmin(NumericFilterModelAdmin,admin.ModelAdmin):
     template = 'admin/sp_to_gram/cart/change_form.html'
     inlines = [CartProductMappingAdmin]
     exclude = ('po_no', 'po_status', 'last_modified_by')
     #autocomplete_fields = ('brand',)
-    list_display = ('po_no', 'po_creation_date', 'po_validity_date', 'po_amount', 'po_raised_by', 'po_status', 'download_purchase_order')
-    list_filter = [('po_creation_date', DateRangeFilter),
-                   ('po_validity_date', DateRangeFilter), POAmountSearch, PORaisedBy]
+    list_display = ('po_no', 'po_creation_date', 'po_validity_date', 'po_amount', 'po_raised_by', 'po_status', 'download_purchase_order',)
+    list_filter = [RecipientWarehouseFilter,POSearch,('po_creation_date', DateRangeFilter),
+                   ('po_validity_date', DateRangeFilter), ('po_amount',RangeNumericFilter), PORaisedBy]
     form = POGenerationForm
 
     def download_purchase_order(self, obj):
@@ -33,24 +56,37 @@ class CartAdmin(admin.ModelAdmin):
 
     class Media:
         js = ('/static/admin/js/sp_po_generation_form.js',)
-
+        pass
 
 admin.site.register(Cart,CartAdmin)
+
+class OrderIdSearch(InputFilter):
+    parameter_name = 'order_no'
+    title = 'Order Id'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            order_no = self.value()
+            if order_no is None:
+                return
+            return queryset.filter(order_no__icontains=order_no)
+
 
 class OrderAdmin(admin.ModelAdmin):
     search_fields = ('order',)
     list_display = ('order_no','order_status',)
+    list_filter = (OrderIdSearch,'order_status',)
 
 admin.site.register(Order,OrderAdmin)
 
 class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping
     form = OrderedProductMappingForm
-    exclude = ('last_modified_by','ordered_qty','available_qty','reserved_qty')
+    exclude = ('last_modified_by','ordered_qty','reserved_qty')
 
     warehouse_user_fieldset = ['product', 'manufacture_date', 'expiry_date','shipped_qty',]
     delivery_user_fieldset = ['product', 'manufacture_date', 'expiry_date', 'delivered_qty', 'returned_qty',
-                              'damaged_qty', ]
+                              'damaged_qty']
 
     def get_fieldsets(self, request, obj=None, **kwargs):
         if request.user.is_superuser:
@@ -64,11 +100,11 @@ class OrderedProductMappingAdmin(admin.TabularInline):
 
 class OrderedProductAdmin(admin.ModelAdmin):
     inlines = [OrderedProductMappingAdmin]
-    list_display = ('invoice_no','vehicle_no','shipped_by','received_by',)
+    list_display = ('invoice_no','vehicle_no','shipped_by','received_by','status')
     exclude = ('shipped_by','received_by','last_modified_by',)
     autocomplete_fields = ('order',)
 
-    warehouse_user_fields = ['order','invoice_no','vehicle_no',]
+    warehouse_user_fields = ['order','invoice_no','vehicle_no', 'status']
     delivery_user_fields = ['order','vehicle_no',]
 
     def get_form(self, request, obj=None, **kwargs):
@@ -100,6 +136,8 @@ class OrderedProductMappingAdmin2(admin.ModelAdmin):
 admin.site.register(OrderedProductMapping,OrderedProductMappingAdmin2)
 
 class OrderedProductReservedAdmin(admin.ModelAdmin):
-    list_display = ('order_product_reserved','product','reserved_qty','order_reserve_end_time','created_at','reserve_status')
+    list_display = ('order_product_reserved','cart','product','reserved_qty','order_reserve_end_time','created_at','reserve_status')
 
 admin.site.register(OrderedProductReserved,OrderedProductReservedAdmin)
+admin.site.register(StockAdjustment)
+admin.site.register(StockAdjustmentMapping)

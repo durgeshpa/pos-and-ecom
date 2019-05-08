@@ -1,39 +1,62 @@
-from django.db import models
-
-# Create your models here.
-from shops.models import Shop,ParentRetailerMapping
-from brand.models import Brand
-from django.contrib.auth import get_user_model
-from addresses.models import Address
-from products.models import Product
+import datetime
 from datetime import timedelta
-from django.utils import timezone
-from django.conf import settings
-from retailer_to_sp.models import Cart as RetailerCart
-from addresses.models import Address,City,State
+
 from django.dispatch import receiver
-from django.db.models.signals import pre_save, post_save
+from django.db.models.signals import pre_save, post_save, m2m_changed
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
-import datetime
+from django.contrib.auth import get_user_model
+from django.utils import timezone
+from django.conf import settings
+from django.db import models
+from django.db.models import Sum, Q
+import logging
+
+from shops.models import Shop, ParentRetailerMapping, ShopInvoicePattern
+from brand.models import Brand
+from products.models import Product
+from retailer_to_sp.models import Cart as RetailerCart
+from addresses.models import Address, City, State
+from retailer_to_sp.models import Note as CreditNote, OrderedProduct as RetailerShipment, OrderedProductMapping as RetailerShipmentMapping
+from retailer_backend.common_function import (
+    order_id_pattern, brand_credit_note_pattern, getcredit_note_id
+)
+
+logger = logging.getLogger(__name__)
+
+
 
 ORDER_STATUS = (
-    ("ordered_to_gram","Ordered To Gramfactory"),
-    ("order_shipped","Order Shipped From Gramfactory"),
-    ("partially_delivered","Partially Delivered"),
-    ("delivered","Delivered"),
-)
-ITEM_STATUS = (
-    ("partially_delivered","Partially Delivered"),
-    ("delivered","Delivered"),
+    ("ordered_to_gram", "Ordered To Gramfactory"),
+    ("order_shipped", "Order Shipped From Gramfactory"),
+    ("partially_delivered", "Partially Delivered"),
+    ("delivered", "Delivered"),
 )
 
+ITEM_STATUS = (
+    ("partially_delivered", "Partially Delivered"),
+    ("delivered", "Delivered"),
+)
+
+
 class Cart(models.Model):
-    shop = models.ForeignKey(Shop, related_name='sp_shop_cart',null=True,blank=True,on_delete=models.CASCADE)
+    shop = models.ForeignKey(
+        Shop, related_name='sp_shop_cart',
+        null=True, blank=True, on_delete=models.CASCADE
+    )
     po_no = models.CharField(max_length=255, null=True, blank=True)
-    po_status = models.CharField(max_length=200, choices=ORDER_STATUS, null=True, blank=True)
-    po_raised_by = models.ForeignKey(get_user_model(), related_name='po_raise_sp_user_cart', null=True, blank=True,on_delete=models.CASCADE)
-    last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_sp_user_cart', null=True,blank=True, on_delete=models.CASCADE)
+    po_status = models.CharField(
+        max_length=200, choices=ORDER_STATUS,
+        null=True, blank=True
+    )
+    po_raised_by = models.ForeignKey(
+        get_user_model(), related_name='po_raise_sp_user_cart',
+        null=True, blank=True, on_delete=models.CASCADE
+    )
+    last_modified_by = models.ForeignKey(
+        get_user_model(), related_name='last_modified_sp_user_cart',
+        null=True, blank=True, on_delete=models.CASCADE
+    )
     po_creation_date = models.DateField(auto_now_add=True)
     po_validity_date = models.DateField()
     payment_term = models.TextField(null=True, blank=True)
@@ -42,27 +65,34 @@ class Cart(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        verbose_name = "PO Generation"
+
     def __str__(self):
         return self.po_no
 
     def clean(self):
-        if self.po_validity_date and self.po_validity_date < datetime.date.today():
+        if (
+            self.po_validity_date
+            and self.po_validity_date
+        ) < datetime.date.today():
             raise ValidationError(_("Po validity date cannot be in the past!"))
 
-    class Meta:
-        verbose_name = "PO Generation"
 
 @receiver(pre_save, sender=Cart)
 def create_po_no(sender, instance=None, created=False, **kwargs):
     if instance._state.adding:
         last_cart = Cart.objects.last()
         if last_cart:
-            last_cart_po_no_increment = str(int(last_cart.po_no.rsplit('/', 1)[-1]) + 1).zfill(
-                len(last_cart.po_no.rsplit('/', 1)[-1]))
+            last_cart_po_no_increment = str(
+                int(last_cart.po_no.rsplit('/', 1)[-1]) + 1).zfill(
+                len(last_cart.po_no.rsplit('/', 1)[-1])
+            )
         else:
             last_cart_po_no_increment = '00001'
         instance.po_no = "ADT/PO/07/%s" % (last_cart_po_no_increment)
         instance.po_status = "ordered_to_gram"
+
 
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='sp_cart_list',on_delete=models.CASCADE)
@@ -79,8 +109,8 @@ class CartProductMapping(models.Model):
 
     def clean(self):
         if self.number_of_cases:
-             self.qty = int(self.cart_product.product_inner_case_size) * int(self.case_size) * int(self.number_of_cases)
-             self.total_price= float(self.qty) * self.price
+            self.qty = int(self.cart_product.product_inner_case_size) * int(self.case_size) * int(self.number_of_cases)
+            self.total_price = float(self.qty) * self.price
 
     def __str__(self):
         return self.cart_product.product_name
@@ -136,22 +166,36 @@ def create_order(sender, instance=None, created=False, **kwargs):
             Order.objects.create(ordered_cart=instance.cart, order_no=instance.cart.po_no,billing_address=billing_address,
                  shipping_address=shipping_address,total_final_amount=instance.total_price,order_status='ordered_to_gram')
 
-class OrderedProduct(models.Model):
+class OrderedProduct(models.Model): #GRN
+    DISABLED = "DIS"
+    ENABLED = "ENA"
+    EXPIRED = "EXP"
+    ADJUSTEMENT = "ADJ"
+
+    GRN_STATUS = (
+        (DISABLED, "Disabled"),
+        (ENABLED, "Enabled"),
+        (EXPIRED, "Expired"),
+        (ADJUSTEMENT, "Adjustment"),
+        )
     order = models.ForeignKey(Order,related_name='sp_order_order_product',on_delete=models.CASCADE,null=True,blank=True)
     invoice_no = models.CharField(max_length=255,null=True,blank=True)
+    credit_note = models.ForeignKey(CreditNote, related_name='grn_list', null=True, blank=True, on_delete=models.CASCADE)
     vehicle_no = models.CharField(max_length=255,null=True,blank=True)
     shipped_by = models.ForeignKey(get_user_model(), related_name='sp_shipped_product_ordered_by_user', null=True, blank=True,on_delete=models.CASCADE)
     received_by = models.ForeignKey(get_user_model(), related_name='sp_ordered_product_received_by_user', null=True, blank=True,on_delete=models.CASCADE)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='sp_last_modified_user_order', null=True,blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    status = models.CharField(max_length=5, choices=GRN_STATUS, default=ENABLED)
 
     def save(self, *args,**kwargs):
         super(OrderedProduct, self).save()
         self.invoice_no = "SP/INVOICE/%s"%(self.pk)
         super(OrderedProduct, self).save()
 
-class OrderedProductMapping(models.Model):
+class OrderedProductMapping(models.Model): #GRN Product
+    shop = models.ForeignKey(Shop, related_name='shop_grn_list', null=True, blank=True, on_delete=models.SET_NULL)
     ordered_product = models.ForeignKey(OrderedProduct,related_name='sp_order_product_order_product_mapping',null=True,blank=True,on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='sp_product_order_product',null=True,blank=True, on_delete=models.CASCADE)
     manufacture_date = models.DateField(null=True, blank=True)
@@ -162,6 +206,8 @@ class OrderedProductMapping(models.Model):
     delivered_qty = models.PositiveIntegerField(default=0)
     returned_qty = models.PositiveIntegerField(default=0)
     damaged_qty = models.PositiveIntegerField(default=0)
+    perished_qty = models.PositiveIntegerField(default=0)
+    lossed_qty = models.PositiveIntegerField(default=0)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='sp_last_modified_user_order_product', null=True,blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -179,6 +225,93 @@ class OrderedProductMapping(models.Model):
             elif self.expiry_date < self.manufacture_date:
                 raise ValidationError(_("Expiry Date cannot be less than manufacture date"))
 
+    def save(self, *args, **kwargs):
+        # super().save(*args, **kwargs)
+        if self.ordered_product and self.ordered_product.order:
+            self.shop = self.ordered_product.order.ordered_cart.shop
+        elif self.ordered_product and self.ordered_product.credit_note:
+            self.shop = self.ordered_product.credit_note.shop
+        super().save(*args, **kwargs)
+
+    @property
+    def sp_available_qty(self):
+        return int(self.available_qty) - (int(self.damaged_qty) + int(self.lossed_qty) + int(self.perished_qty))
+
+    @classmethod
+    def get_shop_stock(cls, shop, show_available=False):
+        if show_available:
+            shop_stock = cls.objects.filter(
+                    Q(shop=shop),
+                    Q(expiry_date__gt=datetime.datetime.today()),
+                    Q(available_qty__gt=0),
+                ).exclude(
+                        Q(ordered_product__status=OrderedProduct.DISABLED)
+                    )
+            return shop_stock
+
+        else:
+            shop_stock = cls.objects.filter(
+                    Q(shop=shop),
+                    Q(expiry_date__gt=datetime.datetime.today())
+                ).exclude(
+                        Q(ordered_product__status=OrderedProduct.DISABLED)
+                    )
+            return shop_stock
+
+    @classmethod
+    def get_brand_in_shop_stock(cls, shop, brand, show_available=False):
+        if show_available:
+            shop_stock = cls.objects.filter(
+                    Q(shop=shop),
+                    Q(expiry_date__gt=datetime.datetime.today()),
+                    Q(available_qty__gt=0),
+                    Q(product__product_brand__brand_parent=brand)
+                ).exclude(
+                        Q(ordered_product__status=OrderedProduct.DISABLED)
+                    )
+        else:
+            shop_stock = cls.objects.filter(
+                    Q(shop=shop),
+                    Q(expiry_date__gt=datetime.datetime.today()),
+                    Q(product__product_brand__brand_parent=brand)
+                ).exclude(
+                        Q(ordered_product__status=OrderedProduct.DISABLED)
+                    )
+        return shop_stock
+
+
+    @classmethod
+    def get_shop_stock_expired(cls, shop):
+        shop_stock = cls.objects.filter(
+                Q(shop=shop),
+                Q(expiry_date__lte=datetime.datetime.today())
+            ).exclude(
+                    Q(ordered_product__status=OrderedProduct.DISABLED)
+                )
+        return shop_stock
+
+    @classmethod
+    def get_product_availability(cls, shop, product):
+        product_availability = cls.objects.filter(
+                Q(product=product),
+                Q(shop=shop),
+                Q(expiry_date__gt=datetime.datetime.today())
+            ).exclude(
+                    Q(ordered_product__status=OrderedProduct.DISABLED)
+                )
+        return product_availability
+
+    @classmethod
+    def get_expired_product_qty(cls, shop, product):
+        product_expired = cls.objects.filter(
+                Q(product=product),
+                Q(shop=shop),
+                Q(expiry_date__lte=datetime.datetime.today())
+            ).exclude(
+                    Q(ordered_product__status=OrderedProduct.DISABLED)
+                )
+        return product_expired
+
 class OrderedProductReserved(models.Model):
     RESERVED = "reserved"
     ORDERED = "ordered"
@@ -192,9 +325,7 @@ class OrderedProductReserved(models.Model):
     product = models.ForeignKey(Product, related_name='sp_product_order_product_reserved', null=True, blank=True,on_delete=models.CASCADE)
     cart = models.ForeignKey(RetailerCart, related_name='sp_ordered_retailer_cart',null=True,blank=True,on_delete=models.CASCADE)
     reserved_qty = models.PositiveIntegerField(default=0)
-    #order_reserve_start_time = models.DateTimeField(auto_now_add=True)
     order_reserve_end_time = models.DateTimeField(null=True,blank=True,editable=False)
-    #order_reserve_status = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     reserve_status = models.CharField(max_length=100, choices=RESERVE_STATUS, default=RESERVED)
@@ -228,6 +359,34 @@ class SpNote(models.Model):
     def __str__(self):
         return self.brand_note_id
 
+class StockAdjustment(models.Model):
+    ENABLED = "ENB"
+    DISABLED = "DIS"
+    STATUS_CHOICES = (
+        (ENABLED, "ENABLED"),
+        (DISABLED, "DISABLED")
+        )
+    shop = models.ForeignKey(Shop, related_name='shop_stock_adjustment', on_delete=models.CASCADE)
+    grn_product = models.ManyToManyField(OrderedProductMapping, related_name='stock_adjustment', through='StockAdjustmentMapping')
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.CharField(max_length=3, choices=STATUS_CHOICES, default=ENABLED)
+
+class StockAdjustmentMapping(models.Model):
+    DECREMENT = "dec"
+    INCREMENT = "inc"
+    ADJUSTMENT_TYPE_CHOICES = (
+        (INCREMENT, "Increment"),
+        (DECREMENT, "Decrement")
+        )
+    stock_adjustment = models.ForeignKey(StockAdjustment, on_delete=models.CASCADE, related_name='stock_adjustment_mapping')
+    grn_product = models.ForeignKey(OrderedProductMapping, on_delete=models.CASCADE, related_name='stock_adjustment_mapping')
+    adjustment_qty = models.PositiveIntegerField()
+    adjustment_type = models.CharField(max_length=5, choices=ADJUSTMENT_TYPE_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+
 @receiver(pre_save, sender=SpNote)
 def create_brand_note_id(sender, instance=None, created=False, **kwargs):
     if instance._state.adding:
@@ -250,3 +409,71 @@ def create_brand_note_id(sender, instance=None, created=False, **kwargs):
             else:
                 last_brand_note_id_increment = '00001'
             instance.brand_note_id = "ADT/CN/%s"%(last_brand_note_id_increment)
+
+
+def create_credit_note(instance=None, created=False, **kwargs):
+    instance = instance.instance
+    if created:
+        return None
+    if(instance.rt_order_product_order_product_mapping.last() and 
+    instance.rt_order_product_order_product_mapping.all().aggregate(Sum('returned_qty')).get('returned_qty__sum') > 0 or 
+    instance.rt_order_product_order_product_mapping.all().aggregate(Sum('damaged_qty')).get('damaged_qty__sum')>0):
+        invoice_prefix = instance.order.seller_shop.invoice_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
+        last_credit_note = CreditNote.objects.filter(shop=instance.order.seller_shop, status=True).order_by('credit_note_id').last()
+        if last_credit_note:
+            note_id = brand_credit_note_pattern(
+                        CreditNote, 'credit_note_id', None,
+                        instance.order.seller_shop.
+                        shop_name_address_mapping.filter(
+                                        address_type='billing'
+                                        ).last().pk)
+        else:
+            note_id = brand_credit_note_pattern(
+                        CreditNote, 'credit_note_id', None,
+                        instance.order.seller_shop.
+                        shop_name_address_mapping.filter(
+                                        address_type='billing'
+                                        ).last().pk)
+
+        credit_amount = 0
+
+        #cur_cred_note = brand_credit_note_pattern(note_id, invoice_prefix)
+        if instance.credit_note.count():
+            credit_note = instance.credit_note.last()
+        else:
+            credit_note = CreditNote.objects.create(
+                shop = instance.order.seller_shop,
+                credit_note_id=note_id,
+                shipment = instance,
+                amount = 0,
+                status=True)
+        OrderedProduct.objects.filter(credit_note=credit_note).update(status=OrderedProduct.DISABLED)
+        credit_grn = OrderedProduct.objects.create(credit_note=credit_note)
+        credit_grn.save()
+
+        for item in instance.rt_order_product_order_product_mapping.all():
+            reserved_order = OrderedProductReserved.objects.filter(cart=instance.order.ordered_cart,
+                                                                 product=item.product, reserve_status=OrderedProductReserved.ORDERED).last()
+            grn_item = OrderedProductMapping.objects.create(
+                shop = instance.order.seller_shop,
+                ordered_product=credit_grn,
+                product=item.product,
+                shipped_qty=item.returned_qty,
+                available_qty=item.returned_qty,
+                damaged_qty=item.damaged_qty,
+                ordered_qty = item.returned_qty,
+                delivered_qty = item.returned_qty,
+                manufacture_date= reserved_order.order_product_reserved.manufacture_date,
+                expiry_date= reserved_order.order_product_reserved.expiry_date,
+                )
+            grn_item.save()
+            try:
+                cart_product_map = instance.order.ordered_cart.rt_cart_list.filter(cart_product=item.product).last()
+                credit_amount += (int(item.returned_qty)+int(item.damaged_qty)) * float(round(cart_product_map.get_cart_product_price(instance.order.seller_shop).price_to_retailer,2))
+            except Exception as e:
+                logger.exception("Product price not found for {} -- {}".format(item.product, e))
+                credit_amount += int(item.returned_qty) * float(item.product.product_pro_price.filter(
+                    shop=instance.order.seller_shop, status=True
+                    ).last().price_to_retailer)
+        credit_note.amount = credit_amount
+        credit_note.save()

@@ -20,7 +20,11 @@ class ProductImageForm(forms.ModelForm):
 class ProductPriceForm(forms.Form):
     state = forms.ModelChoiceField(queryset=State.objects.order_by('state_name'))
     city = forms.ModelChoiceField(queryset=City.objects.all())
-    sp_sr_choice = forms.ModelChoiceField(queryset=ShopType.objects.filter(shop_type__in=['sp','sr']))
+    sp_sr_choice = forms.ModelChoiceField(
+        queryset=ShopType.objects.filter(
+            shop_type__in=['sp', 'sr', 'gf']
+        )
+    )
     sp_sr_list = forms.ModelMultipleChoiceField(queryset=Shop.objects.none())
     start_date_time = forms.DateTimeField(
     widget=DateTimePicker(
@@ -54,7 +58,7 @@ class ProductPriceForm(forms.Form):
             'class':'custom-select custom-select-lg mb-3',
             }
 
-        self.fields['sp_sr_choice'].label = 'Select SP/SR'
+        self.fields['sp_sr_choice'].label = 'Select SP/SR/GF'
         self.fields['sp_sr_choice'].widget.attrs={
             'class':'custom-select custom-select-lg mb-3',
             }
@@ -97,16 +101,25 @@ class ProductPriceForm(forms.Form):
         for id,row in enumerate(reader):
             if not row[0] or not re.match("^[\d]*$", row[0]):
                 raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_ID'])
-            if not row[1] or not re.match("^[ \w\$\_\,\%\@\.\/\#\&\+\-\(\)]*$", row[1]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[1]+":"+row[1]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_NAME'])
-            if not row[2] or not re.match("^\d{0,8}(\.\d{1,4})?$", row[2]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[2]+":"+row[2]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
-            if not row[3] or not re.match("^\d{0,8}(\.\d{1,4})?$", row[3]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[3]+":"+row[3]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
+            if not row[1]:
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
+                    1]+":"+row[1]+" | Product Name required")
             if not row[4] or not re.match("^\d{0,8}(\.\d{1,4})?$", row[4]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[4]+":"+row[4]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
+                    4]+":"+row[4]+" | "+VALIDATION_ERROR_MESSAGES[
+                    'INVALID_PRICE'])
             if not row[5] or not re.match("^\d{0,8}(\.\d{1,4})?$", row[5]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[5]+":"+row[5]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
+                    5]+":"+row[5]+" | "+VALIDATION_ERROR_MESSAGES[
+                    'INVALID_PRICE'])
+            if not row[6] or not re.match("^\d{0,8}(\.\d{1,4})?$", row[6]):
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
+                    6]+":"+row[6]+" | "+VALIDATION_ERROR_MESSAGES[
+                    'INVALID_PRICE'])
+            if not row[7] or not re.match("^\d{0,8}(\.\d{1,4})?$", row[7]):
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
+                    7]+":"+row[7]+" | "+VALIDATION_ERROR_MESSAGES[
+                    'INVALID_PRICE'])
         return self.cleaned_data['file']
 
 class GFProductPriceForm(forms.Form):
@@ -184,16 +197,25 @@ class GFProductPriceForm(forms.Form):
         for id,row in enumerate(reader):
             if not row[0] or not re.match("^[\d]*$", row[0]):
                 raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_ID'])
-            if not row[1] or not re.match("^[ \w\$\_\,\@\%\.\/\#\&\+\-\(\)]*$", row[1]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[1]+":"+row[1]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRODUCT_NAME'])
-            if not row[2] or not re.match("^\d{0,8}(\.\d{1,4})?$", row[2]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[2]+":"+row[2]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
-            if not row[3] or not re.match("^\d{0,8}(\.\d{1,4})?$", row[3]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[3]+":"+row[3]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
+            if not row[1]:
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
+                    1]+":"+row[1]+" | Product Name required")
             if not row[4] or not re.match("^\d{0,8}(\.\d{1,4})?$", row[4]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[4]+":"+row[4]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
+                    4]+":"+row[4]+" | "+VALIDATION_ERROR_MESSAGES[
+                    'INVALID_PRICE'])
             if not row[5] or not re.match("^\d{0,8}(\.\d{1,4})?$", row[5]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[5]+":"+row[5]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
+                    5]+":"+row[5]+" | "+VALIDATION_ERROR_MESSAGES[
+                    'INVALID_PRICE'])
+            if not row[6] or not re.match("^\d{0,8}(\.\d{1,4})?$", row[6]):
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
+                    6]+":"+row[6]+" | "+VALIDATION_ERROR_MESSAGES[
+                    'INVALID_PRICE'])
+            if not row[7] or not re.match("^\d{0,8}(\.\d{1,4})?$", row[7]):
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
+                    7]+":"+row[7]+" | "+VALIDATION_ERROR_MESSAGES[
+                    'INVALID_PRICE'])
         return self.cleaned_data['file']
 
 class ProductsPriceFilterForm(forms.Form):
@@ -215,7 +237,7 @@ class ProductsPriceFilterForm(forms.Form):
             'class':'custom-select custom-select-lg mb-3',
             }
 
-        self.fields['sp_sr_choice'].label = 'Select SP/SR'
+        self.fields['sp_sr_choice'].label = 'Select SP/SR/GF'
         self.fields['sp_sr_choice'].widget.attrs={
             'class':'custom-select custom-select-lg mb-3',
             }
@@ -271,21 +293,22 @@ class ProductsCSVUploadForm(forms.Form):
         reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
         first_row = next(reader)
         for id,row in enumerate(reader):
-            if not row[0] or not re.match("^[ \w\$\_\,\@\.\%\/\#\&\+\-\(\)]*$", row[0]):
-                raise ValidationError(_("INVALID_PRODUCT_NAME at Row[%(value)s]. Special characters allowed are _ , @ . / # & + -"), params={'value': id+1},)
-
-            if not row[1] or not re.match("^[ \w\$\_\,\@\.\%\/\#\&\+\-\(\)]*$", row[1]):
-                raise ValidationError(_("INVALID_SHORT_DESCRIPTION at Row[%(value)s]. Special characters allowed are _ , @ . / # & + -"), params={'value': id+1},)
-
-            if not row[2] or not re.match("^[ \w\$\_\,\@\.\%\/\#\&\+\-\(\)]*$", row[2]):
-                raise ValidationError(_("INVALID_LONG_DESCRIPTION at Row[%(value)s]. Special characters allowed are _ , @ . / # & + -"), params={'value': id+1},)
-
-            if not row[3]:
+            if not row[0] or row[0].isspace():
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
+                    0]+":"+row[0]+" | Product Name required")
+            if not row[1] or row[1].isspace():
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
+                    1]+":"+row[1]+" | Product short description required")
+            if not row[2] or row[2].isspace():
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
+                    2]+":"+row[2]+" | Product long description required")
+            if not row[3] or row[3].isspace():
                 raise ValidationError(_("PRODUCT_GF_CODE required at Row[%(value)s]."), params={'value': id+1},)
-            if row[3]:
-                product_gf = Product.objects.filter(product_gf_code=row[3])
-                # if product_gf:
-                #     raise ValidationError(_("PRODUCT_GF_CODE should be unique at Row[%(value)s]."), params={'value': id+1},)
+#            if row[3]:
+#                product_gf = Product.objects.filter(product_gf_code=row[3])
+#                if product_gf:
+#                    raise ValidationError(_("PRODUCT_GF_CODE should be
+            #                    unique at Row[%(value)s]."), params={'value': id+1},)
             # if not row[4] or not re.match("^\d{13}$", row[4]):
             #     raise ValidationError(_("INVALID_PRODUCT_EAN_CODE at Row[%(value)s]. Exactly 13 numbers required"), params={'value': id+1},)
 
@@ -368,4 +391,6 @@ class ProductsCSVUploadForm(forms.Form):
                 raise ValidationError(_('INVALID_INNER_CASE_SIZE at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
             if not row[15] or not re.match("^[\d]*$", row[15]):
                 raise ValidationError(_('INVALID_CASE_SIZE at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
+            if not row[16]:
+                raise ValidationError(_('HSN_CODE_REQUIRED at Row[%(value)s].'), params={'value': id+1},)
         return self.cleaned_data['file']

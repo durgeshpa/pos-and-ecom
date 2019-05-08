@@ -13,6 +13,11 @@ from django.db.models.signals import post_save
 import datetime, csv, codecs, re
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
+from shops.models import Shop
+from categories.models import Category
+from django.contrib.postgres.fields import JSONField
+from django.contrib.postgres.fields import ArrayField
+from django.db.models import Case, CharField, Value, When, F
 
 VENDOR_REG_PAYMENT = (
     ("paid","Paid"),
@@ -60,17 +65,28 @@ class Vendor(models.Model):
     list_of_sku_in_NPI_formate = models.FileField(upload_to='vendor/slu_list_in_npi',null=True,blank=True)
     vendor_form = models.FileField(upload_to='vendor/vendor_form',null=True,blank=True)
     vendor_products_csv = models.FileField(upload_to='vendor/vendor_products_csv', null=True,blank=True)
+    vendor_products_brand = ArrayField(models.PositiveIntegerField(),null=True, blank=True,editable=False)
 
     def __str__(self):
         return self.vendor_name
+
+    def get_parent_or_self(self,obj):
+        parent = obj.product.product_brand.brand_parent
+        brand = obj.product.product_brand
+        while parent is not None:
+            brand = parent
+            parent = parent.brand_parent
+        return brand.id
+
 
 class Brand(models.Model):
     brand_name = models.CharField(max_length=20)
     brand_slug = models.SlugField(blank=True, null=True)
     brand_logo = models.FileField(validators=[validate_image], blank=False,null=True)
-    brand_parent = models.ForeignKey('self', related_name='brnd_parent', null=True, blank=True,on_delete=models.CASCADE)
+    brand_parent = models.ForeignKey('self', related_name='brnd_parent', null=True, blank=True,on_delete=models.CASCADE, limit_choices_to={'brand_parent': None},)
     brand_description = models.TextField(null=True, blank=True)
     brand_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three character for SKU")
+    categories = models.ManyToManyField(Category, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     active_status = models.CharField(max_length=20,choices=CHOICES,default='active')
@@ -85,17 +101,30 @@ class Brand(models.Model):
 
         return ' -> '.join(full_path[::-1])
 
+    def save(self, *args, **kwargs):
+        if self.brand_parent == self:
+            raise ValidationError(_('Brand and Brand Parent cannot be same'))
+        else:
+            super(Brand, self).save(*args, **kwargs)
+
+    def clean(self, *args, **kwargs):
+        if self.brand_parent == self:
+            raise ValidationError(_('Brand and Brand Parent cannot be same'))
+        else:
+            super(Brand, self).clean(*args, **kwargs)
+
     # class Meta:
     #     unique_together = ('brand_name', 'brand_slug',)
 
 
 class BrandPosition(SortableMixin):
     #page = models.ForeignKey(Page,on_delete=models.CASCADE, null=True)
+    shop = models.ForeignKey(Shop,blank=True, on_delete=models.CASCADE, null=True)
     position_name = models.CharField(max_length=255)
     brand_position_order = models.PositiveIntegerField(default=0, editable=False, db_index=True)
 
     def __str__(self):
-        return self.position_name
+        return  "%s->%s"%(self.position_name, self.shop) if self.shop else self.position_name
 
     class Meta:
         ordering = ['brand_position_order']

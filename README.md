@@ -13,4 +13,9 @@ This repo includes Django Backend.
  ```sudo apt-get install libmysqlclient-dev```
  On Mac:
  ```brew install mysql```
+ 
+ # How to run db_script for cart update
+ 
+ python manage.py shell or ./manage.py shell
+ exec(open('db_changes/order_history_db_changes.py').read())
 

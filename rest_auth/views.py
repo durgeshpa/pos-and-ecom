@@ -238,7 +238,7 @@ class PasswordResetView(GenericAPIView):
                     )
             else:
                 msg = {'is_success': False,
-                        'message': ['You will receive an OTP shortly'],
+                        'message': ['Mobile No. not registered :('],
                         'response_data': None,
                         'user_exists': False }
                 return Response(msg,

@@ -1,0 +1,365 @@
+{% load i18n %}
+{% load static %}
+{% load staticfiles %}
+{% load app_filters_debitnote %}
+{% load humanize %}
+
+<html>
+
+	<head>
+<meta charset="UTF-8">
+<title>debit note</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="{{scheme}}://{{url}}/static/admin/css/bootstrap.css" rel="stylesheet" id="bootstrap-css">
+   <link rel="stylesheet" type="text/css" href="{{scheme}}://{{url}}/static/admin/css/style.css">
+
+	<style>
+table tr td,th,h4,span,address{
+
+			font-size:10px
+		}
+	</style>
+</head>
+
+
+
+<body>
+    <div class="container-fluid">
+			<div class="row">
+			<div class="col-sm-6">
+			<img src="{{scheme}}://{{url}}/static/admin/img/logo.png" style="width: 150px; padding: 10px 0px 10px">
+			</div>
+
+		</div>
+
+		</div>
+    <div class="row">
+        <div class="col-xs-12">
+    		<div class="invoice-title">
+    			<h4 class="invoice">Debit Note  No:- <span class="invoice_no"> <strong>{{debit_note_id.last.brand_note_id}}</strong></span></h4><h4 class="pull-right order_id">Order Id: <span class="order_id_no"><strong>{{ order_id }}</strong></span></h4>
+    		</div>
+
+    		<div class="row">
+    			<div class="col-xs-6">
+    				<address>
+						<span>Invoice To :</span><br>
+    				<strong>{{shop.order.ordered_cart.gf_billing_address.shop_name.shop_name}}</strong><br>
+    				{{shop.order.ordered_cart.gf_billing_address.nick_name}}, {{shop.order.ordered_cart.gf_billing_address.address_line1}}, {{shop.order.ordered_cart.gf_billing_address.city}}<br>
+						<strong>GSTIN/UIN:</strong> <span>{% if gram_factory_billing_gstin %}{{ gram_factory_billing_gstin.shop_document_number }}{% else %} ---- {% endif %}</span><br>
+						<strong>State Name:</strong> <span>{{shop.order.ordered_cart.gf_billing_address.state}} </span><strong>Code:</strong> <span>{{shop.order.ordered_cart.gf_billing_address.pincode}}</span><br>
+						<strong>CIN:</strong> <span>---</span>
+    				</address>
+
+					<address>
+						<span>Dispatch To :</span><br>
+    				<strong>{{shop.order.ordered_cart.gf_shipping_address.shop_name}}</strong><br>
+    				{{shop.order.ordered_cart.gf_shipping_address.nick_name}}, {{shop.order.ordered_cart.gf_shipping_address.address_line1}}, {{shop.order.ordered_cart.gf_shipping_address.city}}<br>
+						<strong>GSTIN/UIN:</strong> <span>{% if gram_factory_shipping_gstin %}{{ gram_factory_shipping_gstin.shop_document_number  }}{% else %} ---- {% endif %}</span><br>
+						<strong>State Name:</strong> <span>{{shop.order.ordered_cart.gf_shipping_address.state}} </span><strong>Code:</strong> <span>{{shop.order.ordered_cart.gf_shipping_address.pincode}}</span><br>
+						<strong>CIN:</strong> <span>---</span>
+    				</address>
+					<address>
+						<span>Party :</span><br>
+    				<strong>{{shop.order.ordered_cart.supplier_name.vendor_name}}</strong><br>
+    				{{shop.order.ordered_cart.supplier_name.company_name}}, {{shop.order.ordered_cart.supplier_name.city}}<br>
+						<strong>GSTIN/UIN:</strong> <span>{{shop.order.ordered_cart.supplier_name.GST_number}}</span><br>
+						<strong>State Name:</strong> <span>{{shop.order.ordered_cart.supplier_name.state}} </span><strong>Code:</strong> <span>{{shop.order.ordered_cart.supplier_name.pincode}}</span><br>
+						<strong>CIN:</strong> <span>---</span>
+    				</address>
+    			</div>
+    			<div class="col-xs-6 text-right">
+    				<div class="table">
+    					<table class="table table-bordered">
+
+                                <tr>
+
+        							<td style="width: 50%" class="text-center"><strong>Voucher No.</strong><br>
+									<span>{{shop.po_no}}</span>
+									</td>
+        							<td class="text-center"><strong>Dated <br>
+{{shop.grn_date}}</strong></td>
+
+
+                                </tr>
+    						 <tr>
+
+
+        							<td class="text-center"></td>
+
+        					<td class="text-center"><strong>Mode/Terms of Payment</strong><br>
+								 <span>1 Days</span>
+								 </td>
+
+
+                                </tr>
+
+						</table>
+    			</div>
+					<div class="table">
+    					<table class="table table-bordered">
+
+                                <tr>
+
+        							<td style="width: 50%" class="text-center"><strong>Supplier's Ref./Order No.</strong><br><span>{{shop.invoice_no}} dt. {{shop.grn_date}}</span></td>
+        							<td class="text-center"><strong>Delivery Note Date <br>
+1 Days</strong></td>
+
+
+                                </tr>
+    						 <tr>
+
+        							<td class="text-center"><strong>Despatched through</strong></td>
+        							<td class="text-center"><strong>Destination</strong></td>
+
+
+                                </tr>
+							 <tr>
+
+        							<td class="text-center" colspan="2"><strong>Terms of Delivery</strong><br>
+
+
+								 </td>
+
+
+
+                                </tr>
+
+						</table>
+    			</div>
+    		</div>
+			</div>
+
+    	</div>
+    </div>
+
+    <div class="row">
+    	<div class="col-md-12">
+    		<div class="panel panel-default">
+    			<div class="panel-heading">
+    				<h3 class="panel-title"><strong>Debit Note summary</strong></h3>
+    			</div>
+    			<div class="panel-body">
+    				<div class="table">
+    					<table class="table table-condensed">
+    						<thead>
+                      <tr>
+        							<td><strong>Serial No.</strong></td>
+
+												<td class="text-center"><strong>SKU</strong></td>
+        							<td class="text-center"><strong>Description of Goods</strong></td>
+
+        							<td class="text-center"><strong>HSN/SAC</strong></td>
+
+									    <td class="text-center"><strong>GST Rate</strong></td>
+
+									    <td class="text-center"><strong>Quantity</strong></td>
+        							<td class="text-center"><strong>Rate</strong></td>
+        							<td class="text-center"><strong>Per</strong></td>
+        							<td class="text-right"><strong>Amount</strong></td>
+                      </tr>
+    						</thead>
+    						<tbody>
+    							<!-- foreach ($order->lineItems as $line) or some such thing here -->
+    							<tr>
+                    {% for m in products %}
+                    {% if m.returned_qty > 0  %}
+    								<td><strong>{{forloop.counter}}</strong></td>
+										<td class="text-center">{{ m.product.product_sku}}</td>
+    								<td class="text-center">{{ m.product.product_short_description}}</td>
+
+    								<td class="text-center">{{ m.product.product_hsn}}</td>
+										   {% for n in m.product.product_pro_tax.all %}
+											 		{% if n.tax.tax_type == 'gst' %}
+		    										<td class="text-center">{{n.tax.tax_percentage}}%</td>
+													{% endif %}
+												{% endfor %}
+
+									<td class="text-center">{{m.returned_qty}}</td>
+    								<td class="text-center">{{m.po_product_price}}</td>
+    								<td class="text-center">PCS</td>
+										   <div style="display:none"> {{m.returned_qty | returned_qty}}</div>
+
+    								<td class="text-right">{{m.po_product_price | po_product_price | intcomma }}/-</td>
+    							</tr>
+                  {% endif %}
+									{% endfor %}
+
+    							<tr>
+									<td></td>
+
+									<td></td>
+									<td><strong></strong></td>
+									<td></td>
+
+
+<td class="text-center"></td>
+								  <td class="thick-line text-center"><strong>{{sum_qty}} PCS</strong></td>
+    								<td class="thick-line"></td>
+    								<td class="thick-line text-center"><strong></strong></td>
+    								<td class="thick-line text-right"><strong>₹{{sum_amount | intcomma }}/-</strong></td>
+    							</tr>
+									{% if shop.order.ordered_cart.supplier_state.state == shop.order.shipping_address.state %}
+    							<tr>
+
+									<td class="no-line"></td>
+									<td class="no-line"></td>
+									<td class="no-line"></td>
+									<td class="no-line"></td>
+
+    								<td class="no-line"></td>
+									<td class="no-line"></td>
+    								<td class="no-line"></td>
+    								<td class="no-line text-center"><strong>CGST</strong></td>
+    								<td class="no-line text-right"><strong>₹{{cgst | floatformat:2 }}/-</strong></td>
+    							</tr>
+								<tr>
+
+    								<td class="no-line"></td>
+									<td class="no-line"></td>
+										<td class="no-line"></td>
+									<td class="no-line"></td>
+
+    								<td class="no-line"></td>
+    								<td class="no-line"></td>
+    								<td class="no-line"></td>
+    								<td class="no-line text-center"><strong>SGST</strong></td>
+    								<td class="no-line text-right"><strong>₹ {{sgst | floatformat:2 }}/-</strong></td>
+    							</tr>
+									{% else %}
+									<tr>
+
+	    								<td class="no-line"></td>
+										<td class="no-line"></td>
+											<td class="no-line"></td>
+
+										<td class="no-line"></td>
+
+	    								<td class="no-line"></td>
+	    								<td class="no-line"></td>
+	    								<td class="no-line"></td>
+	    								<td class="no-line text-center"><strong>IGST</strong></td>
+	    								<td class="no-line text-right"><strong>₹ {{igst | floatformat:2 }}/-</strong></td>
+	    							</tr>
+										{% endif %}
+								<tr>
+
+
+    								<td class="no-line"></td>
+									<td class="no-line"></td>
+									<td class="no-line"></td>
+
+    								<td class="no-line"></td>
+
+    								<td class="no-line"></td>
+    								<td class="no-line"></td>
+    								<td class="no-line"></td>
+    								<td class="no-line text-center"><strong>Cess</strong></td>
+    								<td class="no-line text-right"><strong>₹ {{cess | floatformat:2 }}/-</strong></td>
+    							</tr>
+									<tr>
+
+
+	    								<td class="no-line"></td>
+										<td class="no-line"></td>
+										<td class="no-line"></td>
+
+	    								<td class="no-line"></td>
+
+	    								<td class="no-line"></td>
+	    								<td class="no-line"></td>
+	    								<td class="no-line"></td>
+	    								<td class="no-line text-center"><strong>Surcharge</strong></td>
+	    								<td class="no-line text-right"><strong>₹ {{surcharge | floatformat:2 }}/-</strong></td>
+	    							</tr>
+
+    							<tr>
+
+										<td class="no-line"></td>
+									<td class="no-line"></td>
+    								<td class="no-line"></td>
+
+    								<td class="no-line"></td>
+
+    								<td class="no-line"></td>
+    								<td class="no-line"></td>
+    								<td class="no-line"></td>
+    								<td class="no-line text-center"><strong>Total</strong></td>
+    								<td class="no-line text-right" style="width:120px"><strong>₹ {{total_amount | intcomma}}/- </strong></td>
+    							</tr>
+
+								<tr>
+								<td colspan="11"></td>
+								</tr>
+								<tr>
+        							<td colspan="8" class="no-line"><strong>Amount Chargeable (in words)</strong></td>
+        							<td class="no-line">E . &amp; O . E</td>
+                                </tr>
+								<tr> {% if total_amount.is_integer %}
+        							<td colspan="11"><strong>INR {{total_amount_int | amount }} only</strong></td>
+                      {% else %}
+                      <td colspan="11"><strong>INR {{total_amount | amount }} paise only</strong></td>
+                      {% endif %}
+                                </tr>
+    						</tbody>
+    					</table>
+
+    				</div>
+
+    				<div class="table">
+
+
+						<div class="table">
+    					<table class="table table-bordered">
+    						<thead>
+
+								<tr>
+
+        							<td class="text-left" colspan="10">
+
+
+						<strong>Supplier's Service Tax No:</strong> <span>NA</span><br>
+										<strong>Company's PAN:</strong> <span>09AAQCA9570J1ZW</span><br>
+
+									</td>
+
+
+
+                                </tr>
+
+							</thead>
+
+							</table>
+    				</div>
+						<div class="table">
+    					<table class="table table-bordered">
+    						<thead>
+
+								<tr>
+
+        							<td class="text-left" colspan="5">
+								<strong>Declaration</strong> <br>
+We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.
+									</td>
+        							<td class="text-right" colspan="5" height="100">
+
+										<strong>For Addistro Technologies Pvt Ltd</strong> <br>
+ Authorised Signatory
+									</td>
+
+
+                                </tr>
+
+							</thead>
+
+							</table>
+    				</div>
+    			</div>
+    		</div>
+    	</div>
+    </div>
+
+</div>
+	</div>
+
+
+</body></html>

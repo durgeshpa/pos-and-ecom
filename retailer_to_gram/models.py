@@ -7,7 +7,7 @@ from products.models import Product
 from django.dispatch import receiver
 from django.db.models.signals import pre_save, post_save
 from retailer_backend.common_function import(po_pattern, grn_pattern,
-    brand_note_pattern, order_id_pattern, invoice_pattern)
+    brand_note_pattern, order_id_pattern_r_gram, invoice_pattern)
 from django.core.validators import MinValueValidator
 
 from otp.sms import SendSms
@@ -24,6 +24,7 @@ ORDER_STATUS = (
     ("order_cancel","Order Cancel"),
     ("partially_delivered","Partially Delivered"),
     ("delivered","Delivered"),
+    ("opdp", "Order Placed Dispatch Pending"),
 )
 
 ITEM_STATUS = (
@@ -64,13 +65,14 @@ class Cart(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return str(self.id)
+        return str(self.order_id)
 
 @receiver(post_save, sender=Cart)
 def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
     if created:
-        instance.order_id = order_id_pattern(instance.pk)
+        instance.order_id = order_id_pattern_r_gram(instance.pk)
         instance.save()
+
 
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='rt_cart_list',on_delete=models.CASCADE)
@@ -107,7 +109,7 @@ class Order(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.order_no or str(self.id)
+        return self.ordered_cart.order_id or str(self.id)
 
 # @receiver(post_save, sender=CartProductMapping)
 # def create_order(sender, instance=None, created=False, **kwargs):
@@ -123,6 +125,7 @@ class OrderedProduct(models.Model):
     order = models.ForeignKey(Order,related_name='rt_order_order_product',on_delete=models.CASCADE,null=True,blank=True)
     invoice_no = models.CharField(max_length=255,null=True,blank=True)
     vehicle_no = models.CharField(max_length=255,null=True,blank=True)
+    driver_name = models.CharField(max_length=80, null=True, blank=True) #Temporary
     shipped_by = models.ForeignKey(get_user_model(), related_name='rtg_shipped_product_ordered_by_user', null=True, blank=True,on_delete=models.CASCADE)
     received_by = models.ForeignKey(get_user_model(), related_name='rtg_ordered_product_received_by_user', null=True, blank=True,on_delete=models.CASCADE)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='rtg_last_modified_user_order', null=True,blank=True, on_delete=models.CASCADE)
@@ -132,15 +135,22 @@ class OrderedProduct(models.Model):
     def __str__(self):
         return str(self.invoice_no) or str(self.id)
 
+    class Meta:
+        verbose_name= 'Shipment Planning'
+
+
 @receiver(post_save, sender=OrderedProduct)
 def create_invoice_no(sender, instance=None, created=False, **kwargs):
     if created:
-        try:
-            city_id = instance.order.billing_address.city_id
-            instance.invoice_no = invoice_pattern(instance.pk, city_id=city_id)
-        except:
-            instance.invoice_no = invoice_pattern(instance.pk)
+        instance.invoice_no = invoice_pattern(
+                                sender, 'invoice_no',
+                                instance.pk, instance.order.seller_shop.
+                                shop_name_address_mapping.filter(
+                                                address_type='billing'
+                                                ).last().pk)
+
         instance.save()
+
 
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(OrderedProduct,related_name='rtg_order_product_order_product_mapping', null=True,blank=True,on_delete=models.CASCADE)
@@ -152,6 +162,25 @@ class OrderedProductMapping(models.Model):
     last_modified_by = models.ForeignKey(get_user_model(), related_name='rtg_last_modified_user_order_product', null=True,blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def ordered_qty(self):
+        if self.ordered_product:
+            qty = self.ordered_product.order.ordered_cart.rt_cart_list.filter(
+                cart_product=self.product).values('qty')
+            qty = qty.first().get('qty')
+            return str(qty)
+        return str("-")
+
+    def get_shop_specific_products_prices(self):
+        return self.product.product_pro_price.filter(shop__shop_type__shop_type='gf', status=True).last()
+
+    def get_products_gst_tax_gf(self):
+        return self.product.product_pro_tax.filter(tax__tax_type='gst')
+
+    def get_products_gst_cess_gf(self):
+        return self.product.product_pro_tax.filter(tax__tax_type='cess')
+
 
 class Note(models.Model):
     order = models.ForeignKey(Order, related_name='rtg_order_note',null=True,blank=True,on_delete=models.CASCADE)
@@ -197,7 +226,8 @@ class Payment(models.Model):
     #order_amount= models.ForeignKey(Order, related_name= 'rt_amount', on_delete=models.CASCADE, null=True)
     paid_amount=models.DecimalField(max_digits=20,decimal_places=4,default=('0.0000'))
     payment_choice = models.CharField(max_length=30, choices=PAYMENT_MODE_CHOICES, null=True)
-    neft_reference_number= models.CharField(max_length=20, null=True)
+    neft_reference_number= models.CharField(max_length=20, null=True, blank=True)
+    imei_no = models.CharField(max_length=100, null=True, blank=True)
     payment_status = models.CharField(max_length=50, null=True, blank=True, choices=PAYMENT_STATUS,default=PAYMENT_DONE_APPROVAL_PENDING)
 
     def save(self, *args,**kwargs):
@@ -220,14 +250,14 @@ def order_notification(sender, instance=None, created=False, **kwargs):
         order_no = str(instance.order_id)
         #buyer_shop = str(instance.order_id.buyer_shop)
         total_amount= str(instance.order_id.total_final_amount)
-        shop_name= str(instance.order_id.buyer_shop)
+        shop_name= str(instance.order_id.buyer_shop.shop_name)
         items_count = instance.order_id.ordered_cart.rt_cart_list.count()
         #ordered_items= str(instance.order_id.ordered_cart.rt_cart_list.all())
 
 
         message = SendSms(phone=instance.order_id.ordered_by,
-                          body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop <Shop Name>. We will update you further on shipment of the items."\
+                          body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
                               " Thanks," \
-                              " Team GramFactory " % (username, order_no,items_count, total_amount))
+                              " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
 
         message.send()
