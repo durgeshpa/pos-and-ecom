@@ -7,6 +7,10 @@ from notification_center.models import (
 from notification_center.forms import (
     TemplateForm
     )
+# from notification_center.utils import (
+#     SendNotification
+#     )
+
 
 
 class TemplateAdmin(admin.ModelAdmin):
@@ -78,6 +82,17 @@ class NotificationAdmin(admin.ModelAdmin):
     ]
     #readonly_fields = ['user', 'template']
     #for hiding object names in tabular inline
+
+    # def save_model(self, request, obj, form, change):
+    #     try:
+    #         user_instance = User.objects.get(id=obj.user.id)
+    #         # code to send notification
+    #         SendNotification().send_notification()
+    #     except Exception as e:
+    #         print (e.args)
+    #         pass
+    #     super(Notification, self).save_model(request, obj, form, change)    
+
     class Media:
         css = { "all" : ("admin/css/hide_admin_inline_object_name.css",) }
 

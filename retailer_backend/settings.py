@@ -87,7 +87,8 @@ INSTALLED_APPS = [
     'admin_numeric_filter',
     'django_admin_listfilter_dropdown',
     'debug_toolbar',
-
+    # used for installing shell_plus
+    'django_extensions',
 ]
 
 

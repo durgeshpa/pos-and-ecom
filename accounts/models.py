@@ -75,6 +75,20 @@ class User(AbstractUser):
     def user_photo_thumbnail(self):
         return mark_safe('<img alt="%s" src="%s" />' % (self.user, self.user_photo.url))
 
+    # def send_notification(self):
+        
+    #     notification_types  = UserNotification.objects.filter(user=user_id)
+    #     template = Template.objects.filter(template_type=self.template_type)
+
+    #     if notification_types.email_notification:
+    #         email_content = merge_template_with_data(template.text_email_template, self.email_variable)
+    #         send_email()
+
+    #     if notification_types.sms_notification:
+    #         sms_content = merge_template_with_data(template.text_sms_template, self.sms_variable)
+    #         send_sms()
+
+
     def __str__(self):
         return "%s"%(str(self.phone_number))
 

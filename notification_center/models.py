@@ -1,6 +1,17 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 
+User = get_user_model()
+
+
+class DateTime(models.Model):
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        abstract = True
+
 
 class Template(models.Model):
     TEMPLATE_TYPE_CHOICES = (
@@ -137,6 +148,21 @@ class Notification(models.Model):
 
     def __str__(self):
         return '%s-%s' % (self.user, self.pk)
+
+
+class UserNotification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    email_notification = models.BooleanField(default=True)
+    sms_notification = models.BooleanField(default=True)
+    app_notification = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return '%s-%s' %(self.user, self.pk)
 
 
 class TextSMSActivity(models.Model):

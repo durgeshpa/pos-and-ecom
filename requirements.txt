@@ -75,3 +75,4 @@ django-admin-rangefilter
 sentry-sdk==0.7.4
 django-admin-list-filter-dropdown
 django-debug-toolbar
+django-extensions-2.1.6
