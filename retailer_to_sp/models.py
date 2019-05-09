@@ -14,7 +14,9 @@ from retailer_backend.common_function import (
     order_id_pattern, brand_credit_note_pattern, getcredit_note_id,
     retailer_sp_invoice
 )
-from .utils import order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util
+from .utils import (order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util,
+                    order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
+                    order_damaged_amount, order_delivered_value)
 from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
@@ -224,12 +226,12 @@ class Order(models.Model):
     )
     #Todo Remove
     seller_shop = models.ForeignKey(
-        Shop, related_name='rt_seller_shop_order',
+        ShopNameDisplay, related_name='rt_seller_shop_order',
         null=True, blank=True, on_delete=models.CASCADE
     )
     #Todo Remove
     buyer_shop = models.ForeignKey(
-        Shop, related_name='rt_buyer_shop_order',
+        ShopNameDisplay, related_name='rt_buyer_shop_order',
         null=True, blank=True, on_delete=models.CASCADE
     )
     ordered_cart = models.OneToOneField(
@@ -321,6 +323,41 @@ class Order(models.Model):
     def shipment_returns(self):
         return self._shipment_returns
 
+    @property
+    def picking_status(self):
+        return "-"
+
+    @property
+    def picker_name(self):
+        return "-"
+
+    @property
+    def shipment_date(self):
+        return order_shipment_date(self.shipments())
+
+    @property
+    def invoice_amount(self):
+        return order_shipment_amount(self.shipments())
+
+    @property
+    def delivery_date(self):
+        return order_delivery_date(self.shipments())
+
+    @property
+    def cn_amount(self):
+        return order_cn_amount(self.shipments())
+
+    @property
+    def cash_collected(self):
+        return order_cash_to_be_collected(self.shipments())
+
+    @property
+    def damaged_amount(self):
+        return order_damaged_amount(self.shipments())
+
+    @property
+    def delivered_value(self):
+        return order_delivered_value(self.shipments())
 
 class Trip(models.Model):
     seller_shop = models.ForeignKey(
@@ -522,6 +559,43 @@ class OrderedProduct(models.Model): #Shipment
             amount = self.shipment_qty_product_price('shipped_qty')
             return str(amount)
         return str("-")
+
+    def cn_amount(self):
+        total_amount = []
+        seller_shop = self.order.seller_shop
+        shipment_products = self.rt_order_product_order_product_mapping.all()
+        for product in shipment_products:
+            if product.product:
+                cart_product_map = self.order.ordered_cart.rt_cart_list. \
+                    filter(cart_product=product.product).last()
+                product_price = float(round(
+                    cart_product_map.get_cart_product_price(
+                        seller_shop).price_to_retailer, 2
+                ))
+                return_amount = product_price * product.returned_qty
+                damaged_amount = product_price * product.damaged_qty
+                total_amount.append(return_amount+damaged_amount)
+        return round(sum(total_amount), 2)
+
+    def damaged_amount(self):
+        total_amount = []
+        seller_shop = self.order.seller_shop
+        shipment_products = self.rt_order_product_order_product_mapping.all()
+        for product in shipment_products:
+            if product.product:
+                cart_product_map = self.order.ordered_cart.rt_cart_list. \
+                    filter(cart_product=product.product).last()
+                product_price = float(round(
+                    cart_product_map.get_cart_product_price(
+                        seller_shop).price_to_retailer, 2
+                ))
+                amount = product_price * product.damaged_qty
+                total_amount.append(amount)
+        return round(sum(total_amount), 2)
+
+    def delivered_value(self):
+        return round(float(self.trip.cash_to_be_collected()),2) - round(float(self.cn_amount()),2) if self.trip else "-"
+
 
     def save(self, *args, **kwargs):
         if not self.invoice_no:

@@ -137,6 +137,42 @@ def order_shipment_amount(shipments):
             ) for s in shipments)
     )
 
+def order_shipment_date(shipments):
+    return format_html_join(
+    "","{}<br><br>",
+            ((s.created_at.strftime('%Y-%m-%d %H:%M:%S') if s.created_at else '-',
+            ) for s in shipments)
+    )
+
+def order_delivery_date(shipments):
+	return format_html_join(
+		"", "{}<br><br>",
+		((s.trip.completed_at.strftime('%Y-%m-%d %H:%M:%S') if s.trip and s.trip.completed_at else '-',) for s in shipments)
+	)
+
+def order_cash_to_be_collected(shipments):
+	return format_html_join(
+		"", "{}<br><br>",
+		((s.trip.cash_to_be_collected() if s.trip else '',) for s in shipments)
+	)
+
+def order_cn_amount(shipments):
+	return format_html_join(
+		"", "{}<br><br>",
+		((s.cn_amount(),) for s in shipments)
+	)
+
+def order_damaged_amount(shipments):
+	return format_html_join(
+		"", "{}<br><br>",
+		((s.damaged_amount(),) for s in shipments)
+	)
+
+def order_delivered_value(shipments):
+	return format_html_join(
+		"", "{}<br><br>",
+		((s.delivered_value(),) for s in shipments)
+	)
 
 class UpdateCashToBeCollected(object):
 	"""Update trip's cash to be collected amount"""
