@@ -1,6 +1,6 @@
 from django.contrib import admin
 from notification_center.models import (
-    Template, TemplateVariable, Notification,
+    Template, TemplateVariable, Notification, UserNotification,
     TextSMSActivity, VoiceCallActivity, EmailActivity,
     GCMActivity
     )
@@ -72,6 +72,11 @@ class GCMActivityAdmin(admin.TabularInline):
         return False
 
 
+class UserNotificationAdmin(admin.ModelAdmin):
+    model = UserNotification
+    #fields = '__all__'
+
+
 class NotificationAdmin(admin.ModelAdmin):
     model = Notification
     list_display = ('id', 'user', 'template', 'created_at')
@@ -99,3 +104,4 @@ class NotificationAdmin(admin.ModelAdmin):
 admin.site.register(Template, TemplateAdmin)
 admin.site.register(TemplateVariable, TemplateVariableAdmin)
 admin.site.register(Notification, NotificationAdmin)
+admin.site.register(UserNotification, UserNotificationAdmin)

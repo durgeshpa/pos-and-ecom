@@ -6,23 +6,23 @@ from django_ses.signals import delivery_received
 
 from django_ses.signals import bounce_received
 
-from notification_center.utils import GetTemplateVariables
+# from notification_center.utils import GetTemplateVariables
 from notification_center.models import Template
 
 
-@receiver(post_save, sender=Template)
-def create_template_variables(sender, instance=None, created=False, **kwargs):
-    template_variable = GetTemplateVariables(instance)
-    template_variable.create()
-    from django.core.mail import send_mail, EmailMessage
+# @receiver(post_save, sender=Template)
+# def create_template_variables(sender, instance=None, created=False, **kwargs):
+#     template_variable = GetTemplateVariables(instance)
+#     template_variable.create()
+#     from django.core.mail import send_mail, EmailMessage
 
-    send_mail(
-        'Subject here',
-        'Here is the message.',
-        'dev@gramfactory.com',
-        ['jagjeet@gramfactory.com'],
-        fail_silently=False,
-    )
+#     send_mail(
+#         'Subject here',
+#         'Here is the message.',
+#         'dev@gramfactory.com',
+#         ['jagjeet@gramfactory.com'],
+#         fail_silently=False,
+#     )
 
 
 @receiver(delivery_received)
