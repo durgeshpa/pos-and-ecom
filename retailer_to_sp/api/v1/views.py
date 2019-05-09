@@ -81,7 +81,7 @@ class GramGRNProductsList(APIView):
         shop_id = request.data.get('shop_id')
         offset = request.data.get('offset')
         pro_count = request.data.get('pro_count')
-
+        grn_dict = None
         cart_check = False
         is_store_active = True
         sort_preference = request.data.get('sort_by_price')
@@ -130,16 +130,18 @@ class GramGRNProductsList(APIView):
                     if cart:
                         cart_products = cart.rt_cart_list.all()
                         cart_check = True
-        if parent_mapping.parent.shop_type.shop_type == 'sp':
-            products = Product.objects.filter(pk__in=grn_dict.keys()).order_by('product_name')
+        if grn_dict:
+            grn_list = grn_dict.keys()
         else:
-            products = Product.objects.filter(pk__in=grn).order_by('product_name')
+            grn_list = grn
+        products = Product.objects.filter(pk__in=grn_list).order_by('product_name')
+
         if product_ids:
             products = products.filter(id__in=product_ids)
         if brand:
             products = products.filter(product_brand__in=brand)
         if category:
-            product_ids = ProductCategory.objects.filter(product__in=grn, category__in=category).values_list('product_id')
+            product_ids = ProductCategory.objects.filter(product__in=grn_list, category__in=category).values_list('product_id')
             products = products.filter(pk__in=product_ids)
         if keyword:
             products = products.annotate(search=SearchVector('product_name', 'product_brand__brand_name', 'product_short_description')).filter(search=keyword)
@@ -180,7 +182,7 @@ class GramGRNProductsList(APIView):
             except Exception as e:
                 logger.exception("pack size is not defined for {}".format(p.product.product_name))
                 continue
-            if int(pack_size) > int(grn_dict[p.product.id]):
+            if grn_dict and int(pack_size) > int(grn_dict[p.product.id]):
                 continue
             try:
                 for p_o in product_opt:
