@@ -341,21 +341,21 @@ class Order(models.Model):
     def invoice_amount(self):
         return order_shipment_amount(self.shipments())
 
-    @property
-    def delivery_date(self):
-        return order_delivery_date(self.shipments())
-
-    @property
-    def cn_amount(self):
-        return order_cn_amount(self.shipments())
-
-    @property
-    def cash_collected(self):
-        return order_cash_to_be_collected(self.shipments())
-
-    @property
-    def damaged_amount(self):
-        return order_damaged_amount(self.shipments())
+    # @property
+    # def delivery_date(self):
+    #     return order_delivery_date(self.shipments())
+    #
+    # @property
+    # def cn_amount(self):
+    #     return order_cn_amount(self.shipments())
+    #
+    # @property
+    # def cash_collected(self):
+    #     return order_cash_to_be_collected(self.shipments())
+    #
+    # @property
+    # def damaged_amount(self):
+    #     return order_damaged_amount(self.shipments())
 
     @property
     def delivered_value(self):
