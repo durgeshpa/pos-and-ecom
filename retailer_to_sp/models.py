@@ -29,6 +29,8 @@ from decimal import Decimal
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
 
 logger = logging.getLogger(__name__)
+total_cn_amount = []
+total_damaged_amount = []
 
 ITEM_STATUS = (
     ("partially_delivered", "Partially Delivered"),
@@ -339,21 +341,21 @@ class Order(models.Model):
     def invoice_amount(self):
         return order_shipment_amount(self.shipments())
 
-    # @property
-    # def delivery_date(self):
-    #     return order_delivery_date(self.shipments())
-    #
-    # @property
-    # def cn_amount(self):
-    #     return order_cn_amount(self.shipments())
-    #
-    # @property
-    # def cash_collected(self):
-    #     return order_cash_to_be_collected(self.shipments())
-    #
-    # @property
-    # def damaged_amount(self):
-    #     return order_damaged_amount(self.shipments())
+    @property
+    def delivery_date(self):
+        return order_delivery_date(self.shipments())
+
+    @property
+    def cn_amount(self):
+        return order_cn_amount(self.shipments())
+
+    @property
+    def cash_collected(self):
+        return order_cash_to_be_collected(self.shipments())
+
+    @property
+    def damaged_amount(self):
+        return order_damaged_amount(self.shipments())
 
     @property
     def delivered_value(self):
@@ -537,7 +539,13 @@ class OrderedProduct(models.Model): #Shipment
         return 0
 
     def shipment_qty_product_price(self, qty):
+        global total_cn_amount
+        global total_damaged_amount
+
         total_amount = []
+        total_cn_amount = []
+        total_damaged_amount = []
+
         seller_shop = self.order.seller_shop
         shipment_products = self.rt_order_product_order_product_mapping.all()
         for product in shipment_products:
@@ -551,6 +559,15 @@ class OrderedProduct(models.Model): #Shipment
                 product_qty = float(getattr(product, qty))
                 amount = product_price * product_qty
                 total_amount.append(amount)
+
+                # CN_Amount
+                return_amount = product_price * product.returned_qty
+                damaged_amount = product_price * product.damaged_qty
+
+                total_cn_amount.append(return_amount + damaged_amount)
+                total_damaged_amount.append(amount)
+                total_amount.append(amount)
+
         return round(sum(total_amount), 2)
 
     @property
@@ -561,41 +578,15 @@ class OrderedProduct(models.Model): #Shipment
         return str("-")
 
     def cn_amount(self):
-        total_amount = []
-        seller_shop = self.order.seller_shop
-        shipment_products = self.rt_order_product_order_product_mapping.all()
-        for product in shipment_products:
-            if product.product:
-                cart_product_map = self.order.ordered_cart.rt_cart_list. \
-                    filter(cart_product=product.product).last()
-                product_price = float(round(
-                    cart_product_map.get_cart_product_price(
-                        seller_shop).price_to_retailer, 2
-                ))
-                return_amount = product_price * product.returned_qty
-                damaged_amount = product_price * product.damaged_qty
-                total_amount.append(return_amount+damaged_amount)
-        return round(sum(total_amount), 2)
+        global total_cn_amount
+        return round(sum(total_cn_amount), 2)
 
     def damaged_amount(self):
-        total_amount = []
-        seller_shop = self.order.seller_shop
-        shipment_products = self.rt_order_product_order_product_mapping.all()
-        for product in shipment_products:
-            if product.product:
-                cart_product_map = self.order.ordered_cart.rt_cart_list. \
-                    filter(cart_product=product.product).last()
-                product_price = float(round(
-                    cart_product_map.get_cart_product_price(
-                        seller_shop).price_to_retailer, 2
-                ))
-                amount = product_price * product.damaged_qty
-                total_amount.append(amount)
-        return round(sum(total_amount), 2)
+        global total_damaged_amount
+        return round(sum(total_damaged_amount), 2)
 
     def delivered_value(self):
         return round(float(self.trip.cash_to_be_collected()),2) - round(float(self.cn_amount()),2) if self.trip else "-"
-
 
     def save(self, *args, **kwargs):
         if not self.invoice_no:
