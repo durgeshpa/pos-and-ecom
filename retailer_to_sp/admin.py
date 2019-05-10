@@ -27,7 +27,7 @@ from .forms import (
     CustomerCareForm, ReturnProductMappingForm, TripForm, DispatchForm,
     OrderedProductMappingForm, OrderedProductForm, ShipmentForm,
     OrderedProductMappingShipmentForm, ShipmentProductMappingForm,
-    CartProductMappingForm, CartForm, CommercialForm
+    CartProductMappingForm, CartForm, CommercialForm, OrderForm
     )
 from retailer_to_sp.views import (
     ordered_product_mapping_shipment, order_invoices, trip_planning,
@@ -51,6 +51,7 @@ from sp_to_gram.models import (
 from dal_admin_filters import AutocompleteFilter
 from django.utils.translation import ugettext_lazy as _
 from shops.models import Shop, ParentRetailerMapping
+from .views import RetailerCart
 
 
 class InvoiceNumberFilter(AutocompleteFilter):
@@ -407,8 +408,8 @@ class ProductNameFilter(InputFilter):
 class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     actions = ["export_as_csv"]
     resource_class = OrderResource
-    search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name',
-                    'order_status',)
+    search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name','order_status',)
+    form = OrderForm
     fieldsets = (
         (_('Shop Details'), {
             'fields': ('seller_shop', 'buyer_shop',
@@ -433,7 +434,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         ('created_at', DateTimeRangeFilter), ('total_final_amount', SliderNumericFilter)]
 
     class Media:
-        pass
+        js = ('/static/admin/js/retailer_cart.js',)
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
@@ -459,6 +460,17 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
             p.append(m.cart_product.product_name)
         return p
 
+    change_form_template = 'admin/retailer_to_sp/order/change_form.html'
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(OrderAdmin, self).get_urls()
+        urls += [
+            url(r'^retailer-cart/$',
+                self.admin_site.admin_view(RetailerCart.as_view()),
+                name="retailer_cart"),
+        ]
+        return urls
 
 class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping
