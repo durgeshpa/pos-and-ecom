@@ -792,8 +792,24 @@ class NoteAdmin(admin.ModelAdmin):
     class Media:
         pass
 
-class CustomerCareAdmin(admin.ModelAdmin):
+class ExportCsvMixin:
+    def export_as_csv_customercare(self, request, queryset):
+        meta = self.model._meta
+        list_display = ('complaint_id', 'retailer_shop', 'retailer_name', 'seller_shop', 'order_id', 'issue_status', 'select_issue', 'issue_date')
+        field_names = [field.name for field in meta.fields if field.name in list_display]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in list_display])
+        return response
+    export_as_csv_customercare.short_description = "Download CSV of Selected CustomeCare"
+
+
+class CustomerCareAdmin(ExportCsvMixin, admin.ModelAdmin):
     model = CustomerCare
+    actions = ["export_as_csv_customercare"]
     form = CustomerCareForm
     fields = (
         'email_us', 'order_id', 'issue_status',
@@ -806,19 +822,6 @@ class CustomerCareAdmin(admin.ModelAdmin):
     readonly_fields = ('issue_date', 'seller_shop', 'retailer_shop', 'retailer_name')
     list_filter = [ComplaintIDSearch, OrderIdSearch, IssueStatusSearch, IssueSearch]
 
-    def seller_shop(self, obj):
-        if obj.order_id:
-            return obj.order_id.seller_shop
-
-    def retailer_shop(self, obj):
-        if obj.order_id:
-            return obj.order_id.buyer_shop
-
-    def retailer_name(self, obj):
-        if obj.order_id:
-            if obj.order_id.buyer_shop:
-                if obj.order_id.buyer_shop.shop_owner.first_name:
-                    return obj.order_id.buyer_shop.shop_owner.first_name
 
 class PaymentAdmin(NumericFilterModelAdmin,admin.ModelAdmin):
     model = Payment
