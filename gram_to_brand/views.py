@@ -27,14 +27,11 @@ from products.models import ProductVendorMapping
 
 class SupplierAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        qs = Vendor.objects.all()
+        qs = None
         state = self.forwarded.get('supplier_state', None)
         brand = self.forwarded.get('brand', None)
         if state and brand:
-            vendos_id = ProductVendorMapping.objects.filter(
-                product__product_brand__id=brand).values('vendor')
-            qs = qs.filter(state__id=state,id__in=[vendos_id])
-
+            qs = Vendor.objects.filter(state__id=state,vendor_products_brand__contains=[brand])
         if self.q:
             qs = qs.filter(shop_name__startswith=self.q)
         return qs
@@ -66,7 +63,7 @@ class BillingAddressAutocomplete(autocomplete.Select2QuerySetView):
 
 class BrandAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        qs = Brand.objects.all()
+        qs = Brand.objects.filter(brand_parent__isnull=True,active_status='active')
         if self.q:
             qs = qs.filter(brand_name__icontains=self.q)
         return qs
@@ -130,17 +127,16 @@ class DownloadPurchaseOrder(APIView):
             shop_name_documents.filter(shop_document_type='gstin').last()
         gram_factory_shipping_gstin= shop.gf_shipping_address.shop_name.\
             shop_name_documents.filter(shop_document_type='gstin').last()
-        sum_qty = 0
-        sum_amount = 0
-        tax_inline = 0
+
+        tax_inline, sum_amount, sum_qty = 0, 0, 0
         taxes_list = []
         gst_tax_list = []
         cess_tax_list = []
         surcharge_tax_list = []
         for m in products:
             sum_qty = sum_qty + m.qty
-            sum_amount = sum_amount + (m.qty * m.price)
-            inline_sum_amount = (m.qty * m.price)
+            sum_amount = sum_amount + m.total_price
+            inline_sum_amount = m.total_price
             for n in m.cart_product.product_pro_tax.all():
                 divisor = (1+(n.tax.tax_percentage/100))
                 original_amount = (inline_sum_amount/divisor)
@@ -267,8 +263,10 @@ class VendorProductAutocomplete(autocomplete.Select2QuerySetView):
         if supplier_id:
             qs = Product.objects.all()
             product_id = ProductVendorMapping.objects\
-                .filter(vendor__id=supplier_id).values('product')
+                .filter(vendor__id=supplier_id,case_size__gt=0,status=True).values('product')
             qs = qs.filter(id__in=[product_id])
+            if self.q:
+                qs = qs.filter(product_name__icontains=self.q)
         return qs
 
 
@@ -281,14 +279,19 @@ class VendorProductPrice(APIView):
         vendor_product_price,product_case_size,product_inner_case_size = 0,0,0
         vendor_mapping = ProductVendorMapping.objects.filter(vendor__id=supplier_id, product__id=product_id)
         if vendor_mapping.exists():
+            product = vendor_mapping.last().product
             vendor_product_price = vendor_mapping.last().product_price
-            product_case_size = vendor_mapping.last().product.product_case_size
+            product_case_size = vendor_mapping.last().case_size if vendor_mapping.last().case_size else vendor_mapping.last().product.product_case_size
             product_inner_case_size = vendor_mapping.last().product.product_inner_case_size
+            taxes = ([field.tax.tax_percentage for field in vendor_mapping.last().product.product_pro_tax.all()])
+            taxes = str(sum(taxes))
+            tax_percentage = taxes+'%'
 
         return Response({
             "price": vendor_product_price,
             "case_size": product_case_size,
             "inner_case_size": product_inner_case_size,
+            "tax_percentage": tax_percentage,
             "success": True})
 
 

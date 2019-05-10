@@ -5,7 +5,12 @@ from django.utils.safestring import mark_safe
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from otp.sms import SendSms
+import datetime,re
+from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
+from retailer_backend.validators import *
 import datetime
+from django.core.validators import MinLengthValidator
 
 
 SHOP_TYPE_CHOICES = (
@@ -44,12 +49,14 @@ class Shop(models.Model):
     shop_owner = models.ForeignKey(get_user_model(), related_name='shop_owner_shop',on_delete=models.CASCADE)
     shop_type = models.ForeignKey(ShopType,related_name='shop_type_shop',on_delete=models.CASCADE)
     related_users = models.ManyToManyField(get_user_model(),blank=True, related_name='related_shop_user')
+    shop_code = models.CharField(max_length=1, blank=True, null=True)
+    warehouse_code = models.CharField(max_length=2, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=False)
 
     def __str__(self):
-        return "%s - %s - %s"%(self.shop_name,self.shop_owner, self.shop_type.get_shop_type_display())
+        return "%s - %s"%(self.shop_name,self.shop_owner)
 
     def __init__(self, *args, **kwargs):
         super(Shop, self).__init__(*args, **kwargs)
@@ -68,7 +75,7 @@ class Shop(models.Model):
 
     # def available_product(self, product):
     #     ProductMapping = {
-    #         "sp": 
+    #         "sp":
     #     }
     #     products = OrderedProductMapping.objects.filter(
     #                     ordered_product__order__shipping_address__shop_name=self,
@@ -77,7 +84,15 @@ class Shop(models.Model):
     class Meta:
         permissions = (
             ("can_see_all_shops", "Can See All Shops"),
+            ("can_do_reconciliation", "Can Do Reconciliation"),
         )
+
+class ShopNameDisplay(Shop):
+    class Meta:
+        proxy = True
+
+    def __str__(self):
+        return "%s - %s"%(self.shop_name,self.shop_owner)
 
 class ShopPhoto(models.Model):
     shop_name = models.ForeignKey(Shop, related_name='shop_name_photos', on_delete=models.CASCADE)
@@ -116,6 +131,12 @@ class ShopDocument(models.Model):
     def __str__(self):
         return "%s - %s"%(self.shop_document_number, self.shop_document_photo.url)
 
+    def clean(self):
+        super(ShopDocument, self).clean()
+        if self.shop_document_type == 'gstin' and len(self.shop_document_number) >15 or self.shop_document_type == 'gstin' and len(self.shop_document_number) <15:
+            raise ValidationError(_("GSTIN Number must be equal to 15 digits only"))
+        if self.shop_document_type =='gstin' and not re.match("^[a-zA-Z0-9]*$", self.shop_document_number):
+            raise ValidationError(_("GSTIN values must be alphanumeric only"))
 
 class ShopInvoicePattern(models.Model):
     ACTIVE = 'ACT'
@@ -124,7 +145,7 @@ class ShopInvoicePattern(models.Model):
         (ACTIVE, 'Active'),
         (DISABLED, 'Disabled'),
         )
-    shop = models.ForeignKey(Shop, related_name='invoce_pattern', on_delete=models.CASCADE)
+    shop = models.ForeignKey(Shop, related_name='invoice_pattern', on_delete=models.CASCADE)
     pattern = models.CharField(max_length=15, null=True, blank=True)
     start_date = models.DateTimeField(null=True, blank=True)
     end_date = models.DateTimeField(null=True, blank=True)
@@ -165,3 +186,10 @@ def shop_verification_notification1(sender, instance=None, created=False, **kwar
                                       " Team GramFactory " % (username, shop_title))
 
                 message.send()
+
+class ShopAdjustmentFile(models.Model):
+    shop = models.ForeignKey(Shop, related_name='stock_adjustment_shop', on_delete=models.CASCADE)
+    stock_adjustment_file = models.FileField(upload_to='stock_adjustment')
+    created_by = models.ForeignKey(get_user_model(),null=True,blank=True, related_name='stock_adjust_by',on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)

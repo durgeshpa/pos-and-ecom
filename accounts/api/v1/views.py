@@ -2,12 +2,14 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework import authentication, permissions, generics
 from rest_framework.response import Response
-from .serializers import UserSerializer, UserDocumentSerializer
+from .serializers import UserSerializer, UserDocumentSerializer, AppVersionSerializer
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
-from accounts.models import UserDocument
+from accounts.models import UserDocument, AppVersion
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from django.core.exceptions import ObjectDoesNotExist
 
 User =  get_user_model()
 
@@ -90,3 +92,19 @@ class UserDocumentView(generics.ListCreateAPIView):
                 'response_data': serializer.data}
         return Response(msg,
                         status=status.HTTP_200_OK)
+
+class CheckAppVersion(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self,*args, **kwargs):
+        version = self.request.GET.get('app_version')
+        msg = {'is_success': False, 'message': ['Please send version'], 'response_data': None}
+        try:
+            app_version = AppVersion.objects.get(app_version=version)
+        except ObjectDoesNotExist:
+            msg["message"] = ['App version not found']
+            return Response(msg, status=status.HTTP_200_OK)
+
+        app_version_serializer = AppVersionSerializer(app_version)
+        return Response({"is_success": True, "message": [""], "response_data": app_version_serializer.data})
+

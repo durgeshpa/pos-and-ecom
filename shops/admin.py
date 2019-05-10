@@ -5,12 +5,18 @@ from .models import (
     ShopPhoto, ShopDocument, ShopInvoicePattern
 )
 from addresses.models import Address
-from .forms import ParentRetailerMappingForm,ShopParentRetailerMappingForm
+from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
+                    ShopForm, AddressForm, RequiredInlineFormSet,
+                    AddressInlineFormSet)
+from .views import StockAdjustmentView, stock_adjust_sample
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
 from django.utils.html import format_html
 from import_export import resources
 from django.http import HttpResponse
+from admin_auto_filters.filters import AutocompleteFilter
+from services.views import SalesReportFormView, SalesReport
+from rangefilter.filter import DateRangeFilter, DateTimeRangeFilter
 
 
 class ShopResource(resources.ModelResource):
@@ -30,7 +36,18 @@ class ExportCsvMixin:
         for obj in queryset:
             row = writer.writerow([getattr(obj, field) for field in field_names])
         return response
-    export_as_csv.short_description = "Download CSV of Selected Objects"
+    export_as_csv.short_description = "Download CSV of Selected Shops"
+
+class ShopNameSearch(InputFilter):
+    parameter_name = 'shop_name'
+    title = 'Shop Name'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            shop_name = self.value()
+            if shop_name is None:
+                return
+            return queryset.filter(shop_name__icontains=shop_name)
 
 class ShopTypeSearch(InputFilter):
     parameter_name = 'shop_type'
@@ -69,15 +86,8 @@ class ShopPhotosAdmin(admin.TabularInline):
     model = ShopPhoto
     fields = ( 'shop_photo','shop_photo_thumbnail', )
     readonly_fields = ('shop_photo_thumbnail',)
+    formset = RequiredInlineFormSet
     extra = 2
-
-from django.forms.models import BaseInlineFormSet
-class RequiredInlineFormSet(BaseInlineFormSet):
-    def _construct_form(self, i, **kwargs):
-        form = super(RequiredInlineFormSet, self)._construct_form(i, **kwargs)
-        if i < 1:
-            form.empty_permitted = False
-        return form
 
 class ShopDocumentsAdmin(admin.TabularInline):
     model = ShopDocument
@@ -95,7 +105,9 @@ class ShopInvoicePatternAdmin(admin.TabularInline):
 
 class AddressAdmin(admin.TabularInline):
     model = Address
-    fields = ('address_contact_name','address_contact_number','address_type','address_line1','state','city','pincode',)
+    formset = AddressInlineFormSet
+    form = AddressForm
+    fields = ('nick_name','address_contact_name','address_contact_number','address_type','address_line1','state','city','pincode',)
     extra = 2
 
 class ShopParentRetailerMapping(admin.TabularInline):
@@ -106,21 +118,71 @@ class ShopParentRetailerMapping(admin.TabularInline):
     extra = 1
     max_num = 1
 
+class ServicePartnerFilter(InputFilter):
+    title = 'Service Partner'
+    parameter_name = 'service partner'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value :
+            return queryset.filter(retiler_mapping__parent__shop_name__icontains=value )
+        return queryset
 
 class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ShopResource
+    form = ShopForm
     actions = ["export_as_csv"]
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin,
         AddressAdmin, ShopInvoicePatternAdmin,ShopParentRetailerMapping
     ]
-    list_display = ('shop_name','shop_owner','shop_type','status', 'get_shop_city','shop_mapped_product')
+    list_display = ('shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent','shop_owner','shop_type','created_at','status', 'get_shop_city','shop_mapped_product')
     filter_horizontal = ('related_users',)
-    list_filter = (ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,)
+    list_filter = (ServicePartnerFilter,ShopNameSearch,ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,'status',('created_at', DateTimeRangeFilter))
     search_fields = ('shop_name', )
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(ShopAdmin, self).get_urls()
+        urls = [
+            url(
+                r'^adjust-stock/(?P<shop_id>\w+)/$',
+                self.admin_site.admin_view(StockAdjustmentView.as_view()),
+                name="StockAdjustment"
+            ),
+            url(
+                r'^adjust-stock-sample/(?P<shop_id>\w+)/$',
+                self.admin_site.admin_view(stock_adjust_sample),
+                name="ShopStocks"
+            ),
+            url(
+                r'^shop-sales-report/$',
+                self.admin_site.admin_view(SalesReport.as_view()),
+                name="shop-sales-report"
+            ),
+            url(
+                r'^shop-sales-form/$',
+                self.admin_site.admin_view(SalesReportFormView.as_view()),
+                name="shop-sales-form"
+            ),
+        ] + urls
+        return urls
+
+    def get_shop_shipping_address(self, obj):
+        if obj.shop_name_address_mapping.exists():
+            for address in obj.shop_name_address_mapping.filter(address_type ='shipping').all():
+                return address.address_line1
+    get_shop_shipping_address.short_description = 'Shipping Address'
+
+    def get_shop_pin_code(self, obj):
+        if obj.shop_name_address_mapping.exists():
+            for address in obj.shop_name_address_mapping.filter(address_type ='shipping').all():
+                return address.pincode
+    get_shop_pin_code.short_description = 'PinCode'
+
 
     def get_queryset(self, request):
         qs = super(ShopAdmin, self).get_queryset(request)
@@ -173,8 +235,25 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
             return obj.shop_name_address_mapping.last().city
     get_shop_city.short_description = 'Shop City'
 
+    def get_shop_parent(self, obj):
+        if obj.retiler_mapping.exists():
+            return obj.retiler_mapping.last().parent
+    get_shop_parent.short_description = 'Parent Shop'
+
+class ParentFilter(AutocompleteFilter):
+    title = 'Parent' # display title
+    field_name = 'parent' # name of the foreign key field
+
+class RetailerFilter(AutocompleteFilter):
+    title = 'Retailer' # display title
+    field_name = 'retailer' # name of the foreign key field
+
 class ParentRetailerMappingAdmin(admin.ModelAdmin):
     form = ParentRetailerMappingForm
+    list_filter = (ParentFilter,RetailerFilter,'status')
+
+    class Media:
+        pass
 
 admin.site.register(ParentRetailerMapping,ParentRetailerMappingAdmin)
 admin.site.register(ShopType)

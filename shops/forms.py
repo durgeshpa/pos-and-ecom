@@ -1,8 +1,16 @@
 from django import forms
 from .models import ParentRetailerMapping, Shop, ShopType
+from addresses.models import Address
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
+from django.core.validators import RegexValidator
 from dal import autocomplete
+import csv
+import codecs
+from products.models import Product, ProductPrice
+import re
+from .models import Shop
+from addresses.models import State
 
 class ParentRetailerMappingForm(forms.ModelForm):
     parent = forms.ModelChoiceField(
@@ -32,9 +40,129 @@ class ParentRetailerMappingForm(forms.ModelForm):
 class ShopParentRetailerMappingForm(forms.ModelForm):
     parent = forms.ModelChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type__in=['sp','gf']),
-        widget=autocomplete.ModelSelect2(url='shop-parent-autocomplete', )
+        widget=autocomplete.ModelSelect2(url='shop-parent-autocomplete',forward=('shop_type',))
     )
 
     class Meta:
         Model = ParentRetailerMapping
+
+
+class StockAdjustmentUploadForm(forms.Form):
+    shop = forms.ModelChoiceField(
+            queryset=Shop.objects.filter(shop_type__shop_type__in=['sp']),
+        )
+    upload_file = forms.FileField()
+
+    def clean_upload_file(self):
+        if self.cleaned_data['upload_file'].name[-4:] != ('.csv'):
+            raise forms.ValidationError("Sorry! Only csv file accepted")
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['upload_file'], 'utf-8'))
+        first_row = next(reader)
+        for id, row in enumerate(reader):
+            if not row[0]:
+                raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | Product Id required")
+            else:
+                try:
+                    Product.objects.get(product_gf_code=row[0])
+                except:
+                    raise ValidationError(_('INVALID_PRODUCT_ID at Row[%(value)s]'), params={'value': id+1},)
+
+            if not row[1] or not re.match("^[\d]*$", row[1]):
+                raise ValidationError(_('INVALID_AVAILABLE_QTY at Row[%(value)s]. It should be numeric'),params={'value': id + 1}, )
+
+            if not row[2] or not re.match("^[\d]*$", row[2]):
+                raise ValidationError(_('INVALID_DAMAGED_QTY at Row[%(value)s]. It should be numeric'),params={'value': id + 1}, )
+
+            if not row[3] or not re.match("^[\d]*$", row[3]):
+                raise ValidationError(_('INVALID_EXPIRED_QTY at Row[%(value)s]. It should be numeric'),params={'value': id + 1}, )
+
+        return self.cleaned_data['upload_file']
+
+
+class ShopForm(forms.ModelForm):
+    shop_code = forms.CharField(
+                        max_length=1, min_length=1,
+                        required=False, validators=[
+                            RegexValidator(
+                                regex='^[a-zA-Z0-9]*$',
+                                message='Shop Code must be Alphanumeric',
+                                code='invalid_code_code'
+                            ),
+                        ])
+    warehouse_code = forms.CharField(
+                        max_length=2, min_length=2,
+                        required=False, validators=[
+                            RegexValidator(
+                                regex='^[a-zA-Z0-9]*$',
+                                message='Warehouse Code must be Alphanumeric',
+                                code='invalid_warehouse_code'
+                            ),
+                        ])
+
+    class Meta:
+        Model = Shop
+        fields = (
+            'shop_name', 'shop_owner', 'shop_type', 'related_users',
+            'shop_code', 'warehouse_code', 'status')
+
+    @classmethod
+    def get_shop_type(cls, data):
+        shop_type = data.cleaned_data.get('shop_type')
+        return shop_type
+
+    @classmethod
+    def shop_type_retailer(cls, data):
+        shop_type = cls.get_shop_type(data)
+        if shop_type.shop_type != 'r':
+            return False
+        return True
+
+    def clean_shop_code(self):
+        shop_code = self.cleaned_data.get('shop_code', None)
+        if not self.shop_type_retailer(self) and not shop_code:
+            raise ValidationError(_("This field is required"))
+        return shop_code
+
+    def clean_warehouse_code(self):
+        warehouse_code = self.cleaned_data.get('warehouse_code', None)
+        if not self.shop_type_retailer(self) and not warehouse_code:
+            raise ValidationError(_("This field is required"))
+        return warehouse_code
+
+
+class AddressForm(forms.ModelForm):
+    nick_name = forms.CharField(required=True)
+    address_contact_name = forms.CharField(required=True)
+    address_contact_number = forms.CharField(required=True)
+    state = forms.ModelChoiceField(queryset=State.objects.all())
+    pincode = forms.CharField(max_length=6, required=True)
+
+    class Meta:
+        Model = Address
+
+from django.forms.models import BaseInlineFormSet
+
+class RequiredInlineFormSet(BaseInlineFormSet):
+    def _construct_form(self, i, **kwargs):
+        form = super(RequiredInlineFormSet, self)._construct_form(i, **kwargs)
+        if i < 1:
+            form.empty_permitted = False
+        return form
+
+class AddressInlineFormSet(BaseInlineFormSet):
+
+    def clean(self):
+        super(AddressInlineFormSet, self).clean()
+        flag = 0
+        delete = False
+        address_form = []
+        for form in self.forms:
+            if form.cleaned_data and form.cleaned_data['address_type'] == 'shipping':
+                address_form.append(form.cleaned_data.get('DELETE'))
+                flag = 1
+
+        if address_form and all(address_form):
+            raise forms.ValidationError('You cant delete all shipping address')
+        elif flag==0:
+            raise forms.ValidationError('Please add at least one shipping address')
 

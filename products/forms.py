@@ -309,16 +309,16 @@ class ProductsCSVUploadForm(forms.Form):
         reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
         first_row = next(reader)
         for id,row in enumerate(reader):
-            if not row[0]:
+            if not row[0] or row[0].isspace():
                 raise ValidationError("Row["+str(id+1)+"] | "+first_row[
                     0]+":"+row[0]+" | Product Name required")
-            if not row[1]:
+            if not row[1] or row[1].isspace():
                 raise ValidationError("Row["+str(id+1)+"] | "+first_row[
                     1]+":"+row[1]+" | Product short description required")
-            if not row[2]:
+            if not row[2] or row[2].isspace():
                 raise ValidationError("Row["+str(id+1)+"] | "+first_row[
                     2]+":"+row[2]+" | Product long description required")
-            if not row[3]:
+            if not row[3] or row[3].isspace():
                 raise ValidationError(_("PRODUCT_GF_CODE required at Row[%(value)s]."), params={'value': id+1},)
 #            if row[3]:
 #                product_gf = Product.objects.filter(product_gf_code=row[3])

@@ -16,7 +16,7 @@ from django.db import models
 from django.db.models import Sum
 
 from shops.models import Shop, ParentRetailerMapping
-from products.models import Product
+from products.models import Product, ProductVendorMapping
 from brand.models import Brand, Vendor
 from addresses.models import Address, City, State
 from retailer_to_gram.models import (
@@ -152,7 +152,7 @@ class Cart(BaseCart):
 
     def clean(self):
         super(Cart, self).clean()
-        if self.po_validity_date < datetime.date.today():
+        if self.po_validity_date and self.po_validity_date < datetime.date.today():
             raise ValidationError(_("Po validity date cannot be in the past!"))
 
     def __str__(self):
@@ -181,13 +181,19 @@ class Cart(BaseCart):
         self.cart_list.aggregate(sum('total_price'))
 
 
+
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='cart_list',on_delete=models.CASCADE)
     cart_product = models.ForeignKey(Product, related_name='cart_product_mapping', on_delete=models.CASCADE)
-    inner_case_size = models.PositiveIntegerField(default=0)
-    case_size= models.PositiveIntegerField(default=0)
-    number_of_cases = models.FloatField()
-    scheme = models.FloatField(default=0,null=True,blank=True,help_text='data into percentage %')
+    _tax_percentage = models.FloatField(db_column="tax_percentage", null=True)
+    #Todo Remove
+    inner_case_size = models.PositiveIntegerField(default=0, null=True,blank=True)
+    case_size= models.PositiveIntegerField(default=0,null=True,blank=True)
+    number_of_cases = models.FloatField(default=0,null=True,blank=True)
+    scheme = models.FloatField(default=0, null=True, blank=True, help_text='data into percentage %')
+
+    no_of_pieces = models.PositiveIntegerField(null=True,blank=True)
+    vendor_product = models.ForeignKey(ProductVendorMapping, related_name='vendor_products',null=True,blank=True, on_delete=models.CASCADE)
     price = models.FloatField( verbose_name='Brand To Gram Price')
 
     def __str__(self):
@@ -198,41 +204,113 @@ class CartProductMapping(models.Model):
         unique_together = ('cart', 'cart_product')
 
     @property
+    def tax_percentage(self):
+        return  self._tax_percentage if self._tax_percentage else '-'
+
+    @tax_percentage.setter
+    def tax_percentage(self, value):
+        self._tax_percentage = value
+
+    def calculate_tax_percentage(self):
+        tax_percentage = [field.tax.tax_percentage for field in self.cart_product.product_pro_tax.all()]
+        tax_percentage = sum(tax_percentage)
+        return tax_percentage
+
+    @property
     def qty(self):
-        return int(int(self.cart_product.product_inner_case_size) * int(self.case_size) * float(self.number_of_cases))
+        if self.vendor_product:
+            return int(self.no_of_pieces)
+        return int(int(self.cart_product.product_inner_case_size) * int(self.cart_product.product_case_size) * float(self.number_of_cases))
 
     @property
     def total_price(self):
-        return float(self.qty) * self.price
+        if self.vendor_product:
+            return float(self.no_of_pieces)*float(self.vendor_product.product_price)
+        return float(self.qty) * float(self.price)
 
+    @property
+    def gf_code(self):
+        return self.cart_product.product_gf_code
+
+    @property
+    def case_sizes(self):
+        if self.vendor_product:
+            return self.vendor_product.case_size
+        return self.cart_product.product_case_size
+
+    @property
+    def no_of_cases(self):
+        if self.vendor_product:
+            return int(self.no_of_pieces) // int(self.vendor_product.case_size)
+        return self.number_of_cases
+
+    @property
+    def total_no_of_pieces(self):
+        if self.vendor_product:
+            return int(self.no_of_pieces)
+        return self.qty
+
+    @property
+    def sub_total(self):
+        if self.vendor_product:
+            return round(float(self.qty)* float(self.vendor_product.product_price),2)
+        return self.total_price
 
     def __str__(self):
         return self.cart_product.product_name
 
+    def save(self, *args, **kwargs):
+        if not self.tax_percentage or self.tax_percentage == "-":
+            self.tax_percentage = self.calculate_tax_percentage()
+
+        # if Product mapping exists
+        productVendorObj = ProductVendorMapping.objects.filter(vendor=self.cart.supplier_name, product=self.cart_product)
+        if productVendorObj.filter(product_price=self.price,status=True).exists():
+            self.vendor_product = productVendorObj.filter(product_price=self.price,status=True).last()
+        else:
+            case_size = productVendorObj.last().case_size if productVendorObj.exists() else self.cart_product.product_case_size
+            mrp = productVendorObj.last().product_mrp if productVendorObj.exists() else None
+            self.vendor_product = ProductVendorMapping.objects.create(vendor=self.cart.supplier_name,
+                                                product=self.cart_product, case_size=case_size,
+                                                product_price=self.price, product_mrp=mrp, status=True)
+
+        super(CartProductMapping, self).save(*args, **kwargs)
 
 @receiver(post_save, sender=Cart)
 def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
     if created:
-        instance.po_no = po_pattern(
-            instance.gf_billing_address.city_id,
-            instance.pk
-        )
+        instance.po_no = po_pattern(sender,
+                                    'po_no',
+                                    instance.pk,
+                                    instance.gf_billing_address_id,
+                                    )
         instance.save()
         if instance.cart_product_mapping_csv:
             reader = csv.reader(codecs.iterdecode(instance.cart_product_mapping_csv, 'utf-8'))
             for id,row in enumerate(reader):
                 for row in reader:
-                    if row[3]:
-                        CartProductMapping.objects.create(cart=instance,cart_product_id = row[0],
-                         inner_case_size=int(row[2]),case_size= int(row[3]),
-                         number_of_cases = row[4],scheme = float(row[5]) if row[5] else None, price=float(row[6])
-                         )
-    order = Order.objects.get_or_create(ordered_cart=instance, order_no=instance.po_no)
+                    if row[0] and row[4] and row[5] :
+                        product = Product.objects.get(id=int(row[0]))
 
+                        vendor_product = ProductVendorMapping.objects.filter(vendor=instance.supplier_name,product_id=row[0]).last()
+                        if vendor_product and (vendor_product.case_size == row[2] or vendor_product.product_price == row[5]):
+                            vendor_product_dt = vendor_product
+                        else:
+                            vendor_product_dt = ProductVendorMapping.objects.create(vendor=instance.supplier_name,
+                                                                product_id=row[0], product_price=row[5],
+                                                                product_mrp=row[4], case_size=row[2], status=True)
+
+                        CartProductMapping.objects.create(cart=instance,cart_product_id = row[0],
+                         no_of_pieces = int(vendor_product_dt.case_size)*int(row[3]),
+                         price=float(row[5]),vendor_product=vendor_product_dt)
+
+    order,_ = Order.objects.get_or_create(ordered_cart=instance)
+    order.order_no = instance.po_no
+    order.save()
 
 class Order(BaseOrder):
     ordered_cart = models.OneToOneField(Cart,related_name='order_cart_mapping',on_delete=models.CASCADE)
-    order_no = models.CharField(max_length=255, null=True, blank=True)
+    order_no = models.CharField(verbose_name='PO Number', max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -253,8 +331,10 @@ class Order(BaseOrder):
 
 
 class GRNOrder(BaseShipment): #Order Shipment
-    order = models.ForeignKey(Order,related_name='order_grn_order',on_delete=models.CASCADE,null=True,blank=True )
+    order = models.ForeignKey(Order,verbose_name='PO Number',related_name='order_grn_order',on_delete=models.CASCADE,null=True,blank=True )
     invoice_no = models.CharField(max_length=255)
+    e_way_bill_no = models.CharField(max_length=255, blank=True, null=True)
+    e_way_bill_document = models.FileField(null=True,blank=True)
     grn_id = models.CharField(max_length=255,null=True,blank=True)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_user_grn_order', null=True,blank=True, on_delete=models.CASCADE)
     grn_date = models.DateField(auto_now_add=True)
@@ -293,13 +373,14 @@ class GRNOrderProductMapping(models.Model):
     product = models.ForeignKey(Product, related_name='product_grn_order_product',null=True,blank=True, on_delete=models.CASCADE)
     product_invoice_price = models.FloatField(default=0)
     product_invoice_qty = models.PositiveIntegerField(default=0)
-    manufacture_date = models.DateField(null=True,blank=False)
+    manufacture_date = models.DateField(null=True,blank=True)
     expiry_date = models.DateField(null=True,blank=False)
     delivered_qty = models.PositiveIntegerField(default=0)
     available_qty = models.PositiveIntegerField(default=0)
     returned_qty = models.PositiveIntegerField(default=0)
     damaged_qty = models.PositiveIntegerField(default=0)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_user_grn_order_product', null=True,blank=True, on_delete=models.CASCADE)
+    vendor_product = models.ForeignKey(ProductVendorMapping, related_name='vendor_grn_products', null=True, blank=True,on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -315,6 +396,8 @@ class GRNOrderProductMapping(models.Model):
 
     @property
     def po_product_price(self):
+        if self.vendor_product:
+            return self.vendor_product.product_price
         return self.grn_order.order.ordered_cart.cart_list.filter(cart_product=self.product).last().price if self.product else ''
 
     @property
@@ -342,7 +425,6 @@ class GRNOrderProductMapping(models.Model):
     # def available_qty(self, value):
     #     return self._available_qty = value
 
-
     def clean(self):
         super(GRNOrderProductMapping, self).clean()
         total_items= self.delivered_qty + self.returned_qty
@@ -361,9 +443,17 @@ class GRNOrderProductMapping(models.Model):
                 raise ValidationError(_("Manufactured Date cannot be greater than or equal to today's date"))
             # elif self.expiry_date < self.manufacture_date:
             #     raise ValidationError(_("Expiry Date cannot be less than manufacture date"))
-        else:
-            raise ValidationError(_("Please enter all the field values"))
+        # else:
+        #     raise ValidationError(_("Please enter all the field values"))
+        if self.delivered_qty and float(self.po_product_price) != float(self.product_invoice_price):
+            raise ValidationError(_("Po_Product_Price and Po_Invoice_Price are not similar"))
 
+
+    def save(self, *args, **kwargs):
+        if not self.vendor_product and self.grn_order.order.ordered_cart.cart_list.filter(cart_product=self.product).last().vendor_product:
+            self.vendor_product = self.grn_order.order.ordered_cart.cart_list.filter(cart_product=self.product).last().vendor_product
+
+        super(GRNOrderProductMapping, self).save(*args, **kwargs)
 
 class BrandNote(models.Model):
     NOTE_TYPE_CHOICES = (
@@ -394,12 +484,15 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
             debit_note = BrandNote.objects.filter(grn_order = instance.grn_order)
             if debit_note.exists():
                 debit_note = debit_note.last()
-                debit_note.brand_note_id = brand_debit_note_pattern(instance.grn_order.pk)
+                debit_note.brand_note_id = brand_debit_note_pattern(
+                        BrandNote, 'brand_note_id', debit_note, instance.grn_order.order.ordered_cart.gf_billing_address_id)
                 debit_note.order = instance.grn_order.order
                 debit_note.amount= debit_note.amount + (instance.returned_qty * instance.po_product_price)
                 debit_note.save()
             else:
-                debit_note = BrandNote.objects.create(brand_note_id=brand_debit_note_pattern(instance.grn_order.pk),
+                debit_note = BrandNote.objects.create(
+                    brand_note_id=brand_debit_note_pattern(
+                        BrandNote, 'brand_note_id', None, instance.grn_order.order.ordered_cart.gf_billing_address_id),
                 grn_order = instance.grn_order, amount = instance.returned_qty * instance.po_product_price, status=True)
 
         instance.available_qty = instance.delivered_qty

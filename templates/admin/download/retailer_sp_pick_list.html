@@ -12,10 +12,22 @@
 <body>
 
 <div class="container-fluid" >
-	<table class="table " style="width: 200px">
+	<table class="table">
 	<thead>
       <tr>
-        <th>Order ID : {{order_obj.order_no}}</th>
+        <th class="no-border">Order ID : {{order_obj.order_no}}</th>
+      </tr>
+      <tr>
+        <th class="no-border">Store Name : {{buyer_shop}}</th>
+      </tr>
+      <tr>
+        <th class="no-border">Store Address : {{buyer_address}}</th>
+      </tr>
+      <tr>
+        <th class="no-border">Store City : {{buyer_city}}</th>
+      </tr>
+      <tr>
+        <th class="no-border">Contact No : {{buyer_contact_no}}</th>
       </tr>
     </thead>
 	</table>

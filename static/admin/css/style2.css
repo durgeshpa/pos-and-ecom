@@ -66,3 +66,6 @@ width: 100%;
 .table > tbody > tr > .thick-line {
     border-top: 2px solid;
 }
+.no-border{
+    border-bottom: none !important;
+}

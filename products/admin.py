@@ -6,7 +6,7 @@ from django.forms.models import BaseInlineFormSet
 from django.contrib.admin import TabularInline
 
 from admin_auto_filters.filters import AutocompleteFilter
-
+from daterange_filter.filter import DateRangeFilter
 from retailer_backend.admin import InputFilter
 from .models import *
 from .views import (
@@ -22,16 +22,25 @@ from .resources import (
     ProductResource, ProductPriceResource, TaxResource
     )
 
+class ProductFilter(AutocompleteFilter):
+    title = 'Product Name' # display title
+    field_name = 'product' # name of the foreign key field
 
 class ProductImageMainAdmin(admin.ModelAdmin):
     readonly_fields = ['image_thumbnail']
     search_fields = ['image', 'image_name']
+    list_display = ('product','image', 'image_name')
+    list_filter = [ProductFilter,]
+
+    class Media:
+        pass
 
 
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
-        field_names = [field.name for field in meta.fields]
+        exclude_fields = ['created_at', 'modified_at']
+        field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
         writer = csv.writer(response)
@@ -51,11 +60,17 @@ class CategoryFilter(AutocompleteFilter):
     title = 'Category'  # display title
     field_name = 'category_name'  # name of the foreign key field
 
+class VendorFilter(AutocompleteFilter):
+    title = 'Vendor Name' # display title
+    field_name = 'vendor' # name of the foreign key field
 
 class ProductVendorMappingAdmin(admin.ModelAdmin):
-    fields = ('vendor', 'product', 'product_price')
-    list_display = ('vendor', 'product', 'product_price')
+    fields = ('vendor', 'product', 'product_price','product_mrp','case_size')
+    list_display = ('vendor', 'product', 'product_price','product_mrp','case_size','created_at','status')
+    list_filter = [VendorFilter,ProductFilter,]
 
+    class Media:
+        pass
 
 class SizeAdmin(admin.ModelAdmin,  ExportCsvMixin):
     resource_class = SizeResource
@@ -164,10 +179,22 @@ class ProductCategoryAdmin(TabularInline):
 class ProductImageAdmin(admin.TabularInline):
     model = ProductImage
 
+class ProductTaxInlineFormSet(BaseInlineFormSet):
+   def clean(self):
+      super(ProductTaxInlineFormSet, self).clean()
+      tax_list_type=[]
+      for form in self.forms:
+          if form.is_valid() and form.cleaned_data.get('tax'):
+              if form.cleaned_data.get('tax').tax_type in tax_list_type:
+                  raise ValidationError('{} type tax can be filled only once'.format(form.cleaned_data.get('tax').tax_type))
+              tax_list_type.append(form.cleaned_data.get('tax').tax_type)
+      if 'gst' not in tax_list_type:
+          raise ValidationError('Please fill the GST tax value')
 
 class ProductTaxMappingAdmin(admin.TabularInline):
     model = ProductTaxMapping
     extra = 6
+    formset=ProductTaxInlineFormSet
     max_num = 6
     autocomplete_fields = ['tax']
 
@@ -274,14 +301,24 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def product_images(self,obj):
         if obj.product_pro_image.first():
-            print(obj.product_pro_image.first().image)
             return mark_safe('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.
                              format(obj.product_pro_image.first().image.url,obj.product_pro_image.first().image_alt_text,
                                     obj.product_pro_image.first().image.url))
 
     product_images.short_description = 'Product Image'
 
+class MRPSearch(InputFilter):
+    parameter_name = 'mrp'
+    title = 'MRP'
 
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            mrp = self.value()
+            if mrp is None:
+                return
+            return queryset.filter(
+                Q(mrp__icontains=mrp)
+            )
 class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductPriceResource
     actions = ["export_as_csv"]
@@ -290,10 +327,19 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
         'price_to_retailer', 'price_to_super_retailer',
         'start_date', 'end_date', 'status'
     ]
+    autocomplete_fields=['product',]
     search_fields = [
         'product__product_name', 'product__product_gf_code',
         'product__product_brand__brand_name', 'shop__shop_name'
     ]
+    list_filter= [ProductFilter,MRPSearch,('start_date', DateRangeFilter),('end_date', DateRangeFilter)]
+    fields=('product','city','area','mrp','shop','price_to_retailer','price_to_super_retailer','price_to_service_partner','start_date','end_date','status')
+    class Media:
+        pass
+    def get_readonly_fields(self, request, obj=None):
+        if obj: # editing an existing object
+            return self.readonly_fields + ('mrp','price_to_retailer','price_to_super_retailer','price_to_service_partner' )
+        return self.readonly_fields
 
     def product_gf_code(self, obj):
         return obj.product.product_gf_code

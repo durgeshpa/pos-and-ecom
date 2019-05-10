@@ -14,6 +14,7 @@ from django.utils.text import slugify
 from django.dispatch import receiver
 from django.db.models.signals import pre_save, post_save
 from django.utils.translation import gettext_lazy as _
+import datetime
 
 SIZE_UNIT_CHOICES = (
         ('mm', 'Millimeter'),
@@ -132,15 +133,13 @@ class Product(models.Model):
     def __str__(self):
         return self.product_name
 
-    @classmethod
-    def _product_list(cls):
-        id = threadlocals.get_current_product()
-        if id is not None:
-            return [id]
-        else:
-            return Product.objects.all().values('pk').query
-    def get_my_id(self):
-        return self.id
+
+    def get_current_shop_price(self, shop):
+        today = datetime.datetime.today()
+        product_price = self.product_pro_price.filter(shop=shop, status=True, start_date__lte=today, end_date__gte=today).order_by('start_date').last()
+        if not product_price:
+            product_price = self.product_pro_price.filter(shop=shop, status=True).last()
+        return product_price
 
 class ProductSKUGenerator(models.Model):
     parent_cat_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
@@ -177,15 +176,15 @@ class ProductPrice(models.Model):
     area = models.ForeignKey(Area,related_name='area_pro_price',null=True,blank=True,on_delete=models.CASCADE)
     #pincode_from = models.PositiveIntegerField(default=0,null=True,blank=True)
     #pincode_to = models.PositiveIntegerField(default=0,null=True,blank=True)
-    mrp = models.FloatField(default=0,null=True,blank=True)
+    mrp = models.FloatField(null=True,blank=False)
     # price_to_service_partner = models.FloatField(default=0,null=True,blank=True)
     # price_to_retailer = models.FloatField(default=0,null=True,blank=True)
     # price_to_super_retailer = models.FloatField(default=0,null=True,blank=True)
     shop = models.ForeignKey(Shop,related_name='shop_product_price', null=True,blank=True,on_delete=models.CASCADE)
     #price = models.FloatField(default=0)
-    price_to_service_partner = models.FloatField(default=0,null=True,blank=True)
-    price_to_retailer = models.FloatField(default=0,null=True,blank=True)
-    price_to_super_retailer = models.FloatField(default=0,null=True,blank=True)
+    price_to_service_partner = models.FloatField(null=True,blank=False)
+    price_to_retailer = models.FloatField(null=True,blank=False)
+    price_to_super_retailer = models.FloatField(null=True,blank=False)
     start_date = models.DateTimeField(null=True,blank=True)
     end_date = models.DateTimeField(null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -193,7 +192,7 @@ class ProductPrice(models.Model):
     status = models.BooleanField(default=True)
 
     def __str__(self):
-        return self.product.product_name
+        return "%s - %s"%(self.product.product_name, self.price_to_retailer)
 
 
     def save(self, *args, **kwargs):
@@ -322,8 +321,17 @@ class ProductVendorMapping(models.Model):
     vendor = models.ForeignKey(Vendor,related_name='vendor_brand_mapping',on_delete=models.CASCADE)
     product = models.ForeignKey(Product,related_name='product_vendor_mapping',on_delete=models.CASCADE)
     product_price = models.FloatField(verbose_name='Brand To Gram Price')
+    product_mrp = models.FloatField(null=True,blank=True)
+    case_size = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
+
+    def save(self, *args, **kwargs):
+        ProductVendorMapping.objects.filter(product=self.product,vendor=self.vendor,status=True).update(status=False)
+        self.status = True
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return '%s' % (self.vendor)
 
@@ -334,19 +342,29 @@ def create_product_vendor_mapping(sender, instance=None, created=False, **kwargs
     if file:
         reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
         first_row = next(reader)
-        ProductVendorMapping.objects.bulk_create([ProductVendorMapping(vendor=vendor, product_id = row[0], product_price=row[3]) for row in reader if row[3]])
+        product_mapping = []
+        for row in reader:
+            if row[3]:
+                vendor_product = ProductVendorMapping.objects.filter(vendor=vendor, product_id=row[0])
+                if vendor_product.exists():
+                    vendor_product.update(status=False)
+                product_mapping.append(ProductVendorMapping(vendor=vendor, product_id=row[0], product_mrp=row[3], product_price=row[4],case_size=row[5]))
+
+        ProductVendorMapping.objects.bulk_create(product_mapping)
+        #ProductVendorMapping.objects.bulk_create([ProductVendorMapping(vendor=vendor, product_id = row[0], product_price=row[3]) for row in reader if row[3]])
 
 @receiver(pre_save, sender=ProductCategory)
 def create_product_sku(sender, instance=None, created=False, **kwargs):
-    cat_sku_code = instance.category.category_sku_part
-    parent_cat_sku_code = instance.category.category_parent.category_sku_part if instance.category.category_parent else cat_sku_code
-    brand_sku_code = instance.product.product_brand.brand_code
-    last_sku = ProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code,brand_sku_code=brand_sku_code).last()
-    if last_sku:
-        last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
-    else:
-        last_sku_increment = '00000001'
-    ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code,brand_sku_code=brand_sku_code,last_auto_increment=last_sku_increment)
     product = Product.objects.get(pk=instance.product_id)
-    product.product_sku="%s%s%s%s"%(cat_sku_code,parent_cat_sku_code,brand_sku_code,last_sku_increment)
-    product.save()
+    if not product.product_sku:
+        cat_sku_code = instance.category.category_sku_part
+        parent_cat_sku_code = instance.category.category_parent.category_sku_part if instance.category.category_parent else cat_sku_code
+        brand_sku_code = instance.product.product_brand.brand_code
+        last_sku = ProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code,brand_sku_code=brand_sku_code).last()
+        if last_sku:
+            last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
+        else:
+            last_sku_increment = '00000001'
+        ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code,brand_sku_code=brand_sku_code,last_auto_increment=last_sku_increment)
+        product.product_sku="%s%s%s%s"%(cat_sku_code,parent_cat_sku_code,brand_sku_code,last_sku_increment)
+        product.save()

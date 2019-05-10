@@ -58,7 +58,6 @@ class MyShopAutocomplete(autocomplete.Select2QuerySetView):
 
         if self.q:
             qs = qs.filter(shop_name__startswith=self.q)
-            print(qs)
         return qs
 
 
@@ -135,13 +134,8 @@ class DownloadPurchaseOrderSP(APIView):
                 surcharge= sum(surcharge_tax_list)
                 #tax_inline = tax_inline + (inline_sum_amount - original_amount)
                 #tax_inline1 =(tax_inline / 2)
-            print(surcharge_tax_list)
-            print(gst_tax_list)
-            print(cess_tax_list)
-            print(taxes_list)
 
         total_amount = sum_amount
-        print(sum_amount)
 
         data = {"object": order_obj,"products":products, "shop":shop, "sum_qty": sum_qty, "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" , "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,"order_id":order_id,"order":order,"gram_factory":gram_factory,"gram_factory_address":gram_factory_address,"shop_gstin":shop_gstin,"gram_factory_gstin":gram_factory_gstin}
         # for m in products:

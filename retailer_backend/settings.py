@@ -11,7 +11,9 @@ https://docs.djangoproject.com/en/2.1/ref/settings/
 """
 
 import os
-
+import logging.config
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Decouple used to get values from .env file
@@ -30,11 +32,14 @@ ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=Csv())
 
 AUTH_USER_MODEL = 'accounts.user'
 
+ENVIRONMENT = config('ENVIRONMENT')
+
 # Application definition
 
 INSTALLED_APPS = [
     'dal',
     'dal_select2',
+    'dal_admin_filters',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -75,13 +80,23 @@ INSTALLED_APPS = [
     'daterange_filter',
     'retailer_to_gram',
     'admin_auto_filters',
-    'services'
+    'services',
+    'rangefilter',
+    'admin_numeric_filter',
+    'django_admin_listfilter_dropdown',
+    'debug_toolbar',
+
 ]
 
 
 SITE_ID = 1
-
-MIDDLEWARE = [
+if DEBUG:
+    MIDDLEWARE = [
+        'debug_toolbar.middleware.DebugToolbarMiddleware',
+    ]
+else:
+    MIDDLEWARE = []
+MIDDLEWARE += [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -89,6 +104,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'accounts.middlewares.RequestMiddleware',
 ]
 
 ROOT_URLCONF = 'retailer_backend.urls'
@@ -123,9 +139,16 @@ DATABASES = {
         'PASSWORD': config('DB_PASSWORD'),
         'HOST': config('DB_HOST'),
         'PORT': config('DB_PORT'),
-	}
+	},
+    'readonly': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': config('DB_NAME'),
+        'USER': config('DB_USER'),
+        'PASSWORD': config('DB_PASSWORD'),
+        'HOST': config('DB_HOST_READ'),
+        'PORT': config('DB_PORT'),
+    }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/2.1/ref/settings/#auth-password-validators
@@ -166,7 +189,9 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,
-    'DEFAULT_FILTER_BACKENDS': ('django_filters.rest_framework.DjangoFilterBackend',)
+    'DEFAULT_FILTER_BACKENDS': ('django_filters.rest_framework.DjangoFilterBackend',),
+
+    'DATETIME_FORMAT': "%d-%m-%Y %H:%M:%S",
 }
 
 # Internationalization
@@ -225,7 +250,8 @@ AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
 AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME')
 #AWS_S3_CUSTOM_DOMAIN = '%s.s3.amazonaws.com' % AWS_STORAGE_BUCKET_NAME
-AWS_S3_CUSTOM_DOMAIN = 'images.gramfactory.com'
+AWS_S3_CUSTOM_DOMAIN = 'devimages.gramfactory.com'
+AWS_S3_CUSTOM_DOMAIN_ORIG = 'images.gramfactory.com'
 AWS_S3_OBJECT_PARAMETERS = {
   'CacheControl': 'max-age=86400',
 }
@@ -250,3 +276,20 @@ TEMPUS_DOMINUS_INCLUDE_ASSETS=False
 CRONJOBS = [
     ('* * * * *', 'retailer_backend.cron.CronToDeleteOrderedProductReserved', '>> /var/log/nginx/cron.log')
 ]
+
+INTERNAL_IPS = ['127.0.0.1','localhost']
+
+DEBUG_TOOLBAR_CONFIG = {
+    'SHOW_TOOLBAR_CALLBACK': lambda x: True
+}
+
+DEBUG_TOOLBAR_PATCH_SETTINGS = False
+
+# Initiate Sentry SDK
+# if ENVIRONMENT == "PRODUCTION":
+sentry_sdk.init(
+    dsn="https://2f8d192414f94cd6a0ba5b26d6461684@sentry.io/1407300",
+    integrations=[DjangoIntegration()],
+    environment=ENVIRONMENT.lower()
+)
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 20000
