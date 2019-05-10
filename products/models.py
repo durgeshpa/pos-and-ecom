@@ -185,6 +185,8 @@ class ProductPrice(models.Model):
     price_to_service_partner = models.FloatField(null=True,blank=False)
     price_to_retailer = models.FloatField(null=True,blank=False)
     price_to_super_retailer = models.FloatField(null=True,blank=False)
+    cash_discount = models.FloatField(default=0, blank=True)
+    loyalty_incentive = models.FloatField(default=0, blank=True)
     start_date = models.DateTimeField(null=True,blank=True)
     end_date = models.DateTimeField(null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
