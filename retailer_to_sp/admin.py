@@ -352,7 +352,7 @@ class ExportCsvMixin:
         meta = self.model._meta
         list_display = ['order_no', 'seller_shop', 'buyer_shop', 'total_final_amount',
                         'order_status', 'created_at', 'payment_mode', 'paid_amount',
-                        'total_paid_amount', 'shipment_status', 'order_shipment_amount', 'order_shipment_details']
+                        'total_shipment_returnspaid_amount', 'shipment_status', 'order_shipment_amount', 'order_shipment_details']
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
@@ -429,7 +429,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                     'delivered_value')
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
-                        'invoice_no', 'order_shipment_amount', 'shipment_status')
+                        'invoice_no', 'shipment_status')
     list_filter = [SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
         ('created_at', DateTimeRangeFilter), ('total_final_amount', SliderNumericFilter)]
 
