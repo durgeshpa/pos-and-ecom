@@ -1,26 +1,24 @@
-from pyfcm import FCMNotification
+from fcm.utils import get_device_model
 
-fcm_api_key = "AIzaSyBwgNHtPPmzowWBRZ_ny3HYypoYQ_P8eGE"
- 
-push_service = FCMNotification(api_key=fcm_api_key)
- 
-# OR initialize with proxies
- 
-proxy_dict = {
-          "http"  : "http://127.0.0.1",
-          "https" : "http://127.0.0.1",
-        }
-push_service = FCMNotification(api_key=fcm_api_key, proxy_dict=proxy_dict)
- 
-# Your api-key can be gotten from:  https://console.firebase.google.com/project/<project-name>/settings/cloudmessaging
- 
+Device = get_device_model()
 
-def send_fcm_notification(registration_ids=[], message_title="", message_body=""):
 
-	# Send to multiple devices by passing a list of ids.
-	registration_ids = ["<device registration_id 1>", "<device registration_id 2>", ...]
-	message_title = "test title"
-	message_body = "test message"
-	result = push_service.notify_multiple_devices(registration_ids=registration_ids, message_title=message_title, message_body=message_body)
-	 
-	print result
+class SendNotification:
+	# This class is used to send email to a list of users
+	def __init__(self, registration_id, message_title=None, message_body=None):
+		#super(SendEmail, self).__init__()
+		#self.registration_ids = registration_ids
+		self.registration_id = registration_id
+		self.message_title = message_title or ""
+		self.message_body = message_body or ""
+
+	def send(self):
+		try:
+			#registration_ids = []
+			my_phone = Device.objects.get(reg_id=self.registration_id)
+			my_phone.send_message({'message':self.message_body}, collapse_key='something')
+
+		except:
+			# print (traceback.format_exc(sys.exc_info()))
+			if not self.fail_silently:
+				raise

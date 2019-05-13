@@ -89,8 +89,15 @@ INSTALLED_APPS = [
     'debug_toolbar',
     # used for installing shell_plus
     'django_extensions',
+    'fcm'
+    #'fcm_django'
 ]
 
+# FCM_DJANGO_SETTINGS = {
+#         "FCM_SERVER_KEY": "AIzaSyBwgNHtPPmzowWBRZ_ny3HYypoYQ_P8eGE"
+# }
+
+FCM_APIKEY = "AIzaSyBwgNHtPPmzowWBRZ_ny3HYypoYQ_P8eGE"
 
 SITE_ID = 1
 if DEBUG:
@@ -242,6 +249,7 @@ INVOICE_STARTS_WITH = 'ORD'
 EMAIL_BACKEND = 'django_ses.SESBackend'
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587
+MIME_TYPE = 'html'
 
 AWS_SES_ACCESS_KEY_ID = config('AWS_SES_ACCESS_KEY_ID')
 AWS_SES_SECRET_ACCESS_KEY = config('AWS_SES_SECRET_ACCESS_KEY')

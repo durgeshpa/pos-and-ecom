@@ -3,13 +3,14 @@ from rest_framework.views import APIView
 from rest_framework.permissions import (AllowAny,
                                         IsAuthenticated)
 from rest_framework.response import Response
-from addresses.models import Country, State, City, Area, Address
-from .serializers import (CountrySerializer, StateSerializer, CitySerializer,
-        AreaSerializer, AddressSerializer)
 from rest_framework import generics
 from rest_framework import status
 from rest_framework import permissions, authentication
 from django.http import Http404
+
+from addresses.models import Country, State, City, Area, Address
+from .serializers import (CountrySerializer, StateSerializer, CitySerializer,
+        AreaSerializer, AddressSerializer)
 
 
 class NotificationView(APIView):
@@ -22,3 +23,12 @@ class NotificationView(APIView):
  #    	# This function will call the Send notification utility
  #    	SendNotification().send_notification()
  # 
+
+
+
+class UserNotificationView(APIView):
+	# This api will be used to send the notifications to the users
+    queryset = UserNotification.objects.all()
+    serializer_class = UserNotificationSerializer
+    permission_classes = (AllowAny,)
+

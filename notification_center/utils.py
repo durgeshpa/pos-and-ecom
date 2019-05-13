@@ -139,12 +139,23 @@ class SendNotification:
 
         # if notification_types.email_notification:
         #     email_content = merge_template_with_data(template.text_email_template, self.email_variable)
-        #     send_email()
+        #     email = SendEmail()
+        #     email.send()
+
+        # if notification_types.app_notification:
+        #     sms_content = self.merge_template_with_data(self.template.text_sms_template)
+        #     # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
+        #     notification = SendNotification(
+        #         registration_ids=registration_ids,
+        #         message_title=message_title,
+        #         message_body=message_body
+        #         )            
+        #     notification.send()
 
         if notification_types.sms_notification:
 
             sms_content = self.merge_template_with_data(self.template.text_sms_template)
-            #sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
+            # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
             message = SendSms(phone=user.phone_number,body=sms_content)
-            #message = SendSms(phone=9643112048,body="Dear sagar, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory")
+            # message = SendSms(phone=9643112048,body="Dear sagar, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory")
             message.send()

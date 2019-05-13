@@ -7,9 +7,9 @@ from notification_center.models import (
 from notification_center.forms import (
     TemplateForm
     )
-# from notification_center.utils import (
-#     SendNotification
-#     )
+from notification_center.utils import (
+    SendNotification
+    )
 
 
 
@@ -36,10 +36,24 @@ class TextSMSActivityAdmin(admin.TabularInline):
     model = TextSMSActivity
     fields = ['text_sms_alert', 'text_sms_sent', 'sent_at']
     readonly_fields = ['text_sms_sent', 'text_sms_alert', 'sent_at']
+    list_display = ['send_sms_notification']
+
+    def send_sms_notification():
+        try:
+            #user_instance = User.objects.get(id=obj.user.id)
+            
+            # code to send notification
+            SendNotification(user_id=1, activity_type="SIGNUP").send_notification()
+        except Exception as e:
+            print (e.args)
+            pass
+
+    send_sms_notification.short_description = 'Send SMS Notification'
 
     # for disabling and hiding delete button from admin
     def has_delete_permission(self, request, obj=None):
         return False
+
 
 
 class VoiceCallActivityAdmin(admin.TabularInline):
@@ -105,3 +119,4 @@ admin.site.register(Template, TemplateAdmin)
 admin.site.register(TemplateVariable, TemplateVariableAdmin)
 admin.site.register(Notification, NotificationAdmin)
 admin.site.register(UserNotification, UserNotificationAdmin)
+#admin.site.register(TextSMSActivity, TextSMSActivityAdmin)
