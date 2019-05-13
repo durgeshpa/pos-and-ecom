@@ -762,14 +762,14 @@ class Commercial(Trip):
     def clean(self):
         if self.received_amount:
             if (self.trip_status == 'CLOSED' and
-                    (self.received_amount !=
-                        self.cash_to_be_collected())):
+                    (int(self.received_amount) !=
+                        int(self.cash_to_be_collected()))):
                     raise ValidationError(_("Received amount should be equal"
                                             " to Cash to be Collected"
                                             ),)
             if (self.trip_status == 'COMPLETED' and
-                    (self.received_amount >
-                        self.cash_to_be_collected())):
+                    (int(self.received_amount) >
+                        int(self.cash_to_be_collected()))):
                     raise ValidationError(_("Received amount should be less"
                                             " than Cash to be Collected"
                                             ),)
@@ -795,6 +795,23 @@ class CustomerCare(models.Model):
 
     def __str__(self):
         return self.complaint_id
+
+    @property
+    def seller_shop(self):
+        if self.order_id:
+            return self.order_id.seller_shop
+
+    @property
+    def retailer_shop(self):
+        if self.order_id:
+            return self.order_id.buyer_shop
+
+    @property
+    def retailer_name(self):
+        if self.order_id:
+            if self.order_id.buyer_shop:
+                if self.order_id.buyer_shop.shop_owner.first_name:
+                    return self.order_id.buyer_shop.shop_owner.first_name
 
     def save(self, *args, **kwargs):
         super(CustomerCare, self).save()
@@ -962,4 +979,3 @@ class Note(models.Model):
     def invoice_no(self):
         if self.shipment:
             return self.shipment.invoice_no
-
