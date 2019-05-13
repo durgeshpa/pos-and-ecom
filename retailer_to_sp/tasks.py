@@ -2,7 +2,6 @@ from celery.task import task
 from sp_to_gram.models import OrderedProductReserved, OrderedProductMapping
 from gram_to_brand.models import (
     OrderedProductReserved as GramOrderedProductReserved)
-from celery.contrib import rdb
 
 
 @task

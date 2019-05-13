@@ -133,15 +133,6 @@ class Product(models.Model):
     def __str__(self):
         return self.product_name
 
-    @classmethod
-    def _product_list(cls):
-        id = threadlocals.get_current_product()
-        if id is not None:
-            return [id]
-        else:
-            return Product.objects.all().values('pk').query
-    def get_my_id(self):
-        return self.id
 
     def get_current_shop_price(self, shop):
         today = datetime.datetime.today()
@@ -364,15 +355,16 @@ def create_product_vendor_mapping(sender, instance=None, created=False, **kwargs
 
 @receiver(pre_save, sender=ProductCategory)
 def create_product_sku(sender, instance=None, created=False, **kwargs):
-    cat_sku_code = instance.category.category_sku_part
-    parent_cat_sku_code = instance.category.category_parent.category_sku_part if instance.category.category_parent else cat_sku_code
-    brand_sku_code = instance.product.product_brand.brand_code
-    last_sku = ProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code,brand_sku_code=brand_sku_code).last()
-    if last_sku:
-        last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
-    else:
-        last_sku_increment = '00000001'
-    ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code,brand_sku_code=brand_sku_code,last_auto_increment=last_sku_increment)
     product = Product.objects.get(pk=instance.product_id)
-    product.product_sku="%s%s%s%s"%(cat_sku_code,parent_cat_sku_code,brand_sku_code,last_sku_increment)
-    product.save()
+    if not product.product_sku:
+        cat_sku_code = instance.category.category_sku_part
+        parent_cat_sku_code = instance.category.category_parent.category_sku_part if instance.category.category_parent else cat_sku_code
+        brand_sku_code = instance.product.product_brand.brand_code
+        last_sku = ProductSKUGenerator.objects.filter(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code,brand_sku_code=brand_sku_code).last()
+        if last_sku:
+            last_sku_increment = str(int(last_sku.last_auto_increment) + 1).zfill(len(last_sku.last_auto_increment))
+        else:
+            last_sku_increment = '00000001'
+        ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code,brand_sku_code=brand_sku_code,last_auto_increment=last_sku_increment)
+        product.product_sku="%s%s%s%s"%(cat_sku_code,parent_cat_sku_code,brand_sku_code,last_sku_increment)
+        product.save()
