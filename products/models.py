@@ -141,6 +141,26 @@ class Product(models.Model):
             product_price = self.product_pro_price.filter(shop=shop, status=True).last()
         return product_price
 
+    def getPriceByShopId(self, shop_id):
+        return self.product_pro_price.filter(shop__id=shop_id, status=True).last()
+
+    def getMRP(self, shop_id):
+        product_price = self.getPriceByShopId(shop_id)
+        return round(product_price.mrp,2)
+
+    def getRetailerPrice(self, shop_id):
+        product_price = self.getPriceByShopId(shop_id)
+        return round(product_price.price_to_retailer,2)
+
+    def getCashDiscount(self, shop_id):
+        product_price = self.getPriceByShopId(shop_id)
+        return round(product_price.cash_discount,2)
+
+    def getLoyaltyIncentive(self, shop_id):
+        product_price = self.getPriceByShopId(shop_id)
+        return round(product_price.loyalty_incentive,2)
+
+
 class ProductSKUGenerator(models.Model):
     parent_cat_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
     cat_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")

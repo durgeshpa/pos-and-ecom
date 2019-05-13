@@ -186,6 +186,8 @@ def sp_sr_productprice(request):
                                 shop_id=shop.id,
                                 price_to_retailer=row[7],
                                 price_to_service_partner=row[5],
+                                cash_discount=row[8],
+                                loyalty_incentive=row[9],
                                 start_date=start_date,
                                 end_date=end_date
                             )
@@ -197,6 +199,8 @@ def sp_sr_productprice(request):
                                 mrp=row[4],
                                 shop_id=shop.id,
                                 price_to_super_retailer=row[6],
+                                cash_discount=row[8],
+                                loyalty_incentive=row[9],
                                 start_date=start_date,
                                 end_date=end_date
                             )
@@ -252,6 +256,8 @@ def gf_product_price(request):
                             price_to_retailer=row[7],
                             price_to_service_partner=row[5],
                             price_to_super_retailer=row[6],
+                            cash_discount=row[8],
+                            loyalty_incentive=row[9],
                             start_date=start_date,
                             end_date=end_date
                         )
@@ -349,7 +355,7 @@ def products_price_filter_view(request):
             if sp_sr == "sp":
                 writer.writerow([
                     'product_id', 'product_name', 'gf_code', 'product_hsn',
-                    'mrp', 'ptsp', 'ptr', 'price_start_date',
+                    'mrp', 'ptsp', 'ptr', 'cash_discount', 'loyalty_incentive', 'price_start_date',
                     'price_end_date', 'sp_name'
                 ])
                 for shop in shops:
@@ -365,14 +371,15 @@ def products_price_filter_view(request):
                             product.product.product_gf_code,
                             product.product.product_hsn,
                             product.mrp, product.price_to_service_partner,
-                            product.price_to_retailer, product.start_date,
+                            product.price_to_retailer, product.cash_discount,
+                            product.loyalty_incentive, product.start_date,
                             product.end_date, product.shop.shop_name
                         ])
 
             if sp_sr == "sr":
                 writer.writerow([
                     'product_id', 'product_name', 'gf_code', 'product_hsn',
-                    'mrp', 'ptr', 'price_start_date', 'price_end_date',
+                    'mrp', 'ptr', 'cash_discount', 'loyalty_incentive', 'price_start_date', 'price_end_date',
                     'sr_name'
                 ])
                 for shop in shops:
@@ -389,13 +396,14 @@ def products_price_filter_view(request):
                             product.product.product_gf_code,
                             product.product.product_hsn,
                             product.mrp, product.price_to_retailer,
+                            product.cash_discount, product.loyalty_incentive,
                             product.start_date, product.end_date,
                             product.shop.shop_name
                         ])
             if sp_sr == "gf":
                 writer.writerow([
                     'product_id', 'product_name',  'gf_code', 'product_hsn',
-                    'mrp', 'ptsp', 'ptsr', 'ptr', 'price_start_date',
+                    'mrp', 'ptsp', 'ptsr', 'ptr', 'cash_discount', 'loyalty_incentive', 'price_start_date',
                     'price_end_date', 'sr_name'
                 ])
                 for shop in shops:
@@ -413,7 +421,8 @@ def products_price_filter_view(request):
                             product.product.product_hsn,
                             product.mrp, product.price_to_service_partner,
                             product.price_to_super_retailer,
-                            product.price_to_retailer, product.start_date,
+                            product.price_to_retailer, product.cash_discount,
+                            product.loyalty_incentive, product.start_date,
                             product.end_date, product.shop.shop_name
                         ])
             return response

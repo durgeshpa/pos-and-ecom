@@ -333,7 +333,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
         'product__product_brand__brand_name', 'shop__shop_name'
     ]
     list_filter= [ProductFilter,MRPSearch,('start_date', DateRangeFilter),('end_date', DateRangeFilter)]
-    fields=('product','city','area','mrp','shop','price_to_retailer','price_to_super_retailer','price_to_service_partner','start_date','end_date','status')
+    fields=('product','city','area','mrp','shop','price_to_retailer','price_to_super_retailer','price_to_service_partner','cash_discount','loyalty_incentive','start_date','end_date','status')
     class Media:
         pass
     def get_readonly_fields(self, request, obj=None):
