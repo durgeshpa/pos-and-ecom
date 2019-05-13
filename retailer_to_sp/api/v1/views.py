@@ -23,6 +23,7 @@ from retailer_to_sp.models import (Cart, CartProductMapping, Order,
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
                                       OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment, CustomerCare as GramMappedCustomerCare )
 
+import logging
 
 from shops.models import Shop,ParentRetailerMapping
 from django.core.exceptions import ObjectDoesNotExist
@@ -36,6 +37,9 @@ from addresses.models import Address
 from retailer_backend.common_function import getShopMapping,checkNotShopAndMapping,getShop
 from retailer_backend.messages import ERROR_MESSAGES
 from django.contrib.postgres.search import SearchVector
+
+logger = logging.getLogger(__name__)
+
 today = datetime.today()
 
 
@@ -77,7 +81,7 @@ class GramGRNProductsList(APIView):
         shop_id = request.data.get('shop_id')
         offset = request.data.get('offset')
         pro_count = request.data.get('pro_count')
-
+        grn_dict = None
         cart_check = False
         is_store_active = True
         sort_preference = request.data.get('sort_by_price')
@@ -109,7 +113,8 @@ class GramGRNProductsList(APIView):
                     '''4th Step
                         SP mapped data shown
                     '''
-                    grn = SpMappedOrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(available_qty__gt=0).values('product_id')
+                    grn = SpMappedOrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(available_qty__gt=0).values('product_id').annotate(available_qty=Sum('available_qty'))
+                    grn_dict = {g['product_id']:g['available_qty'] for g in grn}
                     cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
                     if cart:
                         cart_products = cart.rt_cart_list.all()
@@ -125,14 +130,18 @@ class GramGRNProductsList(APIView):
                     if cart:
                         cart_products = cart.rt_cart_list.all()
                         cart_check = True
+        if grn_dict:
+            grn_list = grn_dict.keys()
+        else:
+            grn_list = grn
+        products = Product.objects.filter(pk__in=grn_list).order_by('product_name')
 
-        products = Product.objects.filter(pk__in=grn).order_by('product_name')
         if product_ids:
             products = products.filter(id__in=product_ids)
         if brand:
             products = products.filter(product_brand__in=brand)
         if category:
-            product_ids = ProductCategory.objects.filter(product__in=grn, category__in=category).values_list('product_id')
+            product_ids = ProductCategory.objects.filter(product__in=grn_list, category__in=category).values_list('product_id')
             products = products.filter(pk__in=product_ids)
         if keyword:
             products = products.annotate(search=SearchVector('product_name', 'product_brand__brand_name', 'product_short_description')).filter(search=keyword)
@@ -170,8 +179,11 @@ class GramGRNProductsList(APIView):
             pack_size = None
             try:
                 pack_size = p.product.product_inner_case_size if p.product.product_inner_case_size else None
-            except:
-                pack_size = None
+            except Exception as e:
+                logger.exception("pack size is not defined for {}".format(p.product.product_name))
+                continue
+            if grn_dict and int(pack_size) > int(grn_dict[p.product.id]):
+                continue
             try:
                 for p_o in product_opt:
                     weight_value = p_o.weight.weight_value if p_o.weight.weight_value else None
