@@ -491,12 +491,6 @@ class ReservedOrder(generics.ListAPIView):
 
                 if products_unavailable:
                     logger.exception("products unavailable")
-                    CartProductMapping.objects.filter(
-                        id__in=products_unavailable
-                    ).update(
-                        qty_error_msg=ERROR_MESSAGES[
-                            'AVAILABLE_PRODUCT'
-                        ].format(int(available_qty)))
                     serializer = CartSerializer(
                         cart,
                         context={
