@@ -6,10 +6,11 @@ from gram_to_brand.models import (
     OrderedProductReserved as GramOrderedProductReserved)
 from retailer_to_sp.models import (Cart,)
 from django.db.models import Sum, Q
-
+from celery.contrib import rdb
 
 @task
 def create_reserved_order(shop_id, cart_id, products):
+    rdb.set_trace()
     products = json.loads(products)
     cart = Cart.objects.get(pk=cart_id)
     grns = OrderedProductMapping.objects.filter(
