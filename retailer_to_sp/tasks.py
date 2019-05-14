@@ -9,9 +9,11 @@ from django.db.models import Sum, Q
 from celery.contrib import rdb
 
 @task
-def create_reserved_order(shop_id, cart_id, products):
-    rdb.set_trace()
-    products = json.loads(products)
+def create_reserved_order(reserved_args):
+    params = json.loads(reserved_args)
+    cart_id = params['cart_id']
+    shop_id = params['shop_id']
+    products = params['products']
     cart = Cart.objects.get(pk=cart_id)
     grns = OrderedProductMapping.objects.filter(
         Q(shop__id=shop_id),
