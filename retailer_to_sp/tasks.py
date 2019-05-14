@@ -23,7 +23,7 @@ def create_reserved_order(reserved_args):
         ).order_by('product_id','available_qty')
 
     for grn in grns:
-        remaining_qty = products[grn.product.id]
+        remaining_qty = products[str(grn.product.id)]
         if remaining_qty:
             deduct_qty = min(grn.available_qty, remaining_qty)
             grn.available_qty -= deduct_qty
