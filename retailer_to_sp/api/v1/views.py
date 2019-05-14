@@ -471,7 +471,7 @@ class ReservedOrder(generics.ListAPIView):
                 cart_products.update(qty_error_msg='')
                 cart_product_ids = cart_products.values('cart_product')
                 shop_products_available = OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product__in=cart_product_ids,available_qty__gt=0).values('product_id').annotate(available_qty=Sum('available_qty'))
-                shop_products_dict = {g['product_id']:int(g['available_qty']) for g in grn}
+                shop_products_dict = {g['product_id']:int(g['available_qty']) for g in shop_products_available}
                 
                 products_available = []
                 products_unavailable = []
