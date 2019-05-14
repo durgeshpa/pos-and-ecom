@@ -38,7 +38,7 @@ from retailer_backend.common_function import getShopMapping,checkNotShopAndMappi
 from retailer_backend.messages import ERROR_MESSAGES
 from django.contrib.postgres.search import SearchVector
 from retailer_to_sp.tasks import (
-    ordered_product_available_qty_update, release_blocking
+    ordered_product_available_qty_update, release_blocking, create_reserved_order
 )
 
 logger = logging.getLogger(__name__)
@@ -461,61 +461,58 @@ class ReservedOrder(generics.ListAPIView):
                 ).filter(
                     cart=cart
                 )
-                cart_products.update(qty_error_msg='')
-                for cart_product in cart_products:
-                    # Exclude expired
-                    ordered_product_details = OrderedProductMapping.\
-                        get_product_availability(
-                            parent_mapping.parent,
-                            cart_product.cart_product
-                        ).order_by('-expiry_date')
-                    available_qty = ordered_product_details.\
-                        aggregate(
-                            available_qty_sum=Sum('available_qty')
-                        )['available_qty_sum']
-                    is_error = False
-                    ordered_amount = (
-                        int(cart_product.qty) *
-                        int(cart_product.cart_product.product_inner_case_size))
-                    # checking if stock available and more than the order
-                    if available_qty and int(available_qty) >= ordered_amount:
-                        ordered_product_available_qty_update.delay(
-                            list(ordered_product_details.values_list(
-                                'id', flat=True
-                            )),
-                            ordered_amount, cart.id
-                        )
-                        serializer = CartSerializer(cart, context={
-                            'parent_mapping_id': parent_mapping.parent.id})
-                        msg = {'is_success': True,
-                               'message': [''],
-                               'response_data': serializer.data}
-                    else:
-                        msg = {'is_success': False,
-                               'message': ['available_qty is none'],
-                               'response_data': None}
-                        if int(available_qty) < ordered_amount:
-                            CartProductMapping.objects.filter(
-                                id=cart_product.id
-                            ).update(
-                                qty_error_msg=ERROR_MESSAGES[
-                                    'AVAILABLE_PRODUCT'
-                                ].format(int(available_qty)))
-                            serializer = CartSerializer(
-                                cart,
-                                context={
-                                    'parent_mapping_id':parent_mapping.parent.id
-                                })
-                            msg = {'is_success': True,
-                                   'message': [''],
-                                   'response_data': serializer.data}
-                        release_blocking.delay(parent_shop_type, cart.id)
-                        return Response(msg, status=status.HTTP_200_OK)
-                if CartProductMapping.objects.filter(cart=cart).count() <= 0:
+                # Check if products available in cart
+                if cart_products.count() <= 0:
                     msg = {'is_success': False,
                            'message': ['No product is available in cart'],
                            'response_data': None}
+                    return Response(msg, status=status.HTTP_200_OK)
+                
+                cart_products.update(qty_error_msg='')
+                cart_product_ids = cart_products.values('cart_product')
+                shop_products_available = OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product__in=cart_product_ids,available_qty__gt=0).values('product_id').annotate(available_qty=Sum('available_qty'))
+                shop_products_dict = {g['product_id']:int(g['available_qty']) for g in grn}
+                
+                products_available = []
+                products_unavailable = []
+                for cart_product in cart_products:
+                    product_availability = shop_products_dict.get(cart_product.cart_product.id, 0)
+
+                    ordered_amount = (
+                        int(cart_product.qty) *
+                        int(cart_product.cart_product.product_inner_case_size))
+
+                    if product_availability >= ordered_amount:
+                        products_available.append({cart_product.id:ordered_amount})
+                    else:
+                        products_unavailable.append(cart_product.id)
+
+                if products_unavailable:
+                    CartProductMapping.objects.filter(
+                        id__in=products_unavailable
+                    ).update(
+                        qty_error_msg=ERROR_MESSAGES[
+                            'AVAILABLE_PRODUCT'
+                        ].format(int(available_qty)))
+                    serializer = CartSerializer(
+                        cart,
+                        context={
+                            'parent_mapping_id':parent_mapping.parent.id
+                        })
+                    msg = {'is_success': True,
+                           'message': [''],
+                           'response_data': serializer.data}
+                    return Response(msg, status=status.HTTP_200_OK)
+                else:
+                    create_reserved_order.delay(parent_mapping.parent.id, products_available, cart.id)
             return Response(msg, status=status.HTTP_200_OK)
+            serializer = CartSerializer(cart, context={
+                'parent_mapping_id': parent_mapping.parent.id})
+            msg = {
+                    'is_success': True,
+                    'message': [''],
+                    'response_data': serializer.data
+                }
 
         else:
             msg = {'is_success': False, 'message': ['Sorry shop is not associated with any Gramfactory or any SP'],
