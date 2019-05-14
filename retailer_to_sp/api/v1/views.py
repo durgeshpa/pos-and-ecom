@@ -488,6 +488,7 @@ class ReservedOrder(generics.ListAPIView):
                         products_unavailable.append(cart_product.id)
 
                 if products_unavailable:
+                    logger.exception("products unavailable"))
                     CartProductMapping.objects.filter(
                         id__in=products_unavailable
                     ).update(
@@ -504,6 +505,7 @@ class ReservedOrder(generics.ListAPIView):
                            'response_data': serializer.data}
                     return Response(msg, status=status.HTTP_200_OK)
                 else:
+                    logger.exception("products available")
                     create_reserved_order.delay(parent_mapping.parent.id, products_available, cart.id)
             return Response(msg, status=status.HTTP_200_OK)
             serializer = CartSerializer(cart, context={
