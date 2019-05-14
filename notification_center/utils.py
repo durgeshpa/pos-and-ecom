@@ -119,20 +119,20 @@ class SendNotification:
         pass
 
     def merge_template_with_data(self, template_content):
-        if template is not None:
-            template = DjangoTemplate(template_content)
+        if template_content is not None:
+            final_template = DjangoTemplate(template_content)
     
-        return template.render(Context(self.template_data))
+        return final_template.render(Context(self.template_data))
 
 
     def send(self):
         # This function will send the notifications(email, sms, fcm) to users 
         #import pdb; pdb.set_trace()
-        self.user = User.objects.get(id=self.user_id)
-        notification_types  = UserNotification.objects.get(user=self.user)
+        user = User.objects.get(id=self.user_id)
+        notification_types  = UserNotification.objects.get(user=user)
         
         #generate template content
-        self.template = Template.objects.get(type=self.template_type)
+        template = Template.objects.get(type=self.template_type)
 
         # generate template variable data
         self.template_data = GenerateTemplateData(self.user_id, self.template_type)
@@ -154,8 +154,9 @@ class SendNotification:
 
         if notification_types.sms_notification:
 
-            sms_content = self.merge_template_with_data(self.template.text_sms_template)
-            # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
-            message = SendSms(phone=user.phone_number,body=sms_content)
-            # message = SendSms(phone=9643112048,body="Dear sagar, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory")
-            message.send()
+            sms_content = self.merge_template_with_data(template.text_sms_template)
+            print (user.phone_number, sms_content)
+            # # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
+            # message = SendSms(phone=user.phone_number,body=sms_content)
+            # # message = SendSms(phone=9643112048,body="Dear sagar, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory")
+            # message.send()

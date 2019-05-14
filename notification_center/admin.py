@@ -1,8 +1,10 @@
 from django.contrib import admin
+from django.contrib.auth import get_user_model
+
 from notification_center.models import (
     Template, TemplateVariable, Notification, UserNotification,
     TextSMSActivity, VoiceCallActivity, EmailActivity,
-    GCMActivity
+    GCMActivity, NotificationScheduler
     )
 from notification_center.forms import (
     TemplateForm
@@ -10,6 +12,8 @@ from notification_center.forms import (
 from notification_center.utils import (
     SendNotification
     )
+
+User = get_user_model()
 
 
 
@@ -115,8 +119,64 @@ class NotificationAdmin(admin.ModelAdmin):
     class Media:
         css = { "all" : ("admin/css/hide_admin_inline_object_name.css",) }
 
+
+
+class NotificationSchedulerAdmin(admin.ModelAdmin):
+    model = NotificationScheduler
+    list_display = ('id', 'user', 'template', 'run_at', 'repeat', 'created_at')
+    search_fields = ('id', 'user', 'template')
+    # inlines = [
+    #     TextSMSActivityAdmin, VoiceCallActivityAdmin,
+    #     EmailActivityAdmin, GCMActivityAdmin
+    # ]
+    #readonly_fields = ['user', 'template']
+    #for hiding object names in tabular inline
+
+    def save_model(self, request, obj, form, change):
+        try:
+            import pdb; pdb.set_trace()
+            #integrate with celery beat
+            user_instance = User.objects.get(id=obj.user.id)
+            # code to send notification
+            #setup_periodic_tasks()  #data = {}
+
+            SendNotification(user_id=1, activity_type="SIGNUP").send()
+        except Exception as e:
+            print (e.args)
+            pass
+        super(NotificationSchedulerAdmin, self).save_model(request, obj, form, change)    
+
+
+
+# from celery import Celery
+# from celery.schedules import crontab
+# app = Celery()
+
+# @app.on_after_configure.connect
+# def setup_periodic_tasks(sender, **kwargs):
+#     data = kwargs['data']
+#     # Calls test('hello') every 10 seconds.
+#     sender.add_periodic_task(10.0, test.s('hello'), name='add every 10')
+
+#     # Calls test('world') every 30 seconds
+#     sender.add_periodic_task(30.0, test.s('world'), expires=10)
+
+#     # Executes every Monday morning at 7:30 a.m.
+#     sender.add_periodic_task(
+#         crontab(hour=7, minute=30, day_of_week=1),
+#         test.s('Happy Mondays!'),
+#     )
+
+
+# @app.task
+# def test(arg):
+#     print(arg)
+
+
+
 admin.site.register(Template, TemplateAdmin)
 admin.site.register(TemplateVariable, TemplateVariableAdmin)
 admin.site.register(Notification, NotificationAdmin)
 admin.site.register(UserNotification, UserNotificationAdmin)
 #admin.site.register(TextSMSActivity, TextSMSActivityAdmin)
+admin.site.register(NotificationScheduler, NotificationSchedulerAdmin)
