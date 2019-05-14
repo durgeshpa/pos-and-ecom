@@ -53,7 +53,6 @@ urlpatterns = [
 
     url('^delete-ordered-product-reserved1/$', cron_to_delete_ordered_product_reserved, name='delete_ordered_product_reserved'),
     path('admin/', admin.site.urls),
-    url(r'^nested_admin/', include('nested_admin.urls')),
 
 ]
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
