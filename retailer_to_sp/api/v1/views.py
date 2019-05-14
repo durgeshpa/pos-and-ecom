@@ -501,8 +501,8 @@ class ReservedOrder(generics.ListAPIView):
                            'response_data': serializer.data}
                     return Response(msg, status=status.HTTP_200_OK)
                 else:
-                    logger.exception("products available")
-                    create_reserved_order.delay(parent_mapping.parent.id, products_available, cart.id)
+                    # logger.exception("products available")
+                    create_reserved_order(parent_mapping.parent.id, products_available, cart.id)
             serializer = CartSerializer(cart, context={
                 'parent_mapping_id': parent_mapping.parent.id})
             msg = {
