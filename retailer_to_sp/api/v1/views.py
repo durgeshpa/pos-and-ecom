@@ -483,7 +483,7 @@ class ReservedOrder(generics.ListAPIView):
                         int(cart_product.cart_product.product_inner_case_size))
 
                     if product_availability >= ordered_amount:
-                        products_available[cart_product.id] = ordered_amount
+                        products_available[cart_product.cart_product.id] = ordered_amount
                     else:
                         cart_product.qty_error_msg = ERROR_MESSAGES['AVAILABLE_PRODUCT'].format(int(product_availability))
                         cart_product.save()
