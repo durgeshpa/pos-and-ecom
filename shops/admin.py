@@ -219,16 +219,6 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     #         return total_pending_amount
     # get_shop_pending_amount.short_description = 'Shop Pending Amount'
 
-    def get_shop_city(self, obj):
-        if obj.shop_name_address_mapping.exists():
-            return obj.shop_name_address_mapping.last().city
-    get_shop_city.short_description = 'Shop City'
-
-    def get_shop_parent(self, obj):
-        if obj.retiler_mapping.exists():
-            return obj.retiler_mapping.last().parent
-    get_shop_parent.short_description = 'Parent Shop'
-
 class ParentFilter(AutocompleteFilter):
     title = 'Parent' # display title
     field_name = 'parent' # name of the foreign key field
