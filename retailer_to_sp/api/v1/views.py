@@ -488,7 +488,7 @@ class ReservedOrder(generics.ListAPIView):
                         products_unavailable.append(cart_product.id)
 
                 if products_unavailable:
-                    logger.exception("products unavailable"))
+                    logger.exception("products unavailable")
                     CartProductMapping.objects.filter(
                         id__in=products_unavailable
                     ).update(
