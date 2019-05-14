@@ -28,7 +28,7 @@ class ShopResource(resources.ModelResource):
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
-        list_display = ('shop_name', 'shop_owner','shop_type','created_at','status', 'get_shop_shipping_address', 'get_shop_pin_code' )
+        list_display = ('shop_name', 'get_shop_parent', 'shop_owner','shop_type','created_at','status', 'get_shop_shipping_address', 'get_shop_city', 'get_shop_pin_code' )
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
