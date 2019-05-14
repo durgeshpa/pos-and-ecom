@@ -2,6 +2,8 @@ import datetime
 
 from dal import autocomplete
 from django_select2.forms import Select2MultipleWidget, ModelSelect2Widget
+from tempus_dominus.widgets import DatePicker
+
 
 from django.contrib.auth import get_user_model
 from django.contrib.admin import widgets
@@ -20,8 +22,9 @@ from sp_to_gram.models import (
 from retailer_backend.common_function import required_fields
 from retailer_to_sp.models import (
     CustomerCare, ReturnProductMapping, OrderedProduct,
-    OrderedProductMapping, Order, Dispatch, Trip, TRIP_STATUS, Shipment, ShipmentProductMapping,
-    CartProductMapping, Cart
+    OrderedProductMapping, Order, Dispatch, Trip, TRIP_STATUS,
+    Shipment, ShipmentProductMapping, CartProductMapping, Cart,
+    ShipmentRescheduling
 )
 from products.models import Product
 from shops.models import Shop
@@ -454,7 +457,7 @@ class CartForm(forms.ModelForm):
         fields = ('seller_shop', 'buyer_shop')
 
     def __init__(self, *args, **kwargs):
-        super(CartForm, self).__init__(*args, **kwargs)
+            
         user = get_current_user()
 
         if user.is_superuser:
@@ -499,3 +502,89 @@ class CommercialForm(forms.ModelForm):
         if trip_status == 'CLOSED' and not received_amount:
             raise forms.ValidationError(('This field is required'),)
         return received_amount
+
+
+class OrderedProductReschedule(forms.ModelForm):
+    class Meta:
+        model = OrderedProduct
+        fields = (
+            'order', 'invoice_no', 'shipment_status', 'trip',
+            'return_reason'
+        )
+
+    class Media:
+        js = ('admin/js/OrderedProductShipment.js', )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+        if instance.rescheduling_shipment.exists():
+            self.fields['return_reason'].disabled = True
+
+    def clean_return_reason(self):
+        if not self.instance.rescheduling_shipment.exists():
+            return_qty = 0
+            return_reason = self.cleaned_data.get('return_reason')
+            total_products = self.data.get(
+                'rt_order_product_order_product_mapping-TOTAL_FORMS')
+            for product in range(int(total_products)):
+                field = ("rt_order_product_order_product_mapping-%s-returned_qty")\
+                    % product
+                return_qty += int(self.data.get(field))
+                if int(self.data.get(field)) and not return_reason:
+                    raise forms.ValidationError(_('This field is required'),)
+            if return_reason and not return_qty:
+                raise forms.ValidationError(
+                    _('Either enter Return Qty for any product'
+                      ' or Deselect this option'),
+                )
+            return return_reason
+
+
+class ShipmentReschedulingForm(forms.ModelForm):
+    shipment = forms.ModelChoiceField(
+        queryset=Shipment.objects.all(),
+        widget=forms.TextInput
+    )
+
+    rescheduling_date = forms.DateField(input_formats=['%Y-%m-%d'])
+
+    class Meta:
+        model = ShipmentRescheduling
+        fields = ('shipment', 'rescheduling_reason', 'rescheduling_date')
+
+    class Media:
+        js = (
+            'https://cdn.jsdelivr.net/npm/flatpickr',
+            'admin/js/sweetalert.min.js',
+            'admin/js/ShipmentRescheduling.js',
+        )
+        css = {
+            'all': (
+                'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css',
+            )
+        }
+
+    def __init__(self, *args, **kwargs):
+        super(ShipmentReschedulingForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+        if instance and instance.pk:
+            self.fields['rescheduling_reason'].disabled = True
+            self.fields['rescheduling_date'].disabled = True
+
+
+class OrderedProductMappingRescheduleForm(forms.ModelForm):
+
+    class Meta:
+        model = OrderedProductMapping
+        fields = ['product', 'shipped_qty',
+                  'returned_qty', 'damaged_qty', 'delivered_qty']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+        if instance and instance.pk:
+            if instance.ordered_product.rescheduling_shipment.exists():
+                self.fields['returned_qty'].disabled = True
+                self.fields['damaged_qty'].disabled = True
+

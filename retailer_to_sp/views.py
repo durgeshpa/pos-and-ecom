@@ -1,3 +1,4 @@
+import datetime
 from dal import autocomplete
 from wkhtmltopdf.views import PDFTemplateResponse
 
@@ -15,7 +16,8 @@ from rest_framework import status
 from sp_to_gram.models import OrderedProductReserved
 from retailer_to_sp.models import (
     Cart, CartProductMapping, Order, OrderedProduct, OrderedProductMapping,
-    CustomerCare, Payment, Return, ReturnProductMapping, Note, Trip, Dispatch
+    CustomerCare, Payment, Return, ReturnProductMapping, Note, Trip, Dispatch,
+    ShipmentRescheduling
 )
 from products.models import Product
 from retailer_to_sp.forms import (
@@ -374,20 +376,23 @@ class LoadDispatches(APIView):
                             Q(trip=trip_id), order__seller_shop=seller_shop)
 
         elif trip_id:
-            dispatches = Dispatch.objects.filter(
-                                trip=trip_id)
+            dispatches = Dispatch.objects.filter(trip=trip_id)
 
         elif seller_shop and area:
             dispatches = Dispatch.objects.annotate(
-                            rank=SearchRank(vector, query) + similarity
-                        ).filter(
-                            shipment_status='READY_TO_SHIP',
-                            order__seller_shop=seller_shop).order_by('-rank')
+                rank=SearchRank(vector, query) + similarity
+            ).filter(
+                shipment_status=OrderedProduct.READY_TO_SHIP,
+                order__seller_shop=seller_shop
+            ).order_by('-rank')
 
         elif seller_shop:
-            dispatches = Dispatch.objects.select_related('order', 'order__shipping_address', 'order__ordered_cart').filter(
-                                            shipment_status='READY_TO_SHIP',
-                                            order__seller_shop=seller_shop).order_by('invoice_no')
+            dispatches = Dispatch.objects.select_related(
+                'order', 'order__shipping_address', 'order__ordered_cart'
+            ).filter(
+                shipment_status=OrderedProduct.READY_TO_SHIP,
+                order__seller_shop=seller_shop
+            ).order_by('invoice_no')
 
         elif area and trip_id:
             dispatches = Dispatch.objects.annotate(
@@ -402,6 +407,14 @@ class LoadDispatches(APIView):
 
         else:
             dispatches = Dispatch.objects.none()
+
+        reschedule_dispatches = ShipmentRescheduling.objects.values_list(
+            'shipment', flat=True
+        ).filter(
+            ~Q(rescheduling_date=datetime.date.today()),
+            shipment__shipment_status=OrderedProduct.READY_TO_SHIP
+        )
+        dispatches = dispatches.exclude(id__in=reschedule_dispatches)
 
         if dispatches and commercial:
             serializer = CommercialShipmentSerializer(dispatches, many=True)
@@ -562,14 +575,14 @@ def update_shipment_status(form, formsets):
     shipped_qty_list = []
     returned_qty_list = []
     damaged_qty_list = []
-
-    for inline_forms in formsets:
-        for inline_form in inline_forms:
-            instance = getattr(inline_form, 'instance', None)
-            update_delivered_qty(instance, inline_form)
-            shipped_qty_list.append(instance.shipped_qty if instance else 0)
-            returned_qty_list.append(inline_form.cleaned_data.get('returned_qty', 0))
-            damaged_qty_list.append(inline_form.cleaned_data.get('damaged_qty', 0))
+    for formset in formsets:
+        if formset.__class__.__name__ == 'OrderedProductMappingFormFormSet':
+            for inline_form in formset:
+                instance = getattr(inline_form, 'instance', None)
+                update_delivered_qty(instance, inline_form)
+                shipped_qty_list.append(instance.shipped_qty if instance else 0)
+                returned_qty_list.append(inline_form.cleaned_data.get('returned_qty', 0))
+                damaged_qty_list.append(inline_form.cleaned_data.get('damaged_qty', 0))
 
     shipped_qty = sum(shipped_qty_list)
     returned_qty = sum(returned_qty_list)
@@ -804,3 +817,16 @@ def commercial_shipment_details(request, pk):
         'admin/retailer_to_sp/CommercialShipmentDetails.html',
         {'shipment': shipment, 'shipment_products': shipment_products}
     )
+
+
+def reshedule_update_shipment(form_instance, formsets):
+    if form_instance.trip:
+        form_instance.shipment_status = OrderedProduct.READY_TO_SHIP
+        form_instance.trip = None
+        form_instance.save()
+        for formset in formsets:
+            if formset.__class__.__name__ == 'OrderedProductMappingFormFormSet':
+                for inline_form in formset:
+                    instance = getattr(inline_form, 'instance', None)
+                    instance.delivered_qty = 0
+                    instance.save()
