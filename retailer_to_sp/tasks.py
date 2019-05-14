@@ -9,7 +9,6 @@ from django.db.models import Sum, Q
 
 @task
 def create_reserved_order(shop_id, products, cart_id):
-    import epdb; epdb.serve()
     cart = Cart.objects.get(pk=cart_id)
     grns = OrderedProductMapping.objects.filter(
         Q(shop__id=shop_id),
