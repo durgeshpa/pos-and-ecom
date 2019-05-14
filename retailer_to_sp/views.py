@@ -30,10 +30,13 @@ from django.conf import settings
 
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector, TrigramSimilarity
 from shops.models import Shop
-from retailer_to_sp.api.v1.serializers import DispatchSerializer, CommercialShipmentSerializer
+from retailer_to_sp.api.v1.serializers import (
+    DispatchSerializer, CommercialShipmentSerializer, OrderedCartSerializer
+)
 import json
 from django.http import HttpResponse
 from django.core import serializers
+
 
 
 class ReturnProductAutocomplete(autocomplete.Select2QuerySetView):
@@ -818,7 +821,6 @@ def commercial_shipment_details(request, pk):
         {'shipment': shipment, 'shipment_products': shipment_products}
     )
 
-
 def reshedule_update_shipment(form_instance, formsets):
     if form_instance.trip:
         form_instance.shipment_status = OrderedProduct.READY_TO_SHIP
@@ -830,3 +832,14 @@ def reshedule_update_shipment(form_instance, formsets):
                     instance = getattr(inline_form, 'instance', None)
                     instance.delivered_qty = 0
                     instance.save()
+
+
+class RetailerCart(APIView):
+    permission_classes = (AllowAny,)
+    def get(self, request, *args, **kwargs):
+        order_obj = Order.objects.get(order_no=request.GET.get('order_no'))
+        dt = OrderedCartSerializer(
+            order_obj.ordered_cart,
+            context={'parent_mapping_id': order_obj.seller_shop.id,}
+        )
+        return Response({'is_success': True,'response_data': dt.data}, status=status.HTTP_200_OK)
