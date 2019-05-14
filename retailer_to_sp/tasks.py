@@ -3,6 +3,7 @@ from celery.task import task
 from sp_to_gram.models import OrderedProductReserved, OrderedProductMapping
 from gram_to_brand.models import (
     OrderedProductReserved as GramOrderedProductReserved)
+from retailer_to_sp.models import (Cart,)
 from django.db.models import Sum, Q
 
 
