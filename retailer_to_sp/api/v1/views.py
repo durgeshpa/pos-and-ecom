@@ -24,7 +24,7 @@ from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping 
                                       OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment, CustomerCare as GramMappedCustomerCare )
 
 import logging
-
+import json
 from shops.models import Shop,ParentRetailerMapping
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F,Sum, Q
@@ -502,7 +502,7 @@ class ReservedOrder(generics.ListAPIView):
                     return Response(msg, status=status.HTTP_200_OK)
                 else:
                     logger.exception("products available {}".format(products_available))
-                    create_reserved_order.delay(parent_mapping.parent.id, products_available, cart.id)
+                    create_reserved_order.delay(parent_mapping.parent.id, json.dumps(products_available), cart.id)
             serializer = CartSerializer(cart, context={
                 'parent_mapping_id': parent_mapping.parent.id})
             msg = {

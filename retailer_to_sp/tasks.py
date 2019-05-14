@@ -1,4 +1,5 @@
 import datetime
+import json
 from celery.task import task
 from sp_to_gram.models import OrderedProductReserved, OrderedProductMapping
 from gram_to_brand.models import (
@@ -9,6 +10,7 @@ from django.db.models import Sum, Q
 
 @task
 def create_reserved_order(shop_id, products, cart_id):
+    products = json.loads(products)
     cart = Cart.objects.get(pk=cart_id)
     grns = OrderedProductMapping.objects.filter(
         Q(shop__id=shop_id),
