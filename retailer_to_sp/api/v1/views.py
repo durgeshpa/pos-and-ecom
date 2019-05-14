@@ -503,7 +503,6 @@ class ReservedOrder(generics.ListAPIView):
                 else:
                     logger.exception("products available")
                     create_reserved_order.delay(parent_mapping.parent.id, products_available, cart.id)
-            return Response(msg, status=status.HTTP_200_OK)
             serializer = CartSerializer(cart, context={
                 'parent_mapping_id': parent_mapping.parent.id})
             msg = {
@@ -511,7 +510,7 @@ class ReservedOrder(generics.ListAPIView):
                     'message': [''],
                     'response_data': serializer.data
                 }
-
+            return Response(msg, status=status.HTTP_200_OK)
         else:
             msg = {'is_success': False, 'message': ['Sorry shop is not associated with any Gramfactory or any SP'],
                    'response_data': None}
