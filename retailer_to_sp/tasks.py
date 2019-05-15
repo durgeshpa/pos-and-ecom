@@ -24,10 +24,10 @@ def create_reserved_order(reserved_args):
 
     for grn in grns:
         remaining_qty = products[str(grn.product.id)]
-        if remaining_qty:
+        if remaining_qty >0:
             deduct_qty = min(grn.available_qty, remaining_qty)
             grn.available_qty -= deduct_qty
-            remaining_qty -= deduct_qty
+            products[str(grn.product.id)] = remaining_qty - deduct_qty
             grn.save()
             order_product_reserved = OrderedProductReserved(
                 product=grn.product,
