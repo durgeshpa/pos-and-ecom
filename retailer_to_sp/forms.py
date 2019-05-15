@@ -519,7 +519,7 @@ class OrderedProductReschedule(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
-        if instance.rescheduling_shipment.exists():
+        if instance.rescheduling_shipment.exists() and not instance.trip:
             self.fields['return_reason'].disabled = True
 
     def clean_return_reason(self):
@@ -585,7 +585,8 @@ class OrderedProductMappingRescheduleForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
         if instance and instance.pk:
-            if instance.ordered_product.rescheduling_shipment.exists():
+            if (instance.ordered_product.rescheduling_shipment.exists() and
+                not instance.ordered_product.trip):
                 self.fields['returned_qty'].disabled = True
                 self.fields['damaged_qty'].disabled = True
 
