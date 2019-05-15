@@ -353,7 +353,7 @@ class ExportCsvMixin:
         meta = self.model._meta
         list_display = ['order_no', 'seller_shop', 'buyer_shop', 'total_final_amount',
                         'order_status', 'created_at', 'payment_mode', 'paid_amount',
-                        'total_shipment_returnspaid_amount', 'shipment_status', 'order_shipment_amount', 'order_shipment_details']
+                        'total_paid_amount', 'shipment_status', 'order_shipment_amount', 'order_shipment_details']
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
@@ -478,8 +478,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         return urls
 
 
-    # new code for change list order
-
+    # new code for order_list start
     def changelist_view(self, request, extra_context=None):
         CHANGELIST_PERPAGE_LIMITS = 100
         if request.GET.get('per_page') and int(
@@ -490,41 +489,15 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         extra_context = {'changelist_perpage_limits': CHANGELIST_PERPAGE_LIMITS,
                          'list_per_page': self.list_per_page}
 
-        response = super(OrderAdmin, self).changelist_view(
-            request,
-            extra_context=extra_context,
-        )
-
+        response = super(OrderAdmin, self).changelist_view(request,extra_context=extra_context,)
         try:
             qs = response.context_data['cl'].queryset
         except (AttributeError, KeyError):
             return response
 
-        #print(self.list_display)
-        # cl = ChangeList(request,
-        #                 self.model,
-        #                 self.list_display,
-        #                 self.list_display_links,
-        #                 self.list_filter,
-        #                 self.date_hierarchy,
-        #                 self.search_fields,
-        #                 self.list_select_related,
-        #                 self.list_per_page,
-        #                 self.list_max_show_all,
-        #                 self.list_editable,
-        #                 )  # 3 extra queries
-        #
-        # qs = cl.get_query_set(request)  # 1 extra query
         result_qs = list(qs.values('order_no', 'seller_shop', 'buyer_shop',
                     'total_final_amount', 'order_status', 'created_at','pk',
-                    #'payment_mode','picking_status','picker_name',
-                    #'invoice_no', 'shipment_date', 'invoice_amount', 'shipment_status',
-                    #'delivery_date', 'cn_amount', 'cash_collected', 'damaged_amount',
                     ).order_by('-created_at').all())
-        #print(qs.values('total_final_amount'))
-        # map(lambda r: r.update(
-        #     {'check_box': helpers.checkbox.render(helpers.ACTION_CHECKBOX_NAME, r['pk'])}), result_qs)
-        #result_qs = Order.objects.all()
         cl = ChangeList(request,
                         self.model,
                         self.list_display,
@@ -536,20 +509,10 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                         self.list_per_page,
                         self.list_max_show_all,
                         self.list_editable, self, self.sortable_by)
-
         dt = cl.get_queryset(request)
-        #print(dt.values_list)
-        #print(dir(dt.values_list('total_final_amount')))
-        #print(dir(dt.values_list('payment_mode')))
-        #print(result_qs)
-        #print(self.list_display)
-        #print(dir(cl.list_display))
         response.context_data['summary'] = result_qs
-        #response.context_data['summary'] = list(self.list_display)
-
         return response
-
-    # new code end
+    # new code for order_list end
 
 class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping

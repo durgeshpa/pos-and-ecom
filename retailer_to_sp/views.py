@@ -839,6 +839,7 @@ class OrderList(APIView):
             invoice_amount = []
             cn_amount = []
             damaged_amount_value = []
+            cash_to_be_collect = []
             delivered_value = []
 
             if order:
@@ -859,7 +860,7 @@ class OrderList(APIView):
 
                     # Shipment Products
                     return_amount,damaged_amount = 0,0
-                    total_cn_amount,total_damaged_amount = [],[]
+                    total_cn_amount,total_damaged_amount, total_amount_to_collect = [],[],[]
 
                     shipment_products = s.rt_order_product_order_product_mapping.all()
                     for product in shipment_products:
@@ -878,10 +879,12 @@ class OrderList(APIView):
 
                             total_cn_amount.append(return_amount + damaged_amount)
                             total_damaged_amount.append(damaged_amount)
+                            total_amount_to_collect.append(product_price * product.delivered_qty)
 
                     invoice_amount.append("%s <br><br>"%(round(sum(total_amount), 2)))
                     cn_amount.append("%s <br><br>"%(round(sum(total_cn_amount), 2)))
                     damaged_amount_value.append("%s <br><br>"%(round(sum(total_damaged_amount),2)))
+                    cash_to_be_collect.append("%s <br><br>"%(round(sum(total_amount_to_collect),2)))
                     delivered_value.append("%s <br><br>"%(round(float(s.trip.cash_to_be_collected()), 2) - round(float(sum(total_cn_amount)),2)) if s.trip else "- <br><br>")
 
             temp = {
@@ -898,7 +901,7 @@ class OrderList(APIView):
                 'shipment_status':order_shipment_status,
                 'delivery_date':delivery_date,
                 'cn_amount':cn_amount,
-                'cash_collected':'',
+                'cash_collected':cash_to_be_collect,
                 'damaged_amount':damaged_amount_value,
                 'delivered_amount':delivered_value,
             }
