@@ -27,7 +27,7 @@ from .forms import (
     CustomerCareForm, ReturnProductMappingForm, TripForm, DispatchForm,
     OrderedProductMappingForm, OrderedProductForm, ShipmentForm,
     OrderedProductMappingShipmentForm, ShipmentProductMappingForm,
-    CartProductMappingForm, CartForm, CommercialForm
+    CartProductMappingForm, CartForm, CommercialForm, OrderForm
     )
 from retailer_to_sp.views import (
     ordered_product_mapping_shipment, order_invoices, trip_planning,
@@ -51,6 +51,7 @@ from sp_to_gram.models import (
 from dal_admin_filters import AutocompleteFilter
 from django.utils.translation import ugettext_lazy as _
 from shops.models import Shop, ParentRetailerMapping
+from .views import RetailerCart
 
 
 class InvoiceNumberFilter(AutocompleteFilter):
@@ -407,8 +408,8 @@ class ProductNameFilter(InputFilter):
 class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     actions = ["export_as_csv"]
     resource_class = OrderResource
-    search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name',
-                    'order_status',)
+    search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name','order_status',)
+    form = OrderForm
     fieldsets = (
         (_('Shop Details'), {
             'fields': ('seller_shop', 'buyer_shop',
@@ -433,7 +434,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         ('created_at', DateTimeRangeFilter), ('total_final_amount', SliderNumericFilter)]
 
     class Media:
-        pass
+        js = ('/static/admin/js/retailer_cart.js',)
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
@@ -459,6 +460,17 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
             p.append(m.cart_product.product_name)
         return p
 
+    change_form_template = 'admin/retailer_to_sp/order/change_form.html'
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(OrderAdmin, self).get_urls()
+        urls += [
+            url(r'^retailer-cart/$',
+                self.admin_site.admin_view(RetailerCart.as_view()),
+                name="retailer_cart"),
+        ]
+        return urls
 
 class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping
@@ -792,8 +804,24 @@ class NoteAdmin(admin.ModelAdmin):
     class Media:
         pass
 
-class CustomerCareAdmin(admin.ModelAdmin):
+class ExportCsvMixin:
+    def export_as_csv_customercare(self, request, queryset):
+        meta = self.model._meta
+        list_display = ('complaint_id', 'retailer_shop', 'retailer_name', 'seller_shop', 'order_id', 'issue_status', 'select_issue', 'issue_date')
+        field_names = [field.name for field in meta.fields if field.name in list_display]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in list_display])
+        return response
+    export_as_csv_customercare.short_description = "Download CSV of Selected CustomeCare"
+
+
+class CustomerCareAdmin(ExportCsvMixin, admin.ModelAdmin):
     model = CustomerCare
+    actions = ["export_as_csv_customercare"]
     form = CustomerCareForm
     fields = (
         'email_us', 'order_id', 'issue_status',
@@ -806,19 +834,6 @@ class CustomerCareAdmin(admin.ModelAdmin):
     readonly_fields = ('issue_date', 'seller_shop', 'retailer_shop', 'retailer_name')
     list_filter = [ComplaintIDSearch, OrderIdSearch, IssueStatusSearch, IssueSearch]
 
-    def seller_shop(self, obj):
-        if obj.order_id:
-            return obj.order_id.seller_shop
-
-    def retailer_shop(self, obj):
-        if obj.order_id:
-            return obj.order_id.buyer_shop
-
-    def retailer_name(self, obj):
-        if obj.order_id:
-            if obj.order_id.buyer_shop:
-                if obj.order_id.buyer_shop.shop_owner.first_name:
-                    return obj.order_id.buyer_shop.shop_owner.first_name
 
 class PaymentAdmin(NumericFilterModelAdmin,admin.ModelAdmin):
     model = Payment

@@ -804,3 +804,15 @@ def commercial_shipment_details(request, pk):
         'admin/retailer_to_sp/CommercialShipmentDetails.html',
         {'shipment': shipment, 'shipment_products': shipment_products}
     )
+
+from retailer_to_sp.api.v1.serializers import OrderedCartSerializer
+
+class RetailerCart(APIView):
+    permission_classes = (AllowAny,)
+    def get(self, request, *args, **kwargs):
+        order_obj = Order.objects.get(order_no=request.GET.get('order_no'))
+        dt = OrderedCartSerializer(
+            order_obj.ordered_cart,
+            context={'parent_mapping_id': order_obj.seller_shop.id,}
+        )
+        return Response({'is_success': True,'response_data': dt.data}, status=status.HTTP_200_OK)

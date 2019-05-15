@@ -28,13 +28,14 @@ class ShopResource(resources.ModelResource):
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
-        field_names = [field.name for field in meta.fields]
+        list_display = ('shop_name', 'shop_owner','shop_type','created_at','status', 'get_shop_shipping_address', 'get_shop_pin_code' )
+        field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
         writer = csv.writer(response)
-        writer.writerow(field_names)
+        writer.writerow(list_display)
         for obj in queryset:
-            row = writer.writerow([getattr(obj, field) for field in field_names])
+            row = writer.writerow([getattr(obj, field) for field in list_display])
         return response
     export_as_csv.short_description = "Download CSV of Selected Shops"
 
@@ -170,18 +171,6 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
             ),
         ] + urls
         return urls
-
-    def get_shop_shipping_address(self, obj):
-        if obj.shop_name_address_mapping.exists():
-            for address in obj.shop_name_address_mapping.filter(address_type ='shipping').all():
-                return address.address_line1
-    get_shop_shipping_address.short_description = 'Shipping Address'
-
-    def get_shop_pin_code(self, obj):
-        if obj.shop_name_address_mapping.exists():
-            for address in obj.shop_name_address_mapping.filter(address_type ='shipping').all():
-                return address.pincode
-    get_shop_pin_code.short_description = 'PinCode'
 
 
     def get_queryset(self, request):
