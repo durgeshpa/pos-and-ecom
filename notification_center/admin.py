@@ -134,13 +134,14 @@ class NotificationSchedulerAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         try:
-            import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
             #integrate with celery beat
-            user_instance = User.objects.get(id=obj.user.id)
+            user_id = User.objects.get(id=obj.user.id).id
+            activity_type = Template.objects.get(id=obj.template.id).type
             # code to send notification
             #setup_periodic_tasks()  #data = {}
 
-            SendNotification(user_id=1, activity_type="SIGNUP").send()
+            SendNotification(user_id=user_id, activity_type=activity_type).send()
         except Exception as e:
             print (e.args)
             pass
