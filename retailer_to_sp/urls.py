@@ -2,7 +2,8 @@ from django.conf.urls import include, url
 from django.contrib import admin
 
 from .views import (
-    ReturnProductAutocomplete, DownloadCreditNote, DownloadPickList, DownloadTripPdf, SellerShopAutocomplete, BuyerShopAutocomplete, RetailerCart
+    ReturnProductAutocomplete, DownloadCreditNote, DownloadPickList, DownloadTripPdf, SellerShopAutocomplete, BuyerShopAutocomplete,
+    RetailerCart, OrderList
 )
 urlpatterns = [
     url(r'^api/', include('retailer_to_sp.api.urls')),
@@ -19,4 +20,5 @@ urlpatterns = [
     url(r'^buyer-shop-autocomplete/$', BuyerShopAutocomplete.as_view(), name='buyer-shop-autocomplete'),
     url('^download-trip-pdf/(?P<pk>\d+)/trip_pdf/$', DownloadTripPdf.as_view(), name='download_trip_pdf'),
     url('^retailer-cart/$', RetailerCart.as_view(), name='retailer_cart'),
+    url('^order-list/$', OrderList.as_view(), name='order_list'),
     ]
