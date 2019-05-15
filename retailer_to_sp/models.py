@@ -109,7 +109,7 @@ class Cart(models.Model):
         verbose_name = 'Order Items Detail'
 
     def __str__(self):
-        return self.order_id
+        return "{}".format(self.order_id)
 
     @property
     def subtotal(self):
