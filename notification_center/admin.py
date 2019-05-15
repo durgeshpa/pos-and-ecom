@@ -134,7 +134,7 @@ class NotificationSchedulerAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         try:
-            # import pdb; pdb.set_trace()
+            #import pdb; pdb.set_trace()
             #integrate with celery beat
             user_id = User.objects.get(id=obj.user.id).id
             activity_type = Template.objects.get(id=obj.template.id).type
@@ -146,6 +146,8 @@ class NotificationSchedulerAdmin(admin.ModelAdmin):
             print (e.args)
             pass
         super(NotificationSchedulerAdmin, self).save_model(request, obj, form, change)    
+
+
 
 
 

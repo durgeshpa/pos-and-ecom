@@ -301,5 +301,3 @@ class GCMActivity(models.Model):
         return self.notification.template.gcm_alert
     # for boolean into images
     gcm_alert.boolean = True
-
-

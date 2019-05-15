@@ -1,15 +1,18 @@
 import re
+from fcm.utils import get_device_model
 
 from django.template import Context, Template as DjangoTemplate
 from django.contrib.auth import get_user_model
 
 from otp.sms import SendSms
+from notification_center.fcm_notification import SendFCMNotification
 from notification_center.models import TemplateVariable, Template, UserNotification
 
 User = get_user_model()
+Device = get_device_model()
 
 
-class GenerateTemplateData:
+class GenerateTemplateData():
     # This class will geneate template data
     # Input: transaction type, user_id and
     # Output: A dictionary containing the template data
@@ -20,7 +23,7 @@ class GenerateTemplateData:
         self.template_data = {}
 
     def generate_common_data(self):
-        self.template_data['username'] = User.objects.get(id=self.user_id).username
+        self.template_data['username'] = User.objects.get(id=self.user_id).first_name
 
     def generate_signup_action_data(self):
         # self.template_data['username'] = User.objects.get(id=user_id)        
@@ -34,12 +37,12 @@ class GenerateTemplateData:
         self.template_data['order_status'] = order.order_status
 
     def create(self):
-        generate_common_data()
+        self.generate_common_data()
         if self.transaction_type == "SIGNUP":
-            generate_signup_action_data()
+            self.generate_signup_action_data()
         elif self.transaction_type == "ORDER_CREATED":
-            generate_order_created_action_data()    
-
+            self.generate_order_created_action_data()    
+        return self.template_data
 
 
 class GetTemplateVariables:
@@ -118,10 +121,15 @@ class SendNotification:
     def fetch_notification_types(self):
         pass
 
-    def merge_template_with_data(self, template_content):
-        if template_content is not None:
-            final_template = DjangoTemplate(template_content)
-    
+    def merge_template_with_data(self, template_content=""):
+        #import pdb; pdb.set_trace()
+        print (template_content)
+        print (self.template_data)
+        final_template = DjangoTemplate(template_content)
+
+        # if template_content is not None:
+        #     final_template = DjangoTemplate(template_content)
+        
         return final_template.render(Context(self.template_data))
 
 
@@ -135,28 +143,32 @@ class SendNotification:
         template = Template.objects.get(type=self.template_type)
 
         # generate template variable data
-        self.template_data = GenerateTemplateData(self.user_id, self.template_type)
+        self.template_data = GenerateTemplateData(self.user_id, self.template_type).create()#.generate_data()
 
         # if notification_types.email_notification:
         #     email_content = merge_template_with_data(template.text_email_template, self.email_variable)
         #     email = SendEmail()
         #     email.send()
 
-        # if notification_types.app_notification:
-        #     sms_content = self.merge_template_with_data(self.template.text_sms_template)
-        #     # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
-        #     notification = SendNotification(
-        #         registration_ids=registration_ids,
-        #         message_title=message_title,
-        #         message_body=message_body
-        #         )            
-        #     notification.send()
+        if notification_types.app_notification:
+
+            # fetch user registration id
+            reg_id = Device.objects.get(name="Sagar").reg_id
+            message_title = template.gcm_title
+            message_body = self.merge_template_with_data(template.gcm_description)
+            # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
+            notification = SendFCMNotification(
+                registration_id=reg_id,
+                message_title=message_title,
+                message_body=message_body
+                )            
+            notification.send()
 
         if notification_types.sms_notification:
 
             sms_content = self.merge_template_with_data(template.text_sms_template)
             print (user.phone_number, sms_content)
-            # # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
+            # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
             # message = SendSms(phone=user.phone_number,body=sms_content)
             # # message = SendSms(phone=9643112048,body="Dear sagar, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory")
             # message.send()
