@@ -93,18 +93,19 @@ class User(AbstractUser):
         return "%s"%(str(self.phone_number))
 
 
+# class UserInfo(models.Model):
+#     user = models.ForeignKey(User, related_name="user_info", on_delete=models.CASCADE)
+#     shop  = models.ForeignKey(Shop, related_name="shop", on_delete=models.CASCADE)
+#     location = models.CharField(max_length=255, null=True, blank=True)
+#     last_login = models.DateField()
+#     last_order_date = models.DateField()
 
-class UserInfo(models.Model):
-    user = models.ForeignKey(User, related_name="user_info", on_delete=models.CASCADE)
-    location = models.CharField(max_length=255, null=True, blank=True)
-    last_login = models.DateField()
-    last_order_date = models.DateField()
+#     def __str__(self):
+#         return "%s-%s" %(self.user, self.pk)
 
-    def __str__(self):
-        return "%s-%s" %(self.user, self.pk)
+#     class Meta:
+#         verbose_name = "User Info"
 
-    class Meta:
-        verbose_name = "User Info"
 
 class UserWithName(User):
     class Meta:
