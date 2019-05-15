@@ -370,12 +370,14 @@ class LoadDispatches(APIView):
                             rank=SearchRank(vector, query) + similarity
                             ).filter(
                                 Q(shipment_status='READY_TO_SHIP') |
+                                Q(shipment_status='RESCHEDULED') |
                                 Q(trip=trip_id), order__seller_shop=seller_shop
                                 ).order_by('-rank')
 
         elif seller_shop and trip_id:
             dispatches = Dispatch.objects.filter(
                             Q(shipment_status='READY_TO_SHIP') |
+                            Q(shipment_status='RESCHEDULED') |
                             Q(trip=trip_id), order__seller_shop=seller_shop)
 
         elif trip_id:
@@ -385,7 +387,8 @@ class LoadDispatches(APIView):
             dispatches = Dispatch.objects.annotate(
                 rank=SearchRank(vector, query) + similarity
             ).filter(
-                shipment_status=OrderedProduct.READY_TO_SHIP,
+                Q(shipment_status=OrderedProduct.READY_TO_SHIP) |
+                Q(shipment_status=OrderedProduct.RESCHEDULED),
                 order__seller_shop=seller_shop
             ).order_by('-rank')
 
@@ -393,7 +396,8 @@ class LoadDispatches(APIView):
             dispatches = Dispatch.objects.select_related(
                 'order', 'order__shipping_address', 'order__ordered_cart'
             ).filter(
-                shipment_status=OrderedProduct.READY_TO_SHIP,
+                Q(shipment_status=OrderedProduct.READY_TO_SHIP) |
+                Q(shipment_status=OrderedProduct.RESCHEDULED),
                 order__seller_shop=seller_shop
             ).order_by('invoice_no')
 
@@ -401,6 +405,7 @@ class LoadDispatches(APIView):
             dispatches = Dispatch.objects.annotate(
                             rank=SearchRank(vector, query) + similarity
                             ).filter(Q(shipment_status='READY_TO_SHIP') |
+                                    Q(shipment_status=OrderedProduct.RESCHEDULED) |
                                      Q(trip=trip_id)).order_by('-rank')
 
         elif area:
@@ -415,7 +420,7 @@ class LoadDispatches(APIView):
             'shipment', flat=True
         ).filter(
             ~Q(rescheduling_date=datetime.date.today()),
-            shipment__shipment_status=OrderedProduct.READY_TO_SHIP
+            shipment__shipment_status=OrderedProduct.RESCHEDULED
         )
         dispatches = dispatches.exclude(id__in=reschedule_dispatches)
 
@@ -573,19 +578,16 @@ def update_delivered_qty(instance, inline_form):
     instance.save()
 
 
-def update_shipment_status(form, formsets):
-    form_instance = getattr(form, 'instance', None)
+def update_shipment_status(form_instance, formset):
     shipped_qty_list = []
     returned_qty_list = []
     damaged_qty_list = []
-    for formset in formsets:
-        if formset.__class__.__name__ == 'OrderedProductMappingFormFormSet':
-            for inline_form in formset:
-                instance = getattr(inline_form, 'instance', None)
-                update_delivered_qty(instance, inline_form)
-                shipped_qty_list.append(instance.shipped_qty if instance else 0)
-                returned_qty_list.append(inline_form.cleaned_data.get('returned_qty', 0))
-                damaged_qty_list.append(inline_form.cleaned_data.get('damaged_qty', 0))
+    for inline_form in formset:
+        instance = getattr(inline_form, 'instance', None)
+        update_delivered_qty(instance, inline_form)
+        shipped_qty_list.append(instance.shipped_qty if instance else 0)
+        returned_qty_list.append(inline_form.cleaned_data.get('returned_qty', 0))
+        damaged_qty_list.append(inline_form.cleaned_data.get('damaged_qty', 0))
 
     shipped_qty = sum(shipped_qty_list)
     returned_qty = sum(returned_qty_list)
@@ -821,17 +823,17 @@ def commercial_shipment_details(request, pk):
         {'shipment': shipment, 'shipment_products': shipment_products}
     )
 
-def reshedule_update_shipment(form_instance, formsets):
+
+def reshedule_update_shipment(form_instance, formset):
     if form_instance.trip:
-        form_instance.shipment_status = OrderedProduct.READY_TO_SHIP
+        form_instance.shipment_status = OrderedProduct.RESCHEDULED
         form_instance.trip = None
         form_instance.save()
-        for formset in formsets:
-            if formset.__class__.__name__ == 'OrderedProductMappingFormFormSet':
-                for inline_form in formset:
-                    instance = getattr(inline_form, 'instance', None)
-                    instance.delivered_qty = 0
-                    instance.save()
+        for inline_form in formset:
+            if inline_form.is_valid:
+                product = inline_form.save(commit=False)
+                product.delivered_qty = 0
+                product.save()
 
 
 class RetailerCart(APIView):

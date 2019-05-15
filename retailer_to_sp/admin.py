@@ -545,12 +545,17 @@ class OrderedProductAdmin(admin.ModelAdmin):
     def save_related(self, request, form, formsets, change):
         super(OrderedProductAdmin, self).save_related(request, form, formsets, change)
         form_instance = getattr(form, 'instance', None)
-        if form_instance.rescheduling_shipment.exists():
-            reshedule_update_shipment(form_instance, formsets)
-        else:
-            update_shipment_status(form, formsets)
-        update_order_status(form)
-        create_credit_note(form)
+        formsets_dict = {}
+        for formset in formsets:
+            formsets_dict[formset.__class__.__name__] = formset
+        if (formsets_dict['ShipmentReschedulingFormFormSet'].has_changed() and
+            not form.changed_data):
+            reshedule_update_shipment(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
+        elif (formsets_dict['OrderedProductMappingFormFormSet'].has_changed() and 
+            form.changed_data):
+            update_shipment_status(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])           
+            update_order_status(form)
+            create_credit_note(form)
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}

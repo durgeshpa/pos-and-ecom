@@ -417,6 +417,7 @@ class Trip(models.Model):
 class OrderedProduct(models.Model): #Shipment
     CLOSED = "closed"
     READY_TO_SHIP = "READY_TO_SHIP"
+    RESCHEDULED = "RESCHEDULED"
     SHIPMENT_STATUS = (
         ('SHIPMENT_CREATED', 'QC Pending'),
         (READY_TO_SHIP, 'QC Passed'),
@@ -429,7 +430,8 @@ class OrderedProduct(models.Model): #Shipment
         ('PARTIALLY_DELIVERED_AND_CLOSED', 'Partially Delivered and Closed'),
         ('FULLY_DELIVERED_AND_CLOSED', 'Fully Delivered and Closed'),
         ('CANCELLED', 'Cancelled'),
-        (CLOSED, 'Closed')
+        (CLOSED, 'Closed'),
+        (RESCHEDULED, 'Rescheduled'),
     )
 
     CASH_NOT_AVAILABLE = 'cash_not_available'
