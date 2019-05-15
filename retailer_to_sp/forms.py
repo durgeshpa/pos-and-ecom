@@ -27,6 +27,7 @@ from products.models import Product
 from shops.models import Shop
 from accounts.models import UserWithName
 from accounts.middlewares import get_current_user
+from addresses.models import Address
 
 
 class PlainTextWidget(forms.Widget):
@@ -499,3 +500,19 @@ class CommercialForm(forms.ModelForm):
         if trip_status == 'CLOSED' and not received_amount:
             raise forms.ValidationError(('This field is required'),)
         return received_amount
+
+
+class OrderForm(forms.ModelForm):
+    seller_shop = forms.ChoiceField(required=False,choices=Shop.objects.values_list('id','shop_name'))
+    buyer_shop = forms.ChoiceField(required=False,choices=Shop.objects.values_list('id', 'shop_name'))
+    ordered_cart = forms.ChoiceField(choices=Cart.objects.values_list('id', 'order_id'))
+    billing_address = forms.ChoiceField(required=False,choices=Address.objects.values_list('id', 'address_line1'))
+    shipping_address = forms.ChoiceField(required=False,choices=Address.objects.values_list('id', 'address_line1'))
+    ordered_by = forms.ChoiceField(required=False,choices=UserWithName.objects.values_list('id', 'phone_number'))
+    last_modified_by = forms.ChoiceField(required=False,choices=UserWithName.objects.values_list('id', 'phone_number'))
+
+    class Meta:
+        model = Order
+        fields = ('seller_shop', 'buyer_shop', 'ordered_cart', 'order_no', 'billing_address', 'shipping_address',
+                  'total_mrp', 'total_discount_amount', 'total_tax_amount', 'total_final_amount', 'order_status',
+                  'ordered_by', 'last_modified_by')
