@@ -501,7 +501,6 @@ class ReservedOrder(generics.ListAPIView):
                            'response_data': serializer.data}
                     return Response(msg, status=status.HTTP_200_OK)
                 else:
-                    logger.exception("products available {}".format(products_available))
                     reserved_args = json.dumps({
                         'shop_id': parent_mapping.parent.id,
                         'cart_id': cart.id,
