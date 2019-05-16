@@ -6,15 +6,15 @@ from shops.models import Shop
 from django.conf import settings
 from django.contrib.sites.shortcuts import get_current_site
 import urllib.request
-import csv
-import codecs
+import datetime, csv, codecs, re
 from brand.models import Brand,Vendor
 from django.utils.safestring import mark_safe
 from django.utils.text import slugify
 from django.dispatch import receiver
 from django.db.models.signals import pre_save, post_save
 from django.utils.translation import gettext_lazy as _
-import datetime
+from django.core.exceptions import ValidationError
+from retailer_backend.messages import VALIDATION_ERROR_MESSAGES,ERROR_MESSAGES
 
 SIZE_UNIT_CHOICES = (
         ('mm', 'Millimeter'),
@@ -205,8 +205,8 @@ class ProductPrice(models.Model):
     price_to_service_partner = models.FloatField(null=True,blank=False)
     price_to_retailer = models.FloatField(null=True,blank=False)
     price_to_super_retailer = models.FloatField(null=True,blank=False)
-    cash_discount = models.FloatField(default=0, blank=True)
-    loyalty_incentive = models.FloatField(default=0, blank=True)
+    cash_discount = models.FloatField(default=0, blank=True,validators=[PriceValidator2])
+    loyalty_incentive = models.FloatField(default=0, blank=True,validators=[PriceValidator2])
     start_date = models.DateTimeField(null=True,blank=True)
     end_date = models.DateTimeField(null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -216,11 +216,22 @@ class ProductPrice(models.Model):
     def __str__(self):
         return "%s - %s"%(self.product.product_name, self.price_to_retailer)
 
+    def clean(self):
+        super(ProductPrice, self).clean()
+        if self.cash_discount is None:
+            raise ValidationError(VALIDATION_ERROR_MESSAGES['INVALID_MARGIN']%"Cash discount")
+        if self.loyalty_incentive is None:
+            raise ValidationError(VALIDATION_ERROR_MESSAGES['INVALID_MARGIN'] % "Loyalty discount")
+        if self.price_to_retailer > self.mrp:
+            raise ValidationError(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
 
     def save(self, *args, **kwargs):
         last_product_prices = ProductPrice.objects.filter(product=self.product,shop=self.shop,status=True).update(status=False)
         self.status = True
         super().save(*args, **kwargs)
+
+    def margin(self):
+        return round((100 * (float(self.mrp) - float(self.price_to_retailer) - (float(self.cash_discount) + float(self.loyalty_incentive)) * float(self.mrp) / 100) / float(self.mrp)), 2) if self.mrp>0 and self.price_to_retailer>0 else 0
 
 class ProductCategory(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_category',on_delete=models.CASCADE)
