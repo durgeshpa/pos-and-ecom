@@ -168,17 +168,22 @@ class GramGRNProductsList(APIView):
 
         for p in products_price:
             user_selected_qty = None
+            no_of_pieces = None
+            sub_total = None
+            name = p.product.product_name
+            mrp = round(p.mrp, 2) if p.mrp else p.mrp
+            ptr = round(p.price_to_retailer, 2) if p.price_to_retailer else p.price_to_retailer
+            loyalty_discount = round(p.loyalty_incentive, 2) if p.loyalty_incentive else p.loyalty_incentive
+            cash_discount = round(p.cash_discount, 2) if p.cash_discount else p.cash_discount
+            margin = round((100 * (float(mrp) - float(ptr) - (float(cash_discount) + float(loyalty_discount)) * float(
+                mrp) / 100) / float(mrp)), 2) if mrp and ptr else 0
+
             if cart_check == True:
                 for c_p in cart_products:
                     if c_p.cart_product_id == p.product_id:
                         user_selected_qty = c_p.qty
-            name = p.product.product_name
-            mrp = round(p.mrp,2) if p.mrp else p.mrp
-            ptr = round(p.price_to_retailer,2) if p.price_to_retailer else p.price_to_retailer
-            loyalty_discount = round(p.loyalty_incentive,2) if p.loyalty_incentive else p.loyalty_incentive
-            cash_discount = round(p.cash_discount,2) if p.cash_discount else p.cash_discount
-            margin = round((100 * (float(mrp) - float(ptr) - (float(cash_discount) + float(loyalty_discount)) * float(mrp) / 100) / float(mrp)), 2) if mrp and ptr else 0
-
+                        no_of_pieces = c_p.qty * p.product_inner_case_size
+                        sub_total = no_of_pieces * ptr
             status = p.product.status
             product_opt = p.product.product_opt_product.all()
             weight_value = None
@@ -212,7 +217,7 @@ class GramGRNProductsList(APIView):
             if request.user.is_authenticated:
                 p_list.append({"name":p.product.product_name, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "id":p.product_id,
                                 "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":user_selected_qty,
-                               "loyalty_discount":loyalty_discount,"cash_discount":cash_discount,"margin":margin})
+                               "loyalty_discount":loyalty_discount,"cash_discount":cash_discount,"margin":margin ,"no_of_pieces":no_of_pieces, "sub_total":sub_total})
             else:
                 is_store_active = False
                 p_list.append({"name":p.product.product_name, "mrp":None, "ptr":None, "status":status, "pack_size":pack_size, "id":p.product_id,
