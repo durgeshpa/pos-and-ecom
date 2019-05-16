@@ -305,7 +305,7 @@ REDIS_DB_CHOICE = {
     'local':'5'
 }
 
-REDIS_URL = "{}/{}".format(config('CACHE_HOST')+REDIS_DB_CHOICE[ENVIRONMENT.lower()])
+REDIS_URL = "{}/{}".format(config('CACHE_HOST'), REDIS_DB_CHOICE[ENVIRONMENT.lower()])
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_ACCEPT_CONTENT = ['application/json']
