@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from notification_center.models import (
     Template, TemplateVariable, Notification, UserNotification,
     TextSMSActivity, VoiceCallActivity, EmailActivity,
-    GCMActivity, NotificationScheduler
+    GCMActivity, NotificationScheduler, GroupNotificationScheduler
     )
 from notification_center.forms import (
     TemplateForm
@@ -150,34 +150,34 @@ class NotificationSchedulerAdmin(admin.ModelAdmin):
 
 
 
-# class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
-#     model = GroupNotificationScheduler
-#     list_display = ('id', 'selection_type', 'template', 'run_at', 'repeat', 'created_at')
-#     search_fields = ('id', 'selection_type', 'template')
+class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
+    model = GroupNotificationScheduler
+    list_display = ('id', 'selection_type', 'template', 'run_at', 'repeat', 'created_at')
+    search_fields = ('id', 'selection_type', 'template')
 
-#     def save_model(self, request, obj, form, change):
-#         try:
-#             #import pdb; pdb.set_trace()
-#             #integrate with celery beat
-#             selection_type = obj.selection_type
-#             activity_type = Template.objects.get(id=obj.template.id).type
+    def save_model(self, request, obj, form, change):
+        try:
+            #import pdb; pdb.set_trace()
+            #integrate with celery beat
+            selection_type = obj.selection_type
+            activity_type = Template.objects.get(id=obj.template.id).type
 
-#             if selection_type == "User":
-#                 user_id = User.objects.get(id=obj.user.id).id                
-#                 # code to send notification
-#                 #setup_periodic_tasks()  #data = {}
-#                 SendNotification(user_id=user_id, activity_type=activity_type).send()
+            if selection_type == "User":
+                user_id = User.objects.get(id=obj.user.id).id                
+                # code to send notification
+                #setup_periodic_tasks()  #data = {}
+                SendNotification(user_id=user_id, activity_type=activity_type).send()
 
-#             elif selection_type == "Shop":
-#                 users = UserInfo.object.filter(shop=obj.shop.id)
-#                 for user in users:
-#                     user_id = User.objects.get(id=obj.user.id).id
-#                     SendNotification(user_id=user_id, activity_type=activity_type).send()
+            elif selection_type == "Shop":
+                users = UserInfo.object.filter(shop=obj.shop.id)
+                for user in users:
+                    user_id = User.objects.get(id=obj.user.id).id
+                    SendNotification(user_id=user_id, activity_type=activity_type).send()
 
-#         except Exception as e:
-#             print (e.args)
-#             pass
-#         super(NotificationSchedulerAdmin, self).save_model(request, obj, form, change)    
+        except Exception as e:
+            print (e.args)
+            pass
+        super(NotificationSchedulerAdmin, self).save_model(request, obj, form, change)    
 
 
 
