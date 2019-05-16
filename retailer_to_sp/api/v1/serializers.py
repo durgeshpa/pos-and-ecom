@@ -395,7 +395,7 @@ class OrderListSerializer(serializers.ModelSerializer):
     #last_modified_by = UserSerializer()
     #rt_order_order_product = OrderedProductSerializer(many=True)
     #billing_address = AddressSerializer()
-    shipping_address = AddressSerializer()
+    #shipping_address = AddressSerializer()
     order_status = serializers.CharField(source='get_order_status_display')
 
     def to_representation(self, instance):
@@ -406,7 +406,7 @@ class OrderListSerializer(serializers.ModelSerializer):
     class Meta:
         model=Order
         fields = ('id','ordered_cart','order_no','total_final_amount','order_status',
-                  'created_at','modified_at','shipping_address')
+                  'created_at','modified_at')
 
 # Order List Realted Serilizer End
 
