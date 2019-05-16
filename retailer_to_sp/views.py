@@ -511,13 +511,18 @@ class DownloadPickList(TemplateView,):
             }
             cart_product_list.append(product_list)
 
+        shipping = order_obj.ordered_cart.buyer_shop.shop_name_address_mapping.filter(address_type='shipping').last()
+        billing = order_obj.ordered_cart.buyer_shop.shop_name_address_mapping.filter(address_type='billing').last()
+
         data = {
             "order_obj": order_obj,
             "cart_products":cart_product_list,
             "buyer_shop":order_obj.ordered_cart.buyer_shop.shop_name,
             "buyer_contact_no":order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
-            "buyer_address":order_obj.ordered_cart.buyer_shop.shop_name_address_mapping.last().address_line1,
-            "buyer_city":order_obj.ordered_cart.buyer_shop.shop_name_address_mapping.last().city.city_name,
+            "buyer_shipping_address":shipping.address_line1,
+            "buyer_shipping_city":shipping.city.city_name,
+            "buyer_billing_address": billing.address_line1,
+            "buyer_billing_city": billing.city.city_name,
         }
         cmd_option = {
             "margin-top": 10,
