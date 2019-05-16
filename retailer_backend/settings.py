@@ -85,6 +85,8 @@ INSTALLED_APPS = [
     'admin_numeric_filter',
     'django_admin_listfilter_dropdown',
     'debug_toolbar',
+    'django_celery_beat',
+    'django_celery_results',
 
 ]
 
@@ -286,10 +288,27 @@ DEBUG_TOOLBAR_CONFIG = {
 DEBUG_TOOLBAR_PATCH_SETTINGS = False
 
 # Initiate Sentry SDK
-# if ENVIRONMENT == "PRODUCTION":
-sentry_sdk.init(
-    dsn="https://2f8d192414f94cd6a0ba5b26d6461684@sentry.io/1407300",
-    integrations=[DjangoIntegration()],
-    environment=ENVIRONMENT.lower()
-)
+if ENVIRONMENT.lower() in ["production","staging", "qa", "qa1"]:
+    sentry_sdk.init(
+        dsn="https://2f8d192414f94cd6a0ba5b26d6461684@sentry.io/1407300",
+        integrations=[DjangoIntegration()],
+        environment=ENVIRONMENT.lower()
+    )
+
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 20000
+
+REDIS_DB_CHOICE = {
+    'production': '1',
+    'staging': '2',
+    'qa': '3',
+    'qa1': '3',
+    'local':'5'
+}
+
+REDIS_URL = config('CACHE_HOST')+REDIS_DB_CHOICE[ENVIRONMENT.lower()]
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
