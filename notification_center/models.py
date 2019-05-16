@@ -198,10 +198,10 @@ class NotificationScheduler(models.Model):
 class GroupNotificationScheduler(models.Model):
 
     SELECTION_TYPE_CHOICES = (
-        ('shop', 'Shop'),
-        ('user', 'User'),
-        ('last_login', 'Last Login'),
-        ('last_order', 'Last Order'),
+        ('shop', 'shop'),
+        ('user', 'user'),
+        ('last_login', 'last_login'),
+        ('last_order', 'last_order'),
     )
 
     selection_type = models.TextField(choices=SELECTION_TYPE_CHOICES, default='user')
