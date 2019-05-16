@@ -77,3 +77,4 @@ django-admin-list-filter-dropdown
 django-debug-toolbar
 django-extensions-2.1.6
 celery-4.3.0
+django-fcm==0.1.1

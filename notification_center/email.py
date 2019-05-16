@@ -1,8 +1,9 @@
 import sys
 import traceback
+import smtplib
 
 from django.conf import settings
-from django.core.mail import EmailMessage
+from email.message import EmailMessage
 
 
 class SendEmail(object):
@@ -17,14 +18,20 @@ class SendEmail(object):
 
 	def send(self):
 		try:
-			msg = EmailMessage(subject, email_body, from_email, email_list, cc_email)
+			msg = EmailMessage()
+			msg.set_content(self.email_body)
+			msg['From'] = self.from_email
+			msg['To'] = self.email_list
+			msg['Subject'] = self.subject
 			msg.content_subtype = settings.MIME_TYPE
 
 			# Add attachment to the email if any
 			if attachment != '':
 				msg.add_file(attachment)
 
-			msg.send()
+			s=smtplib.SMTP('smtp.sendgrid.net')
+			s.send_message(msg)
+
 		except:
 			# print (traceback.format_exc(sys.exc_info()))
 			if not self.fail_silently:

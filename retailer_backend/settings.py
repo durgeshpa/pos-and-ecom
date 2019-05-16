@@ -234,8 +234,6 @@ STATICFILES_DIRS = ( os.path.join(BASE_DIR, "static"),)
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 MEDIA_URL = '/media/'
 
-
-
 OTP_LENGTH = 6
 OTP_CHARS = '0123456789'
 OTP_ATTEMPTS = 5
@@ -246,9 +244,14 @@ PO_STARTS_WITH = 'ADT/PO'
 CN_STARTS_WITH = 'ADT/CN'
 INVOICE_STARTS_WITH = 'ORD'
 
-EMAIL_BACKEND = 'django_ses.SESBackend'
+EMAIL_BACKEND = 'django_ses.SESBackend' #"smtp.sendgrid.net" #
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587
+# EMAIL_HOST_USER = config('EMAIL_HOST_USER') 
+# EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+# FROM_EMAIL = config('FROM_EMAIL')
+
+
 MIME_TYPE = 'html'
 
 AWS_SES_ACCESS_KEY_ID = config('AWS_SES_ACCESS_KEY_ID')

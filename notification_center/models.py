@@ -1,7 +1,13 @@
 from django.db import models
-from django.contrib.auth import get_user_model
+from django.conf import settings
 
-User = get_user_model()
+from shops.models import Shop
+
+try:
+    from django.contrib.auth import get_user_model
+    User = settings.AUTH_USER_MODEL
+except ImportError:
+    from django.contrib.auth.models import User 
 
 
 class DateTime(models.Model):
@@ -193,58 +199,58 @@ class NotificationScheduler(models.Model):
 
 
 
-# class GroupNotificationScheduler(models.Model):
+class GroupNotificationScheduler(models.Model):
 
-#     SELECTION_TYPE_CHOICES = (
-#         ('shop', 'Shop'),
-#         ('user', 'User'),
-#         ('last_login', 'Last Login'),
-#         ('last_order', 'Last Order'),
-#     )
+    SELECTION_TYPE_CHOICES = (
+        ('shop', 'Shop'),
+        ('user', 'User'),
+        ('last_login', 'Last Login'),
+        ('last_order', 'Last Order'),
+    )
 
-#     selection_type = models.TextField(choices=SELECTION_TYPE_CHOICES, default='user')
+    selection_type = models.TextField(choices=SELECTION_TYPE_CHOICES, default='user')
 
-#     user = models.ForeignKey(
-#         get_user_model(),
-#         on_delete=models.CASCADE,
-#     )
-#     shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
-#     last_login = models.DateField()
-#     last_order = models.DateField()
+    user = models.ForeignKey(
+        get_user_model(),
+        on_delete=models.CASCADE,
+    )
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
+    last_login = models.DateField()
+    last_order = models.DateField()
 
-#     template = models.ForeignKey(
-#         Template,
-#         related_name='notification_scheduler',
-#         on_delete=models.CASCADE,
-#     )
+    template = models.ForeignKey(
+        Template,
+        related_name='group_scheduler',
+        on_delete=models.CASCADE,
+    )
 
-#     run_at = models.DateTimeField(db_index=True)
+    run_at = models.DateTimeField(db_index=True)
 
-#     # Repeat choices are encoded as number of seconds
-#     # The repeat implementation is based on this encoding
-#     HOURLY = 3600
-#     DAILY = 24 * HOURLY
-#     WEEKLY = 7 * DAILY
-#     EVERY_2_WEEKS = 2 * WEEKLY
-#     EVERY_4_WEEKS = 4 * WEEKLY
-#     NEVER = 0
-#     REPEAT_CHOICES = (
-#         (HOURLY, 'hourly'),
-#         (DAILY, 'daily'),
-#         (WEEKLY, 'weekly'),
-#         (EVERY_2_WEEKS, 'every 2 weeks'),
-#         (EVERY_4_WEEKS, 'every 4 weeks'),
-#         (NEVER, 'never'),
-#     )
-#     repeat = models.BigIntegerField(choices=REPEAT_CHOICES, default=NEVER) #in seconds
-#     repeat_until = models.DateTimeField(null=True, blank=True)
-#     created_at = models.DateTimeField(auto_now_add=True)
+    # Repeat choices are encoded as number of seconds
+    # The repeat implementation is based on this encoding
+    HOURLY = 3600
+    DAILY = 24 * HOURLY
+    WEEKLY = 7 * DAILY
+    EVERY_2_WEEKS = 2 * WEEKLY
+    EVERY_4_WEEKS = 4 * WEEKLY
+    NEVER = 0
+    REPEAT_CHOICES = (
+        (HOURLY, 'hourly'),
+        (DAILY, 'daily'),
+        (WEEKLY, 'weekly'),
+        (EVERY_2_WEEKS, 'every 2 weeks'),
+        (EVERY_4_WEEKS, 'every 4 weeks'),
+        (NEVER, 'never'),
+    )
+    repeat = models.BigIntegerField(choices=REPEAT_CHOICES, default=NEVER) #in seconds
+    repeat_until = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
-#     class Meta:
-#         ordering = ['-created_at']
+    class Meta:
+        ordering = ['-created_at']
 
-#     def __str__(self):
-#         return '%s-%s-%s' % (self.user, self.template, self.pk)
+    def __str__(self):
+        return '%s-%s-%s' % (self.user, self.template, self.pk)
 
 
 

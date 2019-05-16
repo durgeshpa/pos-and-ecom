@@ -3,13 +3,18 @@ from fcm.utils import get_device_model
 
 from django.template import Context, Template as DjangoTemplate
 from django.contrib.auth import get_user_model
+from django.conf import settings
 
 from otp.sms import SendSms
-from notification_center.fcm_notification import SendFCMNotification
+#from notification_center.fcm_notification import SendFCMNotification
 from notification_center.models import TemplateVariable, Template, UserNotification
 
-User = get_user_model()
-Device = get_device_model()
+try:
+    from django.contrib.auth import get_user_model
+    User = settings.AUTH_USER_MODEL
+except ImportError:
+    from django.contrib.auth.models import User 
+# Device = get_device_model()
 
 
 class GenerateTemplateData():
@@ -103,20 +108,14 @@ class SendNotification:
             activity_type,
             user_id_list=[],
             email_variable={}, 
-            sms_variable={"username":"sagar"}, 
+            sms_variable={}, 
             app_notification_variable={}):
         
         self.user_id_list = user_id_list
         self.user_id = user_id
         self.template_type = activity_type
         self.email_variable = email_variable
-        self.sms_variable = {"username":"sagar"}
-        # self.data = {
-        #     'email_variable': None,
-        #     'text_sms_variable': None,
-        #     'voice_call_variable': None,
-        #     'gcm_variable': None
-        # } 
+        self.sms_variable = {}
 
     def fetch_notification_types(self):
         pass
@@ -137,7 +136,7 @@ class SendNotification:
         # This function will send the notifications(email, sms, fcm) to users 
         #import pdb; pdb.set_trace()
         user = User.objects.get(id=self.user_id)
-        notification_types  = UserNotification.objects.get(user=user)
+        notification_types  = UserNotification.objects.get_or_create(user=user)
         
         #generate template content
         template = Template.objects.get(type=self.template_type)
@@ -167,7 +166,7 @@ class SendNotification:
         if notification_types.sms_notification:
 
             sms_content = self.merge_template_with_data(template.text_sms_template)
-            print (user.phone_number, sms_content)
+            #print (user.phone_number, sms_content)
             # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
             message = SendSms(phone=user.phone_number,body=sms_content)
             # message = SendSms(phone=9643112048,body="Dear sagar, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory")

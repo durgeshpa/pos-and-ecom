@@ -11,6 +11,10 @@ from django.utils.safestring import mark_safe
 from otp.sms import SendSms
 import datetime
 
+from notification_center.utils import (
+    SendNotification
+    )
+
 
 USER_TYPE_CHOICES = (
         (1, 'Administrator'),
@@ -151,14 +155,17 @@ def user_creation_notification(sender, instance=None, created=False, **kwargs):
             username = instance.first_name
         else:
             username = instance.phone_number
-        message = SendSms(phone=instance.phone_number,
-                          body = '''\
-                                Dear %s, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering.
-Thanks,
-Team GramFactory
-                                ''' % (username))
 
-        message.send()
+        activity_type = "SIGNUP"
+        SendNotification(user_id=instance.id, activity_type=activity_type).send()    
+#         message = SendSms(phone=instance.phone_number,
+#                           body = '''\
+#                                 Dear %s, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering.
+# Thanks,
+# Team GramFactory
+#                                 ''' % (username))
+
+#         message.send()
 
 from otp.models import PhoneOTP
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
