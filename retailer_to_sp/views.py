@@ -28,7 +28,7 @@ from django.conf import settings
 
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector, TrigramSimilarity
 from shops.models import Shop
-from retailer_to_sp.api.v1.serializers import DispatchSerializer
+from retailer_to_sp.api.v1.serializers import DispatchSerializer, CommercialShipmentSerializer
 import json
 from django.http import HttpResponse
 from django.core import serializers
@@ -180,7 +180,7 @@ def ordered_product_mapping_shipment(request):
                                           )
     form = OrderedProductForm()
     form_set = ordered_product_set()
-    if order_id:
+    if order_id and request.method == 'GET':
         ordered_product = Cart.objects.filter(pk=order_id)
         ordered_product = Order.objects.get(pk=order_id).ordered_cart
         order_product_mapping = CartProductMapping.objects.filter(
@@ -354,7 +354,7 @@ class LoadDispatches(APIView):
         seller_shop = request.GET.get('seller_shop_id')
         area = request.GET.get('area')
         trip_id = request.GET.get('trip_id')
-
+        commercial = request.GET.get('commercial')
         vector = SearchVector('order__shipping_address__address_line1')
         query = SearchQuery(area)
         similarity = TrigramSimilarity(
@@ -403,7 +403,12 @@ class LoadDispatches(APIView):
         else:
             dispatches = Dispatch.objects.none()
 
-        if dispatches:
+        if dispatches and commercial:
+            serializer = CommercialShipmentSerializer(dispatches, many=True)
+            msg = {'is_success': True,
+                   'message': None,
+                   'response_data': serializer.data}
+        elif dispatches:
             serializer = DispatchSerializer(dispatches, many=True)
             msg = {'is_success': True,
                    'message': None,
@@ -788,3 +793,26 @@ class DownloadTripPdf(APIView):
             show_content_in_browser=False, cmd_options=cmd_option
         )
         return response
+
+
+def commercial_shipment_details(request, pk):
+    shipment = OrderedProduct.objects.select_related('order').get(pk=pk)
+    shipment_products = OrderedProductMapping.objects.\
+        select_related('product').filter(ordered_product=shipment)
+    return render(
+        request,
+        'admin/retailer_to_sp/CommercialShipmentDetails.html',
+        {'shipment': shipment, 'shipment_products': shipment_products}
+    )
+
+from retailer_to_sp.api.v1.serializers import OrderedCartSerializer
+
+class RetailerCart(APIView):
+    permission_classes = (AllowAny,)
+    def get(self, request, *args, **kwargs):
+        order_obj = Order.objects.get(order_no=request.GET.get('order_no'))
+        dt = OrderedCartSerializer(
+            order_obj.ordered_cart,
+            context={'parent_mapping_id': order_obj.seller_shop.id,}
+        )
+        return Response({'is_success': True,'response_data': dt.data}, status=status.HTTP_200_OK)

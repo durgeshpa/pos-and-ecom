@@ -60,7 +60,7 @@ def get_shop_warehouse_code(shop):
 def get_shop_warehouse_state_code(address):
     address = Address.objects.select_related('state',
                                              'shop_name').get(pk=address)
-    state_code = format(address.state_id, '02d')
+    state_code = format(int(address.state.state_code), '02d')
     shop_code, warehouse_code = get_shop_warehouse_code(address.shop_name)
     return state_code, shop_code, warehouse_code
 
@@ -70,7 +70,7 @@ def get_last_no_to_increment(model, field, instance_id, starts_with):
                                         **{field+'__icontains': starts_with})
 
     if instance_with_current_pattern:
-        last_instance_no = instance_with_current_pattern.last()
+        last_instance_no = instance_with_current_pattern.order_by(field).last()
         return int(getattr(last_instance_no, field)[-7:])
 
     else:

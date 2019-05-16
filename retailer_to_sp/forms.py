@@ -27,6 +27,7 @@ from products.models import Product
 from shops.models import Shop
 from accounts.models import UserWithName
 from accounts.middlewares import get_current_user
+from addresses.models import Address
 
 
 class PlainTextWidget(forms.Widget):
@@ -284,7 +285,7 @@ class TripForm(forms.ModelForm):
                 self.fields['delivery_boy'].disabled = True
                 self.fields['seller_shop'].disabled = True
                 self.fields['vehicle_no'].disabled = True
-                self.fields['trip_status'].choices = TRIP_STATUS[2:]
+                self.fields['trip_status'].choices = TRIP_STATUS[2:4]
                 self.fields['search_by_area'].widget = forms.HiddenInput()
 
             elif trip_status == 'COMPLETED':
@@ -470,3 +471,48 @@ class CartForm(forms.ModelForm):
 
         fields = ['seller_shop', 'buyer_shop']
         required_fields(self, fields)
+
+
+class CommercialForm(forms.ModelForm):
+    class Meta:
+        model = Trip
+        fields = ['dispatch_no', 'delivery_boy', 'seller_shop', 'trip_status',
+                  'starts_at', 'completed_at', 'e_way_bill_no', 'vehicle_no',
+                  'trip_amount', 'received_amount']
+
+    class Media:
+        js = ('admin/js/CommercialLoadShipments.js', )
+
+    def __init__(self, *args, **kwargs):
+        super(CommercialForm, self).__init__(*args, **kwargs)
+        self.fields['trip_status'].choices = TRIP_STATUS[3:5]
+        instance = getattr(self, 'instance', None)
+        if instance.pk:
+            if (instance.trip_status == 'TRANSFERRED' or
+                    instance.trip_status == 'CLOSED'):
+                self.fields['trip_status'].choices = TRIP_STATUS[-3:]
+                for field_name in self.fields:
+                    self.fields[field_name].disabled = True
+
+    def clean_received_amount(self):
+        trip_status = self.cleaned_data.get('trip_status')
+        received_amount = self.cleaned_data.get('received_amount')
+        if trip_status == 'CLOSED' and not received_amount:
+            raise forms.ValidationError(('This field is required'),)
+        return received_amount
+
+
+class OrderForm(forms.ModelForm):
+    seller_shop = forms.ChoiceField(required=False,choices=Shop.objects.values_list('id','shop_name'))
+    buyer_shop = forms.ChoiceField(required=False,choices=Shop.objects.values_list('id', 'shop_name'))
+    ordered_cart = forms.ChoiceField(choices=Cart.objects.values_list('id', 'order_id'))
+    billing_address = forms.ChoiceField(required=False,choices=Address.objects.values_list('id', 'address_line1'))
+    shipping_address = forms.ChoiceField(required=False,choices=Address.objects.values_list('id', 'address_line1'))
+    ordered_by = forms.ChoiceField(required=False,choices=UserWithName.objects.values_list('id', 'phone_number'))
+    last_modified_by = forms.ChoiceField(required=False,choices=UserWithName.objects.values_list('id', 'phone_number'))
+
+    class Meta:
+        model = Order
+        fields = ('seller_shop', 'buyer_shop', 'ordered_cart', 'order_no', 'billing_address', 'shipping_address',
+                  'total_mrp', 'total_discount_amount', 'total_tax_amount', 'total_final_amount', 'order_status',
+                  'ordered_by', 'last_modified_by')
