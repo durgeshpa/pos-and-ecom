@@ -6,15 +6,12 @@ from django.contrib.auth import get_user_model
 from django.conf import settings
 
 from otp.sms import SendSms
-#from notification_center.fcm_notification import SendFCMNotification
-from notification_center.models import TemplateVariable, Template, UserNotification
+from notification_center.fcm_notification import SendFCMNotification
 
-try:
-    from django.contrib.auth import get_user_model
-    User = settings.AUTH_USER_MODEL
-except ImportError:
-    from django.contrib.auth.models import User 
-# Device = get_device_model()
+from notification_center.models import TemplateVariable, Template, UserNotification
+ 
+User = get_user_model()
+Device = get_device_model()
 
 
 class GenerateTemplateData():

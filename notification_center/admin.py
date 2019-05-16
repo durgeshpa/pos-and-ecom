@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 
+
 from notification_center.models import (
     Template, TemplateVariable, Notification, UserNotification,
     TextSMSActivity, VoiceCallActivity, EmailActivity,
