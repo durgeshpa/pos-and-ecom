@@ -316,8 +316,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
                   'created_at','modified_at','rt_order_order_product')
 
 # Order List Realted Serilizer Start
-
-class ProductsSearchSerializer(serializers.ModelSerializer):
+class ProductsSearchListSerializer(serializers.ModelSerializer):
     #product_pro_price = ProductPriceSerializer(many=True)
     product_price = serializers.SerializerMethodField('product_price_dt')
     product_mrp = serializers.SerializerMethodField('product_mrp_dt')
@@ -339,11 +338,28 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
         fields = ('id','product_name','product_sku','product_mrp',
                   'product_price','product_inner_case_size','product_case_size','product_case_size_picies')
 
+
+class CartProductListPrice(serializers.ModelSerializer):
+    product = ProductsSearchListSerializer()
+    product_price = serializers.SerializerMethodField('product_price_dt')
+    product_mrp = serializers.SerializerMethodField('product_mrp_dt')
+
+    def product_price_dt(self,obj):
+        return obj.price_to_retailer
+
+    def product_mrp_dt(self,obj):
+        return obj.mrp
+
+    class Meta:
+        model = ProductPrice
+        fields = ('id','product','product_price','product_mrp','created_at')
+
 class OrderedCartProductMappingListSerializer(serializers.ModelSerializer):
-    cart_product = ProductsSearchSerializer()
+    cart_product = ProductsSearchListSerializer()
     no_of_pieces = serializers.SerializerMethodField('no_pieces_dt')
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
     product_inner_case_size = serializers.SerializerMethodField('product_inner_case_size_dt')
+    cart_product_price = CartProductListPrice()
 
     def no_pieces_dt(self, obj):
         return int(obj.no_of_pieces)
