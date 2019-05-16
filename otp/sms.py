@@ -2,6 +2,8 @@ import urllib.parse
 import requests, re
 from decouple import config
 from django.core.exceptions import ValidationError
+from .tasks import send_gupshup_request
+
 
 class SendSms(object):
     """Configure to change SMS backend"""
@@ -26,8 +28,8 @@ class SendSms(object):
                 'v':'1.1',
                 'format':'text'
                 }
-            req = requests.get('https://enterprise.smsgupshup.com/GatewayAPI/rest', params=query)
-            return req.status_code, req.text
+            url = "https://enterprise.smsgupshup.com/GatewayAPI/rest"
+            return send_gupshup_request.delay(url, query)
         except:
             error = "Something went wrong! Please try again"
             status_code = "400"
@@ -68,8 +70,8 @@ class SendVoiceSms(object):
                 'repeat':'5',
                 'authkey': config('SMS_AUTH_KEY'),
                 }
-            req = requests.get('http://products.smsgupshup.com/FreeSpeech/incoming.php', params=query)
-            return req.status_code, req.text
+            url = "http://products.smsgupshup.com/FreeSpeech/incoming.php"
+            return send_gupshup_request.delay(url, query)
         except:
             error = "Something went wrong! Please try again"
             status_code = "400"

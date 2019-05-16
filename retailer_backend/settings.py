@@ -85,6 +85,8 @@ INSTALLED_APPS = [
     'admin_numeric_filter',
     'django_admin_listfilter_dropdown',
     'debug_toolbar',
+    'django_celery_beat',
+    'django_celery_results',
 
 ]
 
@@ -299,7 +301,7 @@ REDIS_DB_CHOICE = {
     'production': '1',
     'staging': '2',
     'qa': '3',
-    'qa1': '4',
+    'qa1': '3',
     'local':'5'
 }
 
