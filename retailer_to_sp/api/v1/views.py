@@ -506,7 +506,7 @@ class ReservedOrder(generics.ListAPIView):
                         'cart_id': cart.id,
                         'products': products_available
                         })
-                    create_reserved_order.delay(reserved_args)
+                    create_reserved_order(reserved_args)
             serializer = CartSerializer(cart, context={
                 'parent_mapping_id': parent_mapping.parent.id})
             msg = {
