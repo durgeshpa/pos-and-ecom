@@ -31,16 +31,6 @@ class GetSlotBannerListView(APIView):
             if Shop.objects.get(id=shop_id).retiler_mapping.exists():
                 parent = ParentRetailerMapping.objects.get(retailer=shop_id, status=True).parent
                 data = BannerData.objects.filter(banner_data__status=True, slot__page__name=position_name,slot__bannerslot__name=pos_name, slot__shop=parent.id).filter(Q(banner_data__banner_start_date__isnull=True) | Q(banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate))
-                for d in data:
-                    if d.banner_data.brand:
-                        pass
-                    if d.banner_data.brand == None:
-                        d.banner_data.brand = d.banner_data.sub_brand
-                    if d.banner_data.category:
-                        pass
-                    if d.banner_data.category== None:
-                        d.banner_data.category = d.banner_data.sub_category
-
                 is_success = True if data else False
                 message = "" if is_success else "Banners are currently not available"
                 serializer = BannerDataSerializer(data,many=True)
