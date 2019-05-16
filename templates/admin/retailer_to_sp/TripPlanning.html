@@ -201,7 +201,6 @@ function CreateResponseTable(data){
       }
       var pk = data['response_data'][i]['pk'];
       var trip = data['response_data'][i]['trip'];
-      var select = "<td><input type='checkbox' class='shipment_checkbox' value='" + pk + "'></td>";
       var order = "<td>" + data['response_data'][i]['order'] + "</td>";
       var shipment_status = "<td>" + data['response_data'][i]['shipment_status'] + "</td>";
       if (GetTripStatus() == ('COMPLETED')){
@@ -212,8 +211,14 @@ function CreateResponseTable(data){
       var invoice_city = "<td>" + data['response_data'][i]['invoice_city'] + "</td>";
       var shipment_address = "<td>" + data['response_data'][i]['shipment_address'] + "</td>";
       var created_at = "<td>" + data['response_data'][i]['created_at'] + "</td>";
+      var select = "<td><input type='checkbox' class='shipment_checkbox' value='" + pk + "'></td>";
 
+      if (jQuery.inArray(pk.toString(), list)!='-1') {
+        var select = "<td><input type='checkbox' class='shipment_checkbox' value='" + pk + "' checked></td>";
+      $("tbody#data").prepend("<tr class=" + row + ">" + select + invoice_no + invoice_amount + shipment_status + invoice_city + created_at + order + shipment_address +"</tr>");
+      }else {
       $("tbody#data").append("<tr class=" + row + ">" + select + invoice_no + invoice_amount + shipment_status + invoice_city + created_at + order + shipment_address +"</tr>");
+      }
   }
 }
 
@@ -226,15 +231,16 @@ function GetTripStatus(){
 }
 
 function AddCheckedIDToList(){
-  $(document).on('click', '.shipment_checkbox', function() {
-      if ($(this).is(':checked')) {
+  $(document).on("change", "input[type='checkbox']", function () {
+    if(this.checked) {
           list.push($(this).val());
           $('#id_selected_id').val(list);
-      } else {
-          list.pop($(this).val());
+    } else {
+          list.splice($.inArray($(this).val(), list),1);
           $('#id_selected_id').val(list);
       }
   });
+
 }
 </script>
 {% endblock %}
