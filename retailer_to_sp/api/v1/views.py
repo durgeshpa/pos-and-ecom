@@ -467,12 +467,12 @@ class ReservedOrder(generics.ListAPIView):
                            'message': ['No product is available in cart'],
                            'response_data': None}
                     return Response(msg, status=status.HTTP_200_OK)
-                
+
                 cart_products.update(qty_error_msg='')
                 cart_product_ids = cart_products.values('cart_product')
                 shop_products_available = OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product__in=cart_product_ids,available_qty__gt=0).values('product_id').annotate(available_qty=Sum('available_qty'))
                 shop_products_dict = {g['product_id']:int(g['available_qty']) for g in shop_products_available}
-                
+
                 products_available = {}
                 products_unavailable = []
                 for cart_product in cart_products:
@@ -924,10 +924,14 @@ class CustomerCareApi(APIView):
 
 
     def post(self,request):
+        phone_number = self.request.POST.get('phone_number')
         order_id=self.request.POST.get('order_id')
         select_issue=self.request.POST.get('select_issue')
         complaint_detail=self.request.POST.get('complaint_detail')
         msg = {'is_success': False,'message': [''],'response_data': None}
+        if not phone_number :
+            msg['message']= ["Please type the phone_number"]
+            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
         if not complaint_detail :
             msg['message']= ["Please type the complaint_detail"]
             return Response(msg, status=status.HTTP_400_BAD_REQUEST)

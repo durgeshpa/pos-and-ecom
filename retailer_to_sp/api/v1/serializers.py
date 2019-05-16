@@ -327,7 +327,7 @@ class CustomerCareSerializer(serializers.ModelSerializer):
     #order_id=OrderNumberSerializer(read_only=True)
     class Meta:
         model=CustomerCare
-        fields=('complaint_id','email_us', 'order_id', 'issue_status', 'select_issue','complaint_detail')
+        fields=('phone_number', 'complaint_id','email_us', 'order_id', 'issue_status', 'select_issue','complaint_detail')
         read_only_fields=('complaint_id','email_us','issue_status')
 
 class PaymentCodSerializer(serializers.ModelSerializer):
