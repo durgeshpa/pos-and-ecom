@@ -62,6 +62,21 @@ class Shop(models.Model):
         super(Shop, self).__init__(*args, **kwargs)
         self.__original_status = self.status
 
+    @property
+    def get_shop_shipping_address(self):
+        if self.shop_name_address_mapping.exists():
+            for address in self.shop_name_address_mapping.filter(address_type ='shipping').all():
+                return address.address_line1
+    get_shop_shipping_address.fget.short_description = 'Shipping Address'
+
+    @property
+    def get_shop_pin_code(self):
+        if self.shop_name_address_mapping.exists():
+            for address in self.shop_name_address_mapping.filter(address_type ='shipping').all():
+                return address.pincode
+    get_shop_pin_code.fget.short_description = 'PinCode'
+
+
     def save(self, force_insert=False, force_update=False, *args, **kwargs):
         if self.status != self.__original_status and self.status is True and ParentRetailerMapping.objects.filter(retailer=self, status=True).exists():
             username = self.shop_owner.first_name if self.shop_owner.first_name else self.shop_owner.phone_number
