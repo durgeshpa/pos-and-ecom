@@ -11,6 +11,7 @@ from rest_framework import permissions, authentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
+from celery.task import task
 
 from sp_to_gram.models import OrderedProductReserved
 from retailer_to_sp.models import (
@@ -244,7 +245,7 @@ def ordered_product_mapping_shipment(request):
                             formset_data.save()
                 update_qty = DeductReservedQtyFromShipment(
                     ordered_product_instance, form_set)
-                update_qty.update()
+                update_qty.update.delay()
                 return redirect('/admin/retailer_to_sp/shipment/')
 
     return render(
@@ -671,6 +672,7 @@ class DeductReservedQtyFromShipment(object):
             remaining_amount -= deduct_qty
             ordered_product_reserved.save()
 
+    @task
     def update(self):
         for form in self.shipment_products:
             if form.instance.pk:
