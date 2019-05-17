@@ -405,7 +405,7 @@ class OrderListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model=Order
-        fields = ('id','ordered_cart','order_no','total_final_amount','order_status',
+        fields = ('id','ordered_cart','order_no','total_final_amount','order_status','shipping_address',
                   'created_at','modified_at')
 
 # Order List Related Serializer End
