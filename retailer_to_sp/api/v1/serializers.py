@@ -377,11 +377,6 @@ class OrderedCartProductMappingListSerializer(serializers.ModelSerializer):
 
 class OrderedCartListSerializer(serializers.ModelSerializer):
     rt_cart_list = OrderedCartProductMappingListSerializer(many=True)
-    #last_modified_by = UserSerializer()
-    #items_count = serializers.ReadOnlyField(source='qty_sum')
-    #total_amount = serializers.ReadOnlyField(source='subtotal')
-    #sub_total = serializers.ReadOnlyField(source='subtotal')
-
     class Meta:
         model = Cart
         fields = ('id','order_id','cart_status','rt_cart_list')
@@ -390,10 +385,6 @@ class OrderedCartListSerializer(serializers.ModelSerializer):
 #order List
 class OrderListSerializer(serializers.ModelSerializer):
     ordered_cart = OrderedCartListSerializer()
-    #ordered_by = UserSerializer()
-    #last_modified_by = UserSerializer()
-    #rt_order_order_product = OrderedProductSerializer(many=True)
-    #billing_address = AddressSerializer()
     #Todo remove
     shipping_address = AddressSerializer()
     order_status = serializers.CharField(source='get_order_status_display')
