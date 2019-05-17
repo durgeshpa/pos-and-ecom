@@ -11,9 +11,7 @@ from django.utils.safestring import mark_safe
 from otp.sms import SendSms
 import datetime
 
-# from notification_center.utils import (
-#     SendNotification
-#     )
+from notification_center.utils import SendNotification
 
 
 USER_TYPE_CHOICES = (
@@ -79,20 +77,6 @@ class User(AbstractUser):
     def user_photo_thumbnail(self):
         return mark_safe('<img alt="%s" src="%s" />' % (self.user, self.user_photo.url))
 
-    # def send_notification(self):
-        
-    #     notification_types  = UserNotification.objects.filter(user=user_id)
-    #     template = Template.objects.filter(template_type=self.template_type)
-
-    #     if notification_types.email_notification:
-    #         email_content = merge_template_with_data(template.text_email_template, self.email_variable)
-    #         send_email()
-
-    #     if notification_types.sms_notification:
-    #         sms_content = merge_template_with_data(template.text_sms_template, self.sms_variable)
-    #         send_sms()
-
-
     def __str__(self):
         return "%s"%(str(self.phone_number))
 
@@ -148,6 +132,8 @@ def create_auth_token(sender, instance=None, created=False, **kwargs):
     if created:
         Token.objects.create(user=instance)
 
+# from notification_center.utils import SendNotification
+
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
 def user_creation_notification(sender, instance=None, created=False, **kwargs):
     if created:
@@ -157,15 +143,18 @@ def user_creation_notification(sender, instance=None, created=False, **kwargs):
             username = instance.phone_number
 
         activity_type = "SIGNUP"
-        #SendNotification(user_id=instance.id, activity_type=activity_type).send()    
-        message = SendSms(phone=instance.phone_number,
-                          body = '''\
-                                Dear %s, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering.
-Thanks,
-Team GramFactory
-                                ''' % (username))
+        data = {}
+        data['username'] = username
+        data['phone_number'] = instance.phone_number
+        SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()    
+#         message = SendSms(phone=instance.phone_number,
+#                           body = '''\
+#                                 Dear %s, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering.
+# Thanks,
+# Team GramFactory
+#                                 ''' % (username))
 
-        message.send()
+#         message.send()
 
 from otp.models import PhoneOTP
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
