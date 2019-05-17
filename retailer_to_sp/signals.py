@@ -37,8 +37,6 @@ class ReservedOrder(object):
 		ordered_product_details = self.sp_ordered_product_details(product)
 		available_qty = ordered_product_details.aggregate(
 			available_qty_sum=Sum('available_qty'))['available_qty_sum']
-		if not available_qty:
-			return 0
 		return available_qty
 
 	def sp_product_availability(self, product, ordered_qty):
