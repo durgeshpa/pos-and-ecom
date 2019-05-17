@@ -5,7 +5,7 @@ from django.conf import settings
 #from shops.models import Shop
 
 User = 'accounts.User' #User
-Shop = 'shops.Shop'
+#Shop = 'shops.Shop'
 
 
 class DateTime(models.Model):
@@ -206,15 +206,12 @@ class GroupNotificationScheduler(models.Model):
         ('last_order', 'last_order'),
     )
 
-    selection_type = models.TextField(choices=SELECTION_TYPE_CHOICES, default='user')
+    selection_type = models.TextField(choices=SELECTION_TYPE_CHOICES, max_length=255, default='user')
 
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-    )
-    shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
-    last_login = models.DateField()
-    last_order = models.DateField()
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    #shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
+    last_login = models.DateField(null=True, blank=True)
+    last_order = models.DateField(null=True, blank=True)
 
     template = models.ForeignKey(
         Template,
