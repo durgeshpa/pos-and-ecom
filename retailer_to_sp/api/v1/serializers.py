@@ -316,8 +316,8 @@ class OrderDetailSerializer(serializers.ModelSerializer):
                   'created_at','modified_at','rt_order_order_product')
 
 # Order List Realted Serilizer Start
+
 class ProductsSearchListSerializer(serializers.ModelSerializer):
-    #product_pro_price = ProductPriceSerializer(many=True)
     product_price = serializers.SerializerMethodField('product_price_dt')
     product_mrp = serializers.SerializerMethodField('product_mrp_dt')
     product_case_size_picies = serializers.SerializerMethodField('product_case_size_picies_dt')
@@ -340,7 +340,6 @@ class ProductsSearchListSerializer(serializers.ModelSerializer):
 
 
 class CartProductListPrice(serializers.ModelSerializer):
-    product = ProductsSearchListSerializer()
     product_price = serializers.SerializerMethodField('product_price_dt')
     product_mrp = serializers.SerializerMethodField('product_mrp_dt')
 
@@ -352,7 +351,7 @@ class CartProductListPrice(serializers.ModelSerializer):
 
     class Meta:
         model = ProductPrice
-        fields = ('id','product','product_price','product_mrp','created_at')
+        fields = ('id','product_price','product_mrp','created_at')
 
 class OrderedCartProductMappingListSerializer(serializers.ModelSerializer):
     cart_product = ProductsSearchListSerializer()
@@ -395,7 +394,8 @@ class OrderListSerializer(serializers.ModelSerializer):
     #last_modified_by = UserSerializer()
     #rt_order_order_product = OrderedProductSerializer(many=True)
     #billing_address = AddressSerializer()
-    #shipping_address = AddressSerializer()
+    #Todo remove
+    shipping_address = AddressSerializer()
     order_status = serializers.CharField(source='get_order_status_display')
 
     def to_representation(self, instance):
@@ -408,7 +408,7 @@ class OrderListSerializer(serializers.ModelSerializer):
         fields = ('id','ordered_cart','order_no','total_final_amount','order_status',
                   'created_at','modified_at')
 
-# Order List Realted Serilizer End
+# Order List Related Serializer End
 
 
 class OrderNumberSerializer(serializers.ModelSerializer):
