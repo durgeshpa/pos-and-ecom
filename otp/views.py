@@ -145,7 +145,7 @@ class SendSmsOTP(CreateAPIView):
                 message = SendSms(phone=number,
                                   body="%s is your One Time Password for GramFactory Account."\
                                        " Request time is %s, %s IST." % (otp,date,time))
-                status_code, reason = message.send()
+                message.send()
                 # if 'success' in reason:
                 phone_otp.last_otp = timezone.now()
                 phone_otp.save()
@@ -207,7 +207,7 @@ class ResendSmsOTP(CreateAPIView):
                     message = SendSms(phone=number,
                                       body="%s is your One Time Password for GramFactory Account."\
                                            " Request time is %s, %s IST." % (otp,date,time))
-                    status_code, reason = message.send()
+                    message.send()
                     #if 'success' in reason:
                     user.last_otp = timezone.now()
                     user.save()
@@ -354,7 +354,7 @@ class RevokeOTP(object):
         message = SendSms(phone=number,
                           body="%s is your One Time Password for GramFactory Account."\
                                " Request time is %s, %s IST." % (otp,date,time))
-        status_code, reason = message.send()
+        message.send()
         #if 'success' in reason:
         phone_otp.last_otp = timezone.now()
         phone_otp.save()
