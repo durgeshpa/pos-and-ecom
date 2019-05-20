@@ -244,7 +244,7 @@ def ordered_product_mapping_shipment(request):
                             formset_data.ordered_product = ordered_product_instance
                             formset_data.save()
 
-                update_reserved_order(json.dumps({'shipment_id': ordered_product_instance}))
+                update_reserved_order(json.dumps({'shipment_id': ordered_product_instance.id}))
                 return redirect('/admin/retailer_to_sp/shipment/')
 
     return render(
