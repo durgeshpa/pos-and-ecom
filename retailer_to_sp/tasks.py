@@ -44,7 +44,7 @@ def update_reserved_order(reserved_args):
     shipment_id = params['shipment_id']
     shipment = OrderedProduct.objects.get(pk=shipment_id)
     shipment_products = shipment.rt_order_product_order_product_mapping.all().values('product__id').annotate(shipped_items=Sum('shipped_qty'))
-    shipment_products_mapping = {i['product']:i['shipped_qty'] for i in shipment_products}
+    shipment_products_mapping = {i['product']:i['shipped_items'] for i in shipment_products}
     cart = shipment.order.ordered_cart
     reserved_products = OrderedProductReserved.objects.filter(cart=cart, product__id=shipment_products_mapping.keys())
     for rp in reserved_products:
