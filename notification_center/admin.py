@@ -183,21 +183,21 @@ class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
     model = GroupNotificationScheduler
     list_display = ('id', 'user', 'template', 'run_at', 'repeat', 'created_at')
     search_fields = ('id', 'user', 'template')
-    change_form_template = 'admin/notification_center/group_notification_scheduler/group-notification.html'
-    form = GroupNotificationForm
+    # change_form_template = 'admin/notification_center/group_notification_scheduler/group-notification.html'
+    # form = GroupNotificationForm
 
-    def get_urls(self):
+    # def get_urls(self):
 
-        urls = super(GroupNotificationSchedulerAdmin, self).get_urls()
-        custom_urls = [
-            url(
-                r'^test',
-                self.admin_site.admin_view(group_notification_view),
-                name="group-notification-scheduler"
-            ),
+    #     urls = super(GroupNotificationSchedulerAdmin, self).get_urls()
+    #     custom_urls = [
+    #         url(
+    #             r'^test',
+    #             self.admin_site.admin_view(group_notification_view),
+    #             name="group-notification-scheduler"
+    #         ),
 
-        ] + urls
-        return custom_urls
+    #     ] + urls
+    #     return custom_urls
 
     def save_model(self, request, obj, form, change):
         try:
