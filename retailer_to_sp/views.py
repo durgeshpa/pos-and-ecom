@@ -828,9 +828,14 @@ class OrderList(APIView):
 
         session = Session.objects.get(session_key=request.session.session_key)
         user = get_user_model().objects.get(pk=session.get_decoded().get('_auth_user_id'))
-        orders = Order.objects.filter(
-            Q(seller_shop__related_users=user) |
-            Q(seller_shop__shop_owner=user))[offset:page_limit_dt]
+
+        if user.is_superuser:
+            orders = Order.objects.all()[offset:page_limit_dt]
+        else:
+            orders = Order.objects.filter(
+                Q(seller_shop__related_users=user) |
+                Q(seller_shop__shop_owner=user))[offset:page_limit_dt]
+
         dt = []
         for order in orders:
             payment_mode = []
