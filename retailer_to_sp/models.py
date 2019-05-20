@@ -14,7 +14,9 @@ from retailer_backend.common_function import (
     order_id_pattern, brand_credit_note_pattern, getcredit_note_id,
     retailer_sp_invoice
 )
-from .utils import order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util
+from .utils import (order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util,
+                    order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
+                    order_damaged_amount, order_delivered_value)
 from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
@@ -308,19 +310,55 @@ class Order(models.Model):
     def shipment_status(self):
         return order_shipment_status(self.shipments())
 
+    # no need
+    # @property
+    # def order_shipment_amount(self):
+    #     return order_shipment_amount(self.shipments())
+
+    # no need
+    # @property
+    # def order_shipment_details(self):
+    #     return order_shipment_details_util(self.shipments())
+
+    # @property
+    # def shipment_returns(self):
+    #     return self._shipment_returns
+
     @property
-    def order_shipment_amount(self):
+    def picking_status(self):
+        return "-"
+
+    @property
+    def picker_name(self):
+        return "-"
+
+    @property
+    def shipment_date(self):
+        return order_shipment_date(self.shipments())
+
+    @property
+    def invoice_amount(self):
         return order_shipment_amount(self.shipments())
 
+    # @property
+    # def delivery_date(self):
+    #     return order_delivery_date(self.shipments())
+    #
+    # @property
+    # def cn_amount(self):
+    #     return order_cn_amount(self.shipments())
+    #
+    # @property
+    # def cash_collected(self):
+    #     return order_cash_to_be_collected(self.shipments())
+    #
+    # @property
+    # def damaged_amount(self):
+    #     return order_damaged_amount(self.shipments())
 
     @property
-    def order_shipment_details(self):
-        return order_shipment_details_util(self.shipments())
-
-    @property
-    def shipment_returns(self):
-        return self._shipment_returns
-
+    def delivered_value(self):
+        return order_delivered_value(self.shipments())
 
 class Trip(models.Model):
     seller_shop = models.ForeignKey(
