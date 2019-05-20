@@ -929,9 +929,6 @@ class CustomerCareApi(APIView):
         select_issue=self.request.POST.get('select_issue')
         complaint_detail=self.request.POST.get('complaint_detail')
         msg = {'is_success': False,'message': [''],'response_data': None}
-        if not phone_number :
-            msg['message']= ["Please type the phone_number"]
-            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
         if not complaint_detail :
             msg['message']= ["Please type the complaint_detail"]
             return Response(msg, status=status.HTTP_400_BAD_REQUEST)
