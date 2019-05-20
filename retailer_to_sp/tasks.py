@@ -44,13 +44,15 @@ def update_reserved_order(reserved_args):
     shipment_id = params['shipment_id']
     shipment = OrderedProduct.objects.get(pk=shipment_id)
     shipment_products = shipment.rt_order_product_order_product_mapping.all().values('product__id').annotate(shipped_items=Sum('shipped_qty'))
-    shipment_products_mapping = {i['product']:i['shipped_items'] for i in shipment_products}
+    shipment_products_mapping = {i['product__id']:i['shipped_items'] for i in shipment_products}
     cart = shipment.order.ordered_cart
-    reserved_products = OrderedProductReserved.objects.filter(cart=cart, product__id=shipment_products_mapping.keys())
+    reserved_products = OrderedProductReserved.objects.filter(cart=cart, product__id__in=shipment_products_mapping.keys())
     for rp in reserved_products:
-        rp.reserved_qty =- shipment_products_mapping[rp.product.id]
+        reserved_qty = int(rp.reserved_qty)
+        shipped_qty = int(shipment_products_mapping[rp.product.id])
+        p.reserved_qty = reserved_qty - shipped_qty
         rp.save()
-        
+
 
 @task
 def ordered_product_available_qty_update(
