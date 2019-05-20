@@ -3,7 +3,7 @@
         var row = 0
         var dt = ""
         var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '')+'/';
-        $.ajax({ data: ({'order_no':$('#id_order_no').val()}) ,
+        $.ajax({ data: ({'order_no':$('#id_order_no').val(),'page':$('#page').val() }) ,
                 type: 'GET',
                 dataType: 'json',
                 url: host+'retailer/sp/order-list/',

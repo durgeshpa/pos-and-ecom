@@ -822,7 +822,8 @@ class OrderList(APIView):
     permission_classes = (AllowAny,)
     def get(self, request, *args, **kwargs):
         page_limit = 100
-        page = int(request.GET.get('p', 0))
+        page = int(request.GET.get('page', 0))
+
         page_limit_dt = int(page_limit) + (int(page) * int(page_limit))
         offset = 0 if page == 0 else (int(page) * int(page_limit))
 
@@ -830,11 +831,12 @@ class OrderList(APIView):
         user = get_user_model().objects.get(pk=session.get_decoded().get('_auth_user_id'))
 
         if user.is_superuser:
-            orders = Order.objects.all()[offset:page_limit_dt]
+            orders = Order.objects.all().order_by('-created_at')[offset:page_limit_dt]
+
         else:
             orders = Order.objects.filter(
                 Q(seller_shop__related_users=user) |
-                Q(seller_shop__shop_owner=user))[offset:page_limit_dt]
+                Q(seller_shop__shop_owner=user)).order_by('-created_at')[offset:page_limit_dt]
 
         dt = []
         for order in orders:

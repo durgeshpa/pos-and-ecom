@@ -11,6 +11,7 @@
         <table>
             <thead>
             <tr>
+                <input type="hidden" id="page" value="{{page}}"/>
                 <th scope="col" class="action-checkbox-column">
                     <div class="text"><span><input type="checkbox" id="action-toggle"></span></div>
                     <div class="clear"></div>
@@ -113,6 +114,7 @@
             </tr>
             </thead>
             <tbody>
+
             {% for row in summary %}
                 <tr class="{% cycle 'row1' 'row2' %}">
                     <td class="action-checkbox"><input type="checkbox" name="_selected_action" value="{{ row.pk}}" class="action-select"></td>

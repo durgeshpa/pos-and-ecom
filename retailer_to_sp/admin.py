@@ -516,6 +516,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         #                 self.list_editable, self, self.sortable_by)
         # dt = cl.get_queryset(request)
         response.context_data['summary'] = result_qs
+        response.context_data['page'] = page
         return response
     # new code for order_list end
 
