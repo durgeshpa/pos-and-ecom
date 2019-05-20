@@ -250,8 +250,8 @@ def ordered_product_mapping_shipment(request):
                                     formset_data = forms.save(commit=False)
                                     formset_data.ordered_product = ordered_product_instance
                                     formset_data.save()
-                        update_reserved_order(json.dumps({'shipment_id': ordered_product_instance.id}))
-                except IntegrityError as e:
+                        update_reserved_order.delay(json.dumps({'shipment_id': ordered_product_instance.id}))
+                except Exception as e:
                     logger.exception("An error occurred while creating shipment {}".format(e))
 
                 return redirect('/admin/retailer_to_sp/shipment/')
