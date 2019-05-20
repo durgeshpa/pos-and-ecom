@@ -169,9 +169,9 @@ class SendNotification:
         # if notification_types.sms_notification:
 
         sms_content = self.merge_template_with_data(template.text_sms_template)
-        print (self.data['phone_number'], sms_content)
+        #print (self.data['phone_number'], sms_content)
         logging.info(self.data['phone_number'], sms_content)
-        # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
+        #sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
         # message = SendSms(phone=self.data['phone_number'], body=sms_content)
         # # message = SendSms(phone=9643112048,body="Dear sagar, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory")
         # message.send()
