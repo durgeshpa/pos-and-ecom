@@ -1,3 +1,5 @@
+import logging
+
 from dal import autocomplete
 from wkhtmltopdf.views import PDFTemplateResponse
 
