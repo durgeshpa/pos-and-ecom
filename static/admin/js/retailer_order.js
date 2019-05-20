@@ -11,7 +11,6 @@
                      if(response['is_success']) {
                         $("#loading").hide();
                         $.each(response['response_data'], function(key, val) {
-                            $('#'+val.id+'-order_no').html(val.order_no)
                             $('#'+val.id+'-seller_shop').text(val.seller_shop)
                             $('#'+val.id+'-buyer_shop').text(val.buyer_shop)
                             $('#'+val.id+'-order_status').text(val.order_status)

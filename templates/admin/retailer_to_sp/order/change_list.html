@@ -116,7 +116,7 @@
             {% for row in summary %}
                 <tr class="{% cycle 'row1' 'row2' %}">
                     <td class="action-checkbox"><input type="checkbox" name="_selected_action" value="{{ row.pk}}" class="action-select"></td>
-                    <td id="{{ row.pk}}-order_no"> {{ row.order_no }} </td>
+                    <td id="{{ row.pk}}-order_no"><a href="{{ row.pk }}/change/">{{ row.order_no }}</a></td>
                     <td id="{{ row.pk}}-download_pick_list"><a href= "/retailer/sp/download-pick-list-sp/{{ row.pk}}/list/" >Download Pick List</a></td>
                     <td id="{{ row.pk}}-seller_shop"> - </td>
                     <td id="{{ row.pk}}-buyer_shop"> - </td>
