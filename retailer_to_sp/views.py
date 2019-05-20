@@ -821,14 +821,16 @@ class RetailerCart(APIView):
 class OrderList(APIView):
     permission_classes = (AllowAny,)
     def get(self, request, *args, **kwargs):
-        page = request.GET.get('p',0)
         page_limit = 100
-        offset = 0 if page == 0 else (page*page_limit)+1
+        page = int(request.GET.get('p', 0))
+        page_limit_dt = int(page_limit) + (int(page) * int(page_limit))
+        offset = 0 if page == 0 else (int(page) * int(page_limit))
+
         session = Session.objects.get(session_key=request.session.session_key)
         user = get_user_model().objects.get(pk=session.get_decoded().get('_auth_user_id'))
         orders = Order.objects.filter(
             Q(seller_shop__related_users=user) |
-            Q(seller_shop__shop_owner=user))[offset:page_limit]
+            Q(seller_shop__shop_owner=user))[offset:page_limit_dt]
         dt = []
         for order in orders:
             payment_mode = []
