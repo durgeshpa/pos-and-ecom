@@ -1,7 +1,7 @@
 from dal import autocomplete
 
 from django.contrib import admin
-from django.contrib.admin import SimpleListFilter
+from django.contrib.admin import SimpleListFilter, helpers
 from django.utils.html import format_html
 from django.urls import reverse
 from django.db.models import Q
@@ -405,6 +405,8 @@ class ProductNameFilter(InputFilter):
             return queryset.filter(ordered_cart__rt_cart_list__cart_product__product_name=value)
         return queryset
 
+from django.contrib.admin.views.main import ChangeList
+
 class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     actions = ["export_as_csv"]
     resource_class = OrderResource
@@ -422,19 +424,21 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                        'total_tax_amount', 'total_final_amount')}),
         )
     list_display = (
-                    'order_no', 'seller_shop', 'buyer_shop',
+                    'order_no', 'download_pick_list', 'seller_shop', 'buyer_shop',
                     'total_final_amount', 'order_status', 'created_at',
-                    'payment_mode', 'paid_amount', 'total_paid_amount',
-                    'download_pick_list',  'invoice_no',
-                    'shipment_status', 'order_shipment_amount')
+                    'payment_mode','picking_status','picker_name',
+                    'invoice_no', 'shipment_date', 'invoice_amount', 'shipment_status',
+                    #'delivery_date', 'cn_amount', 'cash_collected', 'damaged_amount',
+                    'delivered_value')
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
-                        'invoice_no', 'order_shipment_amount', 'shipment_status')
+                        'invoice_no', 'shipment_status')
     list_filter = [SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
         ('created_at', DateTimeRangeFilter), ('total_final_amount', SliderNumericFilter)]
 
     class Media:
         js = ('/static/admin/js/retailer_cart.js',)
+        js = ('/static/admin/js/retailer_order.js',)
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
@@ -461,6 +465,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         return p
 
     change_form_template = 'admin/retailer_to_sp/order/change_form.html'
+    change_list_template = 'admin/retailer_to_sp/order/change_list.html'
 
     def get_urls(self):
         from django.conf.urls import url
@@ -471,6 +476,43 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                 name="retailer_cart"),
         ]
         return urls
+
+
+    # new code for order_list start
+    def changelist_view(self, request, extra_context=None):
+        CHANGELIST_PERPAGE_LIMITS = 100
+        if request.GET.get('per_page') and int(
+                request.GET.get('per_page')) in CHANGELIST_PERPAGE_LIMITS:
+            self.list_per_page = int(request.GET.get('per_page'))
+        else:
+            self.list_per_page = 100
+        extra_context = {'changelist_perpage_limits': CHANGELIST_PERPAGE_LIMITS,
+                         'list_per_page': self.list_per_page}
+
+        response = super(OrderAdmin, self).changelist_view(request,extra_context=extra_context,)
+        try:
+            qs = response.context_data['cl'].queryset
+        except (AttributeError, KeyError):
+            return response
+
+        result_qs = list(qs.values('order_no', 'seller_shop', 'buyer_shop',
+                    'total_final_amount', 'order_status', 'created_at','pk',
+                    ).order_by('-created_at').all())
+        cl = ChangeList(request,
+                        self.model,
+                        self.list_display,
+                        self.list_display_links,
+                        self.list_filter,
+                        self.date_hierarchy,
+                        self.search_fields,
+                        self.list_select_related,
+                        self.list_per_page,
+                        self.list_max_show_all,
+                        self.list_editable, self, self.sortable_by)
+        dt = cl.get_queryset(request)
+        response.context_data['summary'] = result_qs
+        return response
+    # new code for order_list end
 
 class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping
