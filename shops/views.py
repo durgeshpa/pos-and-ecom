@@ -4,7 +4,7 @@ from django.http import HttpResponse
 from django.views import View
 from django.shortcuts import get_object_or_404
 from django.contrib import messages
-from shops.models import Shop
+from shops.models import Shop, ShopType
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
 from sp_to_gram.models import OrderedProduct, OrderedProductMapping, StockAdjustment, StockAdjustmentMapping,OrderedProductReserved
@@ -39,7 +39,12 @@ class ShopMappedProduct(TemplateView):
 
 class ShopParentAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        qs = Shop.objects.filter(shop_type__shop_type__in=['sp','gf'])
+        shop_type = self.forwarded.get('shop_type', None)
+        if shop_type:
+            dt = {'r':'sp','sp':'gf'}
+            qs = Shop.objects.filter(shop_type__shop_type=dt[ShopType.objects.get(id=shop_type).shop_type])
+        else:
+            qs = Shop.objects.filter(shop_type__shop_type__in=['gf','sp'])
         if self.q:
             qs = qs.filter(Q(shop_owner__phone_number__icontains=self.q) | Q(shop_name__icontains=self.q))
         return qs

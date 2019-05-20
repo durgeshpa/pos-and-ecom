@@ -255,7 +255,7 @@ class CartProductMapping(models.Model):
     @property
     def sub_total(self):
         if self.vendor_product:
-            return float(self.qty)* float(self.vendor_product.product_price)
+            return round(float(self.qty)* float(self.vendor_product.product_price),2)
         return self.total_price
 
     def __str__(self):
@@ -281,10 +281,11 @@ class CartProductMapping(models.Model):
 @receiver(post_save, sender=Cart)
 def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
     if created:
-        instance.po_no = po_pattern(
-            instance.gf_billing_address.city_id,
-            instance.pk
-        )
+        instance.po_no = po_pattern(sender,
+                                    'po_no',
+                                    instance.pk,
+                                    instance.gf_billing_address_id,
+                                    )
         instance.save()
         if instance.cart_product_mapping_csv:
             reader = csv.reader(codecs.iterdecode(instance.cart_product_mapping_csv, 'utf-8'))
@@ -305,8 +306,9 @@ def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
                          no_of_pieces = int(vendor_product_dt.case_size)*int(row[3]),
                          price=float(row[5]),vendor_product=vendor_product_dt)
 
-    order = Order.objects.get_or_create(ordered_cart=instance, order_no=instance.po_no)
-
+    order,_ = Order.objects.get_or_create(ordered_cart=instance)
+    order.order_no = instance.po_no
+    order.save()
 
 class Order(BaseOrder):
     ordered_cart = models.OneToOneField(Cart,related_name='order_cart_mapping',on_delete=models.CASCADE)
@@ -484,12 +486,15 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
             debit_note = BrandNote.objects.filter(grn_order = instance.grn_order)
             if debit_note.exists():
                 debit_note = debit_note.last()
-                debit_note.brand_note_id = brand_debit_note_pattern(instance.grn_order.pk)
+                debit_note.brand_note_id = brand_debit_note_pattern(
+                        BrandNote, 'brand_note_id', debit_note, instance.grn_order.order.ordered_cart.gf_billing_address_id)
                 debit_note.order = instance.grn_order.order
                 debit_note.amount= debit_note.amount + (instance.returned_qty * instance.po_product_price)
                 debit_note.save()
             else:
-                debit_note = BrandNote.objects.create(brand_note_id=brand_debit_note_pattern(instance.grn_order.pk),
+                debit_note = BrandNote.objects.create(
+                    brand_note_id=brand_debit_note_pattern(
+                        BrandNote, 'brand_note_id', None, instance.grn_order.order.ordered_cart.gf_billing_address_id),
                 grn_order = instance.grn_order, amount = instance.returned_qty * instance.po_product_price, status=True)
 
         instance.available_qty = instance.delivered_qty

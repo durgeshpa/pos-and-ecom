@@ -4,7 +4,7 @@ from rest_framework.generics import CreateAPIView, DestroyAPIView, ListAPIView, 
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import CategorySerializer,CategoryDataSerializer, BrandSerializer
+from .serializers import CategorySerializer,CategoryDataSerializer, BrandSerializer, AllCategorySerializer
 from categories.models import Category,CategoryData,CategoryPosation
 from rest_framework import viewsets
 from rest_framework.decorators import list_route
@@ -57,3 +57,13 @@ class GetSubCategoriesListView(APIView):
 
         is_success = True if sub_categories else False
         return Response({"message":[""], "response_data": sub_category_data_serializer.data ,"is_success":is_success })
+
+class GetAllCategoryListView(APIView):
+
+    permission_classes = (AllowAny,)
+    def get(self, *args, **kwargs):
+        categories = Category.objects.filter(category_parent=None)
+        category_subcategory_serializer = AllCategorySerializer(categories,many=True)
+
+        is_success = True if categories else False
+        return Response({ "message":[""],"response_data": category_subcategory_serializer.data,"is_success":is_success})

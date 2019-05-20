@@ -17,19 +17,19 @@
               })
                 .then(willDelete => {
                 if (willDelete){
-                  $('form').submit();
+                  $('form#shipment_form').submit();
                 } else {
                   $('#id_close_order').attr('checked', false);
-                  $('form').submit();
+                  $('form#shipment_form').submit();
                 }
               });
               } else {
                 $('#id_close_order').attr('checked', false);
-                $('form').submit();
+                $('form#shipment_form').submit();
               }
             });
         });
-		$('#id_close_order').on('change', function(){
+	$('#id_close_order').on('change', function(){
    			if(this.checked) {
         		swal({
         			title: "Are you sure?",

@@ -71,9 +71,19 @@ class SalesReport(APIView):
         return data
 
     def get(self, *args, **kwargs):
+        from django.http import HttpResponse
+        from django.contrib import messages
+
         shop_id = self.request.GET.get('shop')
         start_date = self.request.GET.get('start_date', None)
         end_date = self.request.GET.get('end_date', None)
+        if end_date < start_date:
+            messages.error(self.request, 'End date cannot be less than the start date')
+            return render(
+                self.request,
+                'admin/services/sales-report.html',
+                {'form': SalesReportForm(self.request.GET)}
+            )
         data = self.get_sales_report(shop_id, start_date, end_date)
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="sales-report.csv"'
@@ -86,7 +96,7 @@ class SalesReport(APIView):
 
 class SalesReportFormView(View):
     def get(self, request):
-        form = SalesReportForm()
+        form = SalesReportForm(request=request)
         return render(
             self.request,
             'admin/services/sales-report.html',

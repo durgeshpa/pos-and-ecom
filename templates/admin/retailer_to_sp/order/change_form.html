@@ -1,0 +1,25 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+{% block submit_buttons_bottom %}
+    <div class="js-inline-admin-formset inline-group" data-inline-type="tabular" data-inline-formset="{&quot;name&quot;: &quot;#rt_order_product_order_product_mapping&quot;, &quot;options&quot;: {&quot;prefix&quot;: &quot;rt_order_product_order_product_mapping&quot;, &quot;addText&quot;: &quot;Add another Ordered product mapping&quot;, &quot;deleteText&quot;: &quot;Remove&quot;}}">
+       <div class="tabular inline-related last-related">
+          <fieldset id="inline" class="module "><h2>Cart Details</h2>
+          <table id="formset" class="form">
+             <tbody id="data">
+                <tr id="heading" style="display: table-row;">
+                   <th>Cart Product</th>
+                   <th>Product MRP</th>
+                   <th>Product Price</th>
+                   <th>Qty</th>
+                   <th>No of Pieces</th>
+                </tr>
+                <tr id="loading" style="text-align: center">
+                   <th colspan="4">Loading...</th>
+                </tr>
+              </thead>
+          </table>
+         </fieldset>
+       </div>
+    </div>
+   {{ block.super }}
+{% endblock %}

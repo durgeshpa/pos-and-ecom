@@ -4,12 +4,13 @@ from django.conf import settings
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.db import models
-from rest_framework.authtoken.models import Token
 from django.core.validators import RegexValidator
 from django.utils.crypto import get_random_string
 from django.utils.safestring import mark_safe
 from otp.sms import SendSms
 import datetime
+from .tasks import phone_otp_instance, create_user_token
+from django.db import transaction
 
 
 USER_TYPE_CHOICES = (
@@ -114,7 +115,8 @@ class UserDocument(models.Model):
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
 def create_auth_token(sender, instance=None, created=False, **kwargs):
     if created:
-        Token.objects.create(user=instance)
+        transaction.on_commit(lambda: create_user_token.delay(instance.id))
+
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
 def user_creation_notification(sender, instance=None, created=False, **kwargs):
@@ -132,13 +134,13 @@ Team GramFactory
 
         message.send()
 
-from otp.models import PhoneOTP
+
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
 def create_phone_otp_instance(sender, instance=None, created=False, **kwargs):
     if created:
-        otp_instance = PhoneOTP.objects.filter(phone_number=instance.phone_number)
-        if not otp_instance:
-            PhoneOTP.objects.create(phone_number=instance.phone_number)
+        transaction.on_commit(
+            lambda: phone_otp_instance.delay(instance.phone_number, created))
+
 
 class AppVersion(models.Model):
     app_version = models.CharField(max_length=200)

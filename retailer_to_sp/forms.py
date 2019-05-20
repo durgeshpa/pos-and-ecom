@@ -27,6 +27,7 @@ from products.models import Product
 from shops.models import Shop
 from accounts.models import UserWithName
 from accounts.middlewares import get_current_user
+from addresses.models import Address
 
 
 class PlainTextWidget(forms.Widget):
@@ -237,17 +238,22 @@ class OrderedProductDispatchForm(forms.ModelForm):
 
 
 class TripForm(forms.ModelForm):
-    delivery_boy = forms.ModelChoiceField(queryset=UserWithName.objects.all(),
-                                          widget=RelatedFieldWidgetCanAdd(
-                                              UserWithName, related_url="admin:accounts_user_add"))
+    delivery_boy = forms.ModelChoiceField(
+                        queryset=UserWithName.objects.all(),
+                        widget=RelatedFieldWidgetCanAdd(
+                                UserWithName,
+                                related_url="admin:accounts_user_add"))
     trip_status = forms.ChoiceField(choices=TRIP_STATUS)
     search_by_area = forms.CharField(required=False)
     trip_id = forms.CharField(required=False)
+    selected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
+    unselected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
 
     class Meta:
         model = Trip
         fields = ['seller_shop', 'delivery_boy', 'vehicle_no', 'trip_status',
-                  'e_way_bill_no', 'search_by_area']
+                  'e_way_bill_no', 'search_by_area', 'selected_id',
+                  'unselected_id']
 
     class Media:
         js = ('admin/js/select2.min.js', )
@@ -279,7 +285,7 @@ class TripForm(forms.ModelForm):
                 self.fields['delivery_boy'].disabled = True
                 self.fields['seller_shop'].disabled = True
                 self.fields['vehicle_no'].disabled = True
-                self.fields['trip_status'].choices = TRIP_STATUS[2:]
+                self.fields['trip_status'].choices = TRIP_STATUS[2:4]
                 self.fields['search_by_area'].widget = forms.HiddenInput()
 
             elif trip_status == 'COMPLETED':
@@ -300,15 +306,13 @@ class TripForm(forms.ModelForm):
 
 class DispatchForm(forms.ModelForm):
     selected = forms.BooleanField(required=False)
-    invoice_city = forms.CharField(disabled=True, widget=PlainTextWidget)
     shipment_address = forms.CharField(widget=forms.Textarea, disabled=True)
-    invoice_amount = forms.CharField(disabled=True, widget=PlainTextWidget)
     invoice_date = forms.CharField(disabled=True, widget=PlainTextWidget)
     items = forms.CharField(widget=forms.Textarea, label='Invoice No', disabled=True)
 
     class Meta:
         model = Dispatch
-        fields = ['selected', 'items', 'invoice_amount', 'shipment_status', 'invoice_city', 'invoice_date', 'order', 'shipment_address']
+        fields = ['selected', 'items', 'shipment_status', 'invoice_date', 'order', 'shipment_address']
 
     def __init__(self, *args, **kwargs):
         super(DispatchForm, self).__init__(*args, **kwargs)
@@ -331,10 +335,6 @@ class DispatchForm(forms.ModelForm):
                                                              str(pk)+'/change/" target="_blank">'+
                                                              invoice_no+'</a></b>')
             self.fields['invoice_date'].initial = instance.created_at.strftime('%d-%m-%Y %H:%M')
-
-            self.fields['invoice_city'].initial = instance.invoice_city
-
-            self.fields['invoice_amount'].initial = instance.invoice_amount
 
             self.fields['shipment_address'].initial = instance.shipment_address
             self.fields['shipment_address'].widget.attrs = {'id':'hide_input_box', "rows": "3", "cols": "25"}
@@ -364,12 +364,14 @@ class ShipmentForm(forms.ModelForm):
     class Media:
         js = (
             'https://cdnjs.cloudflare.com/ajax/libs/select2/'
-            '4.0.6-rc.0/js/select2.min.js',
+            '4.0.6-rc.0/js/select2.min.js', 'admin/js/sweetalert.min.js',
+            'admin/js/order_close_message.js'
         )
         css = {
             'all': (
                 'https://cdnjs.cloudflare.com/ajax/libs/select2/'
                 '4.0.6-rc.0/css/select2.min.css',
+                'admin/css/hide_admin_inline_object_name.css'
             )
         }
 
@@ -469,3 +471,48 @@ class CartForm(forms.ModelForm):
 
         fields = ['seller_shop', 'buyer_shop']
         required_fields(self, fields)
+
+
+class CommercialForm(forms.ModelForm):
+    class Meta:
+        model = Trip
+        fields = ['dispatch_no', 'delivery_boy', 'seller_shop', 'trip_status',
+                  'starts_at', 'completed_at', 'e_way_bill_no', 'vehicle_no',
+                  'trip_amount', 'received_amount']
+
+    class Media:
+        js = ('admin/js/CommercialLoadShipments.js', )
+
+    def __init__(self, *args, **kwargs):
+        super(CommercialForm, self).__init__(*args, **kwargs)
+        self.fields['trip_status'].choices = TRIP_STATUS[3:5]
+        instance = getattr(self, 'instance', None)
+        if instance.pk:
+            if (instance.trip_status == 'TRANSFERRED' or
+                    instance.trip_status == 'CLOSED'):
+                self.fields['trip_status'].choices = TRIP_STATUS[-3:]
+                for field_name in self.fields:
+                    self.fields[field_name].disabled = True
+
+    def clean_received_amount(self):
+        trip_status = self.cleaned_data.get('trip_status')
+        received_amount = self.cleaned_data.get('received_amount')
+        if trip_status == 'CLOSED' and not received_amount:
+            raise forms.ValidationError(('This field is required'),)
+        return received_amount
+
+
+class OrderForm(forms.ModelForm):
+    seller_shop = forms.ChoiceField(required=False,choices=Shop.objects.values_list('id','shop_name'))
+    buyer_shop = forms.ChoiceField(required=False,choices=Shop.objects.values_list('id', 'shop_name'))
+    ordered_cart = forms.ChoiceField(choices=Cart.objects.values_list('id', 'order_id'))
+    billing_address = forms.ChoiceField(required=False,choices=Address.objects.values_list('id', 'address_line1'))
+    shipping_address = forms.ChoiceField(required=False,choices=Address.objects.values_list('id', 'address_line1'))
+    ordered_by = forms.ChoiceField(required=False,choices=UserWithName.objects.values_list('id', 'phone_number'))
+    last_modified_by = forms.ChoiceField(required=False,choices=UserWithName.objects.values_list('id', 'phone_number'))
+
+    class Meta:
+        model = Order
+        fields = ('seller_shop', 'buyer_shop', 'ordered_cart', 'order_no', 'billing_address', 'shipping_address',
+                  'total_mrp', 'total_discount_amount', 'total_tax_amount', 'total_final_amount', 'order_status',
+                  'ordered_by', 'last_modified_by')

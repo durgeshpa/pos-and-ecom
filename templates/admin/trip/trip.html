@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Pick List</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="{{scheme}}://{{url}}/static/admin/css/bootstrap.css" rel="stylesheet" id="bootstrap-css">
+  <link rel="stylesheet" type="text/css" href="{{scheme}}://{{url}}/static/admin/css/style2.css">
+
+</head>
+<body>
+
+<div class="container" >
+	<table class="table table-bordered pull-left" style="width: 350px">
+	<thead>
+      <tr>
+        <th>Trip No :</th>
+        <td>{{trip_no}}</td>
+      </tr>
+		<tr>
+        <th>Delivery Boy/Contact No:</th>
+        <td>{{delivery_boy}}</td>
+      </tr>
+		<tr>
+        <th>Total Number Of Invoices:</th>
+        <td>{{no_of_orders}}</td>
+      </tr>
+    </thead>
+	</table>
+	<table class="table table-bordered pull-right" style="width: 350px">
+	<thead>
+      <tr>
+        <th>Trip Date :</th>
+        <td>{{trip_date}}</td>
+      </tr>
+		<tr>
+        <th>Total Trip Amount :</th>
+        <td>{{total_invoice_amount}}</td>
+      </tr>
+		<tr>
+        <th>Total Delivered  Amount:</th>
+        <td></td>
+      </tr>
+    </thead>
+	</table>
+
+  <table class="table table-bordered" style="margin-top:20px">
+    <thead>
+      <tr>
+        <th>Serial No</th>
+        <th>
+Invoice No</th>
+        <th>
+Retailer Address with Contact Number</th>
+
+		  <th>Pin Code</th>
+		   <th>
+
+No. Of Products</th>
+		   <th>
+Invoice amount</th>
+		  <th>Delivered Amount/Cash Collected</th>
+		   <th>Remark</th>
+      </tr>
+    </thead>
+    <tbody>
+  {% for m in trip_detail_list %}
+      <tr>
+         <td>{{forloop.counter}}</td>
+       <td>{{m.invoice_no}}</td>
+        <td>{{m.retailer_address}}</td>
+        <td>--</td>
+		   <td>{{m.no_of_products}}</td>
+		  <td>{{m.invoice_amount}}</td>
+		  <td></td>
+		   <td></td>
+      </tr>
+{% endfor %}
+    </tbody>
+  </table>
+</div>
+
+</body>
+</html>

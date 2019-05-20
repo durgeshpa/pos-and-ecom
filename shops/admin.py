@@ -5,7 +5,9 @@ from .models import (
     ShopPhoto, ShopDocument, ShopInvoicePattern
 )
 from addresses.models import Address
-from .forms import ParentRetailerMappingForm,ShopParentRetailerMappingForm
+from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
+                    ShopForm, AddressForm, RequiredInlineFormSet,
+                    AddressInlineFormSet)
 from .views import StockAdjustmentView, stock_adjust_sample
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
@@ -16,6 +18,7 @@ from admin_auto_filters.filters import AutocompleteFilter
 from services.views import SalesReportFormView, SalesReport
 from rangefilter.filter import DateRangeFilter, DateTimeRangeFilter
 
+
 class ShopResource(resources.ModelResource):
     class Meta:
         model = Shop
@@ -25,13 +28,14 @@ class ShopResource(resources.ModelResource):
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
-        field_names = [field.name for field in meta.fields]
+        list_display = ('shop_name', 'shop_owner','shop_type','created_at','status', 'get_shop_shipping_address', 'get_shop_pin_code' )
+        field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
         writer = csv.writer(response)
-        writer.writerow(field_names)
+        writer.writerow(list_display)
         for obj in queryset:
-            row = writer.writerow([getattr(obj, field) for field in field_names])
+            row = writer.writerow([getattr(obj, field) for field in list_display])
         return response
     export_as_csv.short_description = "Download CSV of Selected Shops"
 
@@ -83,15 +87,8 @@ class ShopPhotosAdmin(admin.TabularInline):
     model = ShopPhoto
     fields = ( 'shop_photo','shop_photo_thumbnail', )
     readonly_fields = ('shop_photo_thumbnail',)
+    formset = RequiredInlineFormSet
     extra = 2
-
-from django.forms.models import BaseInlineFormSet
-class RequiredInlineFormSet(BaseInlineFormSet):
-    def _construct_form(self, i, **kwargs):
-        form = super(RequiredInlineFormSet, self)._construct_form(i, **kwargs)
-        if i < 1:
-            form.empty_permitted = False
-        return form
 
 class ShopDocumentsAdmin(admin.TabularInline):
     model = ShopDocument
@@ -109,7 +106,9 @@ class ShopInvoicePatternAdmin(admin.TabularInline):
 
 class AddressAdmin(admin.TabularInline):
     model = Address
-    fields = ('address_contact_name','address_contact_number','address_type','address_line1','state','city','pincode',)
+    formset = AddressInlineFormSet
+    form = AddressForm
+    fields = ('nick_name','address_contact_name','address_contact_number','address_type','address_line1','state','city','pincode',)
     extra = 2
 
 class ShopParentRetailerMapping(admin.TabularInline):
@@ -132,12 +131,13 @@ class ServicePartnerFilter(InputFilter):
 
 class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ShopResource
+    form = ShopForm
     actions = ["export_as_csv"]
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin,
         AddressAdmin, ShopInvoicePatternAdmin,ShopParentRetailerMapping
     ]
-    list_display = ('shop_name','get_shop_parent','shop_owner','shop_type','created_at','status', 'get_shop_city','shop_mapped_product')
+    list_display = ('shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent','shop_owner','shop_type','created_at','status', 'get_shop_city','shop_mapped_product')
     filter_horizontal = ('related_users',)
     list_filter = (ServicePartnerFilter,ShopNameSearch,ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,'status',('created_at', DateTimeRangeFilter))
     search_fields = ('shop_name', )

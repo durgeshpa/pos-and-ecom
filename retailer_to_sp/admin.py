@@ -1,7 +1,7 @@
 from dal import autocomplete
 
 from django.contrib import admin
-from django.contrib.admin import SimpleListFilter
+from django.contrib.admin import SimpleListFilter, helpers
 from django.utils.html import format_html
 from django.urls import reverse
 from django.db.models import Q
@@ -20,23 +20,25 @@ from .models import (
     Cart, CartProductMapping, Order, OrderedProduct,
     OrderedProductMapping, Note, CustomerCare,
     Payment, Return, ReturnProductMapping, Dispatch,
-    DispatchProductMapping, Trip, Shipment, ShipmentProductMapping
+    DispatchProductMapping, Trip, Shipment, ShipmentProductMapping,
+    Commercial
 )
 from .forms import (
     CustomerCareForm, ReturnProductMappingForm, TripForm, DispatchForm,
     OrderedProductMappingForm, OrderedProductForm, ShipmentForm,
     OrderedProductMappingShipmentForm, ShipmentProductMappingForm,
-    CartProductMappingForm, CartForm
+    CartProductMappingForm, CartForm, CommercialForm, OrderForm
     )
 from retailer_to_sp.views import (
     ordered_product_mapping_shipment, order_invoices, trip_planning,
     load_dispatches, trip_planning_change, update_shipment_status,
-    update_order_status, update_delivered_qty, UpdateSpQuantity
+    update_order_status, update_delivered_qty,
+    LoadDispatches, UpdateSpQuantity, commercial_shipment_details
     )
 
 from products.admin import ExportCsvMixin
 from .resources import OrderResource
-from .utils import add_cart_user, create_order_from_cart, GetPcsFromQty
+from .utils import (add_cart_user, create_order_from_cart, GetPcsFromQty)
 from admin_numeric_filter.admin import NumericFilterModelAdmin, SingleNumericFilter, RangeNumericFilter, \
     SliderNumericFilter
 from django.http import HttpResponse
@@ -46,6 +48,10 @@ from .signals import ReservedOrder
 from sp_to_gram.models import (
     OrderedProductReserved, create_credit_note,
     OrderedProductMapping as SpMappedOrderedProductMapping)
+from dal_admin_filters import AutocompleteFilter
+from django.utils.translation import ugettext_lazy as _
+from shops.models import Shop, ParentRetailerMapping
+from .views import RetailerCart
 
 
 class InvoiceNumberFilter(AutocompleteFilter):
@@ -99,6 +105,19 @@ class NameSearch(InputFilter):
                 Q(name__icontains=name)
             )
 
+class ComplaintIDSearch(InputFilter):
+    parameter_name = 'complaint_id'
+    title = 'Complaint ID'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            complaint_id = self.value()
+            if complaint_id is None:
+                return
+            return queryset.filter(
+                Q(complaint_id__icontains=complaint_id)
+            )
+
 class NEFTSearch(InputFilter):
     parameter_name = 'neft_reference_number'
     title = 'neft reference number'
@@ -138,17 +157,17 @@ class OrderNoSearch(InputFilter):
                 Q(order_no__icontains=order_no)
             )
 
-class OrderStatusSearch(InputFilter):
-    parameter_name = 'order_status'
+class IssueStatusSearch(InputFilter):
+    parameter_name = 'issue_status'
     title = 'Order Status'
 
     def queryset(self, request, queryset):
         if self.value() is not None:
-            order_status = self.value()
-            if order_status is None:
+            issue_status = self.value()
+            if issue_status is None:
                 return
             return queryset.filter(
-                Q(order_status__icontains=order_status)
+                Q(issue_status__icontains=issue_status)
             )
 
 
@@ -291,8 +310,13 @@ class CartAdmin(admin.ModelAdmin):
             ),
             url(
                r'^load-dispatches/$',
-               self.admin_site.admin_view(load_dispatches),
+               self.admin_site.admin_view(LoadDispatches.as_view()),
                name="LoadDispatches"
+            ),
+            url(
+               r'^load-dispatches-view/$',
+               self.admin_site.admin_view(load_dispatches),
+               name="LoadDispatchesView"
             ),
             url(
                r'^trip-planning/(?P<pk>\d+)/change/$',
@@ -304,6 +328,10 @@ class CartAdmin(admin.ModelAdmin):
                self.admin_site.admin_view(GetPcsFromQty.as_view()),
                name="GetPcsFromQty"
             ),
+            url(r'^commercial/(?P<pk>\d+)/shipment-details/$',
+                self.admin_site.admin_view(commercial_shipment_details),
+                name="CommercialShipmentDetails"
+                ),
         ] + urls
         return urls
 
@@ -324,24 +352,28 @@ class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
         list_display = ['order_no', 'seller_shop', 'buyer_shop', 'total_final_amount',
-                        'order_status', 'created_at', 'payment_amount', 'payment_mode']
+                        'order_status', 'created_at', 'payment_mode', 'paid_amount',
+                        'total_paid_amount', 'shipment_status', 'order_shipment_amount', 'order_shipment_details']
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
         writer = csv.writer(response)
-        writer.writerow(field_names)
+        writer.writerow(list_display)
         for obj in queryset:
-            row = writer.writerow([getattr(obj, field) for field in field_names])
+            row = writer.writerow([ getattr(obj, field).replace('<br>','\n') if field in ['shipment_status', 'order_shipment_amount', 'order_shipment_details'] else getattr(obj, field) for field in list_display])
         return response
-    export_as_csv.short_description = "Download CSV of Selected Objects"
+    export_as_csv.short_description = "Download CSV of Selected Orders"
 
 class SellerShopFilter(AutocompleteFilter):
     title = 'Seller Shop'
     field_name = 'seller_shop'
+    autocomplete_url = 'seller-shop-autocomplete'
 
 class BuyerShopFilter(AutocompleteFilter):
     title = 'Buyer Shop'
     field_name = 'buyer_shop'
+    autocomplete_url = 'buyer-shop-autocomplete'
+
 
 class SKUFilter(InputFilter):
     title = 'product sku'
@@ -373,17 +405,13 @@ class ProductNameFilter(InputFilter):
             return queryset.filter(ordered_cart__rt_cart_list__cart_product__product_name=value)
         return queryset
 
-class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
+from django.contrib.admin.views.main import ChangeList
+
+class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     actions = ["export_as_csv"]
     resource_class = OrderResource
-    search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name',
-                    'order_status',)
-    list_display = (
-                    'order_no', 'seller_shop', 'buyer_shop',
-                    'total_final_amount', 'order_status', 'created_at',
-                    'payment_mode', 'paid_amount', 'total_paid_amount',
-                    'download_pick_list',  'invoice_no',
-                    'shipment_status', 'order_shipment_amount')
+    search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name','order_status',)
+    form = OrderForm
     fieldsets = (
         (_('Shop Details'), {
             'fields': ('seller_shop', 'buyer_shop',
@@ -395,14 +423,22 @@ class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
             'fields': ('total_mrp', 'total_discount_amount',
                        'total_tax_amount', 'total_final_amount')}),
         )
+    list_display = (
+                    'order_no', 'download_pick_list', 'seller_shop', 'buyer_shop',
+                    'total_final_amount', 'order_status', 'created_at',
+                    'payment_mode','picking_status','picker_name',
+                    'invoice_no', 'shipment_date', 'invoice_amount', 'shipment_status',
+                    #'delivery_date', 'cn_amount', 'cash_collected', 'damaged_amount',
+                    'delivered_value')
 
-    readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount', 
-                    'invoice_no', 'order_shipment_amount', 'shipment_status')
-    list_filter = [ProductNameFilter,GFCodeFilter,SKUFilter,SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
-        ('created_at', DateTimeRangeFilter)]
+    readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
+                        'invoice_no', 'shipment_status')
+    list_filter = [SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
+        ('created_at', DateTimeRangeFilter), ('total_final_amount', SliderNumericFilter)]
 
     class Media:
-        pass
+        js = ('/static/admin/js/retailer_cart.js',)
+        js = ('/static/admin/js/retailer_order.js',)
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
@@ -428,6 +464,55 @@ class OrderAdmin(admin.ModelAdmin,ExportCsvMixin):
             p.append(m.cart_product.product_name)
         return p
 
+    change_form_template = 'admin/retailer_to_sp/order/change_form.html'
+    change_list_template = 'admin/retailer_to_sp/order/change_list.html'
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(OrderAdmin, self).get_urls()
+        urls += [
+            url(r'^retailer-cart/$',
+                self.admin_site.admin_view(RetailerCart.as_view()),
+                name="retailer_cart"),
+        ]
+        return urls
+
+
+    # new code for order_list start
+    def changelist_view(self, request, extra_context=None):
+        CHANGELIST_PERPAGE_LIMITS = 100
+        if request.GET.get('per_page') and int(
+                request.GET.get('per_page')) in CHANGELIST_PERPAGE_LIMITS:
+            self.list_per_page = int(request.GET.get('per_page'))
+        else:
+            self.list_per_page = 100
+        extra_context = {'changelist_perpage_limits': CHANGELIST_PERPAGE_LIMITS,
+                         'list_per_page': self.list_per_page}
+
+        response = super(OrderAdmin, self).changelist_view(request,extra_context=extra_context,)
+        try:
+            qs = response.context_data['cl'].queryset
+        except (AttributeError, KeyError):
+            return response
+
+        result_qs = list(qs.values('order_no', 'seller_shop', 'buyer_shop',
+                    'total_final_amount', 'order_status', 'created_at','pk',
+                    ).order_by('-created_at').all())
+        cl = ChangeList(request,
+                        self.model,
+                        self.list_display,
+                        self.list_display_links,
+                        self.list_filter,
+                        self.date_hierarchy,
+                        self.search_fields,
+                        self.list_select_related,
+                        self.list_per_page,
+                        self.list_max_show_all,
+                        self.list_editable, self, self.sortable_by)
+        dt = cl.get_queryset(request)
+        response.context_data['summary'] = result_qs
+        return response
+    # new code for order_list end
 
 class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping
@@ -555,7 +640,6 @@ class ShipmentProductMappingAdmin(admin.TabularInline):
     readonly_fields = ['product', 'ordered_qty', 'to_be_shipped_qty', 'already_shipped_qty']
     extra = 0
     max_num = 0
-    list_select_related = ('product',)
 
     def has_delete_permission(self, request, obj=None):
         return False
@@ -564,9 +648,6 @@ class ShipmentProductMappingAdmin(admin.TabularInline):
 class ShipmentAdmin(admin.ModelAdmin):
     inlines = [ShipmentProductMappingAdmin]
     form = ShipmentForm
-    list_select_related = ('order', 'trip', 'order__shipping_address', 'order__seller_shop',
-        'order__buyer_shop', 'order__shipping_address__city', 'order__ordered_cart')
-
     list_display = (
         'invoice_no', 'order', 'created_at', 'shipment_address', 'seller_shop', 'invoice_city',
         'invoice_amount', 'payment_mode', 'shipment_status', 'download_invoice',
@@ -576,7 +657,7 @@ class ShipmentAdmin(admin.ModelAdmin):
         ('shipment_status', ChoiceDropdownFilter)
 
     ]
-    fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city', 
+    fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
         'shipment_status', 'close_order']
     search_fields = ['order__order_no', 'invoice_no', 'order__seller_shop__shop_name',
         'order__buyer_shop__shop_name']
@@ -584,10 +665,6 @@ class ShipmentAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
-
-    class Media:
-        css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
-        js = ('admin/js/sweetalert.min.js', 'admin/js/order_close_message.js')
 
     def download_invoice(self, obj):
         if obj.shipment_status == 'SHIPMENT_CREATED':
@@ -657,7 +734,7 @@ class TripAdmin(admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
     list_display = (
         'dispathces', 'delivery_boy', 'seller_shop', 'vehicle_no',
-        'trip_status', 'starts_at', 'completed_at'
+        'trip_status', 'starts_at', 'completed_at', 'download_trip_pdf'
     )
     readonly_fields = ('dispathces',)
     autocomplete_fields = ('seller_shop',)
@@ -684,6 +761,75 @@ class TripAdmin(admin.ModelAdmin):
             Q(seller_shop__shop_owner=request.user)
                 )
 
+    def download_trip_pdf(self, obj):
+        return format_html("<a href= '%s' >Download Trip PDF</a>"%(reverse('download_trip_pdf', args=[obj.pk])))
+    download_trip_pdf.short_description = 'Trip Details'
+
+
+class CommercialAdmin(admin.ModelAdmin):
+    #change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
+    list_display = (
+        'dispatch_no', 'trip_amount', 'received_amount',
+        'cash_to_be_collected', 'download_trip_pdf', 'delivery_boy',
+        'vehicle_no', 'trip_status', 'starts_at', 'completed_at',
+        'seller_shop',)
+    list_display_links = ('dispatch_no', )
+    list_per_page = 10
+    list_max_show_all = 100
+    list_select_related = ('delivery_boy', 'seller_shop')
+    readonly_fields = ('dispatch_no', 'delivery_boy', 'seller_shop',
+                       'vehicle_no', 'starts_at', 'trip_amount',
+                       'completed_at', 'e_way_bill_no', 'cash_to_be_collected')
+    autocomplete_fields = ('seller_shop',)
+    search_fields = [
+        'delivery_boy__first_name', 'delivery_boy__last_name',
+        'delivery_boy__phone_number', 'vehicle_no', 'dispatch_no',
+        'seller_shop__shop_name'
+    ]
+    fields = ['trip_status', 'trip_amount', 'cash_to_be_collected',
+              'received_amount', 'dispatch_no', 'delivery_boy', 'seller_shop',
+              'starts_at', 'completed_at', 'e_way_bill_no', 'vehicle_no']
+    list_filter = ['trip_status', ('created_at', DateTimeRangeFilter),
+                   ('starts_at', DateTimeRangeFilter), DeliveryBoySearch,
+                   ('completed_at', DateTimeRangeFilter), VehicleNoSearch,
+                   DispatchNoSearch]
+    form = CommercialForm
+    actions = ['change_trip_status']
+
+    def change_trip_status(self, request, queryset):
+        queryset.filter(trip_status='CLOSED').update(trip_status='TRANSFERRED')
+    change_trip_status.short_description = "Mark selected Trips as Transferred"
+
+    def cash_to_be_collected(self, obj):
+        return obj.cash_to_be_collected()
+        cash_to_be_collected.short_description = 'Cash to be Collected'
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        js = ('admin/js/datetime_filter_collapse.js',
+              'admin/js/sweetalert.min.js',
+              'admin/js/commercial_trip_status_change.js')
+
+    def get_queryset(self, request):
+        qs = super(CommercialAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs.filter(trip_status__in=['COMPLETED', 'CLOSED',
+                                              'TRANSFERRED'])
+        return qs.filter(
+            Q(seller_shop__related_users=request.user) |
+            Q(seller_shop__shop_owner=request.user),
+            trip_status__in=['COMPLETED', 'CLOSED', 'TRANSFERRED'])
+
+    def download_trip_pdf(self, obj):
+        return format_html("<a href= '%s' >Download Trip PDF</a>"%(reverse('download_trip_pdf', args=[obj.pk])))
+    download_trip_pdf.short_description = 'Trip Details'
+
+
 class NoteAdmin(admin.ModelAdmin):
     list_display = (
         'credit_note_id', 'shipment',
@@ -700,18 +846,35 @@ class NoteAdmin(admin.ModelAdmin):
     class Media:
         pass
 
-class CustomerCareAdmin(admin.ModelAdmin):
+class ExportCsvMixin:
+    def export_as_csv_customercare(self, request, queryset):
+        meta = self.model._meta
+        list_display = ('complaint_id', 'retailer_shop', 'retailer_name', 'seller_shop', 'order_id', 'issue_status', 'select_issue', 'issue_date')
+        field_names = [field.name for field in meta.fields if field.name in list_display]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in list_display])
+        return response
+    export_as_csv_customercare.short_description = "Download CSV of Selected CustomeCare"
+
+
+class CustomerCareAdmin(ExportCsvMixin, admin.ModelAdmin):
     model = CustomerCare
+    actions = ["export_as_csv_customercare"]
     form = CustomerCareForm
     fields = (
-        'email_us', 'contact_us', 'order_id', 'order_status',
-        'select_issue', 'complaint_detail'
+        'email_us', 'order_id', 'issue_status',
+        'select_issue', 'complaint_detail', 'issue_date', 'seller_shop', 'retailer_shop', 'retailer_name'
     )
-    exclude = ('name',)
-    list_display = ('name', 'order_id', 'order_status', 'select_issue')
+    exclude = ('complaint_id',)
+    list_display = ('complaint_id', 'retailer_shop', 'retailer_name', 'seller_shop', 'order_id', 'issue_status', 'select_issue', 'issue_date')
     autocomplete_fields = ('order_id',)
-    search_fields = ('name',)
-    list_filter = [NameSearch, OrderIdSearch, OrderStatusSearch, IssueSearch]
+    search_fields = ('complaint_id',)
+    readonly_fields = ('issue_date', 'seller_shop', 'retailer_shop', 'retailer_name')
+    list_filter = [ComplaintIDSearch, OrderIdSearch, IssueStatusSearch, IssueSearch]
 
 
 class PaymentAdmin(NumericFilterModelAdmin,admin.ModelAdmin):
@@ -774,3 +937,4 @@ admin.site.register(Payment, PaymentAdmin)
 admin.site.register(Dispatch, DispatchAdmin)
 admin.site.register(Trip, TripAdmin)
 admin.site.register(Shipment, ShipmentAdmin)
+admin.site.register(Commercial, CommercialAdmin)

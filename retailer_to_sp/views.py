@@ -9,6 +9,8 @@ from django.db.models import Sum, Q
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.response import Response
+from rest_framework import status
 
 from sp_to_gram.models import OrderedProductReserved
 from retailer_to_sp.models import (
@@ -25,7 +27,15 @@ from django.views.generic import TemplateView
 from django.conf import settings
 
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector, TrigramSimilarity
-
+from shops.models import Shop
+from retailer_to_sp.api.v1.serializers import DispatchSerializer, CommercialShipmentSerializer
+import json
+from django.http import HttpResponse
+from django.core import serializers
+from retailer_to_sp.api.v1.serializers import OrderedCartSerializer
+from django.urls import reverse
+from django.contrib.sessions.models import Session
+from django.contrib.auth import get_user_model
 
 class ReturnProductAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
@@ -173,7 +183,7 @@ def ordered_product_mapping_shipment(request):
                                           )
     form = OrderedProductForm()
     form_set = ordered_product_set()
-    if order_id:
+    if order_id and request.method == 'GET':
         ordered_product = Cart.objects.filter(pk=order_id)
         ordered_product = Order.objects.get(pk=order_id).ordered_cart
         order_product_mapping = CartProductMapping.objects.filter(
@@ -248,125 +258,171 @@ def ordered_product_mapping_shipment(request):
 
 
 def trip_planning(request):
-    TripDispatchFormset = modelformset_factory(
-        Dispatch,
-        fields=[
-            'selected', 'items', 'invoice_amount', 'shipment_status', 'invoice_city', 'invoice_date', 'order', 'shipment_address'
-        ],
-        form=DispatchForm, extra=0
-    )
-    trip_id = request.GET.get('trip_id')
 
     if request.method == 'POST':
-        formset = TripDispatchFormset(request.POST)
+
         form = TripForm(request.user, request.POST)
-        if form.is_valid() and formset.is_valid():
+        if form.is_valid():
             trip = form.save()
-            for formset_form in formset:
-                if formset_form.is_valid():
-                    selected_form = formset_form.cleaned_data.get('selected')
-                    if selected_form:
-                        dispatch = formset_form.save(commit=False)
-                        dispatch.trip = trip
-                        dispatch.shipment_status = 'READY_TO_DISPATCH'
-                        dispatch.save()
-                    else:
-                        dispatch = formset_form.save(commit=False)
-                        if dispatch.trip:
-                            dispatch.trip = None
-                            dispatch.shipment_status = 'READY_TO_SHIP'
-                            dispatch.save()
+            selected_shipments = form.cleaned_data.get('selected_id', None)
+            if selected_shipments:
+                selected_shipments = selected_shipments.split(',')
+                selected_shipments = Dispatch.objects.filter(
+                                                    pk__in=selected_shipments)
+                for shipment_instance in selected_shipments:
+                    shipment_instance.trip = trip
+                    shipment_instance.shipment_status = 'READY_TO_DISPATCH'
+                    shipment_instance.save()
             return redirect('/admin/retailer_to_sp/trip/')
 
-    else:
-        formset = TripDispatchFormset(queryset=Dispatch.objects.none())
-        form = TripForm(request.user)
+    form = TripForm(request.user)
 
     return render(
         request,
         'admin/retailer_to_sp/TripPlanning.html',
-        {'form':form, 'formset': formset}
+        {'form': form}
     )
 
 
 def trip_planning_change(request, pk):
-    trip_dispatch_formset = modelformset_factory(
-        Dispatch,
-        fields=[
-            'selected', 'items', 'invoice_amount', 'shipment_status', 'invoice_city', 'invoice_date', 'order', 'shipment_address'
-        ],
-        form=DispatchForm, extra=0
-    )
     trip_instance = Trip.objects.get(pk=pk)
     trip_status = trip_instance.trip_status
+
     if request.method == 'POST':
-        formset = trip_dispatch_formset(request.POST)
         form = TripForm(request.user, request.POST, instance=trip_instance)
-        if trip_status == 'READY' or trip_status == 'STARTED' or trip_status == 'CANCELLED':
-            if form.is_valid() and formset.is_valid():
+        if (trip_status == 'READY' or trip_status == 'STARTED' or
+                trip_status == 'CANCELLED'):
+            if form.is_valid():
                 trip = form.save()
                 current_trip_status = trip.trip_status
-                for formset_form in formset:
-                    if formset_form.is_valid():
-                        selected_form = formset_form.cleaned_data.get('selected')
-                        dispatch = formset_form.save(commit=False)
+                selected_shipment_ids = form.cleaned_data.get('selected_id', None)
+                unselected_shipment_ids = form.cleaned_data.get('unselected_id', None)
 
+                if selected_shipment_ids:
+                    selected_shipments = selected_shipment_ids.split(',')
+                    selected_shipments = Dispatch.objects.filter(
+                                                    pk__in=selected_shipments)
+
+                    for shipment_instance in selected_shipments:
                         if current_trip_status == 'READY':
-                            if selected_form:
-                                dispatch.trip = trip
-                                dispatch.shipment_status = 'READY_TO_DISPATCH'
-                            else:
-                                if dispatch.trip:
-                                    dispatch.trip = None
-                                    dispatch.shipment_status = 'READY_TO_SHIP'
+                            shipment_instance.trip = trip
+                            shipment_instance.shipment_status = 'READY_TO_DISPATCH'
 
-                        elif dispatch.trip == trip and current_trip_status == 'STARTED':
-                            dispatch.shipment_status = 'OUT_FOR_DELIVERY'
+                        elif shipment_instance.trip == trip and current_trip_status == 'STARTED':
+                            shipment_instance.shipment_status = 'OUT_FOR_DELIVERY'
 
                         elif current_trip_status == 'COMPLETED':
                             ordered_product_mapping = OrderedProductMapping.objects.filter(
-                                ordered_product=formset_form.cleaned_data.get('id'))
+                                ordered_product=shipment_instance)
                             for product in ordered_product_mapping:
                                 product.delivered_qty = product.shipped_qty
                                 product.save()
-                            dispatch.shipment_status = 'FULLY_DELIVERED_AND_COMPLETED'
-
+                            shipment_instance.shipment_status = 'FULLY_DELIVERED_AND_COMPLETED'
                         elif current_trip_status == 'CANCELLED':
-                            if dispatch.trip:
-                                dispatch.trip = None
-                                dispatch.shipment_status = 'READY_TO_SHIP'
-                        dispatch.save()
-                return redirect('/admin/retailer_to_sp/trip/')
+                            if shipment_instance.trip:
+                                shipment_instance.trip = None
+                                shipment_instance.shipment_status = 'READY_TO_SHIP'
+                        shipment_instance.save()
 
-        else:
-            if form.is_valid():
-                form.save()
-                return redirect('/admin/retailer_to_sp/trip/')
+                if unselected_shipment_ids and current_trip_status == 'READY':
+                    unselected_shipments = unselected_shipment_ids.split(',')
+                    unselected_shipments = Dispatch.objects.filter(
+                                                pk__in=unselected_shipments)
+                    for shipment_instance in unselected_shipments:
+                        if shipment_instance.trip:
+                            shipment_instance.trip = None
+                            shipment_instance.shipment_status = 'READY_TO_SHIP'
+                            shipment_instance.save()
 
-    else:
-        if trip_status == 'READY':
-            formset = trip_dispatch_formset(
-                queryset=Dispatch.objects.filter(
-                    Q(trip=pk) | Q(shipment_status='READY_TO_SHIP')
-                )
-            )
-        else:
-            trip_dispatch_formset = modelformset_factory(
-                Dispatch,
-                fields=[
-                    'selected', 'items', 'invoice_amount', 'shipment_status', 'invoice_city', 'invoice_date', 'order', 'shipment_address'
-                ],
-                form=DispatchDisabledForm, extra=0
-            )
-            formset = trip_dispatch_formset(
-                queryset=Dispatch.objects.filter(trip=pk)
-            )
-        form = TripForm(request.user, instance=trip_instance)
+        return redirect('/admin/retailer_to_sp/trip/')
+
+    form = TripForm(request.user, instance=trip_instance)
     return render(
         request,
         'admin/retailer_to_sp/TripPlanningChange.html',
-        {'form':form, 'formset': formset}
+        {'form': form}
     )
+
+
+class LoadDispatches(APIView):
+    """Return list of dispatches for specific seller shop
+
+    :param request: seller_shop_id
+    :return: list of dispatch
+    """
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+
+        seller_shop = request.GET.get('seller_shop_id')
+        area = request.GET.get('area')
+        trip_id = request.GET.get('trip_id')
+        commercial = request.GET.get('commercial')
+        vector = SearchVector('order__shipping_address__address_line1')
+        query = SearchQuery(area)
+        similarity = TrigramSimilarity(
+                            'order__shipping_address__address_line1', area)
+
+        if seller_shop and area and trip_id:
+            dispatches = Dispatch.objects.annotate(
+                            rank=SearchRank(vector, query) + similarity
+                            ).filter(
+                                Q(shipment_status='READY_TO_SHIP') |
+                                Q(trip=trip_id), order__seller_shop=seller_shop
+                                ).order_by('-rank')
+
+        elif seller_shop and trip_id:
+            dispatches = Dispatch.objects.filter(
+                            Q(shipment_status='READY_TO_SHIP') |
+                            Q(trip=trip_id), order__seller_shop=seller_shop)
+
+        elif trip_id:
+            dispatches = Dispatch.objects.filter(
+                                trip=trip_id)
+
+        elif seller_shop and area:
+            dispatches = Dispatch.objects.annotate(
+                            rank=SearchRank(vector, query) + similarity
+                        ).filter(
+                            shipment_status='READY_TO_SHIP',
+                            order__seller_shop=seller_shop).order_by('-rank')
+
+        elif seller_shop:
+            dispatches = Dispatch.objects.select_related('order', 'order__shipping_address', 'order__ordered_cart').filter(
+                                            shipment_status='READY_TO_SHIP',
+                                            order__seller_shop=seller_shop).order_by('invoice_no')
+
+        elif area and trip_id:
+            dispatches = Dispatch.objects.annotate(
+                            rank=SearchRank(vector, query) + similarity
+                            ).filter(Q(shipment_status='READY_TO_SHIP') |
+                                     Q(trip=trip_id)).order_by('-rank')
+
+        elif area:
+            dispatches = Dispatch.objects.annotate(
+                            rank=SearchRank(vector, query) + similarity
+                            ).order_by('-rank')
+
+        else:
+            dispatches = Dispatch.objects.none()
+
+        if dispatches and commercial:
+            serializer = CommercialShipmentSerializer(dispatches, many=True)
+            msg = {'is_success': True,
+                   'message': None,
+                   'response_data': serializer.data}
+        elif dispatches:
+            serializer = DispatchSerializer(dispatches, many=True)
+            msg = {'is_success': True,
+                   'message': None,
+                   'response_data': serializer.data}
+        else:
+            msg = {'is_success': False,
+                   'message': ("There are no shipments that"
+                               " are Ready to Ship(QC Passed)"),
+                   'response_data': None}
+        return Response(msg, status=status.HTTP_201_CREATED)
+
 
 
 def load_dispatches(request):
@@ -398,8 +454,16 @@ def load_dispatches(request):
                         ).filter(shipment_status='READY_TO_SHIP', order__seller_shop=seller_shop).order_by('-rank')
 
     elif seller_shop:
-        dispatches = Dispatch.objects.filter(shipment_status='READY_TO_SHIP',
+        dispatches = Dispatch.objects.select_related('order').filter(shipment_status='READY_TO_SHIP',
                                              order__seller_shop=seller_shop)
+        #serializer = DispatchSerializer(dispatches, many=True)
+        #msg = {'is_success': True, 'message': ['All Messages'], 'response_data': serializer.data}
+        #return Response(msg, status=status.HTTP_201_CREATED)
+        data = serializers.serialize('json', dispatches)
+        #return JsonResponse(dispatches, safe=False)
+        return HttpResponse(data, content_type="application/json")
+        #return render(request, 'admin/retailer_to_sp/trip/JSONDispatchesList.html', data)
+
     elif area and trip_id:
         dispatches = Dispatch.objects.annotate(
                         rank=SearchRank(vector, query) + similarity
@@ -410,13 +474,12 @@ def load_dispatches(request):
         dispatches = Dispatch.objects.annotate(
                         rank=SearchRank(vector, query) + similarity
                         ).order_by('-rank')
-
     else:
         dispatches = Dispatch.objects.none()
     TripDispatchFormset = modelformset_factory(
         Dispatch,
         fields=[
-            'selected', 'items', 'invoice_amount', 'shipment_status', 'invoice_city', 'invoice_date', 'order', 'shipment_address'
+            'selected', 'items', 'shipment_status', 'invoice_date', 'order', 'shipment_address'
         ],
         form=DispatchForm, extra=0
     )
@@ -563,6 +626,21 @@ def update_order_status(form):
         order.order_status = 'PARTIALLY_SHIPPED'
     order.save()
 
+class SellerShopAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Shop.objects.filter(Q(shop_type__shop_type='sp',shop_owner=self.request.user) | Q(shop_type__shop_type='sp',related_users=self.request.user))
+
+        if self.q:
+            qs = qs.filter(shop_name__startswith=self.q)
+        return qs
+
+class BuyerShopAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Shop.objects.filter(shop_type__shop_type='r',shop_owner=self.request.user)
+
+        if self.q:
+            qs = qs.filter(shop_name__startswith=self.q)
+        return qs
 
 class DeductReservedQtyFromShipment(object):
 
@@ -578,20 +656,31 @@ class DeductReservedQtyFromShipment(object):
     def get_sp_ordered_product_reserved(self, product):
         cart = self.get_cart()
         return OrderedProductReserved.objects.filter(
-            cart=cart, product=product).last()
+            cart=cart, product=product, reserved_qty__gt=0).order_by('reserved_qty')
 
-    def deduct_reserved_qty(self, product, ordered_qty, already_shipped_qty):
-        ordered_product_reserved = self.get_sp_ordered_product_reserved(
+    def deduct_reserved_qty(self, product, ordered_qty, shipped_qty):
+        ordered_products_reserved = self.get_sp_ordered_product_reserved(
             product)
-        ordered_product_reserved.reserved_qty = (ordered_qty - already_shipped_qty)
-        ordered_product_reserved.save()
+        remaining_amount = shipped_qty
+        for ordered_product_reserved in ordered_products_reserved:
+            if remaining_amount <= 0:
+                break
+            if ordered_product_reserved.reserved_qty >= remaining_amount:
+                deduct_qty = remaining_amount
+            else:
+                deduct_qty = ordered_product_reserved.reserved_qty
+
+            ordered_product_reserved.reserved_qty -= deduct_qty
+            remaining_amount -= deduct_qty
+            ordered_product_reserved.save()
 
     def update(self):
         for form in self.shipment_products:
-            product = form.instance.product
-            already_shipped_qty = form.instance.to_be_shipped_qty
-            ordered_qty = int(form.instance.ordered_qty)
-            self.deduct_reserved_qty(product, ordered_qty, already_shipped_qty)
+            if form.instance.pk:
+                product = form.instance.product
+                shipped_qty = form.instance.shipped_qty
+                ordered_qty = int(form.instance.ordered_qty)
+                self.deduct_reserved_qty(product, ordered_qty, shipped_qty)
 
 
 class UpdateSpQuantity(object):
@@ -608,27 +697,16 @@ class UpdateSpQuantity(object):
     def get_sp_ordered_product_reserved(self, product):
         cart = self.get_cart()
         return OrderedProductReserved.objects.filter(
-            cart=cart, product=product).last()
+            cart=cart, product=product,
+            reserved_qty__gt=0).order_by('reserved_qty')
 
     def get_shipment_status(self):
         shipment_status = self.shipment.instance.shipment_status
         return shipment_status
 
-    def update_shipment_status(self):
-        self.shipment.instance.shipment_status = self.shipment.instance.CLOSED
-        self.shipment.instance.save()
-
     def close_order(self):
         status = self.shipment.cleaned_data.get('close_order')
         return status
-
-    def get_reserved_qty(self, product):
-        ordered_product_reserved = self.get_sp_ordered_product_reserved(
-            product)
-        reserved_qty = ordered_product_reserved.reserved_qty
-        ordered_product_reserved.reserved_qty = 0
-        ordered_product_reserved.save()
-        return reserved_qty
 
     def update_order_status(self):
         self.shipment.instance.order.order_status = self.shipment.instance.\
@@ -636,11 +714,14 @@ class UpdateSpQuantity(object):
         self.shipment.instance.order.save()
 
     def update_available_qty(self, product):
-        ordered_product_reserved = self.get_sp_ordered_product_reserved(
+        ordered_products_reserved = self.get_sp_ordered_product_reserved(
             product)
-        shipment_product = ordered_product_reserved.order_product_reserved
-        shipment_product.available_qty += self.get_reserved_qty(product)
-        shipment_product.save()
+        for ordered_product_reserved in ordered_products_reserved:
+            grn = ordered_product_reserved.order_product_reserved
+            grn.available_qty += ordered_product_reserved.reserved_qty
+            grn.save()
+            ordered_product_reserved.reserved_qty = 0
+            ordered_product_reserved.save()
 
     def update(self):
         for inline_form in self.shipment_products:
@@ -650,7 +731,186 @@ class UpdateSpQuantity(object):
                     self.close_order() and
                     (self.get_shipment_status() !=
                      self.shipment.instance.CLOSED)):
-
-                    self.update_shipment_status()
                     self.update_order_status()
                     self.update_available_qty(product)
+
+class DownloadTripPdf(APIView):
+    permission_classes = (AllowAny,)
+    """
+    PDF Download object
+    """
+    filename = 'trip.pdf'
+    template_name = 'admin/trip/trip.html'
+
+    def get(self, request, *args, **kwargs):
+        trip_obj = get_object_or_404(Trip, pk=self.kwargs.get('pk'))
+        pk = self.kwargs.get('pk')
+        trip = Trip.objects.get(pk=pk)
+        trip_no = trip.dispatch_no
+        delivery_boy = trip.delivery_boy
+        trip_date = trip.created_at
+        no_of_orders = trip.rt_invoice_trip.all().count()
+        amount = 0
+        invoices = trip.rt_invoice_trip.all()
+        trip_detail_list =[]
+        for invoice in invoices:
+            products=[]
+            amount += float(invoice.invoice_amount)
+            for n in invoice.rt_order_product_order_product_mapping.all():
+                products.append(n.product)
+            no_of_products = len(list(set(products)))
+            trip_invoice_details = {
+                        "invoice_no":  invoice.invoice_no,
+                        "retailer_address": invoice.shipment_address,
+                        "no_of_products": no_of_products,
+                        "invoice_amount": invoice.invoice_amount
+
+            }
+            trip_detail_list.append(trip_invoice_details)
+        total_invoice_amount = round(amount, 2)
+        data = {
+            "object": trip_obj,
+            "trip": trip,
+            "trip_no": trip_no,
+            "delivery_boy": delivery_boy,
+            "trip_date": trip_date,
+            "no_of_orders": no_of_orders,
+            "total_invoice_amount": total_invoice_amount,
+            "url": request.get_host(),
+            "scheme": request.is_secure() and "https" or "http",
+            "trip_detail_list":trip_detail_list
+
+        }
+
+        cmd_option = {
+            "margin-top": 10,
+            "zoom": 1,
+            "javascript-delay": 1000,
+            "footer-center": "[page]/[topage]",
+            "no-stop-slow-scripts": True,
+            "quiet": True
+        }
+        response = PDFTemplateResponse(
+            request=request, template=self.template_name,
+            filename=self.filename, context=data,
+            show_content_in_browser=False, cmd_options=cmd_option
+        )
+        return response
+
+
+def commercial_shipment_details(request, pk):
+    shipment = OrderedProduct.objects.select_related('order').get(pk=pk)
+    shipment_products = OrderedProductMapping.objects.\
+        select_related('product').filter(ordered_product=shipment)
+    return render(
+        request,
+        'admin/retailer_to_sp/CommercialShipmentDetails.html',
+        {'shipment': shipment, 'shipment_products': shipment_products}
+    )
+
+class RetailerCart(APIView):
+    permission_classes = (AllowAny,)
+    def get(self, request, *args, **kwargs):
+        order_obj = Order.objects.get(order_no=request.GET.get('order_no'))
+        dt = OrderedCartSerializer(
+            order_obj.ordered_cart,
+            context={'parent_mapping_id': order_obj.seller_shop.id,}
+        )
+        return Response({'is_success': True,'response_data': dt.data}, status=status.HTTP_200_OK)
+
+class OrderList(APIView):
+    permission_classes = (AllowAny,)
+    def get(self, request, *args, **kwargs):
+        page = request.GET.get('p',0)
+        page_limit = 100
+        offset = 0 if page == 0 else (page*page_limit)+1
+        session = Session.objects.get(session_key=request.session.session_key)
+        user = get_user_model().objects.get(pk=session.get_decoded().get('_auth_user_id'))
+        orders = Order.objects.filter(
+            Q(seller_shop__related_users=user) |
+            Q(seller_shop__shop_owner=user))[offset:page_limit]
+        dt = []
+        for order in orders:
+            payment_mode = []
+            payment_amount = []
+            order_invoices = []
+            order_shipment_status = []
+            order_shipment_amount = []
+            delivery_date = []
+            shipment_date = []
+
+            total_amount = []
+            total_cn_amount = []
+            total_damaged_amount = []
+            invoice_amount = []
+            cn_amount = []
+            damaged_amount_value = []
+            cash_to_be_collect = []
+            delivered_value = []
+
+            if order:
+                # Payments and Payment Amount
+                payments = order.rt_payment.all()
+                if payments:
+                    for payment in payments:
+                        payment_mode.append(payment.get_payment_choice_display())
+                        payment_amount.append(float(payment.paid_amount))
+
+                # Invoice
+                shipments = order.rt_order_order_product.all()
+                for s in shipments:
+                    order_invoices.append("<a href='/admin/retailer_to_sp/shipment/%s/change/' target='blank'>%s</a><br><br>"%(s.pk,s.invoice_no)) if s.invoice_no else order_invoices.append(" - <br><br>")
+                    order_shipment_status.append("%s <br><br>"%(s.get_shipment_status_display()))
+                    delivery_date.append("%s <br><br>"%(s.trip.completed_at.strftime('%d-%m-%Y %H:%M:%S')) if s.trip and s.trip.completed_at else '- <br><br>')
+                    shipment_date.append("%s <br><br>"%(s.created_at.strftime('%d-%m-%Y %H:%M:%S')) if s.created_at else '-')
+
+                    # Shipment Products
+                    return_amount,damaged_amount = 0,0
+                    total_cn_amount,total_damaged_amount, total_amount_to_collect = [],[],[]
+
+                    shipment_products = s.rt_order_product_order_product_mapping.all()
+                    for product in shipment_products:
+                        if product.product:
+                            cart_product_map = s.order.ordered_cart.rt_cart_list.filter(cart_product=product.product).last()
+                            product_price = float(round(
+                                cart_product_map.get_cart_product_price(
+                                    order.seller_shop).price_to_retailer, 2
+                            ))
+                            amount = product_price * product.shipped_qty
+                            total_amount.append(amount)
+
+                            # CN_Amount
+                            return_amount = product_price * product.returned_qty
+                            damaged_amount = product_price * product.damaged_qty
+
+                            total_cn_amount.append(return_amount + damaged_amount)
+                            total_damaged_amount.append(damaged_amount)
+                            total_amount_to_collect.append(product_price * product.delivered_qty)
+
+                    invoice_amount.append("%s <br><br>"%(round(sum(total_amount), 2)))
+                    cn_amount.append("%s <br><br>"%(round(sum(total_cn_amount), 2)))
+                    damaged_amount_value.append("%s <br><br>"%(round(sum(total_damaged_amount),2)))
+                    cash_to_be_collect.append("%s <br><br>"%(round(sum(total_amount_to_collect),2)))
+                    delivered_value.append("%s <br><br>"%(round(float(s.trip.cash_to_be_collected()), 2) - round(float(sum(total_cn_amount)),2)) if s.trip else "- <br><br>")
+
+            temp = {
+                'id':order.id,
+                'order_no': "<a href= '%s/change/'>%s</a>"%(order.pk,order.order_no),
+                'download_pick_list':"<a href= '%s' >Download Pick List</a>" %(reverse('download_pick_list_sp', args=[order.pk])),
+                'seller_shop': "%s - %s" % (order.seller_shop.shop_name.split()[0], order.seller_shop.shop_name.split()[-1]) if order.seller_shop else '-',
+                'buyer_shop': "%s - %s" % (order.buyer_shop.shop_name.split()[0], order.buyer_shop.shop_name.split()[-1]) if order.buyer_shop else '-',
+                'order_status': order.get_order_status_display(),
+                'payment_mode': order.payment_mode,
+                'invoice_no':order_invoices,
+                'shipment_created_date':shipment_date,
+                'invoice_amount':invoice_amount,
+                'shipment_status':order_shipment_status,
+                'delivery_date':delivery_date,
+                'cn_amount':cn_amount,
+                'cash_collected':cash_to_be_collect,
+                'damaged_amount':damaged_amount_value,
+                'delivered_amount':delivered_value,
+            }
+            dt.append(temp)
+
+        return Response({'is_success': True,'response_data': dt}, status=status.HTTP_200_OK)

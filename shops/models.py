@@ -5,7 +5,12 @@ from django.utils.safestring import mark_safe
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from otp.sms import SendSms
+import datetime,re
+from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
+from retailer_backend.validators import *
 import datetime
+from django.core.validators import MinLengthValidator
 
 
 SHOP_TYPE_CHOICES = (
@@ -44,6 +49,8 @@ class Shop(models.Model):
     shop_owner = models.ForeignKey(get_user_model(), related_name='shop_owner_shop',on_delete=models.CASCADE)
     shop_type = models.ForeignKey(ShopType,related_name='shop_type_shop',on_delete=models.CASCADE)
     related_users = models.ManyToManyField(get_user_model(),blank=True, related_name='related_shop_user')
+    shop_code = models.CharField(max_length=1, blank=True, null=True)
+    warehouse_code = models.CharField(max_length=2, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=False)
@@ -54,6 +61,21 @@ class Shop(models.Model):
     def __init__(self, *args, **kwargs):
         super(Shop, self).__init__(*args, **kwargs)
         self.__original_status = self.status
+
+    @property
+    def get_shop_shipping_address(self):
+        if self.shop_name_address_mapping.exists():
+            for address in self.shop_name_address_mapping.filter(address_type ='shipping').all():
+                return address.address_line1
+    get_shop_shipping_address.fget.short_description = 'Shipping Address'
+
+    @property
+    def get_shop_pin_code(self):
+        if self.shop_name_address_mapping.exists():
+            for address in self.shop_name_address_mapping.filter(address_type ='shipping').all():
+                return address.pincode
+    get_shop_pin_code.fget.short_description = 'PinCode'
+
 
     def save(self, force_insert=False, force_update=False, *args, **kwargs):
         if self.status != self.__original_status and self.status is True and ParentRetailerMapping.objects.filter(retailer=self, status=True).exists():
@@ -85,7 +107,7 @@ class ShopNameDisplay(Shop):
         proxy = True
 
     def __str__(self):
-        return "%s - %s"%(self.shop_name,self.shop_owner)
+        return "%s - %s" % (self.shop_name.split()[0], self.shop_name.split()[-1])
 
 class ShopPhoto(models.Model):
     shop_name = models.ForeignKey(Shop, related_name='shop_name_photos', on_delete=models.CASCADE)
@@ -124,6 +146,12 @@ class ShopDocument(models.Model):
     def __str__(self):
         return "%s - %s"%(self.shop_document_number, self.shop_document_photo.url)
 
+    def clean(self):
+        super(ShopDocument, self).clean()
+        if self.shop_document_type == 'gstin' and len(self.shop_document_number) >15 or self.shop_document_type == 'gstin' and len(self.shop_document_number) <15:
+            raise ValidationError(_("GSTIN Number must be equal to 15 digits only"))
+        if self.shop_document_type =='gstin' and not re.match("^[a-zA-Z0-9]*$", self.shop_document_number):
+            raise ValidationError(_("GSTIN values must be alphanumeric only"))
 
 class ShopInvoicePattern(models.Model):
     ACTIVE = 'ACT'
