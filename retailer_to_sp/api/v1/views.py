@@ -182,8 +182,8 @@ class GramGRNProductsList(APIView):
                 for c_p in cart_products:
                     if c_p.cart_product_id == p.product_id:
                         user_selected_qty = c_p.qty
-                        no_of_pieces = c_p.qty * c_p.cart_product.product_inner_case_size
-                        sub_total = no_of_pieces * ptr
+                        no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
+                        sub_total = float(no_of_pieces) * float(ptr)
             status = p.product.status
             product_opt = p.product.product_opt_product.all()
             weight_value = None
