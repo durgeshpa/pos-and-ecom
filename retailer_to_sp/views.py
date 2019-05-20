@@ -33,7 +33,7 @@ from retailer_to_sp.api.v1.serializers import DispatchSerializer, CommercialShip
 import json
 from django.http import HttpResponse
 from django.core import serializers
-
+from retailer_to_sp.task import (update_reserved_order,)
 
 class ReturnProductAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
@@ -243,9 +243,8 @@ def ordered_product_mapping_shipment(request):
                             formset_data = forms.save(commit=False)
                             formset_data.ordered_product = ordered_product_instance
                             formset_data.save()
-                update_qty = DeductReservedQtyFromShipment(
-                    ordered_product_instance, form_set)
-                update_qty.update.delay()
+
+                update_reserved_order(json.dumps({'shipment_id': ordered_product_instance}))
                 return redirect('/admin/retailer_to_sp/shipment/')
 
     return render(
