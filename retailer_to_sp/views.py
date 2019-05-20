@@ -33,7 +33,7 @@ from retailer_to_sp.api.v1.serializers import DispatchSerializer, CommercialShip
 import json
 from django.http import HttpResponse
 from django.core import serializers
-from retailer_to_sp.task import (update_reserved_order,)
+from retailer_to_sp.tasks import (update_reserved_order,)
 
 class ReturnProductAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
