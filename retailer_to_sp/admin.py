@@ -495,21 +495,26 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         except (AttributeError, KeyError):
             return response
 
+        page_limit = 100
+        page = int(request.GET.get('p', 0))
+        page_limit_dt = int(page_limit) + (int(page)*int(page_limit))
+        offset = 0 if page == 0 else (int(page) * int(page_limit))
+
         result_qs = list(qs.values('order_no', 'seller_shop', 'buyer_shop',
                     'total_final_amount', 'order_status', 'created_at','pk',
-                    ).order_by('-created_at').all())
-        cl = ChangeList(request,
-                        self.model,
-                        self.list_display,
-                        self.list_display_links,
-                        self.list_filter,
-                        self.date_hierarchy,
-                        self.search_fields,
-                        self.list_select_related,
-                        self.list_per_page,
-                        self.list_max_show_all,
-                        self.list_editable, self, self.sortable_by)
-        dt = cl.get_queryset(request)
+                    ).order_by('-created_at')[offset:page_limit_dt])
+        # cl = ChangeList(request,
+        #                 self.model,
+        #                 self.list_display,
+        #                 self.list_display_links,
+        #                 self.list_filter,
+        #                 self.date_hierarchy,
+        #                 self.search_fields,
+        #                 self.list_select_related,
+        #                 self.list_per_page,
+        #                 self.list_max_show_all,
+        #                 self.list_editable, self, self.sortable_by)
+        # dt = cl.get_queryset(request)
         response.context_data['summary'] = result_qs
         return response
     # new code for order_list end
