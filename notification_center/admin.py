@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
-
+from django.conf.urls import url
 
 from notification_center.models import (
     Template, TemplateVariable, Notification, UserNotification,
@@ -8,15 +8,41 @@ from notification_center.models import (
     GCMActivity, NotificationScheduler, GroupNotificationScheduler
     )
 from notification_center.forms import (
-    TemplateForm
+    TemplateForm, GroupNotificationForm
     )
 from notification_center.utils import (
     SendNotification
     )
+from notification_center.views import (
+    group_notification_view
+    )
 
 User = get_user_model()
 
+from celery import Celery
+from celery.schedules import crontab
+app = Celery()
 
+@app.on_after_configure.connect
+def setup_periodic_tasks(sender=None, **kwargs):
+    # This function is used to setup tasks via celery
+    import pdb; pdb.set_trace()
+    # data = kwargs['data']
+    # Calls test('hello') every 10 seconds.
+    sender.add_periodic_task(10.0, test.s('hello'), name='add every 10')
+
+    # Calls test('world') every 30 seconds
+    sender.add_periodic_task(30.0, test.s('world'), expires=10)
+
+    # Executes every Monday morning at 7:30 a.m.
+    sender.add_periodic_task(
+        crontab(hour=7, minute=30, day_of_week=1),
+        test.s('Happy Mondays!'),
+    )
+
+@app.task
+def test(arg):
+    print(arg)
 
 class TemplateAdmin(admin.ModelAdmin):
     model = Template
@@ -141,6 +167,10 @@ class NotificationSchedulerAdmin(admin.ModelAdmin):
             activity_type = Template.objects.get(id=obj.template.id).type
             # code to send notification
             #setup_periodic_tasks()  #data = {}
+            data = {}
+            data['test'] = "test"
+
+            #setup_periodic_tasks()
 
             SendNotification(user_id=user_id, activity_type=activity_type).send()
         except Exception as e:
@@ -149,60 +179,43 @@ class NotificationSchedulerAdmin(admin.ModelAdmin):
         super(NotificationSchedulerAdmin, self).save_model(request, obj, form, change)    
 
 
+class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
+    model = GroupNotificationScheduler
+    list_display = ('id', 'user', 'template', 'run_at', 'repeat', 'created_at')
+    search_fields = ('id', 'user', 'template')
+    change_form_template = 'admin/notification_center/group_notification_scheduler/group-notification.html'
+    form = GroupNotificationForm
 
-# class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
-#     model = GroupNotificationScheduler
-#     list_display = ('id',  'template', 'run_at', 'repeat', 'created_at')
-#     search_fields = ('id', 'template')
+    def get_urls(self):
 
-#     def save_model(self, request, obj, form, change):
-#         try:
-#             #import pdb; pdb.set_trace()
-#             #integrate with celery beat
-#             selection_type = obj.selection_type
-#             activity_type = Template.objects.get(id=obj.template.id).type
+        urls = super(GroupNotificationSchedulerAdmin, self).get_urls()
+        custom_urls = [
+            url(
+                r'^test',
+                self.admin_site.admin_view(group_notification_view),
+                name="group-notification-scheduler"
+            ),
 
-#             if selection_type == "User":
-#                 user_id = User.objects.get(id=obj.user.id).id                
-#                 # code to send notification
-#                 #setup_periodic_tasks()  #data = {}
-#                 SendNotification(user_id=user_id, activity_type=activity_type).send()
+        ] + urls
+        return custom_urls
 
-#             elif selection_type == "Shop":
-#                 user_id = obj.shop.shop_owner.id
-#                 SendNotification(user_id=user_id, activity_type=activity_type).send()
+    def save_model(self, request, obj, form, change):
+        try:
+            pass
+            # # if first field is 
+            # if obj.selection_type == "user":      
+            #     user_id = obj.user.id
+            #     activity_type = Template.objects.get(id=obj.template.id).type
+            #     SendNotification(user_id=user_id, activity_type=activity_type).send()
+            # elif obj.selection_type == "shop":
+            #     pass
 
-#         except Exception as e:
-#             print (e.args)
-#             pass
-#         super(NotificationSchedulerAdmin, self).save_model(request, obj, form, change)    
+        except Exception as e:
+            print (e.args)
+            pass
+        super(GroupNotificationSchedulerAdmin, self).save_model(request, obj, form, change)    
 
-
-
-# from celery import Celery
-# from celery.schedules import crontab
-# app = Celery()
-
-# @app.on_after_configure.connect
-# def setup_periodic_tasks(sender, **kwargs):
-#     data = kwargs['data']
-#     # Calls test('hello') every 10 seconds.
-#     sender.add_periodic_task(10.0, test.s('hello'), name='add every 10')
-
-#     # Calls test('world') every 30 seconds
-#     sender.add_periodic_task(30.0, test.s('world'), expires=10)
-
-#     # Executes every Monday morning at 7:30 a.m.
-#     sender.add_periodic_task(
-#         crontab(hour=7, minute=30, day_of_week=1),
-#         test.s('Happy Mondays!'),
-#     )
-
-
-# @app.task
-# def test(arg):
-#     print(arg)
-
+        
 
 
 admin.site.register(Template, TemplateAdmin)
@@ -211,4 +224,4 @@ admin.site.register(Notification, NotificationAdmin)
 admin.site.register(UserNotification, UserNotificationAdmin)
 #admin.site.register(TextSMSActivity, TextSMSActivityAdmin)
 admin.site.register(NotificationScheduler, NotificationSchedulerAdmin)
-admin.site.register(GroupNotificationScheduler) #, GroupNotificationSchedulerAdmin)
+admin.site.register(GroupNotificationScheduler, GroupNotificationSchedulerAdmin)

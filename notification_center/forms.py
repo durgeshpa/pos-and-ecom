@@ -6,9 +6,15 @@ from django.utils.translation import gettext_lazy as _
 
 from notification_center.models import(
     Template, TextSMSActivity, VoiceCallActivity,
-    EmailActivity, GCMActivity
+    EmailActivity, GCMActivity, GroupNotificationScheduler
     )
 
+
+class GroupNotificationForm(forms.ModelForm):
+    class Meta:
+        model = GroupNotificationScheduler
+        fields = '__all__'
+        
 
 class TemplateForm(forms.ModelForm):
     class Meta:

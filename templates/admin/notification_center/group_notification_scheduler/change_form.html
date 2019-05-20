@@ -1,0 +1,20 @@
+{% extends "admin/change_form.html" %}
+
+{% block admin_change_form_document_ready %}
+<script type="text/javascript">
+alert("hello");</script>
+{% endblock %}
+
+
+<!-- 
+	showing the form
+-->
+{% block after_related_objects %}
+        <a href="{% url 'group-notification-scheduler' object_id %}" target="_blank">Add scheduler </a>
+{% endblock %}
+
+
+<!-- 
+add the javascript for dynamically showing/hiding fields
+
+-->
