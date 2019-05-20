@@ -50,7 +50,7 @@ def update_reserved_order(reserved_args):
     for rp in reserved_products:
         reserved_qty = int(rp.reserved_qty)
         shipped_qty = int(shipment_products_mapping[rp.product.id])
-        p.reserved_qty = reserved_qty - shipped_qty
+        rp.reserved_qty = reserved_qty - shipped_qty
         rp.save()
 
 

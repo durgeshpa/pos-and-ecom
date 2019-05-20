@@ -4,7 +4,7 @@ from wkhtmltopdf.views import PDFTemplateResponse
 from django.forms import formset_factory, inlineformset_factory, modelformset_factory, BaseFormSet, ValidationError
 from django.shortcuts import render, get_object_or_404, redirect
 from django.db.models import Sum, Q
-
+from django.db import transaction
 
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
@@ -34,6 +34,9 @@ import json
 from django.http import HttpResponse
 from django.core import serializers
 from retailer_to_sp.tasks import (update_reserved_order,)
+
+
+logger = logging.getLogger(__name__)
 
 class ReturnProductAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
@@ -235,16 +238,20 @@ def ordered_product_mapping_shipment(request):
                 form_set = ordered_product_set(request.POST)
 
             if form_set.is_valid():
-                ordered_product_instance = form.save()
-                for forms in form_set:
-                    if forms.is_valid():
-                        to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
-                        if to_be_ship_qty:
-                            formset_data = forms.save(commit=False)
-                            formset_data.ordered_product = ordered_product_instance
-                            formset_data.save()
+                try:
+                    with transaction.atomic():
+                        ordered_product_instance = form.save()
+                        for forms in form_set:
+                            if forms.is_valid():
+                                to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
+                                if to_be_ship_qty:
+                                    formset_data = forms.save(commit=False)
+                                    formset_data.ordered_product = ordered_product_instance
+                                    formset_data.save()
+                        update_reserved_order(json.dumps({'shipment_id': ordered_product_instance.id}))
+                except IntegrityError as e:
+                    logger.exception("An error occurred while creating shipment {}".format(e))
 
-                update_reserved_order(json.dumps({'shipment_id': ordered_product_instance.id}))
                 return redirect('/admin/retailer_to_sp/shipment/')
 
     return render(
