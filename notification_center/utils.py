@@ -1,5 +1,6 @@
 import re
 #from fcm.utils import get_device_model
+import logging
 
 from django.template import Context, Template as DjangoTemplate
 #from django.contrib.auth import get_user_model
@@ -13,6 +14,8 @@ from notification_center.models import TemplateVariable, Template, UserNotificat
 
 #User = get_user_model()
 #Device = get_device_model()
+
+logger = logging.getLogger(__name__)
 
 
 class GenerateTemplateData:
@@ -132,6 +135,7 @@ class SendNotification:
 
 
     def send(self):
+        # import pdb; pdb.set_trace()
         # This function will send the notifications(email, sms, fcm) to users 
         user_data = self.data #fetch_user_data(self.user_id)        
         #user = User.objects.get(id=self.user_id)
@@ -165,8 +169,9 @@ class SendNotification:
         # if notification_types.sms_notification:
 
         sms_content = self.merge_template_with_data(template.text_sms_template)
-        #print (self.data['phone_number'], sms_content)
+        print (self.data['phone_number'], sms_content)
+        logging.info(self.data['phone_number'], sms_content)
         # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
-        message = SendSms(phone=self.data['phone_number'], body=sms_content)
-        # message = SendSms(phone=9643112048,body="Dear sagar, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory")
-        message.send()
+        # message = SendSms(phone=self.data['phone_number'], body=sms_content)
+        # # message = SendSms(phone=9643112048,body="Dear sagar, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory")
+        # message.send()
