@@ -859,11 +859,11 @@ class OrderList(APIView):
 
             if order:
                 # Payments and Payment Amount
-                payments = order.rt_payment.all()
-                if payments:
-                    for payment in payments:
-                        payment_mode.append(payment.get_payment_choice_display())
-                        payment_amount.append(float(payment.paid_amount))
+                # payments = order.rt_payment.all()
+                # if payments:
+                #     for payment in payments:
+                #         payment_mode.append(payment.get_payment_choice_display())
+                #         payment_amount.append(float(payment.paid_amount))
 
                 # Invoice
                 shipments = order.rt_order_order_product.all()
@@ -900,7 +900,7 @@ class OrderList(APIView):
                     cn_amount.append("%s <br><br>"%(round(sum(total_cn_amount), 2)))
                     damaged_amount_value.append("%s <br><br>"%(round(sum(total_damaged_amount),2)))
                     cash_to_be_collect.append("%s <br><br>"%(round(sum(total_amount_to_collect),2)))
-                    delivered_value.append("%s <br><br>"%(round(float(s.trip.cash_to_be_collected()) - float(sum(total_cn_amount)),2)) if s.trip else "- <br><br>")
+                    delivered_value.append("%s <br><br>"%(round(float(sum(total_amount_to_collect)) - float(sum(total_cn_amount)),2)) if s.trip else "- <br><br>")
 
             temp = {
                 'id':order.id,
