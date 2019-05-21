@@ -310,15 +310,13 @@ class Order(models.Model):
     def shipment_status(self):
         return order_shipment_status(self.shipments())
 
-    # no need
-    # @property
-    # def order_shipment_amount(self):
-    #     return order_shipment_amount(self.shipments())
+    @property
+    def order_shipment_amount(self):
+        return order_shipment_amount(self.shipments())
 
-    # no need
-    # @property
-    # def order_shipment_details(self):
-    #     return order_shipment_details_util(self.shipments())
+    @property
+    def order_shipment_details(self):
+        return order_shipment_details_util(self.shipments())
 
     # @property
     # def shipment_returns(self):
