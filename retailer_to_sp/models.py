@@ -174,7 +174,6 @@ class CartProductMapping(models.Model):
         self.save()
 
     def get_cart_product_price(self, shop):
-        return 100
         if not self.cart_product_price:
             self.set_cart_product_price(shop)
         return self.cart_product_price
@@ -508,11 +507,10 @@ class OrderedProduct(models.Model): #Shipment
             if product.product:
                 cart_product_map = self.order.ordered_cart.rt_cart_list.\
                                     filter(cart_product=product.product).last()
-                # product_price = float(round(
-                #                     cart_product_map.get_cart_product_price(
-                #                             seller_shop).price_to_retailer, 2
-                #                     ))
-                product_price = 100
+                product_price = float(round(
+                                    cart_product_map.get_cart_product_price(
+                                            seller_shop).price_to_retailer, 2
+                                    ))
                 product_qty = float(getattr(product, qty))
                 amount = product_price * product_qty
                 total_amount.append(amount)
