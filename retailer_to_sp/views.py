@@ -848,7 +848,7 @@ class OrderList(APIView):
             delivery_date = []
             shipment_date = []
 
-            total_amount = []
+
             total_cn_amount = []
             total_damaged_amount = []
             invoice_amount = []
@@ -875,7 +875,7 @@ class OrderList(APIView):
 
                     # Shipment Products
                     return_amount,damaged_amount = 0,0
-                    total_cn_amount,total_damaged_amount, total_amount_to_collect = [],[],[]
+                    total_cn_amount,total_damaged_amount,total_invoice_amount,total_amount_to_collect = [],[],[],[]
 
                     shipment_products = s.rt_order_product_order_product_mapping.all()
                     for product in shipment_products:
@@ -886,7 +886,7 @@ class OrderList(APIView):
                                     order.seller_shop).price_to_retailer, 2
                             ))
                             amount = product_price * product.shipped_qty
-                            total_amount.append(amount)
+                            total_invoice_amount.append(amount)
 
                             # CN_Amount
                             return_amount = product_price * product.returned_qty
@@ -896,7 +896,7 @@ class OrderList(APIView):
                             total_damaged_amount.append(damaged_amount)
                             total_amount_to_collect.append(product_price * product.delivered_qty)
 
-                    invoice_amount.append("%s <br><br>"%(round(sum(total_amount), 2)))
+                    invoice_amount.append("%s <br><br>"%(round(sum(total_invoice_amount), 2)))
                     cn_amount.append("%s <br><br>"%(round(sum(total_cn_amount), 2)))
                     damaged_amount_value.append("%s <br><br>"%(round(sum(total_damaged_amount),2)))
                     cash_to_be_collect.append("%s <br><br>"%(round(sum(total_amount_to_collect),2)))
