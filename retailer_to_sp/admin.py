@@ -648,7 +648,10 @@ class ShipmentProductMappingAdmin(admin.TabularInline):
 class ShipmentAdmin(admin.ModelAdmin):
     inlines = [ShipmentProductMappingAdmin]
     form = ShipmentForm
-    list_select_related = ('order', 'trip',)
+    list_select_related = (
+        'order', 'trip', 'order__seller_shop', 'order__shipping_address',
+        'order__shipping_address__city'
+    )
     list_display = (
         'invoice_no', 'order', 'created_at', 'trip', 'shipment_address',
         'seller_shop', 'invoice_city', 'invoice_amount', 'payment_mode',
@@ -665,7 +668,7 @@ class ShipmentAdmin(admin.ModelAdmin):
         'order__order_no', 'invoice_no', 'order__seller_shop__shop_name',
         'order__buyer_shop__shop_name', 'trip__dispatch_no',
         'trip__vehicle_no', 'trip__delivery_boy__phone_number']
-    readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city']
+    readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount']
     list_per_page = 50
 
 
@@ -683,6 +686,17 @@ class ShipmentAdmin(admin.ModelAdmin):
 
     def seller_shop(self, obj):
         return obj.order.seller_shop.shop_name
+
+    def shipment_address(self, obj):
+        address = obj.order.shipping_address
+        address_line = address.address_line1
+        contact = address.address_contact_number
+        shop_name = address.shop_name.shop_name
+        return str("%s, %s(%s)") % (shop_name, address_line, contact)
+
+    def invoice_city(self, obj):
+        city = obj.order.shipping_address.city
+        return str(city)
 
     def save_related(self, request, form, formsets, change):
         super(ShipmentAdmin, self).save_related(request, form, formsets, change)
