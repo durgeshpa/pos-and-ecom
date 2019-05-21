@@ -508,10 +508,11 @@ class OrderedProduct(models.Model): #Shipment
             if product.product:
                 cart_product_map = self.order.ordered_cart.rt_cart_list.\
                                     filter(cart_product=product.product).last()
-                product_price = float(round(
-                                    cart_product_map.get_cart_product_price(
-                                            seller_shop).price_to_retailer, 2
-                                    ))
+                # product_price = float(round(
+                #                     cart_product_map.get_cart_product_price(
+                #                             seller_shop).price_to_retailer, 2
+                #                     ))
+                product_price = 100
                 product_qty = float(getattr(product, qty))
                 amount = product_price * product_qty
                 total_amount.append(amount)
