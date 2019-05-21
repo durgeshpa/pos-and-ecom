@@ -116,7 +116,7 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
         return self.cash_discount
 
     def margin_dt(self,obj):
-        return round((100 * (float(self.product_mrp) - float(self.product_price) - (float(obj.getCashDiscount(self.context.get("parent_mapping_id"))) + float(obj.getLoyaltyIncentive(self.context.get("parent_mapping_id")))) * float(self.product_mrp) / 100) / float(self.product_mrp)),2)
+        return round((100 * (float(self.product_mrp) - float(self.product_price) - (float(obj.getCashDiscount(self.context.get("parent_mapping_id"))) + float(obj.getLoyaltyIncentive(self.context.get("parent_mapping_id")))) * float(self.product_mrp) / 100) / float(self.product_mrp)),2) if self.product_mrp and self.product_mrp > 0 else 0
 
     class Meta:
         model = Product
