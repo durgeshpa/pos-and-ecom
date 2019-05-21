@@ -900,7 +900,7 @@ class OrderList(APIView):
                     cn_amount.append("%s <br><br>"%(round(sum(total_cn_amount), 2)))
                     damaged_amount_value.append("%s <br><br>"%(round(sum(total_damaged_amount),2)))
                     cash_to_be_collect.append("%s <br><br>"%(round(sum(total_amount_to_collect),2)))
-                    delivered_value.append("%s <br><br>"%(round(float(sum(total_amount_to_collect)) - float(sum(total_cn_amount)),2)) if s.trip else "- <br><br>")
+                    delivered_value.append("%s <br><br>"%(round(float(sum(total_invoice_amount)) - float(sum(total_cn_amount)),2)) if s.trip else "- <br><br>")
 
             temp = {
                 'id':order.id,
