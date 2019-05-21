@@ -928,11 +928,14 @@ class CustomerCareApi(APIView):
         select_issue=self.request.POST.get('select_issue')
         complaint_detail=self.request.POST.get('complaint_detail')
         msg = {'is_success': False,'message': [''],'response_data': None}
+        if request.user.is_authenticated:
+            phone_number = request.user.phone_number
+
         if not complaint_detail :
             msg['message']= ["Please type the complaint_detail"]
             return Response(msg, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = CustomerCareSerializer(data=request.data)
+        serializer = CustomerCareSerializer(data= {"phone_number":phone_number, "complaint_detail":complaint_detail, "order_id":order_id, "select_issue":select_issue})
         if serializer.is_valid():
             serializer.save()
             msg = {'is_success': True, 'message': ['Message Sent'], 'response_data': serializer.data}
