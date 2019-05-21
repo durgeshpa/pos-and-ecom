@@ -437,7 +437,6 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         ('created_at', DateTimeRangeFilter), ('total_final_amount', SliderNumericFilter)]
 
     class Media:
-        js = ('/static/admin/js/retailer_cart.js',)
         js = ('/static/admin/js/retailer_order.js',)
 
     def get_queryset(self, request):
@@ -477,8 +476,9 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         ]
         return urls
 
-
-    # new code for order_list start
+    """
+       For Order List  Start
+    """
     def changelist_view(self, request, extra_context=None):
         CHANGELIST_PERPAGE_LIMITS = 100
         if request.GET.get('per_page') and int(
