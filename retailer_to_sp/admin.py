@@ -648,6 +648,7 @@ class ShipmentProductMappingAdmin(admin.TabularInline):
 class ShipmentAdmin(admin.ModelAdmin):
     inlines = [ShipmentProductMappingAdmin]
     form = ShipmentForm
+    list_select_related = ('order', 'trip',)
     list_display = (
         'invoice_no', 'order', 'created_at', 'trip', 'shipment_address',
         'seller_shop', 'invoice_city', 'invoice_amount', 'payment_mode',
@@ -665,6 +666,8 @@ class ShipmentAdmin(admin.ModelAdmin):
         'order__buyer_shop__shop_name', 'trip__dispatch_no',
         'trip__vehicle_no', 'trip__delivery_boy__phone_number']
     readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city']
+    list_per_page = 100
+
 
     def has_delete_permission(self, request, obj=None):
         return False
