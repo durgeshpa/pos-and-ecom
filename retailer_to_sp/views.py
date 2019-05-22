@@ -1,16 +1,20 @@
+import datetime
+import logging
+
 from dal import autocomplete
 from wkhtmltopdf.views import PDFTemplateResponse
 
 from django.forms import formset_factory, inlineformset_factory, modelformset_factory, BaseFormSet, ValidationError
 from django.shortcuts import render, get_object_or_404, redirect
 from django.db.models import Sum, Q
-
+from django.db import transaction
 
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
+from celery.task import task
 
 from sp_to_gram.models import OrderedProductReserved
 from retailer_to_sp.models import (
@@ -32,6 +36,10 @@ from retailer_to_sp.api.v1.serializers import DispatchSerializer, CommercialShip
 import json
 from django.http import HttpResponse
 from django.core import serializers
+from retailer_to_sp.tasks import (update_reserved_order,)
+
+
+logger = logging.getLogger(__name__)
 from retailer_to_sp.api.v1.serializers import OrderedCartSerializer
 from django.urls import reverse
 from django.contrib.sessions.models import Session
@@ -237,17 +245,20 @@ def ordered_product_mapping_shipment(request):
                 form_set = ordered_product_set(request.POST)
 
             if form_set.is_valid():
-                ordered_product_instance = form.save()
-                for forms in form_set:
-                    if forms.is_valid():
-                        to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
-                        if to_be_ship_qty:
-                            formset_data = forms.save(commit=False)
-                            formset_data.ordered_product = ordered_product_instance
-                            formset_data.save()
-                update_qty = DeductReservedQtyFromShipment(
-                    ordered_product_instance, form_set)
-                update_qty.update()
+                try:
+                    with transaction.atomic():
+                        ordered_product_instance = form.save()
+                        for forms in form_set:
+                            if forms.is_valid():
+                                to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
+                                if to_be_ship_qty:
+                                    formset_data = forms.save(commit=False)
+                                    formset_data.ordered_product = ordered_product_instance
+                                    formset_data.save()
+                        update_reserved_order.delay(json.dumps({'shipment_id': ordered_product_instance.id}))
+                except Exception as e:
+                    logger.exception("An error occurred while creating shipment {}".format(e))
+
                 return redirect('/admin/retailer_to_sp/shipment/')
 
     return render(
@@ -674,6 +685,7 @@ class DeductReservedQtyFromShipment(object):
             remaining_amount -= deduct_qty
             ordered_product_reserved.save()
 
+    @task
     def update(self):
         for form in self.shipment_products:
             if form.instance.pk:
