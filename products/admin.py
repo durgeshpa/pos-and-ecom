@@ -14,7 +14,7 @@ from .views import (
     load_brands, products_filter_view, products_price_filter_view,
     ProductsUploadSample, products_csv_upload_view, gf_product_price,
     load_gf, products_export_for_vendor, products_vendor_mapping,
-    MultiPhotoUploadView,
+    MultiPhotoUploadView, ProductPriceAutocomplete
     )
 from .resources import (
     SizeResource, ColorResource, FragranceResource,
@@ -288,6 +288,11 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 r'^products-vendor-mapping/(?P<pk>\d+)/$',
                 self.admin_site.admin_view(products_vendor_mapping),
                 name='products_vendor_mapping'
+            ),
+            url(
+                r'^product-price-autocomplete/$',
+                self.admin_site.admin_view(ProductPriceAutocomplete.as_view()),
+                name="product-price-autocomplete"
             ),
         ] + urls
         return urls
