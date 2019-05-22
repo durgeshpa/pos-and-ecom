@@ -14,7 +14,7 @@ from .views import (
     load_brands, products_filter_view, products_price_filter_view,
     ProductsUploadSample, products_csv_upload_view, gf_product_price,
     load_gf, products_export_for_vendor, products_vendor_mapping,
-    MultiPhotoUploadView , ProductPriceAutocomplete, ShopPriceAutocomplete
+    MultiPhotoUploadView,
     )
 from .resources import (
     SizeResource, ColorResource, FragranceResource,

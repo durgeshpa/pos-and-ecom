@@ -674,10 +674,3 @@ class ProductPriceAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = Product.objects.filter(product_name__icontains=self.q)
         return qs
-
-class ShopPriceAutocomplete(autocomplete.Select2QuerySetView):
-    def get_queryset(self, *args, **kwargs):
-        qs = None
-        if self.q:
-            qs = Shop.objects.filter(shop_name__icontains=self.q)
-        return qs

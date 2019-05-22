@@ -404,8 +404,7 @@ class ProductPriceForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='product-price-autocomplete',)
     )
     shop = forms.ModelChoiceField(
-        queryset=Shop.objects.all(),
-        widget=autocomplete.ModelSelect2(url='shop-price-autocomplete',)
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['gf','sp']),
     )
 
     class Meta:
