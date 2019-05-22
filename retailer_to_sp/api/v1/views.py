@@ -2,7 +2,7 @@ from rest_framework import generics
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,
                           OrderSerializer, CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
 
-                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer )
+                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer, OrderListSerializer )
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
 from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
                                 OrderedProduct as SPOrderedProduct, StockAdjustment)
@@ -659,7 +659,7 @@ class CreateOrder(APIView):
 #OrderedProductMapping.objects.filter()
 
 class OrderList(generics.ListAPIView):
-    serializer_class = OrderDetailSerializer
+    serializer_class = OrderListSerializer
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -679,8 +679,7 @@ class OrderList(generics.ListAPIView):
         current_url = request.get_host()
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             queryset = Order.objects.filter(last_modified_by=user).order_by('-created_at')
-
-            serializer = OrderDetailSerializer(queryset, many=True, context={'parent_mapping': parent_mapping.parent,'current_url':current_url})
+            serializer = OrderListSerializer(queryset, many=True, context={'parent_mapping': parent_mapping.parent,'current_url':current_url})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             queryset = GramMappedOrder.objects.filter(last_modified_by=user).order_by('-created_at')
             serializer = GramMappedOrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
