@@ -954,12 +954,12 @@ class CustomerOrdersList(APIView):
         #msg = {'is_success': True, 'message': ['No Orders of the logged in user'], 'response_data': None}
         #if request.user.is_authenticated:
             queryset = Order.objects.filter(ordered_by=request.user)
-            if queryset.count()>1:
+            if queryset.count()>0:
                 serializer = OrderNumberSerializer(queryset, many=True)
                 msg = {'is_success': True, 'message': ['All Orders of the logged in user'], 'response_data': serializer.data}
             else:
                 serializer = OrderNumberSerializer(queryset, many=True)
-                msg = {'is_success': False, 'message': ['No Orders of the logged in user'], 'response_data': serializer.data}
+                msg = {'is_success': False, 'message': ['No Orders of the logged in user'], 'response_data': None}
             return Response(msg, status=status.HTTP_201_CREATED)
         #else:
             #return Response(msg, status=status.HTTP_201_CREATED)
