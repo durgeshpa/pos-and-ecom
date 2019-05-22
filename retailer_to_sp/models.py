@@ -13,6 +13,15 @@ from django.utils.translation import ugettext_lazy as _
 
 from accounts.models import UserWithName
 from accounts.middlewares import get_current_user
+from retailer_backend.common_function import (
+    order_id_pattern, brand_credit_note_pattern, getcredit_note_id,
+    retailer_sp_invoice
+)
+from .utils import (order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util,
+                    order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
+                    order_damaged_amount, order_delivered_value)
+from shops.models import Shop, ShopNameDisplay
+from brand.models import Brand
 from addresses.models import Address
 from brand.models import Brand
 from otp.sms import SendSms
@@ -310,19 +319,55 @@ class Order(models.Model):
     def shipment_status(self):
         return order_shipment_status(self.shipments())
 
+    # no need
+    # @property
+    # def order_shipment_amount(self):
+    #     return order_shipment_amount(self.shipments())
+
+    # no need
+    # @property
+    # def order_shipment_details(self):
+    #     return order_shipment_details_util(self.shipments())
+
+    # @property
+    # def shipment_returns(self):
+    #     return self._shipment_returns
+
     @property
-    def order_shipment_amount(self):
+    def picking_status(self):
+        return "-"
+
+    @property
+    def picker_name(self):
+        return "-"
+
+    @property
+    def shipment_date(self):
+        return order_shipment_date(self.shipments())
+
+    @property
+    def invoice_amount(self):
         return order_shipment_amount(self.shipments())
 
+    # @property
+    # def delivery_date(self):
+    #     return order_delivery_date(self.shipments())
+    #
+    # @property
+    # def cn_amount(self):
+    #     return order_cn_amount(self.shipments())
+    #
+    # @property
+    # def cash_collected(self):
+    #     return order_cash_to_be_collected(self.shipments())
+    #
+    # @property
+    # def damaged_amount(self):
+    #     return order_damaged_amount(self.shipments())
 
     @property
-    def order_shipment_details(self):
-        return order_shipment_details_util(self.shipments())
-
-    @property
-    def shipment_returns(self):
-        return self._shipment_returns
-
+    def delivered_value(self):
+        return order_delivered_value(self.shipments())
 
 class Trip(models.Model):
     seller_shop = models.ForeignKey(
@@ -501,14 +546,12 @@ class OrderedProduct(models.Model): #Shipment
     def payments(self):
         payment_mode = []
         payment_amount = []
-        order = self.order
-        if order:
-            payments = order.rt_payment.all()
-            if payments:
-                for payment in payments:
-                    payment_mode.append(payment.get_payment_choice_display())
-                    payment_amount.append(float(payment.paid_amount))
-            return payment_mode, payment_amount
+        if self.order:
+            payments = self.order.rt_payment.values('payment_choice', 'paid_amount').all()
+            for payment in payments:
+                payment_mode.append(dict(PAYMENT_MODE_CHOICES)[payment['payment_choice']])
+                payment_amount.append(float(payment['paid_amount']))
+        return payment_mode, payment_amount
 
     @property
     def payment_mode(self):
@@ -529,18 +572,15 @@ class OrderedProduct(models.Model): #Shipment
     def shipment_qty_product_price(self, qty):
         total_amount = []
         seller_shop = self.order.seller_shop
-        shipment_products = self.rt_order_product_order_product_mapping.all()
+        shipment_products = self.rt_order_product_order_product_mapping.values_list('product', flat=True).all()
+        cart_product_map = self.order.ordered_cart.rt_cart_list.values('cart_product_price__price_to_retailer', 'cart_product', 'qty').filter(cart_product_id__in=list(shipment_products))
+        product_price_map = {i['cart_product']:(i['cart_product_price__price_to_retailer'], i['qty']) for i in cart_product_map}
+
         for product in shipment_products:
-            if product.product:
-                cart_product_map = self.order.ordered_cart.rt_cart_list.\
-                                    filter(cart_product=product.product).last()
-                product_price = float(round(
-                                    cart_product_map.get_cart_product_price(
-                                            seller_shop).price_to_retailer, 2
-                                    ))
-                product_qty = float(getattr(product, qty))
-                amount = product_price * product_qty
-                total_amount.append(amount)
+            product_price = product_price_map[product][0]
+            qty = float(product_price_map[product][1])
+            amount = product_price * qty
+            total_amount.append(amount)
         return round(sum(total_amount), 2)
 
     @property

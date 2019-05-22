@@ -36,7 +36,10 @@ from retailer_to_sp.api.v1.serializers import (
 import json
 from django.http import HttpResponse
 from django.core import serializers
-
+from retailer_to_sp.api.v1.serializers import OrderedCartSerializer
+from django.urls import reverse
+from django.contrib.sessions.models import Session
+from django.contrib.auth import get_user_model
 
 
 class ReturnProductAutocomplete(autocomplete.Select2QuerySetView):
@@ -845,3 +848,100 @@ class RetailerCart(APIView):
             context={'parent_mapping_id': order_obj.seller_shop.id,}
         )
         return Response({'is_success': True,'response_data': dt.data}, status=status.HTTP_200_OK)
+
+class OrderList(APIView):
+    permission_classes = (AllowAny,)
+    def get(self, request, *args, **kwargs):
+        page = request.GET.get('p',0)
+        page_limit = 100
+        offset = 0 if page == 0 else (page*page_limit)+1
+        session = Session.objects.get(session_key=request.session.session_key)
+        user = get_user_model().objects.get(pk=session.get_decoded().get('_auth_user_id'))
+        orders = Order.objects.filter(
+            Q(seller_shop__related_users=user) |
+            Q(seller_shop__shop_owner=user))[offset:page_limit]
+        dt = []
+        for order in orders:
+            payment_mode = []
+            payment_amount = []
+            order_invoices = []
+            order_shipment_status = []
+            order_shipment_amount = []
+            delivery_date = []
+            shipment_date = []
+
+            total_amount = []
+            total_cn_amount = []
+            total_damaged_amount = []
+            invoice_amount = []
+            cn_amount = []
+            damaged_amount_value = []
+            cash_to_be_collect = []
+            delivered_value = []
+
+            if order:
+                # Payments and Payment Amount
+                payments = order.rt_payment.all()
+                if payments:
+                    for payment in payments:
+                        payment_mode.append(payment.get_payment_choice_display())
+                        payment_amount.append(float(payment.paid_amount))
+
+                # Invoice
+                shipments = order.rt_order_order_product.all()
+                for s in shipments:
+                    order_invoices.append("<a href='/admin/retailer_to_sp/shipment/%s/change/' target='blank'>%s</a><br><br>"%(s.pk,s.invoice_no)) if s.invoice_no else order_invoices.append(" - <br><br>")
+                    order_shipment_status.append("%s <br><br>"%(s.get_shipment_status_display()))
+                    delivery_date.append("%s <br><br>"%(s.trip.completed_at.strftime('%d-%m-%Y %H:%M:%S')) if s.trip and s.trip.completed_at else '- <br><br>')
+                    shipment_date.append("%s <br><br>"%(s.created_at.strftime('%d-%m-%Y %H:%M:%S')) if s.created_at else '-')
+
+                    # Shipment Products
+                    return_amount,damaged_amount = 0,0
+                    total_cn_amount,total_damaged_amount, total_amount_to_collect = [],[],[]
+
+                    shipment_products = s.rt_order_product_order_product_mapping.all()
+                    for product in shipment_products:
+                        if product.product:
+                            cart_product_map = s.order.ordered_cart.rt_cart_list.filter(cart_product=product.product).last()
+                            product_price = float(round(
+                                cart_product_map.get_cart_product_price(
+                                    order.seller_shop).price_to_retailer, 2
+                            ))
+                            amount = product_price * product.shipped_qty
+                            total_amount.append(amount)
+
+                            # CN_Amount
+                            return_amount = product_price * product.returned_qty
+                            damaged_amount = product_price * product.damaged_qty
+
+                            total_cn_amount.append(return_amount + damaged_amount)
+                            total_damaged_amount.append(damaged_amount)
+                            total_amount_to_collect.append(product_price * product.delivered_qty)
+
+                    invoice_amount.append("%s <br><br>"%(round(sum(total_amount), 2)))
+                    cn_amount.append("%s <br><br>"%(round(sum(total_cn_amount), 2)))
+                    damaged_amount_value.append("%s <br><br>"%(round(sum(total_damaged_amount),2)))
+                    cash_to_be_collect.append("%s <br><br>"%(round(sum(total_amount_to_collect),2)))
+                    delivered_value.append("%s <br><br>"%(round(float(s.trip.cash_to_be_collected()), 2) - round(float(sum(total_cn_amount)),2)) if s.trip else "- <br><br>")
+
+            temp = {
+                'id':order.id,
+                'order_no': "<a href= '%s/change/'>%s</a>"%(order.pk,order.order_no),
+                'download_pick_list':"<a href= '%s' >Download Pick List</a>" %(reverse('download_pick_list_sp', args=[order.pk])),
+                'seller_shop': "%s - %s" % (order.seller_shop.shop_name.split()[0], order.seller_shop.shop_name.split()[-1]) if order.seller_shop else '-',
+                'buyer_shop': "%s - %s" % (order.buyer_shop.shop_name.split()[0], order.buyer_shop.shop_name.split()[-1]) if order.buyer_shop else '-',
+                'order_status': order.get_order_status_display(),
+                'payment_mode': order.payment_mode,
+                'invoice_no':order_invoices,
+                'shipment_created_date':shipment_date,
+                'invoice_amount':invoice_amount,
+                'shipment_status':order_shipment_status,
+                'delivery_date':delivery_date,
+                'cn_amount':cn_amount,
+                'cash_collected':cash_to_be_collect,
+                'damaged_amount':damaged_amount_value,
+                'delivered_amount':delivered_value,
+            }
+            dt.append(temp)
+
+        return Response({'is_success': True,'response_data': dt}, status=status.HTTP_200_OK)
