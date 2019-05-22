@@ -491,7 +491,6 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     """
        For Order List  Start
     """
-    # new code for order_list start
     def changelist_view(self, request, extra_context=None):
         CHANGELIST_PERPAGE_LIMITS = 100
         if request.GET.get('per_page') and int(
@@ -516,22 +515,11 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         result_qs = list(qs.values('order_no', 'seller_shop', 'buyer_shop',
                     'total_final_amount', 'order_status', 'created_at','pk',
                     ).order_by('-created_at')[offset:page_limit_dt])
-        # cl = ChangeList(request,
-        #                 self.model,
-        #                 self.list_display,
-        #                 self.list_display_links,
-        #                 self.list_filter,
-        #                 self.date_hierarchy,
-        #                 self.search_fields,
-        #                 self.list_select_related,
-        #                 self.list_per_page,
-        #                 self.list_max_show_all,
-        #                 self.list_editable, self, self.sortable_by)
-        # dt = cl.get_queryset(request)
+
         response.context_data['summary'] = result_qs
         response.context_data['page'] = page
         return response
-    # new code for order_list end
+    
 
 class ShipmentReschedulingAdmin(admin.TabularInline):
     model = ShipmentRescheduling
