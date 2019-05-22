@@ -1,6 +1,9 @@
+import json
+
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.conf.urls import url
+from django_celery_beat.models import PeriodicTask, IntervalSchedule
 
 from notification_center.models import (
     Template, TemplateVariable, Notification, UserNotification,
@@ -19,30 +22,7 @@ from notification_center.views import (
 
 User = get_user_model()
 
-from celery import Celery
-from celery.schedules import crontab
-app = Celery()
 
-@app.on_after_configure.connect
-def setup_periodic_tasks(sender=None, **kwargs):
-    # This function is used to setup tasks via celery
-    import pdb; pdb.set_trace()
-    # data = kwargs['data']
-    # Calls test('hello') every 10 seconds.
-    sender.add_periodic_task(10.0, test.s('hello'), name='add every 10')
-
-    # Calls test('world') every 30 seconds
-    sender.add_periodic_task(30.0, test.s('world'), expires=10)
-
-    # Executes every Monday morning at 7:30 a.m.
-    sender.add_periodic_task(
-        crontab(hour=7, minute=30, day_of_week=1),
-        test.s('Happy Mondays!'),
-    )
-
-@app.task
-def test(arg):
-    print(arg)
 
 class TemplateAdmin(admin.ModelAdmin):
     model = Template
@@ -169,14 +149,22 @@ class NotificationSchedulerAdmin(admin.ModelAdmin):
             #setup_periodic_tasks()  #data = {}
             data = {}
             data['test'] = "test"
+            schedule= IntervalSchedule.objects.create(every=10, period=IntervalSchedule.SECONDS)
+            task = PeriodicTask.objects.create(interval=schedule, name='any name', task='tasks.my_task', args=json.dumps([66]))
 
             #setup_periodic_tasks()
-
             SendNotification(user_id=user_id, activity_type=activity_type).send()
         except Exception as e:
             print (e.args)
             pass
         super(NotificationSchedulerAdmin, self).save_model(request, obj, form, change)    
+
+
+def test_celery():
+    import pdb; pdb.set_trace()
+    schedule= IntervalSchedule.objects.create(every=10, period=IntervalSchedule.SECONDS)
+    task = PeriodicTask.objects.create(interval=schedule, name='any name', task='tasks.my_task', args=json.dumps([66]))
+
 
 
 class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
@@ -214,7 +202,6 @@ class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
             print (e.args)
             pass
         super(GroupNotificationSchedulerAdmin, self).save_model(request, obj, form, change)    
-
         
 
 
@@ -224,4 +211,4 @@ admin.site.register(Notification, NotificationAdmin)
 admin.site.register(UserNotification, UserNotificationAdmin)
 #admin.site.register(TextSMSActivity, TextSMSActivityAdmin)
 admin.site.register(NotificationScheduler, NotificationSchedulerAdmin)
-admin.site.register(GroupNotificationScheduler, GroupNotificationSchedulerAdmin)
+admin.site.register(GroupNotificationScheduler) #, GroupNotificationSchedulerAdmin)

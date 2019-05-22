@@ -12,7 +12,7 @@ import datetime
 from .tasks import phone_otp_instance, create_user_token
 from django.db import transaction
 
-from notification_center.utils import SendNotification
+#from notification_center.utils import SendNotification
 
 
 USER_TYPE_CHOICES = (
@@ -136,27 +136,27 @@ def create_auth_token(sender, instance=None, created=False, **kwargs):
 
 # from notification_center.utils import SendNotification
 
-@receiver(post_save, sender=settings.AUTH_USER_MODEL)
-def user_creation_notification(sender, instance=None, created=False, **kwargs):
-    if created:
-        if instance.first_name:
-            username = instance.first_name
-        else:
-            username = instance.phone_number
+# @receiver(post_save, sender=settings.AUTH_USER_MODEL)
+# def user_creation_notification(sender, instance=None, created=False, **kwargs):
+#     if created:
+#         if instance.first_name:
+#             username = instance.first_name
+#         else:
+#             username = instance.phone_number
 
-        activity_type = "SIGNUP"
-        data = {}
-        data['username'] = username
-        data['phone_number'] = instance.phone_number
-        SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()    
-#         message = SendSms(phone=instance.phone_number,
-#                           body = '''\
-#                                 Dear %s, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering.
-# Thanks,
-# Team GramFactory
-#                                 ''' % (username))
+#         activity_type = "SIGNUP"
+#         data = {}
+#         data['username'] = username
+#         data['phone_number'] = instance.phone_number
+#         SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()    
+# #         message = SendSms(phone=instance.phone_number,
+# #                           body = '''\
+# #                                 Dear %s, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering.
+# # Thanks,
+# # Team GramFactory
+# #                                 ''' % (username))
 
-#         message.send()
+# #         message.send()
 
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)

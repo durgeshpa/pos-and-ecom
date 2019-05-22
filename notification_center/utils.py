@@ -38,10 +38,11 @@ class GenerateTemplateData:
         self.template_data['time_limit'] = 5 #time limit for otp expiry
 
     def generate_order_created_action_data(self):
-        order_id = self.transaction_data['order_id']
-        order = Order.objects.get(id=order_id)        
-        self.template_data['order_number'] = order.order_number
-        self.template_data['order_status'] = order.order_status
+        pass
+        # order_id = self.transaction_data['order_id']
+        # order = Order.objects.get(id=order_id)        
+        # self.template_data['order_number'] = order.order_number
+        # self.template_data['order_status'] = order.order_status
 
     def create(self):
         self.generate_common_data()
