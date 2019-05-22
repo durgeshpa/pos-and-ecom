@@ -1,30 +1,30 @@
 import datetime
+
+from django.db import models
+from django.core.exceptions import ValidationError
+from django.contrib.auth import get_user_model
+from django.dispatch import receiver
+from django.db.models.signals import pre_save
+from django.db.models.signals import post_save
+from django.db.models import Sum,F, FloatField
+from django.utils.translation import ugettext_lazy as _
+from django.utils.safestring import mark_safe
+
+from retailer_backend.common_function import (
+    order_id_pattern, brand_credit_note_pattern, getcredit_note_id,
+    retailer_sp_invoice
+)
+from .utils import (order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util,
+                    order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
+                    order_damaged_amount, order_delivered_value)
+from shops.models import Shop, ShopNameDisplay
+from brand.models import Brand
+from addresses.models import Address
+from products.models import Product,ProductPrice
+from otp.sms import SendSms
+from accounts.models import UserWithName
 import logging
 from decimal import Decimal
-
-from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
-from django.db import models
-from django.db.models import F, FloatField, Sum
-from django.db.models.signals import post_save, pre_save
-from django.dispatch import receiver
-from django.utils.safestring import mark_safe
-from django.utils.translation import ugettext_lazy as _
-
-from accounts.models import UserWithName
-from accounts.middlewares import get_current_user
-from addresses.models import Address
-from brand.models import Brand
-from otp.sms import SendSms
-from products.models import Product, ProductPrice
-from retailer_backend.common_function import (brand_credit_note_pattern,
-                                              getcredit_note_id,
-                                              order_id_pattern,
-                                              retailer_sp_invoice)
-from shops.models import Shop, ShopNameDisplay
-
-from .utils import (order_invoices, order_shipment_amount,
-                    order_shipment_details_util, order_shipment_status)
 
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
 
@@ -310,19 +310,55 @@ class Order(models.Model):
     def shipment_status(self):
         return order_shipment_status(self.shipments())
 
+    # no need
+    # @property
+    # def order_shipment_amount(self):
+    #     return order_shipment_amount(self.shipments())
+
+    # no need
+    # @property
+    # def order_shipment_details(self):
+    #     return order_shipment_details_util(self.shipments())
+
+    # @property
+    # def shipment_returns(self):
+    #     return self._shipment_returns
+
     @property
-    def order_shipment_amount(self):
+    def picking_status(self):
+        return "-"
+
+    @property
+    def picker_name(self):
+        return "-"
+
+    @property
+    def shipment_date(self):
+        return order_shipment_date(self.shipments())
+
+    @property
+    def invoice_amount(self):
         return order_shipment_amount(self.shipments())
 
+    # @property
+    # def delivery_date(self):
+    #     return order_delivery_date(self.shipments())
+    #
+    # @property
+    # def cn_amount(self):
+    #     return order_cn_amount(self.shipments())
+    #
+    # @property
+    # def cash_collected(self):
+    #     return order_cash_to_be_collected(self.shipments())
+    #
+    # @property
+    # def damaged_amount(self):
+    #     return order_damaged_amount(self.shipments())
 
     @property
-    def order_shipment_details(self):
-        return order_shipment_details_util(self.shipments())
-
-    @property
-    def shipment_returns(self):
-        return self._shipment_returns
-
+    def delivered_value(self):
+        return order_delivered_value(self.shipments())
 
 class Trip(models.Model):
     seller_shop = models.ForeignKey(
@@ -417,7 +453,6 @@ class Trip(models.Model):
 class OrderedProduct(models.Model): #Shipment
     CLOSED = "closed"
     READY_TO_SHIP = "READY_TO_SHIP"
-    RESCHEDULED = "RESCHEDULED"
     SHIPMENT_STATUS = (
         ('SHIPMENT_CREATED', 'QC Pending'),
         (READY_TO_SHIP, 'QC Passed'),
@@ -430,28 +465,8 @@ class OrderedProduct(models.Model): #Shipment
         ('PARTIALLY_DELIVERED_AND_CLOSED', 'Partially Delivered and Closed'),
         ('FULLY_DELIVERED_AND_CLOSED', 'Fully Delivered and Closed'),
         ('CANCELLED', 'Cancelled'),
-        (CLOSED, 'Closed'),
-        (RESCHEDULED, 'Rescheduled'),
+        (CLOSED, 'Closed')
     )
-
-    CASH_NOT_AVAILABLE = 'cash_not_available'
-    SHOP_CLOSED = 'shop_closed'
-    RESCHEDULED_BY_SELLER = 'recheduler_by_seller'
-    UNABLE_TO_ATTEMPT = 'unable_to_attempt'
-    WRONG_ORDER = 'wrong_order'
-    ITEM_MISS_MATCH = 'item_miss_match'
-    DAMAGED_ITEM = 'damaged_item'
-
-    RETURN_REASON = (
-        (CASH_NOT_AVAILABLE, 'Cash not available'),
-        (SHOP_CLOSED, 'Shop Closed'),
-        (RESCHEDULED_BY_SELLER, 'Rescheduled by seller'),
-        (UNABLE_TO_ATTEMPT, 'Unable to attempt'),
-        (WRONG_ORDER, 'Wrong Order'),
-        (ITEM_MISS_MATCH, 'Item miss match'),
-        (DAMAGED_ITEM, 'Damaged item')
-    )
-
     order = models.ForeignKey(
         Order, related_name='rt_order_order_product',
         on_delete=models.CASCADE, null=True, blank=True
@@ -460,10 +475,6 @@ class OrderedProduct(models.Model): #Shipment
         max_length=50, choices=SHIPMENT_STATUS,
         null=True, blank=True, verbose_name='Current Shipment Status',
         default='READY_TO_SHIP'
-    )
-    return_reason = models.CharField(
-        max_length=50, choices=RETURN_REASON,
-        null=True, blank=True, verbose_name='Reason for Return',
     )
     invoice_no = models.CharField(max_length=255, null=True, blank=True)
     trip = models.ForeignKey(
@@ -696,51 +707,6 @@ class ShipmentProductMapping(OrderedProductMapping):
 
 
 ShipmentProductMapping._meta.get_field('shipped_qty').verbose_name = 'No. of Pieces to Ship'
-
-
-class ShipmentRescheduling(models.Model):
-    CASH_NOT_AVAILABLE = 'cash_not_available'
-    SHOP_CLOSED = 'shop_closed'
-    RESCHEDULED_BY_SELLER = 'recheduler_by_seller'
-    UNABLE_TO_ATTEMPT = 'unable_to_attempt'
-    WRONG_ORDER = 'wrong_order'
-    ITEM_MISS_MATCH = 'item_miss_match'
-    DAMAGED_ITEM = 'damaged_item'
-
-    RESCHEDULING_REASON = (
-        (CASH_NOT_AVAILABLE, 'Cash not available'),
-        (SHOP_CLOSED, 'Shop Closed'),
-        (RESCHEDULED_BY_SELLER, 'Rescheduled by seller'),
-        (UNABLE_TO_ATTEMPT, 'Unable to attempt')
-    )
-
-    shipment = models.ForeignKey(
-        OrderedProduct, related_name='rescheduling_shipment',
-        blank=False, on_delete=models.CASCADE
-    )
-    rescheduling_reason = models.CharField(
-        max_length=50, choices=RESCHEDULING_REASON,
-        blank=False, verbose_name='Reason for Rescheduling',
-    )
-    rescheduling_date = models.DateField(blank=False)
-    created_by = models.ForeignKey(
-        get_user_model(),
-        related_name='rescheduled_by',
-        null=True, blank=True, on_delete=models.CASCADE
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name_plural = 'Shipment Rescheduling'
-
-    def __str__(self):
-        return str("%s --> %s") % (self.shipment.invoice_no,
-                                   self.rescheduling_date)
-
-    def save(self, *args, **kwargs):
-        self.created_by = get_current_user()
-        super().save(*args, **kwargs)
 
 
 class Commercial(Trip):
