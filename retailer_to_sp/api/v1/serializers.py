@@ -19,6 +19,8 @@ from django.db.models import F,Sum
 from gram_to_brand.models import GRNOrderProductMapping
 from addresses.api.v1.serializers import AddressSerializer
 from brand.api.v1.serializers import BrandSerializer
+from django.core.validators import RegexValidator
+
 
 class ProductImageSerializer(serializers.ModelSerializer):
    class Meta:
@@ -325,9 +327,11 @@ class OrderNumberSerializer(serializers.ModelSerializer):
 
 class CustomerCareSerializer(serializers.ModelSerializer):
     #order_id=OrderNumberSerializer(read_only=True)
+    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$')
+    phone_number = serializers.CharField(validators=[phone_regex])
     class Meta:
         model=CustomerCare
-        fields=('complaint_id','email_us', 'order_id', 'issue_status', 'select_issue','complaint_detail')
+        fields=('phone_number', 'complaint_id','email_us', 'order_id', 'issue_status', 'select_issue','complaint_detail')
         read_only_fields=('complaint_id','email_us','issue_status')
 
 class PaymentCodSerializer(serializers.ModelSerializer):

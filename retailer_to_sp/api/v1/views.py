@@ -467,12 +467,12 @@ class ReservedOrder(generics.ListAPIView):
                            'message': ['No product is available in cart'],
                            'response_data': None}
                     return Response(msg, status=status.HTTP_200_OK)
-                
+
                 cart_products.update(qty_error_msg='')
                 cart_product_ids = cart_products.values('cart_product')
                 shop_products_available = OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product__in=cart_product_ids,available_qty__gt=0).values('product_id').annotate(available_qty=Sum('available_qty'))
                 shop_products_dict = {g['product_id']:int(g['available_qty']) for g in shop_products_available}
-                
+
                 products_available = {}
                 products_unavailable = []
                 for cart_product in cart_products:
@@ -923,19 +923,26 @@ class CustomerCareApi(APIView):
 
 
     def post(self,request):
+        phone_number = self.request.POST.get('phone_number')
         order_id=self.request.POST.get('order_id')
         select_issue=self.request.POST.get('select_issue')
         complaint_detail=self.request.POST.get('complaint_detail')
         msg = {'is_success': False,'message': [''],'response_data': None}
+        if request.user.is_authenticated:
+            phone_number = request.user.phone_number
+
         if not complaint_detail :
             msg['message']= ["Please type the complaint_detail"]
             return Response(msg, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = CustomerCareSerializer(data=request.data)
+        serializer = CustomerCareSerializer(data= {"phone_number":phone_number, "complaint_detail":complaint_detail, "order_id":order_id, "select_issue":select_issue})
         if serializer.is_valid():
             serializer.save()
             msg = {'is_success': True, 'message': ['Message Sent'], 'response_data': serializer.data}
             return Response( msg, status=status.HTTP_201_CREATED)
+        else:
+            msg = {'is_success': False, 'message': ['Phone Number is not Valid'], 'response_data': None}
+            return Response( msg, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class CustomerOrdersList(APIView):
@@ -947,12 +954,12 @@ class CustomerOrdersList(APIView):
         #msg = {'is_success': True, 'message': ['No Orders of the logged in user'], 'response_data': None}
         #if request.user.is_authenticated:
             queryset = Order.objects.filter(ordered_by=request.user)
-            if queryset.count()>1:
+            if queryset.count()>0:
                 serializer = OrderNumberSerializer(queryset, many=True)
                 msg = {'is_success': True, 'message': ['All Orders of the logged in user'], 'response_data': serializer.data}
             else:
                 serializer = OrderNumberSerializer(queryset, many=True)
-                msg = {'is_success': False, 'message': ['No Orders of the logged in user'], 'response_data': serializer.data}
+                msg = {'is_success': False, 'message': ['No Orders of the logged in user'], 'response_data': None}
             return Response(msg, status=status.HTTP_201_CREATED)
         #else:
             #return Response(msg, status=status.HTTP_201_CREATED)
