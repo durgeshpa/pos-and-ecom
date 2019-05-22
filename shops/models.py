@@ -107,7 +107,7 @@ class ShopNameDisplay(Shop):
         proxy = True
 
     def __str__(self):
-        return "%s - %s"%(self.shop_name,self.shop_owner)
+        return "%s - %s" % (self.shop_name.split()[0], self.shop_name.split()[-1])
 
 class ShopPhoto(models.Model):
     shop_name = models.ForeignKey(Shop, related_name='shop_name_photos', on_delete=models.CASCADE)
