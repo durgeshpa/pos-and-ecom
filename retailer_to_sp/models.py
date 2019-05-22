@@ -11,8 +11,8 @@ from django.dispatch import receiver
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 
-from accounts.models import UserWithName
 from accounts.middlewares import get_current_user
+from addresses.models import Address
 from retailer_backend.common_function import (
     order_id_pattern, brand_credit_note_pattern, getcredit_note_id,
     retailer_sp_invoice
@@ -34,6 +34,9 @@ from shops.models import Shop, ShopNameDisplay
 
 from .utils import (order_invoices, order_shipment_amount,
                     order_shipment_details_util, order_shipment_status)
+
+from accounts.models import UserWithName, User
+from django.core.validators import RegexValidator
 
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
 
@@ -820,11 +823,11 @@ class Commercial(Trip):
                                             " than Cash to be Collected"
                                             ),)
 
-
 class CustomerCare(models.Model):
     order_id = models.ForeignKey(
         Order, on_delete=models.CASCADE, null=True, blank=True
     )
+    phone_number = models.CharField( max_length=10, blank=True, null=True)
     complaint_id = models.CharField(max_length=255, null=True, blank=True)
     email_us = models.URLField(default='help@gramfactory.com')
     issue_date = models.DateTimeField(auto_now_add=True)
@@ -843,6 +846,11 @@ class CustomerCare(models.Model):
         return self.complaint_id
 
     @property
+    def contact_number(self):
+        if self.phone_number:
+            return self.phone_number
+
+    @property
     def seller_shop(self):
         if self.order_id:
             return self.order_id.seller_shop
@@ -858,6 +866,11 @@ class CustomerCare(models.Model):
             if self.order_id.buyer_shop:
                 if self.order_id.buyer_shop.shop_owner.first_name:
                     return self.order_id.buyer_shop.shop_owner.first_name
+        if self.phone_number:
+            if User.objects.filter(phone_number = self.phone_number).exists():
+                username = User.objects.get(phone_number = self.phone_number).first_name
+                return username
+
 
     def save(self, *args, **kwargs):
         super(CustomerCare, self).save()
