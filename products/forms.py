@@ -10,7 +10,9 @@ from products.models import ProductCategory, Tax, Size, Color, Fragrance, Weight
 from brand.models import Brand
 from categories.models import Category
 from django.utils.translation import gettext_lazy as _
-from products.models import Product, ProductImage
+from products.models import Product, ProductImage, ProductPrice
+from shops.models import Shop
+from dal import autocomplete
 
 class ProductImageForm(forms.ModelForm):
     class Meta:
@@ -394,3 +396,18 @@ class ProductsCSVUploadForm(forms.Form):
             if not row[16]:
                 raise ValidationError(_('HSN_CODE_REQUIRED at Row[%(value)s].'), params={'value': id+1},)
         return self.cleaned_data['file']
+
+
+class ProductPriceForm(forms.ModelForm):
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(url='product-price-autocomplete',)
+    )
+    shop = forms.ModelChoiceField(
+        queryset=Shop.objects.all(),
+        widget=autocomplete.ModelSelect2(url='shop-price-autocomplete',)
+    )
+
+    class Meta:
+        model = ProductPrice
+        fields = ('product','city','area','shop','price_to_service_partner','price_to_retailer','price_to_super_retailer','start_date','end_date','status')
