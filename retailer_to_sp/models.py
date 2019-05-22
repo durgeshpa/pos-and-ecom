@@ -755,8 +755,7 @@ class CustomerCare(models.Model):
     order_id = models.ForeignKey(
         Order, on_delete=models.CASCADE, null=True, blank=True
     )
-    phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
-    phone_number = models.CharField(validators=[phone_regex], max_length=10, blank=True, null=True)
+    phone_number = models.CharField( max_length=10, blank=True, null=True)
     complaint_id = models.CharField(max_length=255, null=True, blank=True)
     email_us = models.URLField(default='help@gramfactory.com')
     issue_date = models.DateTimeField(auto_now_add=True)

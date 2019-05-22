@@ -940,6 +940,9 @@ class CustomerCareApi(APIView):
             serializer.save()
             msg = {'is_success': True, 'message': ['Message Sent'], 'response_data': serializer.data}
             return Response( msg, status=status.HTTP_201_CREATED)
+        else:
+            msg = {'is_success': False, 'message': ['Phone Number is not Valid'], 'response_data': None}
+            return Response( msg, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class CustomerOrdersList(APIView):
