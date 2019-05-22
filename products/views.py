@@ -24,7 +24,7 @@ from products.models import (
     )
 
 logger = logging.getLogger(__name__)
-
+from dal import autocomplete
 
 def load_cities(request):
     """Return list of cities for specific state id
@@ -667,3 +667,10 @@ def NameIDCSV(request):
     writer = csv.writer(response)
     writer.writerow(['BRAND NAME','BRAND ID','CATEGORY NAME','CATEGORY ID','TAX NAME','TAX ID','SIZE NAME','SIZE ID','COLOR NAME','COLOR ID','FRAGRANCE NAME','FRAGRANCE ID','FLAVOR NAME','FLAVOR ID','WEIGHT NAME','WEIGHT ID','PACKSIZE NAME','PACKSIZE ID'])
     return response
+
+class ProductPriceAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = None
+        if self.q:
+            qs = Product.objects.filter(product_name__icontains=self.q)
+        return qs
