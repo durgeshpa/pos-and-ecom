@@ -14,13 +14,15 @@ from .views import (
     load_brands, products_filter_view, products_price_filter_view,
     ProductsUploadSample, products_csv_upload_view, gf_product_price,
     load_gf, products_export_for_vendor, products_vendor_mapping,
-    MultiPhotoUploadView
+    MultiPhotoUploadView, ProductPriceAutocomplete
     )
 from .resources import (
     SizeResource, ColorResource, FragranceResource,
     FlavorResource, WeightResource, PackageSizeResource,
     ProductResource, ProductPriceResource, TaxResource
     )
+
+from .forms import ProductPriceForm
 
 class ProductFilter(AutocompleteFilter):
     title = 'Product Name' # display title
@@ -287,6 +289,11 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 self.admin_site.admin_view(products_vendor_mapping),
                 name='products_vendor_mapping'
             ),
+            url(
+                r'^product-price-autocomplete/$',
+                self.admin_site.admin_view(ProductPriceAutocomplete.as_view()),
+                name="product-price-autocomplete"
+            ),
         ] + urls
         return urls
 
@@ -325,6 +332,7 @@ class MRPSearch(InputFilter):
             )
 class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductPriceResource
+    form = ProductPriceForm
     actions = ["export_as_csv"]
     list_display = [
         'product', 'product_gf_code', 'mrp', 'price_to_service_partner',

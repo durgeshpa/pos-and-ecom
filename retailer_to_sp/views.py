@@ -1,21 +1,26 @@
+import datetime
+import logging
+
 from dal import autocomplete
 from wkhtmltopdf.views import PDFTemplateResponse
 
 from django.forms import formset_factory, inlineformset_factory, modelformset_factory, BaseFormSet, ValidationError
 from django.shortcuts import render, get_object_or_404, redirect
 from django.db.models import Sum, Q
-
+from django.db import transaction
 
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
+from celery.task import task
 
 from sp_to_gram.models import OrderedProductReserved
 from retailer_to_sp.models import (
     Cart, CartProductMapping, Order, OrderedProduct, OrderedProductMapping,
-    CustomerCare, Payment, Return, ReturnProductMapping, Note, Trip, Dispatch
+    CustomerCare, Payment, Return, ReturnProductMapping, Note, Trip, Dispatch,
+    ShipmentRescheduling
 )
 from products.models import Product
 from retailer_to_sp.forms import (
@@ -28,14 +33,21 @@ from django.conf import settings
 
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector, TrigramSimilarity
 from shops.models import Shop
-from retailer_to_sp.api.v1.serializers import DispatchSerializer, CommercialShipmentSerializer
+from retailer_to_sp.api.v1.serializers import (
+    DispatchSerializer, CommercialShipmentSerializer, OrderedCartSerializer
+)
 import json
 from django.http import HttpResponse
 from django.core import serializers
+from retailer_to_sp.tasks import (update_reserved_order,)
+
+
+logger = logging.getLogger(__name__)
 from retailer_to_sp.api.v1.serializers import OrderedCartSerializer
 from django.urls import reverse
 from django.contrib.sessions.models import Session
 from django.contrib.auth import get_user_model
+
 
 class ReturnProductAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
@@ -237,17 +249,20 @@ def ordered_product_mapping_shipment(request):
                 form_set = ordered_product_set(request.POST)
 
             if form_set.is_valid():
-                ordered_product_instance = form.save()
-                for forms in form_set:
-                    if forms.is_valid():
-                        to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
-                        if to_be_ship_qty:
-                            formset_data = forms.save(commit=False)
-                            formset_data.ordered_product = ordered_product_instance
-                            formset_data.save()
-                update_qty = DeductReservedQtyFromShipment(
-                    ordered_product_instance, form_set)
-                update_qty.update()
+                try:
+                    with transaction.atomic():
+                        ordered_product_instance = form.save()
+                        for forms in form_set:
+                            if forms.is_valid():
+                                to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
+                                if to_be_ship_qty:
+                                    formset_data = forms.save(commit=False)
+                                    formset_data.ordered_product = ordered_product_instance
+                                    formset_data.save()
+                        update_reserved_order.delay(json.dumps({'shipment_id': ordered_product_instance.id}))
+                except Exception as e:
+                    logger.exception("An error occurred while creating shipment {}".format(e))
+
                 return redirect('/admin/retailer_to_sp/shipment/')
 
     return render(
@@ -368,34 +383,42 @@ class LoadDispatches(APIView):
                             rank=SearchRank(vector, query) + similarity
                             ).filter(
                                 Q(shipment_status='READY_TO_SHIP') |
+                                Q(shipment_status='RESCHEDULED') |
                                 Q(trip=trip_id), order__seller_shop=seller_shop
                                 ).order_by('-rank')
 
         elif seller_shop and trip_id:
             dispatches = Dispatch.objects.filter(
                             Q(shipment_status='READY_TO_SHIP') |
+                            Q(shipment_status='RESCHEDULED') |
                             Q(trip=trip_id), order__seller_shop=seller_shop)
 
         elif trip_id:
-            dispatches = Dispatch.objects.filter(
-                                trip=trip_id)
+            dispatches = Dispatch.objects.filter(trip=trip_id)
 
         elif seller_shop and area:
             dispatches = Dispatch.objects.annotate(
-                            rank=SearchRank(vector, query) + similarity
-                        ).filter(
-                            shipment_status='READY_TO_SHIP',
-                            order__seller_shop=seller_shop).order_by('-rank')
+                rank=SearchRank(vector, query) + similarity
+            ).filter(
+                Q(shipment_status=OrderedProduct.READY_TO_SHIP) |
+                Q(shipment_status=OrderedProduct.RESCHEDULED),
+                order__seller_shop=seller_shop
+            ).order_by('-rank')
 
         elif seller_shop:
-            dispatches = Dispatch.objects.select_related('order', 'order__shipping_address', 'order__ordered_cart').filter(
-                                            shipment_status='READY_TO_SHIP',
-                                            order__seller_shop=seller_shop).order_by('invoice_no')
+            dispatches = Dispatch.objects.select_related(
+                'order', 'order__shipping_address', 'order__ordered_cart'
+            ).filter(
+                Q(shipment_status=OrderedProduct.READY_TO_SHIP) |
+                Q(shipment_status=OrderedProduct.RESCHEDULED),
+                order__seller_shop=seller_shop
+            ).order_by('invoice_no')
 
         elif area and trip_id:
             dispatches = Dispatch.objects.annotate(
                             rank=SearchRank(vector, query) + similarity
                             ).filter(Q(shipment_status='READY_TO_SHIP') |
+                                    Q(shipment_status=OrderedProduct.RESCHEDULED) |
                                      Q(trip=trip_id)).order_by('-rank')
 
         elif area:
@@ -405,6 +428,14 @@ class LoadDispatches(APIView):
 
         else:
             dispatches = Dispatch.objects.none()
+
+        reschedule_dispatches = ShipmentRescheduling.objects.values_list(
+            'shipment', flat=True
+        ).filter(
+            ~Q(rescheduling_date=datetime.date.today()),
+            shipment__shipment_status=OrderedProduct.RESCHEDULED
+        )
+        dispatches = dispatches.exclude(id__in=reschedule_dispatches)
 
         if dispatches and commercial:
             serializer = CommercialShipmentSerializer(dispatches, many=True)
@@ -514,13 +545,15 @@ class DownloadPickList(TemplateView,):
             }
             cart_product_list.append(product_list)
 
+        shipping = order_obj.ordered_cart.buyer_shop.shop_name_address_mapping.filter(address_type='shipping').last()
+
         data = {
             "order_obj": order_obj,
             "cart_products":cart_product_list,
             "buyer_shop":order_obj.ordered_cart.buyer_shop.shop_name,
             "buyer_contact_no":order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
-            "buyer_address":order_obj.ordered_cart.buyer_shop.shop_name_address_mapping.last().address_line1,
-            "buyer_city":order_obj.ordered_cart.buyer_shop.shop_name_address_mapping.last().city.city_name,
+            "buyer_shipping_address":shipping.address_line1,
+            "buyer_shipping_city":shipping.city.city_name,
         }
         cmd_option = {
             "margin-top": 10,
@@ -560,19 +593,16 @@ def update_delivered_qty(instance, inline_form):
     instance.save()
 
 
-def update_shipment_status(form, formsets):
-    form_instance = getattr(form, 'instance', None)
+def update_shipment_status(form_instance, formset):
     shipped_qty_list = []
     returned_qty_list = []
     damaged_qty_list = []
-
-    for inline_forms in formsets:
-        for inline_form in inline_forms:
-            instance = getattr(inline_form, 'instance', None)
-            update_delivered_qty(instance, inline_form)
-            shipped_qty_list.append(instance.shipped_qty if instance else 0)
-            returned_qty_list.append(inline_form.cleaned_data.get('returned_qty', 0))
-            damaged_qty_list.append(inline_form.cleaned_data.get('damaged_qty', 0))
+    for inline_form in formset:
+        instance = getattr(inline_form, 'instance', None)
+        update_delivered_qty(instance, inline_form)
+        shipped_qty_list.append(instance.shipped_qty if instance else 0)
+        returned_qty_list.append(inline_form.cleaned_data.get('returned_qty', 0))
+        damaged_qty_list.append(inline_form.cleaned_data.get('damaged_qty', 0))
 
     shipped_qty = sum(shipped_qty_list)
     returned_qty = sum(returned_qty_list)
@@ -674,6 +704,7 @@ class DeductReservedQtyFromShipment(object):
             remaining_amount -= deduct_qty
             ordered_product_reserved.save()
 
+    @task
     def update(self):
         for form in self.shipment_products:
             if form.instance.pk:
@@ -807,6 +838,19 @@ def commercial_shipment_details(request, pk):
         'admin/retailer_to_sp/CommercialShipmentDetails.html',
         {'shipment': shipment, 'shipment_products': shipment_products}
     )
+
+
+def reshedule_update_shipment(form_instance, formset):
+    if form_instance.trip:
+        form_instance.shipment_status = OrderedProduct.RESCHEDULED
+        form_instance.trip = None
+        form_instance.save()
+        for inline_form in formset:
+            if inline_form.is_valid:
+                product = inline_form.save(commit=False)
+                product.delivered_qty = 0
+                product.save()
+
 
 class RetailerCart(APIView):
     permission_classes = (AllowAny,)

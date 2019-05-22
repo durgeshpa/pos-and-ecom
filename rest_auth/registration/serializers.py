@@ -173,6 +173,7 @@ class RegisterSerializer(serializers.Serializer):
     last_name = serializers.CharField(required=False, allow_blank=True, write_only=True)
     password1 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
     password2 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
+    imei_no = serializers.CharField(required=False, allow_blank=True, write_only=True)
 
     def validate_username(self, username):
         username = get_adapter().clean_username(username)
@@ -203,7 +204,8 @@ class RegisterSerializer(serializers.Serializer):
             'password1': self.validated_data.get('password1', ''),
             'email': self.validated_data.get('email', ''),
             'first_name': self.validated_data.get('first_name', ''),
-            'last_name': self.validated_data.get('last_name', '')
+            'last_name': self.validated_data.get('last_name', ''),
+            'imei_no': self.validated_data.get('imei_no', '')
         }
 
     def save(self, request):

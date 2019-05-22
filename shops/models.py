@@ -51,6 +51,7 @@ class Shop(models.Model):
     related_users = models.ManyToManyField(get_user_model(),blank=True, related_name='related_shop_user')
     shop_code = models.CharField(max_length=1, blank=True, null=True)
     warehouse_code = models.CharField(max_length=2, blank=True, null=True)
+    imei_no = models.CharField(max_length=20, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=False)
