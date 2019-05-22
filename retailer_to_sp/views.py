@@ -902,13 +902,6 @@ class OrderList(APIView):
             delivered_value = []
 
             if order:
-                # Payments and Payment Amount
-                # payments = order.rt_payment.all()
-                # if payments:
-                #     for payment in payments:
-                #         payment_mode.append(payment.get_payment_choice_display())
-                #         payment_amount.append(float(payment.paid_amount))
-
                 # Invoice
                 shipments = order.rt_order_order_product.all()
                 for s in shipments:
