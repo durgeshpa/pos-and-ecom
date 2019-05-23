@@ -38,7 +38,7 @@ class ShopSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Shop
-        fields = ('id','shop_name','shop_type','shop_id')
+        fields = ('id','shop_name','shop_type','imei_no','shop_id')
 
 class ShopPhotoSerializer(serializers.ModelSerializer):
     class Meta:
