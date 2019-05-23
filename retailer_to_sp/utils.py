@@ -4,6 +4,8 @@ from rest_framework.permissions import AllowAny
 
 from django.utils.html import format_html_join, format_html
 from django.utils.safestring import mark_safe
+from django.urls import reverse
+
 
 from products.models import Product
 
@@ -137,6 +139,42 @@ def order_shipment_amount(shipments):
             ) for s in shipments)
     )
 
+def order_shipment_date(shipments):
+    return format_html_join(
+    "","{}<br><br>",
+            ((s.created_at.strftime('%Y-%m-%d %H:%M:%S') if s.created_at else '-',
+            ) for s in shipments)
+    )
+
+def order_delivery_date(shipments):
+	return format_html_join(
+		"", "{}<br><br>",
+		((s.trip.completed_at.strftime('%Y-%m-%d %H:%M:%S') if s.trip and s.trip.completed_at else '-',) for s in shipments)
+	)
+
+def order_cash_to_be_collected(shipments):
+	return format_html_join(
+		"", "{}<br><br>",
+		((s.trip.cash_to_be_collected() if s.trip else '',) for s in shipments)
+	)
+
+def order_cn_amount(shipments):
+	return format_html_join(
+		"", "{}<br><br>",
+		((s.cn_amount(),) for s in shipments)
+	)
+
+def order_damaged_amount(shipments):
+	return format_html_join(
+		"", "{}<br><br>",
+		((s.damaged_amount(),) for s in shipments)
+	)
+
+def order_delivered_value(shipments):
+	return format_html_join(
+		"", "{}<br><br>",
+		((s.delivered_value(),) for s in shipments)
+	)
 
 class UpdateCashToBeCollected(object):
 	"""Update trip's cash to be collected amount"""
@@ -161,3 +199,12 @@ def order_shipment_details_util(shipments):
             ((s.invoice_amount,s.get_shipment_status_display(),s.trip.completed_at if s.trip else '--'
             ) for s in shipments)
     )
+
+
+def reschedule_shipment_button(obj):
+    return format_html(
+        "<a class='related-widget-wrapper-link-custom add-related' id='shipment_reshcedule' href='%s?&_to_field=id&_popup=1&shipment_id=%s' target='_blank'>Reschedule the Shipment</a>" %
+        (reverse('admin:retailer_to_sp_shipmentrescheduling_add'),
+         obj.id)
+    )
+
