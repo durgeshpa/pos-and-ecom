@@ -617,3 +617,6 @@ class OrderForm(forms.ModelForm):
         fields = ('seller_shop', 'buyer_shop', 'ordered_cart', 'order_no', 'billing_address', 'shipping_address',
                   'total_mrp', 'total_discount_amount', 'total_tax_amount', 'total_final_amount', 'order_status',
                   'ordered_by', 'last_modified_by')
+
+    class Media:
+        js = ('/static/admin/js/retailer_cart.js',)
