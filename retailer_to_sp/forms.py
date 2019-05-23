@@ -519,14 +519,14 @@ class OrderedProductReschedule(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
-        if instance.shipment_status == OrderedProduct.RESCHEDULED:
+        if instance.shipment_status == OrderedProduct.RESCHEDULED or instance.return_reason:
             self.fields['return_reason'].disabled = True
 
     def clean_return_reason(self):
-        if not self.instance.shipment_status == OrderedProduct.RESCHEDULED:
+        return_reason = self.cleaned_data.get('return_reason')
+        if not self.instance.shipment_status == OrderedProduct.RESCHEDULED and not self.instance.return_reason:
             return_qty = 0
             damaged_qty = 0
-            return_reason = self.cleaned_data.get('return_reason')
             total_products = self.data.get(
                 'rt_order_product_order_product_mapping-TOTAL_FORMS')
             for product in range(int(total_products)):
@@ -536,14 +536,14 @@ class OrderedProductReschedule(forms.ModelForm):
                     % product
                 return_qty += int(self.data.get(return_field))
                 damaged_qty += int(self.data.get(damaged_field))
-                if (int(self.data.get(return_field)) or int(self.data.get(damaged_field))) and not return_reason:
-                    raise forms.ValidationError(_('This field is required'),)
-                elif (not return_qty and not damaged_qty) and return_reason:
-                    raise forms.ValidationError(
-                        _('Either enter Return Qty for any product'
-                          ' or Deselect this option'),
-                    )
-            return return_reason
+            if (int(self.data.get(return_field)) or int(self.data.get(damaged_field))) and not return_reason:
+                raise forms.ValidationError(_('This field is required'),)
+            elif (not return_qty and not damaged_qty) and return_reason:
+                raise forms.ValidationError(
+                    _('Either enter Return Qty for any product'
+                      ' or Deselect this option'),
+                )
+        return return_reason
 
     def clean(self):
         data = self.cleaned_data
@@ -598,7 +598,7 @@ class OrderedProductMappingRescheduleForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
         if instance and instance.pk:
-            if instance.ordered_product.shipment_status == OrderedProduct.RESCHEDULED:
+            if instance.ordered_product.shipment_status == OrderedProduct.RESCHEDULED or instance.ordered_product.return_reason:
                 self.fields['returned_qty'].disabled = True
                 self.fields['damaged_qty'].disabled = True
 
