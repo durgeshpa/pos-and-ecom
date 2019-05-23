@@ -71,6 +71,7 @@
             }
         });
 
+
     $("select[id$='rescheduling_reason']").change(function() {
       $('option:selected', $(this)).each(function() {
             swal({
@@ -99,6 +100,11 @@
 
   });
 
+
+    if ($('select#id_return_reason').prop('disabled')){
+         $("select[id$='rescheduling_reason']").attr("disabled", true);
+         $("input[id$='rescheduling_date']").prop("readonly", false);
+    }
 
     });
 
