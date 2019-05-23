@@ -77,6 +77,18 @@ class Shop(models.Model):
                 return address.pincode
     get_shop_pin_code.fget.short_description = 'PinCode'
 
+    @property
+    def get_shop_city(self):
+        if self.shop_name_address_mapping.exists():
+            return self.shop_name_address_mapping.last().city
+    get_shop_city.fget.short_description = 'Shop City'
+
+    @property
+    def get_shop_parent(self):
+        if self.retiler_mapping.exists():
+            return self.retiler_mapping.last().parent
+    get_shop_parent.fget.short_description = 'Parent Shop'
+
 
     def save(self, force_insert=False, force_update=False, *args, **kwargs):
         if self.status != self.__original_status and self.status is True and ParentRetailerMapping.objects.filter(retailer=self, status=True).exists():

@@ -28,7 +28,7 @@ class ShopResource(resources.ModelResource):
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
-        list_display = ('shop_name', 'shop_owner','shop_type','created_at','status', 'get_shop_shipping_address', 'get_shop_pin_code' )
+        list_display = ('shop_name', 'get_shop_parent', 'shop_owner','shop_type','created_at','status', 'get_shop_shipping_address', 'get_shop_city', 'get_shop_pin_code' )
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
@@ -218,16 +218,6 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     #                 total_pending_amount = total_pending_amount + order.total_final_amount
     #         return total_pending_amount
     # get_shop_pending_amount.short_description = 'Shop Pending Amount'
-
-    def get_shop_city(self, obj):
-        if obj.shop_name_address_mapping.exists():
-            return obj.shop_name_address_mapping.last().city
-    get_shop_city.short_description = 'Shop City'
-
-    def get_shop_parent(self, obj):
-        if obj.retiler_mapping.exists():
-            return obj.retiler_mapping.last().parent
-    get_shop_parent.short_description = 'Parent Shop'
 
 class ParentFilter(AutocompleteFilter):
     title = 'Parent' # display title
