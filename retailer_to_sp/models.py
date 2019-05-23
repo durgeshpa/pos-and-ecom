@@ -578,7 +578,7 @@ class OrderedProduct(models.Model): #Shipment
         cart_product_map = self.order.ordered_cart.rt_cart_list.values('cart_product_price__price_to_retailer', 'cart_product', 'qty').filter(cart_product_id__in=shipment_map.keys())
         product_price_map = {i['cart_product']:(i['cart_product_price__price_to_retailer'], i['qty']) for i in cart_product_map}
 
-        for product, qty in shipment_map:
+        for product, qty in shipment_map.items():
             product_price = product_price_map[product][0]
             qty = float(qty)
             amount = product_price * qty
