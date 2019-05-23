@@ -94,23 +94,38 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
     product_price = serializers.SerializerMethodField('product_price_dt')
     product_mrp = serializers.SerializerMethodField('product_mrp_dt')
     product_case_size_picies = serializers.SerializerMethodField('product_case_size_picies_dt')
+    margin = serializers.SerializerMethodField('margin_dt')
+    loyalty_discount = serializers.SerializerMethodField('loyalty_discount_dt')
+    cash_discount = serializers.SerializerMethodField('cash_discount_dt')
 
     def product_price_dt(self, obj):
-        shop_id = self.context.get("parent_mapping_id",None)
-        return 0 if obj.product_pro_price.filter(shop__id=shop_id).last() is None else round(obj.product_pro_price.filter(shop__id=shop_id).last().price_to_retailer,2)
+        self.product_price = obj.getRetailerPrice(self.context.get("parent_mapping_id"))
+        return self.product_price
 
     def product_mrp_dt(self, obj):
-        shop_id = self.context.get("parent_mapping_id",None)
-        return 0 if obj.product_pro_price.filter(shop__id=shop_id).last() is None else round(obj.product_pro_price.filter(shop__id=shop_id).last().mrp,2)
+        self.product_mrp = obj.getMRP(self.context.get("parent_mapping_id"))
+        return self.product_mrp
 
     def product_case_size_picies_dt(self,obj):
         return str(int(obj.product_inner_case_size)*int(obj.product_case_size))
+
+    def loyalty_discount_dt(self,obj):
+        self.loyalty_discount = obj.getLoyaltyIncentive(self.context.get("parent_mapping_id"))
+        return self.loyalty_discount
+
+    def cash_discount_dt(self,obj):
+        self.cash_discount = obj.getCashDiscount(self.context.get("parent_mapping_id"))
+        return self.cash_discount
+
+    def margin_dt(self,obj):
+        return round((100 * (float(self.product_mrp) - float(self.product_price) - (float(obj.getCashDiscount(self.context.get("parent_mapping_id"))) + float(obj.getLoyaltyIncentive(self.context.get("parent_mapping_id")))) * float(self.product_mrp) / 100) / float(self.product_mrp)),2) if self.product_mrp and self.product_mrp > 0 else 0
 
     class Meta:
         model = Product
         fields = ('id','product_name','product_slug','product_short_description','product_long_description','product_sku','product_mrp',
                   'product_ean_code','product_brand','created_at','modified_at','product_pro_price','status','product_pro_image',
-                  'product_pro_tax','product_opt_product','product_price','product_inner_case_size','product_case_size','product_case_size_picies')
+                  'product_pro_tax','product_opt_product','product_price','product_inner_case_size','product_case_size','product_case_size_picies',
+                  'margin', 'loyalty_discount', 'cash_discount')
 
 class ProductDetailSerializer(serializers.ModelSerializer):
 
@@ -153,7 +168,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
     def product_sub_total_dt(self,obj):
         shop_id = self.context.get("parent_mapping_id", None)
         product_price = 0 if obj.cart_product.product_pro_price.filter(shop__id=shop_id).last() is None else round(obj.cart_product.product_pro_price.filter(shop__id=shop_id).last().price_to_retailer,2)
-        return float(obj.cart_product.product_inner_case_size)*float(obj.qty)*float(product_price)
+        return round(float(obj.cart_product.product_inner_case_size)*float(obj.qty)*float(product_price),2)
 
     class Meta:
         model = CartProductMapping

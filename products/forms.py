@@ -122,6 +122,14 @@ class ProductPriceForm(forms.Form):
                 raise ValidationError("Row["+str(id+1)+"] | "+first_row[
                     7]+":"+row[7]+" | "+VALIDATION_ERROR_MESSAGES[
                     'INVALID_PRICE'])
+            if not row[8] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[8]):
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
+                    8]+":"+row[8]+" | "+VALIDATION_ERROR_MESSAGES[
+                    'INVALID_PRICE'])
+            if not row[9] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[9]):
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
+                    9]+":"+row[9]+" | "+VALIDATION_ERROR_MESSAGES[
+                    'INVALID_PRICE'])
         return self.cleaned_data['file']
 
 class GFProductPriceForm(forms.Form):
@@ -217,6 +225,14 @@ class GFProductPriceForm(forms.Form):
             if not row[7] or not re.match("^\d{0,8}(\.\d{1,4})?$", row[7]):
                 raise ValidationError("Row["+str(id+1)+"] | "+first_row[
                     7]+":"+row[7]+" | "+VALIDATION_ERROR_MESSAGES[
+                    'INVALID_PRICE'])
+            if not row[8] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[8]):
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
+                    8]+":"+row[8]+" | "+VALIDATION_ERROR_MESSAGES[
+                    'INVALID_PRICE'])
+            if not row[9] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[9]):
+                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
+                    9]+":"+row[9]+" | "+VALIDATION_ERROR_MESSAGES[
                     'INVALID_PRICE'])
         return self.cleaned_data['file']
 
