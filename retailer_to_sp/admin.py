@@ -445,11 +445,10 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
                         'invoice_no', 'shipment_status')
-    list_filter = [SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
+    list_filter = [SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
         ('created_at', DateTimeRangeFilter), ('total_final_amount', SliderNumericFilter)]
 
     class Media:
-        js = ('/static/admin/js/retailer_cart.js',)
         js = ('/static/admin/js/retailer_order.js',)
 
     def get_queryset(self, request):
@@ -489,7 +488,9 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         ]
         return urls
 
-    # new code for order_list start
+    """
+       For Order List  Start
+    """
     def changelist_view(self, request, extra_context=None):
         CHANGELIST_PERPAGE_LIMITS = 100
         if request.GET.get('per_page') and int(
@@ -506,24 +507,19 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         except (AttributeError, KeyError):
             return response
 
+        page_limit = 100
+        page = int(request.GET.get('p', 0))
+        page_limit_dt = int(page_limit) + (int(page)*int(page_limit))
+        offset = 0 if page == 0 else (int(page) * int(page_limit))
+
         result_qs = list(qs.values('order_no', 'seller_shop', 'buyer_shop',
                     'total_final_amount', 'order_status', 'created_at','pk',
-                    ).order_by('-created_at').all())
-        cl = ChangeList(request,
-                        self.model,
-                        self.list_display,
-                        self.list_display_links,
-                        self.list_filter,
-                        self.date_hierarchy,
-                        self.search_fields,
-                        self.list_select_related,
-                        self.list_per_page,
-                        self.list_max_show_all,
-                        self.list_editable, self, self.sortable_by)
-        dt = cl.get_queryset(request)
+                    ).order_by('-created_at')[offset:page_limit_dt])
+
         response.context_data['summary'] = result_qs
+        response.context_data['page'] = page
         return response
-    # new code for order_list end
+    
 
 class ShipmentReschedulingAdmin(admin.TabularInline):
     model = ShipmentRescheduling
@@ -594,9 +590,9 @@ class OrderedProductAdmin(admin.ModelAdmin):
         if (formsets_dict['ShipmentReschedulingFormFormSet'].has_changed() and
             not form.changed_data):
             reshedule_update_shipment(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
-        elif (formsets_dict['OrderedProductMappingFormFormSet'].has_changed() and 
+        elif (formsets_dict['OrderedProductMappingFormFormSet'].has_changed() and
             form.changed_data):
-            update_shipment_status(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])           
+            update_shipment_status(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
             update_order_status(form)
             create_credit_note(form)
 

@@ -50,8 +50,17 @@ def update_reserved_order(reserved_args):
     for rp in reserved_products:
         reserved_qty = int(rp.reserved_qty)
         shipped_qty = int(shipment_products_mapping[rp.product.id])
-        rp.reserved_qty = reserved_qty - shipped_qty
+        if not shipped_qty:
+            continue
+        if reserved_qty > shipped_qty:
+            deduct_qty = shipped_qty
+        else:
+            deduct_qty = reserved_qty
+
+        rp.reserved_qty = reserved_qty - deduct_qty
+        shipment_products_mapping[rp.product.id] -= deduct_qty
         rp.save()
+
 
 
 @task

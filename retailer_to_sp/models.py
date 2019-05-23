@@ -322,15 +322,13 @@ class Order(models.Model):
     def shipment_status(self):
         return order_shipment_status(self.shipments())
 
-    # no need
-    # @property
-    # def order_shipment_amount(self):
-    #     return order_shipment_amount(self.shipments())
+    @property
+    def order_shipment_amount(self):
+        return order_shipment_amount(self.shipments())
 
-    # no need
-    # @property
-    # def order_shipment_details(self):
-    #     return order_shipment_details_util(self.shipments())
+    @property
+    def order_shipment_details(self):
+        return order_shipment_details_util(self.shipments())
 
     # @property
     # def shipment_returns(self):
@@ -575,13 +573,14 @@ class OrderedProduct(models.Model): #Shipment
     def shipment_qty_product_price(self, qty):
         total_amount = []
         seller_shop = self.order.seller_shop
-        shipment_products = self.rt_order_product_order_product_mapping.values_list('product', flat=True).all()
-        cart_product_map = self.order.ordered_cart.rt_cart_list.values('cart_product_price__price_to_retailer', 'cart_product', 'qty').filter(cart_product_id__in=list(shipment_products))
+        shipment_products = self.rt_order_product_order_product_mapping.values('product','shipped_qty').all()
+        shipment_map = {i['product']:i['shipped_qty'] for i in shipment_products}
+        cart_product_map = self.order.ordered_cart.rt_cart_list.values('cart_product_price__price_to_retailer', 'cart_product', 'qty').filter(cart_product_id__in=shipment_map.keys())
         product_price_map = {i['cart_product']:(i['cart_product_price__price_to_retailer'], i['qty']) for i in cart_product_map}
 
-        for product in shipment_products:
+        for product, qty in shipment_map.items():
             product_price = product_price_map[product][0]
-            qty = float(product_price_map[product][1])
+            qty = float(qty)
             amount = product_price * qty
             total_amount.append(amount)
         return round(sum(total_amount), 2)
