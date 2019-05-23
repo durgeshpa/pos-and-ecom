@@ -22,7 +22,7 @@ from .resources import (
     ProductResource, ProductPriceResource, TaxResource
     )
 
-from .forms import ProductPriceForm
+from .forms import ProductPriceNewForm
 
 class ProductFilter(AutocompleteFilter):
     title = 'Product Name' # display title
@@ -332,7 +332,7 @@ class MRPSearch(InputFilter):
             )
 class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductPriceResource
-    form = ProductPriceForm
+    form = ProductPriceNewForm
     actions = ["export_as_csv"]
     list_display = [
         'product', 'product_gf_code', 'mrp', 'price_to_service_partner','price_to_retailer', 'price_to_super_retailer',

@@ -414,7 +414,7 @@ class ProductsCSVUploadForm(forms.Form):
         return self.cleaned_data['file']
 
 
-class ProductPriceForm(forms.ModelForm):
+class ProductPriceNewForm(forms.ModelForm):
     product = forms.ModelChoiceField(
         queryset=Product.objects.all(),
         widget=autocomplete.ModelSelect2(url='admin:product-price-autocomplete',)
