@@ -149,8 +149,8 @@ class NotificationSchedulerAdmin(admin.ModelAdmin):
             #setup_periodic_tasks()  #data = {}
             data = {}
             data['test'] = "test"
-            schedule= IntervalSchedule.objects.create(every=10, period=IntervalSchedule.SECONDS)
-            task = PeriodicTask.objects.create(interval=schedule, name='any name', task='tasks.my_task', args=json.dumps([66]))
+            # schedule= IntervalSchedule.objects.create(every=obj.repeat, period=IntervalSchedule.SECONDS)
+            # task = PeriodicTask.objects.create(interval=schedule, name='any name', task='tasks.my_task', args=json.dumps([66]))
 
             #setup_periodic_tasks()
             SendNotification(user_id=user_id, activity_type=activity_type).send()
