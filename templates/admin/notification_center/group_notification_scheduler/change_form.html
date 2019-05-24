@@ -2,16 +2,30 @@
 
 {% block admin_change_form_document_ready %}
 <script type="text/javascript">
-alert("hello");</script>
+
+	var $ = django.jQuery;
+	$('.field-shop').hide();
+
+	$('#id_selection_type').change(function(){
+		
+		var field_value = $('#id_selection_type').val();
+		if (field_value == "user"){
+			$('.field-user').show();
+			$('.field-shop').hide();
+		}
+		else if (field_value == "shop"){
+			$('.field-user').hide();
+			$('.field-shop').show();
+		}
+	});
+
+</script>
 {% endblock %}
 
 
 <!-- 
 	showing the form
 -->
-{% block after_related_objects %}
-        <a href="{% url 'group-notification-scheduler' object_id %}" target="_blank">Add scheduler </a>
-{% endblock %}
 
 
 <!-- 

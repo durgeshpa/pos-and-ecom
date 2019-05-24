@@ -187,7 +187,7 @@ class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
     model = GroupNotificationScheduler
     list_display = ('id', 'user', 'template', 'run_at', 'repeat', 'created_at')
     search_fields = ('id', 'user', 'template')
-    # change_form_template = 'admin/notification_center/group_notification_scheduler/group-notification.html'
+    change_form_template = 'admin/notification_center/group_notification_scheduler/change_form.html'
     # form = GroupNotificationForm
 
     # def get_urls(self):
@@ -227,4 +227,4 @@ admin.site.register(Notification, NotificationAdmin)
 admin.site.register(UserNotification, UserNotificationAdmin)
 #admin.site.register(TextSMSActivity, TextSMSActivityAdmin)
 admin.site.register(NotificationScheduler, NotificationSchedulerAdmin)
-admin.site.register(GroupNotificationScheduler) #, GroupNotificationSchedulerAdmin)
+admin.site.register(GroupNotificationScheduler, GroupNotificationSchedulerAdmin)
