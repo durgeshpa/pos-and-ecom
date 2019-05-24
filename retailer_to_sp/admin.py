@@ -587,10 +587,10 @@ class OrderedProductAdmin(admin.ModelAdmin):
         formsets_dict = {}
         for formset in formsets:
             formsets_dict[formset.__class__.__name__] = formset
-        if (formsets_dict['ShipmentReschedulingFormFormSet'].has_changed() and
+        if ('ShipmentReschedulingFormFormSet' in formsets_dict and formsets_dict['ShipmentReschedulingFormFormSet'].has_changed() and
             not form.changed_data):
             reshedule_update_shipment(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
-        elif (formsets_dict['OrderedProductMappingFormFormSet'].has_changed() and
+        elif ('OrderedProductMappingFormFormSet' in formsets_dict and formsets_dict['OrderedProductMappingFormFormSet'].has_changed() and
             form.changed_data):
             update_shipment_status(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
             update_order_status(form)
