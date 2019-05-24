@@ -142,7 +142,7 @@ class NotificationSchedulerAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         try:
-            import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
             #integrate with celery beat
             user_id = User.objects.get(id=obj.user.id).id
             activity_type = Template.objects.get(id=obj.template.id).type
@@ -205,18 +205,25 @@ class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         try:
-            pass
-            # # if first field is 
-            # if obj.selection_type == "user":      
-            #     user_id = obj.user.id
-            #     activity_type = Template.objects.get(id=obj.template.id).type
-            #     SendNotification(user_id=user_id, activity_type=activity_type).send()
-            # elif obj.selection_type == "shop":
-            #     pass
+            #pass
+            # if first field is 
+            activity_type = Template.objects.get(id=obj.template.id).type
+
+            if obj.selection_type == "user":      
+                user_id = obj.user.id
+                SendNotification(user_id=user_id, activity_type=activity_type).send()
+            elif obj.selection_type == "shop":
+                user_id = obj.shop.shop_owner.id
+                SendNotification(user_id=user_id, activity_type=activity_type).send()
+
+                related_users = obj.shop.related_users
+                for user in related_users:
+                    user_id = user.id
+                    SendNotification(user_id=user_id, activity_type=activity_type).send()
 
         except Exception as e:
             print (e.args)
-            pass
+            logging.error(str(e))
         super(GroupNotificationSchedulerAdmin, self).save_model(request, obj, form, change)    
         
 

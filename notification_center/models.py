@@ -206,7 +206,6 @@ class NotificationScheduler(models.Model):
 
 
 
-
 class GroupNotificationScheduler(models.Model):
 
     SELECTION_TYPE_CHOICES = (
