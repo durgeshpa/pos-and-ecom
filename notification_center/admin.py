@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timedelta
 
 from django.contrib import admin
 from django.contrib.auth import get_user_model
@@ -141,19 +142,29 @@ class NotificationSchedulerAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         try:
-            #import pdb; pdb.set_trace()
+            import pdb; pdb.set_trace()
             #integrate with celery beat
             user_id = User.objects.get(id=obj.user.id).id
             activity_type = Template.objects.get(id=obj.template.id).type
             # code to send notification
             #setup_periodic_tasks()  #data = {}
             data = {}
-            data['test'] = "test"
-            # schedule= IntervalSchedule.objects.create(every=obj.repeat, period=IntervalSchedule.SECONDS)
-            # task = PeriodicTask.objects.create(interval=schedule, name='any name', task='tasks.my_task', args=json.dumps([66]))
+            #data['test'] = "test"
+            data['user_id'] = user_id
+            data['activity_type'] = activity_type
+            # repeat until
+
+            schedule= IntervalSchedule.objects.create(every=obj.repeat, period=IntervalSchedule.SECONDS)
+            task = PeriodicTask.objects.create(
+                interval=schedule, 
+                name='schedule_notification: '+str(datetime.now()), 
+                task='tasks.schedule_notification',
+                expires=obj.repeat_until, 
+                args=json.dumps(['66']),
+                kwargs=json.dumps(data))
 
             #setup_periodic_tasks()
-            SendNotification(user_id=user_id, activity_type=activity_type).send()
+            #SendNotification(user_id=user_id, activity_type=activity_type).send()
         except Exception as e:
             print (e.args)
             pass
@@ -162,8 +173,13 @@ class NotificationSchedulerAdmin(admin.ModelAdmin):
 
 def test_celery():
     import pdb; pdb.set_trace()
+    data = {}
+    #data['test'] = "test"
+    data['user_id'] = 1 #user_id
+    data['activity_type'] = "SIGNUP" #activity_type
+
     schedule= IntervalSchedule.objects.create(every=10, period=IntervalSchedule.SECONDS)
-    task = PeriodicTask.objects.create(interval=schedule, name='any name', task='tasks.my_task', args=json.dumps([66]))
+    task = PeriodicTask.objects.create(interval=schedule, name='any name2', task='tasks.schedule_notification', args=json.dumps(data))
 
 
 
