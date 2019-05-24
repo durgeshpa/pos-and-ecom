@@ -149,7 +149,15 @@ DATABASES = {
         'PASSWORD': config('DB_PASSWORD'),
         'HOST': config('DB_HOST_READ'),
         'PORT': config('DB_PORT'),
-    }
+    },
+    'analytics': {
+        'ENGINE': 'django_redshift_backend',
+        'NAME': 'retailerbackend9',
+        'USER': 'raj',
+        'PASSWORD': 'password',
+        'HOST': 'localhost',
+        'PORT': '5439',
+	}
 }
 
 # Password validation

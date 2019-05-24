@@ -17,6 +17,7 @@ from rest_framework import permissions, authentication
 from .forms import SalesReportForm
 from django.views import View
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
+from .models import OrderReport
 # Create your views here.
 class SalesReport(APIView):
     permission_classes = (AllowAny,)
@@ -41,7 +42,6 @@ class SalesReport(APIView):
                 product_brand = cart_product_mapping.cart_product.product_brand.brand_name
                 ordered_qty = cart_product_mapping.no_of_pieces
                 all_tax_list = cart_product_mapping.cart_product.product_pro_tax
-
                 product_shipments = order_shipments.filter(product=product)
                 product_shipments = product_shipments.aggregate(Sum('delivered_qty'))['delivered_qty__sum']
                 if not product_shipments:
@@ -57,6 +57,7 @@ class SalesReport(APIView):
                 ordered_tax_amount = round((float(ordered_amount) * float(get_tax_val)), 2)
                 delivered_amount = round((float(product_price_to_retailer)*int(product_shipments)) / (float(get_tax_val) + 1), 2)
                 delivered_tax_amount = round((float(delivered_amount) * float(get_tax_val)), 2)
+                OrderReport.objects.create(product_name = product_name, product_id= product_id)
                 if product.product_gf_code in ordered_items:
                     ordered_items[product.product_gf_code]['ordered_qty'] += ordered_qty
                     ordered_items[product.product_gf_code]['ordered_amount'] += ordered_amount
@@ -66,7 +67,6 @@ class SalesReport(APIView):
                     ordered_items[product.product_gf_code]['delivered_tax_amount'] += delivered_tax_amount
                 else:
                     ordered_items[product.product_gf_code] = {'product_sku':product_sku, 'product_id':product_id, 'product_name':product_name,'product_brand':product_brand,'ordered_qty':ordered_qty, 'delivered_qty':product_shipments, 'ordered_amount':ordered_amount, 'ordered_tax_amount':ordered_tax_amount, 'delivered_amount':delivered_amount, 'delivered_tax_amount':delivered_tax_amount}
-
         data = ordered_items
         return data
 

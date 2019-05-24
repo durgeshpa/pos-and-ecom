@@ -29,10 +29,10 @@ class SalesReportForm(forms.Form):
         ),
     )
 
-    def __init__(self, request, *args, **kwargs):
-        super(SalesReportForm, self).__init__(*args, **kwargs)
-        if request.user:
-            queryset = Shop.objects.filter(shop_type__shop_type__in=['sp'])
-            queryset = queryset.filter(Q(related_users=request.user) | Q(shop_owner=request.user))
-        latest = queryset.latest('id')
-        self.fields['shop'].queryset = queryset
+    # def __init__(self, request, *args, **kwargs):
+    #     super(SalesReportForm, self).__init__(*args, **kwargs)
+    #     if request.user:
+    #         queryset = Shop.objects.filter(shop_type__shop_type__in=['sp'])
+    #         queryset = queryset.filter(Q(related_users=request.user) | Q(shop_owner=request.user))
+    #     latest = queryset.latest('id')
+    #     self.fields['shop'].queryset = queryset
