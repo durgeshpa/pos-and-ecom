@@ -287,21 +287,10 @@ class ResendVoiceOTP(CreateAPIView):
                     otp = ','.join(x for x in str(otp))
                     message = SendVoiceSms(phone=number,
                                       body="OTP for your GramFactory account is %s" % (otp))
-                    status_code, reason = message.send()
-                    if status_code == requests.codes.ok:
-                        msg = {'is_success': True,
-                                'message': [reason],
-                                'response_data': None }
-                        return Response(msg,
-                            status=status.HTTP_200_OK
-                        )
-                    else:
-                        msg = {'is_success': False,
-                                'message': [reason],
-                                'response_data': None }
-                        return Response(msg,
-                            status=status.HTTP_406_NOT_ACCEPTABLE
-                        )
+                    message.send()
+                    return Response(msg,
+                        status=status.HTTP_200_OK
+                    )
             else:
                 msg = {'is_success': False,
                         'message': [VALIDATION_ERROR_MESSAGES['USER_NOT_EXIST']],
