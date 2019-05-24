@@ -441,15 +441,12 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                     'payment_mode','picking_status','picker_name',
                     'invoice_no', 'shipment_date', 'invoice_amount', 'shipment_status',
                     #'delivery_date', 'cn_amount', 'cash_collected', 'damaged_amount',
-                    'delivered_value')
+                    )
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
                         'invoice_no', 'shipment_status')
     list_filter = [SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
         ('created_at', DateTimeRangeFilter), ('total_final_amount', SliderNumericFilter)]
-
-    class Media:
-        js = ('/static/admin/js/retailer_order.js',)
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
@@ -476,7 +473,6 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         return p
 
     change_form_template = 'admin/retailer_to_sp/order/change_form.html'
-    change_list_template = 'admin/retailer_to_sp/order/change_list.html'
 
     def get_urls(self):
         from django.conf.urls import url
@@ -487,39 +483,6 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                 name="retailer_cart"),
         ]
         return urls
-
-    """
-       For Order List  Start
-    """
-    def changelist_view(self, request, extra_context=None):
-        CHANGELIST_PERPAGE_LIMITS = 100
-        if request.GET.get('per_page') and int(
-                request.GET.get('per_page')) in CHANGELIST_PERPAGE_LIMITS:
-            self.list_per_page = int(request.GET.get('per_page'))
-        else:
-            self.list_per_page = 100
-        extra_context = {'changelist_perpage_limits': CHANGELIST_PERPAGE_LIMITS,
-                         'list_per_page': self.list_per_page}
-
-        response = super(OrderAdmin, self).changelist_view(request,extra_context=extra_context,)
-        try:
-            qs = response.context_data['cl'].queryset
-        except (AttributeError, KeyError):
-            return response
-
-        page_limit = 100
-        page = int(request.GET.get('p', 0))
-        page_limit_dt = int(page_limit) + (int(page)*int(page_limit))
-        offset = 0 if page == 0 else (int(page) * int(page_limit))
-
-        result_qs = list(qs.values('order_no', 'seller_shop', 'buyer_shop',
-                    'total_final_amount', 'order_status', 'created_at','pk',
-                    ).order_by('-created_at')[offset:page_limit_dt])
-
-        response.context_data['summary'] = result_qs
-        response.context_data['page'] = page
-        return response
-    
 
 class ShipmentReschedulingAdmin(admin.TabularInline):
     model = ShipmentRescheduling
