@@ -81,11 +81,23 @@ class Shop(models.Model):
         if self.status != self.__original_status and self.status is True and ParentRetailerMapping.objects.filter(retailer=self, status=True).exists():
             username = self.shop_owner.first_name if self.shop_owner.first_name else self.shop_owner.phone_number
             shop_title = str(self.shop_name)
-            message = SendSms(phone=self.shop_owner,
-                              body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App." \
-                                   " Thanks," \
-                                   " Team GramFactory " % (username, shop_title))
-            message.send()
+
+            activity_type = "SHOP_VERIFIED"
+            user_id = self.shop_owner.id
+            data = {}
+            data['username'] = username
+            data['phone_number'] = self.shop_owner.phone_number
+            data['shop_title'] = shop_title
+    
+            from notification_center.utils import SendNotification
+            SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
+
+
+            # message = SendSms(phone=self.shop_owner,
+            #                   body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App." \
+            #                        " Thanks," \
+            #                        " Team GramFactory " % (username, shop_title))
+            # message.send()
         super(Shop, self).save(force_insert, force_update, *args, **kwargs)
 
     # def available_product(self, product):
@@ -195,6 +207,15 @@ def shop_verification_notification1(sender, instance=None, created=False, **kwar
             if shop.status == True:
                 username = shop.shop_owner.first_name if shop.shop_owner.first_name else shop.shop_owner.phone_number
                 shop_title = str(shop.shop_name)
+                
+
+                user_id = shop.shop_owner.id
+                data = {}
+                data['username'] = username
+                data['phone_number'] = instance.phone_number
+                from notification_center.utils import SendNotification
+                SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()    
+
                 message = SendSms(phone=shop.shop_owner,
                                   body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App."\
                                       " Thanks,"\

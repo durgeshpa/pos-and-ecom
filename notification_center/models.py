@@ -29,6 +29,7 @@ class Template(models.Model):
         ('SHOP_CREATED', 'User shop created'),
         ('SHOP_VERIFIED', 'User shop verified'),
         ('ORDER_CREATED', 'Order created'),
+        ('ORDER_RECEIVED', 'Order received'),
         ('ORDER_DISPATCHED', 'Order dispatched'),
         ('ORDER_SHIPPED', 'Order shipped'),
         ('ORDER_DELIVERED', 'Order delivered'),

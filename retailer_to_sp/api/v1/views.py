@@ -15,6 +15,7 @@ from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
+from rest_framework import generics, viewsets
 
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
                                    OrderedProduct, Payment, CustomerCare,
@@ -41,9 +42,42 @@ from retailer_to_sp.tasks import (
     ordered_product_available_qty_update, release_blocking, create_reserved_order
 )
 
+
+
 logger = logging.getLogger(__name__)
 
 today = datetime.today()
+
+
+# class OrderedProductViewSet(viewsets.ModelViewSet):
+#     '''
+#     This class handles all operation of vendor onbaording
+#     '''
+#     model = OrderedProduct
+#     serializer_class = OrderedProductSerializer
+#     queryset = OrderedProduct.objects.all()
+
+#     def get_serializer_class(self):
+#         '''
+#         Returns the serializer according to action of viewset
+#         '''
+#         serializer_action_classes = {
+#             'retrieve': OrderedProductSerializer,
+#             'list':OrderedProductSerializer,
+#             'create':OrderedProductSerializer,
+#             'update':OrderedProductSerializer
+#         }
+#         if hasattr(self, 'action'):
+#             return serializer_action_classes.get(self.action, self.serializer_class)
+#         return self.serializer_class
+
+
+
+# class OrderedProductMappingList(generics.RetrieveAPIView):
+#     permission_classes = (AllowAny,)
+#     model = OrderedProductMapping
+#     serializer_class = OrderedProductMappingSerializer    
+
 
 
 class ProductsList(generics.ListCreateAPIView):
