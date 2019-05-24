@@ -14,10 +14,9 @@ from django.db.models import Sum
 import json
 import csv
 from rest_framework import permissions, authentication
-from .forms import SalesReportForm
+from .forms import SalesReportForm, OrderReportForm
 from django.views import View
-from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
-from .models import OrderReport
+from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping, Tax
 # Create your views here.
 class SalesReport(APIView):
     permission_classes = (AllowAny,)
@@ -42,6 +41,7 @@ class SalesReport(APIView):
                 product_brand = cart_product_mapping.cart_product.product_brand.brand_name
                 ordered_qty = cart_product_mapping.no_of_pieces
                 all_tax_list = cart_product_mapping.cart_product.product_pro_tax
+
                 product_shipments = order_shipments.filter(product=product)
                 product_shipments = product_shipments.aggregate(Sum('delivered_qty'))['delivered_qty__sum']
                 if not product_shipments:
@@ -57,7 +57,6 @@ class SalesReport(APIView):
                 ordered_tax_amount = round((float(ordered_amount) * float(get_tax_val)), 2)
                 delivered_amount = round((float(product_price_to_retailer)*int(product_shipments)) / (float(get_tax_val) + 1), 2)
                 delivered_tax_amount = round((float(delivered_amount) * float(get_tax_val)), 2)
-                OrderReport.objects.create(product_name = product_name, product_id= product_id)
                 if product.product_gf_code in ordered_items:
                     ordered_items[product.product_gf_code]['ordered_qty'] += ordered_qty
                     ordered_items[product.product_gf_code]['ordered_amount'] += ordered_amount
@@ -67,22 +66,23 @@ class SalesReport(APIView):
                     ordered_items[product.product_gf_code]['delivered_tax_amount'] += delivered_tax_amount
                 else:
                     ordered_items[product.product_gf_code] = {'product_sku':product_sku, 'product_id':product_id, 'product_name':product_name,'product_brand':product_brand,'ordered_qty':ordered_qty, 'delivered_qty':product_shipments, 'ordered_amount':ordered_amount, 'ordered_tax_amount':ordered_tax_amount, 'delivered_amount':delivered_amount, 'delivered_tax_amount':delivered_tax_amount}
+
         data = ordered_items
         return data
 
     def get(self, *args, **kwargs):
         from django.http import HttpResponse
         from django.contrib import messages
-
+        import pdb; pdb.set_trace()
         shop_id = self.request.GET.get('shop')
         start_date = self.request.GET.get('start_date', None)
         end_date = self.request.GET.get('end_date', None)
-        if end_date < start_date:
+        if end_date and end_date < start_date:
             messages.error(self.request, 'End date cannot be less than the start date')
             return render(
                 self.request,
                 'admin/services/sales-report.html',
-                {'form': SalesReportForm(self.request.GET)}
+                {'form': SalesReportForm(user=None, initial=self.request.GET)}
             )
         data = self.get_sales_report(shop_id, start_date, end_date)
         response = HttpResponse(content_type='text/csv')
@@ -96,10 +96,101 @@ class SalesReport(APIView):
 
 class SalesReportFormView(View):
     def get(self, request):
-        form = SalesReportForm(request=request)
+        form = SalesReportForm(user=request.user)
         return render(
             self.request,
             'admin/services/sales-report.html',
+            {'form': form}
+        )
+
+class OrderReport(APIView):
+    permission_classes = (AllowAny,)
+
+    def get_order_report(self, shop_id, start_date, end_date):
+        seller_shop = Shop.objects.get(pk=shop_id)
+        orders = Order.objects.filter(seller_shop = seller_shop)
+        if start_date:
+            orders = orders.filter(created_at__gte = start_date)
+        if end_date:
+            orders = orders.filter(created_at__lte = end_date)
+        order_details = {}
+        i=0
+        for order in orders:
+            for shipment in order.rt_order_order_product.all():
+                for products in shipment.rt_order_product_order_product_mapping.all():
+                    i += 1
+                    product_id = products.product.id
+                    product_name = products.product.product_name
+                    product_brand = products.product.product_brand
+                    product_mrp = products.product.product_pro_price.get(status=True, shop = seller_shop).mrp
+                    product_value_tax_included = products.product.product_pro_price.get(status=True, shop = seller_shop).price_to_retailer
+                    if products.product.product_pro_tax.filter(tax__tax_type ='gst').exists():
+                        product_gst = products.product.product_pro_tax.get(tax__tax_type ='gst')
+                    if order.shipping_address.state == order.seller_shop.shop_name_address_mapping.get(address_type='shipping').state:
+                        product_cgst = (float(product_gst.tax.tax_percentage)/2.0)
+                        product_sgst = (float(product_gst.tax.tax_percentage)/2.0)
+                        product_igst = ''
+                    else:
+                        product_cgst = ''
+                        product_sgst = ''
+                        product_igst = (float(product_gst.tax.tax_percentage))
+                    if products.product.product_pro_tax.filter(tax__tax_type ='cess').exists():
+                        product_cess = products.product.product_pro_tax.get(tax__tax_type ='cess').tax.tax_percentage
+                    else:
+                        product_cess = ''
+                    order_id = order.order_no
+                    pin_code = order.shipping_address.pincode
+                    order_status = order.get_order_status_display()
+                    order_date = order.created_at
+                    order_by = order.ordered_by
+                    retailer_id = order.ordered_by.id
+                    order_invoice = shipment.invoice_no
+                    invoice_date = shipment.created_at
+                    invoice_status = shipment.get_shipment_status_display()
+                    ordered_sku_pieces = products.ordered_qty
+                    shipped_sku_pieces = products.shipped_qty
+                    delivered_sku_pieces = products.delivered_qty
+                    returned_sku_pieces = products.returned_qty
+                    damaged_sku_pieces = products.damaged_qty
+                    sales_person_name = ''
+                    order_type =''
+                    campaign_name =''
+                    discount = ''
+                    order_details[i] = {'order_invoice':order_invoice, 'invoice_date':invoice_date, 'invoice_status':invoice_status, 'order_id':order_id,  'order_status':order_status, 'order_date':order_date, 'order_by':order_by, 'retailer_id':retailer_id, 'pin_code':pin_code, 'product_id':product_id, 'product_name':product_name, 'product_brand':product_brand, 'product_mrp':product_mrp, 'product_value_tax_included':product_value_tax_included, 'ordered_sku_pieces':ordered_sku_pieces, 'shipped_sku_pieces':shipped_sku_pieces, 'delivered_sku_pieces':delivered_sku_pieces, 'returned_sku_pieces':returned_sku_pieces, 'damaged_sku_pieces':damaged_sku_pieces, 'product_cgst':product_cgst, 'product_sgst':product_sgst, 'product_igst':product_igst, 'product_cess':product_cess, 'sales_person_name':sales_person_name, 'order_type':order_type, 'campaign_name':campaign_name, 'discount':discount}
+
+        data = order_details
+        return data
+
+    def get(self, *args, **kwargs):
+        from django.http import HttpResponse
+        from django.contrib import messages
+
+        shop_id = self.request.GET.get('shop')
+        start_date = self.request.GET.get('start_date', None)
+        end_date = self.request.GET.get('end_date', None)
+        if end_date and end_date < start_date:
+            messages.error(self.request, 'End date cannot be less than the start date')
+            return render(
+                self.request,
+                'admin/services/order-report.html',
+                {'form': OrderReportForm(user=None, initial=self.request.GET)}
+            )
+        data = self.get_order_report(shop_id, start_date, end_date)
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="order-mis-report.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['S.No.', 'Invoice Id', 'Invoice Date', 'Invoice Status', 'Order Id', 'Order Status', 'Order Date', 'Retailer Name/Contact No.', 'Retailer Id', 'PinCode', 'Product Id', 'Product Name', 'Product Brand', 'Product MRP' ,'Product Value including tax', 'Ordered SKU Pieces', 'Shipped SKU Pieces', 'Delivered SKU Pieces', 'Returned SKU Pieces', 'Damaged SKU Pieces', 'CGST %', 'SGST %', 'IGST %', 'Cess %', 'Sales Person Name', 'Order Type (Organic / Through Sales Person)', 'Campaign Name', 'Discount %'])
+        for k,v in data.items():
+            writer.writerow([k, v['order_invoice'], v['invoice_date'], v['invoice_status'], v['order_id'], v['order_status'], v['order_date'], v['order_by'], v['retailer_id'], v['pin_code'], v['product_id'], v['product_name'], v['product_brand'], v['product_mrp'], v['product_value_tax_included'], v['ordered_sku_pieces'], v['shipped_sku_pieces'], v['delivered_sku_pieces'], v['returned_sku_pieces'], v['damaged_sku_pieces'], v['product_cgst'], v['product_sgst'], v['product_igst'], v['product_cess'], v['sales_person_name'], v['order_type'], v['campaign_name'], v['discount']])
+
+        return response
+
+class OrderReportFormView(View):
+    def get(self, request):
+        form = OrderReportForm(user=request.user)
+        return render(
+            self.request,
+            'admin/services/order-report.html',
             {'form': form}
         )
 
