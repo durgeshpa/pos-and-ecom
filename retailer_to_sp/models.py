@@ -613,6 +613,26 @@ class OrderedProduct(models.Model): #Shipment
                                                         ).last().pk)
         super().save(*args, **kwargs)
 
+    def cn_amount(self, qty):
+        total_amount = []
+        seller_shop = self.order.seller_shop
+        shipment_products = self.rt_order_product_order_product_mapping.values('product','shipped_qty','returned_qty','damaged_qty').all()
+        shipment_map = {i['product']:(i['shipped_qty'],i['returned_qty'],i['damaged_qty']) for i in shipment_products}
+        cart_product_map = self.order.ordered_cart.rt_cart_list.values('cart_product_price__price_to_retailer', 'cart_product', 'qty').filter(cart_product_id__in=shipment_map.keys())
+        product_price_map = {i['cart_product']:(i['cart_product_price__price_to_retailer'], i['qty']) for i in cart_product_map}
+
+        for product in shipment_map.items():
+            try:
+                product_price = product_price_map[product][0]
+                qty = float(qty)
+                return_amount = product_price * shipment_map[product][1]
+                damaged_amount = product_price * shipment_map[product][2]
+                total_amount.append(return_amount+damaged_amount)
+            except:
+                pass
+        return round(sum(total_amount), 2)
+
+
 
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(
