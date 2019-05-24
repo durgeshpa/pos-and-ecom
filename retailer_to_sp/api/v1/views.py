@@ -2,7 +2,7 @@ from rest_framework import generics
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,
                           OrderSerializer, CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
 
-                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer )
+                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer, OrderListSerializer )
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
 from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
                                 OrderedProduct as SPOrderedProduct, StockAdjustment)
@@ -168,13 +168,22 @@ class GramGRNProductsList(APIView):
 
         for p in products_price:
             user_selected_qty = None
+            no_of_pieces = None
+            sub_total = None
+            name = p.product.product_name
+            mrp = round(p.mrp, 2) if p.mrp else p.mrp
+            ptr = round(p.price_to_retailer, 2) if p.price_to_retailer else p.price_to_retailer
+            loyalty_discount = round(p.loyalty_incentive, 2) if p.loyalty_incentive else p.loyalty_incentive
+            cash_discount = round(p.cash_discount, 2) if p.cash_discount else p.cash_discount
+            margin = round((100 * (float(mrp) - float(ptr) - (float(cash_discount) + float(loyalty_discount)) * float(
+                mrp) / 100) / float(mrp)), 2) if mrp and ptr else 0
+
             if cart_check == True:
                 for c_p in cart_products:
                     if c_p.cart_product_id == p.product_id:
                         user_selected_qty = c_p.qty
-            name = p.product.product_name
-            mrp = round(p.mrp,2) if p.mrp else p.mrp
-            ptr = round(p.price_to_retailer,2) if p.price_to_retailer else p.price_to_retailer
+                        no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
+                        sub_total = float(no_of_pieces) * float(ptr)
             status = p.product.status
             product_opt = p.product.product_opt_product.all()
             weight_value = None
@@ -207,7 +216,8 @@ class GramGRNProductsList(APIView):
                 product_images=None
             if request.user.is_authenticated:
                 p_list.append({"name":p.product.product_name, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "id":p.product_id,
-                                "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":user_selected_qty})
+                                "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":user_selected_qty,
+                               "loyalty_discount":loyalty_discount,"cash_discount":cash_discount,"margin":margin ,"no_of_pieces":no_of_pieces, "sub_total":sub_total})
             else:
                 is_store_active = False
                 p_list.append({"name":p.product.product_name, "mrp":None, "ptr":None, "status":status, "pack_size":pack_size, "id":p.product_id,
@@ -659,7 +669,7 @@ class CreateOrder(APIView):
 #OrderedProductMapping.objects.filter()
 
 class OrderList(generics.ListAPIView):
-    serializer_class = OrderDetailSerializer
+    serializer_class = OrderListSerializer
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -679,8 +689,7 @@ class OrderList(generics.ListAPIView):
         current_url = request.get_host()
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             queryset = Order.objects.filter(last_modified_by=user).order_by('-created_at')
-
-            serializer = OrderDetailSerializer(queryset, many=True, context={'parent_mapping': parent_mapping.parent,'current_url':current_url})
+            serializer = OrderListSerializer(queryset, many=True, context={'parent_mapping': parent_mapping.parent,'current_url':current_url})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             queryset = GramMappedOrder.objects.filter(last_modified_by=user).order_by('-created_at')
             serializer = GramMappedOrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
