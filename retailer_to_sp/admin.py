@@ -435,6 +435,9 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
             'fields': ('total_mrp', 'total_discount_amount',
                        'total_tax_amount', 'total_final_amount')}),
         )
+    list_select_related =(
+        'seller_shop','buyer_shop', 'ordered_cart'
+        )
     list_display = (
                     'order_no', 'download_pick_list', 'seller_shop', 'buyer_shop',
                     'total_final_amount', 'order_status', 'created_at',
@@ -467,9 +470,9 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
 
     def order_products(self, obj):
         p=[]
-        products = obj.ordered_cart.rt_cart_list.all()
+        products = obj.ordered_cart.rt_cart_list.all().values('cart_product__product_name')
         for m in products:
-            p.append(m.cart_product.product_name)
+            p.append(m)
         return p
 
     change_form_template = 'admin/retailer_to_sp/order/change_form.html'

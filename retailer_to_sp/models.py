@@ -287,14 +287,18 @@ class Order(models.Model):
         ordering = ['-created_at']
 
     def payments(self):
-        payment_mode = []
-        payment_amount = []
-        payments = self.rt_payment.all()
-        if payments:
-            for payment in payments:
-                payment_mode.append(payment.get_payment_choice_display())
-                payment_amount.append(float(payment.paid_amount))
-        return payment_mode, payment_amount
+        if hasattr(self, 'payment_objects'):
+            return self.payment_objects
+        else:
+            payment_mode = []
+            payment_amount = []
+            payments = self.rt_payment.all().values('paid_amount', 'payment_choice')
+            if payments:
+                for payment in payments:
+                    payment_mode.append(dict(PAYMENT_MODE_CHOICES)[payment.get('payment_choice')])
+                    payment_amount.append(float(payment.get('paid_amount')))
+            self.payment_objects = payment_mode, payment_amount
+            return self.payment_objects
 
     @property
     def payment_mode(self):
@@ -312,7 +316,10 @@ class Order(models.Model):
         return sum(payment_amount)
 
     def shipments(self):
-        return self.rt_order_order_product.all()
+        if hasattr(self, 'shipment_objects'):
+            return self.shipment_objects
+        self.shipment_objects = self.rt_order_order_product.select_related('trip').all()
+        return self.shipment_objects
 
     @property
     def invoice_no(self):
@@ -579,10 +586,13 @@ class OrderedProduct(models.Model): #Shipment
         product_price_map = {i['cart_product']:(i['cart_product_price__price_to_retailer'], i['qty']) for i in cart_product_map}
 
         for product, qty in shipment_map.items():
-            product_price = product_price_map[product][0]
-            qty = float(qty)
-            amount = product_price * qty
-            total_amount.append(amount)
+            try:
+                product_price = product_price_map[product][0]
+                qty = float(qty)
+                amount = product_price * qty
+                total_amount.append(amount)
+            except:
+                pass
         return round(sum(total_amount), 2)
 
     @property
