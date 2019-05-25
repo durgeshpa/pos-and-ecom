@@ -579,11 +579,22 @@ class OrderedProduct(models.Model): #Shipment
 
     def __init__(self, *args, **kwargs):
         super(OrderedProduct, self).__init__(*args, **kwargs)
+        self._invoice_amount = 0
+        self._cn_amount = 0
+        self._damaged_amount = 0
         shipment_products = self.rt_order_product_order_product_mapping.values('product','shipped_qty','returned_qty','damaged_qty').all()
-        self.shipment_map = {i['product']:(i['shipped_qty'], i['returned_qty'], i['damaged_qty']) for i in shipment_products}
-        cart_product_map = self.order.ordered_cart.rt_cart_list.values('cart_product_price__price_to_retailer', 'cart_product', 'qty').filter(cart_product_id__in=self.shipment_map.keys())
-        self.product_price_map = {i['cart_product']:(i['cart_product_price__price_to_retailer'], i['qty']) for i in cart_product_map}
-
+        shipment_map = {i['product']:(i['shipped_qty'], i['returned_qty'], i['damaged_qty']) for i in shipment_products}
+        cart_product_map = self.order.ordered_cart.rt_cart_list.values('cart_product_price__price_to_retailer', 'cart_product', 'qty').filter(cart_product_id__in=shipment_map.keys())
+        product_price_map = {i['cart_product']:(i['cart_product_price__price_to_retailer'], i['qty']) for i in cart_product_map}
+        for product, shipment_details in shipment_map.items():
+            try:
+                product_price = product_price_map[product][0]
+                shipped_qty, returned_qty, damaged_qty = shipment_details
+                self._invoice_amount += product_price * shipped_qty
+                self._cn_amount += (returned_qty+damaged_qty) * product_price
+                self._damaged_amount += damaged_qty * product_price
+            except Exception as e:
+                logger.exception("Exception occurred {}".format(e))
 
     def shipment_qty_product_price(self, qty):
         total_amount = []
@@ -600,9 +611,15 @@ class OrderedProduct(models.Model): #Shipment
     @property
     def invoice_amount(self):
         if self.order:
-            amount = self.shipment_qty_product_price('shipped_qty')
-            return str(amount)
+            return round(self._invoice_amount, 2)
         return str("-")
+
+    def cn_amount(self):
+        return round(self._cn_amount, 2)
+
+    def damaged_amount(self):
+        return round(self._damaged_amount, 2)
+
 
     def save(self, *args, **kwargs):
         if not self.invoice_no:
@@ -615,28 +632,6 @@ class OrderedProduct(models.Model): #Shipment
                                                         ).last().pk)
         super().save(*args, **kwargs)
 
-    def cn_amount(self):
-        total_amount = []
-        for product, shipment_details in self.shipment_map.items():
-            try:
-                product_price = self.product_price_map[product][0]
-                return_amount = product_price * shipment_details[1]
-                damaged_amount = product_price * shipment_details[2]
-                total_amount.append(float(return_amount)+float(damaged_amount))
-            except:
-                pass
-        return round(sum(total_amount), 2)
-
-    def damaged_amount(self):
-        total_amount = []
-        for product, shipment_details in self.shipment_map.items():
-            try:
-                product_price = self.product_price_map[product][0]
-                return_amount = product_price * shipment_details[1]
-                total_amount.append(float(return_amount))
-            except:
-                pass
-        return round(sum(total_amount), 2)
 
 
 
