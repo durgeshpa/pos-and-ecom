@@ -574,7 +574,7 @@ class OrderedProduct(models.Model): #Shipment
     def cash_to_be_collected(self):
         cod_payment = self.order.rt_payment.filter(payment_choice='cash_on_delivery')
         if cod_payment.exists():
-            return self.invoice_amount()
+            return self._invoice_amount
         return 0
 
     def __init__(self, *args, **kwargs):
