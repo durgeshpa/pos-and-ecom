@@ -574,7 +574,7 @@ class OrderedProduct(models.Model): #Shipment
     def cash_to_be_collected(self):
         cod_payment = self.order.rt_payment.filter(payment_choice='cash_on_delivery')
         if cod_payment.exists():
-            return self.shipment_qty_product_price('delivered_qty')
+            return self.invoice_amount()
         return 0
 
     def __init__(self, *args, **kwargs):
@@ -595,18 +595,6 @@ class OrderedProduct(models.Model): #Shipment
                 self._damaged_amount += damaged_qty * product_price
             except Exception as e:
                 logger.exception("Exception occurred {}".format(e))
-
-    def shipment_qty_product_price(self, qty):
-        total_amount = []
-        for product, shipment_detail in self.shipment_map.items():
-            try:
-                product_price = self.product_price_map[product][0]
-                qty = shipment_detail[0]
-                amount = product_price * qty
-                total_amount.append(amount)
-            except:
-                pass
-        return round(sum(total_amount), 2)
 
     @property
     def invoice_amount(self):
