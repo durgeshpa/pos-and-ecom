@@ -88,9 +88,9 @@ class ProductOptionSerializer(serializers.ModelSerializer):
 class ProductsSearchSerializer(serializers.ModelSerializer):
     #product_pro_price = ProductPriceSerializer(many=True)
     product_pro_image = ProductImageSerializer(many=True)
-    product_pro_tax = ProductTaxMappingSerializer(many=True)
+    #product_pro_tax = ProductTaxMappingSerializer(many=True)
     product_opt_product = ProductOptionSerializer(many=True)
-    product_brand = BrandSerializer(read_only=True)
+    #product_brand = BrandSerializer(read_only=True)
     product_price = serializers.SerializerMethodField('product_price_dt')
     product_mrp = serializers.SerializerMethodField('product_mrp_dt')
     product_case_size_picies = serializers.SerializerMethodField('product_case_size_picies_dt')
@@ -123,8 +123,8 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ('id','product_name','product_slug','product_short_description','product_long_description','product_sku','product_mrp',
-                  'product_ean_code','product_brand','created_at','modified_at','product_pro_price','status','product_pro_image',
-                  'product_pro_tax','product_opt_product','product_price','product_inner_case_size','product_case_size','product_case_size_picies',
+                  'product_ean_code','created_at','modified_at','status','product_pro_image',
+                  'product_opt_product','product_price','product_inner_case_size','product_case_size','product_case_size_picies',
                   'margin', 'loyalty_discount', 'cash_discount')
 
 class ProductDetailSerializer(serializers.ModelSerializer):
@@ -263,7 +263,6 @@ class OrderSerializer(serializers.ModelSerializer):
                   'created_at','modified_at','rt_order_order_product')
 
 class CartProductPrice(serializers.ModelSerializer):
-    product = ProductsSearchSerializer()
     product_price = serializers.SerializerMethodField('product_price_dt')
     product_mrp = serializers.SerializerMethodField('product_mrp_dt')
 
@@ -275,11 +274,11 @@ class CartProductPrice(serializers.ModelSerializer):
 
     class Meta:
         model = ProductPrice
-        fields = ('id','product','product_price','product_mrp','created_at')
+        fields = ('id','product_price','product_mrp','created_at')
 
 class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
     cart_product = ProductsSearchSerializer()
-    cart = CartDataSerializer()
+    #cart = CartDataSerializer()
     cart_product_price = CartProductPrice()
     no_of_pieces = serializers.SerializerMethodField('no_pieces_dt')
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
@@ -302,22 +301,18 @@ class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
 
 class OrderedCartSerializer(serializers.ModelSerializer):
     rt_cart_list = OrderedCartProductMappingSerializer(many=True)
-    last_modified_by = UserSerializer()
     items_count = serializers.ReadOnlyField(source='qty_sum')
     total_amount = serializers.ReadOnlyField(source='subtotal')
     sub_total = serializers.ReadOnlyField(source='subtotal')
 
     class Meta:
         model = Cart
-        fields = ('id','order_id','cart_status','last_modified_by','created_at','modified_at','rt_cart_list','total_amount','sub_total','items_count')
+        fields = ('id','order_id','cart_status','created_at','modified_at','rt_cart_list','total_amount','sub_total','items_count')
 
 #order Details
 class OrderDetailSerializer(serializers.ModelSerializer):
     ordered_cart = OrderedCartSerializer()
-    ordered_by = UserSerializer()
-    last_modified_by = UserSerializer()
     rt_order_order_product = OrderedProductSerializer(many=True)
-    billing_address = AddressSerializer()
     shipping_address = AddressSerializer()
     order_status = serializers.CharField(source='get_order_status_display')
 
@@ -328,8 +323,8 @@ class OrderDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model=Order
-        fields = ('id','ordered_cart','order_no','billing_address','shipping_address','total_mrp','total_discount_amount',
-                  'total_tax_amount','total_final_amount','order_status','ordered_by','received_by','last_modified_by',
+        fields = ('id','ordered_cart','order_no','shipping_address','total_mrp','total_discount_amount',
+                  'total_tax_amount','total_final_amount','order_status','received_by',
                   'created_at','modified_at','rt_order_order_product')
 
 # Order List Realted Serilizer Start
