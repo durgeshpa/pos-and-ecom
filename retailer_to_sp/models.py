@@ -543,8 +543,6 @@ class OrderedProduct(models.Model): #Shipment
         self._invoice_amount = 0
         self._cn_amount = 0
         self._damaged_amount = 0
-        self._payment_mode = []
-        self._payment_amount = []
         shipment_products = self.rt_order_product_order_product_mapping.values('product','shipped_qty','returned_qty','damaged_qty').all()
         shipment_map = {i['product']:(i['shipped_qty'], i['returned_qty'], i['damaged_qty']) for i in shipment_products}
         cart_product_map = self.order.ordered_cart.rt_cart_list.values('cart_product_price__price_to_retailer', 'cart_product', 'qty').filter(cart_product_id__in=shipment_map.keys())
@@ -558,11 +556,6 @@ class OrderedProduct(models.Model): #Shipment
                 self._damaged_amount += damaged_qty * product_price
             except Exception as e:
                 logger.exception("Exception occurred {}".format(e))
-        payments = self.order.rt_payment.values('payment_choice', 'paid_amount').all()
-        for payment in payments:
-            self._payment_mode.append(dict(PAYMENT_MODE_CHOICES)[payment['payment_choice']])
-            self._payment_amount.append(float(payment['paid_amount']))
-
 
     def __str__(self):
         return self.invoice_no or str(self.id)
@@ -578,11 +571,22 @@ class OrderedProduct(models.Model): #Shipment
         return str("-")
 
     def payments(self):
+        if hasattr(self, '_payment_mode'):
+            return self._payment_mode, self._payment_amount
+        else:
+            self._payment_mode = []
+            self._payment_amount = []
+            if self.order:
+                payments = self.order.rt_payment.values('payment_choice', 'paid_amount').all()
+                for payment in payments:
+                    self._payment_mode.append(dict(PAYMENT_MODE_CHOICES)[payment['payment_choice']])
+                    self._payment_amount.append(float(payment['paid_amount']))
         return self._payment_mode, self._payment_amount
 
     @property
     def payment_mode(self):
-        return self._payment_mode
+        payment_mode, _ = self.payments()
+        return payment_mode
 
     @property
     def invoice_city(self):
