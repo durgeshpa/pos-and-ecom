@@ -287,14 +287,18 @@ class Order(models.Model):
         ordering = ['-created_at']
 
     def payments(self):
-        payment_mode = []
-        payment_amount = []
-        payments = self.rt_payment.all()
-        if payments:
-            for payment in payments:
-                payment_mode.append(payment.get_payment_choice_display())
-                payment_amount.append(float(payment.paid_amount))
-        return payment_mode, payment_amount
+        if hasattr(self, 'payment_objects'):
+            return self.payment_objects
+        else:
+            payment_mode = []
+            payment_amount = []
+            payments = self.rt_payment.all().values('paid_amount', 'payment_choice')
+            if payments:
+                for payment in payments:
+                    payment_mode.append(dict(PAYMENT_MODE_CHOICES)[payment.get('payment_choice')])
+                    payment_amount.append(float(payment.get('paid_amount')))
+            self.payment_objects = payment_mode, payment_amount
+            return self.payment_objects
 
     @property
     def payment_mode(self):
@@ -312,7 +316,10 @@ class Order(models.Model):
         return sum(payment_amount)
 
     def shipments(self):
-        return self.rt_order_order_product.all()
+        if hasattr(self, 'shipment_objects'):
+            return self.shipment_objects
+        self.shipment_objects = self.rt_order_order_product.select_related('trip').all()
+        return self.shipment_objects
 
     @property
     def invoice_no(self):
@@ -350,25 +357,25 @@ class Order(models.Model):
     def invoice_amount(self):
         return order_shipment_amount(self.shipments())
 
-    # @property
-    # def delivery_date(self):
-    #     return order_delivery_date(self.shipments())
-    #
-    # @property
-    # def cn_amount(self):
-    #     return order_cn_amount(self.shipments())
-    #
-    # @property
-    # def cash_collected(self):
-    #     return order_cash_to_be_collected(self.shipments())
-    #
-    # @property
-    # def damaged_amount(self):
-    #     return order_damaged_amount(self.shipments())
+    @property
+    def delivery_date(self):
+        return order_delivery_date(self.shipments())
 
     @property
-    def delivered_value(self):
-        return order_delivered_value(self.shipments())
+    def cn_amount(self):
+        return order_cn_amount(self.shipments())
+
+    @property
+    def cash_collected(self):
+        return order_cash_to_be_collected(self.shipments())
+
+    @property
+    def damaged_amount(self):
+        return order_damaged_amount(self.shipments())
+
+    # @property
+    # def delivered_value(self):
+    #     return order_delivered_value(self.shipments())
 
 class Trip(models.Model):
     seller_shop = models.ForeignKey(
@@ -531,6 +538,26 @@ class OrderedProduct(models.Model): #Shipment
     class Meta:
         verbose_name = 'Update Delivery/ Returns/ Damage'
 
+    def __init__(self, *args, **kwargs):
+        super(OrderedProduct, self).__init__(*args, **kwargs)
+        if self.order:
+            self._invoice_amount = 0
+            self._cn_amount = 0
+            self._damaged_amount = 0
+            shipment_products = self.rt_order_product_order_product_mapping.values('product','shipped_qty','returned_qty','damaged_qty').all()
+            shipment_map = {i['product']:(i['shipped_qty'], i['returned_qty'], i['damaged_qty']) for i in shipment_products}
+            cart_product_map = self.order.ordered_cart.rt_cart_list.values('cart_product_price__price_to_retailer', 'cart_product', 'qty').filter(cart_product_id__in=shipment_map.keys())
+            product_price_map = {i['cart_product']:(i['cart_product_price__price_to_retailer'], i['qty']) for i in cart_product_map}
+            for product, shipment_details in shipment_map.items():
+                try:
+                    product_price = product_price_map[product][0]
+                    shipped_qty, returned_qty, damaged_qty = shipment_details
+                    self._invoice_amount += product_price * shipped_qty
+                    self._cn_amount += (returned_qty+damaged_qty) * product_price
+                    self._damaged_amount += damaged_qty * product_price
+                except Exception as e:
+                    logger.exception("Exception occurred {}".format(e))
+
     def __str__(self):
         return self.invoice_no or str(self.id)
 
@@ -545,14 +572,17 @@ class OrderedProduct(models.Model): #Shipment
         return str("-")
 
     def payments(self):
-        payment_mode = []
-        payment_amount = []
-        if self.order:
-            payments = self.order.rt_payment.values('payment_choice', 'paid_amount').all()
-            for payment in payments:
-                payment_mode.append(dict(PAYMENT_MODE_CHOICES)[payment['payment_choice']])
-                payment_amount.append(float(payment['paid_amount']))
-        return payment_mode, payment_amount
+        if hasattr(self, '_payment_mode'):
+            return self._payment_mode, self._payment_amount
+        else:
+            self._payment_mode = []
+            self._payment_amount = []
+            if self.order:
+                payments = self.order.rt_payment.values('payment_choice', 'paid_amount').all()
+                for payment in payments:
+                    self._payment_mode.append(dict(PAYMENT_MODE_CHOICES)[payment['payment_choice']])
+                    self._payment_amount.append(float(payment['paid_amount']))
+        return self._payment_mode, self._payment_amount
 
     @property
     def payment_mode(self):
@@ -565,32 +595,22 @@ class OrderedProduct(models.Model): #Shipment
         return str(city)
 
     def cash_to_be_collected(self):
-        cod_payment = self.order.rt_payment.filter(payment_choice='cash_on_delivery')
-        if cod_payment.exists():
-            return self.shipment_qty_product_price('delivered_qty')
+        if self.order.rt_payment.filter(payment_choice='cash_on_delivery').exists():
+            return round((self._invoice_amount - self._cn_amount),2)
         return 0
-
-    def shipment_qty_product_price(self, qty):
-        total_amount = []
-        seller_shop = self.order.seller_shop
-        shipment_products = self.rt_order_product_order_product_mapping.values('product','shipped_qty').all()
-        shipment_map = {i['product']:i['shipped_qty'] for i in shipment_products}
-        cart_product_map = self.order.ordered_cart.rt_cart_list.values('cart_product_price__price_to_retailer', 'cart_product', 'qty').filter(cart_product_id__in=shipment_map.keys())
-        product_price_map = {i['cart_product']:(i['cart_product_price__price_to_retailer'], i['qty']) for i in cart_product_map}
-
-        for product, qty in shipment_map.items():
-            product_price = product_price_map[product][0]
-            qty = float(qty)
-            amount = product_price * qty
-            total_amount.append(amount)
-        return round(sum(total_amount), 2)
 
     @property
     def invoice_amount(self):
         if self.order:
-            amount = self.shipment_qty_product_price('shipped_qty')
-            return str(amount)
+            return round(self._invoice_amount, 2)
         return str("-")
+
+    def cn_amount(self):
+        return round(self._cn_amount, 2)
+
+    def damaged_amount(self):
+        return round(self._damaged_amount, 2)
+
 
     def save(self, *args, **kwargs):
         if not self.invoice_no:
@@ -602,6 +622,9 @@ class OrderedProduct(models.Model): #Shipment
                                                         address_type='billing'
                                                         ).last().pk)
         super().save(*args, **kwargs)
+
+
+
 
 
 class OrderedProductMapping(models.Model):

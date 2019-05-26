@@ -155,7 +155,7 @@ def order_delivery_date(shipments):
 def order_cash_to_be_collected(shipments):
 	return format_html_join(
 		"", "{}<br><br>",
-		((s.trip.cash_to_be_collected() if s.trip else '',) for s in shipments)
+		((s.cash_to_be_collected() if s.trip else '',) for s in shipments)
 	)
 
 def order_cn_amount(shipments):
