@@ -143,6 +143,7 @@ class Product(models.Model):
             product_price = self.product_pro_price.filter(shop=shop, created_at__lte=today).order_by('created_at').last()
         return product_price
 
+
     def getPriceByShopId(self, shop_id):
         shop = Shop.objects.get(pk=shop_id)
         return self.get_current_shop_price(shop)
