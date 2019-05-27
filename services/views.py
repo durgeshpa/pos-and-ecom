@@ -18,6 +18,7 @@ from .forms import SalesReportForm, OrderReportForm, GRNReportForm
 from django.views import View
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping, Tax
 from .models import OrderReports,GRNReports
+from gram_to_brand.models import Order as PurchaseOrder
 # Create your views here.
 class SalesReport(APIView):
     permission_classes = (AllowAny,)
@@ -235,7 +236,7 @@ class GRNReport(APIView):
                         product_cess = ''
                     po_no = order.order_no
                     po_date = order.created_at
-                    po_status = order.ordered_cart.po_status
+                    po_status = order.ordered_cart.get_po_status_display()
                     vendor_name = order.ordered_cart.supplier_name
                     vendor_id = order.ordered_cart.supplier_name.id
                     shipping_address = order.ordered_cart.gf_shipping_address.address_line1
