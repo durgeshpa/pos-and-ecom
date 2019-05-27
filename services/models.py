@@ -33,3 +33,37 @@ class OrderReports(models.Model):
 
     def __str__(self):
         return  "%s"%(self.order_invoice)
+
+class GRNReports(models.Model):
+    po_no = models.CharField(max_length=255, null=True)
+    po_date = models.CharField(max_length=255, null=True)
+    po_status = models.CharField(max_length=255, null=True)
+    vendor_name = models.CharField(max_length=255, null=True)
+    vendor_id = models.CharField(max_length=255, null=True)
+    shipping_address = models.CharField(max_length=255, null=True)
+    category_manager = models.CharField(max_length=255, null=True)
+    product_id = models.CharField(max_length=255, null=True)
+    product_name = models.CharField(max_length=255, null=True)
+    product_brand = models.CharField(max_length=255, null=True)
+    manufacture_date = models.CharField(max_length=255, null=True)
+    expiry_date = models.CharField(max_length=255, null=True)
+    po_sku_pieces = models.CharField(max_length=255, null=True)
+    product_mrp = models.CharField(max_length=255, null=True)
+    discount = models.CharField(max_length=255, null=True)
+    gram_to_brand_price = models.CharField(max_length=255, null=True)
+    grn_id = models.CharField(max_length=255, null=True)
+    grn_date = models.CharField(max_length=255, null=True)
+    grn_sku_pieces = models.CharField(max_length=255, null=True)
+    product_cgst = models.CharField(max_length=255, null=True)
+    product_sgst = models.CharField(max_length=255, null=True)
+    product_igst = models.CharField(max_length=255, null=True)
+    product_cess = models.CharField(max_length=255, null=True)
+    invoice_item_gross_value = models.CharField(max_length=255, null=True)
+    delivered_sku_pieces = models.CharField(max_length=255, null=True)
+    returned_sku_pieces= models.CharField(max_length=255, null=True)
+    dn_number = models.CharField(max_length=255, null=True)
+    dn_value_basic = models.CharField(max_length=255, null=True)
+
+
+    def __str__(self):
+        return  "%s"%(self.po_no)

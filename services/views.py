@@ -14,10 +14,10 @@ from django.db.models import Sum
 import json
 import csv
 from rest_framework import permissions, authentication
-from .forms import SalesReportForm, OrderReportForm
+from .forms import SalesReportForm, OrderReportForm, GRNReportForm
 from django.views import View
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping, Tax
-from .models import OrderReports
+from .models import OrderReports,GRNReports
 # Create your views here.
 class SalesReport(APIView):
     permission_classes = (AllowAny,)
@@ -193,6 +193,101 @@ class OrderReportFormView(View):
         return render(
             self.request,
             'admin/services/order-report.html',
+            {'form': form}
+        )
+
+
+class GRNReport(APIView):
+    permission_classes = (AllowAny,)
+
+    def get_grn_report(self, shop_id, start_date, end_date):
+        buyer_shop = Shop.objects.get(pk=shop_id)
+        orders = PurchaseOrder.objects.filter(ordered_cart__gf_shipping_address__shop_name = buyer_shop)
+        if start_date:
+            orders = orders.filter(created_at__gte = start_date)
+        if end_date:
+            orders = orders.filter(created_at__lte = end_date)
+        grn_details = {}
+        i=0
+        for order in orders:
+            for grns in order.order_grn_order.all():
+                for products in grns.grn_order_grn_order_product.all():
+                    i += 1
+                    product_id = products.product.id
+                    product_name = products.product.product_name
+                    product_brand = products.product.product_brand
+                    product_mrp = products.product.product_pro_price.get(status=True, shop = buyer_shop).mrp
+                    gram_to_brand_price = grns.grn_order_grn_order_product.get(product = products.product).po_product_price
+                    #product_value_tax_included = products.product.product_pro_price.get(status=True, shop = buyer_shop).price_to_retailer
+                    if products.product.product_pro_tax.filter(tax__tax_type ='gst').exists():
+                        product_gst = products.product.product_pro_tax.get(tax__tax_type ='gst')
+                    if order.ordered_cart.supplier_state == order.ordered_cart.gf_shipping_address.state:
+                        product_cgst = (float(product_gst.tax.tax_percentage)/2.0)
+                        product_sgst = (float(product_gst.tax.tax_percentage)/2.0)
+                        product_igst = ''
+                    else:
+                        product_cgst = ''
+                        product_sgst = ''
+                        product_igst = (float(product_gst.tax.tax_percentage))
+                    if products.product.product_pro_tax.filter(tax__tax_type ='cess').exists():
+                        product_cess = products.product.product_pro_tax.get(tax__tax_type ='cess').tax.tax_percentage
+                    else:
+                        product_cess = ''
+                    po_no = order.order_no
+                    po_date = order.created_at
+                    po_status = order.ordered_cart.po_status
+                    vendor_name = order.ordered_cart.supplier_name
+                    vendor_id = order.ordered_cart.supplier_name.id
+                    shipping_address = order.ordered_cart.gf_shipping_address.address_line1
+                    category_manager = ''
+                    manufacture_date = grns.grn_order_grn_order_product.get(product = products.product).manufacture_date
+                    expiry_date = grns.grn_order_grn_order_product.get(product = products.product).expiry_date
+                    po_sku_pieces = grns.grn_order_grn_order_product.get(product = products.product).po_product_quantity
+                    discount = ''
+                    grn_id = grns.grn_id
+                    grn_date = grns.created_at
+                    grn_sku_pieces = grns.grn_order_grn_order_product.get(product = products.product).product_invoice_qty
+                    invoice_item_gross_value = (grns.grn_order_grn_order_product.get(product = products.product).product_invoice_qty) * (gram_to_brand_price)
+                    delivered_sku_pieces = grns.grn_order_grn_order_product.get(product = products.product).delivered_qty
+                    returned_sku_pieces = grns.grn_order_grn_order_product.get(product = products.product).returned_qty
+                    dn_number = ''
+                    dn_value_basic =''
+                    GRNReports.objects.create(po_no = po_no, po_date = po_date, po_status = po_status, vendor_name = vendor_name,  vendor_id = vendor_id, shipping_address = shipping_address, category_manager = category_manager, product_id = product_id, product_name = product_name, product_brand = product_brand, manufacture_date = manufacture_date, expiry_date = expiry_date, po_sku_pieces = po_sku_pieces, product_mrp = product_mrp, discount = discount,  gram_to_brand_price = gram_to_brand_price, grn_id = grn_id, grn_date = grn_date, grn_sku_pieces = grn_sku_pieces, product_cgst = product_cgst, product_sgst = product_sgst, product_igst = product_igst, product_cess = product_cess, invoice_item_gross_value = invoice_item_gross_value, delivered_sku_pieces = delivered_sku_pieces, returned_sku_pieces = returned_sku_pieces, dn_number = dn_number, dn_value_basic = dn_value_basic)
+                    grn_details[i] = { 'po_no':po_no, 'po_date':po_date, 'po_status':po_status, 'vendor_name':vendor_name, 'vendor_id':vendor_id, 'shipping_address':shipping_address, 'category_manager':category_manager, 'product_id':product_id, 'product_name':product_name, 'product_brand':product_brand, 'manufacture_date':manufacture_date, 'expiry_date':expiry_date, 'po_sku_pieces':po_sku_pieces, 'product_mrp':product_mrp, 'discount':discount, 'gram_to_brand_price':gram_to_brand_price, 'grn_id':grn_id, 'grn_date':grn_date, 'grn_sku_pieces':grn_sku_pieces, 'product_cgst':product_cgst, 'product_sgst':product_sgst, 'product_igst':product_igst, 'product_cess':product_cess, 'invoice_item_gross_value':invoice_item_gross_value, 'delivered_sku_pieces':delivered_sku_pieces, 'returned_sku_pieces':returned_sku_pieces, 'dn_number':dn_number, 'dn_value_basic':dn_value_basic}
+
+        data = grn_details
+        return data
+
+    def get(self, *args, **kwargs):
+        from django.http import HttpResponse
+        from django.contrib import messages
+
+        shop_id = self.request.GET.get('shop')
+        start_date = self.request.GET.get('start_date', None)
+        end_date = self.request.GET.get('end_date', None)
+        if end_date and end_date < start_date:
+            messages.error(self.request, 'End date cannot be less than the start date')
+            return render(
+                self.request,
+                'admin/services/grn-report.html',
+                {'form': GRNReportForm(user=None, initial=self.request.GET)}
+            )
+        data = self.get_grn_report(shop_id, start_date, end_date)
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="grn-mis-report.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['S.No.', 'PO No.', 'PO Date', 'PO Status', 'Vendor Name', 'Vendor Id', 'Shipping Address', 'Category Manager', 'Product Id', 'Product Name', 'Product Brand', 'Manufacture Date', 'Expiry Date', 'PO SKU Pieces', 'Product MRP', 'Gram to Brand Price', 'Discount %', 'GRN ID', 'GRN Date', 'Invoice SKU Pieces', 'CGST', 'SGST', 'IGST', 'CESS', 'Invoice Item Gross value', 'Delivered SKU Pieces', 'Returned SKU Pieces', 'DN Number', 'DN value (Basic)'])
+        for k,v in data.items():
+            writer.writerow([k, v['po_no'], v['po_date'], v['po_status'], v['vendor_name'], v['vendor_id'],  v['shipping_address'], v['category_manager'], v['product_id'], v['product_name'], v['product_brand'], v['manufacture_date'], v['expiry_date'], v['po_sku_pieces'], v['product_mrp'], v['gram_to_brand_price'], v['discount'], v['grn_id'], v['grn_date'], v['grn_sku_pieces'], v['product_cgst'], v['product_sgst'], v['product_igst'], v['product_cess'], v['invoice_item_gross_value'], v['delivered_sku_pieces'], v['returned_sku_pieces'], v['dn_number'], v['dn_value_basic']])
+
+        return response
+
+class GRNReportFormView(View):
+    def get(self, request):
+        form = GRNReportForm(user=request.user)
+        return render(
+            self.request,
+            'admin/services/grn-report.html',
             {'form': form}
         )
 
