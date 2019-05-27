@@ -1,3 +1,4 @@
+
 import csv
 from django.contrib import admin
 from .models import (
@@ -15,7 +16,7 @@ from django.utils.html import format_html
 from import_export import resources
 from django.http import HttpResponse
 from admin_auto_filters.filters import AutocompleteFilter
-from services.views import SalesReportFormView, SalesReport
+from services.views import SalesReportFormView, SalesReport, OrderReportFormView, OrderReport
 from rangefilter.filter import DateRangeFilter, DateTimeRangeFilter
 
 
@@ -28,14 +29,13 @@ class ShopResource(resources.ModelResource):
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
-        list_display = ('shop_name', 'get_shop_parent', 'shop_owner','shop_type','created_at','status', 'get_shop_shipping_address', 'get_shop_city', 'get_shop_pin_code' )
-        field_names = [field.name for field in meta.fields if field.name in list_display]
+        field_names = [field.name for field in meta.fields]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
         writer = csv.writer(response)
-        writer.writerow(list_display)
+        writer.writerow(field_names)
         for obj in queryset:
-            row = writer.writerow([getattr(obj, field) for field in list_display])
+            row = writer.writerow([getattr(obj, field) for field in field_names])
         return response
     export_as_csv.short_description = "Download CSV of Selected Shops"
 
@@ -137,7 +137,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
         ShopPhotosAdmin, ShopDocumentsAdmin,
         AddressAdmin, ShopInvoicePatternAdmin,ShopParentRetailerMapping
     ]
-    list_display = ('shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent','shop_owner','shop_type','created_at','status', 'get_shop_city','shop_mapped_product','imei_no')
+    list_display = ('shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent','shop_owner','shop_type','created_at','status', 'get_shop_city','shop_mapped_product')
     filter_horizontal = ('related_users',)
     list_filter = (ServicePartnerFilter,ShopNameSearch,ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,'status',('created_at', DateTimeRangeFilter))
     search_fields = ('shop_name', )
@@ -169,8 +169,30 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                 self.admin_site.admin_view(SalesReportFormView.as_view()),
                 name="shop-sales-form"
             ),
+            url(
+                r'^shop-order-report/$',
+                self.admin_site.admin_view(OrderReport.as_view()),
+                name="shop-sales-report"
+            ),
+            url(
+                r'^shop-order-form/$',
+                self.admin_site.admin_view(OrderReportFormView.as_view()),
+                name="shop-order-form"
+            ),
         ] + urls
         return urls
+
+    def get_shop_shipping_address(self, obj):
+        if obj.shop_name_address_mapping.exists():
+            for address in obj.shop_name_address_mapping.filter(address_type ='shipping').all():
+                return address.address_line1
+    get_shop_shipping_address.short_description = 'Shipping Address'
+
+    def get_shop_pin_code(self, obj):
+        if obj.shop_name_address_mapping.exists():
+            for address in obj.shop_name_address_mapping.filter(address_type ='shipping').all():
+                return address.pincode
+    get_shop_pin_code.short_description = 'PinCode'
 
 
     def get_queryset(self, request):
@@ -218,6 +240,16 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     #                 total_pending_amount = total_pending_amount + order.total_final_amount
     #         return total_pending_amount
     # get_shop_pending_amount.short_description = 'Shop Pending Amount'
+
+    def get_shop_city(self, obj):
+        if obj.shop_name_address_mapping.exists():
+            return obj.shop_name_address_mapping.last().city
+    get_shop_city.short_description = 'Shop City'
+
+    def get_shop_parent(self, obj):
+        if obj.retiler_mapping.exists():
+            return obj.retiler_mapping.last().parent
+    get_shop_parent.short_description = 'Parent Shop'
 
 class ParentFilter(AutocompleteFilter):
     title = 'Parent' # display title

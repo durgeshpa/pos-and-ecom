@@ -17,6 +17,7 @@ from rest_framework import permissions, authentication
 from .forms import SalesReportForm, OrderReportForm
 from django.views import View
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping, Tax
+from .models import OrderReports
 # Create your views here.
 class SalesReport(APIView):
     permission_classes = (AllowAny,)
@@ -156,6 +157,7 @@ class OrderReport(APIView):
                     order_type =''
                     campaign_name =''
                     discount = ''
+                    OrderReports.objects.create(order_invoice = order_invoice, invoice_date = invoice_date, invoice_status = invoice_status, order_id = order_id,  order_status = order_status, order_date = order_date, order_by = order_by, retailer_id = retailer_id, pin_code = pin_code, product_id = product_id, product_name = product_name, product_brand = product_brand, product_mrp = product_mrp, product_value_tax_included = product_value_tax_included, ordered_sku_pieces = ordered_sku_pieces,  shipped_sku_pieces = shipped_sku_pieces, delivered_sku_pieces = delivered_sku_pieces, returned_sku_pieces = returned_sku_pieces, damaged_sku_pieces = damaged_sku_pieces, product_cgst = product_cgst, product_sgst = product_sgst, product_igst = product_igst, product_cess = product_cess, sales_person_name = sales_person_name, order_type = order_type, campaign_name = campaign_name, discount = discount)
                     order_details[i] = {'order_invoice':order_invoice, 'invoice_date':invoice_date, 'invoice_status':invoice_status, 'order_id':order_id,  'order_status':order_status, 'order_date':order_date, 'order_by':order_by, 'retailer_id':retailer_id, 'pin_code':pin_code, 'product_id':product_id, 'product_name':product_name, 'product_brand':product_brand, 'product_mrp':product_mrp, 'product_value_tax_included':product_value_tax_included, 'ordered_sku_pieces':ordered_sku_pieces, 'shipped_sku_pieces':shipped_sku_pieces, 'delivered_sku_pieces':delivered_sku_pieces, 'returned_sku_pieces':returned_sku_pieces, 'damaged_sku_pieces':damaged_sku_pieces, 'product_cgst':product_cgst, 'product_sgst':product_sgst, 'product_igst':product_igst, 'product_cess':product_cess, 'sales_person_name':sales_person_name, 'order_type':order_type, 'campaign_name':campaign_name, 'discount':discount}
 
         data = order_details

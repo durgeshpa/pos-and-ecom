@@ -72,6 +72,14 @@
                 {% endif %}
 
                 {% endif %}
+                {% if app.name == "Shops" %}
+                    {% if model.name == "Shops" %}
+                    <tr>
+                  <th scope="row"><a href="/admin/shops/shop/shop-order-form/">Shop Order MIS Report</a></th>
+                    </tr>
+                 {% endif %}
+
+                 {% endif %}
         {% endfor %}
         </table>
         </div>
