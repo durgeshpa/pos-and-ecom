@@ -7,6 +7,7 @@ from django.db import models
 from django.core.validators import RegexValidator
 from django.utils.crypto import get_random_string
 from django.utils.safestring import mark_safe
+from django.utils import timezone
 from otp.sms import SendSms
 import datetime
 from .tasks import phone_otp_instance, create_user_token
@@ -71,6 +72,7 @@ class User(AbstractUser):
     email = models.EmailField(_('email address'),blank=True)
     user_photo = models.ImageField(upload_to='user_photos/', null=True, blank=True)
     user_type = models.PositiveSmallIntegerField(choices=USER_TYPE_CHOICES, default = '6', null=True)
+    last_login_date = models.DateField(auto_now_add=True)
 
     USERNAME_FIELD = 'phone_number'
     objects = UserManager()

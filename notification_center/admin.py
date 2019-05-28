@@ -206,12 +206,13 @@ class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         try:
             #pass
-            # if first field is 
+            import pdb; pdb.set_trace()
             activity_type = Template.objects.get(id=obj.template.id).type
 
             if obj.selection_type == "user":      
                 user_id = obj.user.id
                 SendNotification(user_id=user_id, activity_type=activity_type).send()
+            
             elif obj.selection_type == "shop":
                 user_id = obj.shop.shop_owner.id
                 SendNotification(user_id=user_id, activity_type=activity_type).send()
@@ -221,12 +222,31 @@ class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
                     user_id = user.id
                     SendNotification(user_id=user_id, activity_type=activity_type).send()
 
+            elif obj.selection_type == "last_order":
+                shops = Shop.objects.filter(last_login_at__lte=obj.last_order)        
+                for shop in shops:
+                    user_id = shop.shop_owner.id
+                    SendNotification(user_id=user_id, activity_type=activity_type).send()
+
+                # fetch user id for the last order before a particular date..
+                # last_order = obj.last_order
+                # # fetch all users who ordered before a 
+                # orders = Order.objects.filter(cart.created_at lte last_order).group_by(cart.seller_shop.shop_owner)    
+                # for order in orders:
+                #     user = order.cart.seller_shop.shop_owner.id
+                #     SendNotification(user_id=user_id, activity_type=activity_type).send()
+
+            elif obj.selection_type == "last_login":
+                users = User.objects.filter(last_login__lte=obj.last_login)        
+                for user in users:
+                    user_id = user.id
+                    SendNotification(user_id=user_id, activity_type=activity_type).send()
+
         except Exception as e:
             print (e.args)
             logging.error(str(e))
         super(GroupNotificationSchedulerAdmin, self).save_model(request, obj, form, change)    
         
-
 
 admin.site.register(Template, TemplateAdmin)
 admin.site.register(TemplateVariable, TemplateVariableAdmin)

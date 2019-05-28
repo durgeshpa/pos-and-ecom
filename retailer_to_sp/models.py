@@ -360,6 +360,15 @@ class Order(models.Model):
     def delivered_value(self):
         return order_delivered_value(self.shipments())
 
+
+@receiver(post_save, sender=Order)
+def create_order_id(sender, instance=None, created=False, **kwargs):
+    if created:
+        shop = Shop.objects.get(id=instance.buyer_shop.id)
+        shop.last_order_at = datetime.datetime.now()
+        shop.save() 
+
+
 class Trip(models.Model):
     seller_shop = models.ForeignKey(
         Shop, related_name='trip_seller_shop',
