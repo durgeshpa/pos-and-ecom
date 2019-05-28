@@ -363,7 +363,7 @@ class CartAdmin(admin.ModelAdmin):
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
-        list_display = ['order_no', 'seller_shop', 'buyer_shop', 'total_final_amount',
+        list_display = ['order_no', 'seller_shop', 'buyer_shop', 'pincode', 'total_final_amount',
                         'order_status', 'created_at', 'payment_mode', 'paid_amount',
                         'total_paid_amount', 'shipment_status', 'order_shipment_amount', 'order_shipment_details']
         field_names = [field.name for field in meta.fields if field.name in list_display]
@@ -468,10 +468,6 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                 (reverse('download_pick_list_sp', args=[obj.pk]))
             )
     download_pick_list.short_description = 'Download Pick List'
-
-    def pincode(self,obj):
-        return obj.shipping_address.pincode if obj.shipping_address else '-'
-    pincode.short_description = 'Pincode'
 
     def order_products(self, obj):
         p=[]
