@@ -88,3 +88,15 @@ class GRNReportForm(forms.Form):
             queryset = Shop.objects.filter(shop_type__shop_type__in=['gf'])
             queryset = queryset.filter(Q(related_users=user) | Q(shop_owner=user))
             self.fields['shop'].queryset = queryset
+
+class MasterReportForm(forms.Form):
+    shop = forms.ModelChoiceField(
+            queryset=Shop.objects.filter(shop_type__shop_type__in=['sp']),
+        )
+
+    def __init__(self, user, *args, **kwargs):
+        super(MasterReportForm, self).__init__(*args, **kwargs)
+        if user:
+            queryset = Shop.objects.filter(shop_type__shop_type__in=['sp'])
+            queryset = queryset.filter(Q(related_users=user) | Q(shop_owner=user))
+        self.fields['shop'].queryset = queryset

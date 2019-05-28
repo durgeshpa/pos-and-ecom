@@ -150,15 +150,17 @@ DATABASES = {
         'HOST': config('DB_HOST_READ'),
         'PORT': config('DB_PORT'),
     },
-    'analytics': {
+    'gfanalytics': {
         'ENGINE': 'django_redshift_backend',
-        'NAME': 'retailerbackend9',
-        'USER': 'raj',
-        'PASSWORD': 'password',
-        'HOST': 'localhost',
+        'NAME': 'gfanalytics',
+        'USER': 'gfadmin',
+        'PASSWORD': 'GF_admin2105',
+        'HOST': 'gf-prod-redshift.c168txhqczdw.ap-south-1.redshift.amazonaws.com',
         'PORT': '5439',
 	}
 }
+
+DATABASE_ROUTERS = ['services.routers.AnalyticsRouter', ]
 
 # Password validation
 # https://docs.djangoproject.com/en/2.1/ref/settings/#auth-password-validators

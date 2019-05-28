@@ -67,3 +67,26 @@ class GRNReports(models.Model):
 
     def __str__(self):
         return  "%s"%(self.po_no)
+
+class MasterReports(models.Model):
+    product = models.CharField(max_length=255, null=True)
+    mrp = models.CharField(max_length=255, null=True)
+    price_to_retailer = models.CharField(max_length=255, null=True)
+    product_gf_code = models.CharField(max_length=255, null=True)
+    product_brand = models.CharField(max_length=255, null=True)
+    product_subbrand = models.CharField(max_length=255, null=True)
+    product_category = models.CharField(max_length=255, null=True)
+    tax_gst_percentage = models.CharField(max_length=255, null=True)
+    tax_cess_percentage = models.CharField(max_length=255, null=True)
+    tax_surcharge_percentage = models.CharField(max_length=255, null=True)
+    pack_size = models.CharField(max_length=255, null=True)
+    case_size = models.CharField(max_length=255, null=True)
+    hsn_code = models.CharField(max_length=255, null=True)
+    product_id = models.CharField(max_length=255, null=True)
+    sku_code = models.CharField(max_length=255, null=True)
+    short_description = models.CharField(max_length=255, null=True)
+    long_description = models.CharField(max_length=255, null=True)
+
+
+    def __str__(self):
+        return  "%s"%(self.product)

@@ -16,7 +16,7 @@ from django.utils.html import format_html
 from import_export import resources
 from django.http import HttpResponse
 from admin_auto_filters.filters import AutocompleteFilter
-from services.views import SalesReportFormView, SalesReport, OrderReportFormView, OrderReport, GRNReport, GRNReportFormView
+from services.views import SalesReportFormView, SalesReport, OrderReportFormView, OrderReport, GRNReport, GRNReportFormView, MasterReport, MasterReportFormView
 from rangefilter.filter import DateRangeFilter, DateTimeRangeFilter
 
 
@@ -188,6 +188,16 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                 r'^shop-grn-form/$',
                 self.admin_site.admin_view(GRNReportFormView.as_view()),
                 name="shop-grn-form"
+            ),
+            url(
+                r'^shop-master-report/$',
+                self.admin_site.admin_view(MasterReport.as_view()),
+                name="shop-master-report"
+            ),
+            url(
+                r'^shop-master-form/$',
+                self.admin_site.admin_view(MasterReportFormView.as_view()),
+                name="shop-master-form"
             ),
 
         ] + urls
