@@ -512,7 +512,7 @@ class OrderedProduct(models.Model): #Shipment
     shipment_status = models.CharField(
         max_length=50, choices=SHIPMENT_STATUS,
         null=True, blank=True, verbose_name='Current Shipment Status',
-        default='READY_TO_SHIP'
+        default='SHIPMENT_CREATED'
     )
     return_reason = models.CharField(
         max_length=50, choices=RETURN_REASON,

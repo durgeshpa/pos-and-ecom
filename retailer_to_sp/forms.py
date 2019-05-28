@@ -94,11 +94,13 @@ class ReturnProductMappingForm(forms.ModelForm):
 
 class OrderedProductForm(forms.ModelForm):
     order = forms.ModelChoiceField(queryset=Order.objects.filter(
-        order_status__in=[Order.OPDP, 'ordered', 'PARTIALLY_SHIPPED', 'DISPATCH_PENDING']))
+        order_status__in=[Order.OPDP, 'ordered',
+                          'PARTIALLY_SHIPPED', 'DISPATCH_PENDING']),
+        required=True)
 
     class Meta:
         model = OrderedProduct
-        fields = ['order', 'shipment_status']
+        fields = ['order']
 
     class Media:
         js = (
@@ -115,10 +117,6 @@ class OrderedProductForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(OrderedProductForm, self).__init__(*args, **kwargs)
-        self.fields['order'].required = True
-        SHIPMENT_STATUS = OrderedProduct.SHIPMENT_STATUS
-        self.fields['shipment_status'].choices = SHIPMENT_STATUS[:2] + SHIPMENT_STATUS[-1:]
-        self.fields['shipment_status'].initial = SHIPMENT_STATUS[:1]
 
 
 class OrderedProductMappingForm(forms.ModelForm):
@@ -174,9 +172,11 @@ class OrderedProductMappingDeliveryForm(forms.ModelForm):
 
 
 class OrderedProductMappingShipmentForm(forms.ModelForm):
-    ordered_qty = forms.CharField(required=False)
-    already_shipped_qty = forms.CharField(required=False)
-    to_be_shipped_qty = forms.CharField(required=False)
+    ordered_qty = forms.CharField(required=False, disabled=True)
+    already_shipped_qty = forms.CharField(required=False, disabled=True)
+    to_be_shipped_qty = forms.CharField(required=False, disabled=True)
+    product = forms.CharField(required=False, disabled=True)
+
 
     class Meta:
         model = OrderedProductMapping
@@ -186,6 +186,9 @@ class OrderedProductMappingShipmentForm(forms.ModelForm):
         ]
 
     def clean_shipped_qty(self):
+        # import pdb; pdb.set_trace()
+        # for i in range(int(self.data.get('form-TOTAL_FORMS'))):
+        #     ordered_qty_field = 'form-{}-ordered_qty'.format(i)
         ordered_qty = int(self.cleaned_data.get('ordered_qty'))
         shipped_qty = int(self.cleaned_data.get('shipped_qty'))
         to_be_shipped_qty = int(self.cleaned_data.get('to_be_shipped_qty'))
@@ -200,10 +203,10 @@ class OrderedProductMappingShipmentForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(OrderedProductMappingShipmentForm, self).__init__(*args, **kwargs)
-        self.fields['ordered_qty'].widget.attrs['class'] = 'hide_input_box'
-        self.fields['already_shipped_qty'].widget.attrs['class'] = 'hide_input_box'
-        self.fields['to_be_shipped_qty'].widget.attrs['class'] = 'hide_input_box'
-        self.fields['product'].widget.attrs = {'class': 'ui-select hide_input_box'}
+        #self.fields['ordered_qty'].widget.attrs['class'] = 'hide_input_box'
+        #self.fields['already_shipped_qty'].widget.attrs['class'] = 'hide_input_box'
+        #self.fields['to_be_shipped_qty'].widget.attrs['class'] = 'hide_input_box'
+        #self.fields['product'].widget.attrs = {'class': 'ui-select hide_input_box'}
 
 
 class OrderedProductDispatchForm(forms.ModelForm):

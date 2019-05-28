@@ -196,10 +196,16 @@ def ordered_product_mapping_shipment(request):
     form = OrderedProductForm()
     form_set = ordered_product_set()
     if order_id and request.method == 'GET':
-        ordered_product = Cart.objects.filter(pk=order_id)
-        ordered_product = Order.objects.get(pk=order_id).ordered_cart
-        order_product_mapping = CartProductMapping.objects.filter(
-            cart=ordered_product)
+        #ordered_product = Cart.objects.filter(pk=order_id)
+        #ordered_product = Order.objects.get(pk=order_id).ordered_cart
+        cart_id = Order.objects \
+            .values_list('ordered_cart', flat=True) \
+            .get(pk=order_id)
+        import pdb; pdb.set_trace()
+        # order_product_mapping = CartProductMapping.objects \
+        #     .filter(cart_id=cart_id)
+        cart_products = CartProductMapping.objects \
+            .filter(cart_id=cart_id)
         products_list = []
         for item in order_product_mapping.values('cart_product', 'no_of_pieces'):
             already_shipped_qty = OrderedProductMapping.objects.filter(
@@ -239,31 +245,24 @@ def ordered_product_mapping_shipment(request):
     if request.method == 'POST':
         form_set = ordered_product_set(request.POST)
         form = OrderedProductForm(request.POST)
+        if form.is_valid() and form_set.is_valid():
+            try:
+                with transaction.atomic():
+                    shipment = form.save(commit=False)
+                    shipment.shipment_status = 'SHIPMENT_CREATED'
+                    shipment.save()
+                    for forms in form_set:
+                        if forms.is_valid():
+                            to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
+                            if to_be_ship_qty:
+                                formset_data = forms.save(commit=False)
+                                formset_data.ordered_product = shipment
+                                formset_data.save()
+                    update_reserved_order.delay(json.dumps({'shipment_id': shipment.id}))
+            except Exception as e:
+                logger.exception("An error occurred while creating shipment {}".format(e))
 
-        if form.is_valid():
-            status = form.cleaned_data.get('shipment_status')
-            if status == 'CANCELLED':
-                ordered_product_set = formset_factory(OrderedProductMappingShipmentForm,
-                                                      extra=1, max_num=1
-                                                      )
-                form_set = ordered_product_set(request.POST)
-
-            if form_set.is_valid():
-                try:
-                    with transaction.atomic():
-                        ordered_product_instance = form.save()
-                        for forms in form_set:
-                            if forms.is_valid():
-                                to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
-                                if to_be_ship_qty:
-                                    formset_data = forms.save(commit=False)
-                                    formset_data.ordered_product = ordered_product_instance
-                                    formset_data.save()
-                        update_reserved_order.delay(json.dumps({'shipment_id': ordered_product_instance.id}))
-                except Exception as e:
-                    logger.exception("An error occurred while creating shipment {}".format(e))
-
-                return redirect('/admin/retailer_to_sp/shipment/')
+            return redirect('/admin/retailer_to_sp/shipment/')
 
     return render(
         request,
