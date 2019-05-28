@@ -291,8 +291,8 @@ class ResendVoiceOTP(CreateAPIView):
                     user.last_otp = timezone.now()
                     user.save()
                     msg = {'is_success': True,
-                                'message': "You will receive your call soon",
-                                'response_data': None }
+                            'message': ["You will receive your call soon"],
+                            'response_data': None }
 
                     return Response(msg,
                         status=status.HTTP_200_OK
