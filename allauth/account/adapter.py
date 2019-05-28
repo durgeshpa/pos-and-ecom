@@ -226,12 +226,15 @@ class DefaultAccountAdapter(object):
         last_name = data.get('last_name')
         email = data.get('email')
         username = data.get('username')
+        imei_no = data.get('imei_no')
         user_email(user, email)
         user_username(user, username)
         if first_name:
             user_field(user, 'first_name', first_name)
         if last_name:
             user_field(user, 'last_name', last_name)
+        if imei_no:
+            user_field(user, 'imei_no', imei_no)
         if 'password1' in data:
             user.set_password(data["password1"])
         else:

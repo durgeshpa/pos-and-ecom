@@ -6,15 +6,15 @@ from shops.models import Shop
 from django.conf import settings
 from django.contrib.sites.shortcuts import get_current_site
 import urllib.request
-import csv
-import codecs
+import datetime, csv, codecs, re
 from brand.models import Brand,Vendor
 from django.utils.safestring import mark_safe
 from django.utils.text import slugify
 from django.dispatch import receiver
 from django.db.models.signals import pre_save, post_save
 from django.utils.translation import gettext_lazy as _
-import datetime
+from django.core.exceptions import ValidationError
+from retailer_backend.messages import VALIDATION_ERROR_MESSAGES,ERROR_MESSAGES
 
 SIZE_UNIT_CHOICES = (
         ('mm', 'Millimeter'),
@@ -139,7 +139,31 @@ class Product(models.Model):
         product_price = self.product_pro_price.filter(shop=shop, status=True, start_date__lte=today, end_date__gte=today).order_by('start_date').last()
         if not product_price:
             product_price = self.product_pro_price.filter(shop=shop, status=True).last()
+        if not product_price:
+            product_price = self.product_pro_price.filter(shop=shop, created_at__lte=today).order_by('created_at').last()
         return product_price
+
+
+    def getPriceByShopId(self, shop_id):
+        shop = Shop.objects.get(pk=shop_id)
+        return self.get_current_shop_price(shop)
+
+    def getMRP(self, shop_id):
+        product_price = self.getPriceByShopId(shop_id)
+        return round(product_price.mrp,2)
+
+    def getRetailerPrice(self, shop_id):
+        product_price = self.getPriceByShopId(shop_id)
+        return round(product_price.price_to_retailer,2)
+
+    def getCashDiscount(self, shop_id):
+        product_price = self.getPriceByShopId(shop_id)
+        return round(product_price.cash_discount,2)
+
+    def getLoyaltyIncentive(self, shop_id):
+        product_price = self.getPriceByShopId(shop_id)
+        return round(product_price.loyalty_incentive,2)
+
 
 class ProductSKUGenerator(models.Model):
     parent_cat_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
@@ -170,21 +194,15 @@ class ProductHistory(models.Model):
 
 class ProductPrice(models.Model):
     product = models.ForeignKey(Product,related_name='product_pro_price',on_delete=models.CASCADE)
-    #country = models.ForeignKey(Country,related_name='country_pro_price',null=True,blank=True,on_delete=models.CASCADE)
-    #state = models.ForeignKey(Country,related_name='state_pro_price',null=True,blank=True,on_delete=models.CASCADE)
     city = models.ForeignKey(City,related_name='city_pro_price',null=True,blank=True,on_delete=models.CASCADE)
     area = models.ForeignKey(Area,related_name='area_pro_price',null=True,blank=True,on_delete=models.CASCADE)
-    #pincode_from = models.PositiveIntegerField(default=0,null=True,blank=True)
-    #pincode_to = models.PositiveIntegerField(default=0,null=True,blank=True)
     mrp = models.FloatField(null=True,blank=False)
-    # price_to_service_partner = models.FloatField(default=0,null=True,blank=True)
-    # price_to_retailer = models.FloatField(default=0,null=True,blank=True)
-    # price_to_super_retailer = models.FloatField(default=0,null=True,blank=True)
     shop = models.ForeignKey(Shop,related_name='shop_product_price', null=True,blank=True,on_delete=models.CASCADE)
-    #price = models.FloatField(default=0)
     price_to_service_partner = models.FloatField(null=True,blank=False)
     price_to_retailer = models.FloatField(null=True,blank=False)
     price_to_super_retailer = models.FloatField(null=True,blank=False)
+    cash_discount = models.FloatField(default=0, blank=True,validators=[PriceValidator2])
+    loyalty_incentive = models.FloatField(default=0, blank=True,validators=[PriceValidator2])
     start_date = models.DateTimeField(null=True,blank=True)
     end_date = models.DateTimeField(null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -194,11 +212,22 @@ class ProductPrice(models.Model):
     def __str__(self):
         return "%s - %s"%(self.product.product_name, self.price_to_retailer)
 
+    def clean(self):
+        super(ProductPrice, self).clean()
+        if self.cash_discount is None:
+            raise ValidationError(VALIDATION_ERROR_MESSAGES['INVALID_MARGIN']%"Cash discount")
+        if self.loyalty_incentive is None:
+            raise ValidationError(VALIDATION_ERROR_MESSAGES['INVALID_MARGIN'] % "Loyalty discount")
+        if self.price_to_retailer > self.mrp:
+            raise ValidationError(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
 
     def save(self, *args, **kwargs):
         last_product_prices = ProductPrice.objects.filter(product=self.product,shop=self.shop,status=True).update(status=False)
         self.status = True
         super().save(*args, **kwargs)
+
+    def margin(self):
+        return round((100 * (float(self.mrp) - float(self.price_to_retailer) - (float(self.cash_discount) + float(self.loyalty_incentive)) * float(self.mrp) / 100) / float(self.mrp)), 2) if self.mrp>0 and self.price_to_retailer>0 else 0
 
 class ProductCategory(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_category',on_delete=models.CASCADE)

@@ -51,6 +51,7 @@ class Shop(models.Model):
     related_users = models.ManyToManyField(get_user_model(),blank=True, related_name='related_shop_user')
     shop_code = models.CharField(max_length=1, blank=True, null=True)
     warehouse_code = models.CharField(max_length=2, blank=True, null=True)
+    imei_no = models.CharField(max_length=20, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=False)
@@ -77,6 +78,18 @@ class Shop(models.Model):
             for address in self.shop_name_address_mapping.filter(address_type ='shipping').all():
                 return address.pincode
     get_shop_pin_code.fget.short_description = 'PinCode'
+
+    @property
+    def get_shop_city(self):
+        if self.shop_name_address_mapping.exists():
+            return self.shop_name_address_mapping.last().city
+    get_shop_city.fget.short_description = 'Shop City'
+
+    @property
+    def get_shop_parent(self):
+        if self.retiler_mapping.exists():
+            return self.retiler_mapping.last().parent
+    get_shop_parent.fget.short_description = 'Parent Shop'
 
 
     def save(self, force_insert=False, force_update=False, *args, **kwargs):
