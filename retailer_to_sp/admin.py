@@ -440,7 +440,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         )
     list_display = (
                     'order_no', 'download_pick_list', 'seller_shop', 'buyer_shop',
-                    'total_final_amount', 'order_status', 'created_at',
+                    'pincode','total_final_amount', 'order_status', 'created_at',
                     'payment_mode','picking_status','picker_name',
                     'invoice_no', 'shipment_date', 'invoice_amount', 'shipment_status',
                     'delivery_date', 'cn_amount', 'cash_collected',
@@ -468,6 +468,10 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                 (reverse('download_pick_list_sp', args=[obj.pk]))
             )
     download_pick_list.short_description = 'Download Pick List'
+
+    def pincode(self,obj):
+        return obj.shipping_address.pincode if obj.shipping_address else '-'
+    pincode.short_description = 'Pincode'
 
     def order_products(self, obj):
         p=[]
