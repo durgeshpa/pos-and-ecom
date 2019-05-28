@@ -288,6 +288,10 @@ class ResendVoiceOTP(CreateAPIView):
                     message = SendVoiceSms(phone=number,
                                       body="OTP for your GramFactory account is %s" % (otp))
                     message.send()
+                    msg = {'is_success': True,
+                                'message': "You will receive your call soon",
+                                'response_data': None }
+
                     return Response(msg,
                         status=status.HTTP_200_OK
                     )
