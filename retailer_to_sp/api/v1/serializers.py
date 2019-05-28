@@ -3,7 +3,7 @@ from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMap
                              Size,Color,Fragrance,Flavor,Weight,PackageSize)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order,
                                    OrderedProduct, Note, CustomerCare,
-                                   Payment, Dispatch)
+                                   Payment, Dispatch, OrderedProductMapping)
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
 
                                       OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment)
@@ -20,15 +20,57 @@ from gram_to_brand.models import GRNOrderProductMapping
 from addresses.api.v1.serializers import AddressSerializer
 from brand.api.v1.serializers import BrandSerializer
 
+
 class ProductImageSerializer(serializers.ModelSerializer):
    class Meta:
       model = ProductImage
       fields = '__all__'
 
+
 class ProductPriceSerializer(serializers.ModelSerializer):
    class Meta:
       model = ProductPrice
       fields = '__all__'
+
+
+class ProductSerializer(serializers.ModelSerializer):
+    product_price = ProductPriceSerializer()
+    product_image = ProductImageSerializer()
+
+    class Meta:
+        model = Product
+        fields = ('id','name','product_inner_case_size','product_case_size')
+
+
+class ReadOrderedProductSerializer(serializers.ModelSerializer):
+    shop_owner_name = serializers.SerializerMethodField()
+    shop_owner_number = serializers.SerializerMethodField()   
+    order_created_date = serializers.SerializerMethodField()
+
+    def get_shop_owner_number(self, obj):
+        shop_owner_number = self.order.shop.shop_owner.phone_number
+        return shop_owner_number
+
+    def get_shop_owner_name(self, obj):
+        shop_owner_name = self.order.shop.shop_owner.first_name + self.order.shop.shop_owner.last_name
+        return shop_owner_name
+
+    def get_order_created_date(self, obj):
+        order_created_date = self.order.created_at
+        return order_created_date
+
+    class Meta:
+        model = OrderedProduct
+        fields = ('id','invoice_no','shipment_status','invoice_amount','payment_mode', 'shipment_address')
+
+
+class OrderedProductMappingSerializer(serializers.ModelSerializer):
+    product = ProductSerializer()
+
+    class Meta:
+        model = OrderedProductMapping
+        fields = ('id', 'shipped_qty')
+
 
 class TaxSerializer(serializers.ModelSerializer):
     class Meta:

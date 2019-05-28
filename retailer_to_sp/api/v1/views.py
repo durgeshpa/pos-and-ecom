@@ -1,15 +1,16 @@
+import logging
+import json
+from datetime import datetime, timedelta
+
+from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import F,Sum, Q
+from wkhtmltopdf.views import PDFTemplateResponse
+from django.shortcuts import get_object_or_404, get_list_or_404
+from django.utils import timezone
+from django.contrib.postgres.search import SearchVector
+
 from rest_framework import generics
-from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,
-                          OrderSerializer, CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
-
-                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer )
-from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
-from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
-                                OrderedProduct as SPOrderedProduct, StockAdjustment)
-
 from rest_framework import permissions, authentication
-from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as GramCartProductMapping,
-                                  OrderedProductReserved as GramOrderedProductReserved, PickList, PickListItems )
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
@@ -17,67 +18,87 @@ from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework import generics, viewsets
 
+from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,
+    CartProductMappingSerializer,CartSerializer, OrderSerializer, 
+    CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,
+    PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
+    GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,
+    OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer 
+)
+
+from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
+from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
+                                OrderedProduct as SPOrderedProduct, StockAdjustment)
+
+
+from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as GramCartProductMapping,
+                                  OrderedProductReserved as GramOrderedProductReserved, PickList, PickListItems )
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
                                    OrderedProduct, Payment, CustomerCare,
-                                   Return)
+                                   Return, OrderedProductMapping)
 
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
                                       OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment, CustomerCare as GramMappedCustomerCare )
 
-import logging
-import json
 from shops.models import Shop,ParentRetailerMapping
-from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import F,Sum, Q
-from wkhtmltopdf.views import PDFTemplateResponse
-from django.shortcuts import get_object_or_404, get_list_or_404
-from datetime import datetime, timedelta
-from django.utils import timezone
 from products.models import ProductCategory
 from addresses.models import Address
 from retailer_backend.common_function import getShopMapping,checkNotShopAndMapping,getShop
 from retailer_backend.messages import ERROR_MESSAGES
-from django.contrib.postgres.search import SearchVector
+
 from retailer_to_sp.tasks import (
     ordered_product_available_qty_update, release_blocking, create_reserved_order
 )
-
-
 
 logger = logging.getLogger(__name__)
 
 today = datetime.today()
 
 
-# class OrderedProductViewSet(viewsets.ModelViewSet):
-#     '''
-#     This class handles all operation of vendor onbaording
-#     '''
-#     model = OrderedProduct
-#     serializer_class = OrderedProductSerializer
-#     queryset = OrderedProduct.objects.all()
+class OrderedProductViewSet(viewsets.ModelViewSet):
+    '''
+    This class handles all operation of ordered product
+    '''
+    model = OrderedProduct
+    serializer_class = OrderedProductSerializer
+    queryset = OrderedProduct.objects.all()
 
-#     def get_serializer_class(self):
-#         '''
-#         Returns the serializer according to action of viewset
-#         '''
-#         serializer_action_classes = {
-#             'retrieve': OrderedProductSerializer,
-#             'list':OrderedProductSerializer,
-#             'create':OrderedProductSerializer,
-#             'update':OrderedProductSerializer
-#         }
-#         if hasattr(self, 'action'):
-#             return serializer_action_classes.get(self.action, self.serializer_class)
-#         return self.serializer_class
+    def get_serializer_class(self):
+        '''
+        Returns the serializer according to action of viewset
+        '''
+        serializer_action_classes = {
+            'retrieve': ReadOrderedProductSerializer,
+            'list':OrderedProductSerializer,
+            'create':OrderedProductSerializer,
+            'update':OrderedProductSerializer
+        }
+        if hasattr(self, 'action'):
+            return serializer_action_classes.get(self.action, self.serializer_class)
+        return self.serializer_class
 
 
+class OrderedProductMapping(generics.RetrieveAPIView):
+    '''
+    This class handles all operation of ordered product mapping
+    '''
+    permission_classes = (AllowAny,)
+    model = OrderedProductMapping
+    serializer_class = OrderedProductMappingSerializer    
 
-# class OrderedProductMappingList(generics.RetrieveAPIView):
-#     permission_classes = (AllowAny,)
-#     model = OrderedProductMapping
-#     serializer_class = OrderedProductMappingSerializer    
-
+    def get_serializer_class(self):
+        '''
+        Returns the serializer according to action of viewset
+        '''
+        serializer_action_classes = {
+            'retrieve': OrderedProductMappingSerializer,
+            'list':OrderedProductMappingSerializer,
+            'create':OrderedProductMappingSerializer,
+            'update':OrderedProductMappingSerializer
+        }
+        if hasattr(self, 'action'):
+            return serializer_action_classes.get(self.action, self.serializer_class)
+        return self.serializer_class
 
 
 class ProductsList(generics.ListCreateAPIView):
