@@ -139,10 +139,14 @@ class Product(models.Model):
         product_price = self.product_pro_price.filter(shop=shop, status=True, start_date__lte=today, end_date__gte=today).order_by('start_date').last()
         if not product_price:
             product_price = self.product_pro_price.filter(shop=shop, status=True).last()
+        if not product_price:
+            product_price = self.product_pro_price.filter(shop=shop, created_at__lte=today).order_by('created_at').last()
         return product_price
 
+
     def getPriceByShopId(self, shop_id):
-        return self.product_pro_price.filter(shop__id=shop_id, status=True).last()
+        shop = Shop.objects.get(pk=shop_id)
+        return self.get_current_shop_price(shop)
 
     def getMRP(self, shop_id):
         product_price = self.getPriceByShopId(shop_id)
@@ -190,18 +194,10 @@ class ProductHistory(models.Model):
 
 class ProductPrice(models.Model):
     product = models.ForeignKey(Product,related_name='product_pro_price',on_delete=models.CASCADE)
-    #country = models.ForeignKey(Country,related_name='country_pro_price',null=True,blank=True,on_delete=models.CASCADE)
-    #state = models.ForeignKey(Country,related_name='state_pro_price',null=True,blank=True,on_delete=models.CASCADE)
     city = models.ForeignKey(City,related_name='city_pro_price',null=True,blank=True,on_delete=models.CASCADE)
     area = models.ForeignKey(Area,related_name='area_pro_price',null=True,blank=True,on_delete=models.CASCADE)
-    #pincode_from = models.PositiveIntegerField(default=0,null=True,blank=True)
-    #pincode_to = models.PositiveIntegerField(default=0,null=True,blank=True)
     mrp = models.FloatField(null=True,blank=False)
-    # price_to_service_partner = models.FloatField(default=0,null=True,blank=True)
-    # price_to_retailer = models.FloatField(default=0,null=True,blank=True)
-    # price_to_super_retailer = models.FloatField(default=0,null=True,blank=True)
     shop = models.ForeignKey(Shop,related_name='shop_product_price', null=True,blank=True,on_delete=models.CASCADE)
-    #price = models.FloatField(default=0)
     price_to_service_partner = models.FloatField(null=True,blank=False)
     price_to_retailer = models.FloatField(null=True,blank=False)
     price_to_super_retailer = models.FloatField(null=True,blank=False)
