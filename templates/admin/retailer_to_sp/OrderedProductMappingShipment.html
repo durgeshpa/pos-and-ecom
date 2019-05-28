@@ -234,8 +234,8 @@
       {% endif %}
         <tr>
 
-
-         <div id="readonly"><td>{{ order_form.product }}</td></div>
+            {{ order_form.product }}
+            <td>{{ order_form.product_name }}</td>
             <td> <b>{{ order_form.ordered_qty }}</b></td>
             <td> <b>{{ order_form.already_shipped_qty }}</b></td>
             <td> <b>{{ order_form.to_be_shipped_qty }}</b></td>
@@ -305,19 +305,19 @@
 
 <script>
 $(document).ready(function(){
-$("input[id$='ordered_qty']").css('border', 'none');
-$("input[id$='already_shipped_qty']").css('border', 'none');
-  $("input[id$='to_be_shipped_qty']").css('border', 'none');
+// $("input[id$='ordered_qty']").css('border', 'none');
+// $("input[id$='already_shipped_qty']").css('border', 'none');
+//   $("input[id$='to_be_shipped_qty']").css('border', 'none');
 
 
-  $("input[id$='ordered_qty']").attr("readOnly", true);
-  $("input[id$='already_shipped_qty']").attr("readOnly", true);
+//   $("input[id$='ordered_qty']").attr("readOnly", true);
+//   $("input[id$='already_shipped_qty']").attr("readOnly", true);
 
   $('select#id_order').select2({width: '50%'});
      // $('select#id_shipment_status').val("PLANNING").attr("disabled", true);
-    $('select#id_shipment_status').select2({width: '50%'});
+  //   $('select#id_shipment_status').select2({width: '50%'});
 
-  $("select[id$='product']").attr("disabled", true);
+  // $("select[id$='product']").attr("disabled", true);
 
     $("select#id_order").change(function(){
         $("#submitbutton").hide();
@@ -349,12 +349,12 @@ jQuery.fn.preventDoubleSubmission = function() {
 $('form').preventDoubleSubmission();
 
 });
-jQuery(function ($) {
-  $('form').bind('submit', function () {
-    $("select[id$='product']").attr("disabled", false);
-      $('select#id_shipment_status').attr("disabled", false);
-    $(this).find(':input').prop('disabled', false);
-  });
-});
+// jQuery(function ($) {
+//   $('form').bind('submit', function () {
+//     $("select[id$='product']").attr("disabled", false);
+//       $('select#id_shipment_status').attr("disabled", false);
+//     $(this).find(':input').prop('disabled', false);
+//   });
+// });
 </script>
 </html>

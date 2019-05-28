@@ -201,32 +201,36 @@ def ordered_product_mapping_shipment(request):
         cart_id = Order.objects \
             .values_list('ordered_cart', flat=True) \
             .get(pk=order_id)
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         # order_product_mapping = CartProductMapping.objects \
         #     .filter(cart_id=cart_id)
         cart_products = CartProductMapping.objects \
+            .values('cart_product', 'cart_product__product_name', 'no_of_pieces') \
             .filter(cart_id=cart_id)
+        cart_products = list(cart_products)
+        # shipment_products = OrderedProductMapping.objects \
+        #         .values('product') \
+        #         .filter(ordered_product__order_id=order_id,
+        #                 product_id__in=[i['cart_product'] for i in cart_products]) \
+        #         .aggregate(Sum('delivered_qty'), Sum('returned_qty'),
+        #                    Sum('shipped_qty'))
         products_list = []
-        for item in order_product_mapping.values('cart_product', 'no_of_pieces'):
-            already_shipped_qty = OrderedProductMapping.objects.filter(
-                ordered_product__in=Order.objects.get(
-                    pk=order_id).rt_order_order_product.all(),
-                product_id=item['cart_product']).aggregate(
-                Sum('delivered_qty')).get('delivered_qty__sum')
+        #for item in order_product_mapping.values('cart_product', 'no_of_pieces'):
+        for item in cart_products:
+            shipment_products_dict = OrderedProductMapping.objects \
+                    .values('product') \
+                    .filter(ordered_product__order_id=order_id,
+                            product_id=item['cart_product']) \
+                    .aggregate(Sum('delivered_qty'), Sum('returned_qty'),
+                               Sum('shipped_qty'))
+
+            already_shipped_qty = shipment_products_dict.get('delivered_qty__sum')
             already_shipped_qty = already_shipped_qty if already_shipped_qty else 0
 
-            returned_qty = OrderedProductMapping.objects.filter(
-                ordered_product__in=Order.objects.get(
-                    pk=order_id).rt_order_order_product.all(),
-                product_id=item['cart_product']).aggregate(
-                Sum('returned_qty')).get('returned_qty__sum')
+            returned_qty = shipment_products_dict.get('returned_qty__sum')
             returned_qty = returned_qty if returned_qty else 0
 
-            to_be_shipped_qty = OrderedProductMapping.objects.filter(
-                ordered_product__in=Order.objects.get(
-                    pk=order_id).rt_order_order_product.all(),
-                product_id=item['cart_product']).aggregate(
-                Sum('shipped_qty')).get('shipped_qty__sum')
+            to_be_shipped_qty = shipment_products_dict.get('shipped_qty__sum')
             to_be_shipped_qty = to_be_shipped_qty if to_be_shipped_qty else 0
             to_be_shipped_qty = to_be_shipped_qty - returned_qty
 
@@ -235,6 +239,7 @@ def ordered_product_mapping_shipment(request):
             if ordered_no_pieces != to_be_shipped_qty + already_shipped_qty:
                 products_list.append({
                         'product': item['cart_product'],
+                        'product_name': item['cart_product__product_name'],
                         'ordered_qty': ordered_no_pieces,
                         'already_shipped_qty': already_shipped_qty,
                         'to_be_shipped_qty': to_be_shipped_qty
@@ -256,6 +261,7 @@ def ordered_product_mapping_shipment(request):
                             to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
                             if to_be_ship_qty:
                                 formset_data = forms.save(commit=False)
+                                import pdb; pdb.set_trace()
                                 formset_data.ordered_product = shipment
                                 formset_data.save()
                     update_reserved_order.delay(json.dumps({'shipment_id': shipment.id}))
