@@ -112,7 +112,7 @@ class PhoneNumberFilter(InputFilter):
         if self.value() is not None:
             phone_number = self.value()
             return queryset.filter(
-                Q(invoice_no__order__buyer_shop__shop_owner__phone_number=phone_number)
+                Q(buyer_shop__shop_owner__phone_number=phone_number)
             )
 
 
