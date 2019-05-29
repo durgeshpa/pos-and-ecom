@@ -2,7 +2,7 @@ from rest_framework import generics
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,
                           OrderSerializer, CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
 
-                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer, OrderListSerializer )
+                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer, OrderListSerializer, FeedBackSerializer )
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
 from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
                                 OrderedProduct as SPOrderedProduct, StockAdjustment)
@@ -18,7 +18,7 @@ from rest_framework import status
 
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
                                    OrderedProduct, Payment, CustomerCare,
-                                   Return)
+                                   Return, Feedback)
 
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
                                       OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment, CustomerCare as GramMappedCustomerCare )
@@ -1087,3 +1087,41 @@ class ReleaseBlocking(APIView):
                     ordered_reserve.delete()
             msg = {'is_success': True, 'message': ['Blocking has released'], 'response_data': None}
         return Response(msg, status=status.HTTP_200_OK)
+
+class FeedbackData(generics.ListCreateAPIView):
+    serializer_class = FeedBackSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        ship_id = self.kwargs.get('ship_id')
+        if ship_id:
+            queryset = Feedback.objects.filter(shipment__id=ship_id)
+        return queryset
+
+    def create(self, request, *args, **kwargs):
+        can_comment = False
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            #import ipdb
+            #ipdb.set_trace()
+            if ((serializer.data['delivery_experience'] and int(serializer.data['delivery_experience']) > 4) or (serializer.data['overall_product_packaging'] and int(serializer.data['overall_product_packaging']) > 4)):
+                can_comment = True
+            msg = {'is_success': True, 'can_comment':can_comment, 'message': None, 'response_data': serializer.data}
+        else:
+            msg = {'is_success': False, 'message': ['Shipment id not found'], 'response_data': None}
+        return Response(msg, status=status.HTTP_200_OK)
+
+    def perform_create(self, serializer):
+        feedback = serializer.save(user=self.request.user)
+        return feedback
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        msg = {'is_success': True,
+                'message': ["%s objects found" % (10)],
+                'response_data': serializer.data}
+        return Response(msg,
+                        status=status.HTTP_200_OK)

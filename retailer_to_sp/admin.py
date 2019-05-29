@@ -57,7 +57,7 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare,
                      Dispatch, DispatchProductMapping, Note, Order,
                      OrderedProduct, OrderedProductMapping, Payment, Return,
                      ReturnProductMapping, Shipment, ShipmentProductMapping,
-                     Trip, ShipmentRescheduling)
+                     Trip, ShipmentRescheduling, Feedback)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (
@@ -952,6 +952,8 @@ class ReturnAdmin(admin.ModelAdmin):
 
     download_credit_note.short_description = 'Download Credit Note'
 
+class FeedbackAdmin(admin.ModelAdmin):
+    list_display = ('user', 'shipment', 'delivery_experience', 'overall_product_packaging', 'comment')
 
 # admin.site.register(Return, ReturnAdmin)
 admin.site.register(Cart, CartAdmin)
@@ -964,3 +966,4 @@ admin.site.register(Dispatch, DispatchAdmin)
 admin.site.register(Trip, TripAdmin)
 admin.site.register(Commercial, CommercialAdmin)
 admin.site.register(Shipment, ShipmentAdmin)
+admin.site.register(Feedback, FeedbackAdmin)

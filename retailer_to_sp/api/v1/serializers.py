@@ -3,7 +3,7 @@ from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMap
                              Size,Color,Fragrance,Flavor,Weight,PackageSize)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order,
                                    OrderedProduct, Note, CustomerCare,
-                                   Payment, Dispatch)
+                                   Payment, Dispatch, Feedback)
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
 
                                       OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment)
@@ -593,3 +593,9 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
                   'shipment_address', 'invoice_city', 'invoice_amount',
                   'created_at', 'cash_to_be_collected')
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 'cash_to_be_collected')
+
+class FeedBackSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Feedback
+        fields = ('user','shipment','delivery_experience','overall_product_packaging','comment')
+        extra_kwargs = {'shipment': {'required': True}}
