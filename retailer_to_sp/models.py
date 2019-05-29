@@ -633,9 +633,6 @@ class OrderedProduct(models.Model): #Shipment
         super().save(*args, **kwargs)
 
 
-
-
-
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(
         OrderedProduct, related_name='rt_order_product_order_product_mapping',

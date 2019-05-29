@@ -80,13 +80,14 @@ class OrderedProductViewSet(viewsets.ModelViewSet):
         return self.serializer_class
 
 
-class OrderedProductMapping(generics.RetrieveAPIView):
+class OrderedProductMappingView(viewsets.ModelViewSet):
     '''
     This class handles all operation of ordered product mapping
     '''
     permission_classes = (AllowAny,)
     model = OrderedProductMapping
     serializer_class = OrderedProductMappingSerializer    
+    queryset = OrderedProductMapping.objects.all()
 
     def get_serializer_class(self):
         '''

@@ -110,6 +110,14 @@ class Template(models.Model):
         return '%s-%s' % (self.name, self.get_type_display())
 
 
+# class NotificationLocation(models.Model):
+#     city = models.ForeignKey(City, related_name=notification_location, on_delete=models.CASCADE)
+#     template = models.ForeignKey(Template, related_name=template_location, on_delete=models.CASCADE)
+
+#     def __str__(self):
+#         return '%s-%s-%s' %(self.pk, self.city, self.template)
+
+
 class TemplateVariable(models.Model):
     template = models.OneToOneField(
         Template,

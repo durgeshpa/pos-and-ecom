@@ -35,12 +35,18 @@ class ProductPriceSerializer(serializers.ModelSerializer):
 
 
 class ProductSerializer(serializers.ModelSerializer):
-    product_price = ProductPriceSerializer()
-    product_image = ProductImageSerializer()
+    #product_price = serializers.SerializerMethodField()
+    #product_image = ProductImageSerializer()
+
+    def get_product_price(self, obj):
+        product_price = obj.getRetailerPrice(self.validated_data['shop_id'])
+        return product_price
 
     class Meta:
         model = Product
-        fields = ('id','name','product_inner_case_size','product_case_size')
+        fields = ('id','product_name','product_inner_case_size',
+            'product_case_size', 
+            )
 
 
 class ReadOrderedProductSerializer(serializers.ModelSerializer):
@@ -68,11 +74,18 @@ class ReadOrderedProductSerializer(serializers.ModelSerializer):
 
 
 class OrderedProductMappingSerializer(serializers.ModelSerializer):
+    # This serializer is used to fetch the products for a shipment
     product = ProductSerializer()
+    #product_price = serializers.SerializerMethodField()
+    #product_detail = serializers.SerializerMethodField()
+    
+    def get_product_price(self, obj):
+        self.product_price = obj.getRetailerPrice(self.context.get("parent_mapping_id"))
+        return self.product_price
 
     class Meta:
         model = OrderedProductMapping
-        fields = ('id', 'shipped_qty')
+        fields = ('id', 'shipped_qty', 'product') #, 'product_price')
 
 
 class TaxSerializer(serializers.ModelSerializer):
