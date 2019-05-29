@@ -418,12 +418,21 @@ class ProductNameFilter(InputFilter):
             return queryset.filter(ordered_cart__rt_cart_list__cart_product__product_name=value)
         return queryset
 
+class Pincode(InputFilter):
+    title = 'Pincode'
+    parameter_name = 'pincode'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value :
+            return queryset.filter(shipping_address__pincode=value)
+        return queryset
 from django.contrib.admin.views.main import ChangeList
 
 class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     actions = ["export_as_csv"]
     resource_class = OrderResource
-    search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name','order_status',)
+    search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name','order_status')
     form = OrderForm
     fieldsets = (
         (_('Shop Details'), {
@@ -451,7 +460,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
                         'invoice_no', 'shipment_status')
     list_filter = [SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
-        ('created_at', DateTimeRangeFilter), ('total_final_amount', SliderNumericFilter)]
+        ('created_at', DateTimeRangeFilter), ('total_final_amount', SliderNumericFilter), Pincode]
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
