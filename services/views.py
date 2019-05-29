@@ -75,7 +75,6 @@ class SalesReport(APIView):
     def get(self, *args, **kwargs):
         from django.http import HttpResponse
         from django.contrib import messages
-        import pdb; pdb.set_trace()
         shop_id = self.request.GET.get('shop')
         start_date = self.request.GET.get('start_date', None)
         end_date = self.request.GET.get('end_date', None)
