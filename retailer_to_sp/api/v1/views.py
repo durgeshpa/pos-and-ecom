@@ -1104,8 +1104,6 @@ class FeedbackData(generics.ListCreateAPIView):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             self.perform_create(serializer)
-            #import ipdb
-            #ipdb.set_trace()
             if ((serializer.data['delivery_experience'] and int(serializer.data['delivery_experience']) > 4) or (serializer.data['overall_product_packaging'] and int(serializer.data['overall_product_packaging']) > 4)):
                 can_comment = True
             msg = {'is_success': True, 'can_comment':can_comment, 'message': None, 'response_data': serializer.data}
