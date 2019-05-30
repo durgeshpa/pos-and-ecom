@@ -1,6 +1,15 @@
 from django.conf.urls import include, url
-from .views import (ProductsList, GramGRNProductsList,AddToCart,CartDetail,ReservedOrder,CreateOrder,OrderList,OrderDetail,DownloadInvoiceSP,
-                    DownloadNote, CustomerCareApi, CustomerOrdersList,  PaymentApi, ProductDetail,ReleaseBlocking)
+from rest_framework import routers
+
+from .views import (ProductsList, GramGRNProductsList,AddToCart,CartDetail,
+    ReservedOrder,CreateOrder,OrderList,OrderDetail,DownloadInvoiceSP,
+    DownloadNote, CustomerCareApi, CustomerOrdersList,  PaymentApi, 
+    ProductDetail,ReleaseBlocking, OrderedProductViewSet, OrderedProductMappingView,
+)
+
+router = routers.DefaultRouter()
+router.register(r'ordered-product', OrderedProductViewSet)
+router.register(r'ordered-product-mapping', OrderedProductMappingView)
 
 urlpatterns = [
     url('^search/(?P<product_name>.+)/$', ProductsList.as_view()),
@@ -21,3 +30,5 @@ urlpatterns = [
     #cron
     #url('^delete-ordered-product-reserved/$', CronToDeleteOrderedProductReserved.as_view(), name='delete_ordered_product_reserved'),
 ]
+
+urlpatterns += router.urls

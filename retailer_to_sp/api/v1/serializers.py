@@ -21,16 +21,74 @@ from addresses.api.v1.serializers import AddressSerializer
 from brand.api.v1.serializers import BrandSerializer
 from django.core.validators import RegexValidator
 
-
 class ProductImageSerializer(serializers.ModelSerializer):
    class Meta:
       model = ProductImage
       fields = '__all__'
 
+
 class ProductPriceSerializer(serializers.ModelSerializer):
    class Meta:
       model = ProductPrice
       fields = '__all__'
+
+
+class ProductSerializer(serializers.ModelSerializer):
+    product_image = serializers.SerializerMethodField()
+
+    def get_product_image(self, obj):
+        if ProductImage.objects.filter(product=obj).exists():
+            product_image = ProductImage.objects.filter(product=obj)[0].image.url
+            return product_image
+        else:
+            return None
+
+    class Meta:
+        model = Product
+        fields = ('id','product_name','product_inner_case_size',
+            'product_case_size', 'product_image'
+            )
+
+
+class ReadOrderedProductSerializer(serializers.ModelSerializer):
+    shop_owner_name = serializers.SerializerMethodField()
+    shop_owner_number = serializers.SerializerMethodField()   
+    order_created_date = serializers.SerializerMethodField()
+
+    def get_shop_owner_number(self, obj):
+        shop_owner_number = obj.order.buyer_shop.shop_owner.phone_number
+        return shop_owner_number
+
+    def get_shop_owner_name(self, obj):
+        shop_owner_name = obj.order.buyer_shop.shop_owner.first_name + obj.order.buyer_shop.shop_owner.last_name
+        return shop_owner_name
+
+    def get_order_created_date(self, obj):
+        order_created_date = obj.order.created_at
+        return order_created_date
+
+    class Meta:
+        model = OrderedProduct
+        fields = ('id','invoice_no','shipment_status','invoice_amount',
+            'payment_mode', 'shipment_address', 'shop_owner_name', 'shop_owner_number',
+            'order_created_date')
+
+
+class OrderedProductMappingSerializer(serializers.ModelSerializer):
+    # This serializer is used to fetch the products for a shipment
+    product = ProductSerializer()
+    product_price = serializers.SerializerMethodField()
+    
+    def get_product_price(self, obj):
+        # fetch product , order_id
+        cart_product_mapping = CartProductMapping.objects.get(cart_product=obj.product, cart=obj.ordered_product.order.ordered_cart)
+        self.product_price = cart_product_mapping.cart_product_price.price_to_retailer
+        return self.product_price
+
+    class Meta:
+        model = OrderedProductMapping
+        fields = ('id', 'shipped_qty', 'product', 'product_price')
+        
 
 class TaxSerializer(serializers.ModelSerializer):
     class Meta:
