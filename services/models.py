@@ -84,8 +84,8 @@ class MasterReports(models.Model):
     hsn_code = models.CharField(max_length=255, null=True)
     product_id = models.CharField(max_length=255, null=True)
     sku_code = models.CharField(max_length=255, null=True)
-    short_description = models.CharField(max_length=255, null=True)
-    long_description = models.CharField(max_length=255, null=True)
+    short_description = models.CharField(max_length=3000, null=True)
+    long_description = models.CharField(max_length=3000, null=True)
 
 
     def __str__(self):
