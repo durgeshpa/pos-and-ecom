@@ -38,18 +38,32 @@ class GenerateTemplateData:
         self.template_data['time_limit'] = 5 #time limit for otp expiry
 
     def generate_order_created_action_data(self):
+        # order_no,items_count, total_amount, shop_name
+        pass
+
+   def generate_order_received_action_data(self):
         pass
         # order_id = self.transaction_data['order_id']
-        # order = Order.objects.get(id=order_id)        
+            # order = Order.objects.get(id=order_id)        
         # self.template_data['order_number'] = order.order_number
-        # self.template_data['order_status'] = order.order_status
+        # self.template_data['order_status'] = order.order_status    
+
+    def generate_shop_verified_action_data(self):
+        pass
+        # shop_id = self.transaction_data['shop_id']
+        # shop = Shop.objects.get(id=shop_id)        
+        # self.template_data['shop_title'] = str(shop.shop_name)
 
     def create(self):
         self.generate_common_data()
         if self.transaction_type == "SIGNUP":
             self.generate_signup_action_data()
         elif self.transaction_type == "ORDER_CREATED":
-            self.generate_order_created_action_data()    
+            self.generate_order_created_action_data()
+        elif self.transaction_type == "ORDER_RECEIVED":
+            self.generate_order_received_action_data()        
+        elif self.transaction_type == "SHOP_VERIFIED":
+            self.generate_shop_verified_action_data()    
         return self.template_data
 
 
@@ -137,18 +151,14 @@ class SendNotification:
 
     def send(self):
         try:
-            # import pdb; pdb.set_trace()
-            # This function will send the notifications(email, sms, fcm) to users 
-            user_data = self.data #fetch_user_data(self.user_id)        
-            #user = User.objects.get(id=self.user_id)
-            # notification_types  = UserNotification.objects.get_or_create(user=user)
-            
             #generate template content
             template = Template.objects.get(type=self.template_type)
-
+ 
             # generate template variable data
-            self.template_data = GenerateTemplateData(self.user_id, self.template_type).create()#.generate_data()
-            self.template_data['username'] = self.data['username']
+            self.template_data = GenerateTemplateData(self.user_id, self.template_type, self.data).create()#.generate_data()
+            #self.template_data['username'] = self.data['username']
+            
+            self.template_data = {**self.template_data, **self.data}
             # if notification_types.email_notification:
             #     email_content = merge_template_with_data(template.text_email_template, self.email_variable)
             #     email = SendEmail()

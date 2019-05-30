@@ -222,21 +222,23 @@ def shop_verification_notification1(sender, instance=None, created=False, **kwar
             if shop.status == True:
                 username = shop.shop_owner.first_name if shop.shop_owner.first_name else shop.shop_owner.phone_number
                 shop_title = str(shop.shop_name)
-                
 
                 user_id = shop.shop_owner.id
+                activity_type = "SHOP_VERIFIED"
                 data = {}
                 data['username'] = username
                 data['phone_number'] = instance.phone_number
+                data['shop_id'] = shop.id
+
                 from notification_center.utils import SendNotification
                 SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()    
 
-                message = SendSms(phone=shop.shop_owner,
-                                  body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App."\
-                                      " Thanks,"\
-                                      " Team GramFactory " % (username, shop_title))
+                # message = SendSms(phone=shop.shop_owner,
+                #                   body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App."\
+                #                       " Thanks,"\
+                #                       " Team GramFactory " % (username, shop_title))
 
-                message.send()
+                # message.send()
 
 class ShopAdjustmentFile(models.Model):
     shop = models.ForeignKey(Shop, related_name='stock_adjustment_shop', on_delete=models.CASCADE)

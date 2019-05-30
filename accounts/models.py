@@ -137,8 +137,6 @@ def create_auth_token(sender, instance=None, created=False, **kwargs):
         transaction.on_commit(lambda: create_user_token.delay(instance.id))
 
 
-from notification_center.utils import SendNotification
-
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
 def user_creation_notification(sender, instance=None, created=False, **kwargs):
     if created:
