@@ -41,7 +41,7 @@ class GenerateTemplateData:
         # order_no,items_count, total_amount, shop_name
         pass
 
-   def generate_order_received_action_data(self):
+    def generate_order_received_action_data(self):
         pass
         # order_id = self.transaction_data['order_id']
             # order = Order.objects.get(id=order_id)        
