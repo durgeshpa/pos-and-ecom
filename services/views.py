@@ -216,7 +216,7 @@ class GRNReport(APIView):
                     product_id = products.product.id
                     product_name = products.product.product_name
                     product_brand = products.product.product_brand
-                    if products.product.product_pro_price.filter(status=True, shop = buyer_shop).mrp.exists():
+                    if products.product.product_pro_price.filter(status=True, shop = buyer_shop).exists():
                         product_mrp = products.product.product_pro_price.get(status=True, shop = buyer_shop).mrp
                     gram_to_brand_price = grns.grn_order_grn_order_product.get(product = products.product).po_product_price
                     #product_value_tax_included = products.product.product_pro_price.get(status=True, shop = buyer_shop).price_to_retailer
