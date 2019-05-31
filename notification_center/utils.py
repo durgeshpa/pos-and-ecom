@@ -70,7 +70,6 @@ class GenerateTemplateData:
         self.template_data['po_number'] = cart.po_no
         self.template_data['po_creation_date'] = cart.po_creation_date
 
-
     def create(self):
         self.generate_common_data()
         if self.transaction_type == "SIGNUP":

@@ -217,18 +217,24 @@ class ParentRetailerMapping(models.Model):
 
 @receiver(post_save, sender=ParentRetailerMapping)
 def shop_verification_notification1(sender, instance=None, created=False, **kwargs):
+
+        shop = instance.retailer
+        username = shop.shop_owner.first_name if shop.shop_owner.first_name else shop.shop_owner.phone_number
+        shop_title = str(shop.shop_name)
+
+        user_id = shop.shop_owner.id
+        data = {}
+        data['username'] = username
+        data['phone_number'] = instance.retailer.shop_owner.phone_number
+        data['shop_id'] = shop.id
+
         if created:
-            shop = instance.retailer
+
             if shop.status == True:
                 username = shop.shop_owner.first_name if shop.shop_owner.first_name else shop.shop_owner.phone_number
                 shop_title = str(shop.shop_name)
 
-                user_id = shop.shop_owner.id
                 activity_type = "SHOP_VERIFIED"
-                data = {}
-                data['username'] = username
-                data['phone_number'] = instance.retailer.shop_owner.phone_number
-                data['shop_id'] = shop.id
 
                 from notification_center.utils import SendNotification
                 SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()    
@@ -239,6 +245,13 @@ def shop_verification_notification1(sender, instance=None, created=False, **kwar
                 #                       " Team GramFactory " % (username, shop_title))
 
                 # message.send()
+
+        else:
+            activity_type = "SHOP_CREATED"
+
+            from notification_center.utils import SendNotification
+            SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()    
+
 
 class ShopAdjustmentFile(models.Model):
     shop = models.ForeignKey(Shop, related_name='stock_adjustment_shop', on_delete=models.CASCADE)
