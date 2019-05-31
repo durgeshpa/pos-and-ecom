@@ -11,6 +11,7 @@ from django.utils.translation import gettext_lazy as _
 from retailer_backend.validators import *
 import datetime
 from django.core.validators import MinLengthValidator
+from django.contrib.auth.models import Group
 
 
 SHOP_TYPE_CHOICES = (
@@ -221,3 +222,12 @@ class ShopAdjustmentFile(models.Model):
     created_by = models.ForeignKey(get_user_model(),null=True,blank=True, related_name='stock_adjust_by',on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+class ShopUserMapping(models.Model):
+    shop = models.ForeignKey(Shop, related_name='shop_user', on_delete=models.CASCADE)
+    manager = models.ForeignKey(get_user_model(), null=True, blank=True, related_name='shop_user_manager', on_delete=models.SET_NULL)
+    employee = models.ForeignKey(get_user_model(), related_name='shop_employee', on_delete=models.PROTECT)
+    employee_group = models.ForeignKey(Group, related_name='shop_user_group', on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
