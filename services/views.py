@@ -182,7 +182,7 @@ class OrderReport(APIView):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="order-mis-report.csv"'
         writer = csv.writer(response)
-        writer.writerow(['S.No.', 'Invoice Id', 'Invoice Date', 'Invoice Status', 'Retailer Contact No.', 'Retailer Id', 'Retailer Name', 'PinCode', 'Order Id', 'Order Status', 'Order Date', 'Sales Person Name', 'Order Type (Organic / Through Sales Person)', 'Campaign Name',  'Product Id', 'Product Name', 'Product Brand', 'Product MRP' ,'Product Value including tax', 'Ordered SKU Pieces', 'Shipped SKU Pieces', 'Delivered SKU Pieces', 'Returned SKU Pieces', 'Damaged SKU Pieces', 'CGST %', 'SGST %', 'IGST %', 'Cess %',  'Discount %'])
+        writer.writerow(['S.No.', 'Invoice Id', 'Invoice Date', 'Invoice Status', 'Retailer Contact No.', 'Retailer Id', 'Retailer Name', 'PinCode', 'Order Id', 'Order Status', 'Order Date', 'Sales Person Name', 'Order Type (Organic / Through Sales Person)', 'Campaign Name',  'SKU Id', 'Product Name', 'Product Brand', 'Product MRP' ,'Product Value including tax', 'Ordered SKU Pieces', 'Shipped SKU Pieces', 'Delivered SKU Pieces', 'Returned SKU Pieces', 'Damaged SKU Pieces', 'CGST %', 'SGST %', 'IGST %', 'Cess %',  'Discount %'])
         for k,v in data.items():
             writer.writerow([k, v['order_invoice'], v['invoice_date'], v['invoice_status'], v['order_by'], v['retailer_id'], v['retailer_name'], v['pin_code'], v['order_id'], v['order_status'], v['order_date'], v['sales_person_name'], v['order_type'], v['campaign_name'],   v['product_id'], v['product_name'], v['product_brand'], v['product_mrp'], v['product_value_tax_included'], v['ordered_sku_pieces'], v['shipped_sku_pieces'], v['delivered_sku_pieces'], v['returned_sku_pieces'], v['damaged_sku_pieces'], v['product_cgst'], v['product_sgst'], v['product_igst'], v['product_cess'], v['discount']])
 
@@ -203,6 +203,7 @@ class GRNReport(APIView):
 
     def get_grn_report(self, shop_id, start_date, end_date):
         buyer_shop = Shop.objects.get(pk=shop_id)
+        import pdb; pdb.set_trace()
         orders = PurchaseOrder.objects.filter(ordered_cart__gf_shipping_address__shop_name = buyer_shop)
         if start_date:
             orders = orders.filter(created_at__gte = start_date)
@@ -277,7 +278,7 @@ class GRNReport(APIView):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="grn-mis-report.csv"'
         writer = csv.writer(response)
-        writer.writerow(['S.No.', 'PO No.', 'PO Date', 'PO Status', 'Vendor Name', 'Vendor Id', 'Shipping Address', 'Category Manager', 'Product Id', 'Product Name', 'Product Brand', 'Manufacture Date', 'Expiry Date', 'PO SKU Pieces', 'Product MRP', 'Gram to Brand Price', 'Discount %', 'GRN ID', 'GRN Date', 'Invoice SKU Pieces', 'CGST', 'SGST', 'IGST', 'CESS', 'Invoice Item Gross value', 'Delivered SKU Pieces', 'Returned SKU Pieces', 'DN Number', 'DN value (Basic)'])
+        writer.writerow(['S.No.', 'PO No.', 'PO Date', 'PO Status', 'Vendor Name', 'Vendor Id', 'Shipping Address', 'Category Manager', 'SKU Id', 'Product Name', 'Product Brand', 'Manufacture Date', 'Expiry Date', 'PO SKU Pieces', 'Product MRP', 'Gram to Brand Price', 'Discount %', 'GRN ID', 'GRN Date', 'Invoice SKU Pieces', 'CGST', 'SGST', 'IGST', 'CESS', 'Invoice Item Gross value', 'Delivered SKU Pieces', 'Returned SKU Pieces', 'DN Number', 'DN value (Basic)'])
         for k,v in data.items():
             writer.writerow([k, v['po_no'], v['po_date'], v['po_status'], v['vendor_name'], v['vendor_id'],  v['shipping_address'], v['category_manager'], v['product_id'], v['product_name'], v['product_brand'], v['manufacture_date'], v['expiry_date'], v['po_sku_pieces'], v['product_mrp'], v['gram_to_brand_price'], v['discount'], v['grn_id'], v['grn_date'], v['grn_sku_pieces'], v['product_cgst'], v['product_sgst'], v['product_igst'], v['product_cess'], v['invoice_item_gross_value'], v['delivered_sku_pieces'], v['returned_sku_pieces'], v['dn_number'], v['dn_value_basic']])
 
