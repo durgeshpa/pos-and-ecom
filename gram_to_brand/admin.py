@@ -73,6 +73,13 @@ class CartAdmin(admin.ModelAdmin):
             obj.last_modified_by = request.user
             obj.save()
 
+            data = {}
+            data['link_to_po'] = self.download_purchase_order()
+            data['shop_id'] = self.gf_shipping_address.shop_name.id
+            activity_type = "PO_APPROVED"
+            from notification_center.utils import SendNotification
+            SendNotification(activity_type=activity_type, data=data).send_to_a_group()    
+
             return HttpResponseRedirect("/admin/gram_to_brand/cart/")
         elif "_disapprove" in request.POST:
             if request.POST.get('message'):
@@ -92,6 +99,14 @@ class CartAdmin(admin.ModelAdmin):
             obj.last_modified_by= request.user
             obj.save()
 
+            # PO Number, Date, HTML of PO, link to PO should be mailed
+            data = {}
+            data['link_to_po'] = self.download_purchase_order()
+            data['shop_id'] = self.gf_shipping_address.shop_name.id
+            activity_type = "PO_EDITED"
+            from notification_center.utils import SendNotification
+            SendNotification(activity_type=activity_type, data=data).send_to_a_group()    
+
         return super().response_change(request, obj)
 
     def save_model(self, request, obj, form, change):
@@ -101,6 +116,16 @@ class CartAdmin(admin.ModelAdmin):
             obj.po_raised_by = request.user
             obj.last_modified_by = request.user
             obj.save()
+
+            data = {}
+            data['link_to_po'] = self.download_purchase_order()
+            data['shop_id'] = self.gf_shipping_address.shop_name.id
+
+            user_id = instance.order_id.ordered_by.id
+            activity_type = "PO_CREATED"
+            from notification_center.utils import SendNotification
+            SendNotification(activity_type=activity_type, data=data).send_to_a_group()    
+
 
     class Media:
             pass

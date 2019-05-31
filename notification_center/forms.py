@@ -20,7 +20,7 @@ class TemplateForm(forms.ModelForm):
     class Meta:
         model = Template
         fields = [
-            'name', 'type', 'text_email_template', 'html_email_template',
+            'name', 'type', 'notification_groups', 'text_email_template', 'html_email_template',
             'text_sms_template', 'voice_call_template', 'gcm_title',
             'gcm_description', 'gcm_image', 'email_alert',
             'text_sms_alert', 'voice_call_alert', 'gcm_alert', 'status'

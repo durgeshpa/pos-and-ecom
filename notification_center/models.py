@@ -23,6 +23,10 @@ class DateTime(models.Model):
 
 class Template(models.Model):
     TEMPLATE_TYPE_CHOICES = (
+        ('PO_APPROVED', 'PO approved'),
+        ('PO_CREATED', 'PO created'),
+        ('PO_EDITED', 'PO edited'),
+
         ('LOGIN', 'User logged in'),
         ('SIGNUP', 'User signed up'),
         ('PASSWORD_RESET', 'User requested password change'),
@@ -211,8 +215,7 @@ class NotificationScheduler(models.Model):
 
     def __str__(self):
         return '%s-%s-%s' % (self.user, self.template, self.pk)
-
-
+        
 
 class GroupNotificationScheduler(models.Model):
 
@@ -224,6 +227,9 @@ class GroupNotificationScheduler(models.Model):
     )
 
     selection_type = models.TextField(choices=SELECTION_TYPE_CHOICES, max_length=255, default='user')
+
+    # user = models.ManyToManyField()
+    # shop = models.ManyToManyField()
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE, null=True, blank=True)

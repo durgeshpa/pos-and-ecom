@@ -24,7 +24,6 @@ from notification_center.views import (
 User = get_user_model()
 
 
-
 class TemplateAdmin(admin.ModelAdmin):
     model = Template
     form = TemplateForm

@@ -235,7 +235,6 @@ class Payment(models.Model):
         self.name = "Payment/%s"%(self.pk)
         super(Payment, self).save()
 
-
     def __str__(self):
         return self.name
 

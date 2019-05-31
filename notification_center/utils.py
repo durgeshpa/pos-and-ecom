@@ -10,7 +10,8 @@ from otp.sms import SendSms
 #from notification_center.fcm_notification import SendFCMNotification
 
 from notification_center.models import TemplateVariable, Template, UserNotification
-#from notification_center.views import fetch_user_data 
+from gram_to_brand.models import Cart
+
 
 #User = get_user_model()
 #Device = get_device_model()
@@ -22,7 +23,7 @@ class GenerateTemplateData:
     # This class will geneate template data
     # Input: transaction type, user_id and
     # Output: A dictionary containing the template data
-    def __init__(self, user_id, transaction_type, transaction_data={}):
+    def __init__(self, user_id="", transaction_type="", transaction_data={}):
         self.user_id = user_id
         self.transaction_type = transaction_type
         self.transaction_data = transaction_data
@@ -54,75 +55,53 @@ class GenerateTemplateData:
         # shop = Shop.objects.get(id=shop_id)        
         # self.template_data['shop_title'] = str(shop.shop_name)
 
+    def generate_po_approved_data(self):
+        cart = Cart.objects.get(id=cart_id)
+        self.template_data['po_number'] = cart.po_no
+        self.template_data['po_creation_date'] = cart.po_creation_date
+
+    def generate_po_created_data(self):
+        cart = Cart.objects.get(id=cart_id)
+        self.template_data['po_number'] = cart.po_no
+        self.template_data['po_creation_date'] = cart.po_creation_date
+        
+    def generate_po_edited_data(self):
+        cart = Cart.objects.get(id=cart_id)
+        self.template_data['po_number'] = cart.po_no
+        self.template_data['po_creation_date'] = cart.po_creation_date
+
+
     def create(self):
         self.generate_common_data()
         if self.transaction_type == "SIGNUP":
             self.generate_signup_action_data()
+        
         elif self.transaction_type == "ORDER_CREATED":
             self.generate_order_created_action_data()
+        
         elif self.transaction_type == "ORDER_RECEIVED":
-            self.generate_order_received_action_data()        
+            self.generate_order_received_action_data()
+
         elif self.transaction_type == "SHOP_VERIFIED":
-            self.generate_shop_verified_action_data()    
+            self.generate_shop_verified_action_data()
+        
+        elif self.transaction_type == "PO_APPROVED":
+            self.generate_po_approved_data()
+        
+        elif self.transaction_type == "PO_CREATED":
+            self.generate_po_created_data()        
+        
+        elif self.transaction_type == "PO_EDITED":
+            self.generate_po_edited_data()    
+
         return self.template_data
-
-
-class GetTemplateVariables:
-    def __init__(self, template):
-        self.template = template
-        self.data = {
-            'email_variable': None,
-            'text_sms_variable': None,
-            'voice_call_variable': None,
-            'gcm_variable': None
-        }
-
-    def create(self):
-        """Create or Update TemplateVariable object
-
-        Getting template as argument, finding active notification type,
-        searching through the text and storing variables in TemplateVariable
-        """
-        if self.template.email_alert:
-            email_variable = self.get_template_variables(
-                self.template.text_email_template
-            )
-            self.data.update(email_variable=email_variable)
-        if self.template.text_sms_alert:
-            text_sms_variable = self.get_template_variables(
-                self.template.text_sms_template
-            )
-            self.data.update(text_sms_variable=text_sms_variable)
-        if self.template.voice_call_alert:
-            voice_call_variable = self.get_template_variables(
-                self.template.voice_call_template
-            )
-            self.data.update(voice_call_variable=voice_call_variable)
-        if self.template.gcm_alert:
-            gcm_variable = self.get_template_variables(
-                self.template.gcm_description
-            )
-            self.data.update(gcm_variable=gcm_variable)
-
-        # to create or update the TemplateVariable object
-        TemplateVariable.objects.update_or_create(
-            template=self.template, defaults=self.data)
-
-    @staticmethod
-    def get_template_variables(text):
-        """Return list of variables in template
-
-        Variables should be in < > e.g <first_name>
-        """
-        variables = re.findall("\<(.*?)\>", text)
-        return variables
 
 
 class SendNotification:
     # This class will be used for sending the notifications to users
     def __init__(self, 
-            user_id, 
-            activity_type,
+            user_id="", 
+            activity_type="",
             data = {},
             user_id_list=[],
             email_variable={}, 
@@ -148,6 +127,29 @@ class SendNotification:
         
         return final_template.render(Context(self.template_data))
 
+    def send_to_a_group(self):
+        # fetch the group and location and call send for each user specifically
+        template = Template.objects.get(type=self.template_type)
+        notification_groups = template.notification_groups
+        shop = Shop.objects.get(id=self.data['shop_id'])
+        #shop = Shop.objects.filter(get_shop_city=self.data['city'],shop_name="GramFactory")
+        # users of the shop for our campaign        
+        users = shop.related_users.filter(groups__in=notification_groups)
+
+        self.template_data = GenerateTemplateData(
+            transaction_type=self.template_type,
+            transaction_data=self.data).create()
+       
+        self.template_data = {**self.template_data, **self.data}
+
+        sms_content = self.merge_template_with_data(template.text_sms_template)
+
+        for user in users:
+            user_id = user.id
+            # generate template variable data
+            message = SendSms(phone=user.phone_number, body=sms_content)
+            # message = SendSms(phone=9643112048,body="Dear sagar, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory")
+            message.send()
 
     def send(self):
         try:
@@ -184,9 +186,9 @@ class SendNotification:
             print (self.data['phone_number'], sms_content)
             logging.info(self.data['phone_number'], sms_content)
             # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
-            # message = SendSms(phone=self.data['phone_number'], body=sms_content)
-            # # message = SendSms(phone=9643112048,body="Dear sagar, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory")
-            # message.send()
+            message = SendSms(phone=self.data['phone_number'], body=sms_content)
+            # message = SendSms(phone=9643112048,body="Dear sagar, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory")
+            message.send()
         except Exception as e:
             # print (str(e))
             logging.error(str(e))    

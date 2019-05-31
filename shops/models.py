@@ -227,7 +227,7 @@ def shop_verification_notification1(sender, instance=None, created=False, **kwar
                 activity_type = "SHOP_VERIFIED"
                 data = {}
                 data['username'] = username
-                data['phone_number'] = instance.phone_number
+                data['phone_number'] = instance.retailer.shop_owner.phone_number
                 data['shop_id'] = shop.id
 
                 from notification_center.utils import SendNotification
