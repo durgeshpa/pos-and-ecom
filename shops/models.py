@@ -221,3 +221,30 @@ class ShopAdjustmentFile(models.Model):
     created_by = models.ForeignKey(get_user_model(),null=True,blank=True, related_name='stock_adjust_by',on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+from django.contrib.postgres.fields import ArrayField
+
+class ShopTiming(models.Model):
+    SUN = 'SUN'
+    MON = 'MON'
+    TUE = 'TUE'
+    WED = 'WED'
+    THU = 'THU'
+    FRI = 'FRI'
+    SAT = 'SAT'
+
+    off_day_choices = (
+        (SUN, 'SUN'),
+        (MON, 'MON'),
+        (TUE, 'TUE'),
+        (WED, 'WED'),
+        (THU, 'THU'),
+        (FRI, 'FRI'),
+        (SAT, 'FRI'),
+    )
+    shop = models.OneToOneField(Shop, related_name='shop_timing',null=True,blank=True, on_delete=models.SET_NULL)
+    open_timing = models.TimeField()
+    closing_timing = models.TimeField()
+    break_start_time = models.TimeField(null=True, blank=True)
+    break_end_time = models.TimeField(null=True, blank=True)
+    off_day = ArrayField(models.CharField(max_length=25,choices=off_day_choices, null=True, blank=True), null=True, blank=True)

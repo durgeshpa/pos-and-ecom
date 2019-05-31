@@ -3,8 +3,8 @@ from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 from rest_framework.response import Response
 from .serializers import (RetailerTypeSerializer, ShopTypeSerializer,
-        ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer)
-from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument)
+        ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer, ShopTimingSerializer)
+from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopTiming)
 from rest_framework import generics
 from addresses.models import City, Area, Address
 from rest_framework import status
@@ -170,3 +170,41 @@ class ShopView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         shop = serializer.save(shop_owner=self.request.user)
         return shop
+
+class ShopTimingView(generics.ListCreateAPIView):
+    serializer_class = ShopTimingSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        shop_id = self.kwargs.get('shop_id')
+        return ShopTiming.objects.filter(shop_id=shop_id)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        msg = {'is_success': True,
+                'message': ["shop timing data"],
+                'response_data': serializer.data }
+        return Response(msg,status=status.HTTP_200_OK)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            msg = {'is_success': True, 'message': '', 'response_data': serializer.data}
+        else:
+            msg = {'is_success': False, 'message':['shop, open_timing or closing_timing Required'], 'response_data': None}
+        return Response(msg,status=status.HTTP_200_OK)
+
+    def perform_create(self, serializer):
+        timing, created = ShopTiming.objects.update_or_create(shop_id=self.request.data['shop'],
+                                                                defaults={
+                                                                    'open_timing' : self.request.data['open_timing'],
+                                                                    'closing_timing' : self.request.data['closing_timing'],
+                                                                     'break_start_time': self.request.data['break_start_time'],
+                                                                     'break_end_time': self.request.data['break_end_time'],
+                                                                     'off_day': self.request.data['off_day'],
+                                                                 })

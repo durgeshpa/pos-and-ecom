@@ -2,13 +2,13 @@ import csv
 from django.contrib import admin
 from .models import (
     Shop, ShopType, RetailerType, ParentRetailerMapping,
-    ShopPhoto, ShopDocument, ShopInvoicePattern
+    ShopPhoto, ShopDocument, ShopInvoicePattern, ShopTiming
 )
 from addresses.models import Address
 from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
                     ShopForm, AddressForm, RequiredInlineFormSet,
-                    AddressInlineFormSet)
-from .views import StockAdjustmentView, stock_adjust_sample
+                    AddressInlineFormSet, ShopTimingForm)
+from .views import StockAdjustmentView, stock_adjust_sample, ShopTimingAutocomplete
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
 from django.utils.html import format_html
@@ -169,6 +169,12 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                 self.admin_site.admin_view(SalesReportFormView.as_view()),
                 name="shop-sales-form"
             ),
+            url(
+                r'^shop-timing-autocomplete/$',
+                self.admin_site.admin_view(ShopTimingAutocomplete.as_view()),
+                name="shop-timing-autocomplete"
+            ),
+
         ] + urls
         return urls
 
@@ -233,8 +239,12 @@ class ParentRetailerMappingAdmin(admin.ModelAdmin):
 
     class Media:
         pass
+class ShopTimingAdmin(admin.ModelAdmin):
+    list_display = ('shop','open_timing','closing_timing','break_start_time','break_end_time','off_day')
+    form = ShopTimingForm
 
 admin.site.register(ParentRetailerMapping,ParentRetailerMappingAdmin)
 admin.site.register(ShopType)
 admin.site.register(RetailerType)
-admin.site.register(Shop,ShopAdmin)
+admin.site.register(Shop, ShopAdmin)
+admin.site.register(ShopTiming, ShopTimingAdmin)

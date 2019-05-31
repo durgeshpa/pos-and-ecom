@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument)
+from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopTiming)
 from django.contrib.auth import get_user_model
 from rest_framework import validators
 
@@ -66,3 +66,27 @@ class ShopDocumentSerializer(serializers.ModelSerializer):
         response = super().to_representation(instance)
         response['shop_name'] = ShopSerializer(instance.shop_name).data
         return response
+
+class ShopTimingSerializer(serializers.ModelSerializer):
+    SUN = 'SUN'
+    MON = 'MON'
+    TUE = 'TUE'
+    WED = 'WED'
+    THU = 'THU'
+    FRI = 'FRI'
+    SAT = 'SAT'
+
+    off_day_choices = (
+        (SUN, 'Sunday'),
+        (MON, 'Monday'),
+        (TUE, 'Tuesday'),
+        (WED, 'Wednesday'),
+        (THU, 'Thuresday'),
+        (FRI, 'Friday'),
+        (SAT, 'Saturday'),
+    )
+
+    class Meta:
+        model = ShopTiming
+        fields = ('shop','open_timing','closing_timing','break_start_time','break_end_time','off_day')
+        read_only_fields = ('shop',)
