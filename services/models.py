@@ -10,6 +10,7 @@ class OrderReports(models.Model):
     order_date = models.CharField(max_length=255, null=True)
     order_by = models.CharField(max_length=255, null=True)
     retailer_id = models.CharField(max_length=255, null=True)
+    retailer_name = models.CharField(max_length=255, null=True)
     pin_code = models.CharField(max_length=255, null=True)
     product_id = models.CharField(max_length=255, null=True)
     product_name = models.CharField(max_length=255, null=True)
