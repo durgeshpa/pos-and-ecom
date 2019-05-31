@@ -3,8 +3,8 @@ from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 from rest_framework.response import Response
 from .serializers import (RetailerTypeSerializer, ShopTypeSerializer,
-        ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer)
-from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument)
+        ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer, ShopUserMappingSerializer)
+from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping)
 from rest_framework import generics
 from addresses.models import City, Area, Address
 from rest_framework import status
@@ -170,3 +170,12 @@ class ShopView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         shop = serializer.save(shop_owner=self.request.user)
         return shop
+
+class TeamListView(generics.ListAPIView):
+    serializer_class = ShopUserMappingSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        #user = self.request.user
+        return ShopUserMapping.objects.filter(manager=self.request.user)
