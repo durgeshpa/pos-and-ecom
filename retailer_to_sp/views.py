@@ -30,6 +30,7 @@ from retailer_to_sp.forms import (
 )
 from django.views.generic import TemplateView
 from django.conf import settings
+from django.contrib import messages
 
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector, TrigramSimilarity
 from shops.models import Shop
@@ -191,59 +192,54 @@ class RequiredFormSet(BaseFormSet):
 def ordered_product_mapping_shipment(request):
     order_id = request.GET.get('order_id')
     ordered_product_set = formset_factory(OrderedProductMappingShipmentForm,
-                                          extra=1, max_num=1, formset=RequiredFormSet
+                                          extra=0, max_num=1, formset=RequiredFormSet
                                           )
     form = OrderedProductForm()
     form_set = ordered_product_set()
     if order_id and request.method == 'GET':
-        #ordered_product = Cart.objects.filter(pk=order_id)
-        #ordered_product = Order.objects.get(pk=order_id).ordered_cart
         cart_id = Order.objects \
             .values_list('ordered_cart', flat=True) \
             .get(pk=order_id)
-        #import pdb; pdb.set_trace()
-        # order_product_mapping = CartProductMapping.objects \
-        #     .filter(cart_id=cart_id)
         cart_products = CartProductMapping.objects \
-            .values('cart_product', 'cart_product__product_name', 'no_of_pieces') \
+            .values('cart_product', 'cart_product__product_name',
+                    'no_of_pieces') \
             .filter(cart_id=cart_id)
         cart_products = list(cart_products)
-        # shipment_products = OrderedProductMapping.objects \
-        #         .values('product') \
-        #         .filter(ordered_product__order_id=order_id,
-        #                 product_id__in=[i['cart_product'] for i in cart_products]) \
-        #         .aggregate(Sum('delivered_qty'), Sum('returned_qty'),
-        #                    Sum('shipped_qty'))
+
+        shipment_products = OrderedProductMapping.objects \
+            .values('product') \
+            .filter(
+                ordered_product__order_id=order_id,
+                product_id__in=[i['cart_product'] for i in cart_products]) \
+            .annotate(Sum('delivered_qty'), Sum('returned_qty'),
+                      Sum('shipped_qty'))
         products_list = []
-        #for item in order_product_mapping.values('cart_product', 'no_of_pieces'):
         for item in cart_products:
-            shipment_products_dict = OrderedProductMapping.objects \
-                    .values('product') \
-                    .filter(ordered_product__order_id=order_id,
-                            product_id=item['cart_product']) \
-                    .aggregate(Sum('delivered_qty'), Sum('returned_qty'),
-                               Sum('shipped_qty'))
-
-            already_shipped_qty = shipment_products_dict.get('delivered_qty__sum')
-            already_shipped_qty = already_shipped_qty if already_shipped_qty else 0
-
-            returned_qty = shipment_products_dict.get('returned_qty__sum')
-            returned_qty = returned_qty if returned_qty else 0
-
-            to_be_shipped_qty = shipment_products_dict.get('shipped_qty__sum')
-            to_be_shipped_qty = to_be_shipped_qty if to_be_shipped_qty else 0
-            to_be_shipped_qty = to_be_shipped_qty - returned_qty
-
-            ordered_no_pieces = item['no_of_pieces']
-
-            if ordered_no_pieces != to_be_shipped_qty + already_shipped_qty:
-                products_list.append({
+            shipment_product = list(filter(lambda product: product['product'] == item['cart_product'],
+                                           shipment_products))
+            if shipment_product:
+                shipment_product_dict = shipment_product[0]
+                already_shipped_qty = shipment_product_dict.get('delivered_qty__sum')
+                returned_qty = shipment_product_dict.get('returned_qty__sum')
+                to_be_shipped_qty = shipment_product_dict.get('shipped_qty__sum')
+                to_be_shipped_qty = to_be_shipped_qty - returned_qty
+                ordered_no_pieces = item['no_of_pieces']
+                if ordered_no_pieces != to_be_shipped_qty + already_shipped_qty:
+                    products_list.append({
                         'product': item['cart_product'],
                         'product_name': item['cart_product__product_name'],
                         'ordered_qty': ordered_no_pieces,
                         'already_shipped_qty': already_shipped_qty,
                         'to_be_shipped_qty': to_be_shipped_qty
-                        })
+                    })
+            else:
+                products_list.append({
+                    'product': item['cart_product'],
+                    'product_name': item['cart_product__product_name'],
+                    'ordered_qty': item['no_of_pieces'],
+                    'already_shipped_qty': 0,
+                    'to_be_shipped_qty': 0
+                })
         form_set = ordered_product_set(initial=products_list)
         form = OrderedProductForm(initial={'order': order_id})
 
@@ -259,16 +255,20 @@ def ordered_product_mapping_shipment(request):
                     for forms in form_set:
                         if forms.is_valid():
                             to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
+                            product_name = forms.cleaned_data.get('product')
                             if to_be_ship_qty:
                                 formset_data = forms.save(commit=False)
-                                import pdb; pdb.set_trace()
                                 formset_data.ordered_product = shipment
+                                max_pieces_allowed = int(formset_data.ordered_qty) - int(formset_data.shipped_qty_exclude_current)
+                                if max_pieces_allowed < int(to_be_ship_qty):
+                                    raise Exception('{}: Max Qty allowed is {}'.format(product_name, max_pieces_allowed))
                                 formset_data.save()
                     update_reserved_order.delay(json.dumps({'shipment_id': shipment.id}))
-            except Exception as e:
-                logger.exception("An error occurred while creating shipment {}".format(e))
+                return redirect('/admin/retailer_to_sp/shipment/')
 
-            return redirect('/admin/retailer_to_sp/shipment/')
+            except Exception as e:
+                messages.error(request, e)
+                logger.exception("An error occurred while creating shipment {}".format(e))
 
     return render(
         request,

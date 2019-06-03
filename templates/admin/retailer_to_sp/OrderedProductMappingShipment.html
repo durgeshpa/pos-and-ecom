@@ -160,8 +160,15 @@
             <p class="errornote">{{ error|escape }}</p>
           {% endfor %}
       {% endif %}
+
+                  {% if messages %}
+                {% for message in messages %}
+                <p class="errornote">{{ message|escape }}</p>
+                {% endfor %}
+            {% endif %}
 {{ordered_form.management_form}}
   {{ordered_form.as_p}}
+
 
 
 
@@ -188,9 +195,8 @@
 <fieldset class="module ">
 
 
-
-   <h2>Ordered Products</h2>
-
+  {% if formset|length != 0 %}
+   <h2>Ordered Products</h2>    
    <table>
      <thead><tr>
 
@@ -269,7 +275,15 @@
 
 
 </div>
-
+{% elif not ordered_form.order.value %}
+<ul class="messagelist">
+    <li class="warning">Please select an Order first!</li>
+</ul>
+{% else %}
+<ul class="messagelist">
+    <li class="warning">All the Shipments of this particular Order has been created successfully!</li>
+</ul>
+{% endif %}
 
 
     <!--<script type="text/javascript"-->
@@ -302,7 +316,6 @@
 
 </body>
 <script src='https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/js/select2.min.js'></script>
-
 <script>
 $(document).ready(function(){
 // $("input[id$='ordered_qty']").css('border', 'none');

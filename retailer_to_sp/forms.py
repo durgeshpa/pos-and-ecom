@@ -191,21 +191,19 @@ class OrderedProductMappingShipmentForm(forms.ModelForm):
             'to_be_shipped_qty', 'shipped_qty',
         ]
 
-    # def clean_shipped_qty(self):
-    #     import pdb; pdb.set_trace()
-    #     # for i in range(int(self.data.get('form-TOTAL_FORMS'))):
-    #     #     ordered_qty_field = 'form-{}-ordered_qty'.format(i)
-    #     ordered_qty = int(self.cleaned_data.get('ordered_qty'))
-    #     shipped_qty = int(self.cleaned_data.get('shipped_qty'))
-    #     to_be_shipped_qty = int(self.cleaned_data.get('to_be_shipped_qty'))
-    #     #already_shipped_qty = int(self.cleaned_data.get('already_shipped_qty'))
-    #     max_qty_allowed = ordered_qty - to_be_shipped_qty
-    #     if max_qty_allowed < shipped_qty:
-    #         raise forms.ValidationError(
-    #             _('Max. Qty allowed: %s') % (max_qty_allowed),
-    #             )
-    #     else:
-    #         return shipped_qty
+    def clean_shipped_qty(self):
+
+        ordered_qty = int(self.cleaned_data.get('ordered_qty'))
+        shipped_qty = int(self.cleaned_data.get('shipped_qty'))
+        to_be_shipped_qty = int(self.cleaned_data.get('to_be_shipped_qty'))
+        #already_shipped_qty = int(self.cleaned_data.get('already_shipped_qty'))
+        max_qty_allowed = ordered_qty - to_be_shipped_qty
+        if max_qty_allowed < shipped_qty:
+            raise forms.ValidationError(
+                _('Max. Qty allowed: %s') % (max_qty_allowed),
+                )
+        else:
+            return shipped_qty
 
     def __init__(self, *args, **kwargs):
         super(OrderedProductMappingShipmentForm, self).__init__(*args, **kwargs)
