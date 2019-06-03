@@ -6,6 +6,7 @@ class OrderReports(models.Model):
     invoice_date = models.CharField(max_length=255, null=True)
     invoice_status = models.CharField(max_length=255, null=True)
     order_id = models.CharField(max_length=255, null=True)
+    seller_shop = models.CharField(max_length=255, null=True)
     order_status = models.CharField(max_length=255, null=True)
     order_date = models.CharField(max_length=255, null=True)
     order_by = models.CharField(max_length=255, null=True)
