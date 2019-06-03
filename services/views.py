@@ -8,7 +8,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.http import HttpResponse, Http404
 from django.conf import settings
-from retailer_to_sp.models import Order, OrderedProductMapping
+from retailer_to_sp.models import Order,OrderedProduct, OrderedProductMapping
 from shops.models import Shop, ParentRetailerMapping
 from django.db.models import Sum
 import json
