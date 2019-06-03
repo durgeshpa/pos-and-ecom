@@ -274,7 +274,10 @@ class ProductsPriceFilterForm(forms.Form):
 
 
 class ProductsFilterForm(forms.Form):
-    category = forms.ModelMultipleChoiceField(queryset=Category.objects.order_by('category_name'))
+    category = forms.ModelMultipleChoiceField(
+        # queryset=Category.objects.order_by('category_name'),
+        queryset=Category.objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:product-category-autocomplete',))
     brand = forms.ModelMultipleChoiceField(queryset=Brand.objects.none())
 
     def __init__(self, *args, **kwargs):
