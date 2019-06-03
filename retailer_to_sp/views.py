@@ -211,8 +211,7 @@ def ordered_product_mapping_shipment(request):
             .filter(
                 ordered_product__order_id=order_id,
                 product_id__in=[i['cart_product'] for i in cart_products]) \
-            .annotate(Sum('delivered_qty'), Sum('returned_qty'),
-                      Sum('shipped_qty'))
+            .annotate(Sum('delivered_qty'), Sum('shipped_qty'))
         products_list = []
         for item in cart_products:
             shipment_product = list(filter(lambda product: product['product'] == item['cart_product'],
@@ -220,11 +219,9 @@ def ordered_product_mapping_shipment(request):
             if shipment_product:
                 shipment_product_dict = shipment_product[0]
                 already_shipped_qty = shipment_product_dict.get('delivered_qty__sum')
-                returned_qty = shipment_product_dict.get('returned_qty__sum')
                 to_be_shipped_qty = shipment_product_dict.get('shipped_qty__sum')
-                to_be_shipped_qty = to_be_shipped_qty - returned_qty
                 ordered_no_pieces = item['no_of_pieces']
-                if ordered_no_pieces != to_be_shipped_qty + already_shipped_qty:
+                if ordered_no_pieces != to_be_shipped_qty:
                     products_list.append({
                         'product': item['cart_product'],
                         'product_name': item['cart_product__product_name'],
