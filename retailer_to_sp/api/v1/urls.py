@@ -4,13 +4,13 @@ from rest_framework import routers
 from .views import (ProductsList, GramGRNProductsList,AddToCart,CartDetail,
     ReservedOrder,CreateOrder,OrderList,OrderDetail,DownloadInvoiceSP,
     DownloadNote, CustomerCareApi, CustomerOrdersList,  PaymentApi, 
-    ProductDetail,ReleaseBlocking, OrderedProductViewSet, OrderedProductMappingView,
-)
+    ProductDetail,ReleaseBlocking) #, OrderedProductViewSet, OrderedProductMappingView,
+#)
 
 
 router = routers.DefaultRouter()
-router.register(r'ordered-product', OrderedProductViewSet)
-router.register(r'ordered-product-mapping', OrderedProductMappingView)
+# router.register(r'ordered-product', OrderedProductViewSet)
+# router.register(r'ordered-product-mapping', OrderedProductMappingView)
 
 
 urlpatterns = [
