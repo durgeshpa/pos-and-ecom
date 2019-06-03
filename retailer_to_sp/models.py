@@ -494,6 +494,13 @@ class OrderedProduct(models.Model): #Shipment
     WRONG_ORDER = 'wrong_order'
     ITEM_MISS_MATCH = 'item_miss_match'
     DAMAGED_ITEM = 'damaged_item'
+    LEFT_AT_WAREHOUSE = 'left_at_warehouse'
+    BEFORE_DELIVERY_CANCELLED = 'before_delivery_cancelled'
+    NEAR_EXPIRY = 'near_expiry'
+    RATE_ISSUE = 'rate_issue'
+    ALREADY_PURCHASED = 'already_purchased'
+    GST_ISSUE = 'gst_issue'
+
 
     RETURN_REASON = (
         (CASH_NOT_AVAILABLE, 'Cash not available'),
@@ -502,7 +509,13 @@ class OrderedProduct(models.Model): #Shipment
         (UNABLE_TO_ATTEMPT, 'Unable to attempt'),
         (WRONG_ORDER, 'Wrong Order'),
         (ITEM_MISS_MATCH, 'Item miss match'),
-        (DAMAGED_ITEM, 'Damaged item')
+        (DAMAGED_ITEM, 'Damaged item'),
+        (LEFT_AT_WAREHOUSE, 'Left at Warehouse'),
+        (BEFORE_DELIVERY_CANCELLED, 'Before Delivery Cancelled'),
+        (NEAR_EXPIRY, 'Near Expiry'),
+        (RATE_ISSUE, 'Rate issue'),
+        (ALREADY_PURCHASED, 'Already Purchased'),
+        (GST_ISSUE, 'GST Issue'),
     )
 
     order = models.ForeignKey(
