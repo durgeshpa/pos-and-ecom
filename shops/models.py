@@ -1,3 +1,5 @@
+import logging
+
 from django.db import models
 from django.contrib.auth import get_user_model
 #from django.conf import settings
@@ -11,6 +13,8 @@ from django.utils.translation import gettext_lazy as _
 from retailer_backend.validators import *
 import datetime
 from django.core.validators import MinLengthValidator
+
+logger = logging.getLogger(__name__)
 
 
 SHOP_TYPE_CHOICES = (
@@ -217,7 +221,8 @@ class ParentRetailerMapping(models.Model):
 
 @receiver(post_save, sender=ParentRetailerMapping)
 def shop_verification_notification1(sender, instance=None, created=False, **kwargs):
-
+    try:
+        logging.info("in post_save: ParentRetailerMapping")
         shop = instance.retailer
         username = shop.shop_owner.first_name if shop.shop_owner.first_name else shop.shop_owner.phone_number
         shop_title = str(shop.shop_name)
@@ -229,6 +234,7 @@ def shop_verification_notification1(sender, instance=None, created=False, **kwar
         data['shop_id'] = shop.id
 
         if created:
+            logging.info("created: ParentRetailerMapping")
 
             if shop.status == True:
                 username = shop.shop_owner.first_name if shop.shop_owner.first_name else shop.shop_owner.phone_number
@@ -247,10 +253,15 @@ def shop_verification_notification1(sender, instance=None, created=False, **kwar
                 # message.send()
 
         else:
+            logging.info("edited: ParentRetailerMapping")
+
             activity_type = "SHOP_CREATED"
 
             from notification_center.utils import SendNotification
-            SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()    
+            SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()
+    except Exception as e:
+        logging.error("error in post_save: shop verification")
+        logging.error(str(e))            
 
 
 class ShopAdjustmentFile(models.Model):
