@@ -42,6 +42,7 @@ class GRNReports(models.Model):
     po_status = models.CharField(max_length=255, null=True)
     vendor_name = models.CharField(max_length=255, null=True)
     vendor_id = models.CharField(max_length=255, null=True)
+    buyer_shop = models.CharField(max_length=255, null=True)
     shipping_address = models.CharField(max_length=255, null=True)
     category_manager = models.CharField(max_length=255, null=True)
     product_id = models.CharField(max_length=255, null=True)
