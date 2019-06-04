@@ -272,12 +272,36 @@ class ProductsPriceFilterForm(forms.Form):
             except (ValueError, TypeError):
                 pass  # invalid input from the client; ignore and fallback to empty City queryset
 
+class ProductPriceNewForm(forms.ModelForm):
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:product-price-autocomplete',)
+    )
+    shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['gf','sp']),
+    )
+
+    class Meta:
+        model = ProductPrice
+        fields = ('product','city','area','shop','price_to_service_partner','price_to_retailer','price_to_super_retailer','start_date','end_date','status')
+
 
 class ProductsFilterForm(forms.Form):
     category = forms.ModelMultipleChoiceField(
-        # queryset=Category.objects.order_by('category_name'),
+        queryset=Category.objects.order_by('category_name'),
+        )
+    # product = forms.ModelChoiceField(
+    #     queryset=Product.objects.all(),
+    #     #widget=autocomplete.ModelSelect2(url='admin:product-price-autocomplete',)
+    # )
+
+    category1 = forms.ModelChoiceField(
         queryset=Category.objects.all(),
-        widget=autocomplete.ModelSelect2(url='admin:product-category-autocomplete',))
+        #widget=autocomplete.ModelSelect2(url='admin:product-category-autocomplete',)
+        widget=autocomplete.ModelSelect2(
+            url='admin:product-category-autocomplete',
+        )
+    )
     brand = forms.ModelMultipleChoiceField(queryset=Brand.objects.none())
 
     def __init__(self, *args, **kwargs):
