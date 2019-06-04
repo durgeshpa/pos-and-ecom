@@ -958,26 +958,36 @@ class Payment(models.Model):
 def order_notification(sender, instance=None, created=False, **kwargs):
 
     if created:
-        if instance.order_id.ordered_by.first_name:
-            username = instance.order_id.ordered_by.first_name
-        else:
-            username = instance.order_id.ordered_by.phone_number
-        order_no = str(instance.order_id)
-        total_amount = str(instance.order_id.total_final_amount)
-        shop_name = str(instance.order_id.ordered_cart.buyer_shop.shop_name)
-        items_count = instance.order_id.ordered_cart.rt_cart_list.count()
         data = {}
-        data['username'] = username
-        data['phone_number'] = instance.order_id.ordered_by
-        data['order_no'] = order_no
-        data['items_count'] = items_count
-        data['total_amount'] = total_amount
-        data['shop_name'] = shop_name
+        data['username'] = "test"
+        data['phone_number'] = "9643112048" #instance.order_id.ordered_by.phone_number
 
         user_id = instance.order_id.ordered_by.id
         activity_type = "ORDER_RECEIVED"
         from notification_center.utils import SendNotification
         SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
+
+
+        # if instance.order_id.ordered_by.first_name:
+        #     username = instance.order_id.ordered_by.first_name
+        # else:
+        #     username = instance.order_id.ordered_by.phone_number
+        # order_no = str(instance.order_id)
+        # total_amount = str(instance.order_id.total_final_amount)
+        # shop_name = str(instance.order_id.ordered_cart.buyer_shop.shop_name)
+        # items_count = instance.order_id.ordered_cart.rt_cart_list.count()
+        # data = {}
+        # data['username'] = username
+        # data['phone_number'] = instance.order_id.ordered_by
+        # data['order_no'] = order_no
+        # data['items_count'] = items_count
+        # data['total_amount'] = total_amount
+        # data['shop_name'] = shop_name
+
+        # user_id = instance.order_id.ordered_by.id
+        # activity_type = "ORDER_RECEIVED"
+        # from notification_center.utils import SendNotification
+        # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
 
         # message = SendSms(phone=instance.order_id.ordered_by,
         #                   body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
