@@ -118,15 +118,13 @@
 
         <h1>Plan Shipment</h1>
         <div id="content-main">
-
-
+{% if formset|length != 0 and not messages %}
   <ul class="object-tools">
 
 
 
 <li>
-
-    <a id="update_button" href="#" class="historylink">Auto Fill No. of Pieces to Ship</a>
+<input type="button" id="update_button" value="AUTO FILL NO. OF PIECES TO SHIP">
 </li>
 
 
@@ -134,8 +132,16 @@
 
   </ul>
 
+ 
+ {% endif %}
 
 <form method="post" enctype="multipart/form-data">
+                    {% if messages %}
+<ul class="messagelist">
+    <li class="warning"><input style="background: #79aec800; color: #447e9b; padding: 0px;" type="button" id="reload_page" value="Please click here to refresh the page!"></li>
+</ul>
+            {% endif %}
+
 <div>
 
 
@@ -330,6 +336,13 @@ $('#update_button').click(function(){
     $('#id_form-'+row_no+'-shipped_qty').val(to_be_shipped_qty);
   });
 });
+
+
+$('#reload_page').click(function(){
+  var pageURL = $(location).attr("href");
+  location.replace(pageURL);
+});
+
 
 // $("input[id$='ordered_qty']").css('border', 'none');
 // $("input[id$='already_shipped_qty']").css('border', 'none');
