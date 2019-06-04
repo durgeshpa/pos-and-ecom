@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import User, UserDocument, AppVersion
+from .models import User, UserDocument, AppVersion, UserType
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.utils.translation import ugettext_lazy as _
 
@@ -40,3 +40,4 @@ class AppVersionAdmin(admin.ModelAdmin):
     list_display = ('app_version','update_recommended','force_update_required','created_at','modified_at')
 
 admin.site.register(AppVersion, AppVersionAdmin)
+admin.site.register(UserType)
