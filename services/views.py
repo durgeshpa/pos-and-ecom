@@ -312,9 +312,9 @@ class MasterReport(APIView):
             price_to_retailer = products.price_to_retailer
             product_gf_code = products.product.product_gf_code
             product_ean_code = products.product.product_ean_code
-            product_brand = products.product.product_brand
-            product_subbrand = ''
-            product_category = ''
+            product_brand = products.product.product_brand if products.product.product_brand.brand_parent == None else products.product.product_brand.brand_parent
+            product_subbrand = products.product.product_brand.brand_name if products.product.product_brand.brand_parent != None else ''
+            product_category = products.product.product_pro_category.last().category
             tax_gst_percentage = 0
             tax_cess_percentage = 0
             tax_surcharge_percentage = 0
