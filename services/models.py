@@ -73,6 +73,7 @@ class GRNReports(models.Model):
 
 class MasterReports(models.Model):
     product = models.CharField(max_length=255, null=True)
+    service_partner = models.CharField(max_length=255, null=True)
     mrp = models.CharField(max_length=255, null=True)
     price_to_retailer = models.CharField(max_length=255, null=True)
     product_gf_code = models.CharField(max_length=255, null=True)

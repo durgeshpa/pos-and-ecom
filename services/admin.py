@@ -12,6 +12,6 @@ class GRNReportsAdmin(admin.ModelAdmin):
 admin.site.register(GRNReports, GRNReportsAdmin)
 
 class MasterReportsAdmin(admin.ModelAdmin):
-    list_display = ('product', 'mrp', 'price_to_retailer', 'product_gf_code',  'product_brand', 'product_subbrand', 'product_category', 'tax_gst_percentage', 'tax_cess_percentage', 'tax_surcharge_percentage', 'pack_size', 'case_size', 'hsn_code', 'product_id', 'sku_code', 'short_description', 'long_description')
+    list_display = ('product', 'service_partner', 'mrp', 'price_to_retailer', 'product_gf_code',  'product_brand', 'product_subbrand', 'product_category', 'tax_gst_percentage', 'tax_cess_percentage', 'tax_surcharge_percentage', 'pack_size', 'case_size', 'hsn_code', 'product_id', 'sku_code', 'short_description', 'long_description')
 
 admin.site.register(MasterReports, MasterReportsAdmin)

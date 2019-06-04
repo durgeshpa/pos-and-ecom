@@ -324,6 +324,7 @@ class MasterReport(APIView):
                     tax_cess_percentage = tax.tax.tax_percentage
                 elif tax.tax.tax_type == 'surcharge':
                     tax_surcharge_percentage = tax.tax.tax_percentage
+            service_partner = products.shop
             pack_size = products.product.product_inner_case_size
             case_size = products.product.product_case_size
             hsn_code = products.product.product_hsn
@@ -331,9 +332,9 @@ class MasterReport(APIView):
             sku_code = products.product.product_sku
             short_description = products.product.product_short_description
             long_description = products.product.product_long_description
-            MasterReports.objects.using('gfanalytics').create(product = product, mrp = mrp, price_to_retailer = price_to_retailer, product_gf_code = product_gf_code,  product_brand = product_brand, product_subbrand = product_subbrand, product_category = product_category, tax_gst_percentage = tax_gst_percentage, tax_cess_percentage = tax_cess_percentage, tax_surcharge_percentage = tax_surcharge_percentage, pack_size = pack_size, case_size = case_size, hsn_code = hsn_code, product_id = product_id, sku_code = sku_code,  short_description = short_description, long_description = long_description)
+            MasterReports.objects.using('gfanalytics').create(product = product, service_partner = service_partner, mrp = mrp, price_to_retailer = price_to_retailer, product_gf_code = product_gf_code,  product_brand = product_brand, product_subbrand = product_subbrand, product_category = product_category, tax_gst_percentage = tax_gst_percentage, tax_cess_percentage = tax_cess_percentage, tax_surcharge_percentage = tax_surcharge_percentage, pack_size = pack_size, case_size = case_size, hsn_code = hsn_code, product_id = product_id, sku_code = sku_code,  short_description = short_description, long_description = long_description)
 
-            products_list[i] = {'product':product, 'mrp':mrp, 'price_to_retailer':price_to_retailer, 'product_gf_code':product_gf_code, 'product_brand':product_brand, 'product_subbrand':product_subbrand, 'product_category':product_category, 'tax_gst_percentage':tax_gst_percentage, 'tax_cess_percentage':tax_cess_percentage, 'tax_surcharge_percentage':tax_surcharge_percentage, 'pack_size':pack_size, 'case_size':case_size, 'hsn_code':hsn_code, 'product_id':product_id, 'sku_code':sku_code, 'short_description':short_description, 'long_description':long_description}
+            products_list[i] = {'product':product, 'service_partner':service_partner, 'mrp':mrp, 'price_to_retailer':price_to_retailer, 'product_gf_code':product_gf_code, 'product_brand':product_brand, 'product_subbrand':product_subbrand, 'product_category':product_category, 'tax_gst_percentage':tax_gst_percentage, 'tax_cess_percentage':tax_cess_percentage, 'tax_surcharge_percentage':tax_surcharge_percentage, 'pack_size':pack_size, 'case_size':case_size, 'hsn_code':hsn_code, 'product_id':product_id, 'sku_code':sku_code, 'short_description':short_description, 'long_description':long_description}
         data = products_list
         return data
 
@@ -346,9 +347,9 @@ class MasterReport(APIView):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="master-report.csv"'
         writer = csv.writer(response)
-        writer.writerow(['S.No', 'Product Name', 'MRP', 'PTR', 'GF Code', 'Brand', 'Subbrand', 'Category', 'GST %', 'CESS %', 'Surcharge %', 'Pack Size', 'Case Size', 'HSN', 'Product ID', 'SKU Code', 'Short Desc.', 'Long Desc.'])
+        writer.writerow(['S.No', 'Product Name', 'Service Partner', 'MRP', 'PTR', 'GF Code', 'Brand', 'Subbrand', 'Category', 'GST %', 'CESS %', 'Surcharge %', 'Pack Size', 'Case Size', 'HSN', 'Product ID', 'SKU Code', 'Short Desc.', 'Long Desc.'])
         for k,v in data.items():
-            writer.writerow([k, v['product'], v['mrp'], v['price_to_retailer'], v['product_gf_code'], v['product_brand'], v['product_subbrand'], v['product_category'], v['tax_gst_percentage'], v['tax_cess_percentage'], v['tax_surcharge_percentage'], v['pack_size'], v['case_size'], v['hsn_code'],  v['product_id'], v['sku_code'], v['short_description'], v['long_description']])
+            writer.writerow([k, v['product'], v['service_partner'], v['mrp'], v['price_to_retailer'], v['product_gf_code'], v['product_brand'], v['product_subbrand'], v['product_category'], v['tax_gst_percentage'], v['tax_cess_percentage'], v['tax_surcharge_percentage'], v['pack_size'], v['case_size'], v['hsn_code'],  v['product_id'], v['sku_code'], v['short_description'], v['long_description']])
 
         return response
 
