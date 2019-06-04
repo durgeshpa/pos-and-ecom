@@ -124,10 +124,10 @@
 
 
 
-<!--<li>-->
+<li>
 
-    <!--<a href="/admin/retailer_to_sp/orderedproduct/119/history/" class="historylink">History</a>-->
-<!--</li>-->
+    <a id="update_button" href="#" class="historylink">Auto Fill No. of Pieces to Ship</a>
+</li>
 
 
 
@@ -168,6 +168,8 @@
             {% endif %}
 {{ordered_form.management_form}}
   {{ordered_form.as_p}}
+
+
 
 
 
@@ -318,6 +320,17 @@
 <script src='https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/js/select2.min.js'></script>
 <script>
 $(document).ready(function(){
+
+$('#update_button').click(function(){
+  $("input[id$='product_name']").each(function() {
+    var row_no = $(this).attr('id').match(/\d+/);
+    var ordered_qty = $('#id_form-'+row_no+'-ordered_qty').val();
+    var already_shipped_qty = $('#id_form-'+row_no+'-to_be_shipped_qty').val();
+    var to_be_shipped_qty = ordered_qty - already_shipped_qty
+    $('#id_form-'+row_no+'-shipped_qty').val(to_be_shipped_qty);
+  });
+});
+
 // $("input[id$='ordered_qty']").css('border', 'none');
 // $("input[id$='already_shipped_qty']").css('border', 'none');
 //   $("input[id$='to_be_shipped_qty']").css('border', 'none');
