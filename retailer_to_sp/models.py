@@ -378,12 +378,13 @@ class Order(models.Model):
     #     return order_delivered_value(self.shipments())
 
 
-@receiver(post_save, sender=Order)
-def create_order_id(sender, instance=None, created=False, **kwargs):
-    if created:
-        shop = Shop.objects.get(id=instance.buyer_shop.id)
-        shop.last_order_at = datetime.datetime.now()
-        shop.save() 
+# @receiver(post_save, sender=Order)
+# def create_order_id(sender, instance=None, created=False, **kwargs):
+#     if created:
+#         cart = Cart.objects.get(order_id=instance.id)
+#         buyer_shop = cart.buyer_shop
+#         buyer_shop.last_order_at = datetime.datetime.now()
+#         buyer_shop.save()
 
 
 class Trip(models.Model):
