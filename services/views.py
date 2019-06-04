@@ -224,7 +224,7 @@ class GRNReport(APIView):
                     gram_to_brand_price = grns.grn_order_grn_order_product.filter(product = products.product).last().po_product_price
                     #product_value_tax_included = products.product.product_pro_price.get(status=True, shop = buyer_shop).price_to_retailer
                     if products.product.product_pro_tax.filter(tax__tax_type ='gst').exists():
-                        product_gst = products.product.product_pro_tax.get(tax__tax_type ='gst')
+                        product_gst = products.product.product_pro_tax.filter(tax__tax_type ='gst').last()
                     if order.ordered_cart.supplier_state == order.ordered_cart.gf_shipping_address.state:
                         product_cgst = (float(product_gst.tax.tax_percentage)/2.0)
                         product_sgst = (float(product_gst.tax.tax_percentage)/2.0)
@@ -234,7 +234,7 @@ class GRNReport(APIView):
                         product_sgst = ''
                         product_igst = (float(product_gst.tax.tax_percentage))
                     if products.product.product_pro_tax.filter(tax__tax_type ='cess').exists():
-                        product_cess = products.product.product_pro_tax.get(tax__tax_type ='cess').tax.tax_percentage
+                        product_cess = products.product.product_pro_tax.filter(tax__tax_type ='cess').last().tax.tax_percentage
                     else:
                         product_cess = ''
                     po_no = order.order_no
