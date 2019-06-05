@@ -1,5 +1,6 @@
 (function($) {
     $(document).ready(function() {
+      if (!$('#id_close_order').is(':disabled')) {
         $("input[type='submit']").on("click", function(e){
             e.preventDefault();
             swal({
@@ -29,6 +30,7 @@
               }
             });
         });
+      }
 	$('#id_close_order').on('change', function(){
    			if(this.checked) {
         		swal({

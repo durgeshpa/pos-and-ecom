@@ -648,14 +648,24 @@ def update_order_status(form):
 
     elif (sum(total_returned_qty) == sum(total_shipped_qty) or
           (sum(total_damaged_qty) + sum(total_returned_qty)) == sum(total_shipped_qty)):
-        order.order_status = 'DENIED'
+        if order.order_closed:
+            order.order_status = Order.DENIED_AND_CLOSED
+        else:
+            order.order_status = 'DENIED'
 
     elif (sum(total_delivered_qty) == 0 and sum(total_shipped_qty) > 0 and
             sum(total_returned_qty) == 0 and sum(total_damaged_qty) == 0):
         order.order_status = 'DISPATCH_PENDING'
 
     elif (ordered_qty - sum(total_delivered_qty)) > 0 and sum(total_delivered_qty) > 0:
-        order.order_status = 'PARTIALLY_SHIPPED'
+        if order.order_closed:
+            order.order_status = Order.PARTIALLY_SHIPPED_AND_CLOSED
+        else:
+            order.order_status = 'PARTIALLY_SHIPPED'
+
+    if not order.order_closed and form.cleaned_data.get('close_order'):
+        order.order_closed = True
+
     order.save()
 
 class SellerShopAutocomplete(autocomplete.Select2QuerySetView):
@@ -733,18 +743,18 @@ class UpdateSpQuantity(object):
             cart=cart, product=product,
             reserved_qty__gt=0).order_by('reserved_qty')
 
-    def get_shipment_status(self):
-        shipment_status = self.shipment.instance.shipment_status
-        return shipment_status
+    # def get_shipment_status(self):
+    #     shipment_status = self.shipment.instance.shipment_status
+    #     return shipment_status
 
-    def close_order(self):
-        status = self.shipment.cleaned_data.get('close_order')
-        return status
+    # def close_order(self):
+    #     status = self.shipment.cleaned_data.get('close_order')
+    #     return status
 
-    def update_order_status(self):
-        self.shipment.instance.order.order_status = self.shipment.instance.\
-            order.PARTIALLY_SHIPPED_AND_CLOSED
-        self.shipment.instance.order.save()
+    # def update_order_status(self):
+    #     self.shipment.instance.order.order_status = self.shipment.instance.\
+    #         order.PARTIALLY_SHIPPED_AND_CLOSED
+    #     self.shipment.instance.order.save()
 
     def update_available_qty(self, product):
         ordered_products_reserved = self.get_sp_ordered_product_reserved(
@@ -760,12 +770,12 @@ class UpdateSpQuantity(object):
         for inline_form in self.shipment_products:
             for form in inline_form:
                 product = form.instance.product
-                if (
-                    self.close_order() and
-                    (self.get_shipment_status() !=
-                     self.shipment.instance.CLOSED)):
-                    self.update_order_status()
-                    self.update_available_qty(product)
+                # if (
+                #     self.close_order() and
+                #     (self.get_shipment_status() !=
+                #      self.shipment.instance.CLOSED)):
+                #     self.update_order_status()
+                self.update_available_qty(product)
 
 class DownloadTripPdf(APIView):
     permission_classes = (AllowAny,)

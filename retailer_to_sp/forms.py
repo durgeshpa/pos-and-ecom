@@ -95,7 +95,8 @@ class ReturnProductMappingForm(forms.ModelForm):
 class OrderedProductForm(forms.ModelForm):
     order = forms.ModelChoiceField(queryset=Order.objects.filter(
         order_status__in=[Order.OPDP, 'ordered',
-                          'PARTIALLY_SHIPPED', 'DISPATCH_PENDING']),
+                          'PARTIALLY_SHIPPED', 'DISPATCH_PENDING'],
+        order_closed=False),
         required=True)
 
     class Meta:
@@ -387,8 +388,8 @@ class ShipmentForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(ShipmentForm, self).__init__(*args, **kwargs)
-        instance = getattr(self, 'instance', None)
-        ordered_product = instance
+        ordered_product = getattr(self, 'instance', None)
+        #import pdb; pdb.set_trace()
         SHIPMENT_STATUS = OrderedProduct.SHIPMENT_STATUS
         if ordered_product:
             shipment_status = ordered_product.shipment_status
@@ -398,6 +399,10 @@ class ShipmentForm(forms.ModelForm):
                 self.fields['shipment_status'].disabled = True
             elif shipment_status == 'CANCELLED':
                 self.fields['shipment_status'].disabled = True
+            if ordered_product.order.order_closed:
+                setattr(self.fields['close_order'], 'initial', True)
+                setattr(self.fields['close_order'], 'disabled', True)
+
         else:
             self.fields['shipment_status'].choices = SHIPMENT_STATUS[:1]
 
