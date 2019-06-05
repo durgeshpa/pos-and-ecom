@@ -61,15 +61,6 @@ class UserManager(BaseUserManager):
 
         return self._create_user(phone_number, password, **extra_fields)
 
-class UserType(models.Model):
-    user_type = models.CharField(max_length=255)
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
-    status = models.BooleanField(default=True)
-
-    def __str__(self):
-        return self.user_type
-
 class User(AbstractUser):
     """User model."""
     username = None
@@ -77,8 +68,7 @@ class User(AbstractUser):
     phone_number = models.CharField(validators=[phone_regex], max_length=10, blank=False, unique=True)
     email = models.EmailField(_('email address'),blank=True)
     user_photo = models.ImageField(upload_to='user_photos/', null=True, blank=True)
-    #user_type = models.PositiveSmallIntegerField(choices=USER_TYPE_CHOICES, default = '6', null=True)
-    user_type = models.ForeignKey(UserType,null=True,blank=True,on_delete=models.SET_NULL)
+    user_type = models.PositiveSmallIntegerField(choices=USER_TYPE_CHOICES, default = '6', null=True)
     imei_no = models.CharField(max_length=20,null=True,blank=True)
 
     USERNAME_FIELD = 'phone_number'

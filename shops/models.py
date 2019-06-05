@@ -115,6 +115,7 @@ class Shop(models.Model):
         permissions = (
             ("can_see_all_shops", "Can See All Shops"),
             ("can_do_reconciliation", "Can Do Reconciliation"),
+            ("can_sales_person_add_shop", "Can Sales Person Add Shop"),
         )
 
 class ShopNameDisplay(Shop):
