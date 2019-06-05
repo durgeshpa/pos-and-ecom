@@ -373,6 +373,10 @@ class Order(models.Model):
     def damaged_amount(self):
         return order_damaged_amount(self.shipments())
 
+    @property
+    def pincode(self):
+        return self.shipping_address.pincode if self.shipping_address else '-'
+
     # @property
     # def delivered_value(self):
     #     return order_delivered_value(self.shipments())

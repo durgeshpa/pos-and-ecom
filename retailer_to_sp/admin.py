@@ -363,7 +363,7 @@ class CartAdmin(admin.ModelAdmin):
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
-        list_display = ['order_no', 'seller_shop', 'buyer_shop', 'total_final_amount',
+        list_display = ['order_no', 'seller_shop', 'buyer_shop', 'pincode', 'total_final_amount',
                         'order_status', 'created_at', 'payment_mode', 'paid_amount',
                         'total_paid_amount', 'shipment_status', 'order_shipment_amount', 'order_shipment_details']
         field_names = [field.name for field in meta.fields if field.name in list_display]
@@ -372,7 +372,8 @@ class ExportCsvMixin:
         writer = csv.writer(response)
         writer.writerow(list_display)
         for obj in queryset:
-            row = writer.writerow([getattr(obj, field) for field in list_display])
+            row = writer.writerow([getattr(obj, field).replace('<br>', '\n') if field in ['shipment_status','order_shipment_amount',
+                                                            'order_shipment_details'] else getattr(obj, field) for field in list_display])
         return response
     export_as_csv.short_description = "Download CSV of Selected Orders"
 
@@ -417,12 +418,21 @@ class ProductNameFilter(InputFilter):
             return queryset.filter(ordered_cart__rt_cart_list__cart_product__product_name=value)
         return queryset
 
+class Pincode(InputFilter):
+    title = 'Pincode'
+    parameter_name = 'pincode'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value :
+            return queryset.filter(shipping_address__pincode=value)
+        return queryset
 from django.contrib.admin.views.main import ChangeList
 
 class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     actions = ["export_as_csv"]
     resource_class = OrderResource
-    search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name','order_status',)
+    search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name','order_status')
     form = OrderForm
     fieldsets = (
         (_('Shop Details'), {
@@ -440,7 +450,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         )
     list_display = (
                     'order_no', 'download_pick_list', 'seller_shop', 'buyer_shop',
-                    'total_final_amount', 'order_status', 'created_at',
+                    'pincode','total_final_amount', 'order_status', 'created_at',
                     'payment_mode','picking_status','picker_name',
                     'invoice_no', 'shipment_date', 'invoice_amount', 'shipment_status',
                     'delivery_date', 'cn_amount', 'cash_collected',
@@ -450,7 +460,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
                         'invoice_no', 'shipment_status')
     list_filter = [SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
-        ('created_at', DateTimeRangeFilter), ('total_final_amount', SliderNumericFilter)]
+        ('created_at', DateTimeRangeFilter), ('total_final_amount', SliderNumericFilter), Pincode]
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
