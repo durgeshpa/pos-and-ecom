@@ -104,6 +104,18 @@ class OrderFilter(InputFilter):
             )
 
 
+class PhoneNumberFilter(InputFilter):
+    parameter_name = 'phone_number'
+    title = 'Phone Number'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            phone_number = self.value()
+            return queryset.filter(
+                Q(buyer_shop__shop_owner__phone_number=phone_number)
+            )
+
+
 class NameSearch(InputFilter):
     parameter_name = 'name'
     title = 'Name'
@@ -459,7 +471,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
                         'invoice_no', 'shipment_status')
-    list_filter = [SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
+    list_filter = [PhoneNumberFilter,SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
         ('created_at', DateTimeRangeFilter), ('total_final_amount', SliderNumericFilter), Pincode]
 
     def get_queryset(self, request):
