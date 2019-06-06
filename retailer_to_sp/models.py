@@ -55,6 +55,7 @@ NOTE_TYPE_CHOICES = (
 PAYMENT_MODE_CHOICES = (
     ("cash_on_delivery", "Cash On Delivery"),
     ("neft", "NEFT"),
+    ("credit", "credit")
 )
 
 MESSAGE_STATUS = (
