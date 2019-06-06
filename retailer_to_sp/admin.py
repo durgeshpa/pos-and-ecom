@@ -581,8 +581,8 @@ class OrderedProductAdmin(admin.ModelAdmin):
         elif ('OrderedProductMappingFormFormSet' in formsets_dict and formsets_dict['OrderedProductMappingFormFormSet'].has_changed() and
             form.changed_data):
             update_shipment_status(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
-            update_order_status(form)
             create_credit_note(form)
+        update_order_status(form)
         super(OrderedProductAdmin, self).save_related(request, form, formsets, change)
 
 
@@ -728,7 +728,6 @@ class ShipmentAdmin(admin.ModelAdmin):
         return str(city)
 
     def save_related(self, request, form, formsets, change):
-        super(ShipmentAdmin, self).save_related(request, form, formsets, change)
         #update_shipment_status(form, formsets)
         update_order_status(form)
 
@@ -738,6 +737,8 @@ class ShipmentAdmin(admin.ModelAdmin):
 
             update_quantity = UpdateSpQuantity(form, formsets)
             update_quantity.update()
+        super(ShipmentAdmin, self).save_related(request, form, formsets, change)
+
 
     def get_queryset(self, request):
         qs = super(ShipmentAdmin, self).get_queryset(request)

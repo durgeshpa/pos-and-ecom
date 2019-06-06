@@ -396,8 +396,10 @@ class ShipmentForm(forms.ModelForm):
             if shipment_status == 'SHIPMENT_CREATED':
                 self.fields['shipment_status'].choices = SHIPMENT_STATUS[:2]
             elif shipment_status == 'READY_TO_SHIP':
+                setattr(self.fields['close_order'], 'disabled', True)
                 self.fields['shipment_status'].disabled = True
             elif shipment_status == 'CANCELLED':
+                setattr(self.fields['close_order'], 'disabled', True)
                 self.fields['shipment_status'].disabled = True
             if ordered_product.order.order_closed:
                 setattr(self.fields['close_order'], 'initial', True)
