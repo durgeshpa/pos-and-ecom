@@ -597,5 +597,5 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
 class FeedBackSerializer(serializers.ModelSerializer):
     class Meta:
         model = Feedback
-        fields = ('user','shipment','delivery_experience','overall_product_packaging','comment')
-        extra_kwargs = {'shipment': {'required': True}}
+        fields = ('user', 'shipment', 'delivery_experience', 'overall_product_packaging', 'comment', 'status')
+        extra_kwargs = {'status': {'required': True}}

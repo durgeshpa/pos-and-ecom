@@ -953,7 +953,7 @@ class ReturnAdmin(admin.ModelAdmin):
     download_credit_note.short_description = 'Download Credit Note'
 
 class FeedbackAdmin(admin.ModelAdmin):
-    list_display = ('user', 'shipment', 'delivery_experience', 'overall_product_packaging', 'comment')
+    list_display = ('user', 'shipment', 'delivery_experience', 'overall_product_packaging', 'comment', 'created_at', 'status')
 
 # admin.site.register(Return, ReturnAdmin)
 admin.site.register(Cart, CartAdmin)

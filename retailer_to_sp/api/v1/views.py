@@ -1108,7 +1108,7 @@ class FeedbackData(generics.ListCreateAPIView):
                 can_comment = True
             msg = {'is_success': True, 'can_comment':can_comment, 'message': None, 'response_data': serializer.data}
         else:
-            msg = {'is_success': False, 'message': ['Shipment id not found'], 'response_data': None}
+            msg = {'is_success': False, 'message': ['shipment_id, user_id or status not found or value exists'], 'response_data': None}
         return Response(msg, status=status.HTTP_200_OK)
 
     def perform_create(self, serializer):
@@ -1118,8 +1118,5 @@ class FeedbackData(generics.ListCreateAPIView):
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
-        msg = {'is_success': True,
-                'message': ["%s objects found" % (10)],
-                'response_data': serializer.data}
-        return Response(msg,
-                        status=status.HTTP_200_OK)
+        msg = {'is_success': True, 'message': [""], 'response_data': serializer.data}
+        return Response(msg, status=status.HTTP_200_OK)
