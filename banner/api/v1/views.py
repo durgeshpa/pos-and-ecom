@@ -63,10 +63,10 @@ class GetSlotBannerListView(APIView):
             '''
                 Can Fill Feedback Code Start
             '''
-            order_product = OrderedProduct.objects.filter(order__buyer_shop__shop_owner=self.request.user)
+            order_product = OrderedProduct.objects.filter(order__buyer_shop__shop_owner=self.request.user).order_by('created_at')
             shipment_id, can_write_feedback = '', False
 
-            if order_product.exists() and (not Feedback.objects.filter(user=self.request.user,shipment=order_product.last()).exists()):
+            if order_product.exists() and (not order_product.shipment_feedback):
                 shipment_id= order_product.last().id
                 can_write_feedback = True
 
