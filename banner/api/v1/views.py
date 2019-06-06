@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from .serializers import BannerSerializer, BannerPositionSerializer, BannerSlotSerializer, BannerDataSerializer, BrandSerializer
 from banner.models import Banner, BannerPosition,BannerData, BannerSlot,Page
+from retailer_to_sp.models import OrderedProduct, Feedback
 from rest_framework import viewsets
 from rest_framework.decorators import list_route
 import datetime
@@ -59,7 +60,17 @@ class GetSlotBannerListView(APIView):
                 message = "" if is_success else "Banners are currently not available"
                 serializer = BannerDataSerializer(data,many=True)
 
-            return Response({"message":[message], "response_data": serializer.data ,"is_success": is_success})
+            '''
+                Can Fill Feedback Code Start
+            '''
+            order_product = OrderedProduct.objects.filter(order__buyer_shop__shop_owner=self.request.user)
+            shipment_id, can_write_feedback = '', False
+
+            if order_product.exists() and not Feedback.objects.filter(user=self.request.user,shipment=order_product.last()).exists():
+                shipment_id= order_product.last().id
+                can_write_feedback = True
+
+            return Response({"message":[message], "response_data": serializer.data ,"is_success": is_success,"shipment_id": shipment_id, "can_write_feedback": can_write_feedback})
 
         else:
             data = BannerData.objects.filter(banner_data__status=True, slot__page__name=position_name,slot__bannerslot__name=pos_name, slot__shop=None).filter(Q(banner_data__banner_start_date__isnull=True) | Q(banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate))
@@ -75,8 +86,7 @@ class GetSlotBannerListView(APIView):
             is_success = True if data else False
             message = "" if is_success else "Banners are currently not available"
             serializer = BannerDataSerializer(data,many=True)
-
-            return Response({"message":[message], "response_data": serializer.data ,"is_success": is_success})
+            return Response({"message":[message], "response_data": serializer.data ,"is_success": is_success, "shipment_id": "", "can_write_feedback": ""})
 
 
 '''class GetAllBannerListView(ListCreateAPIView):
