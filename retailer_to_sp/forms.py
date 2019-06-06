@@ -548,7 +548,7 @@ class OrderedProductReschedule(forms.ModelForm):
                     % product
                 return_qty += int(self.data.get(return_field))
                 damaged_qty += int(self.data.get(damaged_field))
-            if (int(self.data.get(return_field)) or int(self.data.get(damaged_field))) and not return_reason:
+            if (return_qty or damaged_qty) and not return_reason:
                 raise forms.ValidationError(_('This field is required'),)
             elif (not return_qty and not damaged_qty) and return_reason:
                 raise forms.ValidationError(
