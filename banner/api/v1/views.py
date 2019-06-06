@@ -66,7 +66,7 @@ class GetSlotBannerListView(APIView):
             order_product = OrderedProduct.objects.filter(order__buyer_shop__shop_owner=self.request.user)
             shipment_id, can_write_feedback = '', False
 
-            if order_product.exists() and not Feedback.objects.filter(user=self.request.user,shipment=order_product.last()).exists():
+            if order_product.exists() and (not Feedback.objects.filter(user=self.request.user,shipment=order_product.last()).exists()):
                 shipment_id= order_product.last().id
                 can_write_feedback = True
 
