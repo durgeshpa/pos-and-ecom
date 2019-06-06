@@ -50,27 +50,10 @@ class ProductSerializer(serializers.ModelSerializer):
             )
 
 
-class OrderedProductMappingSerializer(serializers.ModelSerializer):
-    # This serializer is used to fetch the products for a shipment
-    product = ProductSerializer()
-    product_price = serializers.SerializerMethodField()
-    
-    def get_product_price(self, obj):
-        # fetch product , order_id
-        cart_product_mapping = CartProductMapping.objects.get(cart_product=obj.product, cart=obj.ordered_product.order.ordered_cart)
-        self.product_price = cart_product_mapping.cart_product_price.price_to_retailer
-        return self.product_price
-
-    class Meta:
-        model = OrderedProductMapping
-        fields = ('id', 'shipped_qty', 'product', 'product_price')
-
-
 class ReadOrderedProductSerializer(serializers.ModelSerializer):
     shop_owner_name = serializers.SerializerMethodField()
     shop_owner_number = serializers.SerializerMethodField()   
     order_created_date = serializers.SerializerMethodField()
-    ordered_product_mapping = OrderedProductMappingSerializer()
 
     def get_shop_owner_number(self, obj):
         shop_owner_number = obj.order.buyer_shop.shop_owner.phone_number
@@ -88,7 +71,24 @@ class ReadOrderedProductSerializer(serializers.ModelSerializer):
         model = OrderedProduct
         fields = ('id','invoice_no','shipment_status','invoice_amount',
             'payment_mode', 'shipment_address', 'shop_owner_name', 'shop_owner_number',
-            'order_created_date', 'ordered_product_mapping')
+            'order_created_date')
+
+
+class OrderedProductMappingSerializer(serializers.ModelSerializer):
+    # This serializer is used to fetch the products for a shipment
+    product = ProductSerializer()
+    product_price = serializers.SerializerMethodField()
+    #ordered_product = ReadOrderedProductSerializer()
+    
+    def get_product_price(self, obj):
+        # fetch product , order_id
+        cart_product_mapping = CartProductMapping.objects.get(cart_product=obj.product, cart=obj.ordered_product.order.ordered_cart)
+        self.product_price = cart_product_mapping.cart_product_price.price_to_retailer
+        return self.product_price
+
+    class Meta:
+        model = OrderedProductMapping
+        fields = ('id', 'shipped_qty', 'product', 'product_price') #, 'ordered_product')
 
 
 class TaxSerializer(serializers.ModelSerializer):

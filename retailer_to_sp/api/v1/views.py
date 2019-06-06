@@ -108,6 +108,14 @@ class OrderedProductMappingView(viewsets.ModelViewSet):
             return serializer_action_classes.get(self.action, self.serializer_class)
         return self.serializer_class
 
+    def get_queryset(self):
+        ordered_product = self.request.query_params.get('ordered_product', None)
+        ordered_product_mapping = OrderedProductMapping.objects.all()       
+        if ordered_product is not None:
+            ordered_product_mapping = ordered_product_mapping.filter(
+                ordered_product=ordered_product
+                )
+        return ordered_product_mapping
 
 
 class ProductsList(generics.ListCreateAPIView):
