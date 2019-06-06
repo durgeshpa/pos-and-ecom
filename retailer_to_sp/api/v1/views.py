@@ -741,8 +741,10 @@ class DownloadInvoiceSP(APIView):
         pk=self.kwargs.get('pk')
         a = OrderedProduct.objects.get(pk=pk)
         shop=a
+        payment_type=''
         products = a.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0)
-        payment_type = a.order.rt_payment.last().payment_choice
+        if a.order.rt_payment.filter(order_id=a.order).exists():
+            payment_type = a.order.rt_payment.last().payment_choice
         order_id= a.order.order_no
 
         sum_qty = 0
