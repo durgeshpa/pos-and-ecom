@@ -8,6 +8,7 @@ from wkhtmltopdf.views import PDFTemplateResponse
 from django.shortcuts import get_object_or_404, get_list_or_404
 from django.utils import timezone
 from django.contrib.postgres.search import SearchVector
+from django_filters import rest_framework as filters
 
 from rest_framework import generics
 from rest_framework import permissions, authentication
@@ -50,6 +51,8 @@ from retailer_backend.messages import ERROR_MESSAGES
 from retailer_to_sp.tasks import (
     ordered_product_available_qty_update, release_blocking, create_reserved_order
 )
+from .filters import OrderedProductMappingFilter
+
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +91,8 @@ class OrderedProductMappingView(viewsets.ModelViewSet):
     model = OrderedProductMapping
     serializer_class = OrderedProductMappingSerializer    
     queryset = OrderedProductMapping.objects.all()
+    filter_backends = (filters.DjangoFilterBackend,)
+    filter_class = OrderedProductMappingFilter
 
     def get_serializer_class(self):
         '''
