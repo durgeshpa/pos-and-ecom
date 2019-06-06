@@ -8,7 +8,7 @@ from wkhtmltopdf.views import PDFTemplateResponse
 from django.shortcuts import get_object_or_404, get_list_or_404
 from django.utils import timezone
 from django.contrib.postgres.search import SearchVector
-#from django_filters import rest_framework as filters
+from django_filters import rest_framework as filters
 
 from rest_framework import generics
 from rest_framework import permissions, authentication
@@ -51,7 +51,7 @@ from retailer_backend.messages import ERROR_MESSAGES
 from retailer_to_sp.tasks import (
     ordered_product_available_qty_update, release_blocking, create_reserved_order
 )
-#from .filters import OrderedProductMappingFilter
+from .filters import OrderedProductMappingFilter, OrderedProductFilter
 
 
 logger = logging.getLogger(__name__)
@@ -65,8 +65,11 @@ class OrderedProductViewSet(viewsets.ModelViewSet):
     '''
     permission_classes = (AllowAny,)
     model = OrderedProduct
-    serializer_class = OrderedProductSerializer
     queryset = OrderedProduct.objects.all()
+    serializer_class = OrderedProductSerializer    
+    # filter_backends = (filters.DjangoFilterBackend,)
+    # filter_class = OrderedProductFilter
+
 
     def get_serializer_class(self):
         '''
@@ -81,6 +84,15 @@ class OrderedProductViewSet(viewsets.ModelViewSet):
         if hasattr(self, 'action'):
             return serializer_action_classes.get(self.action, self.serializer_class)
         return self.serializer_class
+
+    def get_queryset(self):
+        shipment_id = self.request.query_params.get('shipment_id', None)
+        ordered_product = OrderedProduct.objects.all()       
+        if shipment_id is not None:
+            ordered_product = ordered_product.filter(
+                id=shipment_id
+                )
+        return ordered_product    
 
 
 class OrderedProductMappingView(viewsets.ModelViewSet):
