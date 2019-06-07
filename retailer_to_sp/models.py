@@ -177,11 +177,11 @@ class CartProductMapping(models.Model):
 
     @property
     def product_case_size(self):
-        return self.product_case_size.product_case_size
+        return self.cart_product.product_case_size.product_case_size
 
     @property
     def product_inner_case_size(self):
-        return self.product_case_size.product_inner_case_size
+        return self.cart_product.product_inner_case_size
 
     def set_cart_product_price(self, shop):
         self.cart_product_price = self.cart_product.get_current_shop_price(shop)
