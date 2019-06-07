@@ -568,23 +568,33 @@ class OrderedProductAdmin(admin.ModelAdmin):
         return qs.filter(
             Q(order__seller_shop__related_users=request.user) |
             Q(order__seller_shop__shop_owner=request.user)
-                )
+        )
 
     def save_related(self, request, form, formsets, change):
         form_instance = getattr(form, 'instance', None)
-        formsets_dict = {}
-        for formset in formsets:
-            formsets_dict[formset.__class__.__name__] = formset
-        if ('ShipmentReschedulingFormFormSet' in formsets_dict and formsets_dict['ShipmentReschedulingFormFormSet'].has_changed() and
-            not form.changed_data):
-            reshedule_update_shipment(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
-        elif ('OrderedProductMappingFormFormSet' in formsets_dict and formsets_dict['OrderedProductMappingFormFormSet'].has_changed() and
-            form.changed_data):
-            update_shipment_status(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
+        formsets_dict = {formset.__class__.__name__: formset
+                         for formset in formsets}
+        if ('ShipmentReschedulingFormFormSet' in formsets_dict and
+            formsets_dict['ShipmentReschedulingFormFormSet'].has_changed() and
+                not form.changed_data):
+            # if reschedule option selected but not return reason
+            reshedule_update_shipment(
+                form_instance,
+                formsets_dict['OrderedProductMappingFormFormSet']
+            )
+        elif ('OrderedProductMappingFormFormSet' in formsets_dict and
+              formsets_dict[
+                'OrderedProductMappingFormFormSet'].has_changed() and
+              form.changed_data):
+            # if return reason is selected and return qty is entered
+            update_shipment_status(
+                form_instance,
+                formsets_dict['OrderedProductMappingFormFormSet']
+            )
             create_credit_note(form)
         update_order_status(form)
-        super(OrderedProductAdmin, self).save_related(request, form, formsets, change)
-
+        super(OrderedProductAdmin, self).save_related(request, form,
+                                                      formsets, change)
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
