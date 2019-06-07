@@ -305,6 +305,7 @@ class CartProductMappingAdmin(admin.TabularInline):
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     fields = ('seller_shop', 'buyer_shop')
+    readonly_fields = ('seller_shop', 'buyer_shop')
     form = CartForm
     list_display = ('order_id', 'seller_shop','buyer_shop','cart_status')
     #change_form_template = 'admin/sp_to_gram/cart/change_form.html'
@@ -358,11 +359,6 @@ class CartAdmin(admin.ModelAdmin):
                 ),
         ] + urls
         return urls
-
-    def get_readonly_fields(self, request, obj=None):
-        if obj: # editing an existing object
-            return self.readonly_fields + ('seller_shop', 'buyer_shop')
-        return self.readonly_fields
 
 
     def save_related(self, request, form, formsets, change):

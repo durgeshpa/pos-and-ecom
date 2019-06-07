@@ -463,25 +463,7 @@ class CartForm(forms.ModelForm):
     class Meta:
         model = Cart
         fields = ('seller_shop', 'buyer_shop')
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        user = get_current_user()
-
-        if user.is_superuser:
-            self.fields['seller_shop'].queryset = Shop.objects.filter(
-                shop_type__shop_type='sp')
-            self.fields['buyer_shop'].queryset = Shop.objects.filter(
-                shop_type__shop_type='r')
-        else:
-            self.fields['seller_shop'].queryset = Shop.objects.filter(
-                related_users=user, shop_type__shop_type='sp')
-            self.fields['buyer_shop'].queryset = Shop.objects.filter(
-                related_users=user, shop_type__shop_type='r')
-
-        fields = ['seller_shop', 'buyer_shop']
-        required_fields(self, fields)
-
+        
 
 class CommercialForm(forms.ModelForm):
     class Meta:
