@@ -41,6 +41,9 @@ from retailer_to_sp.tasks import (
     ordered_product_available_qty_update, release_blocking, create_reserved_order
 )
 
+from django.contrib.auth import get_user_model
+User = get_user_model()
+
 logger = logging.getLogger(__name__)
 
 today = datetime.today()
@@ -1095,6 +1098,7 @@ class FeedbackData(generics.ListCreateAPIView):
 
     def get_queryset(self):
         ship_id = self.kwargs.get('ship_id')
+        queryset = Feedback.objects.all()
         if ship_id:
             queryset = Feedback.objects.filter(shipment__id=ship_id)
         return queryset

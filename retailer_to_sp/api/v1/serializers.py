@@ -21,6 +21,9 @@ from addresses.api.v1.serializers import AddressSerializer
 from brand.api.v1.serializers import BrandSerializer
 from django.core.validators import RegexValidator
 
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 class ProductImageSerializer(serializers.ModelSerializer):
    class Meta:
@@ -595,7 +598,8 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 'cash_to_be_collected')
 
 class FeedBackSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = Feedback
         fields = ('user', 'shipment', 'delivery_experience', 'overall_product_packaging', 'comment', 'status')
-        extra_kwargs = {'status': {'required': True}}
+        extra_kwargs = {'status': {'required': True}, 'user':{'required':False}}
