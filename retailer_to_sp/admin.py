@@ -879,20 +879,15 @@ class CommercialAdmin(admin.ModelAdmin):
 
 
 class NoteAdmin(admin.ModelAdmin):
-    list_display = (
-        'credit_note_id', 'shipment',
-        'invoice_no',  'amount'
-    )
-    readonly_fields = ['invoice_no', ]
-    exclude = ('credit_note_id', 'last_modified_by',)
-    # search_fields = (
-    #     'credit_note_id',
-    #       'amount'
-    # )
-    # list_filter = [ReturnNumberFilter, ]
+    list_display = ('credit_note_id', 'shipment', 'shop', 'amount')
+    fields = ('credit_note_id', 'shop', 'shipment', 'note_type', 'amount',
+              'invoice_no', 'status')
+    readonly_fields = ('credit_note_id', 'shop', 'shipment', 'note_type',
+                       'amount', 'invoice_no', 'status')
 
     class Media:
         pass
+
 
 class ExportCsvMixin:
     def export_as_csv_customercare(self, request, queryset):
