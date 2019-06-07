@@ -53,13 +53,14 @@ from retailer_to_sp.tasks import (
 )
 from .filters import OrderedProductMappingFilter, OrderedProductFilter
 
+from common.data_wrapper_view import DataWrapperViewSet
 
 logger = logging.getLogger(__name__)
 
 today = datetime.today()
 
 
-class OrderedProductViewSet(viewsets.ModelViewSet):
+class OrderedProductViewSet(DataWrapperViewSet):
     '''
     This class handles all operation of ordered product
     '''
@@ -95,7 +96,7 @@ class OrderedProductViewSet(viewsets.ModelViewSet):
         return ordered_product    
 
 
-class OrderedProductMappingView(viewsets.ModelViewSet):
+class OrderedProductMappingView(DataWrapperViewSet):
     '''
     This class handles all operation of ordered product mapping
     '''
