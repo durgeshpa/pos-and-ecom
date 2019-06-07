@@ -359,6 +359,12 @@ class CartAdmin(admin.ModelAdmin):
         ] + urls
         return urls
 
+    def get_readonly_fields(self, request, obj=None):
+        if obj: # editing an existing object
+            return self.readonly_fields + ('seller_shop', 'buyer_shop')
+        return self.readonly_fields
+
+
     def save_related(self, request, form, formsets, change):
         super(CartAdmin, self).save_related(request, form, formsets, change)
         add_cart_user(form, request)
