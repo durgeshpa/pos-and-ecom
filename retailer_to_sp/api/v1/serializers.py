@@ -50,30 +50,6 @@ class ProductSerializer(serializers.ModelSerializer):
             )
 
 
-class ReadOrderedProductSerializer(serializers.ModelSerializer):
-    shop_owner_name = serializers.SerializerMethodField()
-    shop_owner_number = serializers.SerializerMethodField()   
-    order_created_date = serializers.SerializerMethodField()
-
-    def get_shop_owner_number(self, obj):
-        shop_owner_number = obj.order.buyer_shop.shop_owner.phone_number
-        return shop_owner_number
-
-    def get_shop_owner_name(self, obj):
-        shop_owner_name = obj.order.buyer_shop.shop_owner.first_name + obj.order.buyer_shop.shop_owner.last_name
-        return shop_owner_name
-
-    def get_order_created_date(self, obj):
-        order_created_date = obj.order.created_at
-        return order_created_date
-
-    class Meta:
-        model = OrderedProduct
-        fields = ('id','invoice_no','shipment_status','invoice_amount',
-            'payment_mode', 'shipment_address', 'shop_owner_name', 'shop_owner_number',
-            'order_created_date')
-
-
 class OrderedProductMappingSerializer(serializers.ModelSerializer):
     # This serializer is used to fetch the products for a shipment
     product = ProductSerializer()
@@ -89,6 +65,33 @@ class OrderedProductMappingSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderedProductMapping
         fields = ('id', 'shipped_qty', 'product', 'product_price') #, 'ordered_product')
+
+
+class ReadOrderedProductSerializer(serializers.ModelSerializer):
+    shop_owner_name = serializers.SerializerMethodField()
+    shop_owner_number = serializers.SerializerMethodField()   
+    order_created_date = serializers.SerializerMethodField()
+    rt_order_product_order_product_mapping = OrderedProductMappingSerializer(many=True) 
+
+    def get_shop_owner_number(self, obj):
+        shop_owner_number = obj.order.buyer_shop.shop_owner.phone_number
+        return shop_owner_number
+
+    def get_shop_owner_name(self, obj):
+        shop_owner_name = obj.order.buyer_shop.shop_owner.first_name + obj.order.buyer_shop.shop_owner.last_name
+        return shop_owner_name
+
+    def get_order_created_date(self, obj):
+        order_created_date = obj.order.created_at
+        return order_created_date
+
+    class Meta:
+        model = OrderedProduct
+        #fields = '__all__'
+        fields = ('id','invoice_no','shipment_status','invoice_amount',
+            'payment_mode', 'shipment_address', 'shop_owner_name', 'shop_owner_number',
+            'order_created_date', 'rt_order_product_order_product_mapping')
+        #depth = 1
 
 
 class TaxSerializer(serializers.ModelSerializer):
