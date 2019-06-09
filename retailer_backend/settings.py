@@ -95,11 +95,7 @@ INSTALLED_APPS = [
 
 ]
 
-# FCM_DJANGO_SETTINGS = {
-#         "FCM_SERVER_KEY": "AIzaSyBwgNHtPPmzowWBRZ_ny3HYypoYQ_P8eGE"
-# }
-
-FCM_APIKEY = "AIzaSyBwgNHtPPmzowWBRZ_ny3HYypoYQ_P8eGE"
+FCM_APIKEY = config('FCM_APIKEY')
 
 SITE_ID = 1
 if DEBUG:
