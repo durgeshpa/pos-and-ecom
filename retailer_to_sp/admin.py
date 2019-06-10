@@ -365,7 +365,7 @@ class ExportCsvMixin:
         meta = self.model._meta
         list_display = ['order_no', 'seller_shop', 'buyer_shop', 'total_final_amount',
                         'order_status', 'created_at', 'payment_mode', 'paid_amount',
-                        'total_paid_amount', 'shipment_status', 'order_shipment_amount', 'order_shipment_details']
+                        'total_paid_amount', 'shipment_status', 'shipment_status_reason','order_shipment_amount', 'order_shipment_details']
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
