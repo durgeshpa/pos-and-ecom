@@ -577,7 +577,6 @@ class OrderedProductAdmin(admin.ModelAdmin):
                 )
 
     def save_related(self, request, form, formsets, change):
-        super(OrderedProductAdmin, self).save_related(request, form, formsets, change)
         form_instance = getattr(form, 'instance', None)
         formsets_dict = {}
         for formset in formsets:
@@ -590,6 +589,8 @@ class OrderedProductAdmin(admin.ModelAdmin):
             update_shipment_status(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
             update_order_status(form)
             create_credit_note(form)
+        super(OrderedProductAdmin, self).save_related(request, form, formsets, change)
+
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
