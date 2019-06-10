@@ -274,6 +274,7 @@ class ShipmentOrderIdSearch(InputFilter):
                 Q(order__order_no__icontains=order_id)
             )
 
+
 class ShipmentSellerShopSearch(InputFilter):
     parameter_name = 'seller_shop_name'
     title = 'Seller Shop'
@@ -292,6 +293,8 @@ class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
     form = CartProductMappingForm
     formset = AtLeastOneFormSet
+    fields = ('cart', 'cart_product', 'cart_product_price', 'qty',
+              'no_of_pieces', 'product_case_size', 'product_inner_case_size')
     autocomplete_fields = ('cart_product', 'cart_product_price')
     extra = 0
 
@@ -301,11 +304,22 @@ class CartProductMappingAdmin(admin.TabularInline):
         return super(CartProductMappingAdmin, self).\
             formfield_for_foreignkey(db_field, request, **kwargs)
 
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = super(CartProductMappingAdmin, self) \
+            .get_readonly_fields(request, obj)
+        if obj:
+            readonly_fields = readonly_fields + (
+                'cart_product', 'cart_product_price', 'qty', 'no_of_pieces'
+            )
+        return readonly_fields
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     fields = ('seller_shop', 'buyer_shop')
-    readonly_fields = ('seller_shop', 'buyer_shop')
     form = CartForm
     list_display = ('order_id', 'seller_shop','buyer_shop','cart_status')
     #change_form_template = 'admin/sp_to_gram/cart/change_form.html'
@@ -360,6 +374,11 @@ class CartAdmin(admin.ModelAdmin):
         ] + urls
         return urls
 
+    def get_readonly_fields(self, request, obj):
+        readonly_fields = super(CartAdmin, self).get_readonly_fields(request, obj)
+        if obj:
+            readonly_fields = readonly_fields + ('seller_shop', 'buyer_shop')
+        return readonly_fields
 
     def save_related(self, request, form, formsets, change):
         super(CartAdmin, self).save_related(request, form, formsets, change)

@@ -389,7 +389,6 @@ class ShipmentForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(ShipmentForm, self).__init__(*args, **kwargs)
         ordered_product = getattr(self, 'instance', None)
-        #import pdb; pdb.set_trace()
         SHIPMENT_STATUS = OrderedProduct.SHIPMENT_STATUS
         if ordered_product:
             shipment_status = ordered_product.shipment_status
@@ -445,7 +444,12 @@ class CartProductMappingForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(CartProductMappingForm, self).__init__(*args, **kwargs)
         self.empty_permitted = False
-        required_fields(self, ['cart_product_price'])
+
+    def clean_cart_product_price(self):
+        product_price = self.cleaned_data.get('cart_product_price')
+        if not product_price:
+            raise forms.ValidationError('This field is required')
+        return product_price
 
     def clean_no_of_pieces(self):
         cart = self.cleaned_data.get('cart')
