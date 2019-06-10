@@ -97,8 +97,7 @@ class ReadOrderedProductSerializer(serializers.ModelSerializer):
         #fields = '__all__'
         fields = ('id','invoice_no','shipment_status','invoice_amount',
             'payment_mode', 'shipment_address', 'shop_owner_name', 'shop_owner_number',
-            'order_created_date', 'rt_order_product_order_product_mapping',
-            'total_amount',)
+            'order_created_date', 'rt_order_product_order_product_mapping')
         #depth = 1
 
 

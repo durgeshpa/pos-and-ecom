@@ -71,7 +71,6 @@ class OrderedProductViewSet(DataWrapperViewSet):
     # filter_backends = (filters.DjangoFilterBackend,)
     # filter_class = OrderedProductFilter
 
-
     def get_serializer_class(self):
         '''
         Returns the serializer according to action of viewset
