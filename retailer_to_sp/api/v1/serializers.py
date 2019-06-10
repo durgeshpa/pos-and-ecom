@@ -67,6 +67,13 @@ class OrderedProductMappingSerializer(serializers.ModelSerializer):
         fields = ('id', 'shipped_qty', 'product', 'product_price') #, 'ordered_product')
 
 
+class ListOrderedProductSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = OrderedProduct
+        fields = ('id','created_at')
+
+
 class ReadOrderedProductSerializer(serializers.ModelSerializer):
     shop_owner_name = serializers.SerializerMethodField()
     shop_owner_number = serializers.SerializerMethodField()   
@@ -90,7 +97,8 @@ class ReadOrderedProductSerializer(serializers.ModelSerializer):
         #fields = '__all__'
         fields = ('id','invoice_no','shipment_status','invoice_amount',
             'payment_mode', 'shipment_address', 'shop_owner_name', 'shop_owner_number',
-            'order_created_date', 'rt_order_product_order_product_mapping')
+            'order_created_date', 'rt_order_product_order_product_mapping',
+            'total_amount',)
         #depth = 1
 
 
@@ -462,6 +470,7 @@ class OrderListSerializer(serializers.ModelSerializer):
     #Todo remove
     shipping_address = AddressSerializer()
     order_status = serializers.CharField(source='get_order_status_display')
+    rt_order_order_product = ListOrderedProductSerializer(many=True) 
 
     def to_representation(self, instance):
         representation = super(OrderListSerializer, self).to_representation(instance)
@@ -471,7 +480,7 @@ class OrderListSerializer(serializers.ModelSerializer):
     class Meta:
         model=Order
         fields = ('id','ordered_cart','order_no','total_final_amount','order_status','shipping_address',
-                  'created_at','modified_at')
+                  'created_at','modified_at','rt_order_order_product')
 
 # Order List Related Serializer End
 
@@ -612,6 +621,7 @@ class GramMappedOrderSerializer(serializers.ModelSerializer):
     billing_address = AddressSerializer()
     shipping_address = AddressSerializer()
     order_status = serializers.CharField(source='get_order_status_display')
+    rt_order_order_product = ListOrderedProductSerializer(many=True) 
 
     def to_representation(self, instance):
         representation = super(GramMappedOrderSerializer, self).to_representation(instance)
