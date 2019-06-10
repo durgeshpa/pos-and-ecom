@@ -15,6 +15,8 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db.models import Q
 from shops.models import Shop, ParentRetailerMapping
 
+from retailer_to_sp.models import OrderedProduct, Feedback
+
 class GetSlotBannerListView(APIView):
 
     # queryset = BannerData.objects.filter(slot__position_name=pos_name).order_by('banner_data_id')
@@ -40,18 +42,7 @@ class GetSlotBannerListView(APIView):
                 message = "" if is_success else "Banners are currently not available"
                 serializer = BannerDataSerializer(data,many=True)
 
-            '''
-                Can Fill Feedback Code Start
-            '''
-            order_product = OrderedProduct.objects.filter(order__buyer_shop__shop_owner=self.request.user).order_by('created_at')
-            shipment_id, can_write_feedback = '', False
-
-            if order_product.exists() and (not order_product.shipment_feedback):
-                shipment_id= order_product.last().id
-                can_write_feedback = True
-
-            return Response({"message":[message], "response_data": serializer.data ,"is_success": is_success,"shipment_id": shipment_id, "can_write_feedback": can_write_feedback})
-            #return Response({"message":[message], "response_data": serializer.data ,"is_success": is_success})
+            return Response({"message":[message], "response_data": serializer.data ,"is_success": is_success})
 
         else:
             data = BannerData.objects.filter(banner_data__status=True, slot__page__name=position_name,slot__bannerslot__name=pos_name, slot__shop=None).filter(Q(banner_data__banner_start_date__isnull=True) | Q(banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate))
