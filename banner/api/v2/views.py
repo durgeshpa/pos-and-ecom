@@ -15,6 +15,8 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db.models import Q
 from shops.models import Shop, ParentRetailerMapping
 
+from retailer_to_sp.models import OrderedProduct, Feedback
+
 class GetSlotBannerListView(APIView):
 
     # queryset = BannerData.objects.filter(slot__position_name=pos_name).order_by('banner_data_id')
