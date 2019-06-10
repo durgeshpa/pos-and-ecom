@@ -377,6 +377,10 @@ class Order(models.Model):
     def damaged_amount(self):
         return order_damaged_amount(self.shipments())
 
+    @property
+    def pincode(self):
+        return self.shipping_address.pincode if self.shipping_address else '-'
+
     # @property
     # def delivered_value(self):
     #     return order_delivered_value(self.shipments())
@@ -529,7 +533,7 @@ class OrderedProduct(models.Model): #Shipment
     shipment_status = models.CharField(
         max_length=50, choices=SHIPMENT_STATUS,
         null=True, blank=True, verbose_name='Current Shipment Status',
-        default='READY_TO_SHIP'
+        default='SHIPMENT_CREATED'
     )
     return_reason = models.CharField(
         max_length=50, choices=RETURN_REASON,
