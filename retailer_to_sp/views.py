@@ -6,7 +6,7 @@ from wkhtmltopdf.views import PDFTemplateResponse
 
 from django.forms import formset_factory, inlineformset_factory, modelformset_factory, BaseFormSet, ValidationError
 from django.shortcuts import render, get_object_or_404, redirect
-from django.db.models import Sum, Q
+from django.db.models import Sum, Q, F
 from django.db import transaction
 
 from rest_framework.views import APIView
@@ -329,12 +329,17 @@ def trip_planning_change(request, pk):
                             shipment_instance.shipment_status = 'OUT_FOR_DELIVERY'
 
                         elif current_trip_status == 'COMPLETED':
-                            ordered_product_mapping = OrderedProductMapping.objects.filter(
-                                ordered_product=shipment_instance)
-                            for product in ordered_product_mapping:
-                                product.delivered_qty = product.shipped_qty
-                                product.save()
+                            ordered_product_mapping = OrderedProductMapping \
+                                .objects.filter(
+                                    ordered_product=shipment_instance
+                                ).update(
+                                    delivered_qty=F('shipped_qty')
+                                )
                             shipment_instance.shipment_status = 'FULLY_DELIVERED_AND_COMPLETED'
+                            update_order_status(
+                                close_order_checked=False,
+                                shipment_id=shipment_instance.id
+                            )
                         elif current_trip_status == 'CANCELLED':
                             if shipment_instance.trip:
                                 shipment_instance.trip = None
@@ -350,7 +355,6 @@ def trip_planning_change(request, pk):
                             shipment_instance.trip = None
                             shipment_instance.shipment_status = 'READY_TO_SHIP'
                             shipment_instance.save()
-
         return redirect('/admin/retailer_to_sp/trip/')
 
     form = TripForm(request.user, instance=trip_instance)
@@ -620,9 +624,9 @@ def update_shipment_status(form_instance, formset):
     form_instance.save()
 
 
-def update_order_status(form):
-    form_instance = getattr(form, 'instance', None)
-    current_order_shipments = form_instance.order.rt_order_order_product \
+def update_order_status(close_order_checked, shipment_id):
+    shipment = OrderedProduct.objects.get(pk=shipment_id)
+    current_order_shipments = shipment.order.rt_order_order_product \
         .values_list('id', flat=True)
 
     shipment_products_dict = OrderedProductMapping.objects \
@@ -649,7 +653,7 @@ def update_order_status(form):
                              for i in shipment_products_dict])
     ordered_qty = sum([i.get('no_of_pieces') for i in cart_products_dict])
 
-    order = form_instance.order
+    order = shipment.order
 
     if ordered_qty == (total_delivered_qty + total_returned_qty + total_damaged_qty):
         order.order_status = 'SHIPPED'
@@ -671,7 +675,7 @@ def update_order_status(form):
         else:
             order.order_status = 'PARTIALLY_SHIPPED'
 
-    if not order.order_closed and form.cleaned_data.get('close_order'):
+    if close_order_checked and not order.order_closed:
         order.order_closed = True
 
     order.save()

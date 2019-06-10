@@ -592,7 +592,10 @@ class OrderedProductAdmin(admin.ModelAdmin):
                 formsets_dict['OrderedProductMappingFormFormSet']
             )
             create_credit_note(form)
-        update_order_status(form)
+        update_order_status(
+            close_order_checked=False,
+            shipment_id=form_instance.id
+        )
         super(OrderedProductAdmin, self).save_related(request, form,
                                                       formsets, change)
 
@@ -739,7 +742,10 @@ class ShipmentAdmin(admin.ModelAdmin):
 
     def save_related(self, request, form, formsets, change):
         #update_shipment_status(form, formsets)
-        update_order_status(form)
+        update_order_status(
+            close_order_checked=form.cleaned_data.get('close_order'),
+            shipment_id=form.instance.id
+        )
 
         if (form.cleaned_data.get('close_order') and
                 (form.instance.shipment_status !=
