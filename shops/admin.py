@@ -1,4 +1,7 @@
 import csv
+import io
+import xlsxwriter
+
 from django.contrib import admin
 from .models import (
     Shop, ShopType, RetailerType, ParentRetailerMapping,
@@ -27,16 +30,45 @@ class ShopResource(resources.ModelResource):
 
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
-        meta = self.model._meta
-        list_display = ('shop_name', 'get_shop_parent', 'shop_owner','shop_type','created_at','status', 'get_shop_shipping_address', 'get_shop_city', 'get_shop_pin_code' )
-        field_names = [field.name for field in meta.fields if field.name in list_display]
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
-        writer = csv.writer(response)
-        writer.writerow(list_display)
-        for obj in queryset:
-            row = writer.writerow([getattr(obj, field) for field in list_display])
+        #import pdb; pdb.set_trace()
+        output = io.BytesIO()
+        data = Address.objects.values_list(
+            'shop_name_id', 'shop_name__shop_name',
+            'shop_name__shop_type__shop_type', 'shop_name__shop_owner',
+            'shop_name__status', 'id', 'nick_name', 'address_line1',
+            'address_contact_name', 'address_contact_number', 'pincode',
+            'state__state_name', 'city__city_name', 'address_type'
+        ).filter(shop_name__in=queryset)
+        workbook = xlsxwriter.Workbook(output)
+        worksheet = workbook.add_worksheet()
+        for row_num, columns in enumerate(data):
+            for col_num, cell_data in enumerate(columns):
+                worksheet.write(row_num, col_num, cell_data)
+        workbook.close()
+
+        # Rewind the buffer.
+        output.seek(0)
+
+        # Set up the Http response.
+        filename = 'django_simple.xlsx'
+        response = HttpResponse(
+            output,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename=%s' % filename
+
         return response
+        # meta = self.model._meta
+        # list_display = ('shop_name', 'get_shop_parent', 'shop_owner','shop_type','created_at','status', 'get_shop_shipping_address', 'get_shop_city', 'get_shop_pin_code' )
+        # field_names = [field.name for field in meta.fields if field.name in list_display]
+        # response = HttpResponse(content_type='text/csv')
+        # response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        # writer = csv.writer(response)
+        # writer.writerow(list_display)
+        # for obj in queryset:
+        #     row = writer.writerow([getattr(obj, field) for field in list_display])
+        # return response
+
     export_as_csv.short_description = "Download CSV of Selected Shops"
 
 class ShopNameSearch(InputFilter):
