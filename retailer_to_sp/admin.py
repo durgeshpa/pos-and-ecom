@@ -954,6 +954,7 @@ class ReturnAdmin(admin.ModelAdmin):
 
 class FeedbackAdmin(admin.ModelAdmin):
     list_display = ('user', 'shipment', 'delivery_experience', 'overall_product_packaging', 'comment', 'created_at', 'status')
+    raw_id_fields = ['user', 'shipment']
 
 # admin.site.register(Return, ReturnAdmin)
 admin.site.register(Cart, CartAdmin)
