@@ -958,22 +958,6 @@ class Payment(models.Model):
         super(Payment, self).save()
 
 
-def test():
-    data = {}
-    data['username'] = "test"
-    data['phone_number'] = "9643112048" #instance.order_id.ordered_by.phone_number
-
-
-    # user_id = 1 #instance.order_id.ordered_by.id
-    # activity_type = "ORDER_RECEIVED"
-    # from notification_center.utils import SendNotification
-    # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
-
-    message = SendSms(phone="9643112048",
-                      body="test")
-    message.send()    
-
-
 @receiver(post_save, sender=Payment)
 def order_notification(sender, instance=None, created=False, **kwargs):
 
@@ -1006,14 +990,14 @@ def order_notification(sender, instance=None, created=False, **kwargs):
 
         user_id = instance.order_id.ordered_by.id
         activity_type = "ORDER_RECEIVED"
-        # from notification_center.utils import SendNotification
-        # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
+        from notification_center.utils import SendNotification
+        SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
 
-        message = SendSms(phone=instance.order_id.ordered_by,
-                          body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
-                              " Thanks," \
-                              " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
-        message.send()
+        # message = SendSms(phone=instance.order_id.ordered_by,
+        #                   body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
+        #                       " Thanks," \
+        #                       " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
+        # message.send()
 
 
 class Return(models.Model):
