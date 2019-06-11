@@ -998,7 +998,7 @@ def order_notification(sender, instance=None, created=False, **kwargs):
         items_count = instance.order_id.ordered_cart.rt_cart_list.count()
         data = {}
         data['username'] = username
-        data['phone_number'] = instance.order_id.ordered_by
+        data['phone_number'] = instance.order_id.ordered_by.phone_number
         data['order_no'] = order_no
         data['items_count'] = items_count
         data['total_amount'] = total_amount
