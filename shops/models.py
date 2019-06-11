@@ -101,15 +101,15 @@ class Shop(models.Model):
             username = self.shop_owner.first_name if self.shop_owner.first_name else self.shop_owner.phone_number
             shop_title = str(self.shop_name)
 
-            activity_type = "SHOP_VERIFIED"
+            activity_type = "SHOP_VERIFIED" #SHOP_VERIFIED
             user_id = self.shop_owner.id
             data = {}
             data['username'] = username
             data['phone_number'] = self.shop_owner.phone_number
             data['shop_title'] = shop_title
     
-            # from notification_center.utils import SendNotification
-            # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
+            from notification_center.utils import SendNotification
+            SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
 
 
             message = SendSms(phone=self.shop_owner,
