@@ -302,8 +302,9 @@ class ProductsFilterForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['category1'].widget.attrs['class'] = 'test'
         self.fields['category'].widget.attrs={
-            'class':'form-control',
+            'class':'form-control test',
             'size':15,
             }
         self.fields['brand'].widget.attrs={
