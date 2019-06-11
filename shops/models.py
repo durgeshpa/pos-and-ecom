@@ -108,15 +108,15 @@ class Shop(models.Model):
             data['phone_number'] = self.shop_owner.phone_number
             data['shop_title'] = shop_title
     
-            from notification_center.utils import SendNotification
-            SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
+            # from notification_center.utils import SendNotification
+            # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
 
 
-            # message = SendSms(phone=self.shop_owner,
-            #                   body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App." \
-            #                        " Thanks," \
-            #                        " Team GramFactory " % (username, shop_title))
-            # message.send()
+            message = SendSms(phone=self.shop_owner,
+                              body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App." \
+                                   " Thanks," \
+                                   " Team GramFactory " % (username, shop_title))
+            message.send()
         super(Shop, self).save(force_insert, force_update, *args, **kwargs)
 
     # def available_product(self, product):
