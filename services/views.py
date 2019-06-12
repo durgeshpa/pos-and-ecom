@@ -438,7 +438,7 @@ class OrderGrnReport(APIView):
 
                 i+=1
                 order_id = order.order_no
-                if grn.order_product_reserved.ordered_product.order:
+                if grn.order_product_reserved.ordered_product:
                     date = grn.order_product_reserved.ordered_product.order.created_at
                     date1 = date - diff
                     grn_gram = GRNOrder.objects.get(created_at__lte = date, created_at__gte=date1)
