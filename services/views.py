@@ -432,10 +432,14 @@ class OrderGrnReport(APIView):
         diff = datetime.timedelta(seconds = 20)
         for order in orders:
             for grn in order.ordered_cart.sp_ordered_retailer_cart.all():
+                print(grn.order_product_reserved)
+                print(grn.order_product_reserved.ordered_product)
+                print(grn.order_product_reserved.ordered_product.order)
+
                 i+=1
                 order_id = order.order_no
                 if grn.order_product_reserved.ordered_product.order:
-                    date = grn.order_product_reserved.ordered_product.order.ordered_cart
+                    date = grn.order_product_reserved.ordered_product.order.created_at
                     date1 = date - diff
                     grn_gram = GRNOrder.objects.get(created_at__lte = date, created_at__gte=date1)
                     OrderGrnReports.objects.using('gfanalytics').create(order = order_id, grn = grn_gram)
