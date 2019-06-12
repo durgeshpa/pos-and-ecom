@@ -436,8 +436,8 @@ class OrderGrnReport(APIView):
                 date = grn.order_product_reserved.ordered_product.order.created_at
                 date1 = date - diff
                 grn_gram = GRNOrder.objects.get(created_at__lte = date, created_at__gte=date1)
-                OrderGrnReports.objects.using('gfanalytics').create(order = order_id, grn = grn)
-                order_grn[i] = {'order_id':order_id, 'grn':grn}
+                OrderGrnReports.objects.using('gfanalytics').create(order = order_id, grn = grn_gram)
+                order_grn[i] = {'order_id':order_id, 'grn_gram':grn_gram}
         data = order_grn
         return data
 
@@ -461,7 +461,7 @@ class OrderGrnReport(APIView):
         writer = csv.writer(response)
         writer.writerow(['S.No', 'Order', 'GRN'])
         for k,v in data.items():
-            writer.writerow([k, v['order_id'], v['grn']])
+            writer.writerow([k, v['order_id'], v['grn_gram']])
 
         return response
 
