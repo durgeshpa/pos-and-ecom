@@ -15,11 +15,13 @@ from django.db.models import Sum
 import json
 import csv
 from rest_framework import permissions, authentication
-from .forms import SalesReportForm, OrderReportForm, GRNReportForm, MasterReportForm
+from .forms import SalesReportForm, OrderReportForm, GRNReportForm, MasterReportForm, OrderGrnForm
 from django.views import View
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping, Tax
-from .models import OrderReports,GRNReports, MasterReports
+from .models import OrderReports,GRNReports, MasterReports, OrderGrnReports
 from gram_to_brand.models import Order as PurchaseOrder
+from datetime import timedelta
+from gram_to_brand.models import Order as GOrder, GRNOrder as GRNOrder
 # Create your views here.
 class SalesReport(APIView):
     permission_classes = (AllowAny,)
@@ -415,6 +417,63 @@ class RetailerReportFormView(View):
             {'form': form}
         )
 
+class OrderGrnReport(APIView):
+    permission_classes = (AllowAny,)
+
+    def get_order_grn_report(self, shop_id, start_date, end_date):
+        seller_shop = Shop.objects.get(pk=shop_id)
+        orders = Order.objects.filter(seller_shop = seller_shop)
+        if start_date:
+            orders = orders.filter(created_at__gte = start_date)
+        if end_date:
+            orders = orders.filter(created_at__lte = end_date)
+        order_grn = {}
+        i=0
+        diff = datetime.timedelta(seconds = 20)
+        for order in orders:
+            for grn in order.ordered_cart.sp_ordered_retailer_cart.all():
+                i+=1
+                order_id = order.order_no
+                date = grn.order_product_reserved.ordered_product.order.created_at
+                date1 = date - diff
+                grn = GRNOrder.objects.get(created_at__lte = date, created_at__gte=date1)
+                OrderGrnReports.objects.using('gfanalytics').create(order = order_id, grn = grn)
+                order_grn[i] = {'order_id':order_id, 'grn':grn}
+        data = order_grn
+        return data
+
+    def get(self, *args, **kwargs):
+        from django.http import HttpResponse
+        from django.contrib import messages
+
+        shop_id = self.request.GET.get('shop')
+        start_date = self.request.GET.get('start_date', None)
+        end_date = self.request.GET.get('end_date', None)
+        if end_date and end_date < start_date:
+            messages.error(self.request, 'End date cannot be less than the start date')
+            return render(
+                self.request,
+                'admin/services/order-grn-report.html',
+                {'form': OrderGrnForm(user=None, initial=self.request.GET)}
+            )
+        data = self.get_order_grn_report(shop_id, start_date, end_date)
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="order-grn-report.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['S.No', 'Order', 'GRN'])
+        for k,v in data.items():
+            writer.writerow([k, v['order_id'], v['grn']])
+
+        return response
+
+class OrderGrnReportFormView(View):
+    def get(self, request):
+        form = OrderGrnForm(user=request.user)
+        return render(
+            self.request,
+            'admin/services/order-grn-report.html',
+            {'form': form}
+        )
 
 class ResizeImage(APIView):
     permission_classes = (AllowAny,)

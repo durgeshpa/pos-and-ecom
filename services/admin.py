@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import OrderReports, GRNReports, MasterReports
+from .models import OrderReports, GRNReports, MasterReports, OrderGrnReports
 # Register your models here.
 class OrderReportsAdmin(admin.ModelAdmin):
     list_display = ('order_invoice', 'invoice_date', 'invoice_status', 'order_id', 'seller_shop',  'order_status', 'order_date', 'order_by', 'retailer_id', 'retailer_name', 'pin_code', 'product_id', 'product_name', 'product_brand', 'product_mrp', 'product_value_tax_included', 'ordered_sku_pieces', 'shipped_sku_pieces', 'delivered_sku_pieces', 'returned_sku_pieces', 'damaged_sku_pieces', 'product_cgst', 'product_sgst', 'product_igst', 'product_cess', 'sales_person_name', 'order_type', 'campaign_name', 'discount')
@@ -15,3 +15,7 @@ class MasterReportsAdmin(admin.ModelAdmin):
     list_display = ('product', 'service_partner', 'mrp', 'price_to_retailer', 'product_gf_code',  'product_brand', 'product_subbrand', 'product_category', 'tax_gst_percentage', 'tax_cess_percentage', 'tax_surcharge_percentage', 'pack_size', 'case_size', 'hsn_code', 'product_id', 'sku_code', 'short_description', 'long_description')
 
 admin.site.register(MasterReports, MasterReportsAdmin)
+
+class OrderGrnReportsAdmin(admin.ModelAdmin):
+    list_display = ('order', 'grn')
+admin.site.register(OrderGrnReports, OrderGrnReportsAdmin)
