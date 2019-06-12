@@ -433,11 +433,12 @@ class OrderGrnReport(APIView):
             for grn in order.ordered_cart.sp_ordered_retailer_cart.all():
                 i+=1
                 order_id = order.order_no
-                date = grn.order_product_reserved.ordered_product.order.created_at
-                date1 = date - diff
-                grn_gram = GRNOrder.objects.get(created_at__lte = date, created_at__gte=date1)
-                OrderGrnReports.objects.using('gfanalytics').create(order = order_id, grn = grn_gram)
-                order_grn[i] = {'order_id':order_id, 'grn_gram':grn_gram}
+                if grn.order_product_reserved.ordered_product.order:
+                    date = grn.order_product_reserved.ordered_product.order.ordered_cart
+                    date1 = date - diff
+                    grn_gram = GRNOrder.objects.get(created_at__lte = date, created_at__gte=date1)
+                    OrderGrnReports.objects.using('gfanalytics').create(order = order_id, grn = grn_gram)
+                    order_grn[i] = {'order_id':order_id, 'grn_gram':grn_gram}
         data = order_grn
         return data
 
