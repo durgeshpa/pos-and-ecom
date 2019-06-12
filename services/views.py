@@ -431,9 +431,9 @@ class OrderGrnReport(APIView):
         diff = datetime.timedelta(seconds = 20)
         for order in orders:
             for grn in order.ordered_cart.sp_ordered_retailer_cart.all():
-                print(grn.order_product_reserved)
-                print(grn.order_product_reserved.ordered_product)
-                print(grn.order_product_reserved.ordered_product.order)
+                #print(grn.order_product_reserved)
+                #print(grn.order_product_reserved.ordered_product)
+                #print(grn.order_product_reserved.ordered_product.order)
 
                 i+=1
                 order_id = order.order_no
