@@ -291,20 +291,13 @@ class ProductsFilterForm(forms.Form):
         queryset=Category.objects.order_by('category_name'),
         )
 
-    category1 = forms.ModelChoiceField(
-        queryset=Category.objects.all(),
-        #widget=autocomplete.ModelSelect2(url='admin:product-category-autocomplete',)
-        # widget=autocomplete.ModelSelect2(
-        #     url='admin:product-category-autocomplete',
-        # )
-    )
     brand = forms.ModelMultipleChoiceField(queryset=Brand.objects.none())
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['category1'].widget.attrs['class'] = 'test'
+        #self.fields['category1'].widget.attrs['class'] = 'test'
         self.fields['category'].widget.attrs={
-            'class':'form-control test',
+            'class':'form-control select2-filter',
             'size':15,
             }
         self.fields['brand'].widget.attrs={
