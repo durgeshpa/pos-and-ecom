@@ -436,7 +436,7 @@ class OrderGrnReport(APIView):
                 order_id = order.order_no
                 date = grn.order_product_reserved.ordered_product.order.created_at
                 date1 = date - diff
-                grn = GRNOrder.objects.get(created_at__lte = date, created_at__gte=date1)
+                grn_gram = GRNOrder.objects.get(created_at__lte = date, created_at__gte=date1)
                 OrderGrnReports.objects.using('gfanalytics').create(order = order_id, grn = grn)
                 order_grn[i] = {'order_id':order_id, 'grn':grn}
         data = order_grn
