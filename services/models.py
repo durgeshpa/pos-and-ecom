@@ -94,3 +94,10 @@ class MasterReports(models.Model):
 
     def __str__(self):
         return  "%s"%(self.product)
+
+class OrderGrnReports(models.Model):
+    order = models.CharField(max_length=255, null=True)
+    grn = models.CharField(max_length=255, null=True)
+
+    def __str__(self):
+        return  "%s"%(self.order)

@@ -100,3 +100,29 @@ class MasterReportForm(forms.Form):
             queryset = Shop.objects.filter(shop_type__shop_type__in=['sp'])
             queryset = queryset.filter(Q(related_users=user) | Q(shop_owner=user))
         self.fields['shop'].queryset = queryset
+
+class OrderGrnForm(forms.Form):
+    shop = forms.ModelChoiceField(
+            queryset=Shop.objects.filter(shop_type__shop_type__in=['sp']),
+        )
+    start_date = forms.DateTimeField(
+    widget=DateTimePicker(
+        options={
+            'format': 'YYYY-MM-DD H:mm:ss',
+            }
+        ),
+    )
+    end_date = forms.DateTimeField(
+        widget=DateTimePicker(
+            options={
+            'format': 'YYYY-MM-DD H:mm:ss',
+            }
+        ),
+    )
+
+    def __init__(self, user, *args, **kwargs):
+        super(OrderGrnForm, self).__init__(*args, **kwargs)
+        if user:
+            queryset = Shop.objects.filter(shop_type__shop_type__in=['sp'])
+            queryset = queryset.filter(Q(related_users=user) | Q(shop_owner=user))
+            self.fields['shop'].queryset = queryset
