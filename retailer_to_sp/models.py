@@ -982,7 +982,7 @@ def order_notification(sender, instance=None, created=False, **kwargs):
         items_count = instance.order_id.ordered_cart.rt_cart_list.count()
         data = {}
         data['username'] = username
-        data['phone_number'] = instance.order_id.ordered_by.phone_number
+        data['phone_number'] = instance.order_id.ordered_by
         data['order_no'] = order_no
         data['items_count'] = items_count
         data['total_amount'] = total_amount
@@ -993,11 +993,11 @@ def order_notification(sender, instance=None, created=False, **kwargs):
         from notification_center.utils import SendNotification
         SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
 
-        # message = SendSms(phone=instance.order_id.ordered_by,
-        #                   body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
-        #                       " Thanks," \
-        #                       " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
-        # message.send()
+        message = SendSms(phone=instance.order_id.ordered_by,
+                          body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
+                              " Thanks," \
+                              " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
+        message.send()
 
 
 class Return(models.Model):
