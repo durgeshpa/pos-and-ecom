@@ -9,7 +9,6 @@ from django.core.validators import RegexValidator
 class AddressForm(forms.ModelForm):
     state = forms.ModelChoiceField(queryset=State.objects.order_by('state_name'))
     city = forms.ModelChoiceField(queryset=City.objects.all())
-    shop = forms.ChoiceField(required=False, choices=Shop.objects.values_list('id', 'shop_name'))
 
     class Media:
         js = ('https://code.jquery.com/jquery-3.2.1.js','admin/js/vendor/vendor_form.js',
