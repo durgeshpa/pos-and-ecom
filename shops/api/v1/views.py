@@ -11,6 +11,9 @@ from rest_framework import status
 from django.contrib.auth import get_user_model
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES
 from rest_framework.parsers import FormParser, MultiPartParser
+from retailer_to_sp.models import Order
+from datetime import datetime, timedelta
+from django.db.models import Sum,Q,Count
 
 User =  get_user_model()
 
@@ -180,13 +183,33 @@ class TeamListView(generics.ListAPIView):
         return ShopUserMapping.objects.filter(manager=self.request.user)
 
     def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        msg = {'is_success': True,
-                'message': ["%s shops found" % (queryset.count())],
-                'response_data': serializer.data}
-        return Response(msg,
-                        status=status.HTTP_200_OK)
+        employee_list = ShopUserMapping.objects.filter(manager=self.request.user)
+        data = []
+        days_diff = 100
+
+        for employee in employee_list:
+            today = datetime.now()
+            last_day = today - timedelta(days=days_diff)
+            orders = Order.objects.select_related('ordered_cart').filter(ordered_by=employee.employee, created_at__range=[last_day, today]).order_by('ordered_by')
+            total_sku, total_invoice_amount, total_no_of_sku_pieces = 0, 0, 0
+            rt = {
+              'name': employee.employee.first_name,
+              'unique_calls_made': '',
+            }
+            for order in orders:
+                total_sku += int(order.ordered_cart.total_sku()) if order.ordered_cart.total_sku() else 0
+                total_invoice_amount += float(order.ordered_amount()) if order.ordered_amount() else 0
+                total_no_of_sku_pieces += float(order.ordered_cart.total_no_of_sku_pieces()) if order.ordered_cart.total_no_of_sku_pieces() else 0
+            rt['ordered_sku_pieces'] = total_no_of_sku_pieces
+            rt['ordered_amount'] = total_invoice_amount
+            rt['delivered_amount'] = total_no_of_sku_pieces
+            rt['store_added'] = employee.employee.shop_created_by.filter(created_at__range=[last_day, today]).count(),
+            rt['avg_order_val'] = total_invoice_amount / int(days_diff) if total_invoice_amount >0 else 0
+            rt['avg_order_line_items'] = total_sku / int(days_diff) if total_sku >0 else 0
+            data.append(rt)
+
+        msg = {'is_success': True, 'message': [""],'response_data': None, 'data': data}
+        return Response(msg,status=status.HTTP_200_OK)
 
 
 class SellerShopView(generics.ListCreateAPIView):
