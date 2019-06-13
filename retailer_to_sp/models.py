@@ -177,11 +177,11 @@ class CartProductMapping(models.Model):
 
     @property
     def product_case_size(self):
-        return self.product_case_size.product_case_size
+        return self.cart_product.product_case_size.product_case_size
 
     @property
     def product_inner_case_size(self):
-        return self.product_case_size.product_inner_case_size
+        return self.cart_product.product_inner_case_size
 
     def set_cart_product_price(self, shop):
         self.cart_product_price = self.cart_product.get_current_shop_price(shop)
@@ -373,6 +373,10 @@ class Order(models.Model):
     def damaged_amount(self):
         return order_damaged_amount(self.shipments())
 
+    @property
+    def pincode(self):
+        return self.shipping_address.pincode if self.shipping_address else '-'
+
     # @property
     # def delivered_value(self):
     #     return order_delivered_value(self.shipments())
@@ -494,6 +498,13 @@ class OrderedProduct(models.Model): #Shipment
     WRONG_ORDER = 'wrong_order'
     ITEM_MISS_MATCH = 'item_miss_match'
     DAMAGED_ITEM = 'damaged_item'
+    LEFT_AT_WAREHOUSE = 'left_at_warehouse'
+    BEFORE_DELIVERY_CANCELLED = 'before_delivery_cancelled'
+    NEAR_EXPIRY = 'near_expiry'
+    RATE_ISSUE = 'rate_issue'
+    ALREADY_PURCHASED = 'already_purchased'
+    GST_ISSUE = 'gst_issue'
+
 
     RETURN_REASON = (
         (CASH_NOT_AVAILABLE, 'Cash not available'),
@@ -502,7 +513,13 @@ class OrderedProduct(models.Model): #Shipment
         (UNABLE_TO_ATTEMPT, 'Unable to attempt'),
         (WRONG_ORDER, 'Wrong Order'),
         (ITEM_MISS_MATCH, 'Item miss match'),
-        (DAMAGED_ITEM, 'Damaged item')
+        (DAMAGED_ITEM, 'Damaged item'),
+        (LEFT_AT_WAREHOUSE, 'Left at Warehouse'),
+        (BEFORE_DELIVERY_CANCELLED, 'Before Delivery Cancelled'),
+        (NEAR_EXPIRY, 'Near Expiry'),
+        (RATE_ISSUE, 'Rate issue'),
+        (ALREADY_PURCHASED, 'Already Purchased'),
+        (GST_ISSUE, 'GST Issue'),
     )
 
     order = models.ForeignKey(
@@ -512,7 +529,7 @@ class OrderedProduct(models.Model): #Shipment
     shipment_status = models.CharField(
         max_length=50, choices=SHIPMENT_STATUS,
         null=True, blank=True, verbose_name='Current Shipment Status',
-        default='READY_TO_SHIP'
+        default='SHIPMENT_CREATED'
     )
     return_reason = models.CharField(
         max_length=50, choices=RETURN_REASON,

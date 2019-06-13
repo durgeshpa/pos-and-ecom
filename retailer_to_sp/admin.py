@@ -104,6 +104,18 @@ class OrderFilter(InputFilter):
             )
 
 
+class PhoneNumberFilter(InputFilter):
+    parameter_name = 'phone_number'
+    title = 'Phone Number'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            phone_number = self.value()
+            return queryset.filter(
+                Q(buyer_shop__shop_owner__phone_number=phone_number)
+            )
+
+
 class NameSearch(InputFilter):
     parameter_name = 'name'
     title = 'Name'
@@ -293,6 +305,7 @@ class CartProductMappingAdmin(admin.TabularInline):
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     fields = ('seller_shop', 'buyer_shop')
+    readonly_fields = ('seller_shop', 'buyer_shop')
     form = CartForm
     list_display = ('order_id', 'seller_shop','buyer_shop','cart_status')
     #change_form_template = 'admin/sp_to_gram/cart/change_form.html'
@@ -347,6 +360,7 @@ class CartAdmin(admin.ModelAdmin):
         ] + urls
         return urls
 
+
     def save_related(self, request, form, formsets, change):
         super(CartAdmin, self).save_related(request, form, formsets, change)
         add_cart_user(form, request)
@@ -363,7 +377,7 @@ class CartAdmin(admin.ModelAdmin):
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
-        list_display = ['order_no', 'seller_shop', 'buyer_shop', 'total_final_amount',
+        list_display = ['order_no', 'seller_shop', 'buyer_shop', 'pincode', 'total_final_amount',
                         'order_status', 'created_at', 'payment_mode', 'paid_amount',
                         'total_paid_amount', 'shipment_status', 'order_shipment_amount', 'order_shipment_details']
         field_names = [field.name for field in meta.fields if field.name in list_display]
@@ -372,7 +386,8 @@ class ExportCsvMixin:
         writer = csv.writer(response)
         writer.writerow(list_display)
         for obj in queryset:
-            row = writer.writerow([getattr(obj, field) for field in list_display])
+            row = writer.writerow([getattr(obj, field).replace('<br>', '\n') if field in ['shipment_status','order_shipment_amount',
+                                                            'order_shipment_details'] else getattr(obj, field) for field in list_display])
         return response
     export_as_csv.short_description = "Download CSV of Selected Orders"
 
@@ -417,12 +432,21 @@ class ProductNameFilter(InputFilter):
             return queryset.filter(ordered_cart__rt_cart_list__cart_product__product_name=value)
         return queryset
 
+class Pincode(InputFilter):
+    title = 'Pincode'
+    parameter_name = 'pincode'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value :
+            return queryset.filter(shipping_address__pincode=value)
+        return queryset
 from django.contrib.admin.views.main import ChangeList
 
 class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     actions = ["export_as_csv"]
     resource_class = OrderResource
-    search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name','order_status',)
+    search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name','order_status')
     form = OrderForm
     fieldsets = (
         (_('Shop Details'), {
@@ -440,7 +464,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         )
     list_display = (
                     'order_no', 'download_pick_list', 'seller_shop', 'buyer_shop',
-                    'total_final_amount', 'order_status', 'created_at',
+                    'pincode','total_final_amount', 'order_status', 'created_at',
                     'payment_mode','picking_status','picker_name',
                     'invoice_no', 'shipment_date', 'invoice_amount', 'shipment_status',
                     'delivery_date', 'cn_amount', 'cash_collected',
@@ -448,9 +472,13 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                     )
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
-                        'invoice_no', 'shipment_status')
-    list_filter = [SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
-        ('created_at', DateTimeRangeFilter), ('total_final_amount', SliderNumericFilter)]
+                       'invoice_no', 'shipment_status', 'billing_address',
+                       'shipping_address', 'seller_shop', 'buyer_shop',
+                       'ordered_cart', 'ordered_by', 'last_modified_by',
+                       'total_mrp', 'total_discount_amount',
+                       'total_tax_amount', 'total_final_amount')
+    list_filter = [PhoneNumberFilter,SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
+        ('created_at', DateTimeRangeFilter), ('total_final_amount', SliderNumericFilter), Pincode]
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
@@ -549,7 +577,6 @@ class OrderedProductAdmin(admin.ModelAdmin):
                 )
 
     def save_related(self, request, form, formsets, change):
-        super(OrderedProductAdmin, self).save_related(request, form, formsets, change)
         form_instance = getattr(form, 'instance', None)
         formsets_dict = {}
         for formset in formsets:
@@ -562,6 +589,8 @@ class OrderedProductAdmin(admin.ModelAdmin):
             update_shipment_status(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
             update_order_status(form)
             create_credit_note(form)
+        super(OrderedProductAdmin, self).save_related(request, form, formsets, change)
+
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
@@ -857,20 +886,15 @@ class CommercialAdmin(admin.ModelAdmin):
 
 
 class NoteAdmin(admin.ModelAdmin):
-    list_display = (
-        'credit_note_id', 'shipment',
-        'invoice_no',  'amount'
-    )
-    readonly_fields = ['invoice_no', ]
-    exclude = ('credit_note_id', 'last_modified_by',)
-    # search_fields = (
-    #     'credit_note_id',
-    #       'amount'
-    # )
-    # list_filter = [ReturnNumberFilter, ]
+    list_display = ('credit_note_id', 'shipment', 'shop', 'amount')
+    fields = ('credit_note_id', 'shop', 'shipment', 'note_type', 'amount',
+              'invoice_no', 'status')
+    readonly_fields = ('credit_note_id', 'shop', 'shipment', 'note_type',
+                       'amount', 'invoice_no', 'status')
 
     class Media:
         pass
+
 
 class ExportCsvMixin:
     def export_as_csv_customercare(self, request, queryset):
