@@ -305,6 +305,7 @@ class CartProductMappingAdmin(admin.TabularInline):
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     fields = ('seller_shop', 'buyer_shop')
+    readonly_fields = ('seller_shop', 'buyer_shop')
     form = CartForm
     list_display = ('order_id', 'seller_shop','buyer_shop','cart_status')
     #change_form_template = 'admin/sp_to_gram/cart/change_form.html'
@@ -358,6 +359,7 @@ class CartAdmin(admin.ModelAdmin):
                 ),
         ] + urls
         return urls
+
 
     def save_related(self, request, form, formsets, change):
         super(CartAdmin, self).save_related(request, form, formsets, change)
@@ -470,8 +472,12 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                     )
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
-                        'invoice_no', 'shipment_status', 'shipment_status_reason')
-    list_filter = [SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
+                       'invoice_no', 'shipment_status', 'shipment_status_reason','billing_address',
+                       'shipping_address', 'seller_shop', 'buyer_shop',
+                       'ordered_cart', 'ordered_by', 'last_modified_by',
+                       'total_mrp', 'total_discount_amount',
+                       'total_tax_amount', 'total_final_amount')
+    list_filter = [PhoneNumberFilter,SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
         ('created_at', DateTimeRangeFilter), ('total_final_amount', SliderNumericFilter), Pincode]
 
     def get_queryset(self, request):
@@ -571,7 +577,6 @@ class OrderedProductAdmin(admin.ModelAdmin):
                 )
 
     def save_related(self, request, form, formsets, change):
-        super(OrderedProductAdmin, self).save_related(request, form, formsets, change)
         form_instance = getattr(form, 'instance', None)
         formsets_dict = {}
         for formset in formsets:
@@ -584,6 +589,8 @@ class OrderedProductAdmin(admin.ModelAdmin):
             update_shipment_status(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
             update_order_status(form)
             create_credit_note(form)
+        super(OrderedProductAdmin, self).save_related(request, form, formsets, change)
+
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
@@ -879,20 +886,15 @@ class CommercialAdmin(admin.ModelAdmin):
 
 
 class NoteAdmin(admin.ModelAdmin):
-    list_display = (
-        'credit_note_id', 'shipment',
-        'invoice_no',  'amount'
-    )
-    readonly_fields = ['invoice_no', ]
-    exclude = ('credit_note_id', 'last_modified_by',)
-    # search_fields = (
-    #     'credit_note_id',
-    #       'amount'
-    # )
-    # list_filter = [ReturnNumberFilter, ]
+    list_display = ('credit_note_id', 'shipment', 'shop', 'amount')
+    fields = ('credit_note_id', 'shop', 'shipment', 'note_type', 'amount',
+              'invoice_no', 'status')
+    readonly_fields = ('credit_note_id', 'shop', 'shipment', 'note_type',
+                       'amount', 'invoice_no', 'status')
 
     class Media:
         pass
+
 
 class ExportCsvMixin:
     def export_as_csv_customercare(self, request, queryset):
