@@ -134,7 +134,7 @@ def order_shipment_status(shipments):
 
 def order_shipment_status_reason(shipments):
     return format_html_join(
-    "","{}<br><br>",
+    "","{},",
             ((s.get_return_reason_display(),
             ) for s in shipments)
     )   
