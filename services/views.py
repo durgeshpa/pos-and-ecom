@@ -207,7 +207,6 @@ class GRNReport(APIView):
 
     def get_grn_report(self, shop_id, start_date, end_date):
         buyer_shop = Shop.objects.get(pk=shop_id)
-        import pdb; pdb.set_trace()
         orders = PurchaseOrder.objects.filter(ordered_cart__gf_shipping_address__shop_name = buyer_shop)
         if start_date:
             orders = orders.filter(created_at__gte = start_date)
