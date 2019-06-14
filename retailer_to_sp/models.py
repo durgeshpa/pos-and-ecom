@@ -177,11 +177,11 @@ class CartProductMapping(models.Model):
 
     @property
     def product_case_size(self):
-        return self.product_case_size.product_case_size
+        return self.cart_product.product_case_size.product_case_size
 
     @property
     def product_inner_case_size(self):
-        return self.product_case_size.product_inner_case_size
+        return self.cart_product.product_inner_case_size
 
     def set_cart_product_price(self, shop):
         self.cart_product_price = self.cart_product.get_current_shop_price(shop)
@@ -373,6 +373,10 @@ class Order(models.Model):
     def damaged_amount(self):
         return order_damaged_amount(self.shipments())
 
+    @property
+    def pincode(self):
+        return self.shipping_address.pincode if self.shipping_address else '-'
+
     # @property
     # def delivered_value(self):
     #     return order_delivered_value(self.shipments())
@@ -525,7 +529,7 @@ class OrderedProduct(models.Model): #Shipment
     shipment_status = models.CharField(
         max_length=50, choices=SHIPMENT_STATUS,
         null=True, blank=True, verbose_name='Current Shipment Status',
-        default='READY_TO_SHIP'
+        default='SHIPMENT_CREATED'
     )
     return_reason = models.CharField(
         max_length=50, choices=RETURN_REASON,
