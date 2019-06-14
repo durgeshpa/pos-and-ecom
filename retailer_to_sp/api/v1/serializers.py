@@ -54,6 +54,8 @@ class OrderedProductMappingSerializer(serializers.ModelSerializer):
     # This serializer is used to fetch the products for a shipment
     product = ProductSerializer()
     product_price = serializers.SerializerMethodField()
+    product_total_price = serializers.SerializerMethodField()
+
     #ordered_product = ReadOrderedProductSerializer()
     
     def get_product_price(self, obj):
@@ -62,9 +64,17 @@ class OrderedProductMappingSerializer(serializers.ModelSerializer):
         self.product_price = cart_product_mapping.cart_product_price.price_to_retailer
         return self.product_price
 
+    def get_product_total_price(self, obj):
+        # fetch product , order_id
+        #import pdb; pdb.set_trace()
+        cart_product_mapping = CartProductMapping.objects.get(cart_product=obj.product, cart=obj.ordered_product.order.ordered_cart)
+        product_price = cart_product_mapping.cart_product_price.price_to_retailer
+        self.product_total_price = product_price*cart_product_mapping.qty*cart_product_mapping.no_of_pieces
+        return self.product_total_price
+
     class Meta:
         model = OrderedProductMapping
-        fields = ('id', 'shipped_qty', 'product', 'product_price') #, 'ordered_product')
+        fields = ('id', 'shipped_qty', 'product', 'product_price', 'product_total_price') #, 'ordered_product')
 
 
 class ListOrderedProductSerializer(serializers.ModelSerializer):
