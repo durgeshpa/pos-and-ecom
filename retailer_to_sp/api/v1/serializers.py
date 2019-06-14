@@ -119,7 +119,7 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
 
     def margin_dt(self,obj):
         return round(100 - (float(self.product_price) * 1000000 / (float(self.product_mrp) * (100 - float(obj.getCashDiscount(self.context.get("parent_mapping_id")))) * (100 -  float(obj.getLoyaltyIncentive(self.context.get("parent_mapping_id")))))),2) if self.product_mrp and self.product_mrp > 0 else 0
-        
+
     class Meta:
         model = Product
         fields = ('id','product_name','product_slug','product_short_description','product_long_description','product_sku','product_mrp',
@@ -593,3 +593,18 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
                   'shipment_address', 'invoice_city', 'invoice_amount',
                   'created_at', 'cash_to_be_collected')
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 'cash_to_be_collected')
+
+class ShipmentOrderSerializer(serializers.ModelSerializer):
+    ordered_by = UserSerializer()
+    shipping_address = AddressSerializer()
+
+    class Meta:
+        model=Order
+        fields = ('buyer_shop', 'shipping_address', 'ordered_by')
+
+
+class ShipmentSerializer(serializers.ModelSerializer):
+    order = ShipmentOrderSerializer()
+    class Meta:
+        model = OrderedProduct
+        fields = ('invoice_no', 'shipment_status', 'payment_mode', 'invoice_amount', 'order')

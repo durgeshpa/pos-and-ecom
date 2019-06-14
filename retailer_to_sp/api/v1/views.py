@@ -2,7 +2,7 @@ from rest_framework import generics
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,
                           OrderSerializer, CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
 
-                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer, OrderListSerializer )
+                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer, OrderListSerializer, ShipmentSerializer, ShipmentOrderSerializer )
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
 from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
                                 OrderedProduct as SPOrderedProduct, StockAdjustment)
@@ -175,7 +175,8 @@ class GramGRNProductsList(APIView):
             ptr = round(p.price_to_retailer, 2) if p.price_to_retailer else p.price_to_retailer
             loyalty_discount = round(p.loyalty_incentive, 2) if p.loyalty_incentive else p.loyalty_incentive
             cash_discount = round(p.cash_discount, 2) if p.cash_discount else p.cash_discount
-            margin = round(100 - (float(ptr) * 1000000 / (float(mrp) * (100 - float(cash_discount)) * (100 - float(loyalty_discount)))), 2) if mrp and ptr else 0
+            margin = round((100 * (float(mrp) - float(ptr) - (float(cash_discount) + float(loyalty_discount)) * float(
+                mrp) / 100) / float(mrp)), 2) if mrp and ptr else 0
 
             if cart_check == True:
                 for c_p in cart_products:
@@ -1086,3 +1087,33 @@ class ReleaseBlocking(APIView):
                     ordered_reserve.delete()
             msg = {'is_success': True, 'message': ['Blocking has released'], 'response_data': None}
         return Response(msg, status=status.HTTP_200_OK)
+
+class DeliveryBoyTrips(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        trip_date = self.request.GET.get('trip_date')
+        trips = Trip.objects.get(created_at = trip_date, delivery_boy = request.user)
+        shipments = trips.rt_invoice_trip.all().count()
+        msg = {'is_success': True, 'message': ['Number Of Trips'], 'response_data': shipments}
+        return Response(msg, status=status.HTTP_201_CREATED)
+
+class DeliveryShipmentDetails(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        trip_date = self.request.GET.get('trip_date')
+        trips = Trip.objects.get(created_at = trip_date, delivery_boy = request.user)
+        shipments = trips.rt_invoice_trip.all()
+        shipment_details = ShipmentSerializer(shipments, many=True)
+        msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': shipment_details.data}
+        return Response(msg, status=status.HTTP_201_CREATED)
+
+# class ShipmentDetail(APIView):
+#     authentication_classes = (authentication.TokenAuthentication,)
+#     permission_classes = (permissions.IsAuthenticated,)
+#
+#     def get(self, request):
+#         shipment_id =
