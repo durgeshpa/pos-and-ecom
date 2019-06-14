@@ -56,8 +56,6 @@ def create_shops_excel(queryset):
     # to set the hieght of row
     worksheet.set_row(0, 36)
 
-    worksheet.protect()
-
     # column headings
     worksheet.write('A1', 'Shop ID', header_format)
     worksheet.write('B1', 'Shop Name', header_format)
@@ -76,10 +74,7 @@ def create_shops_excel(queryset):
 
     for row_num, columns in enumerate(data):
         for col_num, cell_data in enumerate(columns):
-            if col_num in (0, 2, 3, 5):
-                worksheet.write(row_num + 1, col_num, cell_data)
-            else:
-                worksheet.write(row_num + 1, col_num, cell_data, unlocked)
+            worksheet.write(row_num + 1, col_num, cell_data)
 
     worksheet.data_validation(
         'L2:L{}'.format(data_rows + 1),
