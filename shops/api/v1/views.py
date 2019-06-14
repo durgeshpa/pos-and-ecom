@@ -185,28 +185,34 @@ class TeamListView(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         employee_list = ShopUserMapping.objects.filter(manager=self.request.user)
         data = []
-        days_diff = 100
+        days_diff = 7
 
         for employee in employee_list:
             today = datetime.now()
             last_day = today - timedelta(days=days_diff)
             orders = Order.objects.select_related('ordered_cart').filter(ordered_by=employee.employee, created_at__range=[last_day, today]).order_by('ordered_by')
             total_sku, total_invoice_amount, total_no_of_sku_pieces = 0, 0, 0
-            rt = {
+            dt = {
               'name': employee.employee.first_name,
-              'unique_calls_made': '',
+              'data':[]
             }
             for order in orders:
                 total_sku += int(order.ordered_cart.total_sku()) if order.ordered_cart.total_sku() else 0
-                total_invoice_amount += float(order.ordered_amount()) if order.ordered_amount() else 0
-                total_no_of_sku_pieces += float(order.ordered_cart.total_no_of_sku_pieces()) if order.ordered_cart.total_no_of_sku_pieces() else 0
-            rt['ordered_sku_pieces'] = total_no_of_sku_pieces
-            rt['ordered_amount'] = total_invoice_amount
-            rt['delivered_amount'] = total_no_of_sku_pieces
-            rt['store_added'] = employee.employee.shop_created_by.filter(created_at__range=[last_day, today]).count(),
-            rt['avg_order_val'] = total_invoice_amount / int(days_diff) if total_invoice_amount >0 else 0
-            rt['avg_order_line_items'] = total_sku / int(days_diff) if total_sku >0 else 0
-            data.append(rt)
+                total_invoice_amount += round(float(order.ordered_amount()),2) if order.ordered_amount() else 0
+                total_no_of_sku_pieces += round(float(order.ordered_cart.total_no_of_sku_pieces()),2) if order.ordered_cart.total_no_of_sku_pieces() else 0
+
+            rt = {
+                'ordered_sku_pieces' : total_no_of_sku_pieces,
+                'ordered_amount': round(total_invoice_amount,2),
+                'delivered_amount': round(total_invoice_amount,2),
+                'store_added': employee.employee.shop_created_by.filter(created_at__range=[last_day, today]).count(),
+                'avg_order_val': round(total_invoice_amount / int(days_diff),2) if total_invoice_amount >0 else 0,
+                'avg_order_line_items': round(total_sku / int(days_diff),2) if total_sku >0 else 0,
+                'unique_calls_made': '',
+                'days': days_diff,
+            }
+            dt['data'].append(rt)
+            data.append(dt)
 
         msg = {'is_success': True, 'message': [""],'response_data': None, 'data': data}
         return Response(msg,status=status.HTTP_200_OK)
