@@ -224,9 +224,9 @@ def bulk_shop_updation(request):
                             id=int(row[5]), shop_name_id=int(row[0]))
                         if address.exists():
                             state_id = State.objects.get(
-                                state_name=int(row[11])).id
+                                state_name=row[11]).id
                             city_id = City.objects.get(
-                                city_name=int(row[12])).id
+                                city_name=row[12]).id
                             address.update(nick_name=row[6],
                                            address_line1=row[7],
                                            address_contact_name=row[8],
