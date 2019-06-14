@@ -64,10 +64,13 @@ class OrderedProductViewSet(DataWrapperViewSet):
     '''
     This class handles all operation of ordered product
     '''
-    permission_classes = (AllowAny,)
+    #permission_classes = (AllowAny,)
     model = OrderedProduct
     queryset = OrderedProduct.objects.all()
     serializer_class = OrderedProductSerializer    
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
     # filter_backends = (filters.DjangoFilterBackend,)
     # filter_class = OrderedProductFilter
 
@@ -99,10 +102,13 @@ class OrderedProductMappingView(DataWrapperViewSet):
     '''
     This class handles all operation of ordered product mapping
     '''
-    permission_classes = (AllowAny,)
+    #permission_classes = (AllowAny,)
     model = ShipmentProducts
     serializer_class = OrderedProductMappingSerializer    
     queryset = ShipmentProducts.objects.all()
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
     # filter_backends = (filters.DjangoFilterBackend,)
     # filter_class = OrderedProductMappingFilter
 
