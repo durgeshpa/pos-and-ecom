@@ -11,7 +11,7 @@ from otp.sms import SendSms
 
 from notification_center.models import TemplateVariable, Template, UserNotification
 from gram_to_brand.models import Cart
-
+from shops.models import Shop, ParentRetailerMapping
 
 #User = get_user_model()
 #Device = get_device_model()
@@ -128,31 +128,37 @@ class SendNotification:
 
     def send_to_a_group(self):
         # fetch the group and location and call send for each user specifically
+        #import pdb; pdb.set_trace()
         template = Template.objects.get(type=self.template_type)
-        notification_groups = template.notification_groups
-        shop = Shop.objects.get(id=self.data['shop_id'])
+        notification_groups = template.notification_groups.all()
+        shop = ParentRetailerMapping.objects.get(retailer_id=self.data['shop_id']).parent        
+        #shop = Shop.objects.get(id=self.data['shop_id'])
         #shop = Shop.objects.filter(get_shop_city=self.data['city'],shop_name="GramFactory")
+        
         # users of the shop for our campaign        
-        users = shop.related_users.filter(groups__in=notification_groups)
+        for group in notification_groups:
+            users = shop.related_users.filter(groups=group)
 
-        self.template_data = GenerateTemplateData(
-            transaction_type=self.template_type,
-            transaction_data=self.data).create()
-       
-        self.template_data = {**self.template_data, **self.data}
+            # notification_groups for the shop location
+            self.template_data = GenerateTemplateData(
+                transaction_type=self.template_type,
+                transaction_data=self.data).create()
+           
+            self.template_data = {**self.template_data, **self.data}
 
-        sms_content = self.merge_template_with_data(template.text_sms_template)
+            sms_content = self.merge_template_with_data(template.text_sms_template)
 
-        for user in users:
-            user_id = user.id
-            # generate template variable data
-            message = SendSms(phone=user.phone_number, body=sms_content)
-            # message = SendSms(phone=9643112048,body="Dear sagar, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory")
-            message.send()
+            for user in users:
+                user_id = user.id
+                # generate template variable data
+                print (user.phone_number, sms_content)
+                # message = SendSms(phone=user.phone_number, body=sms_content)
+                # # message = SendSms(phone=9643112048,body="Dear sagar, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory")
+                # message.send()
 
     def send(self):
         try:
-            # import pdb; pdb.set_trace()
+            #import pdb; pdb.set_trace()
             #generate template content
             template = Template.objects.get(type=self.template_type)
  
@@ -186,12 +192,12 @@ class SendNotification:
             #print (self.data['phone_number'], sms_content)
             logging.info(self.data['phone_number'], sms_content)
             # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
-            #message = SendSms(phone=self.data['phone_number'], body=sms_content)
-            message = SendSms(phone="9643112048",
-                      body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App." \
-                           " Thanks," \
-                           " Team GramFactory " % ("sagar", "saggy-shop"))
-            message.send()
+            message = SendSms(phone=self.data['phone_number'], body=sms_content)
+            # message = SendSms(phone="9643112048",
+            #           body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App." \
+            #                " Thanks," \
+            #                " Team GramFactory " % ("sagar", "saggy-shop"))
+            # message.send()
 
         except Exception as e:
             # print (str(e))
@@ -208,8 +214,8 @@ def test():
 
     #from notification_center.utils import SendNotification
     SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
-    message = SendSms(phone="9643112048",
-                      body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App." \
-                           " Thanks," \
-                           " Team GramFactory " % ("sagar", "saggy-shop"))
-    message.send()
+    # message = SendSms(phone="9643112048",
+    #                   body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App." \
+    #                        " Thanks," \
+    #                        " Team GramFactory " % ("sagar", "saggy-shop"))
+    # message.send()
