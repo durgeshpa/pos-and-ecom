@@ -3,8 +3,8 @@ from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 from rest_framework.response import Response
 from .serializers import (RetailerTypeSerializer, ShopTypeSerializer,
-        ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer)
-from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument)
+        ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer, ShopUserMappingSerializer, SellerShopSerializer)
+from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping)
 from rest_framework import generics
 from addresses.models import City, Area, Address
 from rest_framework import status
@@ -169,4 +169,64 @@ class ShopView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         shop = serializer.save(shop_owner=self.request.user)
+        return shop
+
+class TeamListView(generics.ListAPIView):
+    serializer_class = ShopUserMappingSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        return ShopUserMapping.objects.filter(manager=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        msg = {'is_success': True,
+                'message': ["%s shops found" % (queryset.count())],
+                'response_data': serializer.data}
+        return Response(msg,
+                        status=status.HTTP_200_OK)
+
+
+class SellerShopView(generics.ListCreateAPIView):
+    serializer_class = SellerShopSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        user = self.request.user
+        return Shop.objects.filter(shop_owner=user)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        msg = {'is_success': True,
+                'message': ["%s shops found" % (queryset.count())],
+                'response_data': serializer.data}
+        return Response(msg,
+                        status=status.HTTP_200_OK)
+
+    def create(self, request, *args, **kwargs):
+        if request.user.has_perm('shops.can_sales_person_add_shop'):
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            shop = self.perform_create(serializer)
+            msg = {'is_success': True,
+                    'message': [SUCCESS_MESSAGES['USER_SHOP_ADDED']],
+                    'response_data': [{
+                                        "id": shop.pk,
+                                        "shop_id": shop.pk,
+                                        "shop_name": shop.shop_name,
+                                        }]}
+
+            return Response(msg,status=status.HTTP_200_OK)
+        else:
+            msg = {'is_success': False,
+                   'message': "No permission to add shop",
+                   'response_data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+
+    def perform_create(self, serializer):
+        shop = serializer.save(created_by=self.request.user,shop_owner= get_user_model().objects.get(phone_number=self.request.data['shop_owner']))
         return shop

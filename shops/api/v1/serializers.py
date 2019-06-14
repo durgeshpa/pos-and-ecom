@@ -1,6 +1,8 @@
 from rest_framework import serializers
-from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument)
+from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping)
 from django.contrib.auth import get_user_model
+from accounts.api.v1.serializers import UserSerializer,GroupSerializer
+from retailer_backend.validators import MobileNumberValidator
 from rest_framework import validators
 
 User =  get_user_model()
@@ -66,3 +68,23 @@ class ShopDocumentSerializer(serializers.ModelSerializer):
         response = super().to_representation(instance)
         response['shop_name'] = ShopSerializer(instance.shop_name).data
         return response
+
+class ShopUserMappingSerializer(serializers.ModelSerializer):
+    shop = ShopSerializer()
+    employee = UserSerializer()
+    employee_group = GroupSerializer()
+
+    class Meta:
+        model = ShopUserMapping
+        fields = ('shop','manager','employee','employee_group','created_at','status')
+
+
+class SellerShopSerializer(serializers.ModelSerializer):
+    shop_owner = serializers.CharField(max_length=10, allow_blank=False, trim_whitespace=True, validators=[MobileNumberValidator])
+
+    class Meta:
+        model = Shop
+        fields = ('id', 'shop_owner', 'shop_name', 'shop_type', 'imei_no')
+        extra_kwargs = {
+            'shop_owner': {'required': True},
+        }

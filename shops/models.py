@@ -11,6 +11,7 @@ from django.utils.translation import gettext_lazy as _
 from retailer_backend.validators import *
 import datetime
 from django.core.validators import MinLengthValidator
+from django.contrib.auth.models import Group
 
 
 SHOP_TYPE_CHOICES = (
@@ -49,6 +50,7 @@ class Shop(models.Model):
     shop_owner = models.ForeignKey(get_user_model(), related_name='shop_owner_shop',on_delete=models.CASCADE)
     shop_type = models.ForeignKey(ShopType,related_name='shop_type_shop',on_delete=models.CASCADE)
     related_users = models.ManyToManyField(get_user_model(),blank=True, related_name='related_shop_user')
+    created_by = models.ForeignKey(get_user_model(), related_name='shop_created_by',null=True,blank=True, on_delete=models.SET_NULL)
     shop_code = models.CharField(max_length=1, blank=True, null=True)
     warehouse_code = models.CharField(max_length=2, blank=True, null=True)
     imei_no = models.CharField(max_length=20, null=True, blank=True)
@@ -113,6 +115,7 @@ class Shop(models.Model):
         permissions = (
             ("can_see_all_shops", "Can See All Shops"),
             ("can_do_reconciliation", "Can Do Reconciliation"),
+            ("can_sales_person_add_shop", "Can Sales Person Add Shop"),
         )
 
 class ShopNameDisplay(Shop):
@@ -221,3 +224,12 @@ class ShopAdjustmentFile(models.Model):
     created_by = models.ForeignKey(get_user_model(),null=True,blank=True, related_name='stock_adjust_by',on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+class ShopUserMapping(models.Model):
+    shop = models.ForeignKey(Shop, related_name='shop_user', on_delete=models.CASCADE)
+    manager = models.ForeignKey(get_user_model(), null=True, blank=True, related_name='shop_user_manager', on_delete=models.SET_NULL)
+    employee = models.ForeignKey(get_user_model(), related_name='shop_employee', on_delete=models.CASCADE)
+    employee_group = models.ForeignKey(Group, related_name='shop_user_group',default='1', on_delete=models.SET_DEFAULT)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
