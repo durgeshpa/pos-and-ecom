@@ -11,6 +11,14 @@ from django.contrib.postgres.search import SearchVector
 from django_filters import rest_framework as filters
 
 from rest_framework import generics
+from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,
+                          OrderSerializer, CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
+
+                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer, OrderListSerializer, FeedBackSerializer )
+from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
+from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
+                                OrderedProduct as SPOrderedProduct, StockAdjustment)
+
 from rest_framework import permissions, authentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import JSONParser
@@ -20,7 +28,7 @@ from rest_framework import status
 from rest_framework import generics, viewsets
 
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,
-    CartProductMappingSerializer,CartSerializer, OrderSerializer, 
+    CartProductMappingSerializer,CartSerializer, OrderSerializer,
     CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,
     PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
     GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,
@@ -37,7 +45,7 @@ from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as 
                                   OrderedProductReserved as GramOrderedProductReserved, PickList, PickListItems )
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
                                    OrderedProduct, Payment, CustomerCare,
-                                   Return, OrderedProductMapping as ShipmentProducts)
+                                   Return, Feedback, OrderedProductMapping as ShipmentProducts)
 
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
                                       OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment, CustomerCare as GramMappedCustomerCare )
@@ -55,6 +63,9 @@ from .filters import OrderedProductMappingFilter, OrderedProductFilter
 
 from common.data_wrapper_view import DataWrapperViewSet
 
+from django.contrib.auth import get_user_model
+User = get_user_model()
+
 logger = logging.getLogger(__name__)
 
 today = datetime.today()
@@ -67,7 +78,7 @@ class OrderedProductViewSet(DataWrapperViewSet):
     #permission_classes = (AllowAny,)
     model = OrderedProduct
     queryset = OrderedProduct.objects.all()
-    serializer_class = OrderedProductSerializer    
+    serializer_class = OrderedProductSerializer
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -90,12 +101,12 @@ class OrderedProductViewSet(DataWrapperViewSet):
 
     def get_queryset(self):
         shipment_id = self.request.query_params.get('shipment_id', None)
-        ordered_product = OrderedProduct.objects.all()       
+        ordered_product = OrderedProduct.objects.all()
         if shipment_id is not None:
             ordered_product = ordered_product.filter(
                 id=shipment_id
                 )
-        return ordered_product    
+        return ordered_product
 
 
 class OrderedProductMappingView(DataWrapperViewSet):
@@ -104,7 +115,7 @@ class OrderedProductMappingView(DataWrapperViewSet):
     '''
     #permission_classes = (AllowAny,)
     model = ShipmentProducts
-    serializer_class = OrderedProductMappingSerializer    
+    serializer_class = OrderedProductMappingSerializer
     queryset = ShipmentProducts.objects.all()
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
@@ -128,7 +139,7 @@ class OrderedProductMappingView(DataWrapperViewSet):
 
     def get_queryset(self):
         ordered_product = self.request.query_params.get('ordered_product', None)
-        ordered_product_mapping = ShipmentProducts.objects.all()       
+        ordered_product_mapping = ShipmentProducts.objects.all()
         if ordered_product is not None:
             ordered_product_mapping = ordered_product_mapping.filter(
                 ordered_product=ordered_product
@@ -1176,4 +1187,38 @@ class ReleaseBlocking(APIView):
                     ordered_reserve.order_product_reserved.save()
                     ordered_reserve.delete()
             msg = {'is_success': True, 'message': ['Blocking has released'], 'response_data': None}
+        return Response(msg, status=status.HTTP_200_OK)
+
+class FeedbackData(generics.ListCreateAPIView):
+    serializer_class = FeedBackSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        ship_id = self.kwargs.get('ship_id')
+        queryset = Feedback.objects.all()
+        if ship_id:
+            queryset = Feedback.objects.filter(shipment__id=ship_id)
+        return queryset
+
+    def create(self, request, *args, **kwargs):
+        can_comment = False
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            if ((serializer.data['delivery_experience'] and int(serializer.data['delivery_experience']) > 4) or (serializer.data['overall_product_packaging'] and int(serializer.data['overall_product_packaging']) > 4)):
+                can_comment = True
+            msg = {'is_success': True, 'can_comment':can_comment, 'message': None, 'response_data': serializer.data}
+        else:
+            msg = {'is_success': False, 'message': ['shipment_id, user_id or status not found or value exists'], 'response_data': None}
+        return Response(msg, status=status.HTTP_200_OK)
+
+    def perform_create(self, serializer):
+        feedback = serializer.save(user=self.request.user)
+        return feedback
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        msg = {'is_success': True, 'message': [""], 'response_data': serializer.data}
         return Response(msg, status=status.HTTP_200_OK)

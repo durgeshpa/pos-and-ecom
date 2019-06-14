@@ -6,7 +6,7 @@ from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMap
                              Size,Color,Fragrance,Flavor,Weight,PackageSize)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order,
                                    OrderedProduct, Note, CustomerCare,
-                                   Payment, Dispatch)
+                                   Payment, Dispatch, Feedback)
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
 
                                       OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment)
@@ -23,6 +23,10 @@ from gram_to_brand.models import GRNOrderProductMapping
 from addresses.api.v1.serializers import AddressSerializer
 from brand.api.v1.serializers import BrandSerializer
 from django.core.validators import RegexValidator
+
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 class ProductImageSerializer(serializers.ModelSerializer):
    class Meta:
@@ -60,7 +64,7 @@ class OrderedProductMappingSerializer(serializers.ModelSerializer):
     product_total_price = serializers.SerializerMethodField()
 
     #ordered_product = ReadOrderedProductSerializer()
-    
+
     def get_product_price(self, obj):
         # fetch product , order_id
         cart_product_mapping = CartProductMapping.objects.get(cart_product=obj.product, cart=obj.ordered_product.order.ordered_cart)
@@ -95,9 +99,9 @@ class ListOrderedProductSerializer(serializers.ModelSerializer):
 
 class ReadOrderedProductSerializer(serializers.ModelSerializer):
     shop_owner_name = serializers.SerializerMethodField()
-    shop_owner_number = serializers.SerializerMethodField()   
+    shop_owner_number = serializers.SerializerMethodField()
     order_created_date = serializers.SerializerMethodField()
-    rt_order_product_order_product_mapping = OrderedProductMappingSerializer(many=True) 
+    rt_order_product_order_product_mapping = OrderedProductMappingSerializer(many=True)
 
     def get_shop_owner_number(self, obj):
         shop_owner_number = obj.order.buyer_shop.shop_owner.phone_number
@@ -207,7 +211,7 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
 
     def margin_dt(self,obj):
         return round(100 - (float(self.product_price) * 1000000 / (float(self.product_mrp) * (100 - float(obj.getCashDiscount(self.context.get("parent_mapping_id")))) * (100 -  float(obj.getLoyaltyIncentive(self.context.get("parent_mapping_id")))))),2) if self.product_mrp and self.product_mrp > 0 else 0
-        
+
     class Meta:
         model = Product
         fields = ('id','product_name','product_slug','product_short_description','product_long_description','product_sku','product_mrp',
@@ -488,7 +492,7 @@ class OrderListSerializer(serializers.ModelSerializer):
     #Todo remove
     shipping_address = AddressSerializer()
     order_status = serializers.CharField(source='get_order_status_display')
-    rt_order_order_product = ListOrderedProductSerializer(many=True) 
+    rt_order_order_product = ListOrderedProductSerializer(many=True)
 
     def to_representation(self, instance):
         representation = super(OrderListSerializer, self).to_representation(instance)
@@ -639,7 +643,7 @@ class GramMappedOrderSerializer(serializers.ModelSerializer):
     billing_address = AddressSerializer()
     shipping_address = AddressSerializer()
     order_status = serializers.CharField(source='get_order_status_display')
-    rt_order_order_product = ListOrderedProductSerializer(many=True) 
+    rt_order_order_product = ListOrderedProductSerializer(many=True)
 
     def to_representation(self, instance):
         representation = super(GramMappedOrderSerializer, self).to_representation(instance)
@@ -683,3 +687,10 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
                   'shipment_address', 'invoice_city', 'invoice_amount',
                   'created_at', 'cash_to_be_collected')
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 'cash_to_be_collected')
+
+class FeedBackSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Feedback
+        fields = ('user', 'shipment', 'delivery_experience', 'overall_product_packaging', 'comment', 'status')
+        extra_kwargs = {'status': {'required': True}, 'user':{'required':False}}
