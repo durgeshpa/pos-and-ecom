@@ -1,4 +1,7 @@
 from rest_framework import serializers
+
+from common.common_utils import convert_date_format_ddmmmyyyy
+
 from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMapping,ProductOption,
                              Size,Color,Fragrance,Flavor,Weight,PackageSize)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order,
@@ -78,6 +81,12 @@ class OrderedProductMappingSerializer(serializers.ModelSerializer):
 
 
 class ListOrderedProductSerializer(serializers.ModelSerializer):
+    # created_at = serializers.SerializerMethodField()
+
+    # def get_created_at(self, obj):
+    #     if self.created_at:
+    #         self.created_at = convert_date_format_ddmmmyyyy(self.created_at)
+    #     return self.created_at
 
     class Meta:
         model = OrderedProduct
