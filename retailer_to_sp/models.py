@@ -19,7 +19,7 @@ from retailer_backend.common_function import (
 )
 from .utils import (order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util,
                     order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
-                    order_damaged_amount, order_delivered_value)
+                    order_damaged_amount, order_delivered_value, order_shipment_status_reason)
 from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
@@ -328,6 +328,10 @@ class Order(models.Model):
     @property
     def shipment_status(self):
         return order_shipment_status(self.shipments())
+
+    @property
+    def shipment_status_reason(self):
+        return order_shipment_status_reason(self.shipments())    
 
     @property
     def order_shipment_amount(self):
