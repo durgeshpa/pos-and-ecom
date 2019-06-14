@@ -37,7 +37,7 @@ from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as 
                                   OrderedProductReserved as GramOrderedProductReserved, PickList, PickListItems )
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
                                    OrderedProduct, Payment, CustomerCare,
-                                   Return, OrderedProductMapping)
+                                   Return, OrderedProductMapping as ShipmentProducts)
 
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
                                       OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment, CustomerCare as GramMappedCustomerCare )
@@ -100,9 +100,9 @@ class OrderedProductMappingView(DataWrapperViewSet):
     This class handles all operation of ordered product mapping
     '''
     permission_classes = (AllowAny,)
-    model = OrderedProductMapping
+    model = ShipmentProducts
     serializer_class = OrderedProductMappingSerializer    
-    queryset = OrderedProductMapping.objects.all()
+    queryset = ShipmentProducts.objects.all()
     # filter_backends = (filters.DjangoFilterBackend,)
     # filter_class = OrderedProductMappingFilter
 
@@ -122,12 +122,13 @@ class OrderedProductMappingView(DataWrapperViewSet):
 
     def get_queryset(self):
         ordered_product = self.request.query_params.get('ordered_product', None)
-        ordered_product_mapping = OrderedProductMapping.objects.all()       
+        ordered_product_mapping = ShipmentProducts.objects.all()       
         if ordered_product is not None:
             ordered_product_mapping = ordered_product_mapping.filter(
                 ordered_product=ordered_product
                 )
         return ordered_product_mapping
+
 
 
 class ProductsList(generics.ListCreateAPIView):
