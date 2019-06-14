@@ -213,6 +213,12 @@ def bulk_shop_updation(request):
                         values_only=True
                     ):
                         # skipping first row(headings)
+                        if len(str(row[10])) != 6:
+                            raise Exception('Pincode must be of 6 digits')
+                        if len(row[9]) != 10:
+                            raise Exception('Mobile no. must be of 10 digits')
+                        if row[13] not in ('billing', 'shipping'):
+                            raise Exception('Not a valid Address type')
                         address = Address.objects.filter(id=row[5],
                                                          shop_name_id=row[0])
                         if address.exists():
@@ -225,15 +231,20 @@ def bulk_shop_updation(request):
                                            pincode=row[10], state_id=state_id,
                                            city_id=city_id,
                                            address_type=row[13])
+                            shipping_address = Address.objects.filter(
+                                shop_name_id=row[0], address_type='shipping')
+                            if not shipping_address.exists():
+                                raise Exception('Atleast one shipping address'
+                                                ' is required')
                             Shop.objects.filter(id=row[0]).update(
                                 shop_name=row[1], status=row[4])
                         else:
                             raise Exception('Shop and Address ID are not'
-                                            ' valid for '.format(row[1]))
+                                            ' valid')
                 return redirect('/admin/shops/shop/')
 
             except Exception as e:
-                messages.error(request, e)
+                messages.error(request, '{} (Shop: {})'.format(e, row[1]))
 
     else:
         form = BulkShopUpdation

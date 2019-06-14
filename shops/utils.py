@@ -34,6 +34,9 @@ def create_shops_excel(queryset):
         'indent': 1,
     })
 
+    format1 = workbook.add_format({'bg_color': '#FFC7CE',
+                               'font_color': '#9C0006'})
+
     # to set the width of column
     worksheet.set_column('A:A', 10)
     worksheet.set_column('B:B', 100)
@@ -79,22 +82,22 @@ def create_shops_excel(queryset):
                 worksheet.write(row_num + 1, col_num, cell_data, unlocked)
 
     worksheet.data_validation(
-        'L2:L{}'.format(data_rows),
+        'L2:L{}'.format(data_rows + 1),
         {'validate': 'list',
          'source': list(states_list)})
 
     worksheet.data_validation(
-        'M2:M{}'.format(data_rows),
+        'M2:M{}'.format(data_rows + 1),
         {'validate': 'list',
          'source': list(cities_list)})
 
     worksheet.data_validation(
-        'E2:E{}'.format(data_rows),
+        'E2:E{}'.format(data_rows + 1),
         {'validate': 'list',
          'source': [True, False]})
 
     worksheet.data_validation(
-        'N2:N{}'.format(data_rows),
+        'N2:N{}'.format(data_rows + 1),
         {'validate': 'list',
          'source': ['billing', 'shipping']})
 
