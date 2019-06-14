@@ -244,7 +244,7 @@ def bulk_shop_updation(request):
                                 raise Exception('Atleast one shipping address'
                                                 ' is required')
                             Shop.objects.filter(id=int(row[0])).update(
-                                shop_name=int(row[1]), status=row[4])
+                                shop_name=row[1], status=row[4])
                         else:
                             raise Exception('Shop and Address ID are not'
                                             ' valid')
