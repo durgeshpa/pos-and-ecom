@@ -1,4 +1,5 @@
 import openpyxl
+import re
 
 from django.shortcuts import render
 from django.views.generic.base import TemplateView
@@ -213,31 +214,37 @@ def bulk_shop_updation(request):
                         values_only=True
                     ):
                         # skipping first row(headings)
-                        if len(str(row[10])) != 6:
+                        if not re.match('^[1-9][0-9]{5}$', str(int(row[10]))):
                             raise Exception('Pincode must be of 6 digits')
-                        if len(row[9]) != 10:
+                        if not re.match('^[6-9]\d{9}$', str(int(row[9]))):
                             raise Exception('Mobile no. must be of 10 digits')
                         if row[13] not in ('billing', 'shipping'):
                             raise Exception('Not a valid Address type')
-                        address = Address.objects.filter(id=row[5],
-                                                         shop_name_id=row[0])
+                        address = Address.objects.filter(
+                            id=int(row[5]), shop_name_id=int(row[0]))
                         if address.exists():
-                            state_id = State.objects.get(state_name=row[11]).id
-                            city_id = City.objects.get(city_name=row[12]).id
+                            state_id = State.objects.get(
+                                state_name=int(row[11])).id
+                            city_id = City.objects.get(
+                                city_name=int(row[12])).id
                             address.update(nick_name=row[6],
                                            address_line1=row[7],
                                            address_contact_name=row[8],
-                                           address_contact_number=row[9],
-                                           pincode=row[10], state_id=state_id,
+                                           address_contact_number=int(row[9]),
+                                           pincode=str(int(row[10])),
+                                           state_id=state_id,
                                            city_id=city_id,
                                            address_type=row[13])
-                            shipping_address = Address.objects.filter(
-                                shop_name_id=row[0], address_type='shipping')
+                            shipping_address = Address.objects\
+                                .filter(
+                                    shop_name_id=int(row[0]),
+                                    address_type='shipping'
+                                )
                             if not shipping_address.exists():
                                 raise Exception('Atleast one shipping address'
                                                 ' is required')
-                            Shop.objects.filter(id=row[0]).update(
-                                shop_name=row[1], status=row[4])
+                            Shop.objects.filter(id=int(row[0])).update(
+                                shop_name=int(row[1]), status=row[4])
                         else:
                             raise Exception('Shop and Address ID are not'
                                             ' valid')
