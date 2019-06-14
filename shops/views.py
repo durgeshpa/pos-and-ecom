@@ -1,8 +1,11 @@
+import openpyxl
+import re
+
 from django.shortcuts import render
 from django.views.generic.base import TemplateView
 from django.http import HttpResponse
 from django.views import View
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 from shops.models import Shop, ShopType
 from products.models import Product
@@ -10,10 +13,13 @@ from gram_to_brand.models import GRNOrderProductMapping
 from sp_to_gram.models import OrderedProduct, OrderedProductMapping, StockAdjustment, StockAdjustmentMapping,OrderedProductReserved
 from django.db.models import Sum,Q
 from dal import autocomplete
-from .forms import StockAdjustmentUploadForm
+from .forms import StockAdjustmentUploadForm, BulkShopUpdation
 import csv
 import codecs
 import datetime
+from django.db import transaction
+from addresses.models import Address, State, City
+
 
 # Create your views here.
 class ShopMappedProduct(TemplateView):
@@ -195,3 +201,63 @@ class StockAdjustmentView(View):
         return
 
 
+def bulk_shop_updation(request):
+    if request.method == 'POST':
+        form = BulkShopUpdation(request.POST, request.FILES)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    wb_obj = openpyxl.load_workbook(form.cleaned_data.get('file'))
+                    sheet_obj = wb_obj.active
+                    for row in sheet_obj.iter_rows(
+                        min_row=2, max_row=None, min_col=None, max_col=None,
+                        values_only=True
+                    ):
+                        # skipping first row(headings)
+                        if not re.match('^[1-9][0-9]{5}$', str(int(row[10]))):
+                            raise Exception('Pincode must be of 6 digits')
+                        if not re.match('^[6-9]\d{9}$', str(int(row[9]))):
+                            raise Exception('Mobile no. must be of 10 digits')
+                        if row[13] not in ('billing', 'shipping'):
+                            raise Exception('Not a valid Address type')
+                        address = Address.objects.filter(
+                            id=int(row[5]), shop_name_id=int(row[0]))
+                        if address.exists():
+                            state_id = State.objects.get(
+                                state_name=row[11]).id
+                            city_id = City.objects.get(
+                                city_name=row[12]).id
+                            address.update(nick_name=row[6],
+                                           address_line1=row[7],
+                                           address_contact_name=row[8],
+                                           address_contact_number=int(row[9]),
+                                           pincode=str(int(row[10])),
+                                           state_id=state_id,
+                                           city_id=city_id,
+                                           address_type=row[13])
+                            shipping_address = Address.objects\
+                                .filter(
+                                    shop_name_id=int(row[0]),
+                                    address_type='shipping'
+                                )
+                            if not shipping_address.exists():
+                                raise Exception('Atleast one shipping address'
+                                                ' is required')
+                            Shop.objects.filter(id=int(row[0])).update(
+                                shop_name=row[1], status=row[4])
+                        else:
+                            raise Exception('Shop and Address ID are not'
+                                            ' valid')
+                return redirect('/admin/shops/shop/')
+
+            except Exception as e:
+                messages.error(request, '{} (Shop: {})'.format(e, row[1]))
+
+    else:
+        form = BulkShopUpdation
+
+    return render(
+        request,
+        'admin/shop/bulk-shop-updation.html',
+        {'form': form}
+    )
