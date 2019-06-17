@@ -25,7 +25,7 @@ from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializ
     PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
     GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,
     OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
-    OrderListSerializer, ReadOrderedProductSerializer, ListOrderedProductSerializer
+    OrderListSerializer, ReadOrderedProductSerializer,
 )
 
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
