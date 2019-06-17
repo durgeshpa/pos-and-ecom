@@ -2,7 +2,7 @@ from rest_framework import generics
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,
                           OrderSerializer, CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
 
-                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer, OrderListSerializer, ShipmentSerializer, ShipmentOrderSerializer )
+                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer, OrderListSerializer, ShipmentSerializer, ShipmentOrderSerializer, ShipmentDetailSerializer)
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
 from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
                                 OrderedProduct as SPOrderedProduct, StockAdjustment)
@@ -18,7 +18,7 @@ from rest_framework import status
 
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
                                    OrderedProduct, Payment, CustomerCare,
-                                   Return)
+                                   Return, OrderedProductMapping)
 
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
                                       OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment, CustomerCare as GramMappedCustomerCare )
@@ -1111,9 +1111,13 @@ class DeliveryShipmentDetails(APIView):
         msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': shipment_details.data}
         return Response(msg, status=status.HTTP_201_CREATED)
 
-# class ShipmentDetail(APIView):
-#     authentication_classes = (authentication.TokenAuthentication,)
-#     permission_classes = (permissions.IsAuthenticated,)
-#
-#     def get(self, request):
-#         shipment_id =
+class ShipmentDetail(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, *args, **kwargs):
+        shipment_id = kwargs.get('shipment')
+        shipment = OrderedProductMapping.objects.filter(ordered_product__id = shipment_id)
+        shipment_product_details = ShipmentDetailSerializer(shipment, many=True)
+        msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': shipment_product_details.data}
+        return Response(msg, status=status.HTTP_201_CREATED)

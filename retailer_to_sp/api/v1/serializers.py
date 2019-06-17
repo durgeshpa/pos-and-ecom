@@ -3,7 +3,7 @@ from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMap
                              Size,Color,Fragrance,Flavor,Weight,PackageSize)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order,
                                    OrderedProduct, Note, CustomerCare,
-                                   Payment, Dispatch)
+                                   Payment, Dispatch, OrderedProductMapping)
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
 
                                       OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment)
@@ -608,3 +608,24 @@ class ShipmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderedProduct
         fields = ('invoice_no', 'shipment_status', 'payment_mode', 'invoice_amount', 'order')
+
+
+class ShipmentStatusSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = OrderedProduct
+        fields = ('shipment_status',)
+
+
+class ShipmentDetailSerializer(serializers.ModelSerializer):
+
+    ordered_product = ShipmentStatusSerializer()
+    mrp = serializers.ReadOnlyField()
+    price_to_retailer = serializers.ReadOnlyField()
+    cash_discount = serializers.ReadOnlyField()
+    loyalty_incentive = serializers.ReadOnlyField()
+    margin = serializers.ReadOnlyField()
+
+    class Meta:
+        model = OrderedProductMapping
+        fields = ( 'product', 'mrp', 'price_to_retailer', 'cash_discount', 'loyalty_incentive', 'margin', 'shipped_qty', 'ordered_product')

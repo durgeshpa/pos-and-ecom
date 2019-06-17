@@ -729,6 +729,28 @@ class OrderedProductMapping(models.Model):
             return str(gf_code)
         return str("-")
 
+
+    @property
+    def mrp(self):
+        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.mrp
+
+    @property
+    def price_to_retailer(self):
+        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.price_to_retailer
+
+    @property
+    def cash_discount(self):
+        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.cash_discount
+
+    @property
+    def loyalty_incentive(self):
+        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.loyalty_incentive
+
+    @property
+    def margin(self):
+        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.margin
+
+
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
             shop__shop_type__shop_type='sp', status=True
