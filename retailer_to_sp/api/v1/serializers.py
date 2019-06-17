@@ -88,13 +88,13 @@ class ListOrderedProductSerializer(serializers.ModelSerializer):
     # created_at = serializers.SerializerMethodField()
 
     # def get_created_at(self, obj):
-    #     if self.created_at:
-    #         self.created_at = convert_date_format_ddmmmyyyy(self.created_at)
-    #     return self.created_at
+    #     if obj.created_at:
+    #         created_at = convert_date_format_ddmmmyyyy(obj.created_at.__str__().split(' ')[0])
+    #     return created_at
 
     class Meta:
         model = OrderedProduct
-        fields = ('id','created_at')
+        fields = ('id', 'invoice_no') #, 'created_at')
 
 
 class ReadOrderedProductSerializer(serializers.ModelSerializer):
