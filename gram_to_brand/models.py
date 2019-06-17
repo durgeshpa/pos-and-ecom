@@ -256,6 +256,9 @@ class CartProductMapping(models.Model):
             return round(float(self.qty)* float(self.vendor_product.product_price),2)
         return self.total_price
 
+    def get_shop_specific_products_mrp(self):
+        return self.cart_product.product_pro_price.filter(shop=self.cart.gf_shipping_address.shop_name, status=True).last()
+
     def __str__(self):
         return self.cart_product.product_name
 
