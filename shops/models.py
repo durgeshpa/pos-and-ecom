@@ -91,6 +91,10 @@ class Shop(models.Model):
             return self.retiler_mapping.last().parent
     get_shop_parent.fget.short_description = 'Parent Shop'
 
+    @property
+    def shop_approved(self):
+        return True if self.status==True and self.retiler_mapping.exists() else False
+
 
     def save(self, force_insert=False, force_update=False, *args, **kwargs):
         if self.status != self.__original_status and self.status is True and ParentRetailerMapping.objects.filter(retailer=self, status=True).exists():

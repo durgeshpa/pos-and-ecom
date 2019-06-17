@@ -230,3 +230,40 @@ class SellerShopView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         shop = serializer.save(created_by=self.request.user,shop_owner= get_user_model().objects.get(phone_number=self.request.data['shop_owner']))
         return shop
+
+from datetime import datetime, timedelta
+
+class SalesPerformanceView(generics.ListAPIView):
+    serializer_class = ShopUserMappingSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        return ShopUserMapping.objects.filter(manager=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        employee_list = ShopUserMapping.objects.filter(manager=self.request.user)
+        data = []
+        days_diff = 15
+
+        for employee in employee_list:
+            today = datetime.now()
+            last_day = today - timedelta(days=days_diff)
+            one_month = today - timedelta(days=days_diff+days_diff)
+            dt = {
+              'name': employee.employee.first_name,
+              'data':[]
+            }
+            shop_obj = Shop.objects.filter(created_by=employee.employee)
+            rt = {
+                'shop_inactive': shop_obj.filter(status=True).exclude(shop_obj.rt_buyer_shop_order.filter(created_at__gte=last_day)).count(),
+                'shop_onboard':  shop_obj.filter(status=True, created_at__gte=last_day).count() if shop_obj.filter(status=True,created_at__gte=last_day) and shop_obj.retiler_mapping.exists() else 0,
+                'shop_reactivated': shop_obj.filter(status=True).rt_buyer_shop_order.filter(created_at__range=[one_month,last_day]).count(),
+                'current_target_sales_target': '',
+                'current_store_count': shop_obj.filter(created_at__gte=last_day).count(),
+            }
+            dt['data'].append(rt)
+            data.append(dt)
+
+        msg = {'is_success': True, 'message': [""],'response_data': None, 'data': data}
+        return Response(msg,status=status.HTTP_200_OK)
