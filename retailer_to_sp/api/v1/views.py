@@ -178,8 +178,7 @@ class GramGRNProductsList(APIView):
             ptr = round(p.price_to_retailer, 2) if p.price_to_retailer else p.price_to_retailer
             loyalty_discount = round(p.loyalty_incentive, 2) if p.loyalty_incentive else p.loyalty_incentive
             cash_discount = round(p.cash_discount, 2) if p.cash_discount else p.cash_discount
-            margin = round((100 * (float(mrp) - float(ptr) - (float(cash_discount) + float(loyalty_discount)) * float(
-                mrp) / 100) / float(mrp)), 2) if mrp and ptr else 0
+            margin = round(100 - (float(ptr) * 1000000 / (float(mrp) * (100 - float(cash_discount)) * (100 - float(loyalty_discount)))), 2) if mrp and ptr else 0
 
             if cart_check == True:
                 for c_p in cart_products:
