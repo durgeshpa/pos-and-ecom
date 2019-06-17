@@ -28,7 +28,7 @@ class GetSlotBannerListView(APIView):
         position_name= self.kwargs.get('page_name')
         pos_name = self.kwargs.get('banner_slot')
         shop_id = self.request.GET.get('shop_id')
-        shipment_id, can_write_feedback = '', False
+        shipment_id, can_write_feedback, invoice_no = '', False, ''
 
         if pos_name and position_name and shop_id and shop_id != '-1':
 
@@ -46,13 +46,14 @@ class GetSlotBannerListView(APIView):
                 if order_product.exists() and (not Feedback.objects.filter(shipment=order_product.last()).exists()):
                     shipment_id = order_product.last().id
                     can_write_feedback = True
+                    invoice_no = order_product.last().invoice_no
             else:
                 data = BannerData.objects.filter(banner_data__status=True, slot__page__name=position_name,slot__bannerslot__name=pos_name,slot__shop=None ).filter(Q(banner_data__banner_start_date__isnull=True) | Q(banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate))
                 is_success = True if data else False
                 message = "" if is_success else "Banners are currently not available"
                 serializer = BannerDataSerializer(data,many=True)
 
-            return Response({"message":[message], "response_data": serializer.data ,"is_success": is_success,"shipment_id": shipment_id, "can_write_feedback": can_write_feedback})
+            return Response({"message":[message], "response_data": serializer.data ,"is_success": is_success,"shipment_id": shipment_id, "can_write_feedback": can_write_feedback, "invoice_no": invoice_no})
 
         else:
             data = BannerData.objects.filter(banner_data__status=True, slot__page__name=position_name,slot__bannerslot__name=pos_name, slot__shop=None).filter(Q(banner_data__banner_start_date__isnull=True) | Q(banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate))
@@ -60,7 +61,7 @@ class GetSlotBannerListView(APIView):
             message = "" if is_success else "Banners are currently not available"
             serializer = BannerDataSerializer(data,many=True)
 
-            return Response({"message":[message], "response_data": serializer.data ,"is_success": is_success,"shipment_id": shipment_id, "can_write_feedback": can_write_feedback})
+            return Response({"message":[message], "response_data": serializer.data ,"is_success": is_success,"shipment_id": shipment_id, "can_write_feedback": can_write_feedback, "invoice_no": invoice_no})
 
 
 '''class GetAllBannerListView(ListCreateAPIView):
