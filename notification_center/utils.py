@@ -1,7 +1,7 @@
 import re
-#from fcm.utils import get_device_model
 import logging
 
+from fcm.utils import get_device_model
 from django.template import Context, Template as DjangoTemplate
 #from django.contrib.auth import get_user_model
 from django.conf import settings
@@ -14,7 +14,7 @@ from gram_to_brand.models import Cart
 from shops.models import Shop, ParentRetailerMapping
 
 #User = get_user_model()
-#Device = get_device_model()
+Device = get_device_model()
 
 logger = logging.getLogger(__name__)
 
@@ -174,17 +174,18 @@ class SendNotification:
 
             # if notification_types.app_notification:
 
-            #     # fetch user registration id
-            #     reg_id = Device.objects.get(name="Sagar").reg_id
-            #     message_title = template.gcm_title
-            #     message_body = self.merge_template_with_data(template.gcm_description)
-            #     # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
-            #     notification = SendFCMNotification(
-            #         registration_id=reg_id,
-            #         message_title=message_title,
-            #         message_body=message_body
-            #         )            
-            #     notification.send()
+            # fetch user registration id
+
+            reg_id = Device.objects.get(user_id=self.user_id).reg_id #(name="Sagar").reg_id
+            message_title = template.gcm_title
+            message_body = self.merge_template_with_data(template.gcm_description)
+            # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
+            notification = SendFCMNotification(
+                registration_id=reg_id,
+                message_title=message_title,
+                message_body=message_body
+                )            
+            notification.send()
 
             # if notification_types.sms_notification:
 

@@ -12,6 +12,14 @@ from addresses.models import Country, State, City, Area, Address
 from .serializers import (CountrySerializer, StateSerializer, CitySerializer,
         AreaSerializer, AddressSerializer)
 
+from fcm.models import Device
+from .serializers import DeviceSerializer
+
+
+class DeviceViewSet(viewsets.ModelViewSet):
+    queryset = Device.objects.all()
+    serializer_class = DeviceSerializer
+
 
 class NotificationView(APIView):
 	# This api will be used to send the notifications to the users
