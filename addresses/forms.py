@@ -1,5 +1,5 @@
 from django import forms
-from .models import Address, City, State, Shop
+from .models import Address, City, State
 from django.urls import reverse
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
