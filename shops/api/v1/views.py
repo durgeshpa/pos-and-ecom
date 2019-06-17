@@ -232,6 +232,8 @@ class SellerShopView(generics.ListCreateAPIView):
         return shop
 
 from datetime import datetime, timedelta
+from django.db.models import Q,F,Sum
+from retailer_to_sp.models import Order
 
 class SalesPerformanceView(generics.ListAPIView):
     serializer_class = ShopUserMappingSerializer
@@ -256,9 +258,9 @@ class SalesPerformanceView(generics.ListAPIView):
             }
             shop_obj = Shop.objects.filter(created_by=employee.employee)
             rt = {
-                'shop_inactive': shop_obj.filter(status=True).exclude(shop_obj.rt_buyer_shop_order.filter(created_at__gte=last_day)).count(),
+                'shop_inactive': shop_obj.filter(status=True).exclude(shop_obj.rt_buyer_shop_order.filter(created_at__gte=last_day)).count() if hasattr(Order, 'rt_buyer_shop_order') else 0,
                 'shop_onboard':  shop_obj.filter(status=True, created_at__gte=last_day).count() if shop_obj.filter(status=True,created_at__gte=last_day) and shop_obj.retiler_mapping.exists() else 0,
-                'shop_reactivated': shop_obj.filter(status=True).rt_buyer_shop_order.filter(created_at__range=[one_month,last_day]).count(),
+                'shop_reactivated': shop_obj.filter(status=True).rt_buyer_shop_order.filter(~Q(created_at__range=[one_month,last_day]),Q(created_at__gte=last_day)) if hasattr(Order, 'rt_buyer_shop_order') else 0,
                 'current_target_sales_target': '',
                 'current_store_count': shop_obj.filter(created_at__gte=last_day).count(),
             }
