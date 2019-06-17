@@ -97,6 +97,8 @@ INSTALLED_APPS = [
 
 FCM_APIKEY = config('FCM_APIKEY')
 
+FCM_DEVICE_MODEL = 'notification_center.FCMDevice'
+
 SITE_ID = 1
 if DEBUG:
     MIDDLEWARE = [

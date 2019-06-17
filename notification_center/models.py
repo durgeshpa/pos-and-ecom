@@ -3,6 +3,8 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 
+from fcm.models import AbstractDevice
+
 from addresses.models import City
 
 #from accounts.models import User
@@ -10,6 +12,11 @@ from addresses.models import City
 
 User = get_user_model() #User
 Shop = 'shops.shop'
+
+
+class FCMDevice(AbstractDevice):
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
 
 
 class DateTime(models.Model):
