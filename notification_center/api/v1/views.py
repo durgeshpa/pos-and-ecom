@@ -13,6 +13,7 @@ from .serializers import (CountrySerializer, StateSerializer, CitySerializer,
         AreaSerializer, AddressSerializer)
 
 from fcm.models import Device
+from notification_center.models import Device
 from .serializers import DeviceSerializer
 
 

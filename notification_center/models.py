@@ -16,7 +16,7 @@ Shop = 'shops.shop'
 
 class FCMDevice(AbstractDevice):
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='user_fcm')
 
 
 class DateTime(models.Model):

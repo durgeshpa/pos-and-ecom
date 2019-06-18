@@ -5,12 +5,24 @@ Device = get_device_model()
 
 class SendFCMNotification:
 	# This class is used to send email to a list of users
-	def __init__(self, registration_id, message_title=None, message_body=None):
+	def __init__(self, registration_id="", message_title=None, message_body=None):
 		#super(SendEmail, self).__init__()
 		#self.registration_ids = registration_ids
 		self.registration_id = registration_id
 		self.message_title = message_title or ""
 		self.message_body = message_body or ""
+
+	def send_to_all(self):
+		try:
+			#registration_ids = []
+			print (self.registration_id, self.message_title, self.message_body)
+			# devices = Device.objects.all()
+			# devices.send_message({'message':self.message_body}, collapse_key='something')
+
+		except:
+			# print (traceback.format_exc(sys.exc_info()))
+			if not self.fail_silently:
+				raise
 
 	def send(self):
 		try:
