@@ -69,7 +69,7 @@ class OrderedProductMappingSerializer(serializers.ModelSerializer):
         # fetch product , order_id
         cart_product_mapping = CartProductMapping.objects.get(cart_product=obj.product, cart=obj.ordered_product.order.ordered_cart)
         self.product_price = cart_product_mapping.cart_product_price.price_to_retailer
-        return self.product_price
+        return round(self.product_price,2)
 
     def get_product_total_price(self, obj):
         cart_product_mapping = CartProductMapping.objects.get(cart_product=obj.product, cart=obj.ordered_product.order.ordered_cart)
