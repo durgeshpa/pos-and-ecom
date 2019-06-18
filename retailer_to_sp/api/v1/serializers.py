@@ -111,7 +111,7 @@ class ReadOrderedProductSerializer(serializers.ModelSerializer):
 
     def get_order_created_date(self, obj):
         order_created_date = obj.order.created_at
-        return order_created_date
+        return order_created_date.strftime("%d/%b/%Y")
 
     class Meta:
         model = OrderedProduct
