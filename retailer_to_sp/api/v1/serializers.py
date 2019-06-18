@@ -495,7 +495,7 @@ class OrderListSerializer(serializers.ModelSerializer):
     #rt_order_order_product = ListOrderedProductSerializer(many=True)
     rt_order_order_product = serializers.SerializerMethodField()
 
-    def get_rt_order_order_product():
+    def get_rt_order_order_product(self, obj):
         qs = OrderedProduct.objects.all().exclude(shipment_status='SHIPMENT_CREATED')
         serializer = ListOrderedProductSerializer(instance=qs, many=True)
         return serializer.data
