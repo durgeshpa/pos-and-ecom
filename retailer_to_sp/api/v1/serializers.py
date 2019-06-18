@@ -72,12 +72,10 @@ class OrderedProductMappingSerializer(serializers.ModelSerializer):
         return self.product_price
 
     def get_product_total_price(self, obj):
-        # fetch product , order_id
-        #import pdb; pdb.set_trace()
         cart_product_mapping = CartProductMapping.objects.get(cart_product=obj.product, cart=obj.ordered_product.order.ordered_cart)
         product_price = cart_product_mapping.cart_product_price.price_to_retailer
         self.product_total_price = product_price*obj.shipped_qty
-        return self.product_total_price
+        return round(self.product_total_price,2)
 
     class Meta:
         model = OrderedProductMapping
