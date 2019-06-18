@@ -3,21 +3,21 @@ from rest_framework.views import APIView
 from rest_framework.permissions import (AllowAny,
                                         IsAuthenticated)
 from rest_framework.response import Response
-from rest_framework import generics
+from rest_framework import generics, viewsets
 from rest_framework import status
 from rest_framework import permissions, authentication
 from django.http import Http404
+from fcm.utils import get_device_model
 
-from addresses.models import Country, State, City, Area, Address
-from .serializers import (CountrySerializer, StateSerializer, CitySerializer,
-        AreaSerializer, AddressSerializer)
+from .serializers import (DeviceSerializer, NotificationSerializer,
+    UserNotificationSerializer)
+from notification_center.models import (Notification, UserNotification)
 
-from fcm.models import Device
-from notification_center.models import Device
-from .serializers import DeviceSerializer
+Device = get_device_model()
 
 
 class DeviceViewSet(viewsets.ModelViewSet):
+    permission_classes = (AllowAny,)
     queryset = Device.objects.all()
     serializer_class = DeviceSerializer
 

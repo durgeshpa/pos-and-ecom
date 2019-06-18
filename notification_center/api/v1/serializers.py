@@ -2,7 +2,10 @@ from rest_framework import serializers
 from notification_center.models import (Notification,
 	UserNotification
 	)
-from fcm.models import Device
+
+from fcm.utils import get_device_model
+Device = get_device_model()
+# from fcm.models import Device
 
 
 class DeviceSerializer(serializers.ModelSerializer):
