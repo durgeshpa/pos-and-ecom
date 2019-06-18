@@ -17,23 +17,25 @@ Device = get_device_model()
 
 
 class DeviceViewSet(viewsets.ModelViewSet):
-    permission_classes = (AllowAny,)
+    # permission_classes = (AllowAny,)
     queryset = Device.objects.all()
     serializer_class = DeviceSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
 
     def create(self, request, *args, **kwargs):
-        can_comment = False
+        #import pdb; pdb.set_trace()
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             self.perform_create(serializer)
-            msg = {'is_success': True, 'can_comment':can_comment, 'message': None, 'response_data': serializer.data}
+            msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
         else:
-            msg = {'is_success': False, 'message': ['shipment_id, user_id or status not found or value exists'], 'response_data': None}
+            msg = {'is_success': False, 'message': [''], 'response_data': None}
         return Response(msg, status=status.HTTP_200_OK)
 
     def perform_create(self, serializer):
-        feedback = serializer.save(user=self.request.user)
-        return feedback
+        device = serializer.save(user=self.request.user)
+        return device
 
 
 class NotificationView(APIView):
