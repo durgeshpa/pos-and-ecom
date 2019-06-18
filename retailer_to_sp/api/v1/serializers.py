@@ -492,7 +492,13 @@ class OrderListSerializer(serializers.ModelSerializer):
     #Todo remove
     shipping_address = AddressSerializer()
     order_status = serializers.CharField(source='get_order_status_display')
-    rt_order_order_product = ListOrderedProductSerializer(many=True)
+    #rt_order_order_product = ListOrderedProductSerializer(many=True)
+    rt_order_order_product = serializers.SerializerMethodField()
+
+    def get_rt_order_order_product(self):
+        qs = OrderedProduct.objects.all().exclude(shipment_status='SHIPMENT_CREATED')
+        serializer = ListOrderedProductSerializer(instance=qs, many=True)
+        return serializer.data
 
     def to_representation(self, instance):
         representation = super(OrderListSerializer, self).to_representation(instance)
