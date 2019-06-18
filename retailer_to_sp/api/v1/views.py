@@ -90,7 +90,7 @@ class OrderedProductViewSet(DataWrapperViewSet):
 
     def get_queryset(self):
         shipment_id = self.request.query_params.get('shipment_id', None)
-        ordered_product = OrderedProduct.objects.all().exclude(shipment_status='SHIPMENT_CREATED')       
+        #ordered_product = OrderedProduct.objects.all().exclude(shipment_status='SHIPMENT_CREATED')       
         
         if shipment_id is not None:
             ordered_product = ordered_product.filter(
