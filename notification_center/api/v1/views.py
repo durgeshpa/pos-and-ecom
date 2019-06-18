@@ -21,6 +21,20 @@ class DeviceViewSet(viewsets.ModelViewSet):
     queryset = Device.objects.all()
     serializer_class = DeviceSerializer
 
+    def create(self, request, *args, **kwargs):
+        can_comment = False
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            msg = {'is_success': True, 'can_comment':can_comment, 'message': None, 'response_data': serializer.data}
+        else:
+            msg = {'is_success': False, 'message': ['shipment_id, user_id or status not found or value exists'], 'response_data': None}
+        return Response(msg, status=status.HTTP_200_OK)
+
+    def perform_create(self, serializer):
+        feedback = serializer.save(user=self.request.user)
+        return feedback
+
 
 class NotificationView(APIView):
 	# This api will be used to send the notifications to the users
