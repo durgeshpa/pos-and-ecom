@@ -493,7 +493,7 @@ class OrderListSerializer(serializers.ModelSerializer):
     shipping_address = AddressSerializer()
     order_status = serializers.CharField(source='get_order_status_display')
     #rt_order_order_product = ListOrderedProductSerializer(many=True)
-    rt_order_order_product = serializers.SerializerMethodField()
+    shipment_data = serializers.SerializerMethodField()
 
     def get_rt_order_order_product(self):
         qs = OrderedProduct.objects.all().exclude(shipment_status='SHIPMENT_CREATED')
@@ -508,7 +508,7 @@ class OrderListSerializer(serializers.ModelSerializer):
     class Meta:
         model=Order
         fields = ('id','ordered_cart','order_no','total_final_amount','order_status','shipping_address',
-                  'created_at','modified_at','rt_order_order_product')
+                  'created_at','modified_at','shipment_data') #'rt_order_order_product')
 
 # Order List Related Serializer End
 
