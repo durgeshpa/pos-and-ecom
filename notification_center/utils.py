@@ -7,7 +7,7 @@ from django.template import Context, Template as DjangoTemplate
 from django.conf import settings
 
 from otp.sms import SendSms
-#from notification_center.fcm_notification import SendFCMNotification
+from notification_center.fcm_notification import SendFCMNotification
 
 from notification_center.models import TemplateVariable, Template, UserNotification
 from gram_to_brand.models import Cart
@@ -189,12 +189,12 @@ class SendNotification:
 
             # if notification_types.sms_notification:
 
-            sms_content = self.merge_template_with_data(template.text_sms_template)
-            #print (self.data['phone_number'], sms_content)
-            logging.info(self.data['phone_number'], sms_content)
-            # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
-            message = SendSms(phone=self.data['phone_number'], body=sms_content)
-            # message = SendSms(phone="9643112048",
+            # sms_content = self.merge_template_with_data(template.text_sms_template)
+            # #print (self.data['phone_number'], sms_content)
+            # logging.info(self.data['phone_number'], sms_content)
+            # # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
+            # message = SendSms(phone=self.data['phone_number'], body=sms_content)
+            # # message = SendSms(phone="9643112048",
             #           body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App." \
             #                " Thanks," \
             #                " Team GramFactory " % ("sagar", "saggy-shop"))
