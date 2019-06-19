@@ -246,9 +246,9 @@ def ordered_product_mapping_shipment(request):
         if form.is_valid() and form_set.is_valid():
             try:
                 with transaction.atomic():
-                    shipment = form.save(commit=False)
-                    shipment.shipment_status = 'SHIPMENT_CREATED'
-                    shipment.save()
+                    shipment = form.save()
+                    # shipment.shipment_status = 'SHIPMENT_CREATED'
+                    # shipment.save()
                     for forms in form_set:
                         if forms.is_valid():
                             to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
@@ -861,4 +861,3 @@ class RetailerCart(APIView):
             context={'parent_mapping_id': order_obj.seller_shop.id,}
         )
         return Response({'is_success': True,'response_data': dt.data}, status=status.HTTP_200_OK)
-
