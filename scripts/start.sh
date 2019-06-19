@@ -11,6 +11,7 @@ echo "$USER"
 /bin/su -c "/home/ubuntu/project/scripts/pull.sh" - ubuntu
 
 #create new migrations and migrate
+pip install -r requirements.txt
 python manage.py makemigrations
 python manage.py migrate
 
