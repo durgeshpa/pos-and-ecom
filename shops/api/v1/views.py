@@ -247,19 +247,20 @@ class SellerShopOrder(generics.ListAPIView):
         employee_list = ShopUserMapping.objects.filter(manager=self.request.user).values('employee')
         data = []
         days_diff = 15
-
         today = datetime.now()
         last_day = today - timedelta(days=days_diff)
-        one_month = today - timedelta(days=days_diff+days_diff)
-        order_obj = Order.objects.filter(buyer_shop__created_by__in=employee_list,)
+        order_obj = Order.objects.filter(buyer_shop__created_by__in=employee_list,created_at__range=[today, last_day]).annotate(buyer_shop_count=Sum('buyer_shop')).order_by('buyer_shop')
         for order in order_obj:
             dt = {
               'name': order.buyer_shop.shop_name,
-              'data':[]
+              'data': []
             }
             rt = {
-                'no_of_order': order_obj.annotate(buyer_shop_sum=Sum('buyer_shop')),
-                '': '' ,
+                'no_of_order': order_obj['buyer_shop_count'],
+                'no_of_ordered_sku': order_obj.ordered_cart.rt_cart_list.count(),
+                'no_of_ordered_sku_pieces': order_obj.ordered_cart.no_of_pieces_sum,
+                'ordered_amount': order_obj.ordered_cart.subtotal,
+                'calls_made': '',
             }
             dt['data'].append(rt)
             data.append(dt)
