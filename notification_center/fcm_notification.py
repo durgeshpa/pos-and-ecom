@@ -28,8 +28,8 @@ class SendFCMNotification:
 		try:
 			#registration_ids = []
 			print (self.registration_id, self.message_title, self.message_body)
-			# my_phone = Device.objects.get(reg_id=self.registration_id)
-			# my_phone.send_message({'message':self.message_body}, collapse_key='something')
+			my_phone = Device.objects.get(reg_id=self.registration_id)
+			my_phone.send_message({'message':self.message_body}, collapse_key='something')
 
 		except:
 			# print (traceback.format_exc(sys.exc_info()))
