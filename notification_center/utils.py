@@ -207,7 +207,7 @@ class SendNotification:
 
 def test():
     activity_type = "SHOP_VERIFIED" #SHOP_VERIFIED
-    user_id = 1 #self.shop_owner.id
+    user_id = 9 #self.shop_owner.id
     data = {}
     data['username'] = "sagar" #username
     data['phone_number'] = "9643112048" #self.shop_owner.phone_number
