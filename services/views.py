@@ -149,7 +149,7 @@ class OrderReport(APIView):
                     order_date = order.created_at
                     order_by = order.ordered_by
                     retailer_id = order.ordered_by.id
-                    retailer_name = order.ordered_by.first_name
+                    retailer_name = order.buyer_shop
                     order_invoice = shipment.invoice_no
                     invoice_date = shipment.created_at
                     invoice_status = shipment.get_shipment_status_display()
