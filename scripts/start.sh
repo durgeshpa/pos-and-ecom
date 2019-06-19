@@ -12,6 +12,7 @@ echo "$USER"
 
 #create new migrations and migrate
 pip install -r requirements.txt
+
 python manage.py makemigrations
 python manage.py migrate
 
