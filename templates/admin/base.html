@@ -1,23 +1,50 @@
 {% extends 'admin/base.html' %}
-{% block extrahead %}
+{% block footer %}
+{{ block.super }}
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
 
 <script type="text/javascript">
 
+(function($){
+/*
 $('input[name=_save]').click(function(){
-
+alert("hello");
 $('input[name=_save]').attr("disabled", true);
 });
 
 $('input[name=_addanother]').click(function(){
-
+alert("hello");
 $('input[name=_addanother]').attr("disabled", true);
 });
 
-$('input[name=_continue]').click(function(){
-
-$('input[name=_addanother]').attr("disabled", true);
+$("input[name*='_continue']").click(function(){
+alert("hello");
+$("input[name*='_continue']").attr("disabled", true);
 });
+
+$("form").submit(function(){
+alert("hello");
+$("input[name*='_continue']").attr("disabled", true);
+});
+*/
+
+
+ })(jQuery); 
 
 </script>
 
+<script type="text/javascript">
+$( document ).ready(function() {
+    console.log("loaded");
+
+    $('.submit-row').on('click','input[type=submit]', function(e){
+        console.log(e.target);
+        alert("test");
+        // $(this).attr('disabled',true);
+        // e.
+    });
+});
+// $().on('click',function(){alert("here i am");});
+
+</script>
 {% endblock %}
