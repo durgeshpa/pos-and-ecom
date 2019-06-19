@@ -230,3 +230,39 @@ class SellerShopView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         shop = serializer.save(created_by=self.request.user,shop_owner= get_user_model().objects.get(phone_number=self.request.data['shop_owner']))
         return shop
+
+from datetime import datetime,timedelta
+from django.db.models import Q,Sum
+from retailer_to_sp.models import Order
+
+class SellerShopOrder(generics.ListAPIView):
+    serializer_class = ShopUserMappingSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        return ShopUserMapping.objects.filter(manager=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        employee_list = ShopUserMapping.objects.filter(manager=self.request.user).values('employee')
+        data = []
+        days_diff = 15
+
+        today = datetime.now()
+        last_day = today - timedelta(days=days_diff)
+        one_month = today - timedelta(days=days_diff+days_diff)
+        order_obj = Order.objects.filter(buyer_shop__created_by__in=employee_list,)
+        for order in order_obj:
+            dt = {
+              'name': order.buyer_shop.shop_name,
+              'data':[]
+            }
+            rt = {
+                'no_of_order': order_obj.annotate(buyer_shop_sum=Sum('buyer_shop')),
+                '': '' ,
+            }
+            dt['data'].append(rt)
+            data.append(dt)
+
+        msg = {'is_success': True, 'message': [""],'response_data': None, 'data': data}
+        return Response(msg,status=status.HTTP_200_OK)
