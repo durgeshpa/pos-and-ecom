@@ -15,5 +15,6 @@ urlpatterns = [
     path('shop-document/', ShopDocumentView.as_view(), name='shop-document', ),
     path('team-list/', TeamListView.as_view(), name='team-list', ),
     path('seller-shops/', SellerShopView.as_view(), name='seller-shops', ),
+    path('seller-shop-order/', SellerShopView.as_view(), name='seller-shops', ),
 
 ]
