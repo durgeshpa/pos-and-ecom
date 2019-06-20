@@ -821,9 +821,26 @@ class TripAdmin(admin.ModelAdmin):
     download_trip_pdf.short_description = 'Trip Details'
 
 
+class ExportCsvMixin:
+    def export_as_csv_commercial(self, request, queryset):
+        meta = self.model._meta
+        list_display = ('dispatch_no', 'trip_amount', 'received_amount',
+        'cash_to_be_collected', 'download_trip_pdf', 'delivery_boy',
+        'vehicle_no', 'trip_status', 'starts_at', 'completed_at',
+        'seller_shop',)
+        field_names = [field.name for field in meta.fields if field.name in list_display]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in list_display])
+        return response
+    export_as_csv_commercial.short_description = "Download CSV of Selected Commercial"
+
+
 class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
     #change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
-    actions = ["export_as_csv_commercial"]
     list_display = (
         'dispatch_no', 'trip_amount', 'received_amount',
         'cash_to_be_collected', 'download_trip_pdf', 'delivery_boy',
@@ -850,7 +867,7 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
                    ('completed_at', DateTimeRangeFilter), VehicleNoSearch,
                    DispatchNoSearch]
     form = CommercialForm
-    actions = ['change_trip_status']
+    actions = ['change_trip_status', 'export_as_csv_commercial']
 
     def change_trip_status(self, request, queryset):
         queryset.filter(trip_status='CLOSED').update(trip_status='TRANSFERRED')
@@ -910,23 +927,6 @@ class ExportCsvMixin:
             row = writer.writerow([getattr(obj, field) for field in list_display])
         return response
     export_as_csv_customercare.short_description = "Download CSV of Selected CustomeCare"
-
-    def export_as_csv_commercial(self, request, queryset):
-        meta = self.model._meta
-        list_display = ('dispatch_no', 'trip_amount', 'received_amount',
-        'cash_to_be_collected', 'download_trip_pdf', 'delivery_boy',
-        'vehicle_no', 'trip_status', 'starts_at', 'completed_at',
-        'seller_shop',)
-        field_names = [field.name for field in meta.fields if field.name in list_display]
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
-        writer = csv.writer(response)
-        writer.writerow(list_display)
-        for obj in queryset:
-            row = writer.writerow([getattr(obj, field) for field in list_display])
-        return response
-    export_as_csv_commercial.short_description = "Download CSV of Selected Commercial"
-
 
 
 class CustomerCareAdmin(ExportCsvMixin, admin.ModelAdmin):
