@@ -232,7 +232,7 @@ class SellerShopView(generics.ListCreateAPIView):
         return shop
 
 from datetime import datetime,timedelta
-from django.db.models import Q,Sum
+from django.db.models import Q,Sum,Count,F, FloatField
 from retailer_to_sp.models import Order
 
 class SellerShopOrder(generics.ListAPIView):
@@ -244,26 +244,36 @@ class SellerShopOrder(generics.ListAPIView):
         return ShopUserMapping.objects.filter(manager=self.request.user)
 
     def list(self, request, *args, **kwargs):
+        days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
         employee_list = ShopUserMapping.objects.filter(manager=self.request.user).values('employee')
+        shop_list = Shop.objects.filter(created_by__id__in=employee_list).values('shop_name','id').order_by('shop_name')
+
         data = []
-        days_diff = 15
         today = datetime.now()
         last_day = today - timedelta(days=days_diff)
-        order_obj = Order.objects.filter(buyer_shop__created_by__in=employee_list,created_at__range=[today, last_day]).annotate(buyer_shop_count=Sum('buyer_shop')).order_by('buyer_shop')
-        for order in order_obj:
+        order_obj = Order.objects.filter(buyer_shop__created_by__id__in=employee_list,created_at__range=[today, last_day]).values('buyer_shop','buyer_shop__shop_name').\
+            annotate(buyer_shop_count=Count('buyer_shop'))\
+            .annotate(no_of_ordered_sku=Count('ordered_cart__rt_cart_list'))\
+            .annotate(no_of_ordered_sku_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces'))\
+            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer')* F('ordered_cart__rt_cart_list__no_of_pieces'),
+                                     output_field=FloatField()))\
+            .order_by('buyer_shop')
+        order_map = {i['buyer_shop']: (i['buyer_shop_count'], i['no_of_ordered_sku'], i['no_of_ordered_sku_pieces'],i['ordered_amount']) for i in order_obj}
+
+        for shop in shop_list:
             dt = {
-              'name': order.buyer_shop.shop_name,
-              'data': []
+              'name': shop['shop_name'],
+              'dt': []
             }
             rt = {
-                'no_of_order': order_obj['buyer_shop_count'],
-                'no_of_ordered_sku': order_obj.ordered_cart.rt_cart_list.count(),
-                'no_of_ordered_sku_pieces': order_obj.ordered_cart.no_of_pieces_sum,
-                'ordered_amount': order_obj.ordered_cart.subtotal,
+                'no_of_order': order_map[shop['id']][0] if order_map else 0,
+                'no_of_ordered_sku': order_map[shop['id']][1] if order_map else 0,
+                'no_of_ordered_sku_pieces': order_map[shop['id']][2] if order_map else 0,
+                'ordered_amount': round(order_map[shop['id']][3],2) if order_map else 0,
                 'calls_made': '',
             }
-            dt['data'].append(rt)
+            dt['dt'].append(rt)
             data.append(dt)
 
-        msg = {'is_success': True, 'message': [""],'response_data': None, 'data': data}
+        msg = {'is_success': True, 'message': [""],'response_data': data}
         return Response(msg,status=status.HTTP_200_OK)

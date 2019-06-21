@@ -103,7 +103,7 @@ class ShopForm(forms.ModelForm):
         Model = Shop
         fields = (
             'shop_name', 'shop_owner', 'shop_type', 'related_users',
-            'shop_code', 'warehouse_code', 'status')
+            'shop_code', 'warehouse_code','created_by', 'status')
 
     @classmethod
     def get_shop_type(cls, data):
