@@ -94,11 +94,13 @@ class ReturnProductMappingForm(forms.ModelForm):
 
 class OrderedProductForm(forms.ModelForm):
     order = forms.ModelChoiceField(queryset=Order.objects.filter(
-        order_status__in=[Order.OPDP, 'ordered', 'PARTIALLY_SHIPPED', 'DISPATCH_PENDING']))
+        order_status__in=[Order.OPDP, 'ordered',
+                          'PARTIALLY_SHIPPED', 'DISPATCH_PENDING']),
+        required=True)
 
     class Meta:
         model = OrderedProduct
-        fields = ['order', 'shipment_status']
+        fields = ['order']
 
     class Media:
         js = (
@@ -115,10 +117,6 @@ class OrderedProductForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(OrderedProductForm, self).__init__(*args, **kwargs)
-        self.fields['order'].required = True
-        SHIPMENT_STATUS = OrderedProduct.SHIPMENT_STATUS
-        self.fields['shipment_status'].choices = SHIPMENT_STATUS[:2] + SHIPMENT_STATUS[-1:]
-        self.fields['shipment_status'].initial = SHIPMENT_STATUS[:1]
 
 
 class OrderedProductMappingForm(forms.ModelForm):
@@ -174,9 +172,17 @@ class OrderedProductMappingDeliveryForm(forms.ModelForm):
 
 
 class OrderedProductMappingShipmentForm(forms.ModelForm):
-    ordered_qty = forms.CharField(required=False)
-    already_shipped_qty = forms.CharField(required=False)
-    to_be_shipped_qty = forms.CharField(required=False)
+    ordered_qty = forms.CharField(
+        required=False, widget=forms.TextInput(attrs={'readonly':True}))
+    already_shipped_qty = forms.CharField(
+        required=False, widget=forms.TextInput(attrs={'readonly':True}))
+    to_be_shipped_qty = forms.CharField(
+        required=False, widget=forms.TextInput(attrs={'readonly':True}))
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(), widget=forms.TextInput)
+    product_name = forms.CharField(
+        required=False, widget=forms.TextInput(attrs={'readonly':True}))
+
 
     class Meta:
         model = OrderedProductMapping
@@ -186,6 +192,7 @@ class OrderedProductMappingShipmentForm(forms.ModelForm):
         ]
 
     def clean_shipped_qty(self):
+
         ordered_qty = int(self.cleaned_data.get('ordered_qty'))
         shipped_qty = int(self.cleaned_data.get('shipped_qty'))
         to_be_shipped_qty = int(self.cleaned_data.get('to_be_shipped_qty'))
@@ -200,10 +207,10 @@ class OrderedProductMappingShipmentForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(OrderedProductMappingShipmentForm, self).__init__(*args, **kwargs)
-        self.fields['ordered_qty'].widget.attrs['class'] = 'hide_input_box'
-        self.fields['already_shipped_qty'].widget.attrs['class'] = 'hide_input_box'
-        self.fields['to_be_shipped_qty'].widget.attrs['class'] = 'hide_input_box'
-        self.fields['product'].widget.attrs = {'class': 'ui-select hide_input_box'}
+        #self.fields['ordered_qty'].widget.attrs['class'] = 'hide_input_box'
+        #self.fields['already_shipped_qty'].widget.attrs['class'] = 'hide_input_box'
+        #self.fields['to_be_shipped_qty'].widget.attrs['class'] = 'hide_input_box'
+        self.fields['product'].widget=forms.HiddenInput()
 
 
 class OrderedProductDispatchForm(forms.ModelForm):
@@ -456,25 +463,7 @@ class CartForm(forms.ModelForm):
     class Meta:
         model = Cart
         fields = ('seller_shop', 'buyer_shop')
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        user = get_current_user()
-
-        if user.is_superuser:
-            self.fields['seller_shop'].queryset = Shop.objects.filter(
-                shop_type__shop_type='sp')
-            self.fields['buyer_shop'].queryset = Shop.objects.filter(
-                shop_type__shop_type='r')
-        else:
-            self.fields['seller_shop'].queryset = Shop.objects.filter(
-                related_users=user, shop_type__shop_type='sp')
-            self.fields['buyer_shop'].queryset = Shop.objects.filter(
-                related_users=user, shop_type__shop_type='r')
-
-        fields = ['seller_shop', 'buyer_shop']
-        required_fields(self, fields)
-
+        
 
 class CommercialForm(forms.ModelForm):
     class Meta:
@@ -536,7 +525,7 @@ class OrderedProductReschedule(forms.ModelForm):
                     % product
                 return_qty += int(self.data.get(return_field))
                 damaged_qty += int(self.data.get(damaged_field))
-            if (int(self.data.get(return_field)) or int(self.data.get(damaged_field))) and not return_reason:
+            if (return_qty or damaged_qty) and not return_reason:
                 raise forms.ValidationError(_('This field is required'),)
             elif (not return_qty and not damaged_qty) and return_reason:
                 raise forms.ValidationError(
