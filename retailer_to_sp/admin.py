@@ -432,6 +432,17 @@ class ProductNameFilter(InputFilter):
             return queryset.filter(ordered_cart__rt_cart_list__cart_product__product_name=value)
         return queryset
 
+class PincodeSearch(InputFilter):
+    title = 'Pincode'
+    parameter_name = 'pincode'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value :
+            return queryset.filter(order__shipping_address__pincode=value)
+        return queryset
+
+
 class Pincode(InputFilter):
     title = 'Pincode'
     parameter_name = 'pincode'
@@ -685,16 +696,16 @@ class ShipmentAdmin(admin.ModelAdmin):
     form = ShipmentForm
     list_select_related = (
         'order', 'trip', 'order__seller_shop', 'order__shipping_address',
-        'order__shipping_address__city'
+        'order__shipping_address__city',
     )
     list_display = (
         'invoice_no', 'order', 'created_at', 'trip', 'shipment_address',
         'seller_shop', 'invoice_city', 'invoice_amount', 'payment_mode',
-        'shipment_status', 'download_invoice',
+        'shipment_status', 'download_invoice', 'pincode',
     )
     list_filter = [
         ('created_at', DateTimeRangeFilter), InvoiceSearch, ShipmentOrderIdSearch, ShipmentSellerShopSearch,
-        ('shipment_status', ChoiceDropdownFilter)
+        ('shipment_status', ChoiceDropdownFilter), PincodeSearch
 
     ]
     fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
@@ -718,6 +729,9 @@ class ShipmentAdmin(admin.ModelAdmin):
             (reverse('download_invoice_sp', args=[obj.pk]))
         )
     download_invoice.short_description = 'Download Invoice'
+
+    def pincode(self, obj):
+        return  obj.order.shipping_address.pincode
 
     def seller_shop(self, obj):
         return obj.order.seller_shop.shop_name
