@@ -841,6 +841,7 @@ class ExportCsvMixin:
 
 class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
     #change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
+    actions = ["change_trip_status", "export_as_csv_commercial",]
     list_display = (
         'dispatch_no', 'trip_amount', 'received_amount',
         'cash_to_be_collected', 'download_trip_pdf', 'delivery_boy',
@@ -867,7 +868,6 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
                    ('completed_at', DateTimeRangeFilter), VehicleNoSearch,
                    DispatchNoSearch]
     form = CommercialForm
-    actions = ['change_trip_status', 'export_as_csv_commercial']
 
     def change_trip_status(self, request, queryset):
         queryset.filter(trip_status='CLOSED').update(trip_status='TRANSFERRED')
