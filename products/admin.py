@@ -149,6 +149,21 @@ class ProductSearch(InputFilter):
             )
 
 
+class ProductSKUSearch(InputFilter):
+    parameter_name = 'product_sku'
+    title = 'Product SKU'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            product_sku = self.value()
+            if product_sku is None:
+                return
+            return queryset.filter(
+                Q(product__product_sku__icontains=product_sku)
+            )
+
+
+
 class ProductOptionAdmin(admin.TabularInline):
     model = ProductOption
     extra = 1
@@ -335,7 +350,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     form = ProductPriceNewForm
     actions = ["export_as_csv"]
     list_display = [
-        'product', 'product_gf_code', 'mrp', 'price_to_service_partner','price_to_retailer', 'price_to_super_retailer',
+        'product', 'product_sku', 'product_gf_code', 'mrp', 'price_to_service_partner','price_to_retailer', 'price_to_super_retailer',
         'shop', 'cash_discount','loyalty_incentive','margin','start_date', 'end_date', 'status'
     ]
     autocomplete_fields=['product',]
@@ -343,7 +358,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
         'product__product_name', 'product__product_gf_code',
         'product__product_brand__brand_name', 'shop__shop_name'
     ]
-    list_filter= [ProductFilter,ShopFilter,MRPSearch,('start_date', DateRangeFilter),('end_date', DateRangeFilter)]
+    list_filter= [ProductSKUSearch, ProductFilter,ShopFilter,MRPSearch,('start_date', DateRangeFilter),('end_date', DateRangeFilter)]
     fields=('product','city','area','mrp','shop','price_to_retailer','price_to_super_retailer','price_to_service_partner','cash_discount','loyalty_incentive','start_date','end_date','status')
     class Media:
         pass
@@ -351,6 +366,12 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
         if obj: # editing an existing object
             return self.readonly_fields + ('mrp','price_to_retailer','price_to_super_retailer','price_to_service_partner' )
         return self.readonly_fields
+
+    def product_sku(self, obj):
+        return obj.product.product_sku
+
+    product_sku.short_description = 'Product SKU'
+
 
     def product_gf_code(self, obj):
         return obj.product.product_gf_code
