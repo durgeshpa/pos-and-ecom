@@ -1,12 +1,9 @@
 from rest_framework import serializers
-
-from common.common_utils import convert_date_format_ddmmmyyyy
-
 from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMapping,ProductOption,
                              Size,Color,Fragrance,Flavor,Weight,PackageSize)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order,
                                    OrderedProduct, Note, CustomerCare,
-                                   Payment, Dispatch, Feedback)
+                                   Payment, Dispatch)
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
 
                                       OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment)
@@ -24,103 +21,16 @@ from addresses.api.v1.serializers import AddressSerializer
 from brand.api.v1.serializers import BrandSerializer
 from django.core.validators import RegexValidator
 
-from django.contrib.auth import get_user_model
-
-User = get_user_model()
 
 class ProductImageSerializer(serializers.ModelSerializer):
    class Meta:
       model = ProductImage
       fields = '__all__'
 
-
 class ProductPriceSerializer(serializers.ModelSerializer):
    class Meta:
       model = ProductPrice
       fields = '__all__'
-
-
-class ProductSerializer(serializers.ModelSerializer):
-    product_image = serializers.SerializerMethodField()
-
-    def get_product_image(self, obj):
-        if ProductImage.objects.filter(product=obj).exists():
-            product_image = ProductImage.objects.filter(product=obj)[0].image.url
-            return product_image
-        else:
-            return None
-
-    class Meta:
-        model = Product
-        fields = ('id','product_name','product_inner_case_size',
-            'product_case_size', 'product_image'
-            )
-
-
-class OrderedProductMappingSerializer(serializers.ModelSerializer):
-    # This serializer is used to fetch the products for a shipment
-    product = ProductSerializer()
-    product_price = serializers.SerializerMethodField()
-    product_total_price = serializers.SerializerMethodField()
-
-    #ordered_product = ReadOrderedProductSerializer()
-
-    def get_product_price(self, obj):
-        # fetch product , order_id
-        cart_product_mapping = CartProductMapping.objects.get(cart_product=obj.product, cart=obj.ordered_product.order.ordered_cart)
-        self.product_price = cart_product_mapping.cart_product_price.price_to_retailer
-        return round(self.product_price,2)
-
-    def get_product_total_price(self, obj):
-        cart_product_mapping = CartProductMapping.objects.get(cart_product=obj.product, cart=obj.ordered_product.order.ordered_cart)
-        product_price = cart_product_mapping.cart_product_price.price_to_retailer
-        self.product_total_price = product_price*obj.shipped_qty
-        return round(self.product_total_price,2)
-
-    class Meta:
-        model = OrderedProductMapping
-        fields = ('id', 'shipped_qty', 'product', 'product_price', 'product_total_price') #, 'ordered_product')
-
-
-class ListOrderedProductSerializer(serializers.ModelSerializer):
-    # created_at = serializers.SerializerMethodField()
-
-    # def get_created_at(self, obj):
-    #     if obj.created_at:
-    #         created_at = convert_date_format_ddmmmyyyy(obj.created_at.__str__().split(' ')[0])
-    #     return created_at
-
-    class Meta:
-        model = OrderedProduct
-        fields = ('id', 'invoice_no') #, 'created_at')
-
-
-class ReadOrderedProductSerializer(serializers.ModelSerializer):
-    shop_owner_name = serializers.SerializerMethodField()
-    shop_owner_number = serializers.SerializerMethodField()
-    order_created_date = serializers.SerializerMethodField()
-    rt_order_product_order_product_mapping = OrderedProductMappingSerializer(many=True)
-
-    def get_shop_owner_number(self, obj):
-        shop_owner_number = obj.order.buyer_shop.shop_owner.phone_number
-        return shop_owner_number
-
-    def get_shop_owner_name(self, obj):
-        shop_owner_name = obj.order.buyer_shop.shop_owner.first_name + obj.order.buyer_shop.shop_owner.last_name
-        return shop_owner_name
-
-    def get_order_created_date(self, obj):
-        order_created_date = obj.order.created_at
-        return order_created_date.strftime("%d/%b/%Y")
-
-    class Meta:
-        model = OrderedProduct
-        #fields = '__all__'
-        fields = ('id','invoice_no','shipment_status','invoice_amount',
-            'payment_mode', 'shipment_address', 'shop_owner_name', 'shop_owner_number',
-            'order_created_date', 'rt_order_product_order_product_mapping')
-        #depth = 1
-
 
 class TaxSerializer(serializers.ModelSerializer):
     class Meta:
@@ -209,7 +119,7 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
 
     def margin_dt(self,obj):
         return round(100 - (float(self.product_price) * 1000000 / (float(self.product_mrp) * (100 - float(obj.getCashDiscount(self.context.get("parent_mapping_id")))) * (100 -  float(obj.getLoyaltyIncentive(self.context.get("parent_mapping_id")))))),2) if self.product_mrp and self.product_mrp > 0 else 0
-
+        
     class Meta:
         model = Product
         fields = ('id','product_name','product_slug','product_short_description','product_long_description','product_sku','product_mrp',
@@ -490,13 +400,6 @@ class OrderListSerializer(serializers.ModelSerializer):
     #Todo remove
     shipping_address = AddressSerializer()
     order_status = serializers.CharField(source='get_order_status_display')
-    #rt_order_order_product = ListOrderedProductSerializer(many=True)
-    rt_order_order_product = serializers.SerializerMethodField()
-
-    def get_rt_order_order_product(self, obj):
-        qs = OrderedProduct.objects.filter(order_id=obj.id).exclude(shipment_status='SHIPMENT_CREATED')
-        serializer = ListOrderedProductSerializer(instance=qs, many=True)
-        return serializer.data
 
     def to_representation(self, instance):
         representation = super(OrderListSerializer, self).to_representation(instance)
@@ -506,7 +409,7 @@ class OrderListSerializer(serializers.ModelSerializer):
     class Meta:
         model=Order
         fields = ('id','ordered_cart','order_no','total_final_amount','order_status','shipping_address',
-                  'created_at','modified_at','rt_order_order_product')
+                  'created_at','modified_at')
 
 # Order List Related Serializer End
 
@@ -647,7 +550,6 @@ class GramMappedOrderSerializer(serializers.ModelSerializer):
     billing_address = AddressSerializer()
     shipping_address = AddressSerializer()
     order_status = serializers.CharField(source='get_order_status_display')
-    rt_order_order_product = ListOrderedProductSerializer(many=True)
 
     def to_representation(self, instance):
         representation = super(GramMappedOrderSerializer, self).to_representation(instance)
@@ -691,10 +593,3 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
                   'shipment_address', 'invoice_city', 'invoice_amount',
                   'created_at', 'cash_to_be_collected')
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 'cash_to_be_collected')
-
-class FeedBackSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = Feedback
-        fields = ('user', 'shipment', 'delivery_experience', 'overall_product_packaging', 'comment', 'status')
-        extra_kwargs = {'status': {'required': True}, 'user':{'required':False}}

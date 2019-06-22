@@ -19,7 +19,7 @@ from retailer_backend.common_function import (
 )
 from .utils import (order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util,
                     order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
-                    order_damaged_amount, order_delivered_value, order_shipment_status_reason)
+                    order_damaged_amount, order_delivered_value)
 from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
@@ -177,11 +177,11 @@ class CartProductMapping(models.Model):
 
     @property
     def product_case_size(self):
-        return self.cart_product.product_case_size.product_case_size
+        return self.product_case_size.product_case_size
 
     @property
     def product_inner_case_size(self):
-        return self.cart_product.product_inner_case_size
+        return self.product_case_size.product_inner_case_size
 
     def set_cart_product_price(self, shop):
         self.cart_product_price = self.cart_product.get_current_shop_price(shop)
@@ -328,10 +328,6 @@ class Order(models.Model):
     @property
     def shipment_status(self):
         return order_shipment_status(self.shipments())
-
-    @property
-    def shipment_status_reason(self):
-        return order_shipment_status_reason(self.shipments())    
 
     @property
     def order_shipment_amount(self):
@@ -937,7 +933,7 @@ class Payment(models.Model):
     )
     name = models.CharField(max_length=255, null=True, blank=True)
     paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
-    payment_choice = models.CharField(verbose_name="Payment Mode",max_length=30,choices=PAYMENT_MODE_CHOICES,default='cash_on_delivery')
+    payment_choice = models.CharField(verbose_name="Payment Mode",max_length=30,choices=PAYMENT_MODE_CHOICES, null=True)
     neft_reference_number = models.CharField(max_length=255, null=True,blank=True)
     imei_no = models.CharField(max_length=100, null=True, blank=True)
     payment_status = models.CharField(max_length=50, null=True, blank=True,choices=PAYMENT_STATUS, default=PAYMENT_DONE_APPROVAL_PENDING)
@@ -1081,25 +1077,3 @@ class Note(models.Model):
     def invoice_no(self):
         if self.shipment:
             return self.shipment.invoice_no
-
-class Feedback(models.Model):
-    STAR1 = '1'
-    STAR2 = '2'
-    STAR3 = '3'
-    STAR4 = '4'
-    STAR5 = '5'
-
-    STAR_CHOICE = (
-        (STAR1, '1 Star'),
-        (STAR2, '2 Star'),
-        (STAR3, '3 Star'),
-        (STAR4, '4 Star'),
-        (STAR5, '5 Star'),
-    )
-    user = models.ForeignKey(get_user_model(), related_name='user_feedback', on_delete=models.CASCADE)
-    shipment = models.OneToOneField(OrderedProduct, related_name='shipment_feedback',on_delete=models.CASCADE)
-    delivery_experience = models.CharField(max_length=2, choices=STAR_CHOICE, null=True, blank=True)
-    overall_product_packaging = models.CharField(max_length=2, choices=STAR_CHOICE, null=True, blank=True)
-    comment = models.TextField(null=True,blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    status = models.BooleanField(default=False)
