@@ -4,15 +4,25 @@
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
 
 <script type="text/javascript">
+var form_enabled = true;
+
 $( document ).ready(function() {
     console.log("loaded");
 
     $('.submit-row').on('click','input[type=submit]', function(e){
         console.log(e.target);
-        $(this).hide();
+        if (form_enabled) {
+                   form_enabled = false;
+                   return true;
+           }
+
+           return false;        
+
+        //$(this).hide();
     });
 });
 // $().on('click',function(){alert("here i am");});
 
 </script>
+
 {% endblock %}
