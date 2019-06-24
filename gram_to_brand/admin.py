@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import (Order,Cart,CartProductMapping,GRNOrder,GRNOrderProductMapping,BrandNote,PickList,PickListItems,
-                     OrderedProductReserved,Po_Message)
+                     OrderedProductReserved,Po_Message, InvoiceImage)
 from products.models import Product
 from django import forms
 from django.db.models import Sum
@@ -131,8 +131,12 @@ class GRNOrderForm(forms.ModelForm):
 
     class Meta:
         model = GRNOrder
-        fields = ('order', 'invoice_no','e_way_bill_no','e_way_bill_document','brand_invoice')
+        fields = ('order', 'invoice_no','e_way_bill_no','e_way_bill_document')
 
+class InvoiceImageAdmin(admin.StackedInline):
+    model = InvoiceImage
+    fields = ('document_number', 'document_image')
+    extra = 0
 
 class GRNOrderProductMappingAdmin(admin.TabularInline):
     model = GRNOrderProductMapping
@@ -170,14 +174,14 @@ class OrderItemAdmin(admin.ModelAdmin):
 
 
 class GRNOrderAdmin(admin.ModelAdmin):
-    inlines = [GRNOrderProductMappingAdmin]
+    inlines = [InvoiceImageAdmin, GRNOrderProductMappingAdmin]
     autocomplete_fields = ('order',)
     exclude = ('order_item','grn_id','last_modified_by',)
     #list_display_links = None
     list_display = ('grn_id','order','invoice_no','grn_date','brand', 'supplier_state', 'supplier_name', 'po_created_by','download_debit_note')
     list_filter = [OrderSearch, InvoiceNoSearch, GRNSearch, ('created_at', DateRangeFilter),('grn_order_grn_order_product__expiry_date', DateRangeFilter)]
     form = GRNOrderForm
-    fields = ('order','invoice_no','brand_invoice','e_way_bill_no','e_way_bill_document',)
+    fields = ('order','invoice_no','e_way_bill_no','e_way_bill_document',)
     change_form_template = 'admin/gram_to_brand/grn_order/change_form.html'
 
     def po_created_by(self,obj):

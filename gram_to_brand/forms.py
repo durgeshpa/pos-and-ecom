@@ -153,7 +153,7 @@ class CartProductMappingForm(forms.ModelForm):
 class GRNOrderForm(forms.ModelForm):
     class Meta:
         model = GRNOrder
-        fields = ('order','invoice_no', 'brand_invoice')
+        fields = ('order','invoice_no')
         readonly_fields = ('order')
 
 class GRNOrderProductForm(forms.ModelForm):
