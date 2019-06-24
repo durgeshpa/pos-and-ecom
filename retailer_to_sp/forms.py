@@ -95,7 +95,8 @@ class ReturnProductMappingForm(forms.ModelForm):
 class OrderedProductForm(forms.ModelForm):
     order = forms.ModelChoiceField(queryset=Order.objects.filter(
         order_status__in=[Order.OPDP, 'ordered',
-                          'PARTIALLY_SHIPPED', 'DISPATCH_PENDING']),
+                          'PARTIALLY_SHIPPED', 'DISPATCH_PENDING'],
+        order_closed=False),
         required=True)
 
     class Meta:
@@ -387,17 +388,22 @@ class ShipmentForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(ShipmentForm, self).__init__(*args, **kwargs)
-        instance = getattr(self, 'instance', None)
-        ordered_product = instance
+        ordered_product = getattr(self, 'instance', None)
         SHIPMENT_STATUS = OrderedProduct.SHIPMENT_STATUS
         if ordered_product:
             shipment_status = ordered_product.shipment_status
             if shipment_status == 'SHIPMENT_CREATED':
                 self.fields['shipment_status'].choices = SHIPMENT_STATUS[:2]
             elif shipment_status == 'READY_TO_SHIP':
+                setattr(self.fields['close_order'], 'disabled', True)
                 self.fields['shipment_status'].disabled = True
             elif shipment_status == 'CANCELLED':
+                setattr(self.fields['close_order'], 'disabled', True)
                 self.fields['shipment_status'].disabled = True
+            if ordered_product.order.order_closed:
+                setattr(self.fields['close_order'], 'initial', True)
+                setattr(self.fields['close_order'], 'disabled', True)
+
         else:
             self.fields['shipment_status'].choices = SHIPMENT_STATUS[:1]
 
@@ -438,7 +444,12 @@ class CartProductMappingForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(CartProductMappingForm, self).__init__(*args, **kwargs)
         self.empty_permitted = False
-        required_fields(self, ['cart_product_price'])
+
+    def clean_cart_product_price(self):
+        product_price = self.cleaned_data.get('cart_product_price')
+        if not product_price:
+            raise forms.ValidationError('This field is required')
+        return product_price
 
     def clean_no_of_pieces(self):
         cart = self.cleaned_data.get('cart')
