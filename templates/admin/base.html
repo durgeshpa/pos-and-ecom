@@ -10,13 +10,13 @@ $( document ).ready(function() {
     console.log("loaded");
 
     $('.submit-row').on('click','input[type=submit]', function(e){
-        console.log(e.target);
+        //console.log(e.target);
         
-        $(this).attr('disabled','disabled');
+        /*$(this).attr('disabled','disabled');
         // After a while, we enable the click again
         setTimeout(function(){
           $(this).removeAttr('disabled');
-        }, 5000);
+        }, 5000);*/
       
 
         /*if (form_enabled) {
@@ -25,7 +25,7 @@ $( document ).ready(function() {
            }
 
            return false;*/        
-
+           $('.submit-row').hide();
         //$(this).hide();
     });
 });
