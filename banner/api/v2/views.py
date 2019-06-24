@@ -15,6 +15,8 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db.models import Q
 from shops.models import Shop, ParentRetailerMapping
 
+from retailer_to_sp.models import OrderedProduct, Feedback
+
 class GetSlotBannerListView(APIView):
 
     # queryset = BannerData.objects.filter(slot__position_name=pos_name).order_by('banner_data_id')
@@ -26,21 +28,33 @@ class GetSlotBannerListView(APIView):
         position_name= self.kwargs.get('page_name')
         pos_name = self.kwargs.get('banner_slot')
         shop_id = self.request.GET.get('shop_id')
+        shipment_id, can_write_feedback, invoice_no = '', False, ''
 
         if pos_name and position_name and shop_id and shop_id != '-1':
+
             if Shop.objects.get(id=shop_id).retiler_mapping.exists():
                 parent = ParentRetailerMapping.objects.get(retailer=shop_id, status=True).parent
                 data = BannerData.objects.filter(banner_data__status=True, slot__page__name=position_name,slot__bannerslot__name=pos_name, slot__shop=parent.id).filter(Q(banner_data__banner_start_date__isnull=True) | Q(banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate))
                 is_success = True if data else False
                 message = "" if is_success else "Banners are currently not available"
                 serializer = BannerDataSerializer(data,many=True)
+
+                '''
+                Can Fill Feedback Code Start
+                '''
+                shipment_status_for_feedback = ['FULLY_RETURNED_AND_COMPLETED','PARTIALLY_DELIVERED_AND_COMPLETED','FULLY_DELIVERED_AND_COMPLETED','FULLY_RETURNED_AND_CLOSED','PARTIALLY_DELIVERED_AND_CLOSED','FULLY_DELIVERED_AND_CLOSED']
+                order_product = OrderedProduct.objects.filter(order__buyer_shop__shop_owner=Shop.objects.get(id=shop_id).shop_owner,shipment_status__in=shipment_status_for_feedback).order_by('created_at')
+                if order_product.exists() and (not Feedback.objects.filter(shipment=order_product.last()).exists()):
+                    shipment_id = order_product.last().id
+                    can_write_feedback = True
+                    invoice_no = order_product.last().invoice_no
             else:
                 data = BannerData.objects.filter(banner_data__status=True, slot__page__name=position_name,slot__bannerslot__name=pos_name,slot__shop=None ).filter(Q(banner_data__banner_start_date__isnull=True) | Q(banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate))
                 is_success = True if data else False
                 message = "" if is_success else "Banners are currently not available"
                 serializer = BannerDataSerializer(data,many=True)
 
-            return Response({"message":[message], "response_data": serializer.data ,"is_success": is_success})
+            return Response({"message":[message], "response_data": serializer.data ,"is_success": is_success,"shipment_id": shipment_id, "can_write_feedback": can_write_feedback, "invoice_no": invoice_no})
 
         else:
             data = BannerData.objects.filter(banner_data__status=True, slot__page__name=position_name,slot__bannerslot__name=pos_name, slot__shop=None).filter(Q(banner_data__banner_start_date__isnull=True) | Q(banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate))
@@ -48,7 +62,7 @@ class GetSlotBannerListView(APIView):
             message = "" if is_success else "Banners are currently not available"
             serializer = BannerDataSerializer(data,many=True)
 
-            return Response({"message":[message], "response_data": serializer.data ,"is_success": is_success})
+            return Response({"message":[message], "response_data": serializer.data ,"is_success": is_success,"shipment_id": shipment_id, "can_write_feedback": can_write_feedback, "invoice_no": invoice_no})
 
 
 '''class GetAllBannerListView(ListCreateAPIView):
