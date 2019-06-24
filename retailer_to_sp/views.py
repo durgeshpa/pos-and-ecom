@@ -6,7 +6,7 @@ from wkhtmltopdf.views import PDFTemplateResponse
 
 from django.forms import formset_factory, inlineformset_factory, modelformset_factory, BaseFormSet, ValidationError
 from django.shortcuts import render, get_object_or_404, redirect
-from django.db.models import Sum, Q
+from django.db.models import Sum, Q, F
 from django.db import transaction
 
 from rest_framework.views import APIView
@@ -16,7 +16,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from celery.task import task
 
-from sp_to_gram.models import OrderedProductReserved
+from sp_to_gram.models import OrderedProductReserved, OrderedProductMapping as SPOrderedProductMapping
 from retailer_to_sp.models import (
     Cart, CartProductMapping, Order, OrderedProduct, OrderedProductMapping,
     CustomerCare, Payment, Return, ReturnProductMapping, Note, Trip, Dispatch,
@@ -48,6 +48,8 @@ from retailer_to_sp.api.v1.serializers import OrderedCartSerializer
 from django.urls import reverse
 from django.contrib.sessions.models import Session
 from django.contrib.auth import get_user_model
+from retailer_backend.common_function import brand_credit_note_pattern
+from addresses.models import Address
 
 
 class ReturnProductAutocomplete(autocomplete.Select2QuerySetView):
@@ -861,4 +863,115 @@ class RetailerCart(APIView):
             context={'parent_mapping_id': order_obj.seller_shop.id,}
         )
         return Response({'is_success': True,'response_data': dt.data}, status=status.HTTP_200_OK)
+
+from django.dispatch import receiver
+from django.db.models.signals import post_save, pre_save
+from sp_to_gram.models import create_credit_note
+
+def add_inventory(instance):
+    shipment = instance.rt_order_order_product\
+        .values('id', 'shipment_status', 'trip__trip_status')\
+        .last()
+    shipment_status = shipment.get('shipment_status')
+    trip_status = shipment.get('trip__trip_status')
+    shipment_id = shipment.get('id')
+    shipment_products = OrderedProductMapping.objects.values_list('product_id', flat=True).filter(ordered_product_id=shipment_id)
+    reserved_qty_dict = OrderedProductReserved.objects.values_list('order_product_reserved_id', 'reserved_qty').filter(cart=instance.ordered_cart, product__in=shipment_products, reserved_qty__gt=0).order_by('reserved_qty')
+
+    for shipment_product_id, reserved_qty in reserved_qty_dict:
+        SPOrderedProductMapping.objects.filter(id=shipment_product_id).update(available_qty=(F('available_qty')+reserved_qty))
+    reserved_qty_dict.update(reserved_qty=0)
+
+
+@receiver(post_save, sender=Order)
+def order_cancellation(sender, instance=None, created=False, **kwargs):
+    if instance.order_status == 'CANCELLED':
+        # check if order associated with any shipment
+        order_shipments_count = instance.rt_order_order_product.count()
+        # if there is only one shipment for an order
+        if order_shipments_count and order_shipments_count == 1:
+            # get shipment and trip status for last shipment
+            shipment = instance.rt_order_order_product\
+                .values('id', 'shipment_status', 'trip__trip_status',
+                        'order__seller_shop__id')\
+                .last()
+            shipment_status = shipment.get('shipment_status')
+            trip_status = shipment.get('trip__trip_status')
+            shipment_id = shipment.get('id')
+            # if shipment created but invoice is not generated directly add items to inventory
+            if shipment_status == 'SHIPMENT_CREATED' and not trip_status:
+                # cancel order
+                shipment_products = OrderedProductMapping.objects \
+                    .values_list('product_id', flat=True) \
+                    .filter(ordered_product_id=shipment_id)
+                reserved_qty_dict = OrderedProductReserved.objects\
+                    .values_list('order_product_reserved_id', 'reserved_qty')\
+                    .filter(cart=instance.ordered_cart,
+                            product__in=shipment_products,
+                            reserved_qty__gt=0).order_by('reserved_qty')
+
+                for shipment_product_id, reserved_qty in reserved_qty_dict:
+                    SPOrderedProductMapping.objects \
+                        .filter(id=shipment_product_id) \
+                        .update(available_qty=(F('available_qty') +
+                                reserved_qty))
+                reserved_qty_dict.update(reserved_qty=0)
+            # if invoice created but shipment is not added to trip
+            elif shipment_status == 'READY_TO_SHIP' and not trip_status:
+                # cancel order and generate credit note
+
+                # creating brand note id
+                import pdb; pdb.set_trace()
+
+                address_id = Address.objects.values('id').filter(shop_name_id=shipment.get('order__seller_shop__id')).last().get('id')
+                shop_id = shipment.get('order__seller_shop__id')
+                note_id = brand_credit_note_pattern(Note, 'credit_note_id',
+                                                    None, address_id)
+                credit_amount=0
+
+                # check if credit note exists for this shipment
+                credit_note = Note.objects.filter(shop_id=shipment.get('order__seller_shop__id'))
+                if credit_note.exists:
+                    credit_note = credit_note.last()
+                else:
+                    credit_note = Note.objects.create(
+                        shop_id=shop_id, credit_note_id=note_id,
+                        shipment_id=shipment_id, amount=0, status=True)
+
+                shipment_products = OrderedProductMapping.objects \
+                    .values_list('product_id', flat=True) \
+                    .filter(ordered_product_id=shipment_id)
+                reserved_qty_dict = OrderedProductReserved.objects\
+                    .values_list('order_product_reserved_id', 'reserved_qty')\
+                    .filter(cart=instance.ordered_cart,
+                            product__in=shipment_products,
+                            reserved_qty__gt=0).order_by('reserved_qty')
+
+                for shipment_product_id, reserved_qty in reserved_qty_dict:
+                    SPOrderedProductMapping.objects \
+                        .filter(id=shipment_product_id) \
+                        .update(available_qty=(F('available_qty') +
+                                reserved_qty))
+                reserved_qty_dict.update(reserved_qty=0)
+
+
+
+
+
+
+            elif trip_status and trip_status == 'READY':
+                # cancel order and generate credit note and remove shipment from trip
+                pass
+            else:
+                # can't cancel the order
+                pass
+        # if there are more than one shipment for an order
+        elif order_shipments_count and order_shipments_count > 1:
+            # can't cancel the order if user have more than one shipment
+            pass
+        # if there is no shipment for an order
+        else:
+            pass
+            # when there is no shipment created for this order
+            # cancel the order
 

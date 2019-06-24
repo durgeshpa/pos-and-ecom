@@ -1081,3 +1081,49 @@ class Note(models.Model):
     def invoice_no(self):
         if self.shipment:
             return self.shipment.invoice_no
+
+# from .utils import order_cancel_add_qty
+# @receiver(post_save, sender=Order)
+# def order_cancellation(sender, instance=None, created=False, **kwargs):
+#     import pdb; pdb.set_trace()
+#     # check if order associated with any shipment
+#     order_shipments_count = instance.rt_order_order_product.count()
+#     # if there is only one shipment for an order
+#     if order_shipments_count and order_shipments_count == 1:
+#         # get shipment and trip status for last shipment
+#         order_cancel_add_qty(instance)
+#         # shipment = instance.rt_order_order_product\
+#         #     .values('id', 'shipment_status', 'trip__trip_status')\
+#         #     .last()
+#         # shipment_status = shipment.get('shipment_status')
+#         # trip_status = shipment.get('trip__trip_status')
+#         # shipment_id = shipment.get('id')
+#         # shipment_products = OrderedProductMapping.objects.values_list('product_id', flat=True).filter(ordered_product_id=shipment_id)
+#         # reserved_qty_dict = OrderedProductReserved.objects.values_list('order_product_reserved_id', 'reserved_qty').filter(cart=instance.ordered_cart, product__in=shipment_products, reserved_qty__gt=0).order_by('reserved_qty')
+#         # #reserved_qty_dict = OrderedProductReserved.objects.values_list('order_product_reserved_id', 'reserved_qty').filter(cart=instance.ordered_cart, product__in=shipment_products, reserved_qty__gt=0).order_by('reserved_qty').update(reserved_qty=0)
+#         # with transaction.atomic():
+#         #     for shipment_product_id, reserved_qty in reserved_qty_dict:
+#         #         SPOrderedProductMapping.objects.filter(id=shipment_product_id).update(available_qty=F('available_qty')+reserved_qty)
+#         # if shipment created but invoice is not generated directly add items to inventory
+#         if shipment_status == 'SHIPMENT_CREATED' and not trip_status:
+#             # cancel order
+#             pass
+#         # if invoice created but shipment is not added to trip
+#         elif shipment_status == 'READY_TO_SHIP' and not trip_status:
+#             # cancel order and generate credit note
+#             pass
+#         elif trip_status and trip_status == 'READY':
+#             # cancel order and generate credit note and remove shipment from trip
+#             pass
+#         else:
+#             # can't cancel the order
+#             pass
+#     # if there are more than one shipment for an order
+#     elif order_shipments_count and order_shipments_count > 1:
+#         # can't cancel the order if user have more than one shipment
+#         pass
+#     # if there is no shipment for an order
+#     else:
+#         pass
+#         # when there is no shipment created for this order
+#         # cancel the order

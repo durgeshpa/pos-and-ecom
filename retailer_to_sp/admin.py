@@ -305,7 +305,7 @@ class CartProductMappingAdmin(admin.TabularInline):
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     fields = ('seller_shop', 'buyer_shop')
-    readonly_fields = ('seller_shop', 'buyer_shop')
+    #readonly_fields = ('seller_shop', 'buyer_shop')
     form = CartForm
     list_display = ('order_id', 'seller_shop','buyer_shop','cart_status')
     #change_form_template = 'admin/sp_to_gram/cart/change_form.html'
@@ -588,7 +588,7 @@ class OrderedProductAdmin(admin.ModelAdmin):
             form.changed_data):
             update_shipment_status(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
             update_order_status(form)
-            create_credit_note(form)
+            create_credit_note(form_instance)
         super(OrderedProductAdmin, self).save_related(request, form, formsets, change)
 
 
