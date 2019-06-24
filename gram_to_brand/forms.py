@@ -153,7 +153,7 @@ class CartProductMappingForm(forms.ModelForm):
 class GRNOrderForm(forms.ModelForm):
     class Meta:
         model = GRNOrder
-        fields = ('order','invoice_no')
+        fields = ('order','invoice_no', 'brand_invoice')
         readonly_fields = ('order')
 
 class GRNOrderProductForm(forms.ModelForm):
@@ -161,6 +161,7 @@ class GRNOrderProductForm(forms.ModelForm):
         queryset=Product.objects.all(),
         widget=autocomplete.ModelSelect2(url='product-autocomplete',forward=('order',))
      )
+    product_mrp = forms.IntegerField()
     po_product_quantity = forms.IntegerField()
     po_product_price = forms.DecimalField()
     already_grned_product = forms.IntegerField()
@@ -170,9 +171,9 @@ class GRNOrderProductForm(forms.ModelForm):
 
     class Meta:
         model = GRNOrderProductMapping
-        fields = ('product','po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date',
+        fields = ('product', 'product_mrp', 'po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date',
                   'expiry_date','best_before_year','best_before_month','product_invoice_qty','delivered_qty','returned_qty')
-        readonly_fields = ('product', 'po_product_quantity', 'po_product_price', 'already_grned_product')
+        readonly_fields = ('product','product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product')
         autocomplete_fields = ('product',)
 
     class Media:
@@ -216,6 +217,7 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
                 already_grn = item.product_grn_order_product.filter(grn_order__order__ordered_cart=ordered_cart).aggregate(Sum('delivered_qty'))
                 initial.append({
                     'product' : item,
+                    'product_mrp': item.product_pro_price.filter(product=item,shop=ordered_cart.gf_shipping_address.shop_name, status=True).last().mrp,
                     'po_product_quantity': item.cart_product_mapping.filter(cart=ordered_cart).last().qty,
                     'po_product_price':  item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product.product_price if item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product else item.cart_product_mapping.filter(cart=ordered_cart).last().price,
                     'already_grned_product': 0 if already_grn.get('delivered_qty__sum') == None else already_grn.get('delivered_qty__sum'),

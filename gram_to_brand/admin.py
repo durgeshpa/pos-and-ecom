@@ -138,13 +138,13 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     model = GRNOrderProductMapping
     formset = GRNOrderProductFormset
     form = GRNOrderProductForm
-    fields = ('product','po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date','expiry_date','best_before_year','best_before_month','product_invoice_qty','delivered_qty','returned_qty')
+    fields = ('product', 'product_mrp', 'po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date','expiry_date','best_before_year','best_before_month','product_invoice_qty','delivered_qty','returned_qty')
     exclude = ('last_modified_by','available_qty',)
     extra = 0
     #readonly_fields = ('po_product_quantity','po_product_price','already_grned_product',)
     def get_readonly_fields(self, request, obj=None):
         if obj: # editing an existing object
-            return self.readonly_fields + ('product','po_product_quantity','po_product_price','already_grned_product',)
+            return self.readonly_fields + ('product','product_mrp','po_product_quantity','po_product_price','already_grned_product',)
         return self.readonly_fields
 
     def get_formset(self, request, obj=None, **kwargs):

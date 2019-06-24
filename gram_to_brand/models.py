@@ -417,6 +417,11 @@ class GRNOrderProductMapping(models.Model):
     @property
     def best_before_month(self):
         return 0
+
+    @property
+    def product_mrp(self):
+        return self.product.product_pro_price.filter(product=self.product, shop=self.grn_order.order.ordered_cart.gf_shipping_address.shop_name, status=True).last().mrp if self.product else ''
+
     # @property
     # def available_qty(self):
     #     return self.delivered_qty
