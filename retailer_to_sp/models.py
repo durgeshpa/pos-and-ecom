@@ -937,7 +937,7 @@ class Payment(models.Model):
     )
     name = models.CharField(max_length=255, null=True, blank=True)
     paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
-    payment_choice = models.CharField(verbose_name="Payment Mode",max_length=30,choices=PAYMENT_MODE_CHOICES, null=True)
+    payment_choice = models.CharField(verbose_name="Payment Mode",max_length=30,choices=PAYMENT_MODE_CHOICES,default='cash_on_delivery')
     neft_reference_number = models.CharField(max_length=255, null=True,blank=True)
     imei_no = models.CharField(max_length=100, null=True, blank=True)
     payment_status = models.CharField(max_length=50, null=True, blank=True,choices=PAYMENT_STATUS, default=PAYMENT_DONE_APPROVAL_PENDING)
@@ -1081,3 +1081,25 @@ class Note(models.Model):
     def invoice_no(self):
         if self.shipment:
             return self.shipment.invoice_no
+
+class Feedback(models.Model):
+    STAR1 = '1'
+    STAR2 = '2'
+    STAR3 = '3'
+    STAR4 = '4'
+    STAR5 = '5'
+
+    STAR_CHOICE = (
+        (STAR1, '1 Star'),
+        (STAR2, '2 Star'),
+        (STAR3, '3 Star'),
+        (STAR4, '4 Star'),
+        (STAR5, '5 Star'),
+    )
+    user = models.ForeignKey(get_user_model(), related_name='user_feedback', on_delete=models.CASCADE)
+    shipment = models.OneToOneField(OrderedProduct, related_name='shipment_feedback',on_delete=models.CASCADE)
+    delivery_experience = models.CharField(max_length=2, choices=STAR_CHOICE, null=True, blank=True)
+    overall_product_packaging = models.CharField(max_length=2, choices=STAR_CHOICE, null=True, blank=True)
+    comment = models.TextField(null=True,blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    status = models.BooleanField(default=False)
