@@ -111,3 +111,8 @@ GSTINValidator = RegexValidator(
     message=VALIDATION_ERROR_MESSAGES['INVALID_GSTIN_Number'],
     code='INVALID_GSTIN_Number'
 )
+PriceValidator2 = RegexValidator(
+    regex='^[0-9]{0,}(\.\d{0,2})?$',
+    message=VALIDATION_ERROR_MESSAGES['INVALID_PRICE'],
+    code='INVALID_PRICE'
+)

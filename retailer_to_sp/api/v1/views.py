@@ -1,49 +1,152 @@
+import logging
+import json
+from datetime import datetime, timedelta
+
+from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import F,Sum, Q
+from wkhtmltopdf.views import PDFTemplateResponse
+from django.shortcuts import get_object_or_404, get_list_or_404
+from django.utils import timezone
+from django.contrib.postgres.search import SearchVector
+from django_filters import rest_framework as filters
+
 from rest_framework import generics
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,
                           OrderSerializer, CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
 
-                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer )
+                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer, OrderListSerializer, FeedBackSerializer )
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
 from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
                                 OrderedProduct as SPOrderedProduct, StockAdjustment)
 
 from rest_framework import permissions, authentication
-from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as GramCartProductMapping,
-                                  OrderedProductReserved as GramOrderedProductReserved, PickList, PickListItems )
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
+from rest_framework import generics, viewsets
 
+from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,
+    CartProductMappingSerializer,CartSerializer, OrderSerializer,
+    CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,
+    PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
+    GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,
+    OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
+    OrderListSerializer, ReadOrderedProductSerializer,
+)
+
+from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
+from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
+                                OrderedProduct as SPOrderedProduct, StockAdjustment)
+
+
+from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as GramCartProductMapping,
+                                  OrderedProductReserved as GramOrderedProductReserved, PickList, PickListItems )
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
                                    OrderedProduct, Payment, CustomerCare,
-                                   Return)
+                                   Return, Feedback, OrderedProductMapping as ShipmentProducts)
 
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
                                       OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment, CustomerCare as GramMappedCustomerCare )
 
-import logging
-import json
 from shops.models import Shop,ParentRetailerMapping
-from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import F,Sum, Q
-from wkhtmltopdf.views import PDFTemplateResponse
-from django.shortcuts import get_object_or_404, get_list_or_404
-from datetime import datetime, timedelta
-from django.utils import timezone
 from products.models import ProductCategory
 from addresses.models import Address
 from retailer_backend.common_function import getShopMapping,checkNotShopAndMapping,getShop
 from retailer_backend.messages import ERROR_MESSAGES
-from django.contrib.postgres.search import SearchVector
+
 from retailer_to_sp.tasks import (
     ordered_product_available_qty_update, release_blocking, create_reserved_order
 )
+from .filters import OrderedProductMappingFilter, OrderedProductFilter
+
+from common.data_wrapper_view import DataWrapperViewSet
+
+from django.contrib.auth import get_user_model
+User = get_user_model()
 
 logger = logging.getLogger(__name__)
 
 today = datetime.today()
+
+
+class OrderedProductViewSet(DataWrapperViewSet):
+    '''
+    This class handles all operation of ordered product
+    '''
+    #permission_classes = (AllowAny,)
+    model = OrderedProduct
+    queryset = OrderedProduct.objects.all()
+    serializer_class = OrderedProductSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    # filter_backends = (filters.DjangoFilterBackend,)
+    # filter_class = OrderedProductFilter
+
+    def get_serializer_class(self):
+        '''
+        Returns the serializer according to action of viewset
+        '''
+        serializer_action_classes = {
+            'retrieve': ReadOrderedProductSerializer,
+            'list':ReadOrderedProductSerializer,
+            'create':OrderedProductSerializer,
+            'update':OrderedProductSerializer
+        }
+        if hasattr(self, 'action'):
+            return serializer_action_classes.get(self.action, self.serializer_class)
+        return self.serializer_class
+
+    def get_queryset(self):
+        shipment_id = self.request.query_params.get('shipment_id', None)
+        ordered_product = OrderedProduct.objects.all()
+
+        if shipment_id is not None:
+            ordered_product = ordered_product.filter(
+                id=shipment_id
+                )
+        return ordered_product
+
+
+class OrderedProductMappingView(DataWrapperViewSet):
+    '''
+    This class handles all operation of ordered product mapping
+    '''
+    #permission_classes = (AllowAny,)
+    model = ShipmentProducts
+    serializer_class = OrderedProductMappingSerializer
+    queryset = ShipmentProducts.objects.all()
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    # filter_backends = (filters.DjangoFilterBackend,)
+    # filter_class = OrderedProductMappingFilter
+
+    def get_serializer_class(self):
+        '''
+        Returns the serializer according to action of viewset
+        '''
+        serializer_action_classes = {
+            'retrieve': OrderedProductMappingSerializer,
+            'list':OrderedProductMappingSerializer,
+            'create':OrderedProductMappingSerializer,
+            'update':OrderedProductMappingSerializer
+        }
+        if hasattr(self, 'action'):
+            return serializer_action_classes.get(self.action, self.serializer_class)
+        return self.serializer_class
+
+    def get_queryset(self):
+        ordered_product = self.request.query_params.get('ordered_product', None)
+        ordered_product_mapping = ShipmentProducts.objects.all()
+        if ordered_product is not None:
+            ordered_product_mapping = ordered_product_mapping.filter(
+                ordered_product=ordered_product
+                )
+        return ordered_product_mapping
+
 
 
 class ProductsList(generics.ListCreateAPIView):
@@ -168,13 +271,21 @@ class GramGRNProductsList(APIView):
 
         for p in products_price:
             user_selected_qty = None
+            no_of_pieces = None
+            sub_total = None
+            name = p.product.product_name
+            mrp = round(p.mrp, 2) if p.mrp else p.mrp
+            ptr = round(p.price_to_retailer, 2) if p.price_to_retailer else p.price_to_retailer
+            loyalty_discount = round(p.loyalty_incentive, 2) if p.loyalty_incentive else p.loyalty_incentive
+            cash_discount = round(p.cash_discount, 2) if p.cash_discount else p.cash_discount
+            margin = round(100 - (float(ptr) * 1000000 / (float(mrp) * (100 - float(cash_discount)) * (100 - float(loyalty_discount)))), 2) if mrp and ptr else 0
+
             if cart_check == True:
                 for c_p in cart_products:
                     if c_p.cart_product_id == p.product_id:
                         user_selected_qty = c_p.qty
-            name = p.product.product_name
-            mrp = round(p.mrp,2) if p.mrp else p.mrp
-            ptr = round(p.price_to_retailer,2) if p.price_to_retailer else p.price_to_retailer
+                        no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
+                        sub_total = float(no_of_pieces) * float(ptr)
             status = p.product.status
             product_opt = p.product.product_opt_product.all()
             weight_value = None
@@ -207,7 +318,8 @@ class GramGRNProductsList(APIView):
                 product_images=None
             if request.user.is_authenticated:
                 p_list.append({"name":p.product.product_name, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "id":p.product_id,
-                                "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":user_selected_qty})
+                                "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":user_selected_qty,
+                               "loyalty_discount":loyalty_discount,"cash_discount":cash_discount,"margin":margin ,"no_of_pieces":no_of_pieces, "sub_total":sub_total})
             else:
                 is_store_active = False
                 p_list.append({"name":p.product.product_name, "mrp":None, "ptr":None, "status":status, "pack_size":pack_size, "id":p.product_id,
@@ -467,12 +579,12 @@ class ReservedOrder(generics.ListAPIView):
                            'message': ['No product is available in cart'],
                            'response_data': None}
                     return Response(msg, status=status.HTTP_200_OK)
-                
+
                 cart_products.update(qty_error_msg='')
                 cart_product_ids = cart_products.values('cart_product')
                 shop_products_available = OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product__in=cart_product_ids,available_qty__gt=0).values('product_id').annotate(available_qty=Sum('available_qty'))
                 shop_products_dict = {g['product_id']:int(g['available_qty']) for g in shop_products_available}
-                
+
                 products_available = {}
                 products_unavailable = []
                 for cart_product in cart_products:
@@ -659,7 +771,7 @@ class CreateOrder(APIView):
 #OrderedProductMapping.objects.filter()
 
 class OrderList(generics.ListAPIView):
-    serializer_class = OrderDetailSerializer
+    serializer_class = OrderListSerializer
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -678,9 +790,8 @@ class OrderList(generics.ListAPIView):
 
         current_url = request.get_host()
         if parent_mapping.parent.shop_type.shop_type == 'sp':
-            queryset = Order.objects.filter(last_modified_by=user).order_by('-created_at')
-
-            serializer = OrderDetailSerializer(queryset, many=True, context={'parent_mapping': parent_mapping.parent,'current_url':current_url})
+            queryset = Order.objects.filter(last_modified_by=user,buyer_shop=parent_mapping.retailer).order_by('-created_at')
+            serializer = OrderListSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             queryset = GramMappedOrder.objects.filter(last_modified_by=user).order_by('-created_at')
             serializer = GramMappedOrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
@@ -709,7 +820,7 @@ class OrderDetail(generics.RetrieveAPIView):
         current_url = request.get_host()
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             queryset = Order.objects.get(id=pk)
-            serializer = OrderDetailSerializer(queryset, context={'parent_mapping': parent_mapping.parent,'current_url':current_url})
+            serializer = OrderDetailSerializer(queryset, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             queryset = GramMappedOrder.objects.get(id=pk)
             serializer = GramMappedOrderSerializer(queryset,context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
@@ -923,19 +1034,26 @@ class CustomerCareApi(APIView):
 
 
     def post(self,request):
+        phone_number = self.request.POST.get('phone_number')
         order_id=self.request.POST.get('order_id')
         select_issue=self.request.POST.get('select_issue')
         complaint_detail=self.request.POST.get('complaint_detail')
         msg = {'is_success': False,'message': [''],'response_data': None}
+        if request.user.is_authenticated:
+            phone_number = request.user.phone_number
+
         if not complaint_detail :
             msg['message']= ["Please type the complaint_detail"]
             return Response(msg, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = CustomerCareSerializer(data=request.data)
+        serializer = CustomerCareSerializer(data= {"phone_number":phone_number, "complaint_detail":complaint_detail, "order_id":order_id, "select_issue":select_issue})
         if serializer.is_valid():
             serializer.save()
             msg = {'is_success': True, 'message': ['Message Sent'], 'response_data': serializer.data}
             return Response( msg, status=status.HTTP_201_CREATED)
+        else:
+            msg = {'is_success': False, 'message': ['Phone Number is not Valid'], 'response_data': None}
+            return Response( msg, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class CustomerOrdersList(APIView):
@@ -947,12 +1065,12 @@ class CustomerOrdersList(APIView):
         #msg = {'is_success': True, 'message': ['No Orders of the logged in user'], 'response_data': None}
         #if request.user.is_authenticated:
             queryset = Order.objects.filter(ordered_by=request.user)
-            if queryset.count()>1:
+            if queryset.count()>0:
                 serializer = OrderNumberSerializer(queryset, many=True)
                 msg = {'is_success': True, 'message': ['All Orders of the logged in user'], 'response_data': serializer.data}
             else:
                 serializer = OrderNumberSerializer(queryset, many=True)
-                msg = {'is_success': False, 'message': ['No Orders of the logged in user'], 'response_data': serializer.data}
+                msg = {'is_success': False, 'message': ['No Orders of the logged in user'], 'response_data': None}
             return Response(msg, status=status.HTTP_201_CREATED)
         #else:
             #return Response(msg, status=status.HTTP_201_CREATED)
@@ -1070,4 +1188,38 @@ class ReleaseBlocking(APIView):
                     ordered_reserve.order_product_reserved.save()
                     ordered_reserve.delete()
             msg = {'is_success': True, 'message': ['Blocking has released'], 'response_data': None}
+        return Response(msg, status=status.HTTP_200_OK)
+
+class FeedbackData(generics.ListCreateAPIView):
+    serializer_class = FeedBackSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        ship_id = self.kwargs.get('ship_id')
+        queryset = Feedback.objects.all()
+        if ship_id:
+            queryset = Feedback.objects.filter(shipment__id=ship_id)
+        return queryset
+
+    def create(self, request, *args, **kwargs):
+        can_comment = False
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            if ((serializer.data['delivery_experience'] and int(serializer.data['delivery_experience']) > 4) or (serializer.data['overall_product_packaging'] and int(serializer.data['overall_product_packaging']) > 4)):
+                can_comment = True
+            msg = {'is_success': True, 'can_comment':can_comment, 'message': None, 'response_data': serializer.data}
+        else:
+            msg = {'is_success': False, 'message': ['shipment_id, user_id or status not found or value exists'], 'response_data': None}
+        return Response(msg, status=status.HTTP_200_OK)
+
+    def perform_create(self, serializer):
+        feedback = serializer.save(user=self.request.user)
+        return feedback
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        msg = {'is_success': True, 'message': [""], 'response_data': serializer.data}
         return Response(msg, status=status.HTTP_200_OK)

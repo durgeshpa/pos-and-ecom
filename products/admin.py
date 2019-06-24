@@ -14,13 +14,15 @@ from .views import (
     load_brands, products_filter_view, products_price_filter_view,
     ProductsUploadSample, products_csv_upload_view, gf_product_price,
     load_gf, products_export_for_vendor, products_vendor_mapping,
-    MultiPhotoUploadView
+    MultiPhotoUploadView, ProductPriceAutocomplete
     )
 from .resources import (
     SizeResource, ColorResource, FragranceResource,
     FlavorResource, WeightResource, PackageSizeResource,
     ProductResource, ProductPriceResource, TaxResource
     )
+
+from .forms import ProductPriceNewForm
 
 class ProductFilter(AutocompleteFilter):
     title = 'Product Name' # display title
@@ -287,6 +289,11 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 self.admin_site.admin_view(products_vendor_mapping),
                 name='products_vendor_mapping'
             ),
+            url(
+                r'^product-price-autocomplete/$',
+                self.admin_site.admin_view(ProductPriceAutocomplete.as_view()),
+                name="product-price-autocomplete"
+            ),
         ] + urls
         return urls
 
@@ -325,11 +332,11 @@ class MRPSearch(InputFilter):
             )
 class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductPriceResource
+    form = ProductPriceNewForm
     actions = ["export_as_csv"]
     list_display = [
-        'product', 'product_gf_code', 'mrp', 'price_to_service_partner',
-        'price_to_retailer', 'price_to_super_retailer','shop',
-        'start_date', 'end_date', 'status'
+        'product', 'product_gf_code', 'mrp', 'price_to_service_partner','price_to_retailer', 'price_to_super_retailer',
+        'shop', 'cash_discount','loyalty_incentive','margin','start_date', 'end_date', 'status'
     ]
     autocomplete_fields=['product',]
     search_fields = [
@@ -337,7 +344,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
         'product__product_brand__brand_name', 'shop__shop_name'
     ]
     list_filter= [ProductFilter,ShopFilter,MRPSearch,('start_date', DateRangeFilter),('end_date', DateRangeFilter)]
-    fields=('product','city','area','mrp','shop','price_to_retailer','price_to_super_retailer','price_to_service_partner','start_date','end_date','status')
+    fields=('product','city','area','mrp','shop','price_to_retailer','price_to_super_retailer','price_to_service_partner','cash_discount','loyalty_incentive','start_date','end_date','status')
     class Media:
         pass
     def get_readonly_fields(self, request, obj=None):

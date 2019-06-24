@@ -1,57 +1,69 @@
-from dal import autocomplete
+import csv
 
+from admin_auto_filters.filters import AutocompleteFilter
+from admin_numeric_filter.admin import (NumericFilterModelAdmin,
+                                        RangeNumericFilter,
+                                        SingleNumericFilter,
+                                        SliderNumericFilter)
+from dal import autocomplete
+from dal_admin_filters import AutocompleteFilter
 from django.contrib import admin
+from django.contrib.admin import SimpleListFilter
+from django.core.exceptions import ValidationError
 from django.contrib.admin import SimpleListFilter, helpers
 from django.utils.html import format_html
 from django.urls import reverse
 from django.db.models import Q
-from django_select2.forms import Select2MultipleWidget, ModelSelect2Widget
-from rangefilter.filter import DateRangeFilter, DateTimeRangeFilter
-from django.utils.translation import ugettext_lazy as _
 from django.forms.models import BaseInlineFormSet
-from django.core.exceptions import ValidationError
-
-from products.models import Product
-from gram_to_brand.models import GRNOrderProductMapping
-from retailer_backend.admin import InputFilter
-from admin_auto_filters.filters import AutocompleteFilter
-from django_admin_listfilter_dropdown.filters import DropdownFilter, ChoiceDropdownFilter
-from .models import (
-    Cart, CartProductMapping, Order, OrderedProduct,
-    OrderedProductMapping, Note, CustomerCare,
-    Payment, Return, ReturnProductMapping, Dispatch,
-    DispatchProductMapping, Trip, Shipment, ShipmentProductMapping,
-    Commercial
-)
-from .forms import (
-    CustomerCareForm, ReturnProductMappingForm, TripForm, DispatchForm,
-    OrderedProductMappingForm, OrderedProductForm, ShipmentForm,
-    OrderedProductMappingShipmentForm, ShipmentProductMappingForm,
-    CartProductMappingForm, CartForm, CommercialForm, OrderForm
-    )
-from retailer_to_sp.views import (
-    ordered_product_mapping_shipment, order_invoices, trip_planning,
-    load_dispatches, trip_planning_change, update_shipment_status,
-    update_order_status, update_delivered_qty,
-    LoadDispatches, UpdateSpQuantity, commercial_shipment_details
-    )
-
-from products.admin import ExportCsvMixin
-from .resources import OrderResource
-from .utils import (add_cart_user, create_order_from_cart, GetPcsFromQty)
-from admin_numeric_filter.admin import NumericFilterModelAdmin, SingleNumericFilter, RangeNumericFilter, \
-    SliderNumericFilter
+from django import forms
 from django.http import HttpResponse
-import csv
-
-from .signals import ReservedOrder
-from sp_to_gram.models import (
-    OrderedProductReserved, create_credit_note,
-    OrderedProductMapping as SpMappedOrderedProductMapping)
-from dal_admin_filters import AutocompleteFilter
+from django.urls import reverse
+from django.utils.html import format_html
 from django.utils.translation import ugettext_lazy as _
-from shops.models import Shop, ParentRetailerMapping
-from .views import RetailerCart
+from django_admin_listfilter_dropdown.filters import (ChoiceDropdownFilter,
+                                                      DropdownFilter)
+from django_select2.forms import ModelSelect2Widget, Select2MultipleWidget
+from rangefilter.filter import DateRangeFilter, DateTimeRangeFilter
+
+from gram_to_brand.models import GRNOrderProductMapping
+from products.admin import ExportCsvMixin
+from products.models import Product
+from retailer_backend.admin import InputFilter
+from retailer_to_sp.views import (
+    LoadDispatches, UpdateSpQuantity, commercial_shipment_details,
+    load_dispatches, order_invoices, ordered_product_mapping_shipment,
+    trip_planning, trip_planning_change, update_delivered_qty,
+    update_order_status, update_shipment_status, reshedule_update_shipment,
+    RetailerCart
+)
+from shops.models import ParentRetailerMapping, Shop
+from sp_to_gram.models import (
+    OrderedProductMapping as SpMappedOrderedProductMapping,
+    OrderedProductReserved, create_credit_note,
+)
+from sp_to_gram.models import OrderedProductReserved, create_credit_note
+
+from .forms import (
+    CartForm, CartProductMappingForm, CommercialForm,
+    CustomerCareForm, DispatchForm, OrderedProductForm,
+    OrderedProductMappingForm,
+    OrderedProductMappingShipmentForm,
+    ReturnProductMappingForm, ShipmentForm,
+    ShipmentProductMappingForm, TripForm, ShipmentReschedulingForm,
+    OrderedProductReschedule, OrderedProductMappingRescheduleForm,
+    OrderForm
+)
+from .models import (Cart, CartProductMapping, Commercial, CustomerCare,
+                     Dispatch, DispatchProductMapping, Note, Order,
+                     OrderedProduct, OrderedProductMapping, Payment, Return,
+                     ReturnProductMapping, Shipment, ShipmentProductMapping,
+                     Trip, ShipmentRescheduling, Feedback)
+from .resources import OrderResource
+from .signals import ReservedOrder
+from .utils import (
+    GetPcsFromQty, add_cart_user, create_order_from_cart,
+    reschedule_shipment_button
+)
 
 
 class InvoiceNumberFilter(AutocompleteFilter):
@@ -89,6 +101,18 @@ class OrderFilter(InputFilter):
                 return
             return queryset.filter(
                 Q(invoice_no__order__order_no__icontains=order_no)
+            )
+
+
+class PhoneNumberFilter(InputFilter):
+    parameter_name = 'phone_number'
+    title = 'Phone Number'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            phone_number = self.value()
+            return queryset.filter(
+                Q(buyer_shop__shop_owner__phone_number=phone_number)
             )
 
 
@@ -281,6 +305,7 @@ class CartProductMappingAdmin(admin.TabularInline):
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     fields = ('seller_shop', 'buyer_shop')
+    readonly_fields = ('seller_shop', 'buyer_shop')
     form = CartForm
     list_display = ('order_id', 'seller_shop','buyer_shop','cart_status')
     #change_form_template = 'admin/sp_to_gram/cart/change_form.html'
@@ -335,6 +360,7 @@ class CartAdmin(admin.ModelAdmin):
         ] + urls
         return urls
 
+
     def save_related(self, request, form, formsets, change):
         super(CartAdmin, self).save_related(request, form, formsets, change)
         add_cart_user(form, request)
@@ -351,16 +377,17 @@ class CartAdmin(admin.ModelAdmin):
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
-        list_display = ['order_no', 'seller_shop', 'buyer_shop', 'total_final_amount',
+        list_display = ['order_no', 'seller_shop', 'buyer_shop', 'pincode', 'total_final_amount',
                         'order_status', 'created_at', 'payment_mode', 'paid_amount',
-                        'total_paid_amount', 'shipment_status', 'order_shipment_amount', 'order_shipment_details']
+                        'total_paid_amount', 'shipment_status', 'shipment_status_reason','order_shipment_amount', 'order_shipment_details']
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
         writer = csv.writer(response)
         writer.writerow(list_display)
         for obj in queryset:
-            row = writer.writerow([ getattr(obj, field).replace('<br>','\n') if field in ['shipment_status', 'order_shipment_amount', 'order_shipment_details'] else getattr(obj, field) for field in list_display])
+            row = writer.writerow([getattr(obj, field).replace('<br>', '\n') if field in ['shipment_status','shipment_status_reason','order_shipment_amount',
+                                                            'order_shipment_details'] else getattr(obj, field) for field in list_display])
         return response
     export_as_csv.short_description = "Download CSV of Selected Orders"
 
@@ -405,12 +432,21 @@ class ProductNameFilter(InputFilter):
             return queryset.filter(ordered_cart__rt_cart_list__cart_product__product_name=value)
         return queryset
 
+class Pincode(InputFilter):
+    title = 'Pincode'
+    parameter_name = 'pincode'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value :
+            return queryset.filter(shipping_address__pincode=value)
+        return queryset
 from django.contrib.admin.views.main import ChangeList
 
 class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     actions = ["export_as_csv"]
     resource_class = OrderResource
-    search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name','order_status',)
+    search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name','order_status')
     form = OrderForm
     fieldsets = (
         (_('Shop Details'), {
@@ -423,22 +459,26 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
             'fields': ('total_mrp', 'total_discount_amount',
                        'total_tax_amount', 'total_final_amount')}),
         )
+    list_select_related =(
+        'seller_shop','buyer_shop', 'ordered_cart'
+        )
     list_display = (
                     'order_no', 'download_pick_list', 'seller_shop', 'buyer_shop',
-                    'total_final_amount', 'order_status', 'created_at',
+                    'pincode','total_final_amount', 'order_status', 'created_at',
                     'payment_mode','picking_status','picker_name',
                     'invoice_no', 'shipment_date', 'invoice_amount', 'shipment_status',
-                    #'delivery_date', 'cn_amount', 'cash_collected', 'damaged_amount',
-                    'delivered_value')
+                    'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
+                    #'damaged_amount',
+                    )
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
-                        'invoice_no', 'shipment_status')
-    list_filter = [SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
-        ('created_at', DateTimeRangeFilter), ('total_final_amount', SliderNumericFilter)]
-
-    class Media:
-        js = ('/static/admin/js/retailer_cart.js',)
-        js = ('/static/admin/js/retailer_order.js',)
+                       'invoice_no', 'shipment_status', 'shipment_status_reason','billing_address',
+                       'shipping_address', 'seller_shop', 'buyer_shop',
+                       'ordered_cart', 'ordered_by', 'last_modified_by',
+                       'total_mrp', 'total_discount_amount',
+                       'total_tax_amount', 'total_final_amount')
+    list_filter = [PhoneNumberFilter,SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
+        ('created_at', DateTimeRangeFilter), ('total_final_amount', SliderNumericFilter), Pincode]
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
@@ -459,13 +499,12 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
 
     def order_products(self, obj):
         p=[]
-        products = obj.ordered_cart.rt_cart_list.all()
+        products = obj.ordered_cart.rt_cart_list.all().values('cart_product__product_name')
         for m in products:
-            p.append(m.cart_product.product_name)
+            p.append(m)
         return p
 
     change_form_template = 'admin/retailer_to_sp/order/change_form.html'
-    change_list_template = 'admin/retailer_to_sp/order/change_list.html'
 
     def get_urls(self):
         from django.conf.urls import url
@@ -477,61 +516,47 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         ]
         return urls
 
+class ShipmentReschedulingAdmin(admin.TabularInline):
+    model = ShipmentRescheduling
+    form = ShipmentReschedulingForm
+    fields = ['rescheduling_reason', 'rescheduling_date']
+    max_num = 1
 
-    # new code for order_list start
-    def changelist_view(self, request, extra_context=None):
-        CHANGELIST_PERPAGE_LIMITS = 100
-        if request.GET.get('per_page') and int(
-                request.GET.get('per_page')) in CHANGELIST_PERPAGE_LIMITS:
-            self.list_per_page = int(request.GET.get('per_page'))
-        else:
-            self.list_per_page = 100
-        extra_context = {'changelist_perpage_limits': CHANGELIST_PERPAGE_LIMITS,
-                         'list_per_page': self.list_per_page}
-
-        response = super(OrderAdmin, self).changelist_view(request,extra_context=extra_context,)
-        try:
-            qs = response.context_data['cl'].queryset
-        except (AttributeError, KeyError):
-            return response
-
-        result_qs = list(qs.values('order_no', 'seller_shop', 'buyer_shop',
-                    'total_final_amount', 'order_status', 'created_at','pk',
-                    ).order_by('-created_at').all())
-        cl = ChangeList(request,
-                        self.model,
-                        self.list_display,
-                        self.list_display_links,
-                        self.list_filter,
-                        self.date_hierarchy,
-                        self.search_fields,
-                        self.list_select_related,
-                        self.list_per_page,
-                        self.list_max_show_all,
-                        self.list_editable, self, self.sortable_by)
-        dt = cl.get_queryset(request)
-        response.context_data['summary'] = result_qs
-        return response
-    # new code for order_list end
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping
-    fields = ['product', 'gf_code', 'ordered_qty', 'shipped_qty', 'returned_qty', 'damaged_qty' , 'delivered_qty']
-    readonly_fields = ['ordered_qty', 'product', 'gf_code', 'shipped_qty', 'delivered_qty']
+    form = OrderedProductMappingRescheduleForm
+    fields = ['product', 'gf_code', 'ordered_qty', 'shipped_qty',
+              'returned_qty', 'damaged_qty', 'delivered_qty']
+    readonly_fields = ['ordered_qty', 'product', 'gf_code', 'shipped_qty',
+                       'delivered_qty']
     extra = 0
+    max_num = 0
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 class OrderedProductAdmin(admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/OrderedProduct/change_list.html'
-    inlines = [OrderedProductMappingAdmin]
+    inlines = [ShipmentReschedulingAdmin, OrderedProductMappingAdmin,]
     list_display = (
         'invoice_no', 'order', 'created_at', 'shipment_address', 'invoice_city',
         'invoice_amount', 'payment_mode', 'shipment_status', 'download_invoice'
     )
     exclude = ('received_by', 'last_modified_by')
+    fields = (
+        'order', 'invoice_no', 'shipment_status', 'trip',
+        'return_reason',
+    )
     autocomplete_fields = ('order',)
     search_fields = ('invoice_no', 'order__order_no')
-    readonly_fields = ('order', 'invoice_no', 'trip', 'shipment_status')
+    readonly_fields = (
+        'order', 'invoice_no', 'trip', 'shipment_status',
+    )
+    form = OrderedProductReschedule
 
     def download_invoice(self, obj):
         if obj.shipment_status == 'SHIPMENT_CREATED':
@@ -552,10 +577,20 @@ class OrderedProductAdmin(admin.ModelAdmin):
                 )
 
     def save_related(self, request, form, formsets, change):
+        form_instance = getattr(form, 'instance', None)
+        formsets_dict = {}
+        for formset in formsets:
+            formsets_dict[formset.__class__.__name__] = formset
+        if ('ShipmentReschedulingFormFormSet' in formsets_dict and formsets_dict['ShipmentReschedulingFormFormSet'].has_changed() and
+            not form.changed_data):
+            reshedule_update_shipment(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
+        elif ('OrderedProductMappingFormFormSet' in formsets_dict and formsets_dict['OrderedProductMappingFormFormSet'].has_changed() and
+            form.changed_data):
+            update_shipment_status(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
+            update_order_status(form)
+            create_credit_note(form)
         super(OrderedProductAdmin, self).save_related(request, form, formsets, change)
-        update_shipment_status(form, formsets)
-        update_order_status(form)
-        create_credit_note(form)
+
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
@@ -648,9 +683,14 @@ class ShipmentProductMappingAdmin(admin.TabularInline):
 class ShipmentAdmin(admin.ModelAdmin):
     inlines = [ShipmentProductMappingAdmin]
     form = ShipmentForm
+    list_select_related = (
+        'order', 'trip', 'order__seller_shop', 'order__shipping_address',
+        'order__shipping_address__city'
+    )
     list_display = (
-        'invoice_no', 'order', 'created_at', 'shipment_address', 'seller_shop', 'invoice_city',
-        'invoice_amount', 'payment_mode', 'shipment_status', 'download_invoice',
+        'invoice_no', 'order', 'created_at', 'trip', 'shipment_address',
+        'seller_shop', 'invoice_city', 'invoice_amount', 'payment_mode',
+        'shipment_status', 'download_invoice',
     )
     list_filter = [
         ('created_at', DateTimeRangeFilter), InvoiceSearch, ShipmentOrderIdSearch, ShipmentSellerShopSearch,
@@ -659,9 +699,13 @@ class ShipmentAdmin(admin.ModelAdmin):
     ]
     fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
         'shipment_status', 'close_order']
-    search_fields = ['order__order_no', 'invoice_no', 'order__seller_shop__shop_name',
-        'order__buyer_shop__shop_name']
+    search_fields = [
+        'order__order_no', 'invoice_no', 'order__seller_shop__shop_name',
+        'order__buyer_shop__shop_name', 'trip__dispatch_no',
+        'trip__vehicle_no', 'trip__delivery_boy__phone_number']
     readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city']
+    list_per_page = 50
+
 
     def has_delete_permission(self, request, obj=None):
         return False
@@ -677,6 +721,17 @@ class ShipmentAdmin(admin.ModelAdmin):
 
     def seller_shop(self, obj):
         return obj.order.seller_shop.shop_name
+
+    def shipment_address(self, obj):
+        address = obj.order.shipping_address
+        address_line = address.address_line1
+        contact = address.address_contact_number
+        shop_name = address.shop_name.shop_name
+        return str("%s, %s(%s)") % (shop_name, address_line, contact)
+
+    def invoice_city(self, obj):
+        city = obj.order.shipping_address.city
+        return str(city)
 
     def save_related(self, request, form, formsets, change):
         super(ShipmentAdmin, self).save_related(request, form, formsets, change)
@@ -831,25 +886,20 @@ class CommercialAdmin(admin.ModelAdmin):
 
 
 class NoteAdmin(admin.ModelAdmin):
-    list_display = (
-        'credit_note_id', 'shipment',
-        'invoice_no',  'amount'
-    )
-    readonly_fields = ['invoice_no', ]
-    exclude = ('credit_note_id', 'last_modified_by',)
-    # search_fields = (
-    #     'credit_note_id',
-    #       'amount'
-    # )
-    # list_filter = [ReturnNumberFilter, ]
+    list_display = ('credit_note_id', 'shipment', 'shop', 'amount')
+    fields = ('credit_note_id', 'shop', 'shipment', 'note_type', 'amount',
+              'invoice_no', 'status')
+    readonly_fields = ('credit_note_id', 'shop', 'shipment', 'note_type',
+                       'amount', 'invoice_no', 'status')
 
     class Media:
         pass
 
+
 class ExportCsvMixin:
     def export_as_csv_customercare(self, request, queryset):
         meta = self.model._meta
-        list_display = ('complaint_id', 'retailer_shop', 'retailer_name', 'seller_shop', 'order_id', 'issue_status', 'select_issue', 'issue_date')
+        list_display = ('complaint_id', 'complaint_detail', 'retailer_shop', 'retailer_name', 'seller_shop', 'order_id', 'issue_status', 'select_issue', 'issue_date')
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
@@ -866,11 +916,11 @@ class CustomerCareAdmin(ExportCsvMixin, admin.ModelAdmin):
     actions = ["export_as_csv_customercare"]
     form = CustomerCareForm
     fields = (
-        'email_us', 'order_id', 'issue_status',
+        'phone_number', 'email_us', 'order_id', 'issue_status',
         'select_issue', 'complaint_detail', 'issue_date', 'seller_shop', 'retailer_shop', 'retailer_name'
     )
     exclude = ('complaint_id',)
-    list_display = ('complaint_id', 'retailer_shop', 'retailer_name', 'seller_shop', 'order_id', 'issue_status', 'select_issue', 'issue_date')
+    list_display = ('complaint_id', 'retailer_shop', 'retailer_name', 'seller_shop', 'contact_number', 'order_id', 'issue_status', 'select_issue', 'issue_date')
     autocomplete_fields = ('order_id',)
     search_fields = ('complaint_id',)
     readonly_fields = ('issue_date', 'seller_shop', 'retailer_shop', 'retailer_name')
@@ -926,6 +976,9 @@ class ReturnAdmin(admin.ModelAdmin):
 
     download_credit_note.short_description = 'Download Credit Note'
 
+class FeedbackAdmin(admin.ModelAdmin):
+    list_display = ('user', 'shipment', 'delivery_experience', 'overall_product_packaging', 'comment', 'created_at', 'status')
+    raw_id_fields = ['user', 'shipment']
 
 # admin.site.register(Return, ReturnAdmin)
 admin.site.register(Cart, CartAdmin)
@@ -936,5 +989,6 @@ admin.site.register(CustomerCare, CustomerCareAdmin)
 admin.site.register(Payment, PaymentAdmin)
 admin.site.register(Dispatch, DispatchAdmin)
 admin.site.register(Trip, TripAdmin)
-admin.site.register(Shipment, ShipmentAdmin)
 admin.site.register(Commercial, CommercialAdmin)
+admin.site.register(Shipment, ShipmentAdmin)
+admin.site.register(Feedback, FeedbackAdmin)

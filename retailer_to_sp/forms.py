@@ -2,6 +2,8 @@ import datetime
 
 from dal import autocomplete
 from django_select2.forms import Select2MultipleWidget, ModelSelect2Widget
+from tempus_dominus.widgets import DatePicker
+
 
 from django.contrib.auth import get_user_model
 from django.contrib.admin import widgets
@@ -20,8 +22,9 @@ from sp_to_gram.models import (
 from retailer_backend.common_function import required_fields
 from retailer_to_sp.models import (
     CustomerCare, ReturnProductMapping, OrderedProduct,
-    OrderedProductMapping, Order, Dispatch, Trip, TRIP_STATUS, Shipment, ShipmentProductMapping,
-    CartProductMapping, Cart
+    OrderedProductMapping, Order, Dispatch, Trip, TRIP_STATUS,
+    Shipment, ShipmentProductMapping, CartProductMapping, Cart,
+    ShipmentRescheduling
 )
 from products.models import Product
 from shops.models import Shop
@@ -91,11 +94,13 @@ class ReturnProductMappingForm(forms.ModelForm):
 
 class OrderedProductForm(forms.ModelForm):
     order = forms.ModelChoiceField(queryset=Order.objects.filter(
-        order_status__in=[Order.OPDP, 'ordered', 'PARTIALLY_SHIPPED', 'DISPATCH_PENDING']))
+        order_status__in=[Order.OPDP, 'ordered',
+                          'PARTIALLY_SHIPPED', 'DISPATCH_PENDING']),
+        required=True)
 
     class Meta:
         model = OrderedProduct
-        fields = ['order', 'shipment_status']
+        fields = ['order']
 
     class Media:
         js = (
@@ -112,10 +117,6 @@ class OrderedProductForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(OrderedProductForm, self).__init__(*args, **kwargs)
-        self.fields['order'].required = True
-        SHIPMENT_STATUS = OrderedProduct.SHIPMENT_STATUS
-        self.fields['shipment_status'].choices = SHIPMENT_STATUS[:2] + SHIPMENT_STATUS[-1:]
-        self.fields['shipment_status'].initial = SHIPMENT_STATUS[:1]
 
 
 class OrderedProductMappingForm(forms.ModelForm):
@@ -171,9 +172,17 @@ class OrderedProductMappingDeliveryForm(forms.ModelForm):
 
 
 class OrderedProductMappingShipmentForm(forms.ModelForm):
-    ordered_qty = forms.CharField(required=False)
-    already_shipped_qty = forms.CharField(required=False)
-    to_be_shipped_qty = forms.CharField(required=False)
+    ordered_qty = forms.CharField(
+        required=False, widget=forms.TextInput(attrs={'readonly':True}))
+    already_shipped_qty = forms.CharField(
+        required=False, widget=forms.TextInput(attrs={'readonly':True}))
+    to_be_shipped_qty = forms.CharField(
+        required=False, widget=forms.TextInput(attrs={'readonly':True}))
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(), widget=forms.TextInput)
+    product_name = forms.CharField(
+        required=False, widget=forms.TextInput(attrs={'readonly':True}))
+
 
     class Meta:
         model = OrderedProductMapping
@@ -183,6 +192,7 @@ class OrderedProductMappingShipmentForm(forms.ModelForm):
         ]
 
     def clean_shipped_qty(self):
+
         ordered_qty = int(self.cleaned_data.get('ordered_qty'))
         shipped_qty = int(self.cleaned_data.get('shipped_qty'))
         to_be_shipped_qty = int(self.cleaned_data.get('to_be_shipped_qty'))
@@ -197,10 +207,10 @@ class OrderedProductMappingShipmentForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(OrderedProductMappingShipmentForm, self).__init__(*args, **kwargs)
-        self.fields['ordered_qty'].widget.attrs['class'] = 'hide_input_box'
-        self.fields['already_shipped_qty'].widget.attrs['class'] = 'hide_input_box'
-        self.fields['to_be_shipped_qty'].widget.attrs['class'] = 'hide_input_box'
-        self.fields['product'].widget.attrs = {'class': 'ui-select hide_input_box'}
+        #self.fields['ordered_qty'].widget.attrs['class'] = 'hide_input_box'
+        #self.fields['already_shipped_qty'].widget.attrs['class'] = 'hide_input_box'
+        #self.fields['to_be_shipped_qty'].widget.attrs['class'] = 'hide_input_box'
+        self.fields['product'].widget=forms.HiddenInput()
 
 
 class OrderedProductDispatchForm(forms.ModelForm):
@@ -453,25 +463,7 @@ class CartForm(forms.ModelForm):
     class Meta:
         model = Cart
         fields = ('seller_shop', 'buyer_shop')
-
-    def __init__(self, *args, **kwargs):
-        super(CartForm, self).__init__(*args, **kwargs)
-        user = get_current_user()
-
-        if user.is_superuser:
-            self.fields['seller_shop'].queryset = Shop.objects.filter(
-                shop_type__shop_type='sp')
-            self.fields['buyer_shop'].queryset = Shop.objects.filter(
-                shop_type__shop_type='r')
-        else:
-            self.fields['seller_shop'].queryset = Shop.objects.filter(
-                related_users=user, shop_type__shop_type='sp')
-            self.fields['buyer_shop'].queryset = Shop.objects.filter(
-                related_users=user, shop_type__shop_type='r')
-
-        fields = ['seller_shop', 'buyer_shop']
-        required_fields(self, fields)
-
+        
 
 class CommercialForm(forms.ModelForm):
     class Meta:
@@ -502,6 +494,104 @@ class CommercialForm(forms.ModelForm):
         return received_amount
 
 
+class OrderedProductReschedule(forms.ModelForm):
+    class Meta:
+        model = OrderedProduct
+        fields = (
+            'order', 'invoice_no', 'shipment_status', 'trip',
+            'return_reason'
+        )
+
+    class Media:
+        js = ('admin/js/OrderedProductShipment.js', )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+        if instance.shipment_status == OrderedProduct.RESCHEDULED or instance.return_reason:
+            self.fields['return_reason'].disabled = True
+
+    def clean_return_reason(self):
+        return_reason = self.cleaned_data.get('return_reason')
+        if not self.instance.shipment_status == OrderedProduct.RESCHEDULED and not self.instance.return_reason:
+            return_qty = 0
+            damaged_qty = 0
+            total_products = self.data.get(
+                'rt_order_product_order_product_mapping-TOTAL_FORMS')
+            for product in range(int(total_products)):
+                return_field = ("rt_order_product_order_product_mapping-%s-returned_qty")\
+                    % product
+                damaged_field = ("rt_order_product_order_product_mapping-%s-damaged_qty")\
+                    % product
+                return_qty += int(self.data.get(return_field))
+                damaged_qty += int(self.data.get(damaged_field))
+            if (return_qty or damaged_qty) and not return_reason:
+                raise forms.ValidationError(_('This field is required'),)
+            elif (not return_qty and not damaged_qty) and return_reason:
+                raise forms.ValidationError(
+                    _('Either enter Return Qty for any product'
+                      ' or Deselect this option'),
+                )
+        return return_reason
+
+    def clean(self):
+        data = self.cleaned_data
+        if not self.instance.trip:
+            raise forms.ValidationError(
+                _('Please add the shipment in a'
+                  ' trip first'),
+            )
+        return data
+
+
+class ShipmentReschedulingForm(forms.ModelForm):
+    shipment = forms.ModelChoiceField(
+        queryset=Shipment.objects.all(),
+        widget=forms.TextInput
+    )
+
+    rescheduling_date = forms.DateField(input_formats=['%Y-%m-%d'])
+
+    class Meta:
+        model = ShipmentRescheduling
+        fields = ('shipment', 'rescheduling_reason', 'rescheduling_date')
+
+    class Media:
+        js = (
+            'https://cdn.jsdelivr.net/npm/flatpickr',
+            'admin/js/sweetalert.min.js',
+            'admin/js/ShipmentRescheduling.js',
+        )
+        css = {
+            'all': (
+                'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css',
+            )
+        }
+
+    def __init__(self, *args, **kwargs):
+        super(ShipmentReschedulingForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+        if instance and instance.pk:
+            self.fields['rescheduling_reason'].disabled = True
+            self.fields['rescheduling_date'].disabled = True
+
+
+class OrderedProductMappingRescheduleForm(forms.ModelForm):
+
+    class Meta:
+        model = OrderedProductMapping
+        fields = ['product', 'shipped_qty',
+                  'returned_qty', 'damaged_qty', 'delivered_qty']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+        if instance and instance.pk:
+            if instance.ordered_product.shipment_status == OrderedProduct.RESCHEDULED or instance.ordered_product.return_reason:
+                self.fields['returned_qty'].disabled = True
+                self.fields['damaged_qty'].disabled = True
+
+
 class OrderForm(forms.ModelForm):
     seller_shop = forms.ChoiceField(required=False,choices=Shop.objects.values_list('id','shop_name'))
     buyer_shop = forms.ChoiceField(required=False,choices=Shop.objects.values_list('id', 'shop_name'))
@@ -516,3 +606,6 @@ class OrderForm(forms.ModelForm):
         fields = ('seller_shop', 'buyer_shop', 'ordered_cart', 'order_no', 'billing_address', 'shipping_address',
                   'total_mrp', 'total_discount_amount', 'total_tax_amount', 'total_final_amount', 'order_status',
                   'ordered_by', 'last_modified_by')
+
+    class Media:
+        js = ('/static/admin/js/retailer_cart.js',)

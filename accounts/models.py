@@ -69,6 +69,7 @@ class User(AbstractUser):
     email = models.EmailField(_('email address'),blank=True)
     user_photo = models.ImageField(upload_to='user_photos/', null=True, blank=True)
     user_type = models.PositiveSmallIntegerField(choices=USER_TYPE_CHOICES, default = '6', null=True)
+    imei_no = models.CharField(max_length=20,null=True,blank=True)
 
     USERNAME_FIELD = 'phone_number'
     objects = UserManager()

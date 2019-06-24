@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from .serializers import BannerSerializer, BannerPositionSerializer, BannerSlotSerializer, BannerDataSerializer, BrandSerializer
 from banner.models import Banner, BannerPosition,BannerData, BannerSlot,Page
+from retailer_to_sp.models import OrderedProduct, Feedback
 from rest_framework import viewsets
 from rest_framework.decorators import list_route
 import datetime
@@ -31,11 +32,30 @@ class GetSlotBannerListView(APIView):
             if Shop.objects.get(id=shop_id).retiler_mapping.exists():
                 parent = ParentRetailerMapping.objects.get(retailer=shop_id, status=True).parent
                 data = BannerData.objects.filter(banner_data__status=True, slot__page__name=position_name,slot__bannerslot__name=pos_name, slot__shop=parent.id).filter(Q(banner_data__banner_start_date__isnull=True) | Q(banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate))
+                for d in data:
+                    if d.banner_data.brand:
+                        pass
+                    if d.banner_data.brand == None:
+                        d.banner_data.brand = d.banner_data.sub_brand
+                    if d.banner_data.category:
+                        pass
+                    if d.banner_data.category== None:
+                        d.banner_data.category = d.banner_data.sub_category
+
                 is_success = True if data else False
                 message = "" if is_success else "Banners are currently not available"
                 serializer = BannerDataSerializer(data,many=True)
             else:
                 data = BannerData.objects.filter(banner_data__status=True, slot__page__name=position_name,slot__bannerslot__name=pos_name,slot__shop=None ).filter(Q(banner_data__banner_start_date__isnull=True) | Q(banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate))
+                for d in data:
+                    if d.banner_data.brand:
+                        pass
+                    if d.banner_data.brand == None:
+                        d.banner_data.brand = d.banner_data.sub_brand
+                    if d.banner_data.category:
+                        pass
+                    if d.banner_data.category== None:
+                        d.banner_data.category = d.banner_data.sub_category
                 is_success = True if data else False
                 message = "" if is_success else "Banners are currently not available"
                 serializer = BannerDataSerializer(data,many=True)
@@ -44,10 +64,18 @@ class GetSlotBannerListView(APIView):
 
         else:
             data = BannerData.objects.filter(banner_data__status=True, slot__page__name=position_name,slot__bannerslot__name=pos_name, slot__shop=None).filter(Q(banner_data__banner_start_date__isnull=True) | Q(banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate))
+            for d in data:
+                if d.banner_data.brand:
+                    pass
+                if d.banner_data.brand == None:
+                    d.banner_data.brand = d.banner_data.sub_brand
+                if d.banner_data.category:
+                    pass
+                if d.banner_data.category== None:
+                    d.banner_data.category = d.banner_data.sub_category
             is_success = True if data else False
             message = "" if is_success else "Banners are currently not available"
             serializer = BannerDataSerializer(data,many=True)
-
             return Response({"message":[message], "response_data": serializer.data ,"is_success": is_success})
 
 

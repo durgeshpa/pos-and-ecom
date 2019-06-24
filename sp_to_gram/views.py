@@ -47,7 +47,7 @@ class GfProductAutocomplete(autocomplete.Select2QuerySetView):
             qs = Product.objects.filter(id__in=product)
 
         if self.q:
-            qs = Product.objects.filter(shop_name__startswith=self.q)
+            qs = Product.objects.filter(product_name__icontains=self.q)
 
         return qs
 

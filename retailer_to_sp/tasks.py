@@ -4,7 +4,7 @@ from celery.task import task
 from sp_to_gram.models import OrderedProductReserved, OrderedProductMapping
 from gram_to_brand.models import (
     OrderedProductReserved as GramOrderedProductReserved)
-from retailer_to_sp.models import (Cart,)
+from retailer_to_sp.models import (Cart, OrderedProduct)
 from django.db.models import Sum, Q
 from celery.contrib import rdb
 
@@ -37,6 +37,30 @@ def create_reserved_order(reserved_args):
             order_product_reserved.cart = cart
             order_product_reserved.reserve_status = 'reserved'
             order_product_reserved.save()
+
+@task
+def update_reserved_order(reserved_args):
+    params = json.loads(reserved_args)
+    shipment_id = params['shipment_id']
+    shipment = OrderedProduct.objects.get(pk=shipment_id)
+    shipment_products = shipment.rt_order_product_order_product_mapping.all().values('product__id').annotate(shipped_items=Sum('shipped_qty'))
+    shipment_products_mapping = {i['product__id']:i['shipped_items'] for i in shipment_products}
+    cart = shipment.order.ordered_cart
+    reserved_products = OrderedProductReserved.objects.filter(cart=cart, product__id__in=shipment_products_mapping.keys())
+    for rp in reserved_products:
+        reserved_qty = int(rp.reserved_qty)
+        shipped_qty = int(shipment_products_mapping[rp.product.id])
+        if not shipped_qty:
+            continue
+        if reserved_qty > shipped_qty:
+            deduct_qty = shipped_qty
+        else:
+            deduct_qty = reserved_qty
+
+        rp.reserved_qty = reserved_qty - deduct_qty
+        shipment_products_mapping[rp.product.id] -= deduct_qty
+        rp.save()
+
 
 
 @task
