@@ -19,7 +19,7 @@ import codecs
 import datetime
 from django.db import transaction
 from addresses.models import Address, State, City
-
+from django.contrib.auth import get_user_model
 
 # Create your views here.
 class ShopMappedProduct(TemplateView):
@@ -261,3 +261,17 @@ def bulk_shop_updation(request):
         'admin/shop/bulk-shop-updation.html',
         {'form': form}
     )
+
+class ShopAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = None
+        if self.q:
+            qs = Shop.objects.filter(shop_name__icontains=self.q)
+        return qs
+
+class UserAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = get_user_model().objects.all()
+        if self.q:
+            qs = qs.filter(phone_number__icontains=self.q)
+        return qs

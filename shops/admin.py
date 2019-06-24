@@ -8,9 +8,9 @@ from .models import (
 from addresses.models import Address
 from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
                     ShopForm, AddressForm, RequiredInlineFormSet,
-                    AddressInlineFormSet)
+                    AddressInlineFormSet, ShopUserMappingForm)
 from .views import (StockAdjustmentView, stock_adjust_sample,
-                    bulk_shop_updation)
+                    bulk_shop_updation, ShopAutocomplete, UserAutocomplete)
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
 from django.utils.html import format_html
@@ -170,6 +170,16 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                 self.admin_site.admin_view(bulk_shop_updation),
                 name="bulk-shop-updation"
             ),
+            url(
+                r'^shop-autocomplete/$',
+                self.admin_site.admin_view(ShopAutocomplete.as_view()),
+                name="shop-autocomplete"
+            ),
+            url(
+                r'^user-autocomplete/$',
+                self.admin_site.admin_view(UserAutocomplete.as_view()),
+                name="user-autocomplete"
+            ),
         ] + urls
         return urls
 
@@ -235,6 +245,7 @@ class ParentRetailerMappingAdmin(admin.ModelAdmin):
     class Media:
         pass
 class ShopUserMappingAdmin(admin.ModelAdmin):
+    form = ShopUserMappingForm
     list_display = ('shop','manager','employee','employee_group','created_at','status')
 
 admin.site.register(ParentRetailerMapping,ParentRetailerMappingAdmin)
