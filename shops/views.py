@@ -31,13 +31,13 @@ class ShopMappedProduct(TemplateView):
         context['shop'] = shop_obj
         if shop_obj.shop_type.shop_type=='gf':
             grn_product = GRNOrderProductMapping.objects.filter(grn_order__order__ordered_cart__gf_shipping_address__shop_name=shop_obj)
-            product_sum = grn_product.values('product','product__product_name', 'product__product_gf_code').annotate(product_qty_sum=Sum('available_qty'))
+            product_sum = grn_product.values('product','product__product_name', 'product__product_gf_code', 'product__product_sku').annotate(product_qty_sum=Sum('available_qty'))
             context['shop_products'] = product_sum
 
         elif shop_obj.shop_type.shop_type=='sp':
             sp_grn_product = OrderedProductMapping.get_shop_stock(shop_obj)
 
-            product_sum = sp_grn_product.values('product','product__product_name', 'product__product_gf_code').annotate(product_qty_sum=Sum('available_qty')).annotate(damaged_qty_sum=Sum('damaged_qty'))
+            product_sum = sp_grn_product.values('product','product__product_name', 'product__product_gf_code', 'product__product_sku').annotate(product_qty_sum=Sum('available_qty')).annotate(damaged_qty_sum=Sum('damaged_qty'))
             context['shop_products'] = product_sum
         else:
             context['shop_products'] = None
@@ -69,18 +69,18 @@ def stock_adjust_sample(request, shop_id):
     db_available_products = sp_grn_product.filter(expiry_date__gt = datetime.datetime.today())
     db_expired_products = OrderedProductMapping.get_shop_stock_expired(shop)
 
-    products_available = db_available_products.values('product','product__product_name', 'product__product_gf_code').annotate(product_qty_sum=Sum('available_qty')).annotate(damaged_qty_sum=Sum('damaged_qty'))
-    products_expired = db_expired_products.values('product','product__product_name', 'product__product_gf_code').annotate(product_qty_sum=Sum('available_qty'))
+    products_available = db_available_products.values('product','product__product_name', 'product__product_gf_code', 'product__product_sku').annotate(product_qty_sum=Sum('available_qty')).annotate(damaged_qty_sum=Sum('damaged_qty'))
+    products_expired = db_expired_products.values('product','product__product_name', 'product__product_gf_code', 'product__product_sku').annotate(product_qty_sum=Sum('available_qty'))
     expired_products = {}
     for product in products_expired:
         expired_products[product['product__product_gf_code']] = product['product_qty_sum']
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(['product_gf_code','Available','Damaged','Expired'])
+    writer.writerow(['product_gf_code','product_sku','Available','Damaged','Expired'])
     for product in products_available:
         expired_product = expired_products.get(product['product__product_gf_code'],0)
-        writer.writerow([product['product__product_gf_code'],product['product_qty_sum'],product['damaged_qty_sum'],expired_product])
+        writer.writerow([product['product__product_gf_code'],product['product__product_sku'],product['product_qty_sum'],product['damaged_qty_sum'],expired_product])
     return response
 
 class StockAdjustmentView(View):
@@ -123,7 +123,7 @@ class StockAdjustmentView(View):
             if stock_expired < product_expired:
                 qty = abs(product_expired - stock_expired)
                 self.decrement_grn_qty(product, db_expired_products, qty)
-            
+
             if stock_expired > product_expired:
                 qty = abs(product_expired - stock_expired)
                 manufacture_date = datetime.datetime.today() - datetime.timedelta(days=180)
@@ -137,16 +137,16 @@ class StockAdjustmentView(View):
             if stock_available > product_available:
                 #Create GRN and add in stock adjustment
                 adjustment_grn['available_qty'] = abs(stock_available - product_available)
-            
+
             if stock_damaged > product_damaged:
                 adjustment_grn['damaged'] = abs(stock_damaged - product_damaged)
-            
+
             if stock_available < product_available:
                 self.decrement_grn_qty(product, db_available_products, abs(stock_available - product_available))
 
             if stock_damaged < product_damaged:
                 self.decrement_grn_qty(product, db_available_products, abs(stock_damaged - product_damaged), True)
-            # Creating Fresh GRN 
+            # Creating Fresh GRN
             if adjustment_grn['available_qty'] > 0 or adjustment_grn['damaged'] > 0:
                 manufacture_date = datetime.datetime.today()
                 expiry_date = datetime.datetime.today() + datetime.timedelta(days=180)
