@@ -622,10 +622,3 @@ class OrderForm(forms.ModelForm):
 
             self.fields['total_mrp'].widget.attrs['readonly'] = True
             self.fields['total_mrp'].initial = instance.total_mrp
-
-    # def clean_total_final_amount(self):
-    #     instance = getattr(self, 'instance', None)
-    #     if instance and instance.pk:
-    #         return instance.total_final_amount
-    #     else:
-    #         return self.cleaned_data['total_final_amount']
