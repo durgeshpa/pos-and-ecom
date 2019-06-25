@@ -215,7 +215,7 @@ function CreateResponseTable(data){
       if (data['response_data'][i]['shipment_status'] == ('Rescheduled')){
 
         var select = "<td><input type='checkbox' class='shipment_checkbox' value='" + pk + "' checked></td>";
-      $("tbody#data").prepend("<tr style='background-color:rgba(0, 0, 255, 0.2);'>" + select + invoice_no + invoice_amount + shipment_status + invoice_city + created_at + order + shipment_address +"</tr>");
+      $("tbody#data").prepend("<tr style='background-color:rgba(255, 99, 71, 0.5);'>" + select + invoice_no + invoice_amount + shipment_status + invoice_city + created_at + order + shipment_address +"</tr>");
 
           } else {
 
