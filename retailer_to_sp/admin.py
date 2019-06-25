@@ -170,7 +170,7 @@ class OrderIdSearch(InputFilter):
 
 class OrderNoSearch(InputFilter):
     parameter_name = 'order_no'
-    title = 'Order No.'
+    title = 'Order No.(Comma seperated)'
 
     def queryset(self, request, queryset):
         if self.value() is not None:
