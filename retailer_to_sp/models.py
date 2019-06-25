@@ -300,6 +300,27 @@ class Order(models.Model):
             self.payment_objects = payment_mode, payment_amount
             return self.payment_objects
 
+    def price_calculation(self):
+        # tbd
+        total_final_amount = 0
+        total_mrp = 0
+        final_amount = self.rt_order_cart_mapping.rt_cart_list.all().values('cart_product_price', 'qty', 'no_of_pieces')
+        if final_amount:
+            for item in final_amount:
+                total_final_amount += item.cart_product_price*item.no_of_pieces
+                total_mrp += item.get_product_latest_mrp*item*no_of_pieces
+        return total_final_amount, total_mrp
+
+    @property
+    def total_amount(self):
+        total_final_amount, _ = self.price_calculation()
+        return total_final_amount
+
+    @property
+    def total_mrp_amount(self):
+        _, total_mrp_amount = self.price_calculation()
+        return total_mrp_amount
+
     @property
     def payment_mode(self):
         payment_mode, _ = self.payments()
