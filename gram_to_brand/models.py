@@ -333,8 +333,8 @@ class Order(BaseOrder):
 class GRNOrder(BaseShipment): #Order Shipment
     order = models.ForeignKey(Order,verbose_name='PO Number',related_name='order_grn_order',on_delete=models.CASCADE,null=True,blank=True )
     invoice_no = models.CharField(max_length=255)
-    # invoice_date = models.DateField()
-    # invoice_amount = models.DecimalField()
+    invoice_date = models.DateField()
+    invoice_amount = models.DecimalField(max_digits=20,decimal_places=4,default=('0.0000'))
     e_way_bill_no = models.CharField(max_length=255, blank=True, null=True)
     e_way_bill_document = models.FileField(null=True,blank=True)
     grn_id = models.CharField(max_length=255,null=True,blank=True)
