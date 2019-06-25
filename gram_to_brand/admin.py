@@ -123,8 +123,11 @@ class CartAdmin(admin.ModelAdmin):
         elif "_disapprove" in request.POST:
             obj.po_status = obj.DISAPPROVED
             flag = True
-        elif "_send" in request.POST:
+        elif "_approval_await" in request.POST:
             obj.po_status = obj.APPROVAL_AWAITED
+            flag = True
+        elif "_close" in request.POST:
+            obj.po_status = obj.PARTIAL_DELIVERED_CLOSE
             flag = True
         else:
             obj.po_status = obj.OPEN
@@ -189,7 +192,8 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     model = GRNOrderProductMapping
     formset = GRNOrderProductFormset
     form = GRNOrderProductForm
-    fields = ('product','po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date','expiry_date','best_before_year','best_before_month','product_invoice_qty','delivered_qty','returned_qty')
+    fields = ('product','po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date',
+              'expiry_date','best_before_year','best_before_month','product_invoice_qty','delivered_qty','returned_qty')
     exclude = ('last_modified_by','available_qty',)
     extra = 0
     #readonly_fields = ('po_product_quantity','po_product_price','already_grned_product',)
@@ -225,7 +229,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
     autocomplete_fields = ('order',)
     exclude = ('order_item','grn_id','last_modified_by',)
     #list_display_links = None
-    list_display = ('grn_id','order','invoice_no','grn_date','brand', 'supplier_state', 'supplier_name', 'po_created_by','download_debit_note')
+    list_display = ('grn_id','order','invoice_no','grn_date','brand', 'supplier_state', 'supplier_name','po_status', 'po_created_by','download_debit_note')
     list_filter = [OrderSearch, InvoiceNoSearch, GRNSearch, ('created_at', DateRangeFilter),('grn_order_grn_order_product__expiry_date', DateRangeFilter)]
     form = GRNOrderForm
     fields = ('order','invoice_no','brand_invoice','e_way_bill_no','e_way_bill_document',)
@@ -233,23 +237,24 @@ class GRNOrderAdmin(admin.ModelAdmin):
 
     def po_created_by(self,obj):
         return obj.order.ordered_cart.po_raised_by
-
     po_created_by.short_description = 'PO Creadted By'
 
     def brand(self,obj):
         return obj.order.ordered_cart.brand
-
     brand.short_description = 'Brand'
 
     def supplier_state(self,obj):
         return obj.order.ordered_cart.supplier_state
-
     supplier_state.short_description = 'Supplier State'
 
     def supplier_name(self,obj):
         return obj.order.ordered_cart.supplier_name
-
     supplier_name.short_description = 'Supplier Name'
+
+    def po_status(self,obj):
+        return obj.order.ordered_cart.get_po_status_display()
+    po_status.short_description = 'Po Status'
+
 
     def get_readonly_fields(self, request, obj=None):
         if obj: # editing an existing object
@@ -272,31 +277,43 @@ class GRNOrderAdmin(admin.ModelAdmin):
     download_debit_note.short_description = 'Download Debit Note'
     change_list_template = 'admin/gram_to_brand/order/change_list.html'
 
+    def save_related(self, request, form, formsets, change):
+        flag = 0
+        super(GRNOrderAdmin, self).save_related(request, form, formsets, change)
+        obj = form.instance
+        obj.order.ordered_cart.cart_list.values('cart_product', 'no_of_pieces')
+        grn_list_map = {i['product']: i['delivered_qty_sum'] for i in GRNOrderProductMapping.objects.filter(grn_order__order=obj.order).values('product').annotate(delivered_qty_sum=Sum('delivered_qty'))}
+        for product_price_map in obj.order.ordered_cart.cart_list.values('cart_product', 'no_of_pieces'):
+            if grn_list_map[product_price_map['cart_product']] != product_price_map['no_of_pieces']:
+                flag = 1
+                break
+        obj.order.ordered_cart.po_status = 'PDLV' if flag == 1 else 'DLVR'
+        obj.order.ordered_cart.save()
 
 class OrderAdmin(admin.ModelAdmin):
     search_fields = ['order_no',]
-    list_display = ('order_no', 'brand', 'supplier_state', 'supplier_name', 'created_at', 'created_by', 'add_grn_link')
+    list_display = ('order_no', 'brand', 'supplier_state', 'supplier_name', 'created_at','po_status', 'created_by', 'add_grn_link')
     form= OrderForm
 
     def created_by(self,obj):
         return obj.ordered_cart.po_raised_by
-
     created_by.short_description = 'Creadted By'
 
     def brand(self,obj):
         return obj.ordered_cart.brand
-
     brand.short_description = 'Brand'
 
     def supplier_state(self,obj):
         return obj.ordered_cart.supplier_state
-
     supplier_state.short_description = 'Supplier State'
 
     def supplier_name(self,obj):
         return obj.ordered_cart.supplier_name
-
     supplier_name.short_description = 'Supplier Name'
+
+    def po_status(self,obj):
+        return obj.ordered_cart.get_po_status_display()
+    po_status.short_description = 'Po Status'
 
     def add_grn_link(self, obj):
         if obj.ordered_cart.po_status in [obj.ordered_cart.FINANCE_APPROVED,obj.ordered_cart.PARTIAL_DELIVERED] :
