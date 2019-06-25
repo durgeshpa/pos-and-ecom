@@ -648,8 +648,8 @@ class CreateOrder(APIView):
         shipping_address_id = self.request.POST.get('shipping_address_id')
 
         # total_mrp = self.request.POST.get('total_mrp',0)
-        # total_tax_amount = self.request.POST.get('total_tax_amount',0)
-        # total_final_amount = self.request.POST.get('total_final_amount',0)
+        total_tax_amount = self.request.POST.get('total_tax_amount',0)
+        #total_final_amount = self.request.POST.get('total_final_amount',0)
 
         shop_id = self.request.POST.get('shop_id')
         msg = {'is_success': False, 'message': ['Have some error in shop or mapping'], 'response_data': None}
@@ -698,9 +698,9 @@ class CreateOrder(APIView):
                     order.buyer_shop = shop
                     order.seller_shop = parent_mapping.parent
 
-                    order.total_mrp = float(total_mrp)
+                    #order.total_mrp = float(total_mrp)
                     order.total_tax_amount = float(total_tax_amount)
-                    order.total_final_amount = float(total_final_amount)
+                    #order.total_final_amount = float(total_final_amount)
 
                     order.order_status = order.ORDERED
                     order.save()

@@ -262,8 +262,8 @@ class Order(models.Model):
     total_mrp = models.FloatField(default=0)
     total_discount_amount = models.FloatField(default=0)
     total_tax_amount = models.FloatField(default=0)
-    total_final_amount = models.FloatField(
-        default=0, verbose_name='Ordered Amount')
+    # total_final_amount = models.FloatField(
+    #     default=0, verbose_name='Ordered Amount')
     order_status = models.CharField(max_length=50,choices=ORDER_STATUS)
     ordered_by = models.ForeignKey(
         get_user_model(), related_name='rt_ordered_by_user',
@@ -304,15 +304,16 @@ class Order(models.Model):
         # tbd
         total_final_amount = 0
         total_mrp = 0
-        final_amount = self.rt_order_cart_mapping.rt_cart_list.all().values('cart_product_price', 'qty', 'no_of_pieces')
+        # import pdb; pdb.set_trace()
+        final_amount = self.ordered_cart.rt_cart_list.all()#.values('cart_product_price', 'qty', 'no_of_pieces')
         if final_amount:
             for item in final_amount:
-                total_final_amount += item.cart_product_price*item.no_of_pieces
-                total_mrp += item.get_product_latest_mrp*item*no_of_pieces
+                total_final_amount += item.get_cart_product_price(self.seller_shop).price_to_retailer*item.no_of_pieces
+                total_mrp += item.get_product_latest_mrp(self.seller_shop)*item.no_of_pieces
         return total_final_amount, total_mrp
 
     @property
-    def total_amount(self):
+    def total_final_amount(self):
         total_final_amount, _ = self.price_calculation()
         return total_final_amount
 
