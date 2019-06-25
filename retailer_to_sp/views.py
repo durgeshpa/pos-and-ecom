@@ -541,6 +541,7 @@ class DownloadPickList(TemplateView,):
         for cart_pro in cart_products:
             product_list = {
                 "product_name": cart_pro.cart_product.product_name,
+                "product_sku": cart_pro.cart_product.product_sku,
                 "product_mrp": round(cart_pro.get_cart_product_price(order_obj.seller_shop).mrp,2),
                 "ordered_qty":cart_pro.qty,
                 "no_of_pieces":cart_pro.no_of_pieces,
@@ -861,4 +862,3 @@ class RetailerCart(APIView):
             context={'parent_mapping_id': order_obj.seller_shop.id,}
         )
         return Response({'is_success': True,'response_data': dt.data}, status=status.HTTP_200_OK)
-

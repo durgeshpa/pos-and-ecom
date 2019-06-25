@@ -77,10 +77,10 @@ def stock_adjust_sample(request, shop_id):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(['product_gf_code','product_sku','Available','Damaged','Expired'])
+    writer.writerow(['product_gf_code','product_name','product_sku','Available','Damaged','Expired'])
     for product in products_available:
         expired_product = expired_products.get(product['product__product_gf_code'],0)
-        writer.writerow([product['product__product_gf_code'],product['product__product_sku'],product['product_qty_sum'],product['damaged_qty_sum'],expired_product])
+        writer.writerow([product['product__product_gf_code'],product['product__product_name'],product['product__product_sku'],product['product_qty_sum'],product['damaged_qty_sum'],expired_product])
     return response
 
 class StockAdjustmentView(View):
