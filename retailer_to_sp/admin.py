@@ -178,7 +178,7 @@ class OrderNoSearch(InputFilter):
             if order_no is None:
                 return
             else:
-                order_nos = order_no.replace(" ", "").split(',')    
+                order_nos = order_no.replace(" ", "").replace("\t","").split(',')    
             return queryset.filter(
                 Q(order_no__in=order_nos)
             )
