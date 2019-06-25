@@ -486,6 +486,9 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     list_filter = [PhoneNumberFilter,SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
         ('created_at', DateTimeRangeFilter), ('total_final_amount', SliderNumericFilter), Pincode]
 
+    # class Media:
+    #     js = ('admin/js/dynamic_input_box.js', )
+
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
         if request.user.is_superuser:
