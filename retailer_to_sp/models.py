@@ -130,6 +130,10 @@ class Cart(models.Model):
         return self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum']
 
     @property
+    def mrp_subtotal(self):
+        return self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__mrp') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum']
+
+    @property
     def qty_sum(self):
         return self.rt_cart_list.aggregate(qty_sum=Sum('qty'))['qty_sum']
 
@@ -300,27 +304,13 @@ class Order(models.Model):
             self.payment_objects = payment_mode, payment_amount
             return self.payment_objects
 
-    def price_calculation(self):
-        # tbd
-        total_final_amount = 0
-        total_mrp = 0
-        # import pdb; pdb.set_trace()
-        final_amount = self.ordered_cart.rt_cart_list.all()#.values('cart_product_price', 'qty', 'no_of_pieces')
-        if final_amount:
-            for item in final_amount:
-                total_final_amount += item.get_cart_product_price(self.seller_shop).price_to_retailer*item.no_of_pieces
-                total_mrp += item.get_product_latest_mrp(self.seller_shop)*item.no_of_pieces
-        return total_final_amount, total_mrp
-
     @property
     def total_final_amount(self):
-        total_final_amount, _ = self.price_calculation()
-        return total_final_amount
+        return round(self.ordered_cart.subtotal,2)
 
     @property
     def total_mrp_amount(self):
-        _, total_mrp_amount = self.price_calculation()
-        return total_mrp_amount
+        return round(self.ordered_cart.mrp_subtotal,2)
 
     @property
     def payment_mode(self):
