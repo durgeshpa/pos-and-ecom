@@ -825,9 +825,8 @@ class ExportCsvMixin:
     def export_as_csv_commercial(self, request, queryset):
         meta = self.model._meta
         list_display = ('dispatch_no', 'trip_amount', 'received_amount',
-        'cash_to_be_collected', 'download_trip_pdf', 'delivery_boy',
-        'vehicle_no', 'trip_status', 'starts_at', 'completed_at',
-        'seller_shop',)
+            'delivery_boy', 'vehicle_no', 'trip_status', 
+            'starts_at', 'completed_at', 'seller_shop',)
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
@@ -875,7 +874,7 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
 
     def cash_to_be_collected(self, obj):
         return obj.cash_to_be_collected()
-        cash_to_be_collected.short_description = 'Cash to be Collected'
+    cash_to_be_collected.short_description = 'Cash to be Collected'
 
     def has_add_permission(self, request, obj=None):
         return False
