@@ -214,6 +214,12 @@ class Order(models.Model):
     ORDER_PLACED_DISPATCH_PENDING = 'opdp'
     PARTIALLY_SHIPPED_AND_CLOSED = 'partially_shipped_and_closed'
 
+    PICKING_STATUS = (
+        ('picking_started', 'Picking Started'),
+        ('picking_in_progress', 'Picking Complete'),
+        ('picking_complete', 'Picking Complete'),
+    )
+
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'),
         ('DISPATCH_PENDING', 'Dispatch Pending'),
@@ -264,6 +270,11 @@ class Order(models.Model):
     total_tax_amount = models.FloatField(default=0)
     total_final_amount = models.FloatField(
         default=0, verbose_name='Ordered Amount')
+    picking_status = models.CharField(max_length=50,choices=PICKING_STATUS)
+    assigned_picker = models.ForeignKey(
+        get_user_model(), related_name='order_assigned_picker',
+        null=True, blank=True, on_delete=models.SET_NULL
+    )
     order_status = models.CharField(max_length=50,choices=ORDER_STATUS)
     ordered_by = models.ForeignKey(
         get_user_model(), related_name='rt_ordered_by_user',

@@ -444,7 +444,7 @@ class Pincode(InputFilter):
 from django.contrib.admin.views.main import ChangeList
 
 class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
-    actions = ["export_as_csv"]
+    actions = ["export_as_csv"]#, "assign_picker"]
     resource_class = OrderResource
     search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name','order_status')
     form = OrderForm
@@ -479,6 +479,11 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                        'total_tax_amount', 'total_final_amount')
     list_filter = [PhoneNumberFilter,SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
         ('created_at', DateTimeRangeFilter), ('total_final_amount', SliderNumericFilter), Pincode]
+
+    # def change_trip_status(self, request, queryset):
+    #     queryset.filter(trip_status='CLOSED').update(trip_status='TRANSFERRED')
+    # change_trip_status.short_description = "Mark selected Trips as Transferred"
+
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
