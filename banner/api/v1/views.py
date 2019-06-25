@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from .serializers import BannerSerializer, BannerPositionSerializer, BannerSlotSerializer, BannerDataSerializer, BrandSerializer
 from banner.models import Banner, BannerPosition,BannerData, BannerSlot,Page
+from retailer_to_sp.models import OrderedProduct, Feedback
 from rest_framework import viewsets
 from rest_framework.decorators import list_route
 import datetime
@@ -75,7 +76,6 @@ class GetSlotBannerListView(APIView):
             is_success = True if data else False
             message = "" if is_success else "Banners are currently not available"
             serializer = BannerDataSerializer(data,many=True)
-
             return Response({"message":[message], "response_data": serializer.data ,"is_success": is_success})
 
 
