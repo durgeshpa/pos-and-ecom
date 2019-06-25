@@ -195,10 +195,6 @@ function ShowMessage(msg){
 
 function CreateResponseTable(data){
   for (var i = 0; i < data['response_data'].length; i++) {
-      var row = "row1";
-      if (i % 2 === 0) {
-          var row = "row2";
-      }
       var pk = data['response_data'][i]['pk'];
       var trip = data['response_data'][i]['trip'];
       var order = "<td>" + data['response_data'][i]['order'] + "</td>";
@@ -213,12 +209,35 @@ function CreateResponseTable(data){
       var created_at = "<td>" + data['response_data'][i]['created_at'] + "</td>";
       var select = "<td><input type='checkbox' class='shipment_checkbox' value='" + pk + "'></td>";
 
+
       if (jQuery.inArray(pk.toString(), list)!='-1') {
+
+      if (data['response_data'][i]['shipment_status'] == ('Rescheduled')){
+
         var select = "<td><input type='checkbox' class='shipment_checkbox' value='" + pk + "' checked></td>";
-      $("tbody#data").prepend("<tr class=" + row + ">" + select + invoice_no + invoice_amount + shipment_status + invoice_city + created_at + order + shipment_address +"</tr>");
-      }else {
-      $("tbody#data").append("<tr class=" + row + ">" + select + invoice_no + invoice_amount + shipment_status + invoice_city + created_at + order + shipment_address +"</tr>");
+      $("tbody#data").prepend("<tr style='background-color:rgba(0, 0, 255, 0.2);'>" + select + invoice_no + invoice_amount + shipment_status + invoice_city + created_at + order + shipment_address +"</tr>");
+
+          } else {
+
+        var select = "<td><input type='checkbox' class='shipment_checkbox' value='" + pk + "' checked></td>";
+      $("tbody#data").prepend("<tr>" + select + invoice_no + invoice_amount + shipment_status + invoice_city + created_at + order + shipment_address +"</tr>");
+
+          }
+
+
+      } 
+      else {
+
+      if (data['response_data'][i]['shipment_status'] == ('Rescheduled')){
+        $("tbody#data").append("<tr style='background-color:rgba(255, 99, 71, 0.5);'>" + select + invoice_no + invoice_amount + shipment_status + invoice_city + created_at + order + shipment_address +"</tr>");
+      } else {
+        $("tbody#data").append("<tr>" + select + invoice_no + invoice_amount + shipment_status + invoice_city + created_at + order + shipment_address +"</tr>");        
       }
+
+    }
+
+
+
   }
 }
 
