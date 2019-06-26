@@ -36,6 +36,7 @@ table tr td,th,h4,span,address{
     <div class="row">
         <div class="col-lg-12">
           <div class="invoice-title col-md-12">
+						<div class="invoice col-sm-4 "><h4> Shop ID <span style="font-size:15px"class="invoice_no"><strong>{{shop_id}}</strong></span></h4></div>
       			<div class="invoice col-sm-4 "><h4> Tax / Retail Invoice No: <span style="font-size:15px"class="invoice_no"><strong>{{shop.invoice_no}}</strong></span></h4></div>
 
   				<div class="col-sm-4 order_id ">
@@ -173,8 +174,8 @@ table tr td,th,h4,span,address{
 											<td class="text-center"><strong>MRP</strong></td>
 											<td class="text-center"><strong>No. of Pieces</strong></td>
 											<td class="text-center"><strong> Basic Rate</strong></td>
+											<td class="text-center"><strong>Basic Amount</strong></td>
         							<td class="text-center"><strong>Rate</strong></td>
-        							<td class="text-center"><strong>Per</strong></td>
 											<td class="text-center"><strong>Tax Amount</strong></td>
         							<td class="text-right"><strong>Amount</strong></td>
                       </tr>
@@ -191,8 +192,8 @@ table tr td,th,h4,span,address{
 								<td class="text-center"><strong>{{ m.product_mrp}}</strong></td>
 								<td class="text-center">{{m.product_no_of_pices}}</td>
 								<td class="text-center">{{m.basic_rate |floatformat:2 | intcomma}}</td>
+								<td class="text-center">{{m.basic_amount |floatformat:2 | intcomma}}</td>
 								<td class="text-center">{{m.price_to_retailer |floatformat:2 | intcomma}}</td>
-								<td class="text-center">PCS</td>
 								<td class="text-center">{{m.product_tax_amount |floatformat:2 | intcomma}}</td>
 								<td class="text-right"><strong>{{m.product_sub_total|floatformat:2| intcomma }}/-</strong></td>
     							</tr>
@@ -374,6 +375,8 @@ table tr td,th,h4,span,address{
         							<td class="text-left" colspan="5">
 								<strong>Declaration</strong> <br>
 We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.
+<br>
+Note: This is a computerized generated invoice and hence, authorized stamp or signature is not required
 									</td>
         							<td class="text-left" colspan="5" height="100">
 										<strong>For GFDN Service Pvt. Ltd.</strong></br>

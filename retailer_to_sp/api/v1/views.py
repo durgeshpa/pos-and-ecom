@@ -838,6 +838,7 @@ class DownloadInvoiceSP(APIView):
         if a.order.rt_payment.filter(order_id=a.order).exists():
             payment_type = a.order.rt_payment.last().payment_choice
         order_id= a.order.order_no
+        shop_id = shop.order.buyer_shop.id
 
         sum_qty = 0
         sum_amount=0
@@ -917,6 +918,7 @@ class DownloadInvoiceSP(APIView):
                 "product_inner_case_size": m.product.product_inner_case_size,
                 "product_no_of_pices": int(m.shipped_qty),
                 "basic_rate": basic_rate,
+                "basic_amount": float(m.shipped_qty) * float(basic_rate),
                 "price_to_retailer": product_pro_price_ptr,
                 "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr),
                 "product_tax_amount": product_tax_amount,
@@ -954,7 +956,7 @@ class DownloadInvoiceSP(APIView):
         total_amount = sum_amount
         total_amount_int = int(total_amount)
 
-        data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop, "sum_qty": sum_qty,
+        data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop,"shop_id":shop_id, "sum_qty": sum_qty,
                 "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" ,
                 "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,
                 "order_id":order_id,"shop_name_gram":shop_name_gram,"nick_name_gram":nick_name_gram, "city_gram":city_gram,
