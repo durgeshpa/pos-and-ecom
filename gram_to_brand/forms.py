@@ -63,6 +63,7 @@ class POGenerationForm(forms.ModelForm):
             forward=('supplier_state',)
         )
     )
+    delivery_term = forms.CharField(widget=forms.Textarea(attrs={'rows': 2, 'cols': 33}),required=True)
 
     class Media:
         pass
