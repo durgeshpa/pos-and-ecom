@@ -130,6 +130,10 @@ class Cart(models.Model):
         return self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum']
 
     @property
+    def mrp_subtotal(self):
+        return self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__mrp') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum']
+
+    @property
     def qty_sum(self):
         return self.rt_cart_list.aggregate(qty_sum=Sum('qty'))['qty_sum']
 
@@ -262,8 +266,8 @@ class Order(models.Model):
     total_mrp = models.FloatField(default=0)
     total_discount_amount = models.FloatField(default=0)
     total_tax_amount = models.FloatField(default=0)
-    total_final_amount = models.FloatField(
-        default=0, verbose_name='Ordered Amount')
+    # total_final_amount = models.FloatField(
+    #     default=0, verbose_name='Ordered Amount')
     order_status = models.CharField(max_length=50,choices=ORDER_STATUS)
     order_closed = models.BooleanField(default=False, null=True, blank=True)
     ordered_by = models.ForeignKey(
@@ -300,6 +304,14 @@ class Order(models.Model):
                     payment_amount.append(float(payment.get('paid_amount')))
             self.payment_objects = payment_mode, payment_amount
             return self.payment_objects
+
+    @property
+    def total_final_amount(self):
+        return round(self.ordered_cart.subtotal,2)
+
+    @property
+    def total_mrp_amount(self):
+        return round(self.ordered_cart.mrp_subtotal,2)
 
     @property
     def payment_mode(self):
