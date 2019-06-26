@@ -41,7 +41,7 @@ table tr td,th,h4,span,address{
   				<div class="col-sm-4 order_id ">
             {% if payment_type == 'neft' %}
                 <h4 style="font-size:30px">Prepaid Order</h4>
-            {% else %}
+            {% elif payment_type == 'cash_on_delivery' %}
                 <h4 style="font-size:30px">Cash On Delivery</h4>
             {% endif %}
             </div>
