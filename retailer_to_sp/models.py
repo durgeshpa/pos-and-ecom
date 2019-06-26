@@ -213,6 +213,7 @@ class Order(models.Model):
     PDAP = 'payment_done_approval_pending'
     ORDER_PLACED_DISPATCH_PENDING = 'opdp'
     PARTIALLY_SHIPPED_AND_CLOSED = 'partially_shipped_and_closed'
+    DENIED_AND_CLOSED = 'denied_and_closed'
 
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'),
@@ -226,15 +227,14 @@ class Order(models.Model):
         (CLOSED, "Closed"),
         (PDAP, "Payment Done Approval Pending"),
         (ORDER_PLACED_DISPATCH_PENDING, "Order Placed Dispatch Pending"),
-        ('DISPATCH_PENDING', 'Dispatch Placed'),
         ('PARTIALLY_SHIPPED', 'Partially Shipped'),
         ('SHIPPED', 'Shipped'),
         ('CANCELLED', 'Cancelled'),
         ('DENIED', 'Denied'),
         (PAYMENT_DONE_APPROVAL_PENDING, "Payment Done Approval Pending"),
         (OPDP, "Order Placed Dispatch Pending"),
-        (PARTIALLY_SHIPPED_AND_CLOSED, "Partially shipped and closed")
-
+        (PARTIALLY_SHIPPED_AND_CLOSED, "Partially shipped and closed"),
+        (DENIED_AND_CLOSED, 'Denied and Closed')
     )
     #Todo Remove
     seller_shop = models.ForeignKey(
@@ -265,6 +265,7 @@ class Order(models.Model):
     total_final_amount = models.FloatField(
         default=0, verbose_name='Ordered Amount')
     order_status = models.CharField(max_length=50,choices=ORDER_STATUS)
+    order_closed = models.BooleanField(default=False, null=True, blank=True)
     ordered_by = models.ForeignKey(
         get_user_model(), related_name='rt_ordered_by_user',
         null=True, blank=True, on_delete=models.CASCADE
@@ -937,7 +938,7 @@ class Payment(models.Model):
     )
     name = models.CharField(max_length=255, null=True, blank=True)
     paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
-    payment_choice = models.CharField(verbose_name="Payment Mode",max_length=30,choices=PAYMENT_MODE_CHOICES, null=True)
+    payment_choice = models.CharField(verbose_name="Payment Mode",max_length=30,choices=PAYMENT_MODE_CHOICES,default='cash_on_delivery')
     neft_reference_number = models.CharField(max_length=255, null=True,blank=True)
     imei_no = models.CharField(max_length=100, null=True, blank=True)
     payment_status = models.CharField(max_length=50, null=True, blank=True,choices=PAYMENT_STATUS, default=PAYMENT_DONE_APPROVAL_PENDING)
@@ -1082,48 +1083,31 @@ class Note(models.Model):
         if self.shipment:
             return self.shipment.invoice_no
 
-# from .utils import order_cancel_add_qty
-# @receiver(post_save, sender=Order)
-# def order_cancellation(sender, instance=None, created=False, **kwargs):
-#     import pdb; pdb.set_trace()
-#     # check if order associated with any shipment
-#     order_shipments_count = instance.rt_order_order_product.count()
-#     # if there is only one shipment for an order
-#     if order_shipments_count and order_shipments_count == 1:
-#         # get shipment and trip status for last shipment
-#         order_cancel_add_qty(instance)
-#         # shipment = instance.rt_order_order_product\
-#         #     .values('id', 'shipment_status', 'trip__trip_status')\
-#         #     .last()
-#         # shipment_status = shipment.get('shipment_status')
-#         # trip_status = shipment.get('trip__trip_status')
-#         # shipment_id = shipment.get('id')
-#         # shipment_products = OrderedProductMapping.objects.values_list('product_id', flat=True).filter(ordered_product_id=shipment_id)
-#         # reserved_qty_dict = OrderedProductReserved.objects.values_list('order_product_reserved_id', 'reserved_qty').filter(cart=instance.ordered_cart, product__in=shipment_products, reserved_qty__gt=0).order_by('reserved_qty')
-#         # #reserved_qty_dict = OrderedProductReserved.objects.values_list('order_product_reserved_id', 'reserved_qty').filter(cart=instance.ordered_cart, product__in=shipment_products, reserved_qty__gt=0).order_by('reserved_qty').update(reserved_qty=0)
-#         # with transaction.atomic():
-#         #     for shipment_product_id, reserved_qty in reserved_qty_dict:
-#         #         SPOrderedProductMapping.objects.filter(id=shipment_product_id).update(available_qty=F('available_qty')+reserved_qty)
-#         # if shipment created but invoice is not generated directly add items to inventory
-#         if shipment_status == 'SHIPMENT_CREATED' and not trip_status:
-#             # cancel order
-#             pass
-#         # if invoice created but shipment is not added to trip
-#         elif shipment_status == 'READY_TO_SHIP' and not trip_status:
-#             # cancel order and generate credit note
-#             pass
-#         elif trip_status and trip_status == 'READY':
-#             # cancel order and generate credit note and remove shipment from trip
-#             pass
-#         else:
-#             # can't cancel the order
-#             pass
-#     # if there are more than one shipment for an order
-#     elif order_shipments_count and order_shipments_count > 1:
-#         # can't cancel the order if user have more than one shipment
-#         pass
-#     # if there is no shipment for an order
-#     else:
-#         pass
-#         # when there is no shipment created for this order
-#         # cancel the order
+
+class Feedback(models.Model):
+    STAR1 = '1'
+    STAR2 = '2'
+    STAR3 = '3'
+    STAR4 = '4'
+    STAR5 = '5'
+
+    STAR_CHOICE = (
+        (STAR1, '1 Star'),
+        (STAR2, '2 Star'),
+        (STAR3, '3 Star'),
+        (STAR4, '4 Star'),
+        (STAR5, '5 Star'),
+    )
+    user = models.ForeignKey(get_user_model(), related_name='user_feedback',
+                             on_delete=models.CASCADE)
+    shipment = models.OneToOneField(OrderedProduct,
+                                    related_name='shipment_feedback',
+                                    on_delete=models.CASCADE)
+    delivery_experience = models.CharField(max_length=2, choices=STAR_CHOICE,
+                                           null=True, blank=True)
+    overall_product_packaging = models.CharField(max_length=2,
+                                                 choices=STAR_CHOICE,
+                                                 null=True, blank=True)
+    comment = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    status = models.BooleanField(default=False)

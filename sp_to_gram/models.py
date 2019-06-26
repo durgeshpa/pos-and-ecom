@@ -412,7 +412,6 @@ def create_brand_note_id(sender, instance=None, created=False, **kwargs):
 
 
 def create_credit_note(instance=None, created=False, **kwargs):
-    import pdb; pdb.set_trace()
     if created:
         return None
     shipment_products = instance.rt_order_product_order_product_mapping \
