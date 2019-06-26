@@ -313,11 +313,11 @@ class Order(models.Model):
 
     @property
     def total_final_amount(self):
-        return round(self.ordered_cart.subtotal,2)
+        return self.ordered_cart.subtotal
 
     @property
     def total_mrp_amount(self):
-        return round(self.ordered_cart.mrp_subtotal,2)
+        return self.ordered_cart.mrp_subtotal
 
     @property
     def payment_mode(self):
