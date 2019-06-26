@@ -340,8 +340,8 @@ class OrderSerializer(serializers.ModelSerializer):
     billing_address = AddressSerializer()
     shipping_address = AddressSerializer()
     order_status = serializers.CharField(source='get_order_status_display')
-    total_final_amount = serializers.ReadOnlyField(source='total_final_amount')
-    total_mrp_amount = serializers.ReadOnlyField(source='total_mrp_amount')    
+    total_final_amount = serializers.ReadOnlyField()#source='total_final_amount')
+    total_mrp_amount = serializers.ReadOnlyField()#source='total_mrp_amount')    
 
     def to_representation(self, instance):
         representation = super(OrderSerializer, self).to_representation(instance)
