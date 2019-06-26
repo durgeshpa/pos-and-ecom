@@ -125,6 +125,8 @@ class CartProductMappingForm(forms.ModelForm):
         queryset=Product.objects.all(),
         widget=autocomplete.ModelSelect2(url='vendor-product-autocomplete', forward=('supplier_name',))
     )
+    mrp = forms.CharField(disabled=True, required=False)
+    sku = forms.CharField(disabled=True, required=False)
     tax_percentage = forms.CharField(disabled=True, required=False)
     case_sizes = forms.CharField(disabled=True, required=False, label='case size')
     no_of_cases = forms.CharField(required=True)
@@ -134,11 +136,8 @@ class CartProductMappingForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if 'instance' in kwargs and kwargs['instance'].pk:
-            # print(kwargs['instance'].cart_product.product_inner_case_size)
-            # print(kwargs['instance'].cart_product.product_case_size)
-            # print(kwargs['instance'].number_of_cases)
-            # print(kwargs['instance'].qty)
-
+            self.fields['mrp'].initial = kwargs['instance'].mrp
+            self.fields['sku'].initial = kwargs['instance'].sku
             self.fields['no_of_cases'].initial = kwargs['instance'].no_of_cases
             self.fields['no_of_pieces'].initial = kwargs['instance'].no_of_pieces if kwargs['instance'].no_of_pieces else \
                 int(kwargs['instance'].cart_product.product_inner_case_size)*int(kwargs['instance'].cart_product.product_case_size)*int(kwargs['instance'].number_of_cases)
@@ -146,7 +145,7 @@ class CartProductMappingForm(forms.ModelForm):
 
     class Meta:
         model = CartProductMapping
-        fields = ('cart','cart_product','tax_percentage','case_sizes','no_of_cases','price','sub_total','no_of_pieces','vendor_product')
+        fields = ('cart','cart_product','mrp','sku','tax_percentage','case_sizes','no_of_cases','price','sub_total','no_of_pieces','vendor_product')
         search_fields=('cart_product',)
         exclude = ('qty',)
 

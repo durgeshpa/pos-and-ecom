@@ -256,6 +256,16 @@ class CartProductMapping(models.Model):
             return round(float(self.qty)* float(self.vendor_product.product_price),2)
         return self.total_price
 
+    @property
+    def sku(self):
+        return self.cart_product.product_sku
+
+    @property
+    def mrp(self):
+        if self.vendor_product:
+            return float(self.vendor_product.product_mrp)
+        return '-'
+
     def __str__(self):
         return self.cart_product.product_name
 
