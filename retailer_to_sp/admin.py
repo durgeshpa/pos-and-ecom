@@ -495,9 +495,9 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                        'shipping_address', 'seller_shop', 'buyer_shop',
                        'ordered_cart', 'ordered_by', 'last_modified_by',
                        'total_mrp', 'total_discount_amount',
-                       'total_tax_amount', 'total_final_amount')
+                       'total_tax_amount',)
     list_filter = [PhoneNumberFilter,SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
-        ('created_at', DateTimeRangeFilter), ('total_final_amount', SliderNumericFilter), Pincode]
+        ('created_at', DateTimeRangeFilter), Pincode]
 
     # def change_trip_status(self, request, queryset):
     #     queryset.filter(trip_status='CLOSED').update(trip_status='TRANSFERRED')
@@ -527,6 +527,9 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         for m in products:
             p.append(m)
         return p
+
+    def total_final_amount(self,obj):
+        return round(obj.ordered_cart.subtotal,2)
 
     change_form_template = 'admin/retailer_to_sp/order/change_form.html'
 
