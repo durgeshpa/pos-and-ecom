@@ -526,7 +526,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         return p
 
     def total_final_amount(self,obj):
-        return round(obj.ordered_cart.subtotal,2)
+        return obj.ordered_cart.subtotal
 
     change_form_template = 'admin/retailer_to_sp/order/change_form.html'
 
