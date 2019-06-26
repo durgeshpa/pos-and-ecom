@@ -175,17 +175,10 @@ class OrderNoSearch(InputFilter):
     def queryset(self, request, queryset):
         if self.value() is not None:
             order_no = self.value()
-            if order_no is None:
-                return
-            else:
-                order_nos = order_no.replace(" ", "").replace("\t","").split(',')    
+            order_nos = order_no.replace(" ", "").replace("\t","").split(',')    
             return queryset.filter(
                 Q(order_no__in=order_nos)
             )
-
-            # return queryset.filter(
-            #     Q(order_no__icontains=order_no)
-            # )
 
 class IssueStatusSearch(InputFilter):
     parameter_name = 'issue_status'
