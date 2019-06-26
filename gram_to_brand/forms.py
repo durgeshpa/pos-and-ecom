@@ -96,19 +96,19 @@ class POGenerationForm(forms.ModelForm):
                     raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | "+VALIDATION_ERROR_MESSAGES[
                     'INVALID_PRODUCT_ID'])
 
-                if not row[2] or not re.match("^[\d\,]*$", row[2]):
+                if not row[3] or not re.match("^[\d\,]*$", row[3]):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY']%("Case_Size"))
 
-                if not row[3] or not re.match("^[\d\,]*$", row[3]):
+                if not row[4] or not re.match("^[\d\,]*$", row[4]):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY']%("No_of_cases"))
 
-                if not row[4] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[4]):
+                if not row[5] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[5]):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY_OR_NOT_VALID']%("MRP"))
 
-                if not row[5] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[5]):
+                if not row[6] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[6]):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY_OR_NOT_VALID']%("Gram_to_brand"))
 

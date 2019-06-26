@@ -652,10 +652,10 @@ def products_vendor_mapping(request,pk=None):
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     try:
-        writer.writerow(['id','product_name','case_size','number_of_cases','mrp','brand_to_gram_price'])
+        writer.writerow(['id','product_name','sku','case_size','number_of_cases','mrp','brand_to_gram_price'])
         vendor_products = ProductVendorMapping.objects.filter(vendor_id=int(pk),case_size__gt=0,status=True)
         for p in vendor_products:
-            writer.writerow([p.product_id,p.product.product_name,p.case_size,'',p.product_mrp,p.product_price])
+            writer.writerow([p.product_id,p.product.product_name,p.product.product_sku,p.case_size,'',p.product_mrp,p.product_price])
     except:
         writer.writerow(["Make sure you have selected vendor before downloading CSV file"])
     return response

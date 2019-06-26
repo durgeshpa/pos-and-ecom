@@ -307,12 +307,12 @@ def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
                             vendor_product_dt = vendor_product
                         else:
                             vendor_product_dt = ProductVendorMapping.objects.create(vendor=instance.supplier_name,
-                                                                product_id=row[0], product_price=row[5],
-                                                                product_mrp=row[4], case_size=row[2], status=True)
+                                                                product_id=row[0], product_price=row[6],
+                                                                product_mrp=row[5], case_size=row[3], status=True)
 
                         CartProductMapping.objects.create(cart=instance,cart_product_id = row[0],
-                         no_of_pieces = int(vendor_product_dt.case_size)*int(row[3]),
-                         price=float(row[5]),vendor_product=vendor_product_dt)
+                         no_of_pieces = int(vendor_product_dt.case_size)*int(row[4]),
+                         price=float(row[6]),vendor_product=vendor_product_dt)
 
     order,_ = Order.objects.get_or_create(ordered_cart=instance)
     order.order_no = instance.po_no
