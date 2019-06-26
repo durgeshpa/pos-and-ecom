@@ -847,6 +847,7 @@ class DownloadInvoiceSP(APIView):
         products = a.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0)
         payment_type = a.order.rt_payment.last().payment_choice
         order_id= a.order.order_no
+        shop_id = shop.order.buyer_shop.id
 
         sum_qty = 0
         sum_amount=0
@@ -964,7 +965,7 @@ class DownloadInvoiceSP(APIView):
         total_amount = sum_amount
         total_amount_int = int(total_amount)
 
-        data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop, "sum_qty": sum_qty,
+        data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop,"shop_id":shop_id, "sum_qty": sum_qty,
                 "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" ,
                 "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,
                 "order_id":order_id,"shop_name_gram":shop_name_gram,"nick_name_gram":nick_name_gram, "city_gram":city_gram,
