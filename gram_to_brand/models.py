@@ -423,7 +423,10 @@ class GRNOrderProductMapping(models.Model):
 
     @property
     def product_mrp(self):
-        return self.product.product_pro_price.filter(product=self.product, shop=self.grn_order.order.ordered_cart.gf_shipping_address.shop_name, status=True).last().mrp if self.product else ''
+        if self.vendor_product:
+            return self.vendor_product.product_mrp
+        else:
+            '-'
 
     # @property
     # def available_qty(self):
