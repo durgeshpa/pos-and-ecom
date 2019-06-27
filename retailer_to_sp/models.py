@@ -213,6 +213,7 @@ class Order(models.Model):
     PDAP = 'payment_done_approval_pending'
     ORDER_PLACED_DISPATCH_PENDING = 'opdp'
     PARTIALLY_SHIPPED_AND_CLOSED = 'partially_shipped_and_closed'
+    DENIED_AND_CLOSED = 'denied_and_closed'
 
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'),
@@ -226,15 +227,14 @@ class Order(models.Model):
         (CLOSED, "Closed"),
         (PDAP, "Payment Done Approval Pending"),
         (ORDER_PLACED_DISPATCH_PENDING, "Order Placed Dispatch Pending"),
-        ('DISPATCH_PENDING', 'Dispatch Placed'),
         ('PARTIALLY_SHIPPED', 'Partially Shipped'),
         ('SHIPPED', 'Shipped'),
         ('CANCELLED', 'Cancelled'),
         ('DENIED', 'Denied'),
         (PAYMENT_DONE_APPROVAL_PENDING, "Payment Done Approval Pending"),
         (OPDP, "Order Placed Dispatch Pending"),
-        (PARTIALLY_SHIPPED_AND_CLOSED, "Partially shipped and closed")
-
+        (PARTIALLY_SHIPPED_AND_CLOSED, "Partially shipped and closed"),
+        (DENIED_AND_CLOSED, 'Denied and Closed')
     )
     #Todo Remove
     seller_shop = models.ForeignKey(
@@ -265,6 +265,7 @@ class Order(models.Model):
     total_final_amount = models.FloatField(
         default=0, verbose_name='Ordered Amount')
     order_status = models.CharField(max_length=50,choices=ORDER_STATUS)
+    order_closed = models.BooleanField(default=False, null=True, blank=True)
     ordered_by = models.ForeignKey(
         get_user_model(), related_name='rt_ordered_by_user',
         null=True, blank=True, on_delete=models.CASCADE
