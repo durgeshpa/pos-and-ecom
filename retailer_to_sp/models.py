@@ -230,7 +230,7 @@ class Order(models.Model):
 
     PICKING_STATUS = (
         ('picking_started', 'Picking Started'),
-        ('picking_in_progress', 'Picking Complete'),
+        ('picking_in_progress', 'Picking In Progress'),
         ('picking_complete', 'Picking Complete'),
     )
 
