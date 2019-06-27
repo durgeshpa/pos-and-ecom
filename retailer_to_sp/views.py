@@ -20,7 +20,7 @@ from sp_to_gram.models import OrderedProductReserved
 from retailer_to_sp.models import (
     Cart, CartProductMapping, Order, OrderedProduct, OrderedProductMapping,
     CustomerCare, Payment, Return, ReturnProductMapping, Note, Trip, Dispatch,
-    ShipmentRescheduling
+    ShipmentRescheduling, PickerDashboard
 )
 from products.models import Product
 from retailer_to_sp.forms import (
@@ -688,6 +688,16 @@ class SellerShopAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(shop_name__startswith=self.q)
         return qs
+
+
+class PickerNameAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = PickerDashboard.objects.all()
+
+        if self.q:
+            qs = qs.filter(picker_boy__first_name__startswith=self.q)
+        return qs
+
 
 class BuyerShopAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):

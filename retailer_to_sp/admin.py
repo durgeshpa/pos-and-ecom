@@ -57,7 +57,7 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare,
                      Dispatch, DispatchProductMapping, Note, Order,
                      OrderedProduct, OrderedProductMapping, Payment, Return,
                      ReturnProductMapping, Shipment, ShipmentProductMapping,
-                     Trip, ShipmentRescheduling, Feedback)
+                     Trip, ShipmentRescheduling, Feedback, PickerDashboard)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (
@@ -421,6 +421,24 @@ class BuyerShopFilter(AutocompleteFilter):
     autocomplete_url = 'buyer-shop-autocomplete'
 
 
+# class PickerBoyFilter(AutocompleteFilter):
+#     title = 'Picker Boy'
+#     field_name = 'picker_boy'
+#     autocomplete_url = 'picker-name-autocomplete'    
+
+
+class PickerBoyFilter(InputFilter):
+    title = 'Picker Boy'
+    parameter_name = 'picker_boy'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value :
+            return queryset.filter(picker_boy__first_name__icontains=value)
+        return queryset
+
+
+
 class SKUFilter(InputFilter):
     title = 'product sku'
     parameter_name = 'product sku'
@@ -461,6 +479,31 @@ class Pincode(InputFilter):
             return queryset.filter(shipping_address__pincode=value)
         return queryset
 from django.contrib.admin.views.main import ChangeList
+
+
+class PickerDashboardAdmin(admin.ModelAdmin):
+    actions = ["change_picking_status"]
+    model = PickerDashboard
+    #form = PickerDashboardForm
+    list_display = (
+        'order', 'picklist_id', 'picker_boy', 'order_date', 'download_pick_list'
+        )
+    # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
+    # readonly_fields = []
+    list_filter = [PickerBoyFilter]
+
+    def change_picking_status(self, request, queryset):
+        queryset.filter(order__picking_status='picking_in_progress').update(order__picking_status='picking_complete')
+    change_picking_status.short_description = "Mark selected orders as picking completed"
+
+    def download_pick_list(self,obj):
+        if obj.order.order_status not in ["active", "pending"]:
+            return format_html(
+                "<a href= '%s' >Download Pick List</a>" %
+                (reverse('download_pick_list_sp', args=[obj.order.pk]))
+            )
+    download_pick_list.short_description = 'Download Pick List'
+
 
 class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     actions = ["export_as_csv"]#, "assign_picker"]
@@ -1041,3 +1084,4 @@ admin.site.register(Trip, TripAdmin)
 admin.site.register(Commercial, CommercialAdmin)
 admin.site.register(Shipment, ShipmentAdmin)
 admin.site.register(Feedback, FeedbackAdmin)
+admin.site.register(PickerDashboard, PickerDashboardAdmin)

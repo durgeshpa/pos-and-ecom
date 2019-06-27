@@ -203,15 +203,6 @@ class CartProductMapping(models.Model):
             return round(self.cart_product.get_current_shop_price(shop).mrp,2)
 
 
-# class PickerAssignment(models.Model):
-#     shop = models.ForeignKey(Shop, related_name="picker_shop", on_delete=models.CASCADE)
-#     picker_boy = models.ForeignKey(User, related_name="picker_user", on_delete=models.CASCADE)
-#     invoice_no = models.CharField(max_length=255, null=True, blank=True)
-#     shipment = models.ForeignKey(Shipment, related_name="picker_shipment", on_delete=models.CASCADE)
-#     #order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE)  
-
-
-
 class Order(models.Model):
     ACTIVE = 'active'
     PENDING = 'pending'
@@ -229,7 +220,9 @@ class Order(models.Model):
     DENIED_AND_CLOSED = 'denied_and_closed'
 
     PICKING_STATUS = (
-        ('picking_started', 'Picking Started'),
+        
+        ('picking_pending', 'Picking Pending'),
+        ('picking_assigned', 'Picking Assigned'),
         ('picking_in_progress', 'Picking In Progress'),
         ('picking_complete', 'Picking Complete'),
     )
@@ -282,12 +275,13 @@ class Order(models.Model):
     total_discount_amount = models.FloatField(default=0)
     total_tax_amount = models.FloatField(default=0)
 
-    # picking_status = models.CharField(max_length=50,choices=PICKING_STATUS)
-    # assigned_picker = models.ForeignKey(
-    #     get_user_model(), related_name='order_assigned_picker',
-    #     null=True, blank=True, on_delete=models.SET_NULL
-    # )
-    # picklist = models.ForeignKey(PickList, related_name="picklist_order", on_delete=models.SET_NULL)
+    picking_status = models.CharField(max_length=50,choices=PICKING_STATUS, default='picking_not_started')
+    assigned_picker = models.ForeignKey(
+        get_user_model(), related_name='order_assigned_picker',
+        null=True, blank=True, on_delete=models.SET_NULL
+    )
+    picklist_id = models.CharField(max_length=50, null=True, blank=True)
+    #picklist_id = models.ForeignKey(PickList, related_name="picklist_order", on_delete=models.SET_NULL)
 
     order_status = models.CharField(max_length=50,choices=ORDER_STATUS)
     order_closed = models.BooleanField(default=False, null=True, blank=True)
@@ -379,9 +373,9 @@ class Order(models.Model):
     # def shipment_returns(self):
     #     return self._shipment_returns
 
-    @property
-    def picking_status(self):
-        return "-"
+    # @property
+    # def picking_status(self):
+    #     return "-"
 
     @property
     def picker_name(self):
@@ -418,6 +412,22 @@ class Order(models.Model):
     # @property
     # def delivered_value(self):
     #     return order_delivered_value(self.shipments())
+
+
+class PickerDashboard(models.Model):
+
+    order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE)
+    picklist_id = models.CharField(max_length=255, null=True, blank=True)
+    picker_boy = models.ForeignKey(
+        UserWithName, related_name='picker_user',
+        on_delete=models.CASCADE, verbose_name='Picker Boy'
+    )
+    order_date = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.picklist_id
 
 
 class Trip(models.Model):
