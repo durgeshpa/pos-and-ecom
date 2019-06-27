@@ -37,6 +37,7 @@ from .utils import (order_invoices, order_shipment_amount,
 
 from accounts.models import UserWithName, User
 from django.core.validators import RegexValidator
+from django.contrib.postgres.fields import JSONField
 
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
 
@@ -645,10 +646,6 @@ class OrderedProduct(models.Model): #Shipment
                                                         ).last().pk)
         super().save(*args, **kwargs)
 
-
-
-
-
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(
         OrderedProduct, related_name='rt_order_product_order_product_mapping',
@@ -666,6 +663,7 @@ class OrderedProductMapping(models.Model):
         get_user_model(), related_name='rt_last_modified_user_order_product',
         null=True, blank=True, on_delete=models.CASCADE
     )
+    product_tax_json = JSONField(null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
