@@ -544,9 +544,7 @@ class CreateOrder(APIView):
         billing_address_id = self.request.POST.get('billing_address_id')
         shipping_address_id = self.request.POST.get('shipping_address_id')
 
-        total_mrp = self.request.POST.get('total_mrp',0)
         total_tax_amount = self.request.POST.get('total_tax_amount',0)
-        total_final_amount = self.request.POST.get('total_final_amount',0)
 
         shop_id = self.request.POST.get('shop_id')
         msg = {'is_success': False, 'message': ['Have some error in shop or mapping'], 'response_data': None}
@@ -594,11 +592,7 @@ class CreateOrder(APIView):
                     order.shipping_address = shipping_address
                     order.buyer_shop = shop
                     order.seller_shop = parent_mapping.parent
-
-                    order.total_mrp = float(total_mrp)
                     order.total_tax_amount = float(total_tax_amount)
-                    order.total_final_amount = float(total_final_amount)
-
                     order.order_status = order.ORDERED
                     order.save()
 
@@ -632,11 +626,6 @@ class CreateOrder(APIView):
                     order.shipping_address = shipping_address
                     order.buyer_shop = shop
                     order.seller_shop = parent_mapping.parent
-
-                    order.total_mrp = float(total_mrp)
-                    order.total_tax_amount = float(total_tax_amount)
-                    order.total_final_amount = float(total_final_amount)
-
                     order.order_status = 'ordered'
                     order.save()
 
@@ -741,9 +730,12 @@ class DownloadInvoiceSP(APIView):
         pk=self.kwargs.get('pk')
         a = OrderedProduct.objects.get(pk=pk)
         shop=a
+        payment_type=''
         products = a.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0)
-        payment_type = a.order.rt_payment.last().payment_choice
+        if a.order.rt_payment.filter(order_id=a.order).exists():
+            payment_type = a.order.rt_payment.last().payment_choice
         order_id= a.order.order_no
+        shop_id = shop.order.buyer_shop.id
 
         sum_qty = 0
         sum_amount=0
@@ -823,6 +815,7 @@ class DownloadInvoiceSP(APIView):
                 "product_inner_case_size": m.product.product_inner_case_size,
                 "product_no_of_pices": int(m.shipped_qty),
                 "basic_rate": basic_rate,
+                "basic_amount": float(m.shipped_qty) * float(basic_rate),
                 "price_to_retailer": product_pro_price_ptr,
                 "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr),
                 "product_tax_amount": product_tax_amount,
@@ -860,7 +853,7 @@ class DownloadInvoiceSP(APIView):
         total_amount = sum_amount
         total_amount_int = int(total_amount)
 
-        data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop, "sum_qty": sum_qty,
+        data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop,"shop_id":shop_id, "sum_qty": sum_qty,
                 "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" ,
                 "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,
                 "order_id":order_id,"shop_name_gram":shop_name_gram,"nick_name_gram":nick_name_gram, "city_gram":city_gram,
@@ -1085,4 +1078,38 @@ class ReleaseBlocking(APIView):
                     ordered_reserve.order_product_reserved.save()
                     ordered_reserve.delete()
             msg = {'is_success': True, 'message': ['Blocking has released'], 'response_data': None}
+        return Response(msg, status=status.HTTP_200_OK)
+
+class FeedbackData(generics.ListCreateAPIView):
+    serializer_class = FeedBackSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        ship_id = self.kwargs.get('ship_id')
+        queryset = Feedback.objects.all()
+        if ship_id:
+            queryset = Feedback.objects.filter(shipment__id=ship_id)
+        return queryset
+
+    def create(self, request, *args, **kwargs):
+        can_comment = False
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            if ((serializer.data['delivery_experience'] and int(serializer.data['delivery_experience']) > 4) or (serializer.data['overall_product_packaging'] and int(serializer.data['overall_product_packaging']) > 4)):
+                can_comment = True
+            msg = {'is_success': True, 'can_comment':can_comment, 'message': None, 'response_data': serializer.data}
+        else:
+            msg = {'is_success': False, 'message': ['shipment_id, user_id or status not found or value exists'], 'response_data': None}
+        return Response(msg, status=status.HTTP_200_OK)
+
+    def perform_create(self, serializer):
+        feedback = serializer.save(user=self.request.user)
+        return feedback
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        msg = {'is_success': True, 'message': [""], 'response_data': serializer.data}
         return Response(msg, status=status.HTTP_200_OK)
