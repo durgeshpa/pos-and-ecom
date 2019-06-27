@@ -124,6 +124,16 @@ class ServicePartnerFilter(InputFilter):
             return queryset.filter(retiler_mapping__parent__shop_name__icontains=value )
         return queryset
 
+class ShopCityFilter(InputFilter):
+    title = 'City'
+    parameter_name = 'city'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value :
+            return queryset.filter(shop_name_address_mapping__city__city_name__icontains=value, shop_name_address_mapping__address_type='shipping')
+        return queryset
+
 class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     change_list_template = 'admin/shops/shop/change_list.html'
     resource_class = ShopResource
@@ -135,7 +145,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     ]
     list_display = ('shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent','shop_owner','shop_type','created_at','status', 'get_shop_city','shop_mapped_product','imei_no')
     filter_horizontal = ('related_users',)
-    list_filter = (ServicePartnerFilter,ShopNameSearch,ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,'status',('created_at', DateTimeRangeFilter))
+    list_filter = (ShopCityFilter,ServicePartnerFilter,ShopNameSearch,ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,'status',('created_at', DateTimeRangeFilter))
     search_fields = ('shop_name', )
 
     class Media:

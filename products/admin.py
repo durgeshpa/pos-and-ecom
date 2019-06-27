@@ -14,7 +14,7 @@ from .views import (
     load_brands, products_filter_view, products_price_filter_view,
     ProductsUploadSample, products_csv_upload_view, gf_product_price,
     load_gf, products_export_for_vendor, products_vendor_mapping,
-    MultiPhotoUploadView, ProductPriceAutocomplete
+    MultiPhotoUploadView, ProductPriceAutocomplete, ProductCategoryAutocomplete
     )
 from .resources import (
     SizeResource, ColorResource, FragranceResource,
@@ -294,6 +294,11 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 self.admin_site.admin_view(ProductPriceAutocomplete.as_view()),
                 name="product-price-autocomplete"
             ),
+            url(
+                r'^product-category-autocomplete/$',
+                self.admin_site.admin_view(ProductCategoryAutocomplete.as_view()),
+                name="product-category-autocomplete"
+            ),
         ] + urls
         return urls
 
@@ -330,12 +335,30 @@ class MRPSearch(InputFilter):
             return queryset.filter(
                 Q(mrp__icontains=mrp)
             )
+
+class ExportCsvMixin:
+    def export_as_csv_productprice(self, request, queryset):
+        meta = self.model._meta
+        list_display = [
+            'product' ,'sku_code', 'mrp', 'price_to_service_partner','price_to_retailer', 'price_to_super_retailer',
+            'shop', 'cash_discount','loyalty_incentive','margin','start_date', 'end_date', 'status'
+        ]
+        field_names = [field.name for field in meta.fields if field.name in list_display]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in list_display])
+        return response
+    export_as_csv_productprice.short_description = "Download CSV of Selected ProductPrice"
+
 class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductPriceResource
     form = ProductPriceNewForm
-    actions = ["export_as_csv"]
+    actions = ["export_as_csv_productprice"]
     list_display = [
-        'product', 'product_gf_code', 'mrp', 'price_to_service_partner','price_to_retailer', 'price_to_super_retailer',
+        'product', 'product_gf_code','sku_code', 'mrp', 'price_to_service_partner','price_to_retailer', 'price_to_super_retailer',
         'shop', 'cash_discount','loyalty_incentive','margin','start_date', 'end_date', 'status'
     ]
     autocomplete_fields=['product',]
