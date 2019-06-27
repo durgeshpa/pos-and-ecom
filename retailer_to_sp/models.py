@@ -743,6 +743,19 @@ class OrderedProductMapping(models.Model):
     def get_products_gst_cess(self):
         return self.product.product_pro_tax.filter(tax__tax_type='cess')
 
+    def save(self, *args, **kwargs):
+        super(OrderedProductMapping, self).save()
+        self.product.product_pro_tax.values('product','tax__tax_name', 'tax__tax_percentage').all()
+        self.product_tax_json = {
+            'breed': 'labrador',
+            'owner': {
+            'name': 'Bob',
+            'other_pets': [{
+                'name': 'Fishy',
+            }],
+          },
+        }
+
 
 class Dispatch(OrderedProduct):
     class Meta:
