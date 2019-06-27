@@ -229,6 +229,10 @@ class ProductPrice(models.Model):
     def margin(self):
         return round(100-(float(self.price_to_retailer)*1000000/(float(self.mrp)*(100-float(self.cash_discount))*(100-float(self.loyalty_incentive)))),2) if self.mrp>0 and self.price_to_retailer>0 else 0
 
+    @property
+    def sku_code(self):
+        return self.product.product_sku
+
 class ProductCategory(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_category',on_delete=models.CASCADE)
     category = models.ForeignKey(Category, related_name='category_pro_category',on_delete=models.CASCADE)
