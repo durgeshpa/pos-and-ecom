@@ -24,7 +24,7 @@ from retailer_to_sp.models import (
     CustomerCare, ReturnProductMapping, OrderedProduct,
     OrderedProductMapping, Order, Dispatch, Trip, TRIP_STATUS,
     Shipment, ShipmentProductMapping, CartProductMapping, Cart,
-    ShipmentRescheduling
+    ShipmentRescheduling, PickerDashboard
 )
 from products.models import Product
 from shops.models import Shop
@@ -246,6 +246,39 @@ class OrderedProductDispatchForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(OrderedProductDispatchForm, self).__init__(*args, **kwargs)
         #self.fields['order'].required = True
+
+class AssignPickerForm(forms.ModelForm):
+    picker_boy = forms.ModelChoiceField(
+                        queryset=UserWithName.objects.all(),
+                        widget=RelatedFieldWidgetCanAdd(
+                                UserWithName,
+                                related_url="admin:accounts_user_add"))
+    shop = forms.ModelChoiceField(
+                        queryset=Shop.objects.all(),)
+
+
+    # trip_status = forms.ChoiceField(choices=TRIP_STATUS)
+    # search_by_area = forms.CharField(required=False)
+    # trip_id = forms.CharField(required=False)
+    # selected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
+    # unselected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
+
+    class Meta:
+        model = PickerDashboard
+        fields = ['picker_boy', 'shop']
+        # fields = ['seller_shop', 'delivery_boy', 'vehicle_no', 'trip_status',
+        #           'e_way_bill_no', 'search_by_area', 'selected_id',
+        #           'unselected_id']
+
+    class Media:
+        js = ('admin/js/select2.min.js', )
+        css = {
+            'all': (
+                'admin/css/select2.min.css',
+            )
+        }
+
+
 
 
 class TripForm(forms.ModelForm):

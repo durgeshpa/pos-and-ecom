@@ -273,6 +273,34 @@ def ordered_product_mapping_shipment(request):
         {'ordered_form': form, 'formset': form_set}
     )
 
+#assign picker to an order/ multiple orders
+def assign_picker(request):
+
+    if request.method == 'POST':
+        # 
+        form = Form(request.user, request.POST)
+        if form.is_valid():
+            trip = form.save()
+            selected_orders = form.cleaned_data.get('selected_id', None)
+            if selected_orders:
+                selected_orders = selected_orders.split(',')
+                selected_orders = Dispatch.objects.filter(
+                                                    pk__in=selected_orders)
+                for order_instance in selected_orders:
+                    order_instance.trip = trip
+                    order_instance.order_status = 'READY_TO_DISPATCH'
+                    order_instance.save()
+            return redirect('/admin/retailer_to_sp/trip/')
+
+    form = TripForm(request.user)
+
+    return render(
+        request,
+        'admin/retailer_to_sp/TripPlanning.html',
+        {'form': form}
+    )
+
+
 
 def trip_planning(request):
 

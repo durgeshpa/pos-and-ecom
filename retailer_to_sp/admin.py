@@ -493,7 +493,8 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     list_filter = [PickerBoyFilter]
 
     def change_picking_status(self, request, queryset):
-        queryset.filter(order__picking_status='picking_in_progress').update(order__picking_status='picking_complete')
+        pass
+        #queryset.filter(Q(order__picking_status='picking_in_progress')).update(Q(order__picking_status='picking_complete'))
     change_picking_status.short_description = "Mark selected orders as picking completed"
 
     def download_pick_list(self,obj):
@@ -527,7 +528,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     list_display = (
                     'order_no', 'download_pick_list', 'seller_shop', 'buyer_shop',
                     'pincode','total_final_amount', 'order_status', 'created_at',
-                    'payment_mode','picking_status','picker_name',
+                    'payment_mode','picking_status','picker_name', 'picklist_id',
                     'invoice_no', 'shipment_date', 'invoice_amount', 'shipment_status',
                     'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
                     #'damaged_amount',
