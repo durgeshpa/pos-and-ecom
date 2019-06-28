@@ -170,15 +170,14 @@ class OrderIdSearch(InputFilter):
 
 class OrderNoSearch(InputFilter):
     parameter_name = 'order_no'
-    title = 'Order No.'
+    title = 'Order No.(Comma seperated)'
 
     def queryset(self, request, queryset):
         if self.value() is not None:
             order_no = self.value()
-            if order_no is None:
-                return
+            order_nos = order_no.replace(" ", "").replace("\t","").split(',')    
             return queryset.filter(
-                Q(order_no__icontains=order_no)
+                Q(order_no__in=order_nos)
             )
 
 class IssueStatusSearch(InputFilter):
@@ -495,9 +494,12 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                        'shipping_address', 'seller_shop', 'buyer_shop',
                        'ordered_cart', 'ordered_by', 'last_modified_by',
                        'total_mrp', 'total_discount_amount',
-                       'total_tax_amount', 'total_final_amount')
+                       'total_tax_amount',)
     list_filter = [PhoneNumberFilter,SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
-        ('created_at', DateTimeRangeFilter), ('total_final_amount', SliderNumericFilter), Pincode]
+        ('created_at', DateTimeRangeFilter), Pincode]
+
+    # class Media:
+    #     js = ('admin/js/dynamic_input_box.js', )
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
@@ -522,6 +524,9 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         for m in products:
             p.append(m)
         return p
+
+    def total_final_amount(self,obj):
+        return obj.ordered_cart.subtotal
 
     change_form_template = 'admin/retailer_to_sp/order/change_form.html'
 
