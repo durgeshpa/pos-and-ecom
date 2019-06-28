@@ -34,7 +34,7 @@ from retailer_to_sp.views import (
     load_dispatches, order_invoices, ordered_product_mapping_shipment,
     trip_planning, trip_planning_change, update_delivered_qty,
     update_order_status, update_shipment_status, reshedule_update_shipment,
-    RetailerCart
+    RetailerCart, assign_picker, #assign_picker_change
 )
 from shops.models import ParentRetailerMapping, Shop
 from sp_to_gram.models import (
@@ -482,6 +482,7 @@ from django.contrib.admin.views.main import ChangeList
 
 
 class PickerDashboardAdmin(admin.ModelAdmin):
+    change_list_template = 'admin/retailer_to_sp/picker/change_list.html'
     actions = ["change_picking_status"]
     model = PickerDashboard
     #form = PickerDashboardForm
@@ -491,6 +492,24 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
     # readonly_fields = []
     list_filter = [PickerBoyFilter]
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(PickerDashboardAdmin, self).get_urls()
+        urls = [
+            url(
+               r'^assign-picker/$',
+               self.admin_site.admin_view(assign_picker),
+               name="AssignPicker"
+            ),
+            # url(
+            #    r'^assign-picker/(?P<pk>\d+)/change/$',
+            #    self.admin_site.admin_view(assign_picker_change),
+            #    name="AssignPickerChange"
+            # ),
+
+        ] + urls
+        return urls
 
     def change_picking_status(self, request, queryset):
         pass

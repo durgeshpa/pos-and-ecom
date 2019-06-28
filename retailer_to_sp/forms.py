@@ -253,19 +253,18 @@ class AssignPickerForm(forms.ModelForm):
                         widget=RelatedFieldWidgetCanAdd(
                                 UserWithName,
                                 related_url="admin:accounts_user_add"))
-    shop = forms.ModelChoiceField(
-                        queryset=Shop.objects.all(),)
+    # selecting shop related to user
+    shop = forms.CharField()
+    picklist_id = forms.CharField(required=False)
+    order_date = forms.DateField(required=False)
 
-
-    # trip_status = forms.ChoiceField(choices=TRIP_STATUS)
-    # search_by_area = forms.CharField(required=False)
-    # trip_id = forms.CharField(required=False)
-    # selected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
-    # unselected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
+    # for receiving selected orders
+    selected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
+    unselected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
 
     class Meta:
         model = PickerDashboard
-        fields = ['picker_boy', 'shop']
+        fields = ['picker_boy', 'shop', 'picklist_id', 'order_date', 'selected_id', 'unselected_id', ]
         # fields = ['seller_shop', 'delivery_boy', 'vehicle_no', 'trip_status',
         #           'e_way_bill_no', 'search_by_area', 'selected_id',
         #           'unselected_id']
@@ -278,6 +277,15 @@ class AssignPickerForm(forms.ModelForm):
             )
         }
 
+    def __init__(self, user, *args, **kwargs):
+        super(PickerDashboardForm, self).__init__(*args, **kwargs)
+
+        instance = getattr(self, 'instance', None)
+        # assign shop name as readonly with value for shop name for user
+        if user.is_superuser:
+            self.fields['shop'].queryset = Shop.objects.filter(shop_type__shop_type__in=['sp', 'gf'])
+        else:
+            self.fields['shop'].queryset = Shop.objects.filter(related_users=user)
 
 
 

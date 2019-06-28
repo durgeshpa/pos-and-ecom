@@ -26,7 +26,8 @@ from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
     OrderedProductMappingDeliveryForm, OrderedProductDispatchForm,
-    TripForm, DispatchForm, DispatchDisabledForm
+    TripForm, DispatchForm, DispatchDisabledForm, AssignPickerForm, 
+    OrderForm, 
 )
 from django.views.generic import TemplateView
 from django.conf import settings
@@ -273,31 +274,35 @@ def ordered_product_mapping_shipment(request):
         {'ordered_form': form, 'formset': form_set}
     )
 
-#assign picker to an order/ multiple orders
 def assign_picker(request):
-
+    
+    #assign picker to an order/ multiple orders
     if request.method == 'POST':
-        # 
-        form = Form(request.user, request.POST)
+        # saving picker data to pickerdashboard model
+        form = AssignPickerForm(request.user, request.POST)
         if form.is_valid():
-            trip = form.save()
+            assign_picker_form = form.save()
+            #saving selected order picking status
             selected_orders = form.cleaned_data.get('selected_id', None)
             if selected_orders:
                 selected_orders = selected_orders.split(',')
-                selected_orders = Dispatch.objects.filter(
+                selected_orders = Order.objects.filter(
                                                     pk__in=selected_orders)
                 for order_instance in selected_orders:
-                    order_instance.trip = trip
-                    order_instance.order_status = 'READY_TO_DISPATCH'
+                    order_instance.picker_boy = picker_boy
+                    order_instance.order_status = 'picking_assigned'
                     order_instance.save()
-            return redirect('/admin/retailer_to_sp/trip/')
+            return redirect('/admin/retailer_to_sp/pickerdashboard/')
+    # form for assigning picker
+    form = AssignPickerForm() #request.user)
 
-    form = TripForm(request.user)
+    # form for listing orders
+    #order_form = OrderForm(request.user)
 
     return render(
         request,
-        'admin/retailer_to_sp/TripPlanning.html',
-        {'form': form}
+        'admin/retailer_to_sp/picker/AssignPicker.html',
+        {'form': form,}# 'order_form': order_form }
     )
 
 
