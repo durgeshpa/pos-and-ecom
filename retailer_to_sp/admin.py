@@ -170,15 +170,14 @@ class OrderIdSearch(InputFilter):
 
 class OrderNoSearch(InputFilter):
     parameter_name = 'order_no'
-    title = 'Order No.'
+    title = 'Order No.(Comma seperated)'
 
     def queryset(self, request, queryset):
         if self.value() is not None:
             order_no = self.value()
-            if order_no is None:
-                return
+            order_nos = order_no.replace(" ", "").replace("\t","").split(',')    
             return queryset.filter(
-                Q(order_no__icontains=order_no)
+                Q(order_no__in=order_nos)
             )
 
 class IssueStatusSearch(InputFilter):
@@ -274,6 +273,7 @@ class ShipmentOrderIdSearch(InputFilter):
                 Q(order__order_no__icontains=order_id)
             )
 
+
 class ShipmentSellerShopSearch(InputFilter):
     parameter_name = 'seller_shop_name'
     title = 'Seller Shop'
@@ -292,6 +292,8 @@ class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
     form = CartProductMappingForm
     formset = AtLeastOneFormSet
+    fields = ('cart', 'cart_product', 'cart_product_price', 'qty',
+              'no_of_pieces', 'product_case_size', 'product_inner_case_size')
     autocomplete_fields = ('cart_product', 'cart_product_price')
     extra = 0
 
@@ -301,11 +303,22 @@ class CartProductMappingAdmin(admin.TabularInline):
         return super(CartProductMappingAdmin, self).\
             formfield_for_foreignkey(db_field, request, **kwargs)
 
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = super(CartProductMappingAdmin, self) \
+            .get_readonly_fields(request, obj)
+        if obj:
+            readonly_fields = readonly_fields + (
+                'cart_product', 'cart_product_price', 'qty', 'no_of_pieces'
+            )
+        return readonly_fields
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     fields = ('seller_shop', 'buyer_shop')
-    readonly_fields = ('seller_shop', 'buyer_shop')
     form = CartForm
     list_display = ('order_id', 'seller_shop','buyer_shop','cart_status')
     #change_form_template = 'admin/sp_to_gram/cart/change_form.html'
@@ -360,6 +373,11 @@ class CartAdmin(admin.ModelAdmin):
         ] + urls
         return urls
 
+    def get_readonly_fields(self, request, obj):
+        readonly_fields = super(CartAdmin, self).get_readonly_fields(request, obj)
+        if obj:
+            readonly_fields = readonly_fields + ('seller_shop', 'buyer_shop')
+        return readonly_fields
 
     def save_related(self, request, form, formsets, change):
         super(CartAdmin, self).save_related(request, form, formsets, change)
@@ -476,9 +494,12 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                        'shipping_address', 'seller_shop', 'buyer_shop',
                        'ordered_cart', 'ordered_by', 'last_modified_by',
                        'total_mrp', 'total_discount_amount',
-                       'total_tax_amount', 'total_final_amount')
+                       'total_tax_amount',)
     list_filter = [PhoneNumberFilter,SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
-        ('created_at', DateTimeRangeFilter), ('total_final_amount', SliderNumericFilter), Pincode]
+        ('created_at', DateTimeRangeFilter), Pincode]
+
+    # class Media:
+    #     js = ('admin/js/dynamic_input_box.js', )
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
@@ -503,6 +524,9 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         for m in products:
             p.append(m)
         return p
+
+    def total_final_amount(self,obj):
+        return obj.ordered_cart.subtotal
 
     change_form_template = 'admin/retailer_to_sp/order/change_form.html'
 
@@ -574,23 +598,36 @@ class OrderedProductAdmin(admin.ModelAdmin):
         return qs.filter(
             Q(order__seller_shop__related_users=request.user) |
             Q(order__seller_shop__shop_owner=request.user)
-                )
+        )
 
     def save_related(self, request, form, formsets, change):
         form_instance = getattr(form, 'instance', None)
-        formsets_dict = {}
-        for formset in formsets:
-            formsets_dict[formset.__class__.__name__] = formset
-        if ('ShipmentReschedulingFormFormSet' in formsets_dict and formsets_dict['ShipmentReschedulingFormFormSet'].has_changed() and
-            not form.changed_data):
-            reshedule_update_shipment(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
-        elif ('OrderedProductMappingFormFormSet' in formsets_dict and formsets_dict['OrderedProductMappingFormFormSet'].has_changed() and
-            form.changed_data):
-            update_shipment_status(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
-            update_order_status(form)
+        formsets_dict = {formset.__class__.__name__: formset
+                         for formset in formsets}
+        if ('ShipmentReschedulingFormFormSet' in formsets_dict and
+            formsets_dict['ShipmentReschedulingFormFormSet'].has_changed() and
+                not form.changed_data):
+            # if reschedule option selected but not return reason
+            reshedule_update_shipment(
+                form_instance,
+                formsets_dict['OrderedProductMappingFormFormSet']
+            )
+        elif ('OrderedProductMappingFormFormSet' in formsets_dict and
+              formsets_dict[
+                'OrderedProductMappingFormFormSet'].has_changed() and
+              form.changed_data):
+            # if return reason is selected and return qty is entered
+            update_shipment_status(
+                form_instance,
+                formsets_dict['OrderedProductMappingFormFormSet']
+            )
             create_credit_note(form)
-        super(OrderedProductAdmin, self).save_related(request, form, formsets, change)
-
+        update_order_status(
+            close_order_checked=False,
+            shipment_id=form_instance.id
+        )
+        super(OrderedProductAdmin, self).save_related(request, form,
+                                                      formsets, change)
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
@@ -734,11 +771,20 @@ class ShipmentAdmin(admin.ModelAdmin):
         return str(city)
 
     def save_related(self, request, form, formsets, change):
-        super(ShipmentAdmin, self).save_related(request, form, formsets, change)
         #update_shipment_status(form, formsets)
-        update_order_status(form)
-        update_quantity = UpdateSpQuantity(form, formsets)
-        update_quantity.update()
+        update_order_status(
+            close_order_checked=form.cleaned_data.get('close_order'),
+            shipment_id=form.instance.id
+        )
+
+        if (form.cleaned_data.get('close_order') and
+                (form.instance.shipment_status !=
+                 form.instance.CLOSED)):
+
+            update_quantity = UpdateSpQuantity(form, formsets)
+            update_quantity.update()
+        super(ShipmentAdmin, self).save_related(request, form, formsets, change)
+
 
     def get_queryset(self, request):
         qs = super(ShipmentAdmin, self).get_queryset(request)
