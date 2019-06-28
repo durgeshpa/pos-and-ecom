@@ -294,15 +294,18 @@ def assign_picker(request):
                     order_instance.save()
             return redirect('/admin/retailer_to_sp/pickerdashboard/')
     # form for assigning picker
-    form = AssignPickerForm() #request.user)
+    form = AssignPickerForm(request.user)
 
     # form for listing orders
-    #order_form = OrderForm(request.user)
+    # order for the shop related to user
+    shop = Shop.objects.get(related_users=request.user)
+    picker_orders = Order.objects.filter(seller_shop=shop)
+    #order_form = PickerOrderForm(picker_order)
 
     return render(
         request,
         'admin/retailer_to_sp/picker/AssignPicker.html',
-        {'form': form,}# 'order_form': order_form }
+        {'form': form, 'picker_orders': picker_orders }
     )
 
 

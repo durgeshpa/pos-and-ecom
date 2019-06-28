@@ -278,14 +278,19 @@ class AssignPickerForm(forms.ModelForm):
         }
 
     def __init__(self, user, *args, **kwargs):
-        super(PickerDashboardForm, self).__init__(*args, **kwargs)
+        super(AssignPickerForm, self).__init__(*args, **kwargs)
 
         instance = getattr(self, 'instance', None)
         # assign shop name as readonly with value for shop name for user
-        if user.is_superuser:
-            self.fields['shop'].queryset = Shop.objects.filter(shop_type__shop_type__in=['sp', 'gf'])
-        else:
-            self.fields['shop'].queryset = Shop.objects.filter(related_users=user)
+        shop = Shop.objects.last()  #get(related_users=user)      
+        self.fields['shop'].initial = shop.__str__() 
+ 
+        # find all picker for the shop
+        self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker"])
+        # if user.is_superuser:
+        #     self.fields['shop'].queryset = Shop.objects.filter(shop_type__shop_type__in=['sp', 'gf'])
+        # else:
+        #     self.fields['shop'].queryset = Shop.objects.filter(related_users=user)
 
 
 
