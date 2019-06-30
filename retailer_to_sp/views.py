@@ -298,7 +298,7 @@ def assign_picker(request):
 
     # form for listing orders
     # order for the shop related to user
-    shop = Shop.objects.get(related_users=request.user)
+    shop = Shop.objects.filter(related_users=request.user)[0]
     picker_orders = Order.objects.filter(seller_shop=shop)
     #order_form = PickerOrderForm(picker_order)
 

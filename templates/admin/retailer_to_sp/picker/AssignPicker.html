@@ -2,8 +2,8 @@
 
 {% block title %}Trip Planning | Admin{% endblock %}
 {% block breadcrumb1 %}Retailer_To_Sp{% endblock %}
-{% block breadcrumb2 %}Trip{% endblock %}
-{% block breadcrumb3 %}Trip Planning{% endblock %}
+{% block breadcrumb2 %}Picker Dashboard{% endblock %}
+{% block breadcrumb3 %}Assign Picker{% endblock %}
 
 {% block content %}
           <!-- Content -->
@@ -17,6 +17,28 @@
                </ul>
                <form method="post" enctype="multipart/form-data">
                   <div>
+                    <fieldset class="module aligned ">
+                        {% csrf_token %}
+                        {% if form.errors %}
+                        {% for error in form.non_field_errors %}
+                        <p class="errornote">
+                           {{ error|escape }}
+                        </p>
+                        {% endfor %}
+                        {% endif %}
+                        {% for hidden in form.hidden_fields %}
+                        {{ hidden.errors }}
+                        {{ hidden }}
+                        {% endfor %}
+                        {% for field in form.visible_fields %}
+                        <p><label for="{{ field.auto_id }}">{{field.label}}:    {% if field.field.required %}
+                           <span class="required">*</span>
+                           {% endif %}
+                           </label>{{ field.errors }}{{ field }}
+                        </p>
+                        {{ field.widget.attrs.id }}
+                        {% endfor %}
+                     </fieldset>
                      <div class="js-inline-admin-formset inline-group"
                         data-inline-type="tabular"
                         data-inline-formset="{&quot;name&quot;: &quot;#rt_order_product_order_product_mapping&quot;, &quot;options&quot;: {&quot;prefix&quot;: &quot;rt_order_product_order_product_mapping&quot;, &quot;addText&quot;: &quot;Add another Ordered product mapping&quot;, &quot;deleteText&quot;: &quot;Remove&quot;}}">
@@ -32,7 +54,8 @@
                                     <th>Order date</th>
                                     <!-- <th>Download Picklist</th> -->
                                  </tr>
-                                 {%for order in picker_orders%}
+                               </thead>
+                               {% for order in picker_orders %}
                                  <tr id="loading">
                                     <td></td>
                                     <td>{{ order.order_no }}</td>
@@ -40,7 +63,7 @@
                                     <td>{{ order.created_at  }}</td>
                                     <!-- <td></td> -->
                                  </tr>
-                               </thead>
+                                {% endfor %} 
                               </tbody>
                            </table>
                         </div>
@@ -62,7 +85,7 @@
     
   var list = new Array();
 
-  $(document).ready(function() {
+/*  $(document).ready(function() {
     HideField('tr#heading');
     HideField('tr#loading');
     Select2Field('#id_seller_shop');
@@ -71,7 +94,7 @@
     GetResultOnChangeSellerShop();
     GetResultOnTypingArea();
     AddCheckedIDToList();
-  });
+  });*/
 
 
 
