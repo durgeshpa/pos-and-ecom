@@ -457,6 +457,10 @@ class Trip(models.Model):
                 shipment.cash_to_be_collected())
         return round(sum(cash_to_be_collected), 2)
 
+    @property
+    def cash_to_be_collected_value(self):
+        return self.cash_to_be_collected()
+
     def total_trip_amount(self):
         trip_shipments = self.rt_invoice_trip.all()
         trip_amount = []
