@@ -128,14 +128,14 @@ class Cart(models.Model):
     @property
     def subtotal(self):
         try:
-            return self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum']
+            return round(self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum'],2)
         except: 
             return None
 
     @property
     def mrp_subtotal(self):
         try:
-            return self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__mrp') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum']
+            return round(self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__mrp') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum'],2)
         except:
             return None
 
