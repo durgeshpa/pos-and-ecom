@@ -12,5 +12,10 @@ $("input[id$='already_grned_product']").prop('readonly', true).css('border','non
 $( "form" ).submit(function( event ) {
   $("select[id$='product']").attr('disabled', false);
 });
+
+$( "#id_invoice_date" ).datepicker({ maxDate: '0' });
+
 </script>
+
+
 {% endblock %}
