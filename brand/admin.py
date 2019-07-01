@@ -129,6 +129,8 @@ class VendorAdmin(admin.ModelAdmin):
         ] + urls
         return urls
 
+    change_list_template = 'admin/gram_to_brand/order/change_list.html'
+
 admin.site.register(Vendor,VendorAdmin)
 admin.site.register(Brand,BrandAdmin)
 admin.site.register(BrandPosition, BrandPositionAdmin)
