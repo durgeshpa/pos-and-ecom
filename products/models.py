@@ -377,11 +377,11 @@ def create_product_vendor_mapping(sender, instance=None, created=False, **kwargs
         first_row = next(reader)
         product_mapping = []
         for row in reader:
-            if row[3]:
+            if row[4]:
                 vendor_product = ProductVendorMapping.objects.filter(vendor=vendor, product_id=row[0])
                 if vendor_product.exists():
                     vendor_product.update(status=False)
-                product_mapping.append(ProductVendorMapping(vendor=vendor, product_id=row[0], product_mrp=row[3], product_price=row[4],case_size=row[5]))
+                product_mapping.append(ProductVendorMapping(vendor=vendor, product_id=row[0], product_mrp=row[4], product_price=row[5],case_size=row[6]))
 
         ProductVendorMapping.objects.bulk_create(product_mapping)
         #ProductVendorMapping.objects.bulk_create([ProductVendorMapping(vendor=vendor, product_id = row[0], product_price=row[3]) for row in reader if row[3]])
