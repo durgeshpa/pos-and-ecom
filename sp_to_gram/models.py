@@ -493,3 +493,4 @@ def create_credit_note(instance=None, created=False, **kwargs):
         # update credit note amount
         credit_note.amount = credit_amount
         credit_note.save()
+
