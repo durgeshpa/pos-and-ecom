@@ -98,4 +98,4 @@ class ProductVendorMappingForm(forms.ModelForm):
         fields = ('product','sku','product_price','product_mrp','case_size')
 
     class Media:
-        js = ('/static/admin/js/vendor_form.js',)
+        js = ('/static/admin/js/brand_vendor_form.js',)
