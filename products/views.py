@@ -25,6 +25,7 @@ from products.models import (
 
 logger = logging.getLogger(__name__)
 from dal import autocomplete
+from django.db.models import Q
 
 def load_cities(request):
     """Return list of cities for specific state id
@@ -681,7 +682,10 @@ class ProductPriceAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qs = None
         if self.q:
-            qs = Product.objects.filter(product_name__icontains=self.q)
+            qs = Product.objects.filter(
+                Q(product_name__icontains=self.q) |
+                Q(product_sku__iexact=self.q)
+            )
         return qs
 
 class ProductCategoryAutocomplete(autocomplete.Select2QuerySetView):

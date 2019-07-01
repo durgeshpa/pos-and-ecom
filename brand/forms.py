@@ -77,11 +77,15 @@ class BrandForm(forms.ModelForm):
         fields = '__all__'
 
 class ProductVendorMappingForm(forms.ModelForm):
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:product-price-autocomplete', )
+    )
     def __init__(self, *args, **kwargs):
         super(ProductVendorMappingForm, self).__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
         if instance and instance.pk:
-            self.fields['product'].widget.attrs['readonly'] = True
+            self.fields['product'].disabled = True
             self.fields['product_price'].widget.attrs['readonly'] = True
             self.fields['product_mrp'].widget.attrs['readonly'] = True
             self.fields['case_size'].widget.attrs['readonly'] = True
