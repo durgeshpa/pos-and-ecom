@@ -81,6 +81,8 @@ class ProductVendorMappingForm(forms.ModelForm):
         queryset=Product.objects.all(),
         widget=autocomplete.ModelSelect2(url='admin:product-price-autocomplete', )
     )
+    sku = forms.CharField(disabled=True, required=False)
+
     def __init__(self, *args, **kwargs):
         super(ProductVendorMappingForm, self).__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
@@ -89,6 +91,11 @@ class ProductVendorMappingForm(forms.ModelForm):
             self.fields['product_price'].widget.attrs['readonly'] = True
             self.fields['product_mrp'].widget.attrs['readonly'] = True
             self.fields['case_size'].widget.attrs['readonly'] = True
+            self.fields['sku'].initial = kwargs['instance'].sku
 
     class Meta:
         Model = ProductVendorMapping
+        fields = ('product','sku','product_price','product_mrp','case_size')
+
+    class Media:
+        js = ('/static/admin/js/vendor_form.js',)

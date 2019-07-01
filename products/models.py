@@ -368,6 +368,9 @@ class ProductVendorMapping(models.Model):
     def __str__(self):
         return '%s' % (self.vendor)
 
+    def sku(self):
+        return self.product.product_sku
+
 @receiver(post_save, sender=Vendor)
 def create_product_vendor_mapping(sender, instance=None, created=False, **kwargs):
     vendor = instance
