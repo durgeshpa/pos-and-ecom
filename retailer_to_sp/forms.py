@@ -626,31 +626,31 @@ class OrderForm(forms.ModelForm):
     class Media:
         js = ('/static/admin/js/retailer_cart.js',)
 
-    # def clean(self):
-    #     if self.instance.order_status == 'CANCELLED':
-    #         raise forms.ValidationError(_('This order is already cancelled!'),)
-    #     data = self.cleaned_data
-    #     if self.cleaned_data.get('order_status') == 'CANCELLED':
-    #         shipments_data = list(self.instance.rt_order_order_product.values(
-    #             'id', 'shipment_status', 'trip__trip_status'))
-    #         if len(shipments_data) == 1:
-    #             # last shipment
-    #             s = shipments_data[-1]
-    #             if (s['shipment_status'] not in ['SHIPMENT_CREATED', 'READY_TO_SHIP', 'READY_TO_DISPATCH']):
-    #                 raise forms.ValidationError(
-    #                     _('Sorry! This order cannot be cancelled'),)
-    #             elif (s['trip__trip_status'] and s['trip__trip_status'] != 'READY'):
-    #                 raise forms.ValidationError(
-    #                     _('Sorry! This order cannot be cancelled'),)
-    #         elif len(shipments_data) > 1:
-    #             shipments_status = set([x['shipment_status'] for x in shipments_data])
-    #             shipments_status_count = len(shipments_status)
-    #             if (shipments_status_count != 1 and
-    #                     list(shipments_status)[-1] != 'SHIPMENT_CREATED'):
-    #                 raise forms.ValidationError(
-    #                     _('Sorry! This order cannot be cancelled'),)
-    #         else:
-    #             return data
+    def clean(self):
+        if self.instance.order_status == 'CANCELLED':
+            raise forms.ValidationError(_('This order is already cancelled!'),)
+        data = self.cleaned_data
+        if self.cleaned_data.get('order_status') == 'CANCELLED':
+            shipments_data = list(self.instance.rt_order_order_product.values(
+                'id', 'shipment_status', 'trip__trip_status'))
+            if len(shipments_data) == 1:
+                # last shipment
+                s = shipments_data[-1]
+                if (s['shipment_status'] not in ['SHIPMENT_CREATED', 'READY_TO_SHIP', 'READY_TO_DISPATCH']):
+                    raise forms.ValidationError(
+                        _('Sorry! This order cannot be cancelled'),)
+                elif (s['trip__trip_status'] and s['trip__trip_status'] != 'READY'):
+                    raise forms.ValidationError(
+                        _('Sorry! This order cannot be cancelled'),)
+            elif len(shipments_data) > 1:
+                shipments_status = set([x['shipment_status'] for x in shipments_data])
+                shipments_status_count = len(shipments_status)
+                if (shipments_status_count != 1 and
+                        list(shipments_status)[-1] != 'SHIPMENT_CREATED'):
+                    raise forms.ValidationError(
+                        _('Sorry! This order cannot be cancelled'),)
+            else:
+                return data
 
     def __init__(self, *args, **kwargs):
         super(OrderForm, self).__init__(*args, **kwargs)

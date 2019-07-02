@@ -1222,12 +1222,33 @@ class FeedbackData(generics.ListCreateAPIView):
         return Response(msg, status=status.HTTP_200_OK)
 
 
-class CancelOrder(generics.UpdateAPIView):
+class CancelOrder(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
-    serializer_class = CancelOrderSerializer
 
-    def post(self, request, format=None):
-        serializer = CancelOrderSerializer(data=request.data, partial=True)
+    def put(self, request, format=None):
+        user = self.request.user
+        import pdb; pdb.set_trace()
+        serializer = CancelOrderSerializer(data=request.data)
         if serializer.is_valid():
-            import pdb; pdb.set_trace()
+            serializer.save()
+            msg = {'is_success': True,
+                    'message': ["User details updated!"],
+                    'response_data': serializer.data}
+            return Response(msg,
+                            status=status.HTTP_200_OK)
+        else:
+            errors = []
+            for field in serializer.errors:
+                for error in serializer.errors[field]:
+                    if 'non_field_errors' in field:
+                        result = error
+                    else:
+                        result = ''.join('{} : {}'.format(field,error))
+                    errors.append(result)
+            msg = {'is_success': False,
+                    'message': [error for error in errors],
+                    'response_data': None }
+            return Response(msg,
+                            status=status.HTTP_406_NOT_ACCEPTABLE)
+
