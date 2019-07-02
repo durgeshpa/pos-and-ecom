@@ -11,10 +11,14 @@ from django.contrib.postgres.search import SearchVector
 from django_filters import rest_framework as filters
 
 from rest_framework import generics
-from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,
-                          OrderSerializer, CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
-
-                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer, OrderListSerializer, FeedBackSerializer )
+from .serializers import (
+    ProductsSearchSerializer, GramGRNProductsSearchSerializer,
+    CartProductMappingSerializer, CartSerializer, OrderSerializer,
+    CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,
+    PaymentNeftSerializer, GramPaymentCodSerializer,
+    GramPaymentNeftSerializer, GramMappedCartSerializer,
+    GramMappedOrderSerializer, ProductDetailSerializer, OrderDetailSerializer,
+    OrderListSerializer, FeedBackSerializer, CancelOrderSerializer)
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
 from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
                                 OrderedProduct as SPOrderedProduct, StockAdjustment)
@@ -1216,3 +1220,14 @@ class FeedbackData(generics.ListCreateAPIView):
         serializer = self.get_serializer(queryset, many=True)
         msg = {'is_success': True, 'message': [""], 'response_data': serializer.data}
         return Response(msg, status=status.HTTP_200_OK)
+
+
+class CancelOrder(generics.UpdateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = CancelOrderSerializer
+
+    def post(self, request, format=None):
+        serializer = CancelOrderSerializer(data=request.data, partial=True)
+        if serializer.is_valid():
+            import pdb; pdb.set_trace()

@@ -700,3 +700,14 @@ class FeedBackSerializer(serializers.ModelSerializer):
         model = Feedback
         fields = ('user', 'shipment', 'delivery_experience', 'overall_product_packaging', 'comment', 'status')
         extra_kwargs = {'status': {'required': True}, 'user':{'required':False}}
+
+
+class CancelOrderSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Order
+        fields = ('pk', 'order_status')
+        extra_kwargs = {
+            'pk': {'required': True},
+            'order_status': {'required': True},
+        }
