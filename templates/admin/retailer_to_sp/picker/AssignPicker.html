@@ -57,7 +57,7 @@
                                </thead>
                                {% for order in picker_orders %}
                                  <tr id="loading">
-                                    <td></td>
+                                    <td><input type='checkbox' class='order_checkbox' value='{{ order.id }}' ></td>
                                     <td>{{ order.order_no }}</td>
                                     <td>{{ order.picklist_id }}</td>
                                     <td>{{ order.created_at  }}</td>
@@ -85,16 +85,16 @@
     
   var list = new Array();
 
-/*  $(document).ready(function() {
-    HideField('tr#heading');
+  $(document).ready(function() {
+/*    HideField('tr#heading');
     HideField('tr#loading');
     Select2Field('#id_seller_shop');
-    Select2Field('#id_delivery_boy');
+    Select2Field('#id_delivery_boy');*/
     SubmitFormConfirmDialog();
-    GetResultOnChangeSellerShop();
-    GetResultOnTypingArea();
-    AddCheckedIDToList();
-  });*/
+    //GetResultOnChangeSellerShop();
+    //GetResultOnTypingArea();
+    AddRemoveCheckedIDToList();
+  });
 
 
 
@@ -157,8 +157,9 @@ function GetTripStatus(){
   return $('select#id_trip_status').val();
 }
 
-function AddCheckedIDToList(){
+function AddRemoveCheckedIDToList(){
   $(document).on("change", "input[type='checkbox']", function () {
+    //alert("test");
     if(this.checked) {
           list.push($(this).val());
           $('#id_selected_id').val(list);

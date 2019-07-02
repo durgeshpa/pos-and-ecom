@@ -275,7 +275,7 @@ class Order(models.Model):
     total_discount_amount = models.FloatField(default=0)
     total_tax_amount = models.FloatField(default=0)
 
-    picking_status = models.CharField(max_length=50,choices=PICKING_STATUS, default='picking_not_started')
+    picking_status = models.CharField(max_length=50,choices=PICKING_STATUS, default='picking_pending')
     assigned_picker = models.ForeignKey(
         get_user_model(), related_name='order_assigned_picker',
         null=True, blank=True, on_delete=models.SET_NULL
@@ -414,17 +414,23 @@ class Order(models.Model):
     #     return order_delivered_value(self.shipments())
 
 
-class PickerDashboard(models.Model):
+# class PickerDashboard(models.Model):
 
-    order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE)
-    picklist_id = models.CharField(max_length=255, null=True, blank=True)
-    picker_boy = models.ForeignKey(
-        UserWithName, related_name='picker_user',
-        on_delete=models.CASCADE, verbose_name='Picker Boy'
-    )
-    order_date = models.DateField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
+#     order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE)
+#     picklist_id = models.CharField(max_length=255, null=True, blank=True)
+#     picker_boy = models.ForeignKey(
+#         UserWithName, related_name='picker_user',
+#         on_delete=models.CASCADE, verbose_name='Picker Boy'
+#     )
+#     order_date = models.DateField()
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     modified_at = models.DateTimeField(auto_now=True)
+
+class PickerDashboard(Order):
+    class Meta:
+        proxy = True
+        verbose_name = _("Picker Dashboard")
+        verbose_name_plural = _("Picker Dashboard")
 
     def __str__(self):
         return self.picklist_id

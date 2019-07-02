@@ -486,8 +486,11 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     actions = ["change_picking_status"]
     model = PickerDashboard
     #form = PickerDashboardForm
+    # list_display = (
+    #     'id', 'picklist_id', 'picker_boy', 'order_date', 'download_pick_list'
+    #     )
     list_display = (
-        'order', 'picklist_id', 'picker_boy', 'order_date', 'download_pick_list'
+        'id', 'picklist_id', 'assigned_picker', 'created_at', 'download_pick_list'
         )
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
     # readonly_fields = []
@@ -517,10 +520,10 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     change_picking_status.short_description = "Mark selected orders as picking completed"
 
     def download_pick_list(self,obj):
-        if obj.order.order_status not in ["active", "pending"]:
+        if obj.order_status not in ["active", "pending"]:
             return format_html(
                 "<a href= '%s' >Download Pick List</a>" %
-                (reverse('download_pick_list_sp', args=[obj.order.pk]))
+                (reverse('download_pick_list_sp', args=[obj.pk]))
             )
     download_pick_list.short_description = 'Download Pick List'
 

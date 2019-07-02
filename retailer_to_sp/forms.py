@@ -32,6 +32,8 @@ from accounts.models import UserWithName
 from accounts.middlewares import get_current_user
 from addresses.models import Address
 
+User = get_user_model()
+
 
 class PlainTextWidget(forms.Widget):
     def render(self, name, value, attrs=None, renderer=None):
@@ -59,6 +61,30 @@ class RelatedFieldWidgetCanAdd(widgets.Select):
             (self.related_url, name))
         output.append('<img src="/static/admin/img/icon-addlink.svg" width="10" height="10" \
             alt="Add"/>Add Delivery Boy</a>')
+        return mark_safe(''.join(output))
+
+
+class RelatedFieldWidgetCanAddPicker(widgets.Select):
+
+    def __init__(self, related_model, related_url=None, *args, **kw):
+
+        super(RelatedFieldWidgetCanAddPicker, self).__init__(*args, **kw)
+        if not related_url:
+            rel_to = related_model
+            info = (rel_to._meta.app_label, rel_to._meta.object_name.lower())
+            related_url = 'admin:%s_%s_add' % info
+
+        # Be careful that here "reverse" is not allowed
+        self.related_url = related_url
+
+    def render(self, name, value, *args, **kwargs):
+        self.related_url = reverse(self.related_url)
+        output = [super(RelatedFieldWidgetCanAddPicker, self).render(name, value, *args, **kwargs)]
+        output.append('<a href="%s" class="related-widget-wrapper-link add-related" id="add_id_%s" \
+            onclick="return showAddAnotherPopup(this);"> ' %
+            (self.related_url, name))
+        output.append('<img src="/static/admin/img/icon-addlink.svg" width="10" height="10" \
+            alt="Add"/>Add Picker Boy</a>')
         return mark_safe(''.join(output))
 
 
@@ -248,15 +274,15 @@ class OrderedProductDispatchForm(forms.ModelForm):
         #self.fields['order'].required = True
 
 class AssignPickerForm(forms.ModelForm):
-    picker_boy = forms.ModelChoiceField(
+    assigned_picker = forms.ModelChoiceField(
                         queryset=UserWithName.objects.all(),
-                        widget=RelatedFieldWidgetCanAdd(
+                        widget=RelatedFieldWidgetCanAddPicker(
                                 UserWithName,
                                 related_url="admin:accounts_user_add"))
     # selecting shop related to user
     shop = forms.CharField()
-    picklist_id = forms.CharField(required=False)
-    order_date = forms.DateField(required=False)
+    # picklist_id = forms.Chardelivery_boyField(required=False)
+    # order_date = forms.DateField(required=False)
 
     # for receiving selected orders
     selected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
@@ -264,7 +290,7 @@ class AssignPickerForm(forms.ModelForm):
 
     class Meta:
         model = PickerDashboard
-        fields = ['picker_boy', 'shop', 'picklist_id', 'order_date', 'selected_id', 'unselected_id', ]
+        fields = ['assigned_picker', 'shop', 'selected_id', 'unselected_id', ]
         # fields = ['seller_shop', 'delivery_boy', 'vehicle_no', 'trip_status',
         #           'e_way_bill_no', 'search_by_area', 'selected_id',
         #           'unselected_id']
@@ -282,16 +308,12 @@ class AssignPickerForm(forms.ModelForm):
 
         instance = getattr(self, 'instance', None)
         # assign shop name as readonly with value for shop name for user
-        shop = Shop.objects.last()  #get(related_users=user)      
+        #shop = Shop.objects.get(related_users=user)      
+        shop = Shop.objects.get(shop_name="TEST SP 1")
         self.fields['shop'].initial = shop.__str__() 
  
         # find all picker for the shop
-        self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker"])
-        # if user.is_superuser:
-        #     self.fields['shop'].queryset = Shop.objects.filter(shop_type__shop_type__in=['sp', 'gf'])
-        # else:
-        #     self.fields['shop'].queryset = Shop.objects.filter(related_users=user)
-
+        self.fields['assigned_picker'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
 
 
 class TripForm(forms.ModelForm):

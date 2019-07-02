@@ -280,26 +280,28 @@ def assign_picker(request):
     if request.method == 'POST':
         # saving picker data to pickerdashboard model
         form = AssignPickerForm(request.user, request.POST)
+        #import pdb; pdb.set_trace()
         if form.is_valid():
-            assign_picker_form = form.save()
+            #assign_picker_form = form.save()
             #saving selected order picking status
             selected_orders = form.cleaned_data.get('selected_id', None)
+            assigned_picker = form.cleaned_data.get('assigned_picker', None)
             if selected_orders:
                 selected_orders = selected_orders.split(',')
                 selected_orders = Order.objects.filter(
                                                     pk__in=selected_orders)
                 for order_instance in selected_orders:
-                    order_instance.picker_boy = picker_boy
+                    order_instance.assigned_picker = assigned_picker
                     order_instance.order_status = 'picking_assigned'
                     order_instance.save()
             return redirect('/admin/retailer_to_sp/pickerdashboard/')
     # form for assigning picker
     form = AssignPickerForm(request.user)
 
-    # form for listing orders
     # order for the shop related to user
-    shop = Shop.objects.filter(related_users=request.user)[0]
-    picker_orders = Order.objects.filter(seller_shop=shop)
+    #shop = Shop.objects.filter(related_users=request.user)[0]
+    shop = Shop.objects.get(shop_name="TEST SP 1")
+    picker_orders = Order.objects.filter(seller_shop=shop, picking_status='picking_pending')
     #order_form = PickerOrderForm(picker_order)
 
     return render(
