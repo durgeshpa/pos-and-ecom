@@ -274,6 +274,7 @@ def ordered_product_mapping_shipment(request):
         {'ordered_form': form, 'formset': form_set}
     )
 
+# test for superuser, warehouse manager, superuser
 def assign_picker(request):
     
     #assign picker to an order/ multiple orders
@@ -309,7 +310,6 @@ def assign_picker(request):
         'admin/retailer_to_sp/picker/AssignPicker.html',
         {'form': form, 'picker_orders': picker_orders }
     )
-
 
 
 def trip_planning(request):

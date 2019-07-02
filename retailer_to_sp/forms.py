@@ -273,6 +273,8 @@ class OrderedProductDispatchForm(forms.ModelForm):
         super(OrderedProductDispatchForm, self).__init__(*args, **kwargs)
         #self.fields['order'].required = True
 
+
+# tbd: test for warehouse manager, superuser, other users
 class AssignPickerForm(forms.ModelForm):
     assigned_picker = forms.ModelChoiceField(
                         queryset=UserWithName.objects.all(),

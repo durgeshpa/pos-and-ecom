@@ -434,7 +434,10 @@ class PickerBoyFilter(InputFilter):
     def queryset(self, request, queryset):
         value = self.value()
         if value :
-            return queryset.filter(picker_boy__first_name__icontains=value)
+            return queryset.filter(
+                Q(assigned_picker__first_name__icontains=value) |
+                  Q(assigned_picker__phone_number=value)
+                )
         return queryset
 
 
