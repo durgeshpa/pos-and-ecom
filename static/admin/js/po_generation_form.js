@@ -1,14 +1,14 @@
 (function ($) {
-    $(document).on("submit", "form", function (e) {
-    var oForm = $(this);
-    var formId = oForm.attr("id");
-    if( $("#id_brand").val() &&  $("#id_supplier_state").val() && $("#id_supplier_name").val() &&
-     $("#id_gf_shipping_address").val() && $("#id_gf_billing_address").val() &&  $("#id_po_validity_date").val() && $("#id_cart_list-0-cart_product").val() ){
-        var firstValue = oForm.find("input").first().val();
-        var c = confirm("Are you sure?");
-        return c;
-     }
-    })
+//    $(document).on("submit", "form", function (e) {
+//    var oForm = $(this);
+//    var formId = oForm.attr("id");
+//    if( $("#id_brand").val() &&  $("#id_supplier_state").val() && $("#id_supplier_name").val() &&
+//     $("#id_gf_shipping_address").val() && $("#id_gf_billing_address").val() &&  $("#id_po_validity_date").val() && $("#id_cart_list-0-cart_product").val() ){
+//        var firstValue = oForm.find("input").first().val();
+//        var c = confirm("Are you sure?");
+//        return c;
+//     }
+//    })
     function openDetails() {
       alert('changed')
     }
@@ -27,7 +27,7 @@
             var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '')+'/';
             var supplier_id = $('#id_supplier_name').val();
             var present_id = $(this) ;
-            $.ajax({ data: ({'supplier_id':supplier_id, 'product_id':$(this).val() }) ,
+            $.ajax({ data: ({'supplier_id':supplier_id, 'product_id':$(this).val()}) ,
                 type: 'GET',
                 dataType: 'json',
                 url: host+'gram/brand/vendor-product-price/',

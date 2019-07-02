@@ -10,8 +10,8 @@ $( document ).ready(function() {
     console.log("loaded");
 
     $('.submit-row').on('click','input[type=submit]', function(e){
-      
-           $('.submit-row').hide();
+        var c = confirm("Are you sure?");
+        return c;
     });
 });
 
