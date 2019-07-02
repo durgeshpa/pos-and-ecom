@@ -287,16 +287,21 @@ class GRNOrderAdmin(admin.ModelAdmin):
     change_list_template = 'admin/gram_to_brand/order/change_list.html'
 
     def save_related(self, request, form, formsets, change):
-        flag = 0
+        flag = 'DLVR'
         super(GRNOrderAdmin, self).save_related(request, form, formsets, change)
         obj = form.instance
         obj.order.ordered_cart.cart_list.values('cart_product', 'no_of_pieces')
-        grn_list_map = {i['product']: i['delivered_qty_sum'] for i in GRNOrderProductMapping.objects.filter(grn_order__order=obj.order).values('product').annotate(delivered_qty_sum=Sum('delivered_qty'))}
+        grn_list_map = {i['product']: (i['delivered_qty_sum'],i['returned_qty_sum'],i['returned_qty_totalsum']) for i in GRNOrderProductMapping.objects.filter(grn_order__order=obj.order).values('product').annotate(delivered_qty_sum=Sum('delivered_qty')).annotate(returned_qty_sum=Sum('returned_qty')).aggregate(returned_qty_totalsum=Sum('returned_qty'))}
         for product_price_map in obj.order.ordered_cart.cart_list.values('cart_product', 'no_of_pieces'):
-            if grn_list_map[product_price_map['cart_product']] != product_price_map['no_of_pieces']:
-                flag = 1
+            if grn_list_map[product_price_map['cart_product']][2]>0:
+                flag = 'PDLC'
+                if grn_list_map[product_price_map['cart_product']][0] + grn_list_map[product_price_map['cart_product']][1] != product_price_map['no_of_pieces']:
+                    flag = 'PDLV'
+                    break
+            if grn_list_map[product_price_map['cart_product']][0] != product_price_map['no_of_pieces']:
+                flag = 'PDLV'
                 break
-        obj.order.ordered_cart.po_status = 'PDLV' if flag == 1 else 'DLVR'
+        obj.order.ordered_cart.po_status = flag
         obj.order.ordered_cart.save()
 
 class OrderAdmin(admin.ModelAdmin):
