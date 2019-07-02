@@ -448,5 +448,6 @@ class GetMessage(APIView):
         return Response({
             "message": [""],
             "response_data": data,
-            "is_success": is_success
+            "is_success": is_success,
+            "po_status":po_obj.po_status
         })

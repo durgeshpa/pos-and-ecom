@@ -98,6 +98,19 @@
                 dataType: 'json',
                 url: host+'admin/gram_to_brand/cart/message-list/',
                 success: function(response) {
+                    // Po buttons visiblity code
+                    if (response['po_status']== 'PDLV') { $(':input[name="_close"]').prop('disabled', false); }
+                    else if(response['po_status']== 'WAIT') {
+                        $(':input[name="_disapprove"]').prop('disabled', false); $(':input[name="_approve"]').prop('disabled', false);
+                    }else if(response['po_status']== 'OPEN' || response['po_status']== 'WAIT'){
+                        $(':input[name="_approval_await"]').prop('disabled', false);
+                    }else{
+                        $(':input[name="_close"]').prop('disabled', true);
+                        $(':input[name="_disapprove"]').prop('disabled', true);
+                        $(':input[name="_approve"]').prop('disabled', true);
+                        $(':input[name="_approval_await"]').prop('disabled', true);
+                    }
+
                     $("#loading").hide();
                     if(response['is_success']) {
                         $("#data").append("<tr class='row0'><td>"+response['response_data'][0].user+"</td><td>"+response['response_data'][0].message+"</td><td>"+response['response_data'][0].created_at+"</td></tr>")
