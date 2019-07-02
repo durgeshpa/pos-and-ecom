@@ -3,7 +3,7 @@ from .models import (Order,Cart,CartProductMapping,GRNOrder,GRNOrderProductMappi
                      OrderedProductReserved,Po_Message, Document)
 from products.models import Product
 from django import forms
-from django.db.models import Sum
+from django.db.models import Sum, F
 from django.utils.html import format_html
 from django_select2.forms import Select2MultipleWidget,ModelSelect2Widget
 from dal import autocomplete
@@ -151,9 +151,9 @@ class CartAdmin(admin.ModelAdmin):
                 self.admin_site.admin_view(DownloadPurchaseOrder.as_view()),
                 name='download_purchase_order'),
 
-           url(r'^message-list/$',
-               self.admin_site.admin_view(GetMessage.as_view()),
-               name='message-list'),
+            url(r'^message-list/$',
+                self.admin_site.admin_view(GetMessage.as_view()),
+                name='message-list'),
         ] + urls
         return urls
 
@@ -291,14 +291,19 @@ class GRNOrderAdmin(admin.ModelAdmin):
         super(GRNOrderAdmin, self).save_related(request, form, formsets, change)
         obj = form.instance
         obj.order.ordered_cart.cart_list.values('cart_product', 'no_of_pieces')
-        grn_list_map = {i['product']: (i['delivered_qty_sum'],i['returned_qty_sum'],i['returned_qty_totalsum']) for i in GRNOrderProductMapping.objects.filter(grn_order__order=obj.order).values('product').annotate(delivered_qty_sum=Sum('delivered_qty')).annotate(returned_qty_sum=Sum('returned_qty')).aggregate(returned_qty_totalsum=Sum('returned_qty'))}
+        grn_list_map = {int(i['product']): (i['delivered_qty_sum'],i['returned_qty_sum']) for i in GRNOrderProductMapping.objects.filter(grn_order__order=obj.order).values('product')
+            .annotate(delivered_qty_sum=Sum(F('delivered_qty')))
+            .annotate(returned_qty_sum=Sum(F('returned_qty')))}
+        returned_qty_totalsum = GRNOrderProductMapping.objects.filter(grn_order__order=obj.order).aggregate(returned_qty_totalsum=Sum('returned_qty'))['returned_qty_totalsum']
         for product_price_map in obj.order.ordered_cart.cart_list.values('cart_product', 'no_of_pieces'):
-            if grn_list_map[product_price_map['cart_product']][2]>0:
+            if returned_qty_totalsum >0:
                 flag = 'PDLC'
-                if grn_list_map[product_price_map['cart_product']][0] + grn_list_map[product_price_map['cart_product']][1] != product_price_map['no_of_pieces']:
+                if grn_list_map[product_price_map['cart_product']][0] == 0 and grn_list_map[product_price_map['cart_product']][1] >= 0:
+                    flag = 'PARR'
+                elif grn_list_map[product_price_map['cart_product']][0] + grn_list_map[product_price_map['cart_product']][1] != product_price_map['no_of_pieces']:
                     flag = 'PDLV'
                     break
-            if grn_list_map[product_price_map['cart_product']][0] != product_price_map['no_of_pieces']:
+            elif grn_list_map[product_price_map['cart_product']][0] != product_price_map['no_of_pieces']:
                 flag = 'PDLV'
                 break
         obj.order.ordered_cart.po_status = flag
@@ -330,7 +335,7 @@ class OrderAdmin(admin.ModelAdmin):
     po_status.short_description = 'Po Status'
 
     def add_grn_link(self, obj):
-        if obj.ordered_cart.po_status in [obj.ordered_cart.FINANCE_APPROVED,obj.ordered_cart.PARTIAL_DELIVERED] :
+        if obj.ordered_cart.po_status in [obj.ordered_cart.FINANCE_APPROVED,obj.ordered_cart.PARTIAL_DELIVERED,obj.ordered_cart.PARTIAL_RETURN] :
             return format_html("<a href = '/admin/gram_to_brand/grnorder/add/?order=%s&cart=%s' class ='addlink' > Add GRN</a>"% (obj.id, obj.ordered_cart.id))
 
     add_grn_link.short_description = 'Add GRN'

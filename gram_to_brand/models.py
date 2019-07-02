@@ -84,6 +84,7 @@ class Cart(BaseCart):
     PARTIAL_DELIVERED_CLOSE = "PDLC"
     DELIVERED = "DLVR"
     CANCELED = "CNCL"
+    PARTIAL_RETURN = 'PARR'
     ORDER_STATUS = (
         (OPEN,"Open"),
         (APPROVAL_AWAITED, "Waiting For Finance Approval"),
@@ -91,6 +92,7 @@ class Cart(BaseCart):
         (DISAPPROVED, "Finance Not Approved"),
         (PARTIAL_DELIVERED, "Partial Delivered"),
         (PARTIAL_DELIVERED_CLOSE, "Partial Delivered and Closed"),
+        (PARTIAL_RETURN, "Partial Return"),
         (DELIVERED, "Completely delivered and Closed"),
         (CANCELED, "Canceled"),
     )

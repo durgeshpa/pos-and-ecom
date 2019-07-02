@@ -99,11 +99,23 @@
                 url: host+'admin/gram_to_brand/cart/message-list/',
                 success: function(response) {
                     // Po buttons visiblity code
-                    if (response['po_status']== 'PDLV') { $(':input[name="_close"]').prop('disabled', false); }
-                    else if(response['po_status']== 'WAIT') {
-                        $(':input[name="_disapprove"]').prop('disabled', false); $(':input[name="_approve"]').prop('disabled', false);
+                    if (response['po_status']== 'PDLV') {
+                        $(':input[name="_close"]').prop('disabled', false);
+                        $(':input[name="_disapprove"]').prop('disabled', true);
+                        $(':input[name="_approve"]').prop('disabled', true);
+                        $(':input[name="_approval_await"]').prop('disabled', true);
+                    }else if(response['po_status']== 'WAIT') {
+                        $(':input[name="_disapprove"]').prop('disabled', false);
+                        $(':input[name="_approve"]').prop('disabled', false);
+                        $(':input[name="_close"]').prop('disabled', true);
+                        $(':input[name="_approval_await"]').prop('disabled', true);
+
                     }else if(response['po_status']== 'OPEN' || response['po_status']== 'WAIT'){
                         $(':input[name="_approval_await"]').prop('disabled', false);
+                        $(':input[name="_close"]').prop('disabled', true);
+                        $(':input[name="_disapprove"]').prop('disabled', true);
+                        $(':input[name="_approve"]').prop('disabled', true);
+
                     }else{
                         $(':input[name="_close"]').prop('disabled', true);
                         $(':input[name="_disapprove"]').prop('disabled', true);

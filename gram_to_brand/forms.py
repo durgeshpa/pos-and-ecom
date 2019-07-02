@@ -65,7 +65,6 @@ class POGenerationForm(forms.ModelForm):
     )
 
     class Media:
-        pass
         js = ('/static/admin/js/po_generation_form.js',)
 
     class Meta:
@@ -117,6 +116,8 @@ class POGenerationForm(forms.ModelForm):
 
         return self.cleaned_data
 
+    change_form_template = 'admin/gram_to_brand/cart/change_form.html'
+
 class POGenerationAccountForm(forms.ModelForm):
 
     class Meta:
@@ -125,6 +126,10 @@ class POGenerationAccountForm(forms.ModelForm):
                   'gf_billing_address', 'po_validity_date', 'payment_term',
                   'delivery_term')
 
+    class Media:
+        js = ('/static/admin/js/po_generation_acc_form.js',)
+
+    change_form_template = 'admin/gram_to_brand/acc-cart/change_form.html'
 
 class CartProductMappingForm(forms.ModelForm):
     cart_product = forms.ModelChoiceField(
