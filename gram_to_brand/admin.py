@@ -22,7 +22,7 @@ from retailer_backend.filters import ( BrandFilter, SupplierStateFilter,Supplier
                                        GRNSearch, POAmountSearch, PORaisedBy)
 
 from django.db.models import Q
-from .views import DownloadPurchaseOrder
+from .views import DownloadPurchaseOrder, GetMessage
 from django.db import models
 from django.forms import Textarea
 
@@ -150,6 +150,10 @@ class CartAdmin(admin.ModelAdmin):
             url(r'^download-purchase-order/(?P<pk>\d+)/purchase_order/$',
                 self.admin_site.admin_view(DownloadPurchaseOrder.as_view()),
                 name='download_purchase_order'),
+
+           url(r'^message-list/$',
+               self.admin_site.admin_view(GetMessage.as_view()),
+               name='message-list'),
         ] + urls
         return urls
 
