@@ -142,6 +142,10 @@ class OrderReport(APIView):
                         product_cess = products.product.product_pro_tax.filter(tax__tax_type ='cess').last().tax.tax_percentage
                     else:
                         product_cess = ''
+                    invoice_id = shipment.id
+                    invoice_modified_at = shipment.modified_at
+                    order_modified_at = order.modified_at
+                    shipment_last_modified_by = shipment.last_modified_by
                     seller_shop = order.seller_shop
                     order_id = order.order_no
                     pin_code = order.shipping_address.pincode
