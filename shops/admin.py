@@ -1,4 +1,5 @@
 import csv
+
 from django.contrib import admin
 from .models import (
     Shop, ShopType, RetailerType, ParentRetailerMapping,
@@ -8,7 +9,9 @@ from addresses.models import Address
 from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
                     ShopForm, AddressForm, RequiredInlineFormSet,
                     AddressInlineFormSet, ShopTimingForm)
-from .views import StockAdjustmentView, stock_adjust_sample, ShopTimingAutocomplete
+from .views import (StockAdjustmentView, stock_adjust_sample, ShopTimingAutocomplete,
+                    bulk_shop_updation)
+
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
 from django.utils.html import format_html
@@ -17,6 +20,7 @@ from django.http import HttpResponse
 from admin_auto_filters.filters import AutocompleteFilter
 from services.views import SalesReportFormView, SalesReport
 from rangefilter.filter import DateRangeFilter, DateTimeRangeFilter
+from .utils import create_shops_excel
 
 
 class ShopResource(resources.ModelResource):
@@ -27,16 +31,8 @@ class ShopResource(resources.ModelResource):
 
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
-        meta = self.model._meta
-        list_display = ('shop_name', 'get_shop_parent', 'shop_owner','shop_type','created_at','status', 'get_shop_shipping_address', 'get_shop_city', 'get_shop_pin_code' )
-        field_names = [field.name for field in meta.fields if field.name in list_display]
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
-        writer = csv.writer(response)
-        writer.writerow(list_display)
-        for obj in queryset:
-            row = writer.writerow([getattr(obj, field) for field in list_display])
-        return response
+        return create_shops_excel(queryset)
+
     export_as_csv.short_description = "Download CSV of Selected Shops"
 
 class ShopNameSearch(InputFilter):
@@ -129,7 +125,18 @@ class ServicePartnerFilter(InputFilter):
             return queryset.filter(retiler_mapping__parent__shop_name__icontains=value )
         return queryset
 
+class ShopCityFilter(InputFilter):
+    title = 'City'
+    parameter_name = 'city'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value :
+            return queryset.filter(shop_name_address_mapping__city__city_name__icontains=value, shop_name_address_mapping__address_type='shipping')
+        return queryset
+
 class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
+    change_list_template = 'admin/shops/shop/change_list.html'
     resource_class = ShopResource
     form = ShopForm
     actions = ["export_as_csv"]
@@ -139,7 +146,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     ]
     list_display = ('shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent','shop_owner','shop_type','created_at','status', 'get_shop_city','shop_mapped_product','imei_no')
     filter_horizontal = ('related_users',)
-    list_filter = (ServicePartnerFilter,ShopNameSearch,ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,'status',('created_at', DateTimeRangeFilter))
+    list_filter = (ShopCityFilter,ServicePartnerFilter,ShopNameSearch,ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,'status',('created_at', DateTimeRangeFilter))
     search_fields = ('shop_name', )
 
     class Media:
@@ -174,7 +181,11 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                 self.admin_site.admin_view(ShopTimingAutocomplete.as_view()),
                 name="shop-timing-autocomplete"
             ),
-
+            url(
+                r'^bulk-shop-updation/$',
+                self.admin_site.admin_view(bulk_shop_updation),
+                name="bulk-shop-updation"
+            ),
         ] + urls
         return urls
 
