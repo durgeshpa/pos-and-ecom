@@ -101,7 +101,7 @@ class OrderedProductForm(forms.ModelForm):
 
     class Meta:
         model = OrderedProduct
-        fields = ['order', 'shipment_status']
+        fields = ['order', 'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
 
     class Media:
         js = (
@@ -259,6 +259,9 @@ class TripForm(forms.ModelForm):
     trip_status = forms.ChoiceField(choices=TRIP_STATUS)
     search_by_area = forms.CharField(required=False)
     trip_id = forms.CharField(required=False)
+    total_crates_collected = forms.CharField(required=False)
+    total_packets_collected = forms.CharField(required=False)
+    total_sacks_collected = forms.CharField(required=False)
     selected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
     unselected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
 
@@ -315,6 +318,7 @@ class TripForm(forms.ModelForm):
             for field in fields:
                 self.fields[field].required = False
                 self.fields[field].widget = forms.HiddenInput()
+
 
 
 class DispatchForm(forms.ModelForm):

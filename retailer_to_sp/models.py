@@ -129,7 +129,7 @@ class Cart(models.Model):
     def subtotal(self):
         try:
             return round(self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum'],2)
-        except: 
+        except:
             return None
 
     @property
@@ -350,7 +350,7 @@ class Order(models.Model):
 
     @property
     def shipment_status_reason(self):
-        return order_shipment_status_reason(self.shipments())    
+        return order_shipment_status_reason(self.shipments())
 
     @property
     def order_shipment_amount(self):
@@ -431,7 +431,7 @@ class Trip(models.Model):
             self.dispatch_no,
             self.delivery_boy.first_name if self.delivery_boy.first_name else self.delivery_boy.phone_number
         )
-
+    
     def create_dispatch_no(self):
         date = datetime.date.today().strftime('%d%m%y')
         shop = self.seller_shop_id
@@ -571,6 +571,12 @@ class OrderedProduct(models.Model): #Shipment
         get_user_model(), related_name='rt_last_modified_user_order',
         null=True, blank=True, on_delete=models.CASCADE
     )
+    no_of_crates = models.PositiveIntegerField(default=0, null=True, blank=True)
+    no_of_packets = models.PositiveIntegerField(default=0, null=True, blank=True)
+    no_of_sacks = models.PositiveIntegerField(default=0, null=True, blank=True)
+    no_of_crates_check = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Crates")
+    no_of_packets_check = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Packets")
+    no_of_sacks_check = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Sacks")
     created_at = models.DateTimeField(
         auto_now_add=True, verbose_name="Invoice Date")
     modified_at = models.DateTimeField(auto_now=True)
@@ -600,6 +606,12 @@ class OrderedProduct(models.Model): #Shipment
 
     def __str__(self):
         return self.invoice_no or str(self.id)
+
+    def clean(self):
+        super(OrderedProduct, self).clean()
+        if self.no_of_crates_check:
+            if self.no_of_crates_check != self.no_of_crates:
+                raise ValidationError(_("The number of crates must be equal to the number of crates shipped during shipment"))
 
     @property
     def shipment_address(self):

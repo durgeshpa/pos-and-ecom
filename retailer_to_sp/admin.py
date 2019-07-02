@@ -175,7 +175,7 @@ class OrderNoSearch(InputFilter):
     def queryset(self, request, queryset):
         if self.value() is not None:
             order_no = self.value()
-            order_nos = order_no.replace(" ", "").replace("\t","").split(',')    
+            order_nos = order_no.replace(" ", "").replace("\t","").split(',')
             return queryset.filter(
                 Q(order_no__in=order_nos)
             )
@@ -573,12 +573,12 @@ class OrderedProductAdmin(admin.ModelAdmin):
     exclude = ('received_by', 'last_modified_by')
     fields = (
         'order', 'invoice_no', 'shipment_status', 'trip',
-        'return_reason',
+        'return_reason', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check'
     )
     autocomplete_fields = ('order',)
     search_fields = ('invoice_no', 'order__order_no')
     readonly_fields = (
-        'order', 'invoice_no', 'trip', 'shipment_status',
+        'order', 'invoice_no', 'trip', 'shipment_status'
     )
     form = OrderedProductReschedule
 
