@@ -189,6 +189,10 @@ class OrderedProduct(models.Model): #GRN
     modified_at = models.DateTimeField(auto_now=True)
     status = models.CharField(max_length=5, choices=GRN_STATUS, default=ENABLED)
 
+    class Meta:
+        verbose_name = _('Invoices')
+        verbose_name_plural = _('Invoices')
+
     def save(self, *args,**kwargs):
         super(OrderedProduct, self).save()
         self.invoice_no = "SP/INVOICE/%s"%(self.pk)

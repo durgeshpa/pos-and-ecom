@@ -252,9 +252,9 @@ def ordered_product_mapping_shipment(request):
         if form.is_valid() and form_set.is_valid():
             try:
                 with transaction.atomic():
-                    shipment = form.save(commit=False)
-                    shipment.shipment_status = 'SHIPMENT_CREATED'
-                    shipment.save()
+                    shipment = form.save()
+                    # shipment.shipment_status = 'SHIPMENT_CREATED'
+                    # shipment.save()
                     for forms in form_set:
                         if forms.is_valid():
                             to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
@@ -444,7 +444,7 @@ class LoadDispatches(APIView):
         reschedule_dispatches = ShipmentRescheduling.objects.values_list(
             'shipment', flat=True
         ).filter(
-            ~Q(rescheduling_date=datetime.date.today()),
+            ~Q(rescheduling_date__lte=datetime.date.today()),
             shipment__shipment_status=OrderedProduct.RESCHEDULED
         )
         dispatches = dispatches.exclude(id__in=reschedule_dispatches)
@@ -551,6 +551,7 @@ class DownloadPickList(TemplateView,):
         for cart_pro in cart_products:
             product_list = {
                 "product_name": cart_pro.cart_product.product_name,
+                "product_sku": cart_pro.cart_product.product_sku,
                 "product_mrp": round(cart_pro.get_cart_product_price(order_obj.seller_shop).mrp,2),
                 "ordered_qty":cart_pro.qty,
                 "no_of_pieces":cart_pro.no_of_pieces,

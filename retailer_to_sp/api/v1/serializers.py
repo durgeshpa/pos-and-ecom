@@ -340,6 +340,8 @@ class OrderSerializer(serializers.ModelSerializer):
     billing_address = AddressSerializer()
     shipping_address = AddressSerializer()
     order_status = serializers.CharField(source='get_order_status_display')
+    total_final_amount = serializers.ReadOnlyField()#source='total_final_amount')
+    total_mrp_amount = serializers.ReadOnlyField()#source='total_mrp_amount')    
 
     def to_representation(self, instance):
         representation = super(OrderSerializer, self).to_representation(instance)
@@ -350,17 +352,17 @@ class OrderSerializer(serializers.ModelSerializer):
         model=Order
         fields = ('id','ordered_cart','order_no','billing_address','shipping_address','total_mrp','total_discount_amount',
                   'total_tax_amount','total_final_amount','order_status','ordered_by','received_by','last_modified_by',
-                  'created_at','modified_at','rt_order_order_product')
+                  'created_at','modified_at','rt_order_order_product', 'total_mrp_amount')
 
 class CartProductPrice(serializers.ModelSerializer):
     product_price = serializers.SerializerMethodField('product_price_dt')
     product_mrp = serializers.SerializerMethodField('product_mrp_dt')
 
     def product_price_dt(self,obj):
-        return obj.price_to_retailer
+        return round(obj.price_to_retailer,2)
 
     def product_mrp_dt(self,obj):
-        return obj.mrp
+        return round(obj.mrp,2)
 
     class Meta:
         model = ProductPrice
