@@ -89,7 +89,7 @@ class Cart(BaseCart):
         (OPEN,"Open"),
         (APPROVAL_AWAITED, "Waiting For Finance Approval"),
         (FINANCE_APPROVED, "Finance Approved"),
-        (DISAPPROVED, "Finance Not Approved"),
+        (DISAPPROVED, "Finance Disapproved"),
         (PARTIAL_DELIVERED, "Partial Delivered"),
         (PARTIAL_DELIVERED_CLOSE, "Partial Delivered and Closed"),
         (PARTIAL_RETURN, "Partial Return"),
