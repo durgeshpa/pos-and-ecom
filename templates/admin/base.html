@@ -1,19 +1,27 @@
 {% extends 'admin/base.html' %}
 {% block footer %}
 {{ block.super }}
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
 
 <script type="text/javascript">
-var form_enabled = true;
+(function ($) {
 
-$( document ).ready(function() {
-    console.log("loaded");
+    var form_enabled = true;
 
-    $('.submit-row').on('click','input[type=submit]', function(e){
-      
-           $('.submit-row').hide();
+
+    $( document ).ready(function() {
+        console.log("loaded");
+
+        $('.submit-row').on('click','input[type=submit]', function(e){
+          
+               $('.submit-row').hide();
+
+                setTimeout(function(){
+                    $('.submit-row').show(); 
+                }, 2000);
+        });
     });
-});
+
+})(django.jQuery);
 
 </script>
 

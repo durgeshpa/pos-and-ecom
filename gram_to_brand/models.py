@@ -352,6 +352,15 @@ class GRNOrder(BaseShipment): #Order Shipment
     def __str__(self):
         return str(self.grn_id)
 
+    def clean(self):
+        super(GRNOrder, self).clean()
+        if self.invoice_amount <= 0:
+            raise ValidationError(_("Invoice Amount must be positive"))
+        today = datetime.date.today()
+
+        if self.invoice_date > today:
+            raise ValidationError(_("Invoice Date must not be greater than today"))
+
     class Meta:
         verbose_name = _("View GRN Detail")
         verbose_name_plural = _("View GRN Details")

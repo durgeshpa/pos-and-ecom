@@ -2,10 +2,9 @@
 {% load static %}
 {% block admin_change_form_document_ready %}
 
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
-<script src="http://code.jquery.com/ui/1.11.0/jquery-ui.js"></script>
-
 <script type="text/javascript" >
+
+(function ($) {
 if( $("select[id$='product']").has('option').length > 0 ) {
 $("select[id$='product']").attr('disabled', true);
 }
@@ -17,50 +16,8 @@ $("input[id$='already_grned_product']").prop('readonly', true).css('border','non
 $( "form" ).submit(function( event ) {
   $("select[id$='product']").attr('disabled', false);
 });
+})(django.jQuery);
 
-//$( "#id_invoice_date" ).datepicker({ maxDate: '0' });
-
-  $('.submit-row').on('click','input[type=submit]', function(e){
-        var UserDate = document.getElementById("id_invoice_date").value;
-        var ToDate = new Date();
-
-        if (new Date(UserDate).getTime() > ToDate.getTime()) {
-          alert("The Invoice Date must be Less or Equal to today date");
-          event.preventDefault();
-        }
-
-        var invoice_amount = document.getElementById("id_invoice_amount").value;
-
-        if (invoice_amount<=0) {
-          alert("The Invoice amount must be positive");
-          event.preventDefault();
-        }
-
-
-  });
-
-
-
-      // js for decimal input check
-      $(function () {
-        $(document).on('keydown', 'input[name="invoice_amount"]', function (event) {
-          //alert("test");
-
-            if (event.shiftKey == true) {
-                event.preventDefault();
-            }
-
-            if ((event.keyCode >= 48 && event.keyCode <= 57) || (event.keyCode >= 96 && event.keyCode <= 105) || event.keyCode == 8 || event.keyCode == 9 || event.keyCode == 37 || event.keyCode == 39 || event.keyCode == 46 || event.keyCode == 190) {
-
-            } else {
-                event.preventDefault();
-            }
-            
-            if($(this).val().indexOf('.') !== -1 && event.keyCode == 190)
-                event.preventDefault();
-
-        });
-      });
 
 
 </script>
