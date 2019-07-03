@@ -29,6 +29,7 @@ from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
+from rest_framework import serializers
 from rest_framework import generics, viewsets
 
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,
@@ -68,6 +69,8 @@ from .filters import OrderedProductMappingFilter, OrderedProductFilter
 from common.data_wrapper_view import DataWrapperViewSet
 
 from django.contrib.auth import get_user_model
+from django.utils.translation import ugettext_lazy as _
+
 User = get_user_model()
 
 logger = logging.getLogger(__name__)
@@ -1227,9 +1230,17 @@ class CancelOrder(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def put(self, request, format=None):
-        user = self.request.user
-        import pdb; pdb.set_trace()
-        serializer = CancelOrderSerializer(data=request.data)
+        try:
+            order = Order.objects.get(buyer_shop__shop_owner=request.user,
+                                      pk=request.data['order_id'])
+        except ObjectDoesNotExist:
+            msg = {'is_success': False,
+                   'message': ['This order is not associated with the current user'],
+                   'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+        serializer = CancelOrderSerializer(order, data=request.data,
+                                           context={'order': order})
         if serializer.is_valid():
             serializer.save()
             msg = {'is_success': True,

@@ -636,17 +636,16 @@ class OrderForm(forms.ModelForm):
             if len(shipments_data) == 1:
                 # last shipment
                 s = shipments_data[-1]
-                if (s['shipment_status'] not in ['SHIPMENT_CREATED', 'READY_TO_SHIP', 'READY_TO_DISPATCH']):
+                if (s['shipment_status'] not in [i[0] for i in OrderedProduct.SHIPMENT_STATUS[:3]]):
                     raise forms.ValidationError(
                         _('Sorry! This order cannot be cancelled'),)
                 elif (s['trip__trip_status'] and s['trip__trip_status'] != 'READY'):
                     raise forms.ValidationError(
                         _('Sorry! This order cannot be cancelled'),)
             elif len(shipments_data) > 1:
-                shipments_status = set([x['shipment_status'] for x in shipments_data])
-                shipments_status_count = len(shipments_status)
-                if (shipments_status_count != 1 and
-                        list(shipments_status)[-1] != 'SHIPMENT_CREATED'):
+                status = [x[0] for x in OrderedProduct.SHIPMENT_STATUS[1:]
+                          if x[0] in [x['shipment_status'] for x in shipments_data]]
+                if status:
                     raise forms.ValidationError(
                         _('Sorry! This order cannot be cancelled'),)
             else:
