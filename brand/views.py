@@ -26,7 +26,6 @@ class SearchProduct(APIView):
 
     def get(self, *args, **kwargs):
         product_id = self.request.GET.get('product_id')
-        print(product_id)
         product_sku = '-'
         product_obj = Product.objects.filter(id=product_id)
         if product_obj.exists():
