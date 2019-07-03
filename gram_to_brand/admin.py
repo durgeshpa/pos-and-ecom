@@ -80,38 +80,6 @@ class CartAdmin(admin.ModelAdmin):
 
         return [po_edit_link,'brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_raised_by','po_status', 'download_purchase_order']
 
-    # def response_change(self, request, obj):
-    #     get_po_msg = Po_Message.objects.create(message=request.POST.get('message'), created_by=request.user) if request.POST.get('message') else None
-    #
-    #     if "_approve" in request.POST:
-    #         obj.po_status = obj.FINANCE_APPROVED
-    #     elif "_disapprove" in request.POST:
-    #         obj.po_status = obj.DISAPPROVED
-    #     elif "_send" in request.POST:
-    #         obj.po_status = obj.APPROVAL_AWAITED
-    #     else:
-    #         obj.po_status = obj.OPEN
-    #     obj.po_message = get_po_msg
-    #     obj.po_raised_by= request.user
-    #     obj.last_modified_by= request.user
-    #     obj.save()
-    #
-    #     super().response_change(request, obj)
-    #     return HttpResponseRedirect("/admin/gram_to_brand/cart/")
-    #
-    # def save_model(self, request, obj, form, change):
-    #     print(request)
-    #     print(obj)
-    #     print(form.instance)
-    #     print(change)
-    #     if change==False:
-    #         pass
-    #         #obj.is_approve = ''
-    #         # obj.po_status = obj.OPEN
-    #         # obj.po_raised_by = request.user
-    #         # obj.last_modified_by = request.user
-    #     obj.save()
-
     def save_formset(self, request, form, formset, change):
         obj = form.instance
         flag = False
