@@ -7,10 +7,11 @@ django.setup()
 from services.views import OrderReport
 from services.models import OrderReports
 
-def populate_order(shop_id):
+def populate_order(shop_id,start_date):
     order_report = OrderReport()
-    order_report.get_order_report(shop_id,None,None)
+    order_report.get_order_report(shop_id,start_date,None)
     return "done"
 if __name__=='__main__':
   shop_id=sys.argv[1]
-  populate_order(shop_id)
+  start_date=sys.argv[2]
+  populate_order(shop_id,start_date)
