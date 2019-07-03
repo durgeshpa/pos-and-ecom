@@ -256,6 +256,12 @@ class CartProductMapping(models.Model):
             return round(float(self.qty)* float(self.vendor_product.product_price),2)
         return self.total_price
 
+    def get_vendor_specific_products_mrp(self):
+        if self.vendor_product:
+            return self.vendor_product.product_mrp
+        else:
+            return '-'
+
     def __str__(self):
         return self.cart_product.product_name
 
@@ -329,16 +335,15 @@ class Order(BaseOrder):
         verbose_name = _("Add GRN")
         verbose_name_plural = _("Add GRN")
 
-
 class GRNOrder(BaseShipment): #Order Shipment
     order = models.ForeignKey(Order,verbose_name='PO Number',related_name='order_grn_order',on_delete=models.CASCADE,null=True,blank=True )
     invoice_no = models.CharField(max_length=255)
-    e_way_bill_no = models.CharField(max_length=255, blank=True, null=True)
-    e_way_bill_document = models.FileField(null=True,blank=True)
+    #e_way_bill_no = models.CharField(max_length=255, blank=True, null=True)
+    #e_way_bill_document = models.FileField(null=True,blank=True)
     grn_id = models.CharField(max_length=255,null=True,blank=True)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_user_grn_order', null=True,blank=True, on_delete=models.CASCADE)
     grn_date = models.DateField(auto_now_add=True)
-    brand_invoice = models.FileField(null=True,blank=True,upload_to='brand_invoice')
+    #brand_invoice = models.FileField(null=True,blank=True,upload_to='brand_invoice')
     products = models.ManyToManyField(Product,through='GRNOrderProductMapping')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -367,6 +372,10 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
                     po_validity_date=datetime.date.today() + timedelta(days=15)
                 )
 
+class Document(models.Model):
+    grn_order = models.ForeignKey(GRNOrder,related_name='grn_order_images',null=True,blank=True,on_delete=models.CASCADE)
+    document_number = models.CharField(max_length=255,null=True,blank=True)
+    document_image = models.FileField(null=True,blank=True,upload_to='brand_invoice')
 
 class GRNOrderProductMapping(models.Model):
     grn_order = models.ForeignKey(GRNOrder,related_name='grn_order_grn_order_product',null=True,blank=True,on_delete=models.CASCADE)
@@ -417,6 +426,14 @@ class GRNOrderProductMapping(models.Model):
     @property
     def best_before_month(self):
         return 0
+
+    @property
+    def product_mrp(self):
+        if self.vendor_product:
+            return self.vendor_product.product_mrp
+        else:
+            '-'
+
     # @property
     # def available_qty(self):
     #     return self.delivered_qty

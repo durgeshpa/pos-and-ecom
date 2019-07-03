@@ -87,7 +87,6 @@ INSTALLED_APPS = [
     'debug_toolbar',
     'django_celery_beat',
     'django_celery_results',
-
 ]
 
 

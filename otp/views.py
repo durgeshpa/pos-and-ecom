@@ -288,9 +288,11 @@ class ResendVoiceOTP(CreateAPIView):
                     message = SendVoiceSms(phone=number,
                                       body="OTP for your GramFactory account is %s" % (otp))
                     message.send()
+                    user.last_otp = timezone.now()
+                    user.save()
                     msg = {'is_success': True,
-                                'message': "You will receive your call soon",
-                                'response_data': None }
+                            'message': ["You will receive your call soon"],
+                            'response_data': None }
 
                     return Response(msg,
                         status=status.HTTP_200_OK
@@ -320,7 +322,7 @@ class ResendVoiceOTP(CreateAPIView):
     def just_now(self, user):
         self.last_otp_time = user.last_otp
         self.current_time = datetime.datetime.now()
-        self.resend_in = datetime.timedelta(seconds=user.resend_in + 30)
+        self.resend_in = datetime.timedelta(seconds=user.resend_in)
         self.time_dif = self.current_time - self.last_otp_time
         if self.time_dif <= self.resend_in:
             return True
