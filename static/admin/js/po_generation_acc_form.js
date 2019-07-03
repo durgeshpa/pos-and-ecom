@@ -3,7 +3,7 @@
         var row = 0
         var dt = ""
         var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '')+'/';
-        $.ajax({ data: ({'po':$('#id_cart_list-__prefix__-cart').val()}) ,
+        $.ajax({ data: ({'po':$('#id_cart_list-0-cart').val()}) ,
                 type: 'GET',
                 dataType: 'json',
                 url: host+'admin/gram_to_brand/cart/message-list/',
