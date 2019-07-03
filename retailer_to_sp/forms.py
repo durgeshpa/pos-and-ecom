@@ -259,9 +259,12 @@ class TripForm(forms.ModelForm):
     trip_status = forms.ChoiceField(choices=TRIP_STATUS)
     search_by_area = forms.CharField(required=False)
     trip_id = forms.CharField(required=False)
-    total_crates_collected = forms.CharField(required=False)
-    total_packets_collected = forms.CharField(required=False)
-    total_sacks_collected = forms.CharField(required=False)
+    total_crates_shipped = forms.IntegerField(required=False)
+    total_packets_shipped = forms.IntegerField(required=False)
+    total_sacks_shipped = forms.IntegerField(required=False)
+    total_crates_collected = forms.IntegerField(required=False)
+    total_packets_collected = forms.IntegerField(required=False)
+    total_sacks_collected = forms.IntegerField(required=False)
     selected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
     unselected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
 
@@ -288,6 +291,10 @@ class TripForm(forms.ModelForm):
             self.fields['seller_shop'].queryset = Shop.objects.filter(shop_type__shop_type__in=['sp', 'gf'])
         else:
             self.fields['seller_shop'].queryset = Shop.objects.filter(related_users=user)
+        self.fields['total_crates_shipped'].initial = instance.total_crates_shipped
+        self.fields['total_packets_shipped'].initial = instance.total_packets_shipped
+        self.fields['total_sacks_shipped'].initial = instance.total_sacks_shipped
+
 
         trip = instance.pk
         if trip:
@@ -296,17 +303,40 @@ class TripForm(forms.ModelForm):
             if trip_status == 'READY':
                 self.fields['seller_shop'].disabled = True
                 self.fields['trip_status'].choices = TRIP_STATUS[0], TRIP_STATUS[2], TRIP_STATUS[1]
+                self.fields['total_crates_shipped'].disabled = True
+                self.fields['total_packets_shipped'].disabled = True
+                self.fields['total_sacks_shipped'].disabled = True
+                self.fields['total_crates_collected'].disabled = True
+                self.fields['total_packets_collected'].disabled = True
+                self.fields['total_sacks_collected'].disabled = True
 
             elif trip_status == 'STARTED':
                 self.fields['delivery_boy'].disabled = True
                 self.fields['seller_shop'].disabled = True
                 self.fields['vehicle_no'].disabled = True
                 self.fields['trip_status'].choices = TRIP_STATUS[2:4]
+                self.fields['total_crates_shipped'].disabled = True
+                self.fields['total_packets_shipped'].disabled = True
+                self.fields['total_sacks_shipped'].disabled = True
+                self.fields['total_crates_collected'].disabled = True
+                self.fields['total_packets_collected'].disabled = True
+                self.fields['total_sacks_collected'].disabled = True
                 self.fields['search_by_area'].widget = forms.HiddenInput()
 
             elif trip_status == 'COMPLETED':
-                for field_name in self.fields:
-                    self.fields[field_name].disabled = True
+                self.fields['delivery_boy'].disabled = True
+                self.fields['seller_shop'].disabled = True
+                self.fields['vehicle_no'].disabled = True
+                self.fields['trip_status'].disabled = True
+                self.fields['total_crates_shipped'].disabled = True
+                self.fields['total_packets_shipped'].disabled = True
+                self.fields['total_sacks_shipped'].disabled = True
+                self.fields['total_crates_collected'].initial = instance.total_crates_collected
+                self.fields['total_crates_collected'].disabled = True
+                self.fields['total_packets_collected'].initial = instance.total_packets_collected
+                self.fields['total_packets_collected'].disabled = True
+                self.fields['total_sacks_collected'].initial = instance.total_sacks_collected
+                self.fields['total_sacks_collected'].disabled = True
                 self.fields['search_by_area'].widget = forms.HiddenInput()
             else:
                 for field_name in self.fields:
@@ -376,7 +406,7 @@ class ShipmentForm(forms.ModelForm):
 
     class Meta:
         model = Shipment
-        fields = ['order', 'shipment_status']
+        fields = ['order', 'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
 
     class Media:
         js = (

@@ -431,7 +431,49 @@ class Trip(models.Model):
             self.dispatch_no,
             self.delivery_boy.first_name if self.delivery_boy.first_name else self.delivery_boy.phone_number
         )
-    
+
+    @property
+    def total_crates_shipped(self):
+        sum_crates_shipped = 0
+        for m in self.rt_invoice_trip.all():
+            sum_crates_shipped+=m.no_of_crates
+        return sum_crates_shipped
+
+    @property
+    def total_packets_shipped(self):
+        sum_packets_shipped = 0
+        for m in self.rt_invoice_trip.all():
+            sum_packets_shipped+=m.no_of_packets
+        return sum_packets_shipped
+
+    @property
+    def total_sacks_shipped(self):
+        sum_sacks_shipped = 0
+        for m in self.rt_invoice_trip.all():
+            sum_sacks_shipped+=m.no_of_sacks
+        return sum_sacks_shipped
+
+    @property
+    def total_crates_collected(self):
+        sum_crates_collected = 0
+        for m in self.rt_invoice_trip.all():
+            sum_crates_collected+=m.no_of_crates_check
+        return sum_crates_collected
+
+    @property
+    def total_packets_collected(self):
+        sum_packets_collected = 0
+        for m in self.rt_invoice_trip.all():
+            sum_packets_collected+=m.no_of_packets_check
+        return sum_packets_collected
+
+    @property
+    def total_sacks_collected(self):
+        sum_sacks_collected = 0
+        for m in self.rt_invoice_trip.all():
+            sum_sacks_collected+=m.no_of_sacks_check
+        return sum_sacks_collected
+
     def create_dispatch_no(self):
         date = datetime.date.today().strftime('%d%m%y')
         shop = self.seller_shop_id

@@ -727,7 +727,7 @@ class ShipmentAdmin(admin.ModelAdmin):
     list_display = (
         'invoice_no', 'order', 'created_at', 'trip', 'shipment_address',
         'seller_shop', 'invoice_city', 'invoice_amount', 'payment_mode',
-        'shipment_status', 'download_invoice',
+        'shipment_status', 'download_invoice'
     )
     list_filter = [
         ('created_at', DateTimeRangeFilter), InvoiceSearch, ShipmentOrderIdSearch, ShipmentSellerShopSearch,
@@ -735,12 +735,12 @@ class ShipmentAdmin(admin.ModelAdmin):
 
     ]
     fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
-        'shipment_status', 'close_order']
+        'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'close_order']
     search_fields = [
         'order__order_no', 'invoice_no', 'order__seller_shop__shop_name',
         'order__buyer_shop__shop_name', 'trip__dispatch_no',
         'trip__vehicle_no', 'trip__delivery_boy__phone_number']
-    readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city']
+    readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
     list_per_page = 50
 
 
