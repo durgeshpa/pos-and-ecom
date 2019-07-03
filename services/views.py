@@ -18,7 +18,7 @@ from rest_framework import permissions, authentication
 from .forms import SalesReportForm, OrderReportForm, GRNReportForm, MasterReportForm, OrderGrnForm
 from django.views import View
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping, Tax
-from .models import OrderReports,GRNReports, MasterReports, OrderGrnReports
+from .models import OrderReports,GRNReports, MasterReports, OrderGrnReports, OrderDetailReports
 from gram_to_brand.models import Order as PurchaseOrder
 from datetime import timedelta
 from gram_to_brand.models import Order as GOrder, GRNOrder as GRNOrder
@@ -142,6 +142,10 @@ class OrderReport(APIView):
                         product_cess = products.product.product_pro_tax.filter(tax__tax_type ='cess').last().tax.tax_percentage
                     else:
                         product_cess = ''
+                    invoice_id = shipment.id
+                    invoice_modified_at = shipment.modified_at
+                    order_modified_at = order.modified_at
+                    shipment_last_modified_by = shipment.last_modified_by
                     seller_shop = order.seller_shop
                     order_id = order.order_no
                     pin_code = order.shipping_address.pincode
@@ -162,8 +166,8 @@ class OrderReport(APIView):
                     order_type =''
                     campaign_name =''
                     discount = ''
-                    OrderReports.objects.using('gfanalytics').create(order_invoice = order_invoice, invoice_date = invoice_date, invoice_status = invoice_status, order_id = order_id, seller_shop = seller_shop,  order_status = order_status, order_date = order_date, order_by = order_by, retailer_id = retailer_id, retailer_name =retailer_name, pin_code = pin_code, product_id = product_id, product_name = product_name, product_brand = product_brand, product_mrp = product_mrp, product_value_tax_included = product_value_tax_included, ordered_sku_pieces = ordered_sku_pieces,  shipped_sku_pieces = shipped_sku_pieces, delivered_sku_pieces = delivered_sku_pieces, returned_sku_pieces = returned_sku_pieces, damaged_sku_pieces = damaged_sku_pieces, product_cgst = product_cgst, product_sgst = product_sgst, product_igst = product_igst, product_cess = product_cess, sales_person_name = sales_person_name, order_type = order_type, campaign_name = campaign_name, discount = discount)
-                    order_details[i] = {'order_invoice':order_invoice, 'invoice_date':invoice_date, 'invoice_status':invoice_status, 'order_id':order_id, 'seller_shop':seller_shop,  'order_status':order_status, 'order_date':order_date, 'order_by':order_by, 'retailer_id':retailer_id, 'retailer_name':retailer_name, 'pin_code':pin_code, 'product_id':product_id, 'product_name':product_name, 'product_brand':product_brand, 'product_mrp':product_mrp, 'product_value_tax_included':product_value_tax_included, 'ordered_sku_pieces':ordered_sku_pieces, 'shipped_sku_pieces':shipped_sku_pieces, 'delivered_sku_pieces':delivered_sku_pieces, 'returned_sku_pieces':returned_sku_pieces, 'damaged_sku_pieces':damaged_sku_pieces, 'product_cgst':product_cgst, 'product_sgst':product_sgst, 'product_igst':product_igst, 'product_cess':product_cess, 'sales_person_name':sales_person_name, 'order_type':order_type, 'campaign_name':campaign_name, 'discount':discount}
+                    OrderDetailReports.objects.using('gfanalytics').create(invoice_id = invoice_id, order_invoice = order_invoice, invoice_date = invoice_date, invoice_modified_at = invoice_modified_at, invoice_last_modified_by = shipment_last_modified_by, invoice_status = invoice_status, order_id = order_id, seller_shop = seller_shop,  order_status = order_status, order_date = order_date, order_modified_at = order_modified_at,  order_by = order_by, retailer_id = retailer_id, retailer_name =retailer_name, pin_code = pin_code, product_id = product_id, product_name = product_name, product_brand = product_brand, product_mrp = product_mrp, product_value_tax_included = product_value_tax_included, ordered_sku_pieces = ordered_sku_pieces,  shipped_sku_pieces = shipped_sku_pieces, delivered_sku_pieces = delivered_sku_pieces, returned_sku_pieces = returned_sku_pieces, damaged_sku_pieces = damaged_sku_pieces, product_cgst = product_cgst, product_sgst = product_sgst, product_igst = product_igst, product_cess = product_cess, sales_person_name = sales_person_name, order_type = order_type, campaign_name = campaign_name, discount = discount)
+                    order_details[i] = {'invoice_id':invoice_id, 'order_invoice':order_invoice, 'invoice_date':invoice_date, 'invoice_modified_at':invoice_modified_at, 'shipment_last_modified_by':shipment_last_modified_by, 'invoice_status':invoice_status, 'order_id':order_id, 'seller_shop':seller_shop,  'order_status':order_status, 'order_date':order_date, 'order_modified_at':order_modified_at, 'order_by':order_by, 'retailer_id':retailer_id, 'retailer_name':retailer_name, 'pin_code':pin_code, 'product_id':product_id, 'product_name':product_name, 'product_brand':product_brand, 'product_mrp':product_mrp, 'product_value_tax_included':product_value_tax_included, 'ordered_sku_pieces':ordered_sku_pieces, 'shipped_sku_pieces':shipped_sku_pieces, 'delivered_sku_pieces':delivered_sku_pieces, 'returned_sku_pieces':returned_sku_pieces, 'damaged_sku_pieces':damaged_sku_pieces, 'product_cgst':product_cgst, 'product_sgst':product_sgst, 'product_igst':product_igst, 'product_cess':product_cess, 'sales_person_name':sales_person_name, 'order_type':order_type, 'campaign_name':campaign_name, 'discount':discount}
 
         data = order_details
         return data
@@ -186,9 +190,9 @@ class OrderReport(APIView):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="order-mis-report.csv"'
         writer = csv.writer(response)
-        writer.writerow(['S.No.', 'Invoice Id', 'Invoice Date', 'Invoice Status', 'Retailer Contact No.', 'Retailer Id', 'Retailer Name', 'PinCode', 'Order Id', 'Seller Shop', 'Order Status', 'Order Date', 'Sales Person Name', 'Order Type (Organic / Through Sales Person)', 'Campaign Name',  'SKU Id', 'Product Name', 'Product Brand', 'Product MRP' ,'Product Value including tax', 'Ordered SKU Pieces', 'Shipped SKU Pieces', 'Delivered SKU Pieces', 'Returned SKU Pieces', 'Damaged SKU Pieces', 'CGST %', 'SGST %', 'IGST %', 'Cess %',  'Discount %'])
+        writer.writerow(['S.No.', 'Id', 'Invoice Id', 'Invoice Date', 'Invoice Modified At', 'Invoice Last Modified BY', 'Invoice Status', 'Retailer Contact No.', 'Retailer Id', 'Retailer Name', 'PinCode', 'Order Id', 'Seller Shop', 'Order Status', 'Order Date', 'Order Modified At', 'Sales Person Name', 'Order Type (Organic / Through Sales Person)', 'Campaign Name',  'SKU Id', 'Product Name', 'Product Brand', 'Product MRP' ,'Product Value including tax', 'Ordered SKU Pieces', 'Shipped SKU Pieces', 'Delivered SKU Pieces', 'Returned SKU Pieces', 'Damaged SKU Pieces', 'CGST %', 'SGST %', 'IGST %', 'Cess %',  'Discount %'])
         for k,v in data.items():
-            writer.writerow([k, v['order_invoice'], v['invoice_date'], v['invoice_status'], v['order_by'], v['retailer_id'], v['retailer_name'], v['pin_code'], v['order_id'], v['seller_shop'], v['order_status'], v['order_date'], v['sales_person_name'], v['order_type'], v['campaign_name'],   v['product_id'], v['product_name'], v['product_brand'], v['product_mrp'], v['product_value_tax_included'], v['ordered_sku_pieces'], v['shipped_sku_pieces'], v['delivered_sku_pieces'], v['returned_sku_pieces'], v['damaged_sku_pieces'], v['product_cgst'], v['product_sgst'], v['product_igst'], v['product_cess'], v['discount']])
+            writer.writerow([k, v['invoice_id'], v['order_invoice'], v['invoice_date'], v['invoice_modified_at'], v['shipment_last_modified_by'],  v['invoice_status'], v['order_by'], v['retailer_id'], v['retailer_name'], v['pin_code'], v['order_id'], v['seller_shop'], v['order_status'], v['order_date'], v['order_modified_at'], v['sales_person_name'], v['order_type'], v['campaign_name'],   v['product_id'], v['product_name'], v['product_brand'], v['product_mrp'], v['product_value_tax_included'], v['ordered_sku_pieces'], v['shipped_sku_pieces'], v['delivered_sku_pieces'], v['returned_sku_pieces'], v['damaged_sku_pieces'], v['product_cgst'], v['product_sgst'], v['product_igst'], v['product_cess'], v['discount']])
 
         return response
 
