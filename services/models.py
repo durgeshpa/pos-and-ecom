@@ -2,13 +2,17 @@ from django.db import models
 
 # Create your models here.
 class OrderReports(models.Model):
+    invoice_id = models.CharField(max_length=255, null=True)
     order_invoice = models.CharField(max_length=255, null=True)
     invoice_date = models.CharField(max_length=255, null=True)
+    invoice_modified_at = models.CharField(max_length=255, null=True)
+    invoice_last_modified_by = models.CharField(max_length=255, null=True)
     invoice_status = models.CharField(max_length=255, null=True)
     order_id = models.CharField(max_length=255, null=True)
     seller_shop = models.CharField(max_length=255, null=True)
     order_status = models.CharField(max_length=255, null=True)
     order_date = models.CharField(max_length=255, null=True)
+    order_modified_at = models.CharField(max_length=255, null=True)
     order_by = models.CharField(max_length=255, null=True)
     retailer_id = models.CharField(max_length=255, null=True)
     retailer_name = models.CharField(max_length=255, null=True)
