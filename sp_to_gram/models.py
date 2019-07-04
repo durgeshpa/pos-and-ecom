@@ -263,33 +263,12 @@ class OrderedProductMapping(models.Model): #GRN Product
             return shop_stock
 
     @classmethod
-    def get_shop_stock_parent_brand(cls, shop, show_available=False):
-        if show_available:
-            shop_stock = cls.objects.filter(
-                    Q(shop=shop),
-                    Q(expiry_date__gt=datetime.datetime.today()),
-                    Q(available_qty__gte=product.product_inner_case_size),
-                ).exclude(
-                        Q(ordered_product__status=OrderedProduct.DISABLED)
-                    )
-            return shop_stock
-
-        else:
-            shop_stock = cls.objects.filter(
-                    Q(shop=shop),
-                    Q(expiry_date__gt=datetime.datetime.today())
-                ).exclude(
-                        Q(ordered_product__status=OrderedProduct.DISABLED)
-                    )
-            return shop_stock
-
-    @classmethod
     def get_brand_in_shop_stock(cls, shop, brand, show_available=False):
         if show_available:
             shop_stock = cls.objects.filter(
                     Q(shop=shop),
                     Q(expiry_date__gt=datetime.datetime.today()),
-                    Q(available_qty__gte=product.product_inner_case_size),
+                    Q(available_qty__gt=0),
                     Q(product__product_brand__brand_parent=brand)
                 ).exclude(
                         Q(ordered_product__status=OrderedProduct.DISABLED)
@@ -440,8 +419,8 @@ def create_credit_note(instance=None, created=False, **kwargs):
     instance = instance.instance
     if created:
         return None
-    if(instance.rt_order_product_order_product_mapping.last() and
-    instance.rt_order_product_order_product_mapping.all().aggregate(Sum('returned_qty')).get('returned_qty__sum') > 0 or
+    if(instance.rt_order_product_order_product_mapping.last() and 
+    instance.rt_order_product_order_product_mapping.all().aggregate(Sum('returned_qty')).get('returned_qty__sum') > 0 or 
     instance.rt_order_product_order_product_mapping.all().aggregate(Sum('damaged_qty')).get('damaged_qty__sum')>0):
         invoice_prefix = instance.order.seller_shop.invoice_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
         last_credit_note = CreditNote.objects.filter(shop=instance.order.seller_shop, status=True).order_by('credit_note_id').last()
