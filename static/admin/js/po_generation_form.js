@@ -40,6 +40,8 @@
                         $('#id_cart_list-'+row_no+'-case_size').val(response.case_size);
                         $('#id_cart_list-'+row_no+'-inner_case_size').val(response.inner_case_size);
                         $('#cart_list-'+row_no+' td.field-case_sizes p').text(response.case_size);
+                        $('#cart_list-'+row_no+' td.field-sku p').text(response.sku);
+                        $('#cart_list-'+row_no+' td.field-mrp p').text(response.mrp);
 
                      }else{
                         $('#cart_list-'+row_no+' td.field-tax_percentage p').text(response.tax_percentage);
@@ -47,6 +49,8 @@
                         $('#id_cart_list-'+row_no+'-case_size').val(0);
                         $('#id_cart_list-'+row_no+'-inner_case_size').val(0);
                         $('#cart_list-'+row_no+' td.field-case_sizes p').text("-");
+                        $('#cart_list-'+row_no+' td.field-sku p').text("-");
+                        $('#cart_list-'+row_no+' td.field-mrp p').text("-");
                      }
                 },
                 error: function (request, status, error) {

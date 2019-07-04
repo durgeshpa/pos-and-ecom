@@ -63,6 +63,7 @@ class POGenerationForm(forms.ModelForm):
             forward=('supplier_state',)
         )
     )
+    delivery_term = forms.CharField(widget=forms.Textarea(attrs={'rows': 2, 'cols': 33}),required=True)
 
     class Media:
         pass
@@ -96,19 +97,19 @@ class POGenerationForm(forms.ModelForm):
                     raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | "+VALIDATION_ERROR_MESSAGES[
                     'INVALID_PRODUCT_ID'])
 
-                if not row[2] or not re.match("^[\d\,]*$", row[2]):
+                if not row[3] or not re.match("^[\d\,]*$", row[3]):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY']%("Case_Size"))
 
-                if not row[3] or not re.match("^[\d\,]*$", row[3]):
+                if not row[4] or not re.match("^[\d\,]*$", row[4]):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY']%("No_of_cases"))
 
-                if not row[4] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[4]):
+                if not row[5] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[5]):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY_OR_NOT_VALID']%("MRP"))
 
-                if not row[5] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[5]):
+                if not row[6] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[6]):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY_OR_NOT_VALID']%("Gram_to_brand"))
 
@@ -125,6 +126,8 @@ class CartProductMappingForm(forms.ModelForm):
         queryset=Product.objects.all(),
         widget=autocomplete.ModelSelect2(url='vendor-product-autocomplete', forward=('supplier_name',))
     )
+    mrp = forms.CharField(disabled=True, required=False)
+    sku = forms.CharField(disabled=True, required=False)
     tax_percentage = forms.CharField(disabled=True, required=False)
     case_sizes = forms.CharField(disabled=True, required=False, label='case size')
     no_of_cases = forms.CharField(required=True)
@@ -134,11 +137,8 @@ class CartProductMappingForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if 'instance' in kwargs and kwargs['instance'].pk:
-            # print(kwargs['instance'].cart_product.product_inner_case_size)
-            # print(kwargs['instance'].cart_product.product_case_size)
-            # print(kwargs['instance'].number_of_cases)
-            # print(kwargs['instance'].qty)
-
+            self.fields['mrp'].initial = kwargs['instance'].mrp
+            self.fields['sku'].initial = kwargs['instance'].sku
             self.fields['no_of_cases'].initial = kwargs['instance'].no_of_cases
             self.fields['no_of_pieces'].initial = kwargs['instance'].no_of_pieces if kwargs['instance'].no_of_pieces else \
                 int(kwargs['instance'].cart_product.product_inner_case_size)*int(kwargs['instance'].cart_product.product_case_size)*int(kwargs['instance'].number_of_cases)
@@ -146,7 +146,7 @@ class CartProductMappingForm(forms.ModelForm):
 
     class Meta:
         model = CartProductMapping
-        fields = ('cart','cart_product','tax_percentage','case_sizes','no_of_cases','price','sub_total','no_of_pieces','vendor_product')
+        fields = ('cart','cart_product','mrp','sku','tax_percentage','case_sizes','no_of_cases','price','sub_total','no_of_pieces','vendor_product')
         search_fields=('cart_product',)
         exclude = ('qty',)
 

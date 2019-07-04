@@ -33,8 +33,8 @@ class CartProductMappingAdmin(admin.TabularInline):
     search_fields =('cart_product',)
     form = CartProductMappingForm
 
-    fields = ('cart_product', 'tax_percentage','case_sizes', 'no_of_cases', 'no_of_pieces', 'price', 'sub_total')
-    readonly_fields = ('tax_percentage', 'case_sizes','sub_total')
+    fields = ('cart_product','mrp','sku', 'tax_percentage','case_sizes', 'no_of_cases', 'no_of_pieces', 'price', 'sub_total')
+    readonly_fields = ('tax_percentage','mrp','sku', 'case_sizes','sub_total')
     ##readonly_fields = ('tax_percentage','case_sizes','total_no_of_pieces',)
 
 
