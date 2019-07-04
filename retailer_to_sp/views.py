@@ -276,23 +276,34 @@ def ordered_product_mapping_shipment(request):
 
 # test for superuser, warehouse manager, superuser
 def assign_picker(request):
-    
-    #assign picker to an order/ multiple orders
+    #update status to pick
     if request.method == 'POST':
         # saving picker data to pickerdashboard model
+        # import pdb; pdb.set_trace()
         form = AssignPickerForm(request.user, request.POST)
         if form.is_valid():
             #assign_picker_form = form.save()
             #saving selected order picking status
             selected_orders = form.cleaned_data.get('selected_id', None)
-            assigned_picker = form.cleaned_data.get('assigned_picker', None)
+            picker_boy = form.cleaned_data.get('picker_boy', None)
             if selected_orders:
+ 
                 selected_orders = selected_orders.split(',')
-                selected_orders = Order.objects.filter(
-                                                    pk__in=selected_orders)
+                selected_orders = PickerDashboard.objects.filter(
+                                                    order__pk__in=selected_orders)
+                # selected_orders = Order.objects.filter(
+                #                                     pk__in=selected_orders)
+
+                # for order_instance in selected_orders:
+                #     picker = PickerDashboard.objects.create(
+                #         order=order_instance,
+                #         shipment_id=1141,
+                #         picking_status='picking_pending',
+                #         picker_boy=picker_boy)
+
                 for order_instance in selected_orders:
-                    order_instance.assigned_picker = assigned_picker
-                    order_instance.order_status = 'picking_assigned'
+                    order_instance.picker_boy = picker_boy
+                    order_instance.picking_status = 'picking_assigned'
                     order_instance.save()
             return redirect('/admin/retailer_to_sp/pickerdashboard/')
     # form for assigning picker
@@ -301,7 +312,8 @@ def assign_picker(request):
     # order for the shop related to user
     #shop = Shop.objects.filter(related_users=request.user)[0]
     shop = Shop.objects.get(shop_name="TEST SP 1")
-    picker_orders = Order.objects.filter(seller_shop=shop, picking_status='picking_pending')
+    # order for the related shop with picking status =pending
+    picker_orders = Order.objects.filter(seller_shop=shop) #, picking_status='picking_pending')
     #order_form = PickerOrderForm(picker_order)
 
     return render(

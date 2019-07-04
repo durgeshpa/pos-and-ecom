@@ -276,7 +276,7 @@ class OrderedProductDispatchForm(forms.ModelForm):
 
 class EditAssignPickerForm(forms.ModelForm):
     # form to edit assgined picker 
-    assigned_picker = forms.ModelChoiceField(
+    picker_boy = forms.ModelChoiceField(
                         queryset=UserWithName.objects.all(),
                         widget=RelatedFieldWidgetCanAddPicker(
                                 UserWithName,
@@ -284,7 +284,7 @@ class EditAssignPickerForm(forms.ModelForm):
 
     class Meta:
         model = PickerDashboard
-        fields = ['assigned_picker', 'picking_status', 'picklist_id']
+        fields = ['picker_boy', 'picking_status', 'picklist_id']
 
     class Media:
         js = ('admin/js/select2.min.js', )
@@ -302,13 +302,13 @@ class EditAssignPickerForm(forms.ModelForm):
         #shop = Shop.objects.get(related_users=user)      
         shop = Shop.objects.get(shop_name="TEST SP 1") 
         # find all picker for the shop
-        self.fields['assigned_picker'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
+        self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
 
 
 
 # tbd: test for warehouse manager, superuser, other users
 class AssignPickerForm(forms.ModelForm):
-    assigned_picker = forms.ModelChoiceField(
+    picker_boy = forms.ModelChoiceField(
                         queryset=UserWithName.objects.all(),
                         widget=RelatedFieldWidgetCanAddPicker(
                                 UserWithName,
@@ -324,7 +324,7 @@ class AssignPickerForm(forms.ModelForm):
 
     class Meta:
         model = PickerDashboard
-        fields = ['assigned_picker', 'shop', 'selected_id', 'unselected_id', ]
+        fields = ['picker_boy', 'shop', 'selected_id', 'unselected_id', ]
 
     class Media:
         js = ('admin/js/select2.min.js', )
@@ -344,7 +344,7 @@ class AssignPickerForm(forms.ModelForm):
         self.fields['shop'].initial = shop.__str__() 
  
         # find all picker for the shop
-        self.fields['assigned_picker'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
+        self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
 
 
 class TripForm(forms.ModelForm):

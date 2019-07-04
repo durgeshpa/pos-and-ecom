@@ -435,8 +435,8 @@ class PickerBoyFilter(InputFilter):
         value = self.value()
         if value :
             return queryset.filter(
-                Q(assigned_picker__first_name__icontains=value) |
-                  Q(assigned_picker__phone_number=value)
+                Q(picker_boy__first_name__icontains=value) |
+                  Q(picker_boy__phone_number=value)
                 )
         return queryset
 
@@ -488,15 +488,17 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/picker/change_list.html'
     actions = ["change_picking_status"]
     model = PickerDashboard
-    form = EditAssignPickerForm
+    raw_id_fields = ['order', 'shipment']
+
+    #form = EditAssignPickerForm
     # list_display = (
     #     'id', 'picklist_id', 'picker_boy', 'order_date', 'download_pick_list'
     #     )
     list_display = (
-        'id', 'picklist_id', 'picking_status', 'assigned_picker', 'created_at', 'download_pick_list'
+        'id', 'picklist_id', 'picking_status', 'picker_boy', 'created_at', 'download_pick_list'
         )
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
-    readonly_fields = ['picklist_id']
+    #readonly_fields = ['picklist_id']
     list_filter = [PickerBoyFilter]
 
     def get_urls(self):
@@ -527,15 +529,15 @@ class PickerDashboardAdmin(admin.ModelAdmin):
         if request.user.is_superuser:
             return qs
         return qs.filter(
-            Q(seller_shop__related_users=request.user) |
-            Q(seller_shop__shop_owner=request.user)
+            Q(order__seller_shop__related_users=request.user) |
+            Q(order__seller_shop__shop_owner=request.user)
                 )
 
     def download_pick_list(self,obj):
-        if obj.order_status not in ["active", "pending"]:
+        if obj.order.order_status not in ["active", "pending"]:
             return format_html(
                 "<a href= '%s' >Download Pick List</a>" %
-                (reverse('download_pick_list_sp', args=[obj.pk]))
+                (reverse('download_pick_list_sp', args=[obj.order.pk]))
             )
     download_pick_list.short_description = 'Download Pick List'
 
@@ -562,8 +564,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     list_display = (
                     'order_no', 'download_pick_list', 'seller_shop', 'buyer_shop',
                     'pincode','total_final_amount', 'order_status', 'created_at',
-                    'payment_mode','picking_status','picker_name', 'picklist_id',
-                    'invoice_no', 'shipment_date', 'invoice_amount', 'shipment_status',
+                    'payment_mode', 'invoice_no', 'shipment_date', 'invoice_amount', 'shipment_status',
                     'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
                     #'damaged_amount',
                     )

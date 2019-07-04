@@ -219,13 +219,13 @@ class Order(models.Model):
     PARTIALLY_SHIPPED_AND_CLOSED = 'partially_shipped_and_closed'
     DENIED_AND_CLOSED = 'denied_and_closed'
 
-    PICKING_STATUS = (
+    # PICKING_STATUS = (
         
-        ('picking_pending', 'Picking Pending'),
-        ('picking_assigned', 'Picking Assigned'),
-        ('picking_in_progress', 'Picking In Progress'),
-        ('picking_complete', 'Picking Complete'),
-    )
+    #     ('picking_pending', 'Picking Pending'),
+    #     ('picking_assigned', 'Picking Assigned'),
+    #     ('picking_in_progress', 'Picking In Progress'),
+    #     ('picking_complete', 'Picking Complete'),
+    # )
 
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'),
@@ -275,12 +275,12 @@ class Order(models.Model):
     total_discount_amount = models.FloatField(default=0)
     total_tax_amount = models.FloatField(default=0)
 
-    picking_status = models.CharField(max_length=50,choices=PICKING_STATUS, default='picking_pending')
-    assigned_picker = models.ForeignKey(
-        get_user_model(), related_name='order_assigned_picker',
-        null=True, blank=True, on_delete=models.SET_NULL
-    )
-    picklist_id = models.CharField(max_length=50, null=True, blank=True)
+    # picking_status = models.CharField(max_length=50,choices=PICKING_STATUS, default='picking_pending')
+    # picker_boy = models.ForeignKey(
+    #     get_user_model(), related_name='order_picker_boy',
+    #     null=True, blank=True, on_delete=models.SET_NULL
+    # )
+    # picklist_id = models.CharField(max_length=50, null=True, blank=True)
     #picklist_id = models.ForeignKey(PickList, related_name="picklist_order", on_delete=models.SET_NULL)
 
     order_status = models.CharField(max_length=50,choices=ORDER_STATUS)
@@ -412,33 +412,6 @@ class Order(models.Model):
     # @property
     # def delivered_value(self):
     #     return order_delivered_value(self.shipments())
-
-
-# class PickerDashboard(models.Model):
-
-#     order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE)
-#     picklist_id = models.CharField(max_length=255, null=True, blank=True)
-#     picker_boy = models.ForeignKey(
-#         UserWithName, related_name='picker_user',
-#         on_delete=models.CASCADE, verbose_name='Picker Boy'
-#     )
-#     order_date = models.DateField()
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     modified_at = models.DateTimeField(auto_now=True)
-
-class PickerDashboard(Order):
-    class Meta:
-        proxy = True
-        verbose_name = _("Picker Dashboard")
-        verbose_name_plural = _("Picker Dashboard")
-
-    def __str__(self):
-        return self.picklist_id if self.picklist_id is not None else str(self.id)
-
-    def picklist(self):
-        return mark_safe("<a href='/admin/retailer_to_sp/pickerdashboard/assign-picker/%s/change/'>%s<a/>" % (self.pk,
-                                                                                                   self.picklist_id)
-                         )
 
 
 
@@ -702,6 +675,40 @@ class OrderedProduct(models.Model): #Shipment
         super().save(*args, **kwargs)
 
 
+class PickerDashboard(models.Model):
+
+    PICKING_STATUS = (
+        ('picking_pending', 'Picking Pending'),
+        ('picking_assigned', 'Picking Assigned'),
+        ('picking_in_progress', 'Picking In Progress'),
+        ('picking_complete', 'Picking Complete'),
+    )
+
+    order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE)
+    shipment = models.ForeignKey(OrderedProduct, related_name="picker_shipment", on_delete=models.CASCADE)
+    picking_status = models.CharField(max_length=50,choices=PICKING_STATUS, default='picking_pending')
+
+    picklist_id = models.CharField(max_length=255, null=True, blank=True)
+    picker_boy = models.ForeignKey(
+        UserWithName, related_name='picker_user',
+        on_delete=models.CASCADE, verbose_name='Picker Boy'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+# class PickerDashboard(Order):
+#     class Meta:
+#         proxy = True
+#         verbose_name = _("Picker Dashboard")
+#         verbose_name_plural = _("Picker Dashboard")
+
+    def __str__(self):
+        return self.picklist_id if self.picklist_id is not None else str(self.id)
+
+    def picklist(self):
+        return mark_safe("<a href='/admin/retailer_to_sp/pickerdashboard/assign-picker/%s/change/'>%s<a/>" % (self.pk,
+                                                                                                   self.picklist_id)
+                         )
 
 
 
