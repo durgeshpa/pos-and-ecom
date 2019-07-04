@@ -46,12 +46,20 @@
                      console.log(request.responseText);
                 }
             });
-         $('.submit-row').on('click','input[name="_disapprove"]', function(e){
+
+        $('.submit-row').on('click','input[type=submit]', function(e){
+            var c = confirm("Are you sure?");
+            return c;
+        });
+
+        $('.submit-row').on('click','input[name="_disapprove"]', function(e){
             console.log("inside disapprove")
             if ($('textarea[name="message"]').val().trim()=='') {
                 alert("Please enter some message");
                 event.preventDefault();
             }
         });
+
+
     });
 })(django.jQuery);
