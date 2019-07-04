@@ -14,7 +14,7 @@ from .views import (
     load_brands, products_filter_view, products_price_filter_view,
     ProductsUploadSample, products_csv_upload_view, gf_product_price,
     load_gf, products_export_for_vendor, products_vendor_mapping,
-    MultiPhotoUploadView, ProductPriceAutocomplete
+    MultiPhotoUploadView, ProductPriceAutocomplete, ProductCategoryAutocomplete
     )
 from .resources import (
     SizeResource, ColorResource, FragranceResource,
@@ -147,6 +147,21 @@ class ProductSearch(InputFilter):
             return queryset.filter(
                 Q(product_sku__icontains=product_sku)
             )
+
+
+class ProductSKUSearch(InputFilter):
+    parameter_name = 'product_sku'
+    title = 'Product SKU'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            product_sku = self.value()
+            if product_sku is None:
+                return
+            return queryset.filter(
+                Q(product__product_sku__icontains=product_sku)
+            )
+
 
 
 class ProductOptionAdmin(admin.TabularInline):
@@ -294,6 +309,11 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 self.admin_site.admin_view(ProductPriceAutocomplete.as_view()),
                 name="product-price-autocomplete"
             ),
+            url(
+                r'^product-category-autocomplete/$',
+                self.admin_site.admin_view(ProductCategoryAutocomplete.as_view()),
+                name="product-category-autocomplete"
+            ),
         ] + urls
         return urls
 
@@ -330,12 +350,31 @@ class MRPSearch(InputFilter):
             return queryset.filter(
                 Q(mrp__icontains=mrp)
             )
+
+class ExportCsvMixin:
+    def export_as_csv_productprice(self, request, queryset):
+        meta = self.model._meta
+        list_display = [
+            'product' ,'sku_code', 'mrp', 'price_to_service_partner','price_to_retailer', 'price_to_super_retailer',
+            'shop', 'cash_discount','loyalty_incentive','margin','start_date', 'end_date', 'status'
+        ]
+        field_names = [field.name for field in meta.fields if field.name in list_display]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in list_display])
+        return response
+    export_as_csv_productprice.short_description = "Download CSV of Selected ProductPrice"
+
 class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductPriceResource
     form = ProductPriceNewForm
-    actions = ["export_as_csv"]
+    actions = ["export_as_csv_productprice"]
     list_display = [
-        'product', 'product_gf_code', 'mrp', 'price_to_service_partner','price_to_retailer', 'price_to_super_retailer',
+        'product', 'product_sku', 'product_gf_code', 'mrp', 'price_to_service_partner','price_to_retailer', 'price_to_super_retailer',
+
         'shop', 'cash_discount','loyalty_incentive','margin','start_date', 'end_date', 'status'
     ]
     autocomplete_fields=['product',]
@@ -343,7 +382,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
         'product__product_name', 'product__product_gf_code',
         'product__product_brand__brand_name', 'shop__shop_name'
     ]
-    list_filter= [ProductFilter,ShopFilter,MRPSearch,('start_date', DateRangeFilter),('end_date', DateRangeFilter)]
+    list_filter= [ProductSKUSearch, ProductFilter,ShopFilter,MRPSearch,('start_date', DateRangeFilter),('end_date', DateRangeFilter)]
     fields=('product','city','area','mrp','shop','price_to_retailer','price_to_super_retailer','price_to_service_partner','cash_discount','loyalty_incentive','start_date','end_date','status')
     class Media:
         pass
@@ -351,6 +390,12 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
         if obj: # editing an existing object
             return self.readonly_fields + ('mrp','price_to_retailer','price_to_super_retailer','price_to_service_partner' )
         return self.readonly_fields
+
+    def product_sku(self, obj):
+        return obj.product.product_sku
+
+    product_sku.short_description = 'Product SKU'
+
 
     def product_gf_code(self, obj):
         return obj.product.product_gf_code

@@ -54,14 +54,14 @@ class VendorForm(forms.ModelForm):
                 except:
                     raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product does not exist with this ID")
 
-                if not row[3] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[3]):
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[3]+":"+row[3]+" | "+VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID']%("MRP"))
-
                 if not row[4] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[4]):
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[4]+":"+row[4]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
+                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[4]+":"+row[4]+" | "+VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID']%("MRP"))
 
-                if not row[5] or not re.match("^[\d\,]*$", row[5]):
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[5]+":"+row[5]+" | "+VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID']%("Case_size"))
+                if not row[5] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[5]):
+                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[5]+":"+row[5]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_PRICE'])
+
+                if not row[6] or not re.match("^[\d\,]*$", row[6]):
+                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[6]+":"+row[6]+" | "+VALIDATION_ERROR_MESSAGES['EMPTY_OR_NOT_VALID']%("Case_size"))
             return self.cleaned_data['vendor_products_csv']
 
 
@@ -77,14 +77,25 @@ class BrandForm(forms.ModelForm):
         fields = '__all__'
 
 class ProductVendorMappingForm(forms.ModelForm):
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:product-price-autocomplete', )
+    )
+    sku = forms.CharField(disabled=True, required=False)
+
     def __init__(self, *args, **kwargs):
         super(ProductVendorMappingForm, self).__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
         if instance and instance.pk:
-            self.fields['product'].widget.attrs['readonly'] = True
+            self.fields['product'].disabled = True
             self.fields['product_price'].widget.attrs['readonly'] = True
             self.fields['product_mrp'].widget.attrs['readonly'] = True
             self.fields['case_size'].widget.attrs['readonly'] = True
+            self.fields['sku'].initial = kwargs['instance'].sku
 
     class Meta:
         Model = ProductVendorMapping
+        fields = ('product','sku','product_price','product_mrp','case_size')
+
+    class Media:
+        js = ('/static/admin/js/brand_vendor_form.js',)
