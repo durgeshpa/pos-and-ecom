@@ -226,8 +226,8 @@ class ShopAdjustmentFile(models.Model):
 class ShopUserMapping(models.Model):
     shop = models.ForeignKey(Shop, related_name='shop_user', on_delete=models.CASCADE)
     manager = models.ForeignKey(get_user_model(), null=True, blank=True, related_name='shop_user_manager', on_delete=models.SET_NULL)
-    employee = models.ForeignKey(get_user_model(), related_name='shop_employee', on_delete=models.PROTECT)
-    employee_group = models.ForeignKey(Group, related_name='shop_user_group', on_delete=models.PROTECT)
+    employee = models.ForeignKey(get_user_model(), related_name='shop_employee', on_delete=models.CASCADE)
+    employee_group = models.ForeignKey(Group, related_name='shop_user_group',default='1', on_delete=models.SET_DEFAULT)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
