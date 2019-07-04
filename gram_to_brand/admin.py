@@ -181,7 +181,8 @@ class GRNOrderAdmin(admin.ModelAdmin):
     list_display = ('grn_id','order','invoice_no','grn_date','brand', 'supplier_state', 'supplier_name', 'po_created_by','download_debit_note')
     list_filter = [OrderSearch, InvoiceNoSearch, GRNSearch, ('created_at', DateRangeFilter),('grn_order_grn_order_product__expiry_date', DateRangeFilter)]
     form = GRNOrderForm
-    fields = ('order','invoice_no',)
+    #fields = ('order','invoice_no','brand_invoice','e_way_bill_no','e_way_bill_document', 'invoice_date', 'invoice_amount')
+    fields = ('order','invoice_no','invoice_date', 'invoice_amount')
     change_form_template = 'admin/gram_to_brand/grn_order/change_form.html'
 
     def po_created_by(self,obj):
