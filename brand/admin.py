@@ -9,7 +9,7 @@ from .resources import BrandResource
 from products.admin import ExportCsvMixin
 from admin_auto_filters.filters import AutocompleteFilter
 from .forms import BrandForm, ProductVendorMappingForm
-from .views import save_vendor
+from .views import save_vendor, SearchProduct
 
 class BrandSearch(InputFilter):
     parameter_name = 'brand_name'
@@ -79,8 +79,6 @@ class BrandPositionAdmin(NonSortableParentAdmin):
     form=BrandForm
     inlines = [BrandDataInline]
 
-admin.site.register(BrandPosition, BrandPositionAdmin)
-
 class BrandAdmin( admin.ModelAdmin, ExportCsvMixin):
     resource_class = BrandResource
     actions = ["export_as_csv"]
@@ -95,24 +93,22 @@ class BrandAdmin( admin.ModelAdmin, ExportCsvMixin):
             kwargs["queryset"] = Brand.objects.all().order_by('brand_slug')
         return super(BrandAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
 
-
-admin.site.register(Brand,BrandAdmin)
-
 class ProductAdmin(admin.TabularInline):
     model = ProductVendorMapping
-    fields = ('product','product_price','product_mrp','case_size')
     form = ProductVendorMappingForm
     def get_queryset(self, request):
         qs = super(ProductAdmin, self).get_queryset(request)
         return qs.filter(
             status=True
         )
+    readonly_fields = ('sku',)
+    fields = ('product', 'sku', 'product_price', 'product_mrp', 'case_size')
 
 class VendorAdmin(admin.ModelAdmin):
     form = VendorForm
     inlines = [ProductAdmin]
     list_display = ('vendor_name', 'mobile','state', 'city','vendor_products_brand')
-    search_fields= ('vendor_name',)
+    search_fields = ('vendor_name',)
     list_filter = [VendorNameSearch, VendorContactNoSearch, StateFilter, CityFilter]
 
     class Media:
@@ -123,4 +119,18 @@ class VendorAdmin(admin.ModelAdmin):
         save_vendor(form.instance)
         form.instance.save()
 
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(VendorAdmin, self).get_urls()
+        urls = [
+            url(r'^search-product/$',
+                self.admin_site.admin_view(SearchProduct.as_view()),
+                name='search-product'),
+        ] + urls
+        return urls
+
+    change_form_template = 'admin/brand/vendor/change_form.html'
+
 admin.site.register(Vendor,VendorAdmin)
+admin.site.register(Brand,BrandAdmin)
+admin.site.register(BrandPosition, BrandPositionAdmin)
