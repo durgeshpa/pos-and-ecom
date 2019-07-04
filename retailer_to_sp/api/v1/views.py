@@ -70,6 +70,7 @@ from common.data_wrapper_view import DataWrapperViewSet
 
 from django.contrib.auth import get_user_model
 from django.utils.translation import ugettext_lazy as _
+from common.data_wrapper import format_serializer_errors
 
 User = get_user_model()
 
@@ -1235,7 +1236,7 @@ class CancelOrder(APIView):
                                       pk=request.data['order_id'])
         except ObjectDoesNotExist:
             msg = {'is_success': False,
-                   'message': ['This order is not associated with the current user'],
+                   'message': ['Order is not associated with the current user'],
                    'response_data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
@@ -1244,22 +1245,8 @@ class CancelOrder(APIView):
         if serializer.is_valid():
             serializer.save()
             msg = {'is_success': True,
-                    'message': ["User details updated!"],
+                    'message': ["Order Cancelled Successfully!"],
                     'response_data': serializer.data}
-            return Response(msg,
-                            status=status.HTTP_200_OK)
+            return Response(msg, status=status.HTTP_200_OK)
         else:
-            errors = []
-            for field in serializer.errors:
-                for error in serializer.errors[field]:
-                    if 'non_field_errors' in field:
-                        result = error
-                    else:
-                        result = ''.join('{} : {}'.format(field,error))
-                    errors.append(result)
-            msg = {'is_success': False,
-                    'message': [error for error in errors],
-                    'response_data': None }
-            return Response(msg,
-                            status=status.HTTP_406_NOT_ACCEPTABLE)
-
+            return format_serializer_errors(serializer.errors)

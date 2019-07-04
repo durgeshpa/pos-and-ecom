@@ -705,10 +705,11 @@ class FeedBackSerializer(serializers.ModelSerializer):
 
 class CancelOrderSerializer(serializers.ModelSerializer):
     order_id = serializers.IntegerField(required=True)
+    order_status = serializers.HiddenField(default='CANCELLED')
 
     class Meta:
         model = Order
-        fields = ('order_id',)
+        fields = ('order_id', 'order_status')
 
     def validate(self, data):
         order = self.context.get('order')
