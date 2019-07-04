@@ -1,7 +1,7 @@
 from django.conf.urls import url
 from django.urls import path
 from shops.api.v1.views import (RetailerTypeView, ShopTypeView,
-        ShopView, ShopPhotoView, ShopDocumentView, TeamListView)
+        ShopView, ShopPhotoView, ShopDocumentView, TeamListView, SellerShopView, SellerShopProfile)
 from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetail
 
 urlpatterns = [
@@ -14,6 +14,7 @@ urlpatterns = [
     path('shop-photo/', ShopPhotoView.as_view(), name='shop-photo', ),
     path('shop-document/', ShopDocumentView.as_view(), name='shop-document', ),
     path('team-list/', TeamListView.as_view(), name='team-list', ),
-
+    path('seller-shops/', SellerShopView.as_view(), name='seller-shops', ),
+    path('seller-shop-profile/', SellerShopProfile.as_view(), name='seller-shop-profile', ),
 
 ]
