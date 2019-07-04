@@ -450,6 +450,17 @@ class ProductNameFilter(InputFilter):
             return queryset.filter(ordered_cart__rt_cart_list__cart_product__product_name=value)
         return queryset
 
+class PincodeSearch(InputFilter):
+    title = 'Pincode'
+    parameter_name = 'pincode'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value :
+            return queryset.filter(order__shipping_address__pincode=value)
+        return queryset
+
+
 class Pincode(InputFilter):
     title = 'Pincode'
     parameter_name = 'pincode'
@@ -725,16 +736,16 @@ class ShipmentAdmin(admin.ModelAdmin):
     form = ShipmentForm
     list_select_related = (
         'order', 'trip', 'order__seller_shop', 'order__shipping_address',
-        'order__shipping_address__city'
+        'order__shipping_address__city',
     )
     list_display = (
         'invoice_no', 'order', 'created_at', 'trip', 'shipment_address',
         'seller_shop', 'invoice_city', 'invoice_amount', 'payment_mode',
-        'shipment_status', 'download_invoice',
+        'shipment_status', 'download_invoice', 'pincode',
     )
     list_filter = [
         ('created_at', DateTimeRangeFilter), InvoiceSearch, ShipmentOrderIdSearch, ShipmentSellerShopSearch,
-        ('shipment_status', ChoiceDropdownFilter)
+        ('shipment_status', ChoiceDropdownFilter), PincodeSearch
 
     ]
     fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
@@ -758,6 +769,9 @@ class ShipmentAdmin(admin.ModelAdmin):
             (reverse('download_invoice_sp', args=[obj.pk]))
         )
     download_invoice.short_description = 'Download Invoice'
+
+    def pincode(self, obj):
+        return  obj.order.shipping_address.pincode
 
     def seller_shop(self, obj):
         return obj.order.seller_shop.shop_name
@@ -870,8 +884,26 @@ class TripAdmin(admin.ModelAdmin):
     download_trip_pdf.short_description = 'Trip Details'
 
 
-class CommercialAdmin(admin.ModelAdmin):
+class ExportCsvMixin:
+    def export_as_csv_commercial(self, request, queryset):
+        meta = self.model._meta
+        list_display = ('dispatch_no', 'trip_amount', 'received_amount',
+            'cash_to_be_collected', 'delivery_boy', 'vehicle_no', 'trip_status', 
+            'starts_at', 'completed_at', 'seller_shop',)
+        field_names = [field.name for field in meta.fields if field.name in list_display]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, 'cash_to_be_collected_value') if field in ['cash_to_be_collected'] else getattr(obj, field) for field in list_display])
+        return response
+    export_as_csv_commercial.short_description = "Download CSV of Selected Commercial"
+
+
+class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
     #change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
+    actions = ["change_trip_status", "export_as_csv_commercial",]
     list_display = (
         'dispatch_no', 'trip_amount', 'received_amount',
         'cash_to_be_collected', 'download_trip_pdf', 'delivery_boy',
@@ -898,7 +930,6 @@ class CommercialAdmin(admin.ModelAdmin):
                    ('completed_at', DateTimeRangeFilter), VehicleNoSearch,
                    DispatchNoSearch]
     form = CommercialForm
-    actions = ['change_trip_status']
 
     def change_trip_status(self, request, queryset):
         queryset.filter(trip_status='CLOSED').update(trip_status='TRANSFERRED')
@@ -906,7 +937,7 @@ class CommercialAdmin(admin.ModelAdmin):
 
     def cash_to_be_collected(self, obj):
         return obj.cash_to_be_collected()
-        cash_to_be_collected.short_description = 'Cash to be Collected'
+    cash_to_be_collected.short_description = 'Cash to be Collected'
 
     def has_add_permission(self, request, obj=None):
         return False
