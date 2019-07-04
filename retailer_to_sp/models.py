@@ -143,6 +143,10 @@ class Cart(models.Model):
     def qty_sum(self):
         return self.rt_cart_list.aggregate(qty_sum=Sum('qty'))['qty_sum']
 
+    @property
+    def no_of_pieces_sum(self):
+        return self.rt_cart_list.aggregate(qty_sum=Sum('no_of_pieces'))['no_of_pieces_sum']
+
     def save(self, *args, **kwargs):
         if self.cart_status == self.ORDERED:
             for cart_product in self.rt_cart_list.all():
