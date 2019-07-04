@@ -274,6 +274,38 @@ class OrderedProductDispatchForm(forms.ModelForm):
         #self.fields['order'].required = True
 
 
+class EditAssignPickerForm(forms.ModelForm):
+    # form to edit assgined picker 
+    assigned_picker = forms.ModelChoiceField(
+                        queryset=UserWithName.objects.all(),
+                        widget=RelatedFieldWidgetCanAddPicker(
+                                UserWithName,
+                                related_url="admin:accounts_user_add"))
+
+    class Meta:
+        model = PickerDashboard
+        fields = ['assigned_picker', 'picking_status', 'picklist_id']
+
+    class Media:
+        js = ('admin/js/select2.min.js', )
+        css = {
+            'all': (
+                'admin/css/select2.min.css',
+            )
+        }
+
+    def __init__(self, *args, **kwargs):
+        super(EditAssignPickerForm, self).__init__(*args, **kwargs)
+
+        instance = getattr(self, 'instance', None)
+        # assign shop name as readonly with value for shop name for user
+        #shop = Shop.objects.get(related_users=user)      
+        shop = Shop.objects.get(shop_name="TEST SP 1") 
+        # find all picker for the shop
+        self.fields['assigned_picker'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
+
+
+
 # tbd: test for warehouse manager, superuser, other users
 class AssignPickerForm(forms.ModelForm):
     assigned_picker = forms.ModelChoiceField(
@@ -293,9 +325,6 @@ class AssignPickerForm(forms.ModelForm):
     class Meta:
         model = PickerDashboard
         fields = ['assigned_picker', 'shop', 'selected_id', 'unselected_id', ]
-        # fields = ['seller_shop', 'delivery_boy', 'vehicle_no', 'trip_status',
-        #           'e_way_bill_no', 'search_by_area', 'selected_id',
-        #           'unselected_id']
 
     class Media:
         js = ('admin/js/select2.min.js', )

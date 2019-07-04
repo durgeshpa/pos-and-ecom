@@ -34,7 +34,7 @@ from retailer_to_sp.views import (
     load_dispatches, order_invoices, ordered_product_mapping_shipment,
     trip_planning, trip_planning_change, update_delivered_qty,
     update_order_status, update_shipment_status, reshedule_update_shipment,
-    RetailerCart, assign_picker, #assign_picker_change
+    RetailerCart, assign_picker, assign_picker_change,
 )
 from shops.models import ParentRetailerMapping, Shop
 from sp_to_gram.models import (
@@ -51,7 +51,7 @@ from .forms import (
     ReturnProductMappingForm, ShipmentForm,
     ShipmentProductMappingForm, TripForm, ShipmentReschedulingForm,
     OrderedProductReschedule, OrderedProductMappingRescheduleForm,
-    OrderForm
+    OrderForm, EditAssignPickerForm,
 )
 from .models import (Cart, CartProductMapping, Commercial, CustomerCare,
                      Dispatch, DispatchProductMapping, Note, Order,
@@ -488,15 +488,15 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/picker/change_list.html'
     actions = ["change_picking_status"]
     model = PickerDashboard
-    #form = PickerDashboardForm
+    form = EditAssignPickerForm
     # list_display = (
     #     'id', 'picklist_id', 'picker_boy', 'order_date', 'download_pick_list'
     #     )
     list_display = (
-        'id', 'picklist_id', 'assigned_picker', 'created_at', 'download_pick_list'
+        'id', 'picklist_id', 'picking_status', 'assigned_picker', 'created_at', 'download_pick_list'
         )
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
-    # readonly_fields = []
+    readonly_fields = ['picklist_id']
     list_filter = [PickerBoyFilter]
 
     def get_urls(self):
@@ -508,19 +508,28 @@ class PickerDashboardAdmin(admin.ModelAdmin):
                self.admin_site.admin_view(assign_picker),
                name="AssignPicker"
             ),
-            # url(
-            #    r'^assign-picker/(?P<pk>\d+)/change/$',
-            #    self.admin_site.admin_view(assign_picker_change),
-            #    name="AssignPickerChange"
-            # ),
+            url(
+               r'^assign-picker/(?P<pk>\d+)/change/$',
+               self.admin_site.admin_view(assign_picker_change),
+               name="AssignPickerChange"
+            ),
 
         ] + urls
         return urls
 
     def change_picking_status(self, request, queryset):
-        pass
-        #queryset.filter(Q(order__picking_status='picking_in_progress')).update(Q(order__picking_status='picking_complete'))
+        # queryset.filter(Q(order__picking_status='picking_in_progress')).update(Q(order__picking_status='picking_complete'))
+        queryset.update(picking_status='picking_complete')
     change_picking_status.short_description = "Mark selected orders as picking completed"
+
+    def get_queryset(self, request):
+        qs = super(PickerDashboardAdmin, self).get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(
+            Q(seller_shop__related_users=request.user) |
+            Q(seller_shop__shop_owner=request.user)
+                )
 
     def download_pick_list(self,obj):
         if obj.order_status not in ["active", "pending"]:
@@ -567,11 +576,6 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                        'total_tax_amount',)
     list_filter = [PhoneNumberFilter,SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
         ('created_at', DateTimeRangeFilter), Pincode]
-
-    # def change_trip_status(self, request, queryset):
-    #     queryset.filter(trip_status='CLOSED').update(trip_status='TRANSFERRED')
-    # change_trip_status.short_description = "Mark selected Trips as Transferred"
-
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)

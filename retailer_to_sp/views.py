@@ -281,7 +281,6 @@ def assign_picker(request):
     if request.method == 'POST':
         # saving picker data to pickerdashboard model
         form = AssignPickerForm(request.user, request.POST)
-        #import pdb; pdb.set_trace()
         if form.is_valid():
             #assign_picker_form = form.save()
             #saving selected order picking status
@@ -309,6 +308,27 @@ def assign_picker(request):
         request,
         'admin/retailer_to_sp/picker/AssignPicker.html',
         {'form': form, 'picker_orders': picker_orders }
+    )
+
+
+def assign_picker_change(request, pk):
+    # save the changes
+    picking_instance = PickerDashboard.objects.get(pk=pk)
+    #picking_status = picking_instance.picking_status
+    import pdb; pdb.set_trace()
+
+    if request.method == 'POST':
+        form = AssignPickerForm(request.user, request.POST, instance=picking_instance)
+        
+        if form.is_valid():
+            form.save()
+        return redirect('/admin/retailer_to_sp/pickerdashboard/')
+
+    form = AssignPickerForm(request.user, instance=picking_instance)
+    return render(
+        request,
+        'admin/retailer_to_sp/picker/AssignPickerChange.html',
+        {'form': form}
     )
 
 

@@ -433,7 +433,13 @@ class PickerDashboard(Order):
         verbose_name_plural = _("Picker Dashboard")
 
     def __str__(self):
-        return self.picklist_id
+        return self.picklist_id if self.picklist_id is not None else str(self.id)
+
+    def picklist(self):
+        return mark_safe("<a href='/admin/retailer_to_sp/pickerdashboard/assign-picker/%s/change/'>%s<a/>" % (self.pk,
+                                                                                                   self.picklist_id)
+                         )
+
 
 
 class Trip(models.Model):
