@@ -72,25 +72,19 @@ table tr td,th,h4,span,address{
     					<table class="table table-bordered">
 
                                 <tr>
-
-        							<td style="width: 50%" class="text-center"><strong>Voucher No.</strong><br>
+									<td style="width: 50%" class="text-center"><strong>Voucher No.</strong><br>
 									<span>{{shop.po_no}}</span>
 									</td>
-        							<td class="text-center"><strong>Dated <br>
-{{shop.po_creation_date}}</strong></td>
-
-
+        							<td class="text-center"><strong>Created Date<br>{{shop.po_creation_date}}</strong></td>
                                 </tr>
-    						 <tr>
+    						 	<tr>
+									<td class="text-center"><strong>Validity Date</strong><br>
+									<span>{{shop.po_validity_date}}</span>
+									</td>
 
-
-        							<td class="text-center"></td>
-
-        					<td class="text-center"><strong>Mode/Terms of Payment</strong><br>
-								 <span>1 Days</span>
-								 </td>
-
-
+        							<td class="text-center"><strong>Mode/Terms of Payment</strong><br>
+								 	<span>1 Days</span>
+								 	</td>
                                 </tr>
 
 						</table>
@@ -147,7 +141,7 @@ table tr td,th,h4,span,address{
 
 												<td class="text-center"><strong>SKU</strong></td>
         							<td class="text-center"><strong>Description of Goods</strong></td>
-
+											<td class="text-center"><strong>MRP</strong></td>
         							<td class="text-center"><strong>HSN/SAC</strong></td>
 
 									    <td class="text-center"><strong>GST Rate</strong></td>
@@ -165,7 +159,7 @@ table tr td,th,h4,span,address{
     								<td><strong>{{forloop.counter}}</strong></td>
 										<td class="text-center">{{ m.cart_product.product_sku}}</td>
     								<td class="text-center">{{ m.cart_product.product_short_description}}</td>
-
+										<td class="text-center">{{ m.mrp}}</td>
 
 
     								<td class="text-center">{{ m.cart_product.product_hsn}}</td>
@@ -191,7 +185,7 @@ table tr td,th,h4,span,address{
 
 									<td></td>
 									<td><strong></strong></td>
-
+									<td></td>
 									<td></td>
 									<td></td>
 
@@ -207,7 +201,7 @@ table tr td,th,h4,span,address{
 									<td class="no-line"></td>
 									<td class="no-line"></td>
 									<td class="no-line"></td>
-
+									<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line"></td>
@@ -221,7 +215,7 @@ table tr td,th,h4,span,address{
     								<td class="no-line"></td>
 									<td class="no-line"></td>
 										<td class="no-line"></td>
-
+										<td class="no-line"></td>
 									<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
@@ -236,7 +230,7 @@ table tr td,th,h4,span,address{
 	    								<td class="no-line"></td>
 										<td class="no-line"></td>
 											<td class="no-line"></td>
-
+											<td class="no-line"></td>
 										<td class="no-line"></td>
 										<td class="no-line"></td>
 	    								<td class="no-line"></td>
@@ -252,7 +246,7 @@ table tr td,th,h4,span,address{
     								<td class="no-line"></td>
 									<td class="no-line"></td>
 									<td class="no-line"></td>
-
+									<td class="no-line"></td>
     								<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
@@ -267,7 +261,7 @@ table tr td,th,h4,span,address{
 	    								<td class="no-line"></td>
 										<td class="no-line"></td>
 										<td class="no-line"></td>
-
+										<td class="no-line"></td>
 	    								<td class="no-line"></td>
 										<td class="no-line"></td>
 	    								<td class="no-line"></td>
@@ -282,7 +276,7 @@ table tr td,th,h4,span,address{
 										<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
-
+										<td class="no-line"></td>
     								<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>

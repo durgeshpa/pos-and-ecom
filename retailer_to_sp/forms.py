@@ -95,12 +95,13 @@ class ReturnProductMappingForm(forms.ModelForm):
 class OrderedProductForm(forms.ModelForm):
     order = forms.ModelChoiceField(queryset=Order.objects.filter(
         order_status__in=[Order.OPDP, 'ordered',
-                          'PARTIALLY_SHIPPED', 'DISPATCH_PENDING']),
+                          'PARTIALLY_SHIPPED', 'DISPATCH_PENDING'],
+        order_closed=False),
         required=True)
 
     class Meta:
         model = OrderedProduct
-        fields = ['order']
+        fields = ['order', 'shipment_status']
 
     class Media:
         js = (
@@ -117,6 +118,8 @@ class OrderedProductForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(OrderedProductForm, self).__init__(*args, **kwargs)
+        self.fields['shipment_status'].choices = OrderedProduct.SHIPMENT_STATUS[:2]
+
 
 
 class OrderedProductMappingForm(forms.ModelForm):
@@ -387,17 +390,22 @@ class ShipmentForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(ShipmentForm, self).__init__(*args, **kwargs)
-        instance = getattr(self, 'instance', None)
-        ordered_product = instance
+        ordered_product = getattr(self, 'instance', None)
         SHIPMENT_STATUS = OrderedProduct.SHIPMENT_STATUS
         if ordered_product:
             shipment_status = ordered_product.shipment_status
             if shipment_status == 'SHIPMENT_CREATED':
                 self.fields['shipment_status'].choices = SHIPMENT_STATUS[:2]
             elif shipment_status == 'READY_TO_SHIP':
+                setattr(self.fields['close_order'], 'disabled', True)
                 self.fields['shipment_status'].disabled = True
             elif shipment_status == 'CANCELLED':
+                setattr(self.fields['close_order'], 'disabled', True)
                 self.fields['shipment_status'].disabled = True
+            if ordered_product.order.order_closed:
+                setattr(self.fields['close_order'], 'initial', True)
+                setattr(self.fields['close_order'], 'disabled', True)
+
         else:
             self.fields['shipment_status'].choices = SHIPMENT_STATUS[:1]
 
@@ -438,7 +446,12 @@ class CartProductMappingForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(CartProductMappingForm, self).__init__(*args, **kwargs)
         self.empty_permitted = False
-        required_fields(self, ['cart_product_price'])
+
+    def clean_cart_product_price(self):
+        product_price = self.cleaned_data.get('cart_product_price')
+        if not product_price:
+            raise forms.ValidationError('This field is required')
+        return product_price
 
     def clean_no_of_pieces(self):
         cart = self.cleaned_data.get('cart')
@@ -463,7 +476,7 @@ class CartForm(forms.ModelForm):
     class Meta:
         model = Cart
         fields = ('seller_shop', 'buyer_shop')
-        
+
 
 class CommercialForm(forms.ModelForm):
     class Meta:
@@ -600,12 +613,25 @@ class OrderForm(forms.ModelForm):
     shipping_address = forms.ChoiceField(required=False,choices=Address.objects.values_list('id', 'address_line1'))
     ordered_by = forms.ChoiceField(required=False,choices=UserWithName.objects.values_list('id', 'phone_number'))
     last_modified_by = forms.ChoiceField(required=False,choices=UserWithName.objects.values_list('id', 'phone_number'))
+    total_final_amount = forms.CharField()
+    total_mrp_amount = forms.CharField()
 
     class Meta:
         model = Order
+        # fields = '__all__'
         fields = ('seller_shop', 'buyer_shop', 'ordered_cart', 'order_no', 'billing_address', 'shipping_address',
-                  'total_mrp', 'total_discount_amount', 'total_tax_amount', 'total_final_amount', 'order_status',
+                  'total_mrp_amount', 'total_discount_amount', 'total_tax_amount', 'total_final_amount', 'order_status',
                   'ordered_by', 'last_modified_by')
 
     class Media:
         js = ('/static/admin/js/retailer_cart.js',)
+
+    def __init__(self, *args, **kwargs):
+        super(OrderForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+        if instance and instance.pk:
+            self.fields['total_final_amount'].widget.attrs['readonly'] = True
+            self.fields['total_final_amount'].initial = instance.total_final_amount
+
+            self.fields['total_mrp_amount'].widget.attrs['readonly'] = True
+            self.fields['total_mrp_amount'].initial = instance.total_mrp_amount
