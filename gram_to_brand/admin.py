@@ -39,11 +39,11 @@ class CartProductMappingAdmin(admin.TabularInline):
 
     def get_readonly_fields(self, request, obj=None):
         if request.user.is_superuser:
-            return 'tax_percentage', 'case_sizes','sub_total'
+            return 'tax_percentage', 'mrp','sku','case_sizes','sub_total'
         elif request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
-            return 'tax_percentage', 'case_sizes','sub_total'
+            return 'tax_percentage', 'mrp','sku','case_sizes','sub_total'
             #return 'tax_percentage','case_sizes', 'no_of_cases', 'no_of_pieces', 'price', 'sub_total'
-        return 'tax_percentage', 'case_sizes','sub_total'
+        return 'tax_percentage', 'mrp','sku','case_sizes','sub_total'
 
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
