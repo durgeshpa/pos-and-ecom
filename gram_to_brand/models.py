@@ -75,20 +75,25 @@ class Po_Message(models.Model):
 
 class Cart(BaseCart):
     """PO Generation"""
+    OPEN = "OPEN"
     APPROVAL_AWAITED = "WAIT"
     FINANCE_APPROVED = "APRW"
-    UNAPPROVED = "RJCT"
+    DISAPPROVED = "RJCT"
     SENT_TO_BRAND = "SENT"
     PARTIAL_DELIVERED = "PDLV"
+    PARTIAL_DELIVERED_CLOSE = "PDLC"
     DELIVERED = "DLVR"
     CANCELED = "CNCL"
+    PARTIAL_RETURN = 'PARR'
     ORDER_STATUS = (
-        (SENT_TO_BRAND, "Send To Brand"),
+        (OPEN,"Open"),
         (APPROVAL_AWAITED, "Waiting For Finance Approval"),
         (FINANCE_APPROVED, "Finance Approved"),
-        (UNAPPROVED, "Finance Not Approved"),
+        (DISAPPROVED, "Finance Disapproved"),
         (PARTIAL_DELIVERED, "Partial Delivered"),
-        (DELIVERED, "Delivered"),
+        (PARTIAL_DELIVERED_CLOSE, "Partial Delivered and Closed"),
+        (PARTIAL_RETURN, "Partial Return"),
+        (DELIVERED, "Completely delivered and Closed"),
         (CANCELED, "Canceled"),
     )
 
@@ -148,6 +153,7 @@ class Cart(BaseCart):
         verbose_name = "PO Generation"
         permissions = (
             ("can_approve_and_disapprove", "Can approve and dis-approve"),
+            ("can_create_po", "Can create po"),
         )
 
     def clean(self):
@@ -179,8 +185,6 @@ class Cart(BaseCart):
     @property
     def po_amount(self):
         self.cart_list.aggregate(sum('total_price'))
-
-
 
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='cart_list',on_delete=models.CASCADE)
@@ -256,11 +260,15 @@ class CartProductMapping(models.Model):
             return round(float(self.qty)* float(self.vendor_product.product_price),2)
         return self.total_price
 
-    def get_vendor_specific_products_mrp(self):
+    @property
+    def sku(self):
+        return self.cart_product.product_sku
+
+    @property
+    def mrp(self):
         if self.vendor_product:
-            return self.vendor_product.product_mrp
-        else:
-            return '-'
+            return round(self.vendor_product.product_mrp,2)
+        return '-'
 
     def __str__(self):
         return self.cart_product.product_name
@@ -303,12 +311,12 @@ def create_cart_product_mapping(sender, instance=None, created=False, **kwargs):
                             vendor_product_dt = vendor_product
                         else:
                             vendor_product_dt = ProductVendorMapping.objects.create(vendor=instance.supplier_name,
-                                                                product_id=row[0], product_price=row[5],
-                                                                product_mrp=row[4], case_size=row[2], status=True)
+                                                                product_id=row[0], product_price=row[6],
+                                                                product_mrp=row[5], case_size=row[3], status=True)
 
                         CartProductMapping.objects.create(cart=instance,cart_product_id = row[0],
-                         no_of_pieces = int(vendor_product_dt.case_size)*int(row[3]),
-                         price=float(row[5]),vendor_product=vendor_product_dt)
+                         no_of_pieces = int(vendor_product_dt.case_size)*int(row[4]),
+                         price=float(row[6]),vendor_product=vendor_product_dt)
 
     order,_ = Order.objects.get_or_create(ordered_cart=instance)
     order.order_no = instance.po_no
@@ -338,6 +346,8 @@ class Order(BaseOrder):
 class GRNOrder(BaseShipment): #Order Shipment
     order = models.ForeignKey(Order,verbose_name='PO Number',related_name='order_grn_order',on_delete=models.CASCADE,null=True,blank=True )
     invoice_no = models.CharField(max_length=255)
+    invoice_date = models.DateField()
+    invoice_amount = models.DecimalField(max_digits=20,decimal_places=4,default=('0.0000'))
     #e_way_bill_no = models.CharField(max_length=255, blank=True, null=True)
     #e_way_bill_document = models.FileField(null=True,blank=True)
     grn_id = models.CharField(max_length=255,null=True,blank=True)
@@ -349,6 +359,15 @@ class GRNOrder(BaseShipment): #Order Shipment
     modified_at = models.DateTimeField(auto_now=True)
     def __str__(self):
         return str(self.grn_id)
+
+    def clean(self):
+        super(GRNOrder, self).clean()
+        if self.invoice_amount <= 0:
+            raise ValidationError(_("Invoice Amount must be positive"))
+        today = datetime.date.today()
+
+        if self.invoice_date > today:
+            raise ValidationError(_("Invoice Date must not be greater than today"))
 
     class Meta:
         verbose_name = _("View GRN Detail")
