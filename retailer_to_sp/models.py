@@ -143,6 +143,13 @@ class Cart(models.Model):
     def qty_sum(self):
         return self.rt_cart_list.aggregate(qty_sum=Sum('qty'))['qty_sum']
 
+    def total_no_of_sku_pieces(self):
+        return self.rt_cart_list.aggregate(no_of_pieces_sum=Sum('no_of_pieces'))['no_of_pieces_sum']
+
+    def total_sku(self):
+        return self.rt_cart_list.count()
+
+
     @property
     def no_of_pieces_sum(self):
         return self.rt_cart_list.aggregate(qty_sum=Sum('no_of_pieces'))['no_of_pieces_sum']
@@ -408,6 +415,13 @@ class Order(models.Model):
     # def delivered_value(self):
     #     return order_delivered_value(self.shipments())
 
+    def ordered_amount(self):
+        invoice_amount = 0
+        for s in self.shipments():
+            invoice_amount += s.invoice_amount
+        return invoice_amount
+
+
 class Trip(models.Model):
     seller_shop = models.ForeignKey(
         Shop, related_name='trip_seller_shop',
@@ -592,6 +606,7 @@ class OrderedProduct(models.Model): #Shipment
             self._invoice_amount = 0
             self._cn_amount = 0
             self._damaged_amount = 0
+            self._delivered_amount = 0
             shipment_products = self.rt_order_product_order_product_mapping.values('product','shipped_qty','returned_qty','damaged_qty').all()
             shipment_map = {i['product']:(i['shipped_qty'], i['returned_qty'], i['damaged_qty']) for i in shipment_products}
             cart_product_map = self.order.ordered_cart.rt_cart_list.values('cart_product_price__price_to_retailer', 'cart_product', 'qty').filter(cart_product_id__in=shipment_map.keys())
@@ -603,6 +618,7 @@ class OrderedProduct(models.Model): #Shipment
                     self._invoice_amount += product_price * shipped_qty
                     self._cn_amount += (returned_qty+damaged_qty) * product_price
                     self._damaged_amount += damaged_qty * product_price
+                    self._delivered_amount += self._invoice_amount - self._cn_amount
                 except Exception as e:
                     logger.exception("Exception occurred {}".format(e))
 
