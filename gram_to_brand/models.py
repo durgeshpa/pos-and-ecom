@@ -75,20 +75,25 @@ class Po_Message(models.Model):
 
 class Cart(BaseCart):
     """PO Generation"""
+    OPEN = "OPEN"
     APPROVAL_AWAITED = "WAIT"
     FINANCE_APPROVED = "APRW"
-    UNAPPROVED = "RJCT"
+    DISAPPROVED = "RJCT"
     SENT_TO_BRAND = "SENT"
     PARTIAL_DELIVERED = "PDLV"
+    PARTIAL_DELIVERED_CLOSE = "PDLC"
     DELIVERED = "DLVR"
     CANCELED = "CNCL"
+    PARTIAL_RETURN = 'PARR'
     ORDER_STATUS = (
-        (SENT_TO_BRAND, "Send To Brand"),
+        (OPEN,"Open"),
         (APPROVAL_AWAITED, "Waiting For Finance Approval"),
         (FINANCE_APPROVED, "Finance Approved"),
-        (UNAPPROVED, "Finance Not Approved"),
+        (DISAPPROVED, "Finance Disapproved"),
         (PARTIAL_DELIVERED, "Partial Delivered"),
-        (DELIVERED, "Delivered"),
+        (PARTIAL_DELIVERED_CLOSE, "Partial Delivered and Closed"),
+        (PARTIAL_RETURN, "Partial Return"),
+        (DELIVERED, "Completely delivered and Closed"),
         (CANCELED, "Canceled"),
     )
 
@@ -148,6 +153,7 @@ class Cart(BaseCart):
         verbose_name = "PO Generation"
         permissions = (
             ("can_approve_and_disapprove", "Can approve and dis-approve"),
+            ("can_create_po", "Can create po"),
         )
 
     def clean(self):
@@ -179,8 +185,6 @@ class Cart(BaseCart):
     @property
     def po_amount(self):
         self.cart_list.aggregate(sum('total_price'))
-
-
 
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart,related_name='cart_list',on_delete=models.CASCADE)

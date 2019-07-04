@@ -66,7 +66,6 @@ class POGenerationForm(forms.ModelForm):
     delivery_term = forms.CharField(widget=forms.Textarea(attrs={'rows': 2, 'cols': 33}),required=True)
 
     class Media:
-        pass
         js = ('/static/admin/js/po_generation_form.js',)
 
     class Meta:
@@ -113,13 +112,25 @@ class POGenerationForm(forms.ModelForm):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY_OR_NOT_VALID']%("Gram_to_brand"))
 
-            return self.cleaned_data
+        if 'po_validity_date' in self.cleaned_data and self.cleaned_data['po_validity_date'] < datetime.date.today():
+            raise ValidationError(_("Po validity date cannot be in the past!"))
 
-        # date = self.cleaned_data['po_validity_date']
-        # if date < datetime.date.today():
-        #     raise forms.ValidationError("Po validity date cannot be in the past!")
         return self.cleaned_data
 
+    change_form_template = 'admin/gram_to_brand/cart/change_form.html'
+
+class POGenerationAccountForm(forms.ModelForm):
+
+    class Meta:
+        model = Cart
+        fields = ('brand', 'supplier_state','supplier_name', 'gf_shipping_address',
+                  'gf_billing_address', 'po_validity_date', 'payment_term',
+                  'delivery_term')
+
+    class Media:
+        js = ('/static/admin/js/po_generation_acc_form.js',)
+
+    change_form_template = 'admin/gram_to_brand/acc-cart/change_form.html'
 
 class CartProductMappingForm(forms.ModelForm):
     cart_product = forms.ModelChoiceField(
@@ -142,7 +153,6 @@ class CartProductMappingForm(forms.ModelForm):
             self.fields['no_of_cases'].initial = kwargs['instance'].no_of_cases
             self.fields['no_of_pieces'].initial = kwargs['instance'].no_of_pieces if kwargs['instance'].no_of_pieces else \
                 int(kwargs['instance'].cart_product.product_inner_case_size)*int(kwargs['instance'].cart_product.product_case_size)*int(kwargs['instance'].number_of_cases)
-
 
     class Meta:
         model = CartProductMapping

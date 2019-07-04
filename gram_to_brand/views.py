@@ -435,3 +435,25 @@ class DisapproveView(UpdateView):
         return reverse_lazy(
             'dis-approve-account', args=(self.kwargs.get('pk'),)
         )
+
+class GetMessage(APIView):
+    permission_classes =(AllowAny, )
+
+    def get(self,request, *args, **kwargs):
+        data,is_success,po_obj = [], False,''
+        if request.GET.get('po'):
+            po_obj = Cart.objects.get(id=request.GET.get('po'))
+            if request.GET.get('po') and po_obj.po_message is not None:
+                is_success = True
+                dt = {
+                    'user': po_obj.po_message.created_by.phone_number,
+                    'message': po_obj.po_message.message,
+                    'created_at': po_obj.po_message.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                }
+                data.append(dt)
+        return Response({
+            "message": [""],
+            "response_data": data,
+            "is_success": is_success,
+            "po_status":po_obj.po_status if po_obj else ''
+        })

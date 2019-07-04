@@ -6,21 +6,14 @@
 (function ($) {
 
     var form_enabled = true;
-
-
     $( document ).ready(function() {
-        console.log("loaded");
-
         $('.submit-row').on('click','input[type=submit]', function(e){
-          
                $('.submit-row').hide();
-
                 setTimeout(function(){
-                    $('.submit-row').show(); 
+                    $('.submit-row').show();
                 }, 2000);
         });
     });
-
 })(django.jQuery);
 
 </script>
