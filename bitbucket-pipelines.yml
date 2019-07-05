@@ -46,7 +46,7 @@ pipelines:
             - pip install boto3==1.3.0
             - zip -r /tmp/artifact.zip appspec.yml scripts/*
             - python codedeploy_deploy.py
-
+  
     qa1:
       - step:
           name: Deploy
