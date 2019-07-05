@@ -399,7 +399,7 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
     else:
         product_status = False
         products_available = 0
-    update_shop_product_es(instance.shop.id, instance.product.id, available=products_available, status=product_status)
+    update_shop_product_es.delay(instance.shop.id, instance.product.id, available=products_available, status=product_status)
 
 
 @receiver(pre_save, sender=SpNote)
