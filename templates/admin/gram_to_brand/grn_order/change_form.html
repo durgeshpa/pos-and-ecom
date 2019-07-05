@@ -3,6 +3,8 @@
 {% block admin_change_form_document_ready %}
 
 <script type="text/javascript" >
+
+(function ($) {
 if( $("select[id$='product']").has('option').length > 0 ) {
 $("select[id$='product']").attr('disabled', true);
 }
@@ -14,5 +16,11 @@ $("input[id$='already_grned_product']").prop('readonly', true).css('border','non
 $( "form" ).submit(function( event ) {
   $("select[id$='product']").attr('disabled', false);
 });
+})(django.jQuery);
+
+
+
 </script>
+
+
 {% endblock %}
