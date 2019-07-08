@@ -338,11 +338,11 @@ class GramGRNProductsList(APIView):
     #                      status=200)
 
     def post(self, request, format=None):
-        product_ids = request.GET.get('product_ids')
-        brand = request.GET.get('brands')
-        category = request.GET.get('categories')
-        keyword = request.GET.get('product_name', None)
-        shop_id = request.GET.get('shop_id')
+        product_ids = request.data.get('product_ids')
+        brand = request.data.get('brands')
+        category = request.data.get('categories')
+        keyword = request.data.get('product_name', None)
+        shop_id = request.data.get('shop_id')
         grn_dict = None
         cart_check = False
         is_store_active = True
