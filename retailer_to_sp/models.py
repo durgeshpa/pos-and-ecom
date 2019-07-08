@@ -10,6 +10,7 @@ from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
+from django.utils.crypto import get_random_string
 
 from accounts.middlewares import get_current_user
 from addresses.models import Address
@@ -219,14 +220,6 @@ class Order(models.Model):
     PARTIALLY_SHIPPED_AND_CLOSED = 'partially_shipped_and_closed'
     DENIED_AND_CLOSED = 'denied_and_closed'
 
-    # PICKING_STATUS = (
-        
-    #     ('picking_pending', 'Picking Pending'),
-    #     ('picking_assigned', 'Picking Assigned'),
-    #     ('picking_in_progress', 'Picking In Progress'),
-    #     ('picking_complete', 'Picking Complete'),
-    # )
-
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'),
         ('DISPATCH_PENDING', 'Dispatch Pending'),
@@ -274,15 +267,6 @@ class Order(models.Model):
     total_mrp = models.FloatField(default=0)
     total_discount_amount = models.FloatField(default=0)
     total_tax_amount = models.FloatField(default=0)
-
-    # picking_status = models.CharField(max_length=50,choices=PICKING_STATUS, default='picking_pending')
-    # picker_boy = models.ForeignKey(
-    #     get_user_model(), related_name='order_picker_boy',
-    #     null=True, blank=True, on_delete=models.SET_NULL
-    # )
-    # picklist_id = models.CharField(max_length=50, null=True, blank=True)
-    #picklist_id = models.ForeignKey(PickList, related_name="picklist_order", on_delete=models.SET_NULL)
-
     order_status = models.CharField(max_length=50,choices=ORDER_STATUS)
     order_closed = models.BooleanField(default=False, null=True, blank=True)
     ordered_by = models.ForeignKey(
@@ -664,6 +648,7 @@ class OrderedProduct(models.Model): #Shipment
 
 
     def save(self, *args, **kwargs):
+
         if not self.invoice_no:
             if self.shipment_status == self.READY_TO_SHIP:
                 self.invoice_no = retailer_sp_invoice(
@@ -684,11 +669,13 @@ class PickerDashboard(models.Model):
         ('picking_complete', 'Picking Complete'),
     )
 
-    order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE)
-    shipment = models.ForeignKey(OrderedProduct, related_name="picker_shipment", on_delete=models.CASCADE)
+    order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE)    
+    shipment = models.ForeignKey(
+        OrderedProduct, related_name="picker_shipment", 
+        on_delete=models.CASCADE, null=True, blank=True)
     picking_status = models.CharField(max_length=50,choices=PICKING_STATUS, default='picking_pending')
-
-    picklist_id = models.CharField(max_length=255, null=True, blank=True)
+    #make unique to picklist id
+    picklist_id = models.CharField(max_length=255, null=True, blank=True)#unique=True)
     picker_boy = models.ForeignKey(
         UserWithName, related_name='picker_user',
         on_delete=models.CASCADE, verbose_name='Picker Boy'
@@ -696,11 +683,8 @@ class PickerDashboard(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-# class PickerDashboard(Order):
-#     class Meta:
-#         proxy = True
-#         verbose_name = _("Picker Dashboard")
-#         verbose_name_plural = _("Picker Dashboard")
+    def save(self, *args, **kwargs):
+        super(PickerDashboard, self).save(*args, **kwargs)
 
     def __str__(self):
         return self.picklist_id if self.picklist_id is not None else str(self.id)
