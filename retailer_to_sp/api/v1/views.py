@@ -403,9 +403,8 @@ class GramGRNProductsList(APIView):
                 }
             search_body = {}
             if keyword:
-                query["filtered"] = "multi_match":{
-                            "query":keyword,
-                            "fields":["name"]
+                query["filtered"] = "match":{
+                            "name":keyword,
                             }
             else:
                 query["filtered"] = {"match_all":{}}
