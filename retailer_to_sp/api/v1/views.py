@@ -392,24 +392,16 @@ class GramGRNProductsList(APIView):
                     is_store_active = False
         p_list = []
         if not is_store_active:
-            query = {}
-            if brand:
-                query["filter"] ={
-                    "term": {"brand":str(Brand.objects.filter(id__in=list(brand)).last())}
-                }
-            if category:
-                query["filter"] ={
-                    "term": {"category":str(ProductCategory.objects.filter(id__in=category).last())}
-                }
-            search_body = {}
+            query = {"dis_max":{"queries":[]}}
             if keyword:
-                query["filtered"] = {
-                    "match":{
-                        "name":keyword,
-                        }
-                    }
+                q = {"match":{"name":keyword}}
             else:
-                query["filtered"] = {"match_all":{}}
+                q = {"match_all":{}}
+            query["dis_max"]["queries"].append(q)
+            if brand:
+                query["dis_max"]["queries"].append({"term": {"brand":str(Brand.objects.filter(id__in=list(brand)).last())}})
+            if category:
+                query["dis_max"]["queries"].append({"term": {"category":str(ProductCategory.objects.filter(id__in=category).last())}})
             body = {"query":query,"_source":{"includes":["name", "product_images","pack_size","weight_unit","weight_value"]}}
             products_list = es_search(index="all_products", body=body)
 
