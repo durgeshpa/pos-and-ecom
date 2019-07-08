@@ -375,14 +375,17 @@ class GramGRNProductsList(APIView):
                     '''4th Step
                         SP mapped data shown
                     '''
-                    search_body = {}
+                    query = {"dis_max":{"queries":[]}}
                     if keyword:
-                        search_body['name']=keyword
+                        q = {"match":{"name":keyword}}
+                    else:
+                        q = {"match_all":{}}
+                    query["dis_max"]["queries"].append(q)
                     if brand:
-                        search_body['brand']=brand
+                        query["dis_max"]["queries"].append({"term": {"brand":str(Brand.objects.filter(id__in=list(brand)).last())}})
                     if category:
-                        search_body['category']=category
-                    body = {"query":{"match":search_body}}
+                        query["dis_max"]["queries"].append({"term": {"category":str(ProductCategory.objects.filter(id__in=category).last())}})
+                    body = {"query":query}
                     products_list = es_search(index=parent_mapping.parent.id, body=body)
                     cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
                     if cart:
