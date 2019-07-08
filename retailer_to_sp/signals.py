@@ -9,7 +9,7 @@ from retailer_backend.messages import ERROR_MESSAGES
 from retailer_to_sp.api.v1.views import release_blocking
 from shops.models import ParentRetailerMapping
 
-from .models import OrderedProduct, PickerDashboard
+from .models import OrderedProduct, PickerDashboard, Order
 
 
 @receiver(post_save, sender=OrderedProduct)
@@ -31,6 +31,22 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
         # if more shipment required
         PickerDashboard.objects.create(
             order=instance.order,
+            picking_status="picking_pending",
+            picklist_id= get_random_string(12).lower(), #generate random string of 12 digits
+            )
+
+
+
+@receiver(post_save, sender=Order)
+def assign_picklist(sender, instance=None, created=False, **kwargs):
+    '''
+    Method to update picking status 
+    '''
+    #assign shipment to picklist once SHIPMENT_CREATED
+    if created:
+        # assign piclist to order
+        PickerDashboard.objects.create(
+            order=instance,
             picking_status="picking_pending",
             picklist_id= get_random_string(12).lower(), #generate random string of 12 digits
             )
