@@ -403,9 +403,11 @@ class GramGRNProductsList(APIView):
                 }
             search_body = {}
             if keyword:
-                query["filtered"] = "match":{
-                            "name":keyword,
-                            }
+                query["filtered"] = {
+                    "match":{
+                        "name":keyword,
+                        }
+                    }
             else:
                 query["filtered"] = {"match_all":{}}
             body = {"query":query,"_source":{"includes":["name", "product_images","pack_size","weight_unit","weight_value"]}}
