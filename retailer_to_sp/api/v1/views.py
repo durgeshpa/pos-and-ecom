@@ -51,6 +51,7 @@ from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping 
                                       OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment, CustomerCare as GramMappedCustomerCare )
 
 from shops.models import Shop,ParentRetailerMapping
+from brand.models import Brand
 from products.models import ProductCategory
 from addresses.models import Address
 from retailer_backend.common_function import getShopMapping,checkNotShopAndMapping,getShop
@@ -391,17 +392,23 @@ class GramGRNProductsList(APIView):
                     is_store_active = False
         p_list = []
         if not is_store_active:
+            query = {}
+            if brand:
+                query["filter"] ={
+                    "term": {"brand":str(Brand.objects.filter(id__in=list(brand)).last())}
+                }
+            if category:
+                query["filter"] ={
+                    "term": {"category":str(ProductCategory.objects.filter(id__in=category).last())}
+                }
             search_body = {}
             if keyword:
-                search_body['name']=keyword
-            if brand:
-                search_body['brand']=brand
-            if category:
-                search_body['category']=category
-            if len(search_body.keys()):
-                query = {"match":search_body}
+                query["filtered"] = "multi_match":{
+                            "query":keyword,
+                            "fields":["name"]
+                            }
             else:
-                query = {"match_all":{}}
+                query["filtered"] = {"match_all":{}}
             body = {"query":query,"_source":{"includes":["name", "product_images","pack_size","weight_unit","weight_value"]}}
             products_list = es_search(index="all_products", body=body)
 
