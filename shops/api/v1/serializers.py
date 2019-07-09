@@ -1,9 +1,17 @@
 from rest_framework import serializers
-from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument)
+from shops.models import (
+    RetailerType, ShopType, Shop, ShopPhoto, ShopDocument)#, FavouriteProduct)
 from django.contrib.auth import get_user_model
 from rest_framework import validators
 
 User =  get_user_model()
+
+
+# class FavouriteProductSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = FavouriteProduct
+#         fields = '__all__'
+
 
 class RetailerTypeSerializer(serializers.ModelSerializer):
     class Meta:

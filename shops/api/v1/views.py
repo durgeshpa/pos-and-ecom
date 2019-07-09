@@ -11,8 +11,40 @@ from rest_framework import status
 from django.contrib.auth import get_user_model
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES
 from rest_framework.parsers import FormParser, MultiPartParser
+from common.data_wrapper_view import DataWrapperViewSet
 
 User =  get_user_model()
+
+
+# class FavouriteProductView(DataWrapperViewSet):
+#     '''
+#     This class handles all operation of favourite product for a shop
+#     '''
+#     #permission_classes = (AllowAny,)
+#     model = FavouriteProduct
+#     serializer_class = FavouriteProductSerializer
+#     queryset = FavouriteProductSerializer.objects.all()
+#     authentication_classes = (authentication.TokenAuthentication,)
+#     permission_classes = (permissions.IsAuthenticated,)
+
+#     # filter_backends = (filters.DjangoFilterBackend,)
+#     # filter_class = OrderedProductMappingFilter
+
+#     def get_serializer_class(self):
+#         '''
+#         Returns the serializer according to action of viewset
+#         '''
+#         serializer_action_classes = {
+#             'retrieve': FavouriteProductSerializer,
+#             'list':FavouriteProductSerializer,
+#             'create':FavouriteProductSerializer,
+#             'update':FavouriteProductSerializer
+#         }
+#         if hasattr(self, 'action'):
+#             return serializer_action_classes.get(self.action, self.serializer_class)
+#         return self.serializer_class
+
+
 
 class RetailerTypeView(generics.ListAPIView):
     queryset = RetailerType.objects.all()
