@@ -839,7 +839,9 @@ class DownloadInvoiceSP(APIView):
             payment_type = a.order.rt_payment.last().payment_choice
         order_id= a.order.order_no
         shop_id = shop.order.buyer_shop.id
-
+        no_of_crates = a.no_of_crates
+        no_of_packets = a.no_of_packets
+        no_of_sacks = a.no_of_sacks
         sum_qty = 0
         sum_amount=0
         tax_inline=0
@@ -963,7 +965,8 @@ class DownloadInvoiceSP(APIView):
                 "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram,
                 "payment_type":payment_type,"total_amount_int":total_amount_int,"product_listing":product_listing,
                 "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
-                "address_contact_number":address_contact_number,"sum_amount_tax":total_tax_sum}
+                "address_contact_number":address_contact_number,"sum_amount_tax":total_tax_sum, "no_of_crates":no_of_crates,
+                "no_of_packets":no_of_packets, "no_of_sacks":no_of_sacks}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
