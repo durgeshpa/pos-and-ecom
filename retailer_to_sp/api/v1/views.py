@@ -414,9 +414,9 @@ class GramGRNProductsList(APIView):
             products_list = es_search(index="all_products", body=body)
 
         for p in products_list['hits']['hits']:
-            ptr = p['ptr'] 
-            loyalty_discount = p['loyalty_discount']
-            cash_discount = p['cash_discount']
+            ptr = p["_source"]['ptr'] 
+            loyalty_discount = p["_source"]['loyalty_discount']
+            cash_discount = p["_source"]['cash_discount']
 
             if cart_check == True:
                 for c_p in cart_products:
