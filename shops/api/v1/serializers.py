@@ -4,13 +4,59 @@ from shops.models import (
 from django.contrib.auth import get_user_model
 from rest_framework import validators
 
+from products.models import Product
+#from retailer_to_sp.api.v1.serializers import ProductSerializer
+
 User =  get_user_model()
 
 
+
+class ProductSerializer(serializers.ModelSerializer):
+    product_image = serializers.SerializerMethodField()
+
+    def get_product_image(self, obj):
+        if ProductImage.objects.filter(product=obj).exists():
+            product_image = ProductImage.objects.filter(product=obj)[0].image.url
+            return product_image
+        else:
+            return None
+
+    class Meta:
+        model = Product
+        fields = ('id','product_name','product_inner_case_size',
+            'product_case_size', 'product_image'
+            )
+
+
+
 class FavouriteProductSerializer(serializers.ModelSerializer):
+    # name, size, image, price, mrp
+    # need to add margin, cash_discount, loyalty discount
+    product = ProductSerializer()    
+    product_price = serializers.SerializerMethodField()
+    product_mrp = serializers.SerializerMethodField()
+    cash_discount = serializers.SerializerMethodField()
+    loyalty_incentive = serializers.SerializerMethodField()
+
+    def get_product_price(self, obj):
+        # fetch product price from parent-retailer-mapping
+        return obj.product.getRetailerPrice(obj.buyer_shop.shop_id) #getMRP(self,)
+
+    def get_product_mrp(self, obj):
+        # fetch product price from parent-retailer-mapping
+        return obj.product.getMRP(obj.buyer_shop.shop_id)
+
+    def get_cash_discount(self, obj):
+        # fetch product price from parent-retailer-mapping
+        return obj.product.getCashDiscount(obj.buyer_shop.shop_id) 
+
+    def get_loyalty_incentive(self, obj):
+        # fetch product price from parent-retailer-mapping
+        return obj.product.getLoyaltyIncentive(obj.buyer_shop.shop_id) 
+
     class Meta:
         model = FavouriteProduct
-        fields = '__all__'
+        fields = ('id', 'product', 'product_price', 'product_mrp', 'cash_discount', 'loyalty_incentive') 
 
 
 class RetailerTypeSerializer(serializers.ModelSerializer):
