@@ -182,7 +182,7 @@ class ShopUserMappingForm(forms.ModelForm):
         queryset=Shop.objects.filter(status=True),
         widget=autocomplete.ModelSelect2(url='admin:shop-autocomplete',)
     )
-    manager = forms.ModelChoiceField(
+    manager = forms.ModelChoiceField(required=False,
         queryset=get_user_model().objects.all(),
         widget=autocomplete.ModelSelect2(url='admin:user-autocomplete', )
     )
