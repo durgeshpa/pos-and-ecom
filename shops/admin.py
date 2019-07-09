@@ -3,7 +3,7 @@ import csv
 from django.contrib import admin
 from .models import (
     Shop, ShopType, RetailerType, ParentRetailerMapping,
-    ShopPhoto, ShopDocument, ShopInvoicePattern
+    ShopPhoto, ShopDocument, ShopInvoicePattern, FavouriteProduct,
 )
 from addresses.models import Address
 from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
@@ -77,6 +77,14 @@ class ShopOwnerSearch(InputFilter):
             if shop_owner_number is None:
                 return
             return queryset.filter(shop_owner__phone_number__icontains=shop_owner_number)
+
+class FavouriteProductAdmin(admin.ModelAdmin):#, ExportCsvMixin):
+    #change_list_template = 'admin/shops/shop/change_list.html'
+    #actions = ["export_as_csv_fav_product"]
+    list_display = ('buyer_shop', 'product')
+    raw_id_fields = ['buyer_shop', 'product']
+    #list_filter = (ShopFilter)
+
 
 class ShopPhotosAdmin(admin.TabularInline):
     model = ShopPhoto
@@ -249,3 +257,4 @@ admin.site.register(ParentRetailerMapping,ParentRetailerMappingAdmin)
 admin.site.register(ShopType)
 admin.site.register(RetailerType)
 admin.site.register(Shop,ShopAdmin)
+admin.site.register(FavouriteProduct, FavouriteProductAdmin)

@@ -13,7 +13,7 @@ import datetime
 from django.core.validators import MinLengthValidator
 
 #from products.models import Product
-
+Product = 'products.product'
 
 SHOP_TYPE_CHOICES = (
     ("sp","Service Partner"),
@@ -55,7 +55,7 @@ class Shop(models.Model):
     shop_code = models.CharField(max_length=1, blank=True, null=True)
     warehouse_code = models.CharField(max_length=2, blank=True, null=True)
     imei_no = models.CharField(max_length=20, null=True, blank=True)
-    #favourite_products = models.ManyToManyField(Product, through='FavouriteProduct')
+    favourite_products = models.ManyToManyField(Product, through='shops.FavouriteProduct')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=False)
@@ -120,16 +120,15 @@ class Shop(models.Model):
         )
 
 
+class FavouriteProduct(models.Model):
+    #user = models.ForeignKey(get_user_model(), related_name='user_favourite',on_delete=models.CASCADE)
+    buyer_shop = models.ForeignKey(Shop, related_name='shop_favourite', on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, related_name='product_favourite', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
-# class FavouriteProduct(models.Model):
-#     #user = models.ForeignKey(get_user_model(), related_name='user_favourite',on_delete=models.CASCADE)
-#     buyer_shop = models.ForeignKey(Shop, related_name='shop_favourite', on_delete=models.CASCADE)
-#     product = models.ForeignKey(Product, related_name='product_favourite', on_delete=models.CASCADE)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     modified_at = models.DateTimeField(auto_now=True)
-
-#     def __str__(self):
-#         return self.product.product_sku
+    def __str__(self):
+        return self.product.product_sku
 
 
 class ShopNameDisplay(Shop):
