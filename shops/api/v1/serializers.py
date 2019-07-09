@@ -81,6 +81,7 @@ class ShopUserMappingSerializer(serializers.ModelSerializer):
 
 class SellerShopSerializer(serializers.ModelSerializer):
     shop_owner = serializers.CharField(max_length=10, allow_blank=False, trim_whitespace=True, validators=[MobileNumberValidator])
+    shop_type = serializers.PrimaryKeyRelatedField(required=False,read_only=True)
 
     class Meta:
         model = Shop
@@ -88,3 +89,4 @@ class SellerShopSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'shop_owner': {'required': True},
         }
+

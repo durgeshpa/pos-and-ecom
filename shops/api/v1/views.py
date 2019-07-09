@@ -257,7 +257,8 @@ class SellerShopView(generics.ListCreateAPIView):
             return Response(msg, status=status.HTTP_200_OK)
 
     def perform_create(self, serializer):
-        shop = serializer.save(created_by=self.request.user,shop_owner= get_user_model().objects.get(phone_number=self.request.data['shop_owner']))
+        shop = serializer.save(created_by=self.request.user,shop_owner= get_user_model().objects.get(phone_number=self.request.data['shop_owner']),
+                               shop_type=ShopType.objects.get(shop_type='r'))
         return shop
 
 from datetime import datetime,timedelta
