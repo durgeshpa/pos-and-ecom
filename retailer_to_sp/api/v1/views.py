@@ -378,7 +378,11 @@ class GramGRNProductsList(APIView):
                     '''
                     query = {"dis_max":{"queries":[]}}
                     if keyword:
-                        q = {"match":{"name":keyword}}
+                        q = {
+                        "match":{
+                            "name":{"query":keyword, "fuzziness":"AUTO", "operator":"and"}
+                            }
+                        }
                     else:
                         q = {"match_all":{}}
                     query["dis_max"]["queries"].append(q)
