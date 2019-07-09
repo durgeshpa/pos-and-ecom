@@ -4,11 +4,16 @@ from shops.models import (
 from django.contrib.auth import get_user_model
 from rest_framework import validators
 
-from products.models import Product
-#from retailer_to_sp.api.v1.serializers import ProductSerializer
+from products.models import Product, ProductImage
+#from retailer_to_sp.api.v1.serializers import ProductImageSerializer #ProductSerializer
 
 User =  get_user_model()
 
+
+class ProductImageSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = ProductImage
+      fields = '__all__'
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -28,7 +33,6 @@ class ProductSerializer(serializers.ModelSerializer):
             )
 
 
-
 class FavouriteProductSerializer(serializers.ModelSerializer):
     # name, size, image, price, mrp
     # need to add margin, cash_discount, loyalty discount
@@ -40,19 +44,19 @@ class FavouriteProductSerializer(serializers.ModelSerializer):
 
     def get_product_price(self, obj):
         # fetch product price from parent-retailer-mapping
-        return obj.product.getRetailerPrice(obj.buyer_shop.shop_id) #getMRP(self,)
+        return obj.product.getRetailerPrice(obj.buyer_shop.id) #getMRP(self,)
 
     def get_product_mrp(self, obj):
         # fetch product price from parent-retailer-mapping
-        return obj.product.getMRP(obj.buyer_shop.shop_id)
+        return obj.product.getMRP(obj.buyer_shop.id)
 
     def get_cash_discount(self, obj):
         # fetch product price from parent-retailer-mapping
-        return obj.product.getCashDiscount(obj.buyer_shop.shop_id) 
+        return obj.product.getCashDiscount(obj.buyer_shop.id) 
 
     def get_loyalty_incentive(self, obj):
         # fetch product price from parent-retailer-mapping
-        return obj.product.getLoyaltyIncentive(obj.buyer_shop.shop_id) 
+        return obj.product.getLoyaltyIncentive(obj.buyer_shop.id) 
 
     class Meta:
         model = FavouriteProduct

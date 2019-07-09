@@ -1,8 +1,13 @@
+from rest_framework import routers
 from django.conf.urls import url
 from django.urls import path
+
 from shops.api.v1.views import (RetailerTypeView, ShopTypeView,
-        ShopView, ShopPhotoView, ShopDocumentView)
+        ShopView, ShopPhotoView, ShopDocumentView, FavouriteProductView)
 from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetail
+
+router = routers.DefaultRouter()
+router.register(r'favourite-product', FavouriteProductView)
 
 urlpatterns = [
     path('user-shops/', ShopView.as_view(), name='user-shops', ),
@@ -15,3 +20,5 @@ urlpatterns = [
     path('shop-document/', ShopDocumentView.as_view(), name='shop-document', ),
 
 ]
+
+urlpatterns += router.urls

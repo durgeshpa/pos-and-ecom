@@ -17,6 +17,7 @@ from django.contrib.auth import get_user_model
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES
 from rest_framework.parsers import FormParser, MultiPartParser
 from common.data_wrapper_view import DataWrapperViewSet
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 from shops.filters import FavouriteProductFilter
 
