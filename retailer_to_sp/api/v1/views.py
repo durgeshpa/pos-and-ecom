@@ -422,7 +422,7 @@ class GramGRNProductsList(APIView):
                 'is_success': True,
                  'message': ['Products found'],
                  'response_data':p_list }
-        if not p_list or offset>1:
+        if not p_list or int(offset)>1:
             msg = {'is_store_active': is_store_active,
                     'is_success': False,
                      'message': ['Sorry! No product found'],
