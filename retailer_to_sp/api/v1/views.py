@@ -40,6 +40,7 @@ from products.models import Product, ProductPrice, ProductOption,ProductImage, P
 from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
                                 OrderedProduct as SPOrderedProduct, StockAdjustment)
 
+from category import models as categorymodel
 
 from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as GramCartProductMapping,
                                   OrderedProductReserved as GramOrderedProductReserved, PickList, PickListItems )
@@ -389,7 +390,13 @@ class GramGRNProductsList(APIView):
                     if brand:
                         query["dis_max"]["queries"].append({"term": {"brand":str(Brand.objects.filter(id__in=list(brand)).last())}})
                     if category:
-                        query["dis_max"]["queries"].append({"term": {"category":str(ProductCategory.objects.filter(id__in=category).last())}})
+                        category_filter = " ".join([str(s) for s in categorymodel.Category.objects.filter(id__in=category, status=True).all()])
+                        q = {
+                            "match" :{
+                                "name":{"query":category_filter, "fuzziness":"AUTO", "operator":"or"}
+                            }
+                        }
+                        query["dis_max"]["queries"].append({"term": {"category":str()}})
                     body = {"query":query}
                     products_list = es_search(index=parent_mapping.parent.id, body=body)
                     cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
