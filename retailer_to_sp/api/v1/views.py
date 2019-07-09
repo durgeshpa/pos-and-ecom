@@ -344,6 +344,7 @@ class GramGRNProductsList(APIView):
         category = request.data.get('categories')
         keyword = request.data.get('product_name', None)
         shop_id = request.data.get('shop_id')
+        offset = request.data.get('offset')
         grn_dict = None
         cart_check = False
         is_store_active = True
@@ -421,7 +422,7 @@ class GramGRNProductsList(APIView):
                 'is_success': True,
                  'message': ['Products found'],
                  'response_data':p_list }
-        if not p_list:
+        if not p_list or offset>1:
             msg = {'is_store_active': is_store_active,
                     'is_success': False,
                      'message': ['Sorry! No product found'],
