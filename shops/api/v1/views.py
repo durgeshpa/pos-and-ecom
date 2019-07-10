@@ -11,9 +11,10 @@ from rest_framework import status
 from django.contrib.auth import get_user_model
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES
 from rest_framework.parsers import FormParser, MultiPartParser
+
+from datetime import datetime,timedelta
+from django.db.models import Q,Sum,Count,F, FloatField, Avg
 from retailer_to_sp.models import Order
-from datetime import datetime, timedelta
-from django.db.models import Sum,Q,Count
 
 User =  get_user_model()
 
@@ -261,10 +262,6 @@ class SellerShopView(generics.ListCreateAPIView):
                                shop_type=ShopType.objects.get(shop_type='r'))
         return shop
 
-from datetime import datetime,timedelta
-from django.db.models import Q,Sum,Count,F, FloatField
-from retailer_to_sp.models import Order
-
 class SellerShopOrder(generics.ListAPIView):
     serializer_class = ShopUserMappingSerializer
     authentication_classes = (authentication.TokenAuthentication,)
@@ -308,10 +305,6 @@ class SellerShopOrder(generics.ListAPIView):
         msg = {'is_success': True, 'message': [""],'response_data': data}
         return Response(msg,status=status.HTTP_200_OK)
 
-from datetime import datetime,timedelta
-from django.db.models import Q,Sum,Count,F, FloatField, Avg, DateTimeField
-from retailer_to_sp.models import Order
-
 class SellerShopProfile(generics.ListAPIView):
     serializer_class = ShopUserMappingSerializer
     authentication_classes = (authentication.TokenAuthentication,)
@@ -352,3 +345,39 @@ class SellerShopProfile(generics.ListAPIView):
 
         msg = {'is_success': True, 'message': [""],'response_data': data}
         return Response(msg,status=status.HTTP_200_OK)
+
+class SalesPerformanceView(generics.ListAPIView):
+    serializer_class = ShopUserMappingSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        return ShopUserMapping.objects.filter(manager=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
+        employee_list = ShopUserMapping.objects.filter(manager=self.request.user)
+        data = []
+
+        for employee in employee_list:
+            today = datetime.now()
+            last_day = today - timedelta(days=days_diff)
+            one_month = today - timedelta(days=days_diff+days_diff)
+            dt = {
+              'name': employee.employee.first_name,
+              'data':[]
+            }
+            shop_obj = Shop.objects.filter(created_by=employee.employee)
+            rt = {
+                'shop_inactive': shop_obj.filter(status=True).exclude(shop_obj.rt_buyer_shop_order.filter(created_at__gte=last_day)).count() if hasattr(Order, 'rt_buyer_shop_order') else 0,
+                'shop_onboard':  shop_obj.filter(status=True, created_at__gte=last_day).count() if shop_obj.filter(status=True,created_at__gte=last_day) and shop_obj.retiler_mapping.exists() else 0,
+                'shop_reactivated': shop_obj.filter(status=True).rt_buyer_shop_order.filter(~Q(created_at__range=[one_month,last_day]),Q(created_at__gte=last_day)) if hasattr(Order, 'rt_buyer_shop_order') else 0,
+                'current_target_sales_target': '',
+                'current_store_count': shop_obj.filter(created_at__gte=last_day).count(),
+            }
+            dt['data'].append(rt)
+            data.append(dt)
+
+        msg = {'is_success': True, 'message': [""],'response_data': None, 'data': data}
+        return Response(msg,status=status.HTTP_200_OK)
+
