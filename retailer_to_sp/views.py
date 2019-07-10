@@ -15,6 +15,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from celery.task import task
+from rest_framework.decorators import permission_classes
 
 from sp_to_gram.models import OrderedProductReserved
 from retailer_to_sp.models import (
@@ -274,7 +275,8 @@ def ordered_product_mapping_shipment(request):
         {'ordered_form': form, 'formset': form_set}
     )
 
-# test for superuser, warehouse manager, superuser
+# test for superuser, warehouse manager
+@permission_classes((IsAuthenticated, "can_change_picker_dashboard"))
 def assign_picker(request):
     #update status to pick
     if request.method == 'POST':
@@ -297,7 +299,6 @@ def assign_picker(request):
                 # for order_instance in selected_orders:
                 #     picker = PickerDashboard.objects.create(
                 #         order=order_instance,
-                #         shipment_id=1141,
                 #         picking_status='picking_pending',
                 #         picker_boy=picker_boy)
 
@@ -305,15 +306,17 @@ def assign_picker(request):
                     order_instance.picker_boy = picker_boy
                     order_instance.picking_status = 'picking_assigned'
                     order_instance.save()
+
             return redirect('/admin/retailer_to_sp/pickerdashboard/')
     # form for assigning picker
     form = AssignPickerForm(request.user)
 
-    # order for the shop related to user
-    #shop = Shop.objects.filter(related_users=request.user)[0]
-    shop = Shop.objects.get(shop_name="TEST SP 1")
+    # order for the shop with warehouse manager
+    # given that user is assigned to one shop 
+    shop = Shop.objects.filter(related_users=request.user)[0]
+    # shop = Shop.objects.get(shop_name="TEST SP 1")
     # order for the related shop with picking status =pending
-    picker_orders = Order.objects.filter(seller_shop=shop) #, picking_status='picking_pending')
+    picker_orders = Order.objects.filter(seller_shop=shop, picking_status='picking_pending')
     #order_form = PickerOrderForm(picker_order)
 
     return render(
@@ -327,7 +330,7 @@ def assign_picker_change(request, pk):
     # save the changes
     picking_instance = PickerDashboard.objects.get(pk=pk)
     #picking_status = picking_instance.picking_status
-    import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
 
     if request.method == 'POST':
         form = AssignPickerForm(request.user, request.POST, instance=picking_instance)
