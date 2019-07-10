@@ -13,10 +13,10 @@ urlpatterns = [
     path('shop-type/', ShopTypeView.as_view(), name='shop-type', ),
     path('shop-photo/', ShopPhotoView.as_view(), name='shop-photo', ),
     path('shop-document/', ShopDocumentView.as_view(), name='shop-document', ),
-    path('team-list/', TeamListView.as_view(), name='team-list', ),
+    path('seller-team-list/', TeamListView.as_view(), name='team-list', ),
     path('seller-shops/', SellerShopView.as_view(), name='seller-shops', ),
     path('seller-shop-profile/', SellerShopProfile.as_view(), name='seller-shop-profile', ),
     path('seller-shop-order/', SellerShopOrder.as_view(), name='seller-shops', ),
-    path('sales-performance/', SalesPerformanceView.as_view(), name='seller-shops', ),
+    path('seller-performance/', SalesPerformanceView.as_view(), name='seller-performance', ),
 
 ]
