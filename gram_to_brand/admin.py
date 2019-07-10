@@ -25,7 +25,9 @@ from django.db.models import Q
 from .views import DownloadPurchaseOrder, GetMessage
 from django.db import models
 from django.forms import Textarea
-
+from django.contrib.admin.models import LogEntry, ADDITION
+from django.contrib.contenttypes.models import ContentType
+from retailer_backend.messages import SUCCESS_MESSAGES
 
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
@@ -107,6 +109,14 @@ class CartAdmin(admin.ModelAdmin):
         obj.save()
         formset.save()
         if flag:
+            LogEntry.objects.log_action(
+                user_id=request.user.pk,
+                content_type_id=ContentType.objects.get_for_model(obj).pk,
+                object_id=obj.pk,
+                action_flag=ADDITION,
+                object_repr='',
+                change_message=SUCCESS_MESSAGES['CHANGED_STATUS'] % obj.get_po_status_display(),
+            )
             return HttpResponseRedirect("/admin/gram_to_brand/cart/")
 
     class Media:

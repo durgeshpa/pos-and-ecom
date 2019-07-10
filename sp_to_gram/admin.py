@@ -132,6 +132,7 @@ admin.site.register(OrderedProduct,OrderedProductAdmin)
 
 class OrderedProductMappingAdmin2(admin.ModelAdmin):
     list_display = ('ordered_product','product','ordered_qty','available_qty',)
+    readonly_fields = ('shop', 'ordered_product', 'product','last_modified_by')
 
 admin.site.register(OrderedProductMapping,OrderedProductMappingAdmin2)
 
