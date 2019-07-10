@@ -55,6 +55,8 @@ class Shop(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=False)
+    parent_shop = models.ForeignKey("self", null=True, blank=True, 
+        related_name='shop_parent', on_delete=models.SET_NULL)
 
     def __str__(self):
         return "%s - %s"%(self.shop_name,self.shop_owner)
@@ -62,6 +64,18 @@ class Shop(models.Model):
     def __init__(self, *args, **kwargs):
         super(Shop, self).__init__(*args, **kwargs)
         self.__original_status = self.status
+
+    def __setattr__(self, attrname, val):
+        setter_func = 'setter_' + attrname
+        if attrname in self.__dict__ and callable(getattr(self, setter_func, None)):
+            super(Shop, self).__setattr__(attrname, getattr(self, setter_func)(val))
+        else:
+            super(Shop, self).__setattr__(attrname, val)
+
+    def setter_parent_shop(self):
+        # return self.get_shop_parent
+        if self.retiler_mapping.exists():
+            return self.retiler_mapping.last().parent
 
     @property
     def get_shop_shipping_address(self):
@@ -88,6 +102,12 @@ class Shop(models.Model):
         if self.retiler_mapping.exists():
             return self.retiler_mapping.last().parent
     get_shop_parent.fget.short_description = 'Parent Shop'
+
+    @property
+    def get_shop_parent_name(self):
+        if self.retiler_mapping.exists():
+            return self.retiler_mapping.last().parent.shop_name
+    get_shop_parent_name.fget.short_description = 'Parent Shop Name'
 
 
     def save(self, force_insert=False, force_update=False, *args, **kwargs):
