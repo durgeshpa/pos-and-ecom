@@ -11,10 +11,14 @@ from django.contrib.postgres.search import SearchVector
 from django_filters import rest_framework as filters
 
 from rest_framework import generics
-from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,
-                          OrderSerializer, CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
-
-                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer, OrderListSerializer, FeedBackSerializer )
+from .serializers import (
+    ProductsSearchSerializer, GramGRNProductsSearchSerializer,
+    CartProductMappingSerializer, CartSerializer, OrderSerializer,
+    CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,
+    PaymentNeftSerializer, GramPaymentCodSerializer,
+    GramPaymentNeftSerializer, GramMappedCartSerializer,
+    GramMappedOrderSerializer, ProductDetailSerializer, OrderDetailSerializer,
+    OrderListSerializer, FeedBackSerializer, CancelOrderSerializer)
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
 from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
                                 OrderedProduct as SPOrderedProduct, StockAdjustment)
@@ -25,6 +29,7 @@ from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
+from rest_framework import serializers
 from rest_framework import generics, viewsets
 
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,
@@ -64,6 +69,9 @@ from sp_to_gram.tasks import es_search
 from common.data_wrapper_view import DataWrapperViewSet
 
 from django.contrib.auth import get_user_model
+from django.utils.translation import ugettext_lazy as _
+from common.data_wrapper import format_serializer_errors
+
 User = get_user_model()
 
 logger = logging.getLogger(__name__)
@@ -1305,3 +1313,29 @@ class FeedbackData(generics.ListCreateAPIView):
         serializer = self.get_serializer(queryset, many=True)
         msg = {'is_success': True, 'message': [""], 'response_data': serializer.data}
         return Response(msg, status=status.HTTP_200_OK)
+
+
+class CancelOrder(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def put(self, request, format=None):
+        try:
+            order = Order.objects.get(buyer_shop__shop_owner=request.user,
+                                      pk=request.data['order_id'])
+        except ObjectDoesNotExist:
+            msg = {'is_success': False,
+                   'message': ['Order is not associated with the current user'],
+                   'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+        serializer = CancelOrderSerializer(order, data=request.data,
+                                           context={'order': order})
+        if serializer.is_valid():
+            serializer.save()
+            msg = {'is_success': True,
+                    'message': ["Order Cancelled Successfully!"],
+                    'response_data': serializer.data}
+            return Response(msg, status=status.HTTP_200_OK)
+        else:
+            return format_serializer_errors(serializer.errors)
