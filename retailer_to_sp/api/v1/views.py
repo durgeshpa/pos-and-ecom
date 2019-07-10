@@ -40,7 +40,7 @@ from products.models import Product, ProductPrice, ProductOption,ProductImage, P
 from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
                                 OrderedProduct as SPOrderedProduct, StockAdjustment)
 
-from categories import models as categorymodel
+from category import models as categorymodel
 
 from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as GramCartProductMapping,
                                   OrderedProductReserved as GramOrderedProductReserved, PickList, PickListItems )
@@ -354,6 +354,26 @@ class GramGRNProductsList(APIView):
         '''1st Step
             Check If Shop Is exists then 2nd pt else 3rd Pt
         '''
+        query = {"dis_max":{"queries":[]}}
+        if keyword:
+            q = {
+            "match":{
+                "name":{"query":keyword, "fuzziness":"AUTO", "operator":"and"}
+                }
+            }
+        else:
+            q = {"match_all":{}}
+        query["dis_max"]["queries"].append(q)
+        if brand:
+            query["dis_max"]["queries"].append({"term": {"brand":str(Brand.objects.filter(id__in=list(brand)).last())}})
+        if category:
+            category_filter = ",".join([str(s) for s in categorymodel.Category.objects.filter(id__in=category, status=True).all()])
+            q = {
+                "match" :{
+                    "name":{"query":category_filter, "fuzziness":0, "operator":"and"}
+                }
+            }
+            query["dis_max"]["queries"].append(q)
         try:
             shop = Shop.objects.get(id=shop_id,status=True)
         except ObjectDoesNotExist:
@@ -377,26 +397,6 @@ class GramGRNProductsList(APIView):
                     '''4th Step
                         SP mapped data shown
                     '''
-                    query = {"dis_max":{"queries":[]}}
-                    if keyword:
-                        q = {
-                        "match":{
-                            "name":{"query":keyword, "fuzziness":"AUTO", "operator":"and"}
-                            }
-                        }
-                    else:
-                        q = {"match_all":{}}
-                    query["dis_max"]["queries"].append(q)
-                    if brand:
-                        query["dis_max"]["queries"].append({"term": {"brand":str(Brand.objects.filter(id__in=list(brand)).last())}})
-                    if category:
-                        category_filter = " ".join([str(s) for s in categorymodel.Category.objects.filter(id__in=category, status=True).all()])
-                        q = {
-                            "match" :{
-                                "name":{"query":category_filter, "fuzziness":"AUTO", "operator":"or"}
-                            }
-                        }
-                        query["dis_max"]["queries"].append({"term": {"category":str()}})
                     body = {"query":query}
                     products_list = es_search(index=parent_mapping.parent.id, body=body)
                     cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
@@ -407,25 +407,15 @@ class GramGRNProductsList(APIView):
                     is_store_active = False
         p_list = []
         if not is_store_active:
-            query = {"dis_max":{"queries":[]}}
-            if keyword:
-                q = {"match":{"name":keyword}}
-            else:
-                q = {"match_all":{}}
-            query["dis_max"]["queries"].append(q)
-            if brand:
-                query["dis_max"]["queries"].append({"term": {"brand":str(Brand.objects.filter(id__in=list(brand)).last())}})
-            if category:
-                query["dis_max"]["queries"].append({"term": {"category":str(ProductCategory.objects.filter(id__in=category).last())}})
             body = {"query":query,"_source":{"includes":["name", "product_images","pack_size","weight_unit","weight_value"]}}
             products_list = es_search(index="all_products", body=body)
 
         for p in products_list['hits']['hits']:
-            ptr = p["_source"]['ptr'] 
-            loyalty_discount = p["_source"]['loyalty_discount']
-            cash_discount = p["_source"]['cash_discount']
 
             if cart_check == True:
+                ptr = p["_source"]['ptr'] 
+                loyalty_discount = p["_source"]['loyalty_discount']
+                cash_discount = p["_source"]['cash_discount']
                 for c_p in cart_products:
                     if c_p.cart_product_id == p["_source"]["id"]:
                         user_selected_qty = c_p.qty
