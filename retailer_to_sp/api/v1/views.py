@@ -1,49 +1,152 @@
+import logging
+import json
+from datetime import datetime, timedelta
+
+from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import F,Sum, Q
+from wkhtmltopdf.views import PDFTemplateResponse
+from django.shortcuts import get_object_or_404, get_list_or_404
+from django.utils import timezone
+from django.contrib.postgres.search import SearchVector
+from django_filters import rest_framework as filters
+
 from rest_framework import generics
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,
                           OrderSerializer, CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
 
-                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer, OrderListSerializer )
+                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer, OrderListSerializer, FeedBackSerializer )
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
 from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
                                 OrderedProduct as SPOrderedProduct, StockAdjustment)
 
 from rest_framework import permissions, authentication
-from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as GramCartProductMapping,
-                                  OrderedProductReserved as GramOrderedProductReserved, PickList, PickListItems )
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
+from rest_framework import generics, viewsets
 
+from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,
+    CartProductMappingSerializer,CartSerializer, OrderSerializer,
+    CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,
+    PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
+    GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,
+    OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
+    OrderListSerializer, ReadOrderedProductSerializer,
+)
+
+from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
+from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
+                                OrderedProduct as SPOrderedProduct, StockAdjustment)
+
+
+from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as GramCartProductMapping,
+                                  OrderedProductReserved as GramOrderedProductReserved, PickList, PickListItems )
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
                                    OrderedProduct, Payment, CustomerCare,
-                                   Return)
+                                   Return, Feedback, OrderedProductMapping as ShipmentProducts)
 
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
                                       OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment, CustomerCare as GramMappedCustomerCare )
 
-import logging
-import json
 from shops.models import Shop,ParentRetailerMapping
-from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import F,Sum, Q
-from wkhtmltopdf.views import PDFTemplateResponse
-from django.shortcuts import get_object_or_404, get_list_or_404
-from datetime import datetime, timedelta
-from django.utils import timezone
 from products.models import ProductCategory
 from addresses.models import Address
 from retailer_backend.common_function import getShopMapping,checkNotShopAndMapping,getShop
 from retailer_backend.messages import ERROR_MESSAGES
-from django.contrib.postgres.search import SearchVector
+
 from retailer_to_sp.tasks import (
     ordered_product_available_qty_update, release_blocking, create_reserved_order
 )
+from .filters import OrderedProductMappingFilter, OrderedProductFilter
+from sp_to_gram.tasks import es_search
+from common.data_wrapper_view import DataWrapperViewSet
+
+from django.contrib.auth import get_user_model
+User = get_user_model()
 
 logger = logging.getLogger(__name__)
 
 today = datetime.today()
+
+
+class OrderedProductViewSet(DataWrapperViewSet):
+    '''
+    This class handles all operation of ordered product
+    '''
+    #permission_classes = (AllowAny,)
+    model = OrderedProduct
+    queryset = OrderedProduct.objects.all()
+    serializer_class = OrderedProductSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    # filter_backends = (filters.DjangoFilterBackend,)
+    # filter_class = OrderedProductFilter
+
+    def get_serializer_class(self):
+        '''
+        Returns the serializer according to action of viewset
+        '''
+        serializer_action_classes = {
+            'retrieve': ReadOrderedProductSerializer,
+            'list':ReadOrderedProductSerializer,
+            'create':OrderedProductSerializer,
+            'update':OrderedProductSerializer
+        }
+        if hasattr(self, 'action'):
+            return serializer_action_classes.get(self.action, self.serializer_class)
+        return self.serializer_class
+
+    def get_queryset(self):
+        shipment_id = self.request.query_params.get('shipment_id', None)
+        ordered_product = OrderedProduct.objects.all()
+
+        if shipment_id is not None:
+            ordered_product = ordered_product.filter(
+                id=shipment_id
+                )
+        return ordered_product
+
+
+class OrderedProductMappingView(DataWrapperViewSet):
+    '''
+    This class handles all operation of ordered product mapping
+    '''
+    #permission_classes = (AllowAny,)
+    model = ShipmentProducts
+    serializer_class = OrderedProductMappingSerializer
+    queryset = ShipmentProducts.objects.all()
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    # filter_backends = (filters.DjangoFilterBackend,)
+    # filter_class = OrderedProductMappingFilter
+
+    def get_serializer_class(self):
+        '''
+        Returns the serializer according to action of viewset
+        '''
+        serializer_action_classes = {
+            'retrieve': OrderedProductMappingSerializer,
+            'list':OrderedProductMappingSerializer,
+            'create':OrderedProductMappingSerializer,
+            'update':OrderedProductMappingSerializer
+        }
+        if hasattr(self, 'action'):
+            return serializer_action_classes.get(self.action, self.serializer_class)
+        return self.serializer_class
+
+    def get_queryset(self):
+        ordered_product = self.request.query_params.get('ordered_product', None)
+        ordered_product_mapping = ShipmentProducts.objects.all()
+        if ordered_product is not None:
+            ordered_product_mapping = ordered_product_mapping.filter(
+                ordered_product=ordered_product
+                )
+        return ordered_product_mapping
+
 
 
 class ProductsList(generics.ListCreateAPIView):
@@ -221,6 +324,95 @@ class GramGRNProductsList(APIView):
                 is_store_active = False
                 p_list.append({"name":p.product.product_name, "mrp":None, "ptr":None, "status":status, "pack_size":pack_size, "id":p.product_id,
                                 "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":None})
+
+        msg = {'is_store_active': is_store_active,
+                'is_success': True,
+                 'message': ['Products found'],
+                 'response_data':p_list }
+        if not p_list:
+            msg = {'is_store_active': is_store_active,
+                    'is_success': False,
+                     'message': ['Sorry! No product found'],
+                     'response_data':None }
+        return Response(msg,
+                         status=200)
+
+    def get(self, request, format=None):
+        product_ids = request.GET.get('product_ids')
+        brand = request.GET.get('brands')
+        category = request.GET.get('categories')
+        keyword = request.GET.get('product_name', None)
+        shop_id = request.GET.get('shop_id')
+        grn_dict = None
+        cart_check = False
+        is_store_active = True
+        sort_preference = request.GET.get('sort_by_price')
+
+        '''1st Step
+            Check If Shop Is exists then 2nd pt else 3rd Pt
+        '''
+        try:
+            shop = Shop.objects.get(id=shop_id,status=True)
+        except ObjectDoesNotExist:
+            '''3rd Step
+                If no shop found then
+            '''
+            message = "Shop not active or does not exists"
+            is_store_active = False
+        else:
+            '''2nd Step
+                Check if shop fond then check weather it is sp 4th Step or retailer 5th Step
+            '''
+            try:
+                parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
+            except ObjectDoesNotExist:
+                message = "Shop Mapping Not Found"
+                is_store_active = False
+            else:
+
+                if parent_mapping.parent.shop_type.shop_type == 'sp':
+                    '''4th Step
+                        SP mapped data shown
+                    '''
+                    search_body = {}
+                    if keyword:
+                        search_body['name']=keyword
+                    if brand:
+                        search_body['brand']=brand
+                    if category:
+                        search_body['category']=category
+                    body = {"query":{"match":search_body}}
+                    products_list = es_search(index=parent_mapping.parent.id, body=body)
+                    cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
+                    if cart:
+                        cart_products = cart.rt_cart_list.all()
+                        cart_check = True
+                else:
+                    is_store_active = False
+        p_list = []
+        if not is_store_active:
+            search_body = {}
+            if keyword:
+                search_body['name']=keyword
+            if brand:
+                search_body['brand']=brand
+            if category:
+                search_body['category']=category
+            if len(search_body.keys()):
+                query = {"match":search_body}
+            else:
+                query = {"match_all":{}}
+            body = {"query":query,"_source":{"includes":["name", "product_images","pack_size","weight_unit","weight_value"]}}
+            products_list = es_search(index="all_products", body=body)
+
+        for p in products_list['hits']['hits']:
+            if cart_check == True:
+                for c_p in cart_products:
+                    if c_p.cart_product_id == p["_source"]["id"]:
+                        user_selected_qty = c_p.qty
+                        p["_source"]["no_of_pieces"] = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
+                        p["_source"]["sub_total"] = float(no_of_pieces) * float(ptr)
+            p_list.append(p["_source"])
 
         msg = {'is_store_active': is_store_active,
                 'is_success': True,
@@ -544,9 +736,7 @@ class CreateOrder(APIView):
         billing_address_id = self.request.POST.get('billing_address_id')
         shipping_address_id = self.request.POST.get('shipping_address_id')
 
-        total_mrp = self.request.POST.get('total_mrp',0)
         total_tax_amount = self.request.POST.get('total_tax_amount',0)
-        total_final_amount = self.request.POST.get('total_final_amount',0)
 
         shop_id = self.request.POST.get('shop_id')
         msg = {'is_success': False, 'message': ['Have some error in shop or mapping'], 'response_data': None}
@@ -594,11 +784,7 @@ class CreateOrder(APIView):
                     order.shipping_address = shipping_address
                     order.buyer_shop = shop
                     order.seller_shop = parent_mapping.parent
-
-                    order.total_mrp = float(total_mrp)
                     order.total_tax_amount = float(total_tax_amount)
-                    order.total_final_amount = float(total_final_amount)
-
                     order.order_status = order.ORDERED
                     order.save()
 
@@ -632,11 +818,6 @@ class CreateOrder(APIView):
                     order.shipping_address = shipping_address
                     order.buyer_shop = shop
                     order.seller_shop = parent_mapping.parent
-
-                    order.total_mrp = float(total_mrp)
-                    order.total_tax_amount = float(total_tax_amount)
-                    order.total_final_amount = float(total_final_amount)
-
                     order.order_status = 'ordered'
                     order.save()
 
@@ -741,9 +922,12 @@ class DownloadInvoiceSP(APIView):
         pk=self.kwargs.get('pk')
         a = OrderedProduct.objects.get(pk=pk)
         shop=a
+        payment_type=''
         products = a.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0)
-        payment_type = a.order.rt_payment.last().payment_choice
+        if a.order.rt_payment.filter(order_id=a.order).exists():
+            payment_type = a.order.rt_payment.last().payment_choice
         order_id= a.order.order_no
+        shop_id = shop.order.buyer_shop.id
 
         sum_qty = 0
         sum_amount=0
@@ -823,6 +1007,7 @@ class DownloadInvoiceSP(APIView):
                 "product_inner_case_size": m.product.product_inner_case_size,
                 "product_no_of_pices": int(m.shipped_qty),
                 "basic_rate": basic_rate,
+                "basic_amount": float(m.shipped_qty) * float(basic_rate),
                 "price_to_retailer": product_pro_price_ptr,
                 "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr),
                 "product_tax_amount": product_tax_amount,
@@ -860,7 +1045,7 @@ class DownloadInvoiceSP(APIView):
         total_amount = sum_amount
         total_amount_int = int(total_amount)
 
-        data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop, "sum_qty": sum_qty,
+        data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop,"shop_id":shop_id, "sum_qty": sum_qty,
                 "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" ,
                 "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,
                 "order_id":order_id,"shop_name_gram":shop_name_gram,"nick_name_gram":nick_name_gram, "city_gram":city_gram,
@@ -1085,4 +1270,38 @@ class ReleaseBlocking(APIView):
                     ordered_reserve.order_product_reserved.save()
                     ordered_reserve.delete()
             msg = {'is_success': True, 'message': ['Blocking has released'], 'response_data': None}
+        return Response(msg, status=status.HTTP_200_OK)
+
+class FeedbackData(generics.ListCreateAPIView):
+    serializer_class = FeedBackSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        ship_id = self.kwargs.get('ship_id')
+        queryset = Feedback.objects.all()
+        if ship_id:
+            queryset = Feedback.objects.filter(shipment__id=ship_id)
+        return queryset
+
+    def create(self, request, *args, **kwargs):
+        can_comment = False
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            if ((serializer.data['delivery_experience'] and int(serializer.data['delivery_experience']) > 4) or (serializer.data['overall_product_packaging'] and int(serializer.data['overall_product_packaging']) > 4)):
+                can_comment = True
+            msg = {'is_success': True, 'can_comment':can_comment, 'message': None, 'response_data': serializer.data}
+        else:
+            msg = {'is_success': False, 'message': ['shipment_id, user_id or status not found or value exists'], 'response_data': None}
+        return Response(msg, status=status.HTTP_200_OK)
+
+    def perform_create(self, serializer):
+        feedback = serializer.save(user=self.request.user)
+        return feedback
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        msg = {'is_success': True, 'message': [""], 'response_data': serializer.data}
         return Response(msg, status=status.HTTP_200_OK)

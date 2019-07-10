@@ -127,7 +127,17 @@ class Cart(models.Model):
 
     @property
     def subtotal(self):
-        return self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum']
+        try:
+            return round(self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum'],2)
+        except: 
+            return None
+
+    @property
+    def mrp_subtotal(self):
+        try:
+            return round(self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__mrp') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum'],2)
+        except:
+            return None
 
     @property
     def qty_sum(self):
@@ -213,6 +223,7 @@ class Order(models.Model):
     PDAP = 'payment_done_approval_pending'
     ORDER_PLACED_DISPATCH_PENDING = 'opdp'
     PARTIALLY_SHIPPED_AND_CLOSED = 'partially_shipped_and_closed'
+    DENIED_AND_CLOSED = 'denied_and_closed'
 
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'),
@@ -226,15 +237,14 @@ class Order(models.Model):
         (CLOSED, "Closed"),
         (PDAP, "Payment Done Approval Pending"),
         (ORDER_PLACED_DISPATCH_PENDING, "Order Placed Dispatch Pending"),
-        ('DISPATCH_PENDING', 'Dispatch Placed'),
         ('PARTIALLY_SHIPPED', 'Partially Shipped'),
         ('SHIPPED', 'Shipped'),
         ('CANCELLED', 'Cancelled'),
         ('DENIED', 'Denied'),
         (PAYMENT_DONE_APPROVAL_PENDING, "Payment Done Approval Pending"),
         (OPDP, "Order Placed Dispatch Pending"),
-        (PARTIALLY_SHIPPED_AND_CLOSED, "Partially shipped and closed")
-
+        (PARTIALLY_SHIPPED_AND_CLOSED, "Partially shipped and closed"),
+        (DENIED_AND_CLOSED, 'Denied and Closed')
     )
     #Todo Remove
     seller_shop = models.ForeignKey(
@@ -262,9 +272,10 @@ class Order(models.Model):
     total_mrp = models.FloatField(default=0)
     total_discount_amount = models.FloatField(default=0)
     total_tax_amount = models.FloatField(default=0)
-    total_final_amount = models.FloatField(
-        default=0, verbose_name='Ordered Amount')
+    # total_final_amount = models.FloatField(
+    #     default=0, verbose_name='Ordered Amount')
     order_status = models.CharField(max_length=50,choices=ORDER_STATUS)
+    order_closed = models.BooleanField(default=False, null=True, blank=True)
     ordered_by = models.ForeignKey(
         get_user_model(), related_name='rt_ordered_by_user',
         null=True, blank=True, on_delete=models.CASCADE
@@ -299,6 +310,14 @@ class Order(models.Model):
                     payment_amount.append(float(payment.get('paid_amount')))
             self.payment_objects = payment_mode, payment_amount
             return self.payment_objects
+
+    @property
+    def total_final_amount(self):
+        return self.ordered_cart.subtotal
+
+    @property
+    def total_mrp_amount(self):
+        return self.ordered_cart.mrp_subtotal
 
     @property
     def payment_mode(self):
@@ -437,6 +456,10 @@ class Trip(models.Model):
             cash_to_be_collected.append(
                 shipment.cash_to_be_collected())
         return round(sum(cash_to_be_collected), 2)
+
+    @property
+    def cash_to_be_collected_value(self):
+        return self.cash_to_be_collected()
 
     def total_trip_amount(self):
         trip_shipments = self.rt_invoice_trip.all()
@@ -937,7 +960,7 @@ class Payment(models.Model):
     )
     name = models.CharField(max_length=255, null=True, blank=True)
     paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
-    payment_choice = models.CharField(verbose_name="Payment Mode",max_length=30,choices=PAYMENT_MODE_CHOICES, null=True)
+    payment_choice = models.CharField(verbose_name="Payment Mode",max_length=30,choices=PAYMENT_MODE_CHOICES,default='cash_on_delivery')
     neft_reference_number = models.CharField(max_length=255, null=True,blank=True)
     imei_no = models.CharField(max_length=100, null=True, blank=True)
     payment_status = models.CharField(max_length=50, null=True, blank=True,choices=PAYMENT_STATUS, default=PAYMENT_DONE_APPROVAL_PENDING)
@@ -1081,3 +1104,25 @@ class Note(models.Model):
     def invoice_no(self):
         if self.shipment:
             return self.shipment.invoice_no
+
+class Feedback(models.Model):
+    STAR1 = '1'
+    STAR2 = '2'
+    STAR3 = '3'
+    STAR4 = '4'
+    STAR5 = '5'
+
+    STAR_CHOICE = (
+        (STAR1, '1 Star'),
+        (STAR2, '2 Star'),
+        (STAR3, '3 Star'),
+        (STAR4, '4 Star'),
+        (STAR5, '5 Star'),
+    )
+    user = models.ForeignKey(get_user_model(), related_name='user_feedback', on_delete=models.CASCADE)
+    shipment = models.OneToOneField(OrderedProduct, related_name='shipment_feedback',on_delete=models.CASCADE)
+    delivery_experience = models.CharField(max_length=2, choices=STAR_CHOICE, null=True, blank=True)
+    overall_product_packaging = models.CharField(max_length=2, choices=STAR_CHOICE, null=True, blank=True)
+    comment = models.TextField(null=True,blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    status = models.BooleanField(default=False)
