@@ -14,6 +14,7 @@ from django.utils.safestring import mark_safe
 from django.urls import reverse
 from django.conf import settings
 from django.forms import widgets
+from django.utils.html import format_html
 
 from .signals import ReservedOrder
 from sp_to_gram.models import (
@@ -315,6 +316,27 @@ class TripForm(forms.ModelForm):
             for field in fields:
                 self.fields[field].required = False
                 self.fields[field].widget = forms.HiddenInput()
+
+    def clean(self):
+        data = self.cleaned_data
+        if self.instance and self.instance.trip_status == 'READY':
+            shipment_ids = data.get('selected_id').split(',')
+            cancelled_shipments = Shipment.objects.values('id', 'invoice_no'
+                ).filter(id__in=shipment_ids, shipment_status='CANCELLED')
+
+            if cancelled_shipments.exists():
+                shipment_ids_upd = [i for i in shipment_ids if int(i) not in [j['id'] for j in cancelled_shipments]]
+                data['selected_id'] = ", ".join(shipment_ids_upd)
+                raise forms.ValidationError(
+                    ['Following invoices are removed from the trip because'
+                     ' the retailer has cancelled the Order'] +
+                    [format_html(i) for i in
+                        ["<a href=%s target='blank'>%s</a>" %
+                            (reverse("admin:retailer_to_sp_shipment_change",
+                                     args=[i.get('id')]), i.get('invoice_no'))
+                            for i in cancelled_shipments]])
+
+        return data
 
 
 class DispatchForm(forms.ModelForm):

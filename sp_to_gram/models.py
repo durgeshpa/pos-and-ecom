@@ -320,15 +320,21 @@ class OrderedProductReserved(models.Model):
     RESERVED = "reserved"
     ORDERED = "ordered"
     FREE = "free"
+    ORDER_CANCELLED = 'order_cancelled'
     RESERVE_STATUS = (
         (RESERVED, "Reserved"),
         (ORDERED, "Ordered"),
         (FREE, "Free"),
+        (ORDER_CANCELLED, 'Order Cancelled')
     )
-    order_product_reserved = models.ForeignKey(OrderedProductMapping, related_name='sp_order_product_order_product_reserved',null=True, blank=True, on_delete=models.CASCADE)
+    order_product_reserved = models.ForeignKey(
+        OrderedProductMapping,
+        related_name='sp_order_product_order_product_reserved', null=True,
+        blank=True, on_delete=models.CASCADE, verbose_name='GRN Product')
     product = models.ForeignKey(Product, related_name='sp_product_order_product_reserved', null=True, blank=True,on_delete=models.CASCADE)
     cart = models.ForeignKey(RetailerCart, related_name='sp_ordered_retailer_cart',null=True,blank=True,on_delete=models.CASCADE)
     reserved_qty = models.PositiveIntegerField(default=0)
+    shipped_qty = models.PositiveIntegerField(default=0)
     order_reserve_end_time = models.DateTimeField(null=True,blank=True,editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -416,85 +422,68 @@ def create_brand_note_id(sender, instance=None, created=False, **kwargs):
 
 
 def create_credit_note(instance=None, created=False, **kwargs):
+    instance = instance.instance
     if created:
         return None
-    shipment_products = instance.rt_order_product_order_product_mapping \
-        .values('id') \
-        .annotate(Sum('returned_qty'), Sum('damaged_qty'))
-    if (shipment_products.last() and
-        (shipment_products.last().get('returned_qty__sum') > 0) or
-            (shipment_products.last().get('damaged_qty__sum') > 0)):
+    if(instance.rt_order_product_order_product_mapping.last() and 
+    instance.rt_order_product_order_product_mapping.all().aggregate(Sum('returned_qty')).get('returned_qty__sum') > 0 or 
+    instance.rt_order_product_order_product_mapping.all().aggregate(Sum('damaged_qty')).get('damaged_qty__sum')>0):
+        invoice_prefix = instance.order.seller_shop.invoice_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
+        last_credit_note = CreditNote.objects.filter(shop=instance.order.seller_shop, status=True).order_by('credit_note_id').last()
+        if last_credit_note:
+            note_id = brand_credit_note_pattern(
+                        CreditNote, 'credit_note_id', None,
+                        instance.order.seller_shop.
+                        shop_name_address_mapping.filter(
+                                        address_type='billing'
+                                        ).last().pk)
+        else:
+            note_id = brand_credit_note_pattern(
+                        CreditNote, 'credit_note_id', None,
+                        instance.order.seller_shop.
+                        shop_name_address_mapping.filter(
+                                        address_type='billing'
+                                        ).last().pk)
 
-        # creating brand note id
-        note_id = brand_credit_note_pattern(
-            CreditNote, 'credit_note_id', None,
-            instance.order.seller_shop.shop_name_address_mapping.filter(
-                address_type='billing').last().pk
-        )
         credit_amount = 0
 
-        # check if credit note exists for this shipment
+        #cur_cred_note = brand_credit_note_pattern(note_id, invoice_prefix)
         if instance.credit_note.count():
             credit_note = instance.credit_note.last()
         else:
             credit_note = CreditNote.objects.create(
-                shop=instance.order.seller_shop, credit_note_id=note_id,
-                shipment=instance, amount=0, status=True)
-
-        # disable existing grn with this credit note
-        OrderedProduct.objects\
-            .filter(credit_note=credit_note) \
-            .update(status=OrderedProduct.DISABLED)
-        # create a new grn
+                shop = instance.order.seller_shop,
+                credit_note_id=note_id,
+                shipment = instance,
+                amount = 0,
+                status=True)
+        OrderedProduct.objects.filter(credit_note=credit_note).update(status=OrderedProduct.DISABLED)
         credit_grn = OrderedProduct.objects.create(credit_note=credit_note)
-        # get all shipments products
-        shipment_products_dict = instance \
-            .rt_order_product_order_product_mapping \
-            .values('product', 'product__product_pro_price',
-                    'returned_qty', 'damaged_qty') \
-            .all()
-        # get reserved products
-        reserved_products_dict = OrderedProductReserved.objects \
-            .values('product', 'order_product_reserved__manufacture_date',
-                    'order_product_reserved__expiry_date') \
-            .filter(cart=instance.order.ordered_cart,
-                    product__in=[
-                        i.get('product') for i in shipment_products_dict
-                    ],
-                    reserve_status=OrderedProductReserved.ORDERED)
+        credit_grn.save()
 
-        for item in shipment_products_dict:
-            # get reserved product details
-            reserved_product = list(
-                filter(
-                    lambda product: product['product'] == item.get('product'),
-                    list(reserved_products_dict))
-            )[0]
-            # create grn product
+        for item in instance.rt_order_product_order_product_mapping.all():
+            reserved_order = OrderedProductReserved.objects.filter(cart=instance.order.ordered_cart,
+                                                                 product=item.product, reserve_status=OrderedProductReserved.ORDERED).last()
             grn_item = OrderedProductMapping.objects.create(
-                shop=instance.order.seller_shop, ordered_product=credit_grn,
-                product_id=item.get('product'),
-                shipped_qty=item.get('returned_qty'),
-                available_qty=item.get('returned_qty'),
-                damaged_qty=item.get('damaged_qty'),
-                ordered_qty=item.get('returned_qty'),
-                delivered_qty=item.get('returned_qty'),
-                manufacture_date=reserved_product.get(
-                    'order_product_reserved__manufacture_date'),
-                expiry_date=reserved_product.get(
-                    'order_product_reserved__expiry_date'),
-            )
-            # get product price from cart
-            cart_product_map = instance.order.ordered_cart.rt_cart_list \
-                .filter(cart_product=item.get('product')).last()
-            credit_amount += (
-                (int(item.get('returned_qty')) +
-                 int(item.get('damaged_qty'))) *
-                float(round(
-                    cart_product_map
-                    .get_cart_product_price(instance.order.seller_shop)
-                    .price_to_retailer, 2)))
-        # update credit note amount
+                shop = instance.order.seller_shop,
+                ordered_product=credit_grn,
+                product=item.product,
+                shipped_qty=item.returned_qty,
+                available_qty=item.returned_qty,
+                damaged_qty=item.damaged_qty,
+                ordered_qty = item.returned_qty,
+                delivered_qty = item.returned_qty,
+                manufacture_date= reserved_order.order_product_reserved.manufacture_date,
+                expiry_date= reserved_order.order_product_reserved.expiry_date,
+                )
+            grn_item.save()
+            try:
+                cart_product_map = instance.order.ordered_cart.rt_cart_list.filter(cart_product=item.product).last()
+                credit_amount += (int(item.returned_qty)+int(item.damaged_qty)) * float(round(cart_product_map.get_cart_product_price(instance.order.seller_shop).price_to_retailer,2))
+            except Exception as e:
+                logger.exception("Product price not found for {} -- {}".format(item.product, e))
+                credit_amount += int(item.returned_qty) * float(item.product.product_pro_price.filter(
+                    shop=instance.order.seller_shop, status=True
+                    ).last().price_to_retailer)
         credit_note.amount = credit_amount
         credit_note.save()
-

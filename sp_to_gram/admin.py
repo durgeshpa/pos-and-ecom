@@ -135,8 +135,22 @@ class OrderedProductMappingAdmin2(admin.ModelAdmin):
 
 admin.site.register(OrderedProductMapping,OrderedProductMappingAdmin2)
 
+
 class OrderedProductReservedAdmin(admin.ModelAdmin):
-    list_display = ('order_product_reserved','cart','product','reserved_qty','order_reserve_end_time','created_at','reserve_status')
+    list_select_related = ('cart', 'product')
+    list_display = ('product', 'cart', 'reserved_qty', 'shipped_qty',
+                    'order_reserve_end_time', 'created_at', 'reserve_status',
+                    'grn_product_link')
+    readonly_fields = ('cart', 'product',
+                       'reserved_qty', 'shipped_qty', 'reserve_status')
+    fields = ('cart', 'product', 'reserved_qty',
+              'shipped_qty', 'reserve_status')
+
+    def grn_product_link(self, obj):
+        url = reverse("admin:sp_to_gram_orderedproductmapping_change", args=[obj.order_product_reserved_id])
+        link = '<a href="%s" target="blank">%s</a>' % (url, obj.product)
+        return format_html(link)
+    grn_product_link.short_description = 'GRN Product'
 
 admin.site.register(OrderedProductReserved,OrderedProductReservedAdmin)
 admin.site.register(StockAdjustment)
