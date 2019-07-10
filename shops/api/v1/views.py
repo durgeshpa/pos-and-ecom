@@ -28,12 +28,12 @@ class FavouriteProductView(DataWrapperViewSet):
     '''
     This class handles all operation of favourite product for a shop
     '''
-    #permission_classes = (AllowAny,)
+    permission_classes = (AllowAny,)
     model = FavouriteProduct
     serializer_class = FavouriteProductSerializer
     queryset = FavouriteProduct.objects.all()
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
+    # authentication_classes = (authentication.TokenAuthentication,)
+    # permission_classes = (permissions.IsAuthenticated,)
     filter_backends = (filters.DjangoFilterBackend,)
     filter_class = FavouriteProductFilter
 
