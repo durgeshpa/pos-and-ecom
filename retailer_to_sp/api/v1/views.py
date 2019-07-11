@@ -211,7 +211,7 @@ class GramGRNProductsList(APIView):
             category_filter = ",".join([str(s) for s in categorymodel.Category.objects.filter(id__in=category, status=True).all()])
             q = {
                 "match" :{
-                    "name":{"query":category_filter, "fuzziness":0, "operator":"and"}
+                    "category":{"query":category_filter, "fuzziness":0, "operator":"and"}
                 }
             }
             query["dis_max"]["queries"].append(q)
