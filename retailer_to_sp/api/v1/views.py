@@ -60,7 +60,7 @@ from retailer_to_sp.tasks import (
     ordered_product_available_qty_update, release_blocking, create_reserved_order
 )
 from .filters import OrderedProductMappingFilter, OrderedProductFilter
-
+from sp_to_gram.tasks import es_search
 from common.data_wrapper_view import DataWrapperViewSet
 
 from django.contrib.auth import get_user_model
@@ -324,6 +324,95 @@ class GramGRNProductsList(APIView):
                 is_store_active = False
                 p_list.append({"name":p.product.product_name, "mrp":None, "ptr":None, "status":status, "pack_size":pack_size, "id":p.product_id,
                                 "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":None})
+
+        msg = {'is_store_active': is_store_active,
+                'is_success': True,
+                 'message': ['Products found'],
+                 'response_data':p_list }
+        if not p_list:
+            msg = {'is_store_active': is_store_active,
+                    'is_success': False,
+                     'message': ['Sorry! No product found'],
+                     'response_data':None }
+        return Response(msg,
+                         status=200)
+
+    def get(self, request, format=None):
+        product_ids = request.GET.get('product_ids')
+        brand = request.GET.get('brands')
+        category = request.GET.get('categories')
+        keyword = request.GET.get('product_name', None)
+        shop_id = request.GET.get('shop_id')
+        grn_dict = None
+        cart_check = False
+        is_store_active = True
+        sort_preference = request.GET.get('sort_by_price')
+
+        '''1st Step
+            Check If Shop Is exists then 2nd pt else 3rd Pt
+        '''
+        try:
+            shop = Shop.objects.get(id=shop_id,status=True)
+        except ObjectDoesNotExist:
+            '''3rd Step
+                If no shop found then
+            '''
+            message = "Shop not active or does not exists"
+            is_store_active = False
+        else:
+            '''2nd Step
+                Check if shop fond then check weather it is sp 4th Step or retailer 5th Step
+            '''
+            try:
+                parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
+            except ObjectDoesNotExist:
+                message = "Shop Mapping Not Found"
+                is_store_active = False
+            else:
+
+                if parent_mapping.parent.shop_type.shop_type == 'sp':
+                    '''4th Step
+                        SP mapped data shown
+                    '''
+                    search_body = {}
+                    if keyword:
+                        search_body['name']=keyword
+                    if brand:
+                        search_body['brand']=brand
+                    if category:
+                        search_body['category']=category
+                    body = {"query":{"match":search_body}}
+                    products_list = es_search(index=parent_mapping.parent.id, body=body)
+                    cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
+                    if cart:
+                        cart_products = cart.rt_cart_list.all()
+                        cart_check = True
+                else:
+                    is_store_active = False
+        p_list = []
+        if not is_store_active:
+            search_body = {}
+            if keyword:
+                search_body['name']=keyword
+            if brand:
+                search_body['brand']=brand
+            if category:
+                search_body['category']=category
+            if len(search_body.keys()):
+                query = {"match":search_body}
+            else:
+                query = {"match_all":{}}
+            body = {"query":query,"_source":{"includes":["name", "product_images","pack_size","weight_unit","weight_value"]}}
+            products_list = es_search(index="all_products", body=body)
+
+        for p in products_list['hits']['hits']:
+            if cart_check == True:
+                for c_p in cart_products:
+                    if c_p.cart_product_id == p["_source"]["id"]:
+                        user_selected_qty = c_p.qty
+                        p["_source"]["no_of_pieces"] = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
+                        p["_source"]["sub_total"] = float(no_of_pieces) * float(ptr)
+            p_list.append(p["_source"])
 
         msg = {'is_store_active': is_store_active,
                 'is_success': True,
