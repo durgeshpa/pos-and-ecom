@@ -533,6 +533,9 @@ class PickerDashboardAdmin(admin.ModelAdmin):
             Q(order__seller_shop__shop_owner=request.user)
                 )
 
+    def _picklist(self, obj, request):
+        return obj.picklist(request.user)
+
     def download_pick_list(self,obj):
         if obj.order.order_status not in ["active", "pending"]:
             return format_html(

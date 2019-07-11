@@ -42,7 +42,9 @@
     {% block object-tools %}
         <ul class="object-tools">
                 <li>
-            <a href="{% url 'admin:AssignPicker' %}" class="addlink"> Assign Picker </a>
+            {% if perms.retailer_to_sp.change_picker_dashboard %}      
+              <a href="{% url 'admin:AssignPicker' %}" class="addlink"> Assign Picker </a>
+            {% endif %}
                 </li>
                             <!--<li>-->
             <!--<a href="/admin/retailer_to_sp/cart/order-product-mapping-delivery/" class="addlink"> Update Delivery of Goods </a>-->
