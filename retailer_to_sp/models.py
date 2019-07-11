@@ -1155,3 +1155,45 @@ class Feedback(models.Model):
     comment = models.TextField(null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     status = models.BooleanField(default=False)
+
+
+
+@receiver(post_save, sender=OrderedProduct)
+def update_picking_status(sender, instance=None, created=False, **kwargs):
+    '''
+    Method to update picking status 
+    '''
+    #assign shipment to picklist once SHIPMENT_CREATED
+    if instance.shipment_status == "SHIPMENT_CREATED":
+        # assign shipment to picklist
+        # tbd : if manual(by searching relevant picklist id) or automated 
+        picker = PickerDashboard.objects.get(order=instance.order, picking_status="picking_in_progress").update(
+            shipment=instance)
+
+    if instance.shipment_status == "READY_TO_SHIP":
+        # assign picking_status to done and create new picklist id 
+        picker = PickerDashboard.objects.get(shipment=instance).update(picking_status="picking_complete")
+
+        # if more shipment required
+        PickerDashboard.objects.create(
+            order=instance.order,
+            picking_status="picking_pending",
+            picklist_id= get_random_string(12).lower(), #generate random string of 12 digits
+            )
+
+
+
+@receiver(post_save, sender=Order)
+def assign_picklist(sender, instance=None, created=False, **kwargs):
+    '''
+    Method to update picking status 
+    '''
+    #assign shipment to picklist once SHIPMENT_CREATED
+    if created:
+        # assign piclist to order
+        PickerDashboard.objects.create(
+            order=instance,
+            picking_status="picking_pending",
+            picklist_id= get_random_string(12).lower(), #generate random string of 12 digits
+            )
+
