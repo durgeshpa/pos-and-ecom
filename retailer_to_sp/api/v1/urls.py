@@ -19,7 +19,7 @@ urlpatterns = [
     url('^release-blocking/$', ReleaseBlocking.as_view(), name='release-blocking'),
     url('^product_detail/(?P<pk>\d+)/$', ProductDetail.as_view(), name='product_detail'),
     url('^trip-shipments/$', DeliveryBoyTrips.as_view(), name='trip-shipments'),
-    url('^trip-shipment-details', DeliveryShipmentDetails.as_view(), name = 'trip-shipment-details'),
+    url('^trip-shipment-details/(?P<trip>[-\w]+)/$', DeliveryShipmentDetails.as_view(), name = 'trip-shipment-details'),
     url('^shipment-detail/(?P<shipment>[-\w]+)/$', ShipmentDetail.as_view(), name='shipment-detail'),
     #cron
     #url('^delete-ordered-product-reserved/$', CronToDeleteOrderedProductReserved.as_view(), name='delete_ordered_product_reserved'),

@@ -470,6 +470,14 @@ class Trip(models.Model):
             return str(self.get_trip_status_display())
         return str("-------")
 
+    @property
+    def no_of_shipments(self):
+        return self.rt_invoice_trip.all().count()
+
+    @property
+    def total_return_amount(self):
+        return self.rt_invoice_trip.all().count()
+
 
 class OrderedProduct(models.Model): #Shipment
     CLOSED = "closed"

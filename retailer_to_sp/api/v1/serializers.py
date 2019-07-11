@@ -3,7 +3,7 @@ from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMap
                              Size,Color,Fragrance,Flavor,Weight,PackageSize)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order,
                                    OrderedProduct, Note, CustomerCare,
-                                   Payment, Dispatch, OrderedProductMapping)
+                                   Payment, Dispatch, OrderedProductMapping, Trip)
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
 
                                       OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment)
@@ -629,3 +629,23 @@ class ShipmentDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderedProductMapping
         fields = ( 'product', 'mrp', 'price_to_retailer', 'cash_discount', 'loyalty_incentive', 'margin', 'shipped_qty', 'ordered_product')
+
+class TripSerializer(serializers.ModelSerializer):
+    total_trip_amount = serializers.SerializerMethodField()
+    trip_return_amount = serializers.ReadOnlyField()
+    cash_to_be_collected = serializers.SerializerMethodField()
+    no_of_shipments = serializers.ReadOnlyField()
+    trip_status = serializers.CharField(
+                                        source='get_trip_status_display')
+
+    def get_total_trip_amount(self, obj):
+        return obj.total_trip_amount()
+
+    def get_cash_to_be_collected(self, obj):
+        return obj.cash_to_be_collected()
+
+
+
+    class Meta:
+        model = Trip
+        fields = ('trip_status', 'no_of_shipments', 'total_trip_amount', 'cash_to_be_collected')
