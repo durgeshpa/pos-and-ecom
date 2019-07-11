@@ -28,7 +28,7 @@ class FavouriteProductView(DataWrapperViewSet):
     '''
     This class handles all operation of favourite product for a shop
     '''
-    permission_classes = (AllowAny,)
+    # permission_classes = (AllowAny,)
     model = FavouriteProduct
     serializer_class = FavouriteProductSerializer
     queryset = FavouriteProduct.objects.all()
