@@ -351,7 +351,7 @@ class SalesPerformanceView(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
         data = []
-        if not request.user.is_superuser and request.user.has_perm('shops.can_sales_person_add_shop'):
+        if request.user.has_perm('shops.can_sales_person_add_shop'):
             today = datetime.now()
             last_day = today - timedelta(days=days_diff)
             one_month = today - timedelta(days=days_diff + days_diff)
