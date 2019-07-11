@@ -518,6 +518,22 @@ class PickerDashboardAdmin(admin.ModelAdmin):
 
         ] + urls
         return urls
+    
+    def has_change_permission(self, request, obj=None):
+        if request.user.has_perm("can_change_picker_dashboard"):
+            return True
+        else:
+            return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    # def has_module_permission(self, request):
+    #     pass
+
 
     def change_picking_status(self, request, queryset):
         # queryset.filter(Q(order__picking_status='picking_in_progress')).update(Q(order__picking_status='picking_complete'))
@@ -533,8 +549,8 @@ class PickerDashboardAdmin(admin.ModelAdmin):
             Q(order__seller_shop__shop_owner=request.user)
                 )
 
-    def _picklist(self, obj, request):
-        return obj.picklist(request.user)
+    # def _picklist(self, obj, request):
+    #     return obj.picklist(request.user)
 
     def download_pick_list(self,obj):
         if obj.order.order_status not in ["active", "pending"]:
