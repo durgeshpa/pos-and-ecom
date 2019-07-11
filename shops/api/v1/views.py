@@ -185,34 +185,38 @@ class TeamListView(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
+        today = datetime.now()
+        last_day = today - timedelta(days=days_diff)
         employee_list = ShopUserMapping.objects.filter(manager=self.request.user)
         data = []
-        for employee in employee_list:
-            today = datetime.now()
-            last_day = today - timedelta(days=days_diff)
-            orders = Order.objects.select_related('ordered_cart').filter(ordered_by=employee.employee, created_at__range=[last_day, today]).order_by('ordered_by')
-            total_sku, total_invoice_amount, total_no_of_sku_pieces = 0, 0, 0
-            dt = {
-              'name': employee.employee.first_name,
-              'data':[]
-            }
-            for order in orders:
-                total_sku += int(order.ordered_cart.total_sku()) if order.ordered_cart.total_sku() else 0
-                total_invoice_amount += round(float(order.ordered_amount()),2) if order.ordered_amount() else 0
-                total_no_of_sku_pieces += round(float(order.ordered_cart.total_no_of_sku_pieces()),2) if order.ordered_cart.total_no_of_sku_pieces() else 0
+        order_obj = Order.objects.filter(buyer_shop__created_by__id__in=employee_list,
+                                         created_at__range=[today, last_day]).values('ordered_by',
+                                                                                     'ordered_by__first_name')\
+            .annotate(no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
+            .annotate(no_of_ordered_sku_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces')) \
+            .annotate(avg_no_of_ordered_sku_pieces=Avg('ordered_cart__rt_cart_list__no_of_pieces')) \
+            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer') * F(
+            'ordered_cart__rt_cart_list__no_of_pieces'),
+                                         output_field=FloatField())) \
+            .annotate(avg_ordered_amount=Avg(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer') * F(
+            'ordered_cart__rt_cart_list__no_of_pieces'),
+                                         output_field=FloatField())) \
+            .order_by('ordered_by')
+        order_map = {i['ordered_by']: (i['no_of_ordered_sku'], i['no_of_ordered_sku_pieces'], i['avg_no_of_ordered_sku_pieces'],
+        i['ordered_amount'], i['avg_ordered_amount']) for i in order_obj}
 
+        for emp in employee_list:
             rt = {
-                'ordered_sku_pieces' : total_no_of_sku_pieces,
-                'ordered_amount': round(total_invoice_amount,2),
-                'delivered_amount': round(total_invoice_amount,2),
-                'store_added': employee.employee.shop_created_by.filter(created_at__range=[last_day, today]).count(),
-                'avg_order_val': round(total_invoice_amount / int(days_diff),2) if total_invoice_amount >0 else 0,
-                'avg_order_line_items': round(total_sku / int(days_diff),2) if total_sku >0 else 0,
+                'ordered_sku_pieces': order_map[emp.id][1] if order_map else 0,
+                'ordered_amount': round(order_map[emp.id][3], 2) if order_map else 0,
+                'delivered_amount': '',
+                'store_added': emp.employee.shop_created_by.filter(created_at__range=[last_day, today]).count(),
+                'avg_order_val': round(order_map[emp.id][4], 2) if order_map else 0,
+                'avg_order_line_items': round(order_map[emp.id][2], 2) if order_map else 0,
                 'unique_calls_made': '',
                 'days': days_diff,
             }
-            dt['data'].append(rt)
-            data.append(dt)
+            data.append(rt)
 
         msg = {'is_success': True, 'message': [""],'response_data': None, 'data': data}
         return Response(msg,status=status.HTTP_200_OK)
@@ -271,12 +275,11 @@ class SellerShopOrder(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
-        employee_list = ShopUserMapping.objects.filter(manager=self.request.user).values('employee')
-        shop_list = Shop.objects.filter(created_by__id__in=employee_list).values('shop_name','id').order_by('shop_name')
-
         data = []
         today = datetime.now()
         last_day = today - timedelta(days=days_diff)
+        employee_list = ShopUserMapping.objects.filter(manager=self.request.user).values('employee')
+        shop_list = Shop.objects.filter(created_by__id__in=employee_list).values('shop_name','id').order_by('shop_name')
         order_obj = Order.objects.filter(buyer_shop__created_by__id__in=employee_list,created_at__range=[today, last_day]).values('buyer_shop','buyer_shop__shop_name').\
             annotate(buyer_shop_count=Count('buyer_shop'))\
             .annotate(no_of_ordered_sku=Count('ordered_cart__rt_cart_list'))\
@@ -287,19 +290,15 @@ class SellerShopOrder(generics.ListAPIView):
         order_map = {i['buyer_shop']: (i['buyer_shop_count'], i['no_of_ordered_sku'], i['no_of_ordered_sku_pieces'],i['ordered_amount']) for i in order_obj}
 
         for shop in shop_list:
-            dt = {
-              'name': shop['shop_name'],
-              'dt': []
-            }
             rt = {
+                'name': shop['shop_name'],
                 'no_of_order': order_map[shop['id']][0] if order_map else 0,
                 'no_of_ordered_sku': order_map[shop['id']][1] if order_map else 0,
                 'no_of_ordered_sku_pieces': order_map[shop['id']][2] if order_map else 0,
                 'ordered_amount': round(order_map[shop['id']][3],2) if order_map else 0,
                 'calls_made': '',
             }
-            dt['dt'].append(rt)
-            data.append(dt)
+            data.append(rt)
 
         msg = {'is_success': True, 'message': [""],'response_data': data}
         return Response(msg,status=status.HTTP_200_OK)
@@ -327,11 +326,8 @@ class SellerShopProfile(generics.ListAPIView):
         order_map = {i['buyer_shop']: (i['buyer_shop_count'], i['no_of_ordered_sku'], i['ordered_amount']) for i in order_list}
 
         for shop in shop_list:
-            dt = {
-              'name': shop['shop_name'],
-              'dt': []
-            }
             rt = {
+                'name': shop['shop_name'],
                 'last_order_date': order_obj.created_at.strftime('%d-%m-%Y %H:%M') if order_obj else 0,
                 'last_order_value': order_obj.ordered_cart.subtotal if order_obj else 0,
                 'avg_order_value': round(order_map[shop['id']][2], 2) if order_map else 0,
@@ -339,8 +335,7 @@ class SellerShopProfile(generics.ListAPIView):
                 'avg_time_between_order': '',
                 'last_calls_made': '',
             }
-            dt['dt'].append(rt)
-            data.append(dt)
+            data.append(rt)
 
         msg = {'is_success': True, 'message': [""],'response_data': data}
         return Response(msg,status=status.HTTP_200_OK)
@@ -356,16 +351,13 @@ class SalesPerformanceView(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
         data = []
-        if request.user.has_perm('shops.can_sales_person_add_shop'):
+        if not request.user.is_superuser and request.user.has_perm('shops.can_sales_person_add_shop'):
             today = datetime.now()
             last_day = today - timedelta(days=days_diff)
             one_month = today - timedelta(days=days_diff + days_diff)
-            dt = {
-                'name': request.user.first_name,
-                'data': []
-            }
             shop_obj = Shop.objects.filter(created_by=request.user)
             rt = {
+                'name': request.user.first_name,
                 'shop_inactive': shop_obj.filter(status=True).exclude(
                     shop_obj.rt_buyer_shop_order.filter(created_at__gte=last_day)).count() if hasattr(Order,'rt_buyer_shop_order') else 0,
                 'shop_onboard': shop_obj.filter(status=True, created_at__gte=last_day).count() if shop_obj.filter(
@@ -375,8 +367,7 @@ class SalesPerformanceView(generics.ListAPIView):
                 'current_target_sales_target': '',
                 'current_store_count': shop_obj.filter(created_at__gte=last_day).count(),
             }
-            dt['data'].append(rt)
-            data.append(dt)
+            data.append(rt)
 
         else:
             employee_list = ShopUserMapping.objects.filter(manager=self.request.user)
@@ -384,20 +375,15 @@ class SalesPerformanceView(generics.ListAPIView):
                 today = datetime.now()
                 last_day = today - timedelta(days=days_diff)
                 one_month = today - timedelta(days=days_diff+days_diff)
-                dt = {
-                  'name': employee.employee.first_name,
-                  'data':[]
-                }
                 shop_obj = Shop.objects.filter(created_by=employee.employee)
                 rt = {
+                    'name': employee.employee.first_name,
                     'shop_inactive': shop_obj.filter(status=True).exclude(shop_obj.rt_buyer_shop_order.filter(created_at__gte=last_day)).count() if hasattr(Order, 'rt_buyer_shop_order') else 0,
                     'shop_onboard':  shop_obj.filter(status=True, created_at__gte=last_day).count() if shop_obj.filter(status=True,created_at__gte=last_day) and shop_obj.retiler_mapping.exists() else 0,
                     'shop_reactivated': shop_obj.filter(status=True).rt_buyer_shop_order.filter(~Q(created_at__range=[one_month,last_day]),Q(created_at__gte=last_day)) if hasattr(Order, 'rt_buyer_shop_order') else 0,
                     'current_target_sales_target': '',
                     'current_store_count': shop_obj.filter(created_at__gte=last_day).count(),
                 }
-                dt['data'].append(rt)
-                data.append(dt)
-
+                data.append(rt)
         msg = {'is_success': True, 'message': [""],'response_data': None, 'data': data}
         return Response(msg,status=status.HTTP_200_OK)
