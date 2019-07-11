@@ -11,7 +11,7 @@ from elasticsearch import Elasticsearch
 from shops.models import Shop
 from sp_to_gram import models
 from products.models import Product, ProductPrice
-from settings import ELASTICSEARCH_PREFIX as es_prefix
+from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
 
