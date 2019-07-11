@@ -186,7 +186,8 @@ class GramGRNProductsList(APIView):
         category = request.data.get('categories')
         keyword = request.data.get('product_name', None)
         shop_id = request.data.get('shop_id')
-        offset = request.data.get('offset')
+        offset = int(request.data.get('offset',0))
+        page_size = int(request.data.get('pro_count',20))
         grn_dict = None
         cart_check = False
         is_store_active = True
@@ -208,7 +209,7 @@ class GramGRNProductsList(APIView):
         if brand:
             query["dis_max"]["queries"].append({"term": {"brand":str(Brand.objects.filter(id__in=list(brand)).last())}})
         if category:
-            category_filter = ",".join([str(s) for s in categorymodel.Category.objects.filter(id__in=category, status=True).all()])
+            category_filter = [str(s) for s in categorymodel.Category.objects.filter(id__in=category, status=True).all()]
             q = {
                 "match" :{
                     "category":{"query":category_filter, "fuzziness":0, "operator":"and"}
@@ -238,7 +239,7 @@ class GramGRNProductsList(APIView):
                     '''4th Step
                         SP mapped data shown
                     '''
-                    body = {"query":query}
+                    body = {"query":query, "from" : offset, "size" : page_size}
                     products_list = es_search(index=parent_mapping.parent.id, body=body)
                     cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
                     if cart:
@@ -248,7 +249,11 @@ class GramGRNProductsList(APIView):
                     is_store_active = False
         p_list = []
         if not is_store_active:
-            body = {"query":query,"_source":{"includes":["name", "product_images","pack_size","weight_unit","weight_value"]}}
+            body = {
+                "from" : offset, 
+                "size" : page_size, 
+                "query":query,"_source":{"includes":["name", "product_images","pack_size","weight_unit","weight_value"]}
+                }
             products_list = es_search(index="all_products", body=body)
 
         for p in products_list['hits']['hits']:
