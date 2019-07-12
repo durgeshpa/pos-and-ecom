@@ -783,9 +783,8 @@ class UpdateSpQuantity(object):
             product)
         for ordered_product_reserved in ordered_products_reserved:
             grn = ordered_product_reserved.order_product_reserved
-            grn.available_qty += ordered_product_reserved.reserved_qty
+            grn.available_qty += ordered_product_reserved.shipped_qty
             grn.save()
-            ordered_product_reserved.reserved_qty = 0
             ordered_product_reserved.save()
 
     def update(self):
