@@ -396,6 +396,7 @@ class SalesPerformanceView(generics.ListAPIView):
 class SellerShopListView(generics.ListAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = ShopUserMappingSerializer
 
     def get_queryset(self):
         shop_list = ShopUserMapping.objects.filter(employee=self.request.user)
@@ -407,5 +408,6 @@ class SellerShopListView(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
-        msg = {'is_success': True, 'message': [""],'response_data': None, 'data': queryset}
+        serializer = self.get_serializer(queryset, many=True)
+        msg = {'is_success': True, 'message': [""],'response_data': None, 'data': serializer.data}
         return Response(msg,status=status.HTTP_200_OK)
