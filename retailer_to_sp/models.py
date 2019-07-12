@@ -1182,13 +1182,16 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
     if instance.shipment_status == "SHIPMENT_CREATED":
         # assign shipment to picklist
         # tbd : if manual(by searching relevant picklist id) or automated 
-        picker = PickerDashboard.objects.get(order=instance.order, picking_status="picking_in_progress").update(
-            shipment=instance)
+        picker = PickerDashboard.objects.get(order=instance.order, picking_status="picking_in_progress")
+        picker.shipment=instance
+        picker.save()
 
     if instance.shipment_status == "READY_TO_SHIP":
         # assign picking_status to done and create new picklist id 
-        picker = PickerDashboard.objects.get(shipment=instance).update(picking_status="picking_complete")
-
+        picker = PickerDashboard.objects.get(shipment=instance)
+        picker.picking_status="picking_complete"
+        picker.save()
+    
         # if more shipment required
         PickerDashboard.objects.create(
             order=instance.order,
