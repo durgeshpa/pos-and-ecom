@@ -392,3 +392,20 @@ class SalesPerformanceView(generics.ListAPIView):
                 data.append(rt)
         msg = {'is_success': True, 'message': [""],'response_data': None, 'data': data}
         return Response(msg,status=status.HTTP_200_OK)
+
+class SellerShopListView(generics.ListAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        shop_list = ShopUserMapping.objects.filter(employee=self.request.user)
+        if self.request.query_params.get('mobile_no'):
+            shop_list = shop_list.filter(shop__shop_owner__phone_number__icontains=self.request.query_params.get('mobile_no'))
+        if self.request.query_params.get('shop_name'):
+            shop_list = shop_list.filter(shop__shop_name__icontains=self.request.query_params.get('shop_name'))
+        return shop_list
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        msg = {'is_success': True, 'message': [""],'response_data': None, 'data': queryset}
+        return Response(msg,status=status.HTTP_200_OK)
