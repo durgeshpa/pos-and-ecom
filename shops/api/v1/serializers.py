@@ -80,7 +80,7 @@ class FavouriteProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FavouriteProduct
-        fields = ('id', 'product','product_price', 'product_mrp', 'cash_discount', 'loyalty_incentive') 
+        fields = ('id', 'buyer_shop', 'product','product_price', 'product_mrp', 'cash_discount', 'loyalty_incentive') 
 
 
 class RetailerTypeSerializer(serializers.ModelSerializer):
