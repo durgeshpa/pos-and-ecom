@@ -179,7 +179,7 @@ class BulkShopUpdation(forms.Form):
 
 class ShopUserMappingForm(forms.ModelForm):
     shop = forms.ModelChoiceField(
-        queryset=Shop.objects.filter(status=True),
+        queryset=Shop.objects.all(),
         widget=autocomplete.ModelSelect2(url='admin:shop-autocomplete',)
     )
     manager = forms.ModelChoiceField(required=False,

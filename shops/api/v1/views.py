@@ -242,7 +242,7 @@ class SellerShopView(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         shop_user = ShopUserMapping.objects.filter(employee=request.user)
-        if shop_user.exists() and shop_user.last().employee.has_perm('can_sales_person_add_shop'):
+        if shop_user.exists() and shop_user.last().employee.has_perm('shops.can_sales_person_add_shop'):
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             shop = self.perform_create(serializer)
@@ -268,7 +268,7 @@ class SellerShopView(generics.ListCreateAPIView):
 
     def add_shop_user_mapping(self,shop):
         if not ShopUserMapping.objects.filter(shop=shop,employee=self.request.user).exists():
-            ShopUserMapping.objects.create(shop=shop, employee=self.request.user,employee_group=Group.objects.get(name='Sales Executive'))
+            ShopUserMapping.objects.create(shop=shop, employee=self.request.user, employee_group=Group.objects.get(name='Sales Executive'))
 
 class SellerShopOrder(generics.ListAPIView):
     serializer_class = ShopUserMappingSerializer

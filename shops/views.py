@@ -264,7 +264,7 @@ def bulk_shop_updation(request):
 
 class ShopAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        qs = None
+        qs = Shop.objects.none
         if self.q:
             qs = Shop.objects.filter(shop_name__icontains=self.q)
         return qs

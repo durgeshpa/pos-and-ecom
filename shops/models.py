@@ -241,3 +241,7 @@ class ShopUserMapping(models.Model):
     class Meta:
         unique_together = ('shop', 'employee',)
 
+    def save(self,*args, **kwargs):
+        super(ShopUserMapping, self).save(*args, **kwargs)
+        self.employee.groups.add(self.employee_group)
+        self.employee.save()
