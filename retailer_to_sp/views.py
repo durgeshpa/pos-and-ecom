@@ -977,7 +977,7 @@ class OrderCancellation(object):
                 product_id=item['r_product'],
                 shipped_qty=item['r_qty'],
                 available_qty=item['r_qty'],
-                damaged_qty=0,
+                damaged_qty=item['r_qty'],
                 ordered_qty=item['r_qty'],
                 delivered_qty=item['r_qty'],
                 manufacture_date=item['man_date'],
