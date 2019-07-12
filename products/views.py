@@ -25,6 +25,7 @@ from products.models import (
 
 logger = logging.getLogger(__name__)
 from dal import autocomplete
+from django.db.models import Q
 
 def load_cities(request):
     """Return list of cities for specific state id
@@ -639,10 +640,10 @@ def products_export_for_vendor(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(['id','product_name','product_gf_code', 'mrp', 'brand_to_gram_price','case_size'])
-    products = Product.objects.values_list('id','product_name','product_gf_code','product_case_size')
+    writer.writerow(['id','product_name','product_gf_code','product_sku', 'mrp', 'brand_to_gram_price','case_size'])
+    products = Product.objects.values_list('id','product_name','product_gf_code','product_sku','product_case_size')
     for product in products:
-        writer.writerow([product[0],product[1],product[2],'','',product[3]])
+        writer.writerow([product[0],product[1],product[2],product[3],'','',product[4]])
     return response
 
 def products_vendor_mapping(request,pk=None):
@@ -652,10 +653,10 @@ def products_vendor_mapping(request,pk=None):
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     try:
-        writer.writerow(['id','product_name','case_size','number_of_cases','mrp','brand_to_gram_price'])
+        writer.writerow(['id','product_name','sku','case_size','number_of_cases','mrp','brand_to_gram_price'])
         vendor_products = ProductVendorMapping.objects.filter(vendor_id=int(pk),case_size__gt=0,status=True)
         for p in vendor_products:
-            writer.writerow([p.product_id,p.product.product_name,p.case_size,'',p.product_mrp,p.product_price])
+            writer.writerow([p.product_id,p.product.product_name,p.product.product_sku,p.case_size,'',p.product_mrp,p.product_price])
     except:
         writer.writerow(["Make sure you have selected vendor before downloading CSV file"])
     return response
@@ -681,5 +682,16 @@ class ProductPriceAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qs = None
         if self.q:
-            qs = Product.objects.filter(product_name__icontains=self.q)
+            qs = Product.objects.filter(
+                Q(product_name__icontains=self.q) |
+                Q(product_sku__iexact=self.q)
+            )
+        return qs
+
+class ProductCategoryAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = None
+        if self.q:
+            qs = Category.objects.filter(category_name__icontains=self.q),
+            #qs = Product.objects.filter(product_name__icontains=self.q)
         return qs

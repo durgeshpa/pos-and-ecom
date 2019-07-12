@@ -127,7 +127,7 @@ class OrderedProductForm(forms.ModelForm):
 
     class Meta:
         model = OrderedProduct
-        fields = ['order']
+        fields = ['order', 'shipment_status']
 
     class Media:
         js = (
@@ -144,6 +144,8 @@ class OrderedProductForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(OrderedProductForm, self).__init__(*args, **kwargs)
+        self.fields['shipment_status'].choices = OrderedProduct.SHIPMENT_STATUS[:2]
+
 
 
 class OrderedProductMappingForm(forms.ModelForm):
@@ -573,7 +575,7 @@ class CartForm(forms.ModelForm):
     class Meta:
         model = Cart
         fields = ('seller_shop', 'buyer_shop')
-        
+
 
 class CommercialForm(forms.ModelForm):
     class Meta:

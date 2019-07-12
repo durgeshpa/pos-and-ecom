@@ -128,11 +128,17 @@ class Cart(models.Model):
 
     @property
     def subtotal(self):
-        return self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum']
+        try:
+            return round(self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum'],2)
+        except: 
+            return None
 
     @property
     def mrp_subtotal(self):
-        return self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__mrp') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum']
+        try:
+            return round(self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__mrp') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum'],2)
+        except:
+            return None
 
     @property
     def qty_sum(self):
@@ -306,11 +312,11 @@ class Order(models.Model):
 
     @property
     def total_final_amount(self):
-        return round(self.ordered_cart.subtotal,2)
+        return self.ordered_cart.subtotal
 
     @property
     def total_mrp_amount(self):
-        return round(self.ordered_cart.mrp_subtotal,2)
+        return self.ordered_cart.mrp_subtotal
 
     @property
     def payment_mode(self):
@@ -451,6 +457,10 @@ class Trip(models.Model):
             cash_to_be_collected.append(
                 shipment.cash_to_be_collected())
         return round(sum(cash_to_be_collected), 2)
+
+    @property
+    def cash_to_be_collected_value(self):
+        return self.cash_to_be_collected()
 
     def total_trip_amount(self):
         trip_shipments = self.rt_invoice_trip.all()
