@@ -31,7 +31,7 @@ def create_order_from_cart(form, formsets, request, order):
 	order.total_mrp = order_amounts.get('total_mrp')
 	order.total_discount_amount = order_amounts.get('total_discount_amount')
 	order.total_tax_amount = order_amounts.get('total_tax_amount')
-	order.total_final_amount = order_amounts.get('total_final_amount')
+	#order.total_final_amount = order_amounts.get('total_final_amount')
 	order.ordered_by = request.user
 	order.order_status = order.ORDER_PLACED_DISPATCH_PENDING
 	order.last_modified_by = request.user

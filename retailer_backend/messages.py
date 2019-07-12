@@ -30,7 +30,8 @@ SUCCESS_MESSAGES = {
     'USER_IMPORT_SUCCESSFULLY': 'User Import Successfully.',
     'MOBILE_NUMBER_VERIFIED': 'Your mobile number verified successfully',
     'USER_ALREADY_EXISTS': 'User already exists! Please login',
-    'USER_SHOP_ADDED': 'Shop added successfully'
+    'USER_SHOP_ADDED': 'Shop added successfully',
+    'CHANGED_STATUS': 'Po_Status changed to %s'
 }
 
 ERROR_MESSAGES = {

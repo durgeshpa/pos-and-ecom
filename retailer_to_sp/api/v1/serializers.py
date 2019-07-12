@@ -23,7 +23,8 @@ from gram_to_brand.models import GRNOrderProductMapping
 from addresses.api.v1.serializers import AddressSerializer
 from brand.api.v1.serializers import BrandSerializer
 from django.core.validators import RegexValidator
-
+from django.utils.translation import ugettext_lazy as _
+from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -700,3 +701,36 @@ class FeedBackSerializer(serializers.ModelSerializer):
         model = Feedback
         fields = ('user', 'shipment', 'delivery_experience', 'overall_product_packaging', 'comment', 'status')
         extra_kwargs = {'status': {'required': True}, 'user':{'required':False}}
+
+
+class CancelOrderSerializer(serializers.ModelSerializer):
+    order_id = serializers.IntegerField(required=True)
+    order_status = serializers.HiddenField(default='CANCELLED')
+
+    class Meta:
+        model = Order
+        fields = ('order_id', 'order_status')
+
+    def validate(self, data):
+        order = self.context.get('order')
+        if order.order_status == 'CANCELLED':
+            raise serializers.ValidationError(_('This order is already cancelled!'),)
+        shipments_data = list(order.rt_order_order_product.values(
+            'id', 'shipment_status', 'trip__trip_status'))
+        if len(shipments_data) == 1:
+            # last shipment
+            s = shipments_data[-1]
+            if (s['shipment_status'] not in [i[0] for i in OrderedProduct.SHIPMENT_STATUS[:3]]):
+                raise serializers.ValidationError(
+                    _('Sorry! This order cannot be cancelled'),)
+            elif (s['trip__trip_status'] and s['trip__trip_status'] != 'READY'):
+                raise serializers.ValidationError(
+                    _('Sorry! This order cannot be cancelled'),)
+        elif len(shipments_data) > 1:
+            status = [x[0] for x in OrderedProduct.SHIPMENT_STATUS[1:]
+                      if x[0] in [x['shipment_status'] for x in shipments_data]]
+            if status:
+                raise serializers.ValidationError(
+                    _('Sorry! This order cannot be cancelled'),)
+        else:
+            return data
