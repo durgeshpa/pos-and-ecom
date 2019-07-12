@@ -192,7 +192,14 @@ class ProductHistory(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
+
 class ProductPrice(models.Model):
+    APPROVED = 'approved'
+    APPROVAL_PENDING = 'approval_pending'
+    APPROVAL_CHOICES = (
+        (APPROVED, 'Approved'),
+        (APPROVAL_PENDING, 'Approval Pending'),
+    )
     product = models.ForeignKey(Product,related_name='product_pro_price',on_delete=models.CASCADE)
     city = models.ForeignKey(City,related_name='city_pro_price',null=True,blank=True,on_delete=models.CASCADE)
     area = models.ForeignKey(Area,related_name='area_pro_price',null=True,blank=True,on_delete=models.CASCADE)
@@ -205,6 +212,9 @@ class ProductPrice(models.Model):
     loyalty_incentive = models.FloatField(default=0, blank=True,validators=[PriceValidator2])
     start_date = models.DateTimeField(null=True,blank=True)
     end_date = models.DateTimeField(null=True,blank=True)
+    approval_status = models.CharField(choices=APPROVAL_CHOICES,
+                                       default=APPROVAL_PENDING, blank=True,
+                                       null=True, max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)

@@ -272,18 +272,23 @@ class ProductsPriceFilterForm(forms.Form):
             except (ValueError, TypeError):
                 pass  # invalid input from the client; ignore and fallback to empty City queryset
 
+
 class ProductPriceNewForm(forms.ModelForm):
     product = forms.ModelChoiceField(
         queryset=Product.objects.all(),
-        widget=autocomplete.ModelSelect2(url='admin:product-price-autocomplete',)
+        widget=autocomplete.ModelSelect2(
+            url='admin:product-price-autocomplete',)
     )
     shop = forms.ModelChoiceField(
-        queryset=Shop.objects.filter(shop_type__shop_type__in=['gf','sp']),
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['gf', 'sp']),
     )
 
     class Meta:
         model = ProductPrice
-        fields = ('product','city','area','shop','price_to_service_partner','price_to_retailer','price_to_super_retailer','start_date','end_date','status')
+        fields = ('product', 'city', 'area', 'shop',
+                  'price_to_service_partner', 'price_to_retailer',
+                  'price_to_super_retailer', 'start_date', 'end_date',
+                  'status')
 
 
 class ProductsFilterForm(forms.Form):
@@ -429,17 +434,3 @@ class ProductsCSVUploadForm(forms.Form):
             if not row[16]:
                 raise ValidationError(_('HSN_CODE_REQUIRED at Row[%(value)s].'), params={'value': id+1},)
         return self.cleaned_data['file']
-
-
-class ProductPriceNewForm(forms.ModelForm):
-    product = forms.ModelChoiceField(
-        queryset=Product.objects.all(),
-        widget=autocomplete.ModelSelect2(url='admin:product-price-autocomplete',)
-    )
-    shop = forms.ModelChoiceField(
-        queryset=Shop.objects.filter(shop_type__shop_type__in=['gf','sp']),
-    )
-
-    class Meta:
-        model = ProductPrice
-        fields = ('product','city','area','shop','price_to_service_partner','price_to_retailer','price_to_super_retailer','start_date','end_date','status')

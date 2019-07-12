@@ -678,9 +678,10 @@ def NameIDCSV(request):
     writer.writerow(['BRAND NAME','BRAND ID','CATEGORY NAME','CATEGORY ID','TAX NAME','TAX ID','SIZE NAME','SIZE ID','COLOR NAME','COLOR ID','FRAGRANCE NAME','FRAGRANCE ID','FLAVOR NAME','FLAVOR ID','WEIGHT NAME','WEIGHT ID','PACKSIZE NAME','PACKSIZE ID'])
     return response
 
+
 class ProductPriceAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        qs = None
+        qs = Product.objects.none()
         if self.q:
             qs = Product.objects.filter(
                 Q(product_name__icontains=self.q) |
