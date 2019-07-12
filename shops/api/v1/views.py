@@ -242,6 +242,8 @@ class SellerShopView(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         shop_user = ShopUserMapping.objects.filter(employee=request.user)
+        print(shop_user.exists())
+        print(shop_user.last().employee.has_perm('can_sales_person_add_shop'))
         if shop_user.exists() and shop_user.last().employee.has_perm('can_sales_person_add_shop'):
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
@@ -258,7 +260,7 @@ class SellerShopView(generics.ListCreateAPIView):
             return Response(msg,status=status.HTTP_200_OK)
         else:
             msg = {'is_success': False,
-                   'message': "No permission to add shop",
+                   'message': ["No permission to add shop"],
                    'response_data': None}
             return Response(msg, status=status.HTTP_200_OK)
 
