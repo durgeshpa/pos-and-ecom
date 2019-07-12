@@ -1144,6 +1144,7 @@ class Note(models.Model):
         if self.shipment:
             return self.shipment.invoice_no
 
+
 class Feedback(models.Model):
     STAR1 = '1'
     STAR2 = '2'
@@ -1158,15 +1159,19 @@ class Feedback(models.Model):
         (STAR4, '4 Star'),
         (STAR5, '5 Star'),
     )
-    user = models.ForeignKey(get_user_model(), related_name='user_feedback', on_delete=models.CASCADE)
-    shipment = models.OneToOneField(OrderedProduct, related_name='shipment_feedback',on_delete=models.CASCADE)
-    delivery_experience = models.CharField(max_length=2, choices=STAR_CHOICE, null=True, blank=True)
-    overall_product_packaging = models.CharField(max_length=2, choices=STAR_CHOICE, null=True, blank=True)
-    comment = models.TextField(null=True,blank=True)
+    user = models.ForeignKey(get_user_model(), related_name='user_feedback',
+                             on_delete=models.CASCADE)
+    shipment = models.OneToOneField(OrderedProduct,
+                                    related_name='shipment_feedback',
+                                    on_delete=models.CASCADE)
+    delivery_experience = models.CharField(max_length=2, choices=STAR_CHOICE,
+                                           null=True, blank=True)
+    overall_product_packaging = models.CharField(max_length=2,
+                                                 choices=STAR_CHOICE,
+                                                 null=True, blank=True)
+    comment = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     status = models.BooleanField(default=False)
-
-
 
 @receiver(post_save, sender=OrderedProduct)
 def update_picking_status(sender, instance=None, created=False, **kwargs):
@@ -1206,4 +1211,3 @@ def assign_picklist(sender, instance=None, created=False, **kwargs):
             picking_status="picking_pending",
             picklist_id= get_random_string(12).lower(), #generate random string of 12 digits
             )
-
