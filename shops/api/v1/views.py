@@ -15,7 +15,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from datetime import datetime,timedelta
 from django.db.models import Q,Sum,Count,F, FloatField, Avg
 from retailer_to_sp.models import Order
-
+from django.contrib.auth.models import Group
 User =  get_user_model()
 
 class RetailerTypeView(generics.ListAPIView):
@@ -241,10 +241,12 @@ class SellerShopView(generics.ListCreateAPIView):
                         status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
-        if request.user.has_perm('shops.can_sales_person_add_shop'):
+        shop_user = ShopUserMapping.objects.filter(employee=request.user)
+        if shop_user.exists() and shop_user.last().employee.has_perm('can_sales_person_add_shop'):
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             shop = self.perform_create(serializer)
+            self.add_shop_user_mapping(shop)
             msg = {'is_success': True,
                     'message': [SUCCESS_MESSAGES['USER_SHOP_ADDED']],
                     'response_data': [{
@@ -263,6 +265,10 @@ class SellerShopView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         shop = serializer.save(created_by=self.request.user,shop_owner= get_user_model().objects.get(phone_number=self.request.data['shop_owner']))
         return shop
+
+    def add_shop_user_mapping(self,shop):
+        if not ShopUserMapping.objects.filter(shop=shop,employee=self.request.user).exists():
+            ShopUserMapping.objects.create(shop=shop, employee=self.request.user,employee_group=Group.objects.get(name='Sales Executive'))
 
 class SellerShopOrder(generics.ListAPIView):
     serializer_class = ShopUserMappingSerializer

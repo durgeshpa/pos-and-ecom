@@ -237,3 +237,7 @@ class ShopUserMapping(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ('shop', 'employee',)
+
