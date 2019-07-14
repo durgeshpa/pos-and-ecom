@@ -18,7 +18,10 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 class ProductSerializer(serializers.ModelSerializer):
     product_image = serializers.SerializerMethodField()
-    # product_price = serializers.SerializerMethodField()
+    product_price = serializers.SerializerMethodField()
+    product_mrp = serializers.SerializerMethodField()
+    cash_discount = serializers.SerializerMethodField()
+    loyalty_incentive = serializers.SerializerMethodField()
 
     def get_product_image(self, obj):
         if ProductImage.objects.filter(product=obj).exists():
@@ -27,60 +30,48 @@ class ProductSerializer(serializers.ModelSerializer):
         else:
             return None
 
-    # def get_product_price(self, obj):
-    #     parent = self.context.get('parent', None)
-    #     if parent:
-    #         return obj.product.getRetailerPrice(parent)
+    def get_product_price(self, obj):
+        parent = self.context.get('parent', None)
+        if parent:
+            return obj.getRetailerPrice(parent)
+
+    def get_product_mrp(self, obj):
+        parent = self.context.get('parent', None)
+        if parent:
+            return obj.getMRP(parent)
+
+    def get_cash_discount(self, obj):
+        parent = self.context.get('parent', None)
+        if parent:
+            return obj.getCashDiscount(parent) 
+
+    def get_loyalty_incentive(self, obj):
+        parent = self.context.get('parent', None)
+        if parent:
+            return obj.getLoyaltyIncentive(parent) 
 
     class Meta:
         model = Product
         fields = ('id','product_name','product_inner_case_size',
-            'product_case_size', 'product_image', #'product_price'
+            'product_case_size', 'product_image', 'product_price',
+             'product_mrp', 'cash_discount', 'loyalty_incentive',
             )
 
 
 class FavouriteProductSerializer(serializers.ModelSerializer):
     # name, size, image, price, mrp
     # need to add margin, cash_discount, loyalty discount
-    # product_data = serializers.SerializerMethodField()   
-    product = ProductSerializer()
-    product_price = serializers.SerializerMethodField()
-    product_mrp = serializers.SerializerMethodField()
-    cash_discount = serializers.SerializerMethodField()
-    loyalty_incentive = serializers.SerializerMethodField()
+    product = serializers.SerializerMethodField()   
 
-    # def get_product_data(self, obj):
-    #     import pdb; pdb.set_trace()
-    #     parent = obj.buyer_shop.retiler_mapping.last().parent.id
-    #     return ProductSerializer(Product.objects.all(), context={'parent': parent}).data
-
-    def get_product_price(self, obj):
+    def get_product(self, obj):
+        #import pdb; pdb.set_trace()
         parent = obj.buyer_shop.retiler_mapping.last().parent.id
-        # return obj.product.product_pro_price.filter(shop=parent, status=True).last().price_to_retailer
-        if parent:
-            return obj.product.getRetailerPrice(parent)
-
-    def get_product_mrp(self, obj):
-        parent = obj.buyer_shop.retiler_mapping.last().parent.id
-        # return obj.product.product_pro_price.filter(shop=parent, status=True).last().price_to_retailer
-        if parent:
-            return obj.product.getMRP(parent)
-
-    def get_cash_discount(self, obj):
-        parent = obj.buyer_shop.retiler_mapping.last().parent.id
-        # return obj.product.product_pro_price.filter(shop=parent, status=True).last().price_to_retailer
-        if parent:
-            return obj.product.getCashDiscount(parent) 
-
-    def get_loyalty_incentive(self, obj):
-        parent = obj.buyer_shop.retiler_mapping.last().parent.id
-        # return obj.product.product_pro_price.filter(shop=parent, status=True).last().price_to_retailer
-        if parent:
-            return obj.product.getLoyaltyIncentive(parent) 
+        product = obj.product
+        return ProductSerializer(product, context={'parent': parent}).data
 
     class Meta:
         model = FavouriteProduct
-        fields = ('id', 'buyer_shop', 'product','product_price', 'product_mrp', 'cash_discount', 'loyalty_incentive') 
+        fields = ('id', 'buyer_shop', 'product') 
 
 
 class RetailerTypeSerializer(serializers.ModelSerializer):
