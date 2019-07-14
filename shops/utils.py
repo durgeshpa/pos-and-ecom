@@ -11,17 +11,28 @@ def create_shops_excel(queryset):
     states_list = State.objects.values_list('state_name', flat=True)
     #import pdb; pdb.set_trace()
     output = io.BytesIO()
-    data = Address.objects.values_list(
-        'shop_name_id', 'shop_name__shop_name',
-        'shop_name__shop_type__shop_type',
-        'shop_name__shop_owner__phone_number',
-        'shop_name__status', 'id', 'nick_name', 'address_line1',
-        'address_contact_name', 'address_contact_number', 'pincode',
-        'state__state_name', 'city__city_name', 'address_type',
-        'shop_name__imei_no', 'shop_name__parent_shop'
-    ).filter(shop_name__in=queryset)
+    # data = Address.objects.values_list(
+    #     'shop_name_id', 'shop_name__shop_name',
+    #     'shop_name__shop_type__shop_type',
+    #     'shop_name__shop_owner__phone_number',
+    #     'shop_name__status', 'id', 'nick_name', 'address_line1',
+    #     'address_contact_name', 'address_contact_number', 'pincode',
+    #     'state__state_name', 'city__city_name', 'address_type',
+    #     'shop_name__imei_no', 'shop_name__parent_shop'
+    # ).filter(shop_name__in=queryset)
+    items = Address.objects.filter(shop_name__in=queryset)
+    data = []
+    for item in items:
+        _data = [item.shop_name.id, item.shop_name.shop_name,
+            item.shop_name.shop_type.shop_type,
+            item.shop_name.shop_owner.phone_number,
+            item.shop_name.status, item.id, item.nick_name, item.address_line1,
+            item.address_contact_name, item.address_contact_number, item.pincode,
+            item.state.state_name, item.city.city_name, item.address_type,
+            item.shop_name.imei_no, item.shop_name.parent_shop]
+        data.append(_data)
 
-    data_rows = data.count()
+    data_rows = len(data)#data.count()
     workbook = xlsxwriter.Workbook(output)
     worksheet = workbook.add_worksheet()
     unlocked = workbook.add_format({'locked': 0})

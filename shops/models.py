@@ -55,8 +55,8 @@ class Shop(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=False)
-    parent_shop = models.ForeignKey("self", null=True, blank=True, 
-        related_name='shop_parent', on_delete=models.SET_NULL)
+    # parent_shop = models.ForeignKey("self", null=True, blank=True, 
+    #     related_name='shop_parent', on_delete=models.SET_NULL)
 
     def __str__(self):
         return "%s - %s"%(self.shop_name,self.shop_owner)
@@ -87,12 +87,15 @@ class Shop(models.Model):
     #         return parent
 
 
-    # @property
-    # def parent_shop(self):
-    #     # return self.get_shop_parent
-    #     if self.retiler_mapping.exists():
-    #         parent = ParentRetailerMapping.objects.get(retailer=self.id, status=True).parent
-    #         return parent
+    @property
+    def parent_shop(self):
+        # return self.get_shop_parent
+        try:
+            if self.retiler_mapping.exists():
+                parent = ParentRetailerMapping.objects.get(retailer=self.id, status=True).parent
+                return parent.shop_name
+        except:
+            return None
 
     @property
     def get_shop_shipping_address(self):
