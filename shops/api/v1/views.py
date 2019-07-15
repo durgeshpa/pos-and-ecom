@@ -17,6 +17,7 @@ from django.db.models import Q,Sum,Count,F, FloatField, Avg
 from retailer_to_sp.models import Order
 from django.contrib.auth.models import Group
 User =  get_user_model()
+from addresses.api.v1.serializers import AddressSerializer
 
 class RetailerTypeView(generics.ListAPIView):
     queryset = RetailerType.objects.all()
@@ -396,18 +397,41 @@ class SalesPerformanceView(generics.ListAPIView):
 class SellerShopListView(generics.ListAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
-    serializer_class = ShopUserMappingSerializer
+    serializer_class = AddressSerializer
+
+    # def get_queryset(self):
+    #     shop_list = ShopUserMapping.objects.filter(employee=self.request.user)
+    #     if self.request.query_params.get('mobile_no'):
+    #         shop_list = shop_list.filter(shop__shop_owner__phone_number__icontains=self.request.query_params.get('mobile_no'))
+    #     if self.request.query_params.get('shop_name'):
+    #         shop_list = shop_list.filter(shop__shop_name__icontains=self.request.query_params.get('shop_name'))
+    #     if self.request.query_params.get('pin_code'):
+    #         shop_list = shop_list.filter(shop__shop_name__icontains=self.request.query_params.get('shop_name'))
+    #     return shop_list
 
     def get_queryset(self):
-        shop_list = ShopUserMapping.objects.filter(employee=self.request.user)
+        shop_mapped = ShopUserMapping.objects.filter(employee=self.request.user).values('shop')
+        shop_list = Address.objects.filter(shop_name__in=shop_mapped,address_type='shipping').order_by('created_at')
         if self.request.query_params.get('mobile_no'):
-            shop_list = shop_list.filter(shop__shop_owner__phone_number__icontains=self.request.query_params.get('mobile_no'))
+            shop_list = shop_list.filter(shop_name__shop_owner__phone_number__icontains=self.request.query_params.get('mobile_no'))
         if self.request.query_params.get('shop_name'):
-            shop_list = shop_list.filter(shop__shop_name__icontains=self.request.query_params.get('shop_name'))
-        return shop_list
+            shop_list = shop_list.filter(shop_name__shop_name__icontains=self.request.query_params.get('shop_name'))
+        if self.request.query_params.get('pin_code'):
+            shop_list = shop_list.filter(pincode__icontains=self.request.query_params.get('pin_code'))
+        if self.request.query_params.get('address'):
+            shop_list = shop_list.filter(address_line1__icontains=self.request.query_params.get('address'))
+        return shop_list.values('shop_name','shop_name__shop_name','address_line1','address_contact_number').distinct('shop_name')
 
     def list(self, request, *args, **kwargs):
+        data = []
         queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        msg = {'is_success': True, 'message': [""],'response_data': None, 'data': serializer.data}
+        for shop in queryset:
+            dt = {
+                'shop': shop['shop_name__shop_name'],
+                'address': shop['address_line1'],
+                'contact_number': shop['address_contact_number'],
+            }
+            data.append(dt)
+        #serializer = self.get_serializer(queryset, many=True)
+        msg = {'is_success': True, 'message': [""],'response_data': None, 'data': data}
         return Response(msg,status=status.HTTP_200_OK)
