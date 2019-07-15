@@ -425,7 +425,8 @@ class BuyerShopFilter(AutocompleteFilter):
 #     field_name = 'picker_boy'
 #     autocomplete_url = 'picker-name-autocomplete'    
 
-
+# #  Filter for picklist_id, order_id, picking_status, 
+    # order_date, picklist_creation_date
 class PickerBoyFilter(InputFilter):
     title = 'Picker Boy'
     parameter_name = 'picker_boy'
@@ -439,6 +440,16 @@ class PickerBoyFilter(InputFilter):
                 )
         return queryset
 
+
+class PicklistIdFilter(InputFilter):
+    title = 'Picklist Id'
+    parameter_name = 'picklist_id'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value :
+            return queryset.filter(picklist_id=value)
+        return queryset
 
 
 class SKUFilter(InputFilter):
@@ -495,21 +506,24 @@ from django.contrib.admin.views.main import ChangeList
 
 
 class PickerDashboardAdmin(admin.ModelAdmin):
+    #  Filter for picklist_id, order_id, picking_status, 
+    # order_date, picklist_creation_date
     change_list_template = 'admin/retailer_to_sp/picker/change_list.html'
     actions = ["change_picking_status"]
     model = PickerDashboard
     raw_id_fields = ['order', 'shipment']
-
     #form = EditAssignPickerForm
     # list_display = (
     #     'id', 'picklist_id', 'picker_boy', 'order_date', 'download_pick_list'
     #     )
     list_display = (
-        'id', 'picklist_id', 'picking_status', 'picker_boy', 'created_at', 'download_pick_list'
+        'id', 'picklist_id', 'picking_status', 'picker_boy', 
+        'created_at', 'download_pick_list', 'order_number'
         )
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
     #readonly_fields = ['picklist_id']
-    list_filter = [PickerBoyFilter]
+    list_filter = [PickerBoyFilter, PicklistIdFilter]#, OrderNoFilter,
+        #PickingStatusFilter, OrderDateFilter, PicklistCreationDateFilter]
 
     def get_urls(self):
         from django.conf.urls import url
@@ -544,7 +558,6 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     # def has_module_permission(self, request):
     #     pass
 
-
     def change_picking_status(self, request, queryset):
         # queryset.filter(Q(order__picking_status='picking_in_progress')).update(Q(order__picking_status='picking_complete'))
         queryset.update(picking_status='picking_complete')
@@ -561,6 +574,9 @@ class PickerDashboardAdmin(admin.ModelAdmin):
 
     # def _picklist(self, obj, request):
     #     return obj.picklist(request.user)
+    def order_number(self,obj):
+        return obj.order.order_no
+    order_number.short_description = 'Order No'
 
     def download_pick_list(self,obj):
         if obj.order.order_status not in ["active", "pending"]:
