@@ -37,6 +37,7 @@ from .utils import (order_invoices, order_shipment_amount,
 
 from accounts.models import UserWithName, User
 from django.core.validators import RegexValidator
+from django.contrib.postgres.fields import JSONField
 
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
 
@@ -667,10 +668,6 @@ class OrderedProduct(models.Model): #Shipment
                                                         ).last().pk)
         super().save(*args, **kwargs)
 
-
-
-
-
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(
         OrderedProduct, related_name='rt_order_product_order_product_mapping',
@@ -688,6 +685,7 @@ class OrderedProductMapping(models.Model):
         get_user_model(), related_name='rt_last_modified_user_order_product',
         null=True, blank=True, on_delete=models.CASCADE
     )
+    product_tax_json = JSONField(null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -767,6 +765,12 @@ class OrderedProductMapping(models.Model):
     def get_products_gst_cess(self):
         return self.product.product_pro_tax.filter(tax__tax_type='cess')
 
+    def save(self, *args, **kwargs):
+        product_tax_query = self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name','tax__tax_percentage')
+        product_tax = {i['tax']: [i['tax__tax_name'],i['tax__tax_percentage']] for i in product_tax_query}
+        product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
+        self.product_tax_json = product_tax
+        super(OrderedProductMapping, self).save()
 
 class Dispatch(OrderedProduct):
     class Meta:
