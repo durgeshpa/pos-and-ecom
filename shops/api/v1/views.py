@@ -399,16 +399,6 @@ class SellerShopListView(generics.ListAPIView):
     permission_classes = (permissions.IsAuthenticated,)
     serializer_class = AddressSerializer
 
-    # def get_queryset(self):
-    #     shop_list = ShopUserMapping.objects.filter(employee=self.request.user)
-    #     if self.request.query_params.get('mobile_no'):
-    #         shop_list = shop_list.filter(shop__shop_owner__phone_number__icontains=self.request.query_params.get('mobile_no'))
-    #     if self.request.query_params.get('shop_name'):
-    #         shop_list = shop_list.filter(shop__shop_name__icontains=self.request.query_params.get('shop_name'))
-    #     if self.request.query_params.get('pin_code'):
-    #         shop_list = shop_list.filter(shop__shop_name__icontains=self.request.query_params.get('shop_name'))
-    #     return shop_list
-
     def get_queryset(self):
         shop_mapped = ShopUserMapping.objects.filter(employee=self.request.user).values('shop')
         shop_list = Address.objects.filter(shop_name__in=shop_mapped,address_type='shipping').order_by('created_at')
@@ -420,7 +410,7 @@ class SellerShopListView(generics.ListAPIView):
             shop_list = shop_list.filter(pincode__icontains=self.request.query_params.get('pin_code'))
         if self.request.query_params.get('address'):
             shop_list = shop_list.filter(address_line1__icontains=self.request.query_params.get('address'))
-        return shop_list.values('shop_name','shop_name__shop_name','address_line1','address_contact_number').distinct('shop_name')
+        return shop_list.values('shop_name','shop_name__shop_name','address_line1','address_contact_number').order_by('shop_name').distinct('shop_name')
 
     def list(self, request, *args, **kwargs):
         data = []
@@ -433,5 +423,5 @@ class SellerShopListView(generics.ListAPIView):
             }
             data.append(dt)
         #serializer = self.get_serializer(queryset, many=True)
-        msg = {'is_success': True, 'message': [""],'response_data': None, 'data': data}
+        msg = {'is_success': True, 'message': [""],'response_data': data,}
         return Response(msg,status=status.HTTP_200_OK)
