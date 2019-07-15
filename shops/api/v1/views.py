@@ -432,6 +432,8 @@ class SellerShopListView(generics.ListAPIView):
         return Response(msg,status=status.HTTP_200_OK)
 
 class CheckUser(generics.ListAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, *args, **kwargs):
         shop_user = ShopUserMapping.objects.filter(employee=self.request.user)
