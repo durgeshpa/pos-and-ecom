@@ -744,10 +744,11 @@ class OrderedProductMapping(models.Model):
         return self.product.product_pro_tax.filter(tax__tax_type='cess')
 
     def save(self, *args, **kwargs):
-        product_tax_query = self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name','tax__tax_percentage')
-        product_tax = {i['tax']: [i['tax__tax_name'],i['tax__tax_percentage']] for i in product_tax_query}
-        product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
-        self.product_tax_json = product_tax
+        if self.ordered_product.shipment_status == self.ordered_product.READY_TO_SHIP:
+            product_tax_query = self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name','tax__tax_percentage')
+            product_tax = {i['tax']: [i['tax__tax_name'],i['tax__tax_percentage']] for i in product_tax_query}
+            product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
+            self.product_tax_json = product_tax
         super(OrderedProductMapping, self).save()
 
 class Dispatch(OrderedProduct):
