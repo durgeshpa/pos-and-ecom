@@ -311,15 +311,15 @@ class EditAssignPickerForm(forms.ModelForm):
 
 # tbd: test for warehouse manager, superuser, other users
 class AssignPickerForm(forms.ModelForm):
+    # selecting shop related to user
+    shop = forms.ModelChoiceField(
+                        queryset=Shop.objects.all(),
+                        )
     picker_boy = forms.ModelChoiceField(
                         queryset=UserWithName.objects.all(),
                         widget=RelatedFieldWidgetCanAddPicker(
                                 UserWithName,
                                 related_url="admin:accounts_user_add"))
-    # selecting shop related to user
-    shop = forms.ModelChoiceField(
-                        queryset=Shop.objects.all(),
-                        )
 
     #shop = forms.CharField()
     # picklist_id = forms.Chardelivery_boyField(required=False)
@@ -331,7 +331,7 @@ class AssignPickerForm(forms.ModelForm):
 
     class Meta:
         model = PickerDashboard
-        fields = ['picker_boy', 'shop', 'selected_id', 'unselected_id', ]
+        fields = ['shop', 'picker_boy','selected_id', 'unselected_id', ]
 
     class Media:
         js = ('admin/js/select2.min.js', )

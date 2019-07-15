@@ -66,6 +66,10 @@
                                 {% endfor %} 
                               </tbody>
                            </table>
+                               {% if not picker_orders %}
+                                No data available.
+                               {% endif %}
+
                         </div>
                      </div>
                      <div class="submit-row">

@@ -285,6 +285,7 @@ def ordered_product_mapping_shipment(request):
 #@permission_classes(("can_change_picker_dashboard"))
 def assign_picker(request, shop_id=None):
     #update status to pick
+    #import pdb; pdb.set_trace()
     if not request.user.has_perm("can_change_picker_dashboard"):
         return redirect('/admin')
     if request.method == 'POST':
