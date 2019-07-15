@@ -65,28 +65,6 @@ class Shop(models.Model):
         super(Shop, self).__init__(*args, **kwargs)
         self.__original_status = self.status
 
-    def __setattr__(self, attrname, val):
-        setter_func = 'setter_' + attrname
-        if attrname in self.__dict__ and callable(getattr(self, setter_func, None)):
-            super(Shop, self).__setattr__(attrname, getattr(self, setter_func)(val))
-        else:
-            super(Shop, self).__setattr__(attrname, val)
-
-
-    # def __setattr__(self, attrname, val):
-    #     setter_func = 'setter_' + attrname
-    #     if attrname in self.__dict__ and callable(getattr(self, setter_func, None)):
-    #         super(Shop, self).__setattr__(attrname, getattr(self, setter_func)(val))
-    #     else:
-    #         super(Shop, self).__setattr__(attrname, val)
-
-    # def setter_parent_shop(self):
-    #     # return self.get_shop_parent
-    #     if self.retiler_mapping.exists():
-    #         parent = ParentRetailerMapping.objects.get(retailer=self.id, status=True).parent
-    #         return parent
-
-
     @property
     def parent_shop(self):
         # return self.get_shop_parent
