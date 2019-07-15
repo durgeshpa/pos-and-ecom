@@ -11,8 +11,10 @@ from elasticsearch import Elasticsearch
 from shops.models import Shop
 from sp_to_gram import models
 from products.models import Product, ProductPrice
+from retailer_backend.settings import ELASTICSEARCH_PREFIX as es_prefix
 
 es = Elasticsearch(["https://search-gramsearch-7ks3w6z6mf2uc32p3qc4ihrpwu.ap-south-1.es.amazonaws.com"])
+
 
 def get_warehouse_stock(shop_id=None):
 	grn_dict = None
@@ -78,20 +80,22 @@ def get_warehouse_stock(shop_id=None):
 			product_details["available"] = int(grn_dict[p.product.id])
 		yield(product_details)
 
+def create_es_index(index):
+	return "{}-{}".format(es_prefix, index)
 
 def upload_shop_stock(shop=None):
 	all_products = get_warehouse_stock(shop)
 	es_index = shop if shop else 'all_products'
 	for product in all_products:
-		es.index(index=es_index, doc_type='product',id=product['id'], body=product)
+		es.index(index=create_es_index(es_index), doc_type='product',id=product['id'], body=product)
 
 @task
 def update_shop_product_es(shop, product_id,**kwargs):
 	try:
-		es.update(index=shop,id=product_id,body={"doc":kwargs},doc_type='product')	
+		es.update(index=create_es_index(shop),id=product_id,body={"doc":kwargs},doc_type='product')	
 	except Exception as e:
 		upload_shop_stock(shop)
 
 def es_search(index, body):
-	return es.search(index=index, body=body)
+	return es.search(index=create_es_index(index), body=body)
 
