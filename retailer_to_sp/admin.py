@@ -34,7 +34,7 @@ from retailer_to_sp.views import (
     load_dispatches, order_invoices, ordered_product_mapping_shipment,
     trip_planning, trip_planning_change, update_delivered_qty,
     update_order_status, update_shipment_status, reshedule_update_shipment,
-    RetailerCart, assign_picker, assign_picker_change,
+    RetailerCart, assign_picker, assign_picker_change, assign_picker_data,
 )
 from shops.models import ParentRetailerMapping, Shop
 from sp_to_gram.models import (
@@ -167,6 +167,20 @@ class OrderIdSearch(InputFilter):
             return queryset.filter(
                 Q(order_id__order_no__icontains=order_id)
             )
+
+
+class OrderNumberSearch(InputFilter):
+    parameter_name = 'order_no'
+    title = 'Order No.(Comma seperated)'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            order_no = self.value()
+            order_nos = order_no.replace(" ", "").replace("\t","").split(',')    
+            return queryset.filter(
+                Q(order__order_no__in=order_nos)
+            )
+
 
 class OrderNoSearch(InputFilter):
     parameter_name = 'order_no'
@@ -425,8 +439,6 @@ class BuyerShopFilter(AutocompleteFilter):
 #     field_name = 'picker_boy'
 #     autocomplete_url = 'picker-name-autocomplete'    
 
-# #  Filter for picklist_id, order_id, picking_status, 
-    # order_date, picklist_creation_date
 class PickerBoyFilter(InputFilter):
     title = 'Picker Boy'
     parameter_name = 'picker_boy'
@@ -439,6 +451,20 @@ class PickerBoyFilter(InputFilter):
                   Q(picker_boy__phone_number=value)
                 )
         return queryset
+
+
+class OrderDateFilter(InputFilter):
+    title = 'Order Date'
+    parameter_name = 'picker_boy'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value :
+            return queryset.filter(
+                Q(picker_boy__first_name__icontains=value) |
+                  Q(picker_boy__phone_number=value)
+                )
+        return queryset        
 
 
 class PicklistIdFilter(InputFilter):
@@ -506,8 +532,6 @@ from django.contrib.admin.views.main import ChangeList
 
 
 class PickerDashboardAdmin(admin.ModelAdmin):
-    #  Filter for picklist_id, order_id, picking_status, 
-    # order_date, picklist_creation_date
     change_list_template = 'admin/retailer_to_sp/picker/change_list.html'
     actions = ["change_picking_status"]
     model = PickerDashboard
@@ -522,8 +546,10 @@ class PickerDashboardAdmin(admin.ModelAdmin):
         )
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
     #readonly_fields = ['picklist_id']
-    list_filter = [PickerBoyFilter, PicklistIdFilter]#, OrderNoFilter,
-        #PickingStatusFilter, OrderDateFilter, PicklistCreationDateFilter]
+    list_filter = [PickerBoyFilter, PicklistIdFilter, OrderNumberSearch,]
+
+    class Media:
+        pass
 
     def get_urls(self):
         from django.conf.urls import url
@@ -533,6 +559,11 @@ class PickerDashboardAdmin(admin.ModelAdmin):
                r'^assign-picker/$',
                self.admin_site.admin_view(assign_picker),
                name="AssignPicker"
+            ),
+            url(
+               r'^assign-picker/(?P<shop_id>\d+)/$',
+               self.admin_site.admin_view(assign_picker),
+               name="AssignPickerWithShop"
             ),
             url(
                r'^assign-picker/(?P<pk>\d+)/change/$',

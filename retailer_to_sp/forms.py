@@ -317,7 +317,11 @@ class AssignPickerForm(forms.ModelForm):
                                 UserWithName,
                                 related_url="admin:accounts_user_add"))
     # selecting shop related to user
-    shop = forms.CharField()
+    shop = forms.ModelChoiceField(
+                        queryset=Shop.objects.all(),
+                        )
+
+    #shop = forms.CharField()
     # picklist_id = forms.Chardelivery_boyField(required=False)
     # order_date = forms.DateField(required=False)
 
@@ -342,12 +346,21 @@ class AssignPickerForm(forms.ModelForm):
 
         instance = getattr(self, 'instance', None)
         # assign shop name as readonly with value for shop name for user
-        #shop = Shop.objects.get(related_users=user)      
-        shop = Shop.objects.get(shop_name="TEST SP 1")
-        self.fields['shop'].initial = shop.__str__() 
+        if user.is_superuser:
+            # load all shops else hide shop name
+            self.fields['shop'].queryset = Shop.objects.filter(shop_type__shop_type__in=["sp","gf"])            
+        # #shop = Shop.objects.get(related_users=user)      
+        # shop = Shop.objects.get(shop_name="TEST SP 1")
+        # self.fields['shop'].initial = shop.__str__() 
  
         # find all picker for the shop
-        self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
+        else:   
+            pass
+        # shop_id = self.context.get('shop_id', None)
+        # if shop_id:
+        #     self.fields['shop'].initial = Shop.objects.get(id=shop_id)
+        self.fields['picker_boy'].queryset = User.objects.filter(groups__name__in=["Picker Boy"])
+        # self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
 
 
 class TripForm(forms.ModelForm):

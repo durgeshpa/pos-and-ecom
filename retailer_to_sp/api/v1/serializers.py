@@ -6,7 +6,7 @@ from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMap
                              Size,Color,Fragrance,Flavor,Weight,PackageSize)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order,
                                    OrderedProduct, Note, CustomerCare,
-                                   Payment, Dispatch, Feedback)
+                                   Payment, Dispatch, Feedback, PickerDashboard)
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
 
                                       OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment)
@@ -28,6 +28,13 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
+
+
+class PickerDashboardSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = PickerDashboard
+      fields = '__all__'
+
 
 class ProductImageSerializer(serializers.ModelSerializer):
    class Meta:

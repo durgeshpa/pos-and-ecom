@@ -170,6 +170,19 @@ function AddRemoveCheckedIDToList(){
   });
 
 }
+
+/*$("id_shop").val({{}})*/
+
+$("#id_shop").change(function(){
+
+  //make call to view 
+  var shop_id = $("#id_shop").val();
+  // similar behavior as clicking on a link
+  window.location.href = "/admin/retailer_to_sp/pickerdashboard/assign-picker/"+ shop_id+ "/";
+});
 </script>
+
+
+
 {% endblock %}
 

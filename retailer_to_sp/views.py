@@ -283,7 +283,7 @@ def ordered_product_mapping_shipment(request):
 
 # test for superuser, warehouse manager
 #@permission_classes(("can_change_picker_dashboard"))
-def assign_picker(request):
+def assign_picker(request, shop_id=None):
     #update status to pick
     if not request.user.has_perm("can_change_picker_dashboard"):
         return redirect('/admin')
@@ -307,14 +307,32 @@ def assign_picker(request):
 
             return redirect('/admin/retailer_to_sp/pickerdashboard/')
     # form for assigning picker
-    form = AssignPickerForm(request.user)
+    form = AssignPickerForm(request.user, context={'shop_id':shop_id})
+    if shop_id:
+        picker_orders = PickerDashboard.objects.filter(order__seller_shop__id=shop_id, picking_status='picking_pending')
+    else:
+        # order for the shop with warehouse manager
+        # given that user is assigned to one shop 
+        #shop = Shop.objects.filter(related_users=request.user)[0]
+        shop = Shop.objects.get(shop_name="TEST SP 1")
+        # order for the related shop with picking status =pending
+        picker_orders = PickerDashboard.objects.filter(order__seller_shop=shop, picking_status='picking_pending')
+        #order_form = PickerOrderForm(picker_order)
 
-    # order for the shop with warehouse manager
-    # given that user is assigned to one shop 
-    shop = Shop.objects.filter(related_users=request.user)[0]
-    #shop = Shop.objects.get(shop_name="TEST SP 1")
-    # order for the related shop with picking status =pending
-    picker_orders = PickerDashboard.objects.filter(order__seller_shop=shop, picking_status='picking_pending')
+    return render(
+        request,
+        'admin/retailer_to_sp/picker/AssignPicker.html',
+        {'form': form, 'picker_orders': picker_orders, 'shop_id':shop_id }
+    )
+
+
+def assign_picker_data(request, shop_id):
+    #update status to pick
+    import pdb; pdb.set_trace()
+    form = AssignPickerForm(request.user)
+    #shop_id = request.GET.get('shop_id',None)
+
+    picker_orders = PickerDashboard.objects.filter(order__seller_shop__id=shop_id, picking_status='picking_pending')
     #order_form = PickerOrderForm(picker_order)
 
     return render(
@@ -322,6 +340,7 @@ def assign_picker(request):
         'admin/retailer_to_sp/picker/AssignPicker.html',
         {'form': form, 'picker_orders': picker_orders }
     )
+
 
 
 def assign_picker_change(request, pk):
