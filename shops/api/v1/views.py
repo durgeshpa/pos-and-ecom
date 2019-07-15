@@ -219,7 +219,7 @@ class TeamListView(generics.ListAPIView):
             }
             data.append(rt)
 
-        msg = {'is_success': True, 'message': [""],'response_data': None, 'data': data}
+        msg = {'is_success': True, 'message': [""],'response_data': data}
         return Response(msg,status=status.HTTP_200_OK)
 
 
@@ -391,7 +391,7 @@ class SalesPerformanceView(generics.ListAPIView):
                     'current_store_count': shop_obj.filter(created_at__gte=last_day).count(),
                 }
                 data.append(rt)
-        msg = {'is_success': True, 'message': [""],'response_data': None, 'data': data}
+        msg = {'is_success': True, 'message': [""],'response_data': data}
         return Response(msg,status=status.HTTP_200_OK)
 
 class SellerShopListView(generics.ListAPIView):
@@ -430,3 +430,11 @@ class SellerShopListView(generics.ListAPIView):
         is_success =False if not data else True
         msg = {'is_success': is_success, 'message': [""],'response_data': data,}
         return Response(msg,status=status.HTTP_200_OK)
+
+class CheckUser(generics.ListAPIView):
+
+    def get(self, *args, **kwargs):
+        shop_user = ShopUserMapping.objects.filter(employee=self.request.user)
+        is_sales = True if shop_user.exists() and shop_user.last().employee.has_perm('shops.can_sales_person_add_shop') else False
+        msg = {'is_success': True, 'message': [""], 'response_data': None,'is_sales':is_sales }
+        return Response(msg, status=status.HTTP_200_OK)
