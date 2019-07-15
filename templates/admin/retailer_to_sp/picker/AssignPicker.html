@@ -171,7 +171,8 @@ function AddRemoveCheckedIDToList(){
 
 }
 
-/*$("id_shop").val({{}})*/
+var shop_id = '{{ shop_id | escapejs }}';
+$("#id_shop").val(shop_id);
 
 $("#id_shop").change(function(){
 

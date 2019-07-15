@@ -289,7 +289,7 @@ def assign_picker(request, shop_id=None):
         return redirect('/admin')
     if request.method == 'POST':
         # saving picker data to pickerdashboard model
-        form = AssignPickerForm(request.user, request.POST)
+        form = AssignPickerForm(request.user, shop_id, request.POST)
         if form.is_valid():
             #saving selected order picking status
             selected_orders = form.cleaned_data.get('selected_id', None)
@@ -307,14 +307,14 @@ def assign_picker(request, shop_id=None):
 
             return redirect('/admin/retailer_to_sp/pickerdashboard/')
     # form for assigning picker
-    form = AssignPickerForm(request.user, context={'shop_id':shop_id})
+    form = AssignPickerForm(request.user,shop_id)
     if shop_id:
-        picker_orders = PickerDashboard.objects.filter(order__seller_shop__id=shop_id, picking_status='picking_pending')
+        picker_orders = PickerDashboard.objects.filter(order__seller_shop__id=shop_id, picking_status='picking_pending')[:100]
     else:
         # order for the shop with warehouse manager
         # given that user is assigned to one shop 
-        #shop = Shop.objects.filter(related_users=request.user)[0]
-        shop = Shop.objects.get(shop_name="TEST SP 1")
+        shop = Shop.objects.filter(related_users=request.user)[0]
+        #shop = Shop.objects.get(shop_name="TEST SP 1")
         # order for the related shop with picking status =pending
         picker_orders = PickerDashboard.objects.filter(order__seller_shop=shop, picking_status='picking_pending')
         #order_form = PickerOrderForm(picker_order)
@@ -322,7 +322,7 @@ def assign_picker(request, shop_id=None):
     return render(
         request,
         'admin/retailer_to_sp/picker/AssignPicker.html',
-        {'form': form, 'picker_orders': picker_orders, 'shop_id':shop_id }
+        {'form': form, 'picker_orders': picker_orders, 'shop_id':shop_id}
     )
 
 

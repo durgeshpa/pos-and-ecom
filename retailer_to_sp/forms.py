@@ -341,26 +341,30 @@ class AssignPickerForm(forms.ModelForm):
             )
         }
 
-    def __init__(self, user, *args, **kwargs):
+    def __init__(self, user, shop_id, *args, **kwargs):
         super(AssignPickerForm, self).__init__(*args, **kwargs)
-
         instance = getattr(self, 'instance', None)
+        #import pdb; pdb.set_trace()
         # assign shop name as readonly with value for shop name for user
         if user.is_superuser:
-            # load all shops else hide shop name
+            # load all parent shops
             self.fields['shop'].queryset = Shop.objects.filter(shop_type__shop_type__in=["sp","gf"])            
-        # #shop = Shop.objects.get(related_users=user)      
-        # shop = Shop.objects.get(shop_name="TEST SP 1")
-        # self.fields['shop'].initial = shop.__str__() 
- 
-        # find all picker for the shop
         else:   
-            pass
-        # shop_id = self.context.get('shop_id', None)
-        # if shop_id:
-        #     self.fields['shop'].initial = Shop.objects.get(id=shop_id)
-        self.fields['picker_boy'].queryset = User.objects.filter(groups__name__in=["Picker Boy"])
-        # self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
+            # set shop field as read only
+            self.fields['shop'].widget.attrs['readonly'] = True
+
+        if shop_id:
+            shop = Shop.objects.get(id=shop_id)
+            self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
+        else:
+            if user.is_superuser:
+                #hide the field
+                pass            
+            else:
+                #shop = Shop.objects.get(related_users=user)      
+                shop = Shop.objects.get(shop_name="TEST SP 1")
+                # self.fields['shop'].initial = shop.__str__() 
+                self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
 
 
 class TripForm(forms.ModelForm):
