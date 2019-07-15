@@ -24,7 +24,7 @@ from retailer_to_sp.models import (
     CustomerCare, ReturnProductMapping, OrderedProduct,
     OrderedProductMapping, Order, Dispatch, Trip, TRIP_STATUS,
     Shipment, ShipmentProductMapping, CartProductMapping, Cart,
-    ShipmentRescheduling
+    ShipmentRescheduling, ResponseComment
 )
 from products.models import Product
 from shops.models import Shop
@@ -73,6 +73,16 @@ class CustomerCareForm(forms.ModelForm):
         model = CustomerCare
         fields = '__all__'
 
+class ResponseCommentForm(forms.ModelForm):
+    comment = forms.CharField(
+        widget=forms.Textarea(attrs={
+            'placeholder': 'Enter your Message',
+            'cols': 50, 'rows': 8})
+    )
+
+    class Meta:
+        model = ResponseComment
+        fields = '__all__'
 
 class ReturnProductMappingForm(forms.ModelForm):
     returned_product = forms.ModelChoiceField(

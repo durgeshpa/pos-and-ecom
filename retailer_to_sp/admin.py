@@ -51,13 +51,13 @@ from .forms import (
     ReturnProductMappingForm, ShipmentForm,
     ShipmentProductMappingForm, TripForm, ShipmentReschedulingForm,
     OrderedProductReschedule, OrderedProductMappingRescheduleForm,
-    OrderForm
+    OrderForm, ResponseCommentForm
 )
 from .models import (Cart, CartProductMapping, Commercial, CustomerCare,
                      Dispatch, DispatchProductMapping, Note, Order,
                      OrderedProduct, OrderedProductMapping, Payment, Return,
                      ReturnProductMapping, Shipment, ShipmentProductMapping,
-                     Trip, ShipmentRescheduling, Feedback)
+                     Trip, ShipmentRescheduling, Feedback, ResponseComment)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (
@@ -175,7 +175,7 @@ class OrderNoSearch(InputFilter):
     def queryset(self, request, queryset):
         if self.value() is not None:
             order_no = self.value()
-            order_nos = order_no.replace(" ", "").replace("\t","").split(',')    
+            order_nos = order_no.replace(" ", "").replace("\t","").split(',')
             return queryset.filter(
                 Q(order_no__in=order_nos)
             )
@@ -885,7 +885,7 @@ class ExportCsvMixin:
     def export_as_csv_commercial(self, request, queryset):
         meta = self.model._meta
         list_display = ('dispatch_no', 'trip_amount', 'received_amount',
-            'cash_to_be_collected', 'delivery_boy', 'vehicle_no', 'trip_status', 
+            'cash_to_be_collected', 'delivery_boy', 'vehicle_no', 'trip_status',
             'starts_at', 'completed_at', 'seller_shop',)
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
@@ -987,8 +987,15 @@ class ExportCsvMixin:
         return response
     export_as_csv_customercare.short_description = "Download CSV of Selected CustomeCare"
 
+class ResponseCommentAdmin(admin.StackedInline):
+    model = ResponseComment
+    form = ResponseCommentForm
+    fields = ('comment',)
+    extra = 0
+
 
 class CustomerCareAdmin(ExportCsvMixin, admin.ModelAdmin):
+    inlines = [ResponseCommentAdmin,]
     model = CustomerCare
     actions = ["export_as_csv_customercare"]
     form = CustomerCareForm
@@ -1002,6 +1009,7 @@ class CustomerCareAdmin(ExportCsvMixin, admin.ModelAdmin):
     search_fields = ('complaint_id',)
     readonly_fields = ('issue_date', 'seller_shop', 'retailer_shop', 'retailer_name')
     list_filter = [ComplaintIDSearch, OrderIdSearch, IssueStatusSearch, IssueSearch]
+    change_form_template = 'admin/retailer_to_sp/customer_care/change_form.html'
 
 
 class PaymentAdmin(NumericFilterModelAdmin,admin.ModelAdmin):

@@ -129,7 +129,7 @@ class Cart(models.Model):
     def subtotal(self):
         try:
             return round(self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum'],2)
-        except: 
+        except:
             return None
 
     @property
@@ -350,7 +350,7 @@ class Order(models.Model):
 
     @property
     def shipment_status_reason(self):
-        return order_shipment_status_reason(self.shipments())    
+        return order_shipment_status_reason(self.shipments())
 
     @property
     def order_shipment_amount(self):
@@ -943,6 +943,9 @@ class CustomerCare(models.Model):
         self.complaint_id = "CustomerCare/Message/%s" % self.pk
         super(CustomerCare, self).save()
 
+class ResponseComment(models.Model):
+    customer_care = models.ForeignKey(CustomerCare,related_name='customer_care_comments',null=True,blank=True,on_delete=models.CASCADE)
+    comment = models.CharField(max_length=255, null=True, blank=True)
 
 class Payment(models.Model):
     PAYMENT_DONE_APPROVAL_PENDING = "payment_done_approval_pending"
