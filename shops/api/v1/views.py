@@ -410,18 +410,23 @@ class SellerShopListView(generics.ListAPIView):
             shop_list = shop_list.filter(pincode__icontains=self.request.query_params.get('pin_code'))
         if self.request.query_params.get('address'):
             shop_list = shop_list.filter(address_line1__icontains=self.request.query_params.get('address'))
-        return shop_list.values('shop_name','shop_name__shop_name','address_line1','address_contact_number').order_by('shop_name').distinct('shop_name')
+        return shop_list.values('shop_name', 'shop_name__shop_name', 'address_line1', 'city__city_name', 'state__state_name', 'pincode', 'address_contact_name','address_contact_number').order_by('shop_name').distinct('shop_name')
 
     def list(self, request, *args, **kwargs):
         data = []
         queryset = self.get_queryset()
         for shop in queryset:
             dt = {
-                'shop': shop['shop_name__shop_name'],
+                'shop_id': shop['shop_name'],
+                'shop_name': shop['shop_name__shop_name'],
                 'address': shop['address_line1'],
+                'city': shop['city__city_name'],
+                'state': shop['state__state_name'],
+                'pincode': shop['pincode'],
+                'contact_name': shop['address_contact_name'],
                 'contact_number': shop['address_contact_number'],
             }
             data.append(dt)
-        #serializer = self.get_serializer(queryset, many=True)
-        msg = {'is_success': True, 'message': [""],'response_data': data,}
+        is_success =False if not data else True
+        msg = {'is_success': is_success, 'message': [""],'response_data': data,}
         return Response(msg,status=status.HTTP_200_OK)
