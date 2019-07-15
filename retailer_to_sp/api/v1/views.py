@@ -1094,8 +1094,8 @@ class DeliveryBoyTrips(APIView):
 
     def get(self, request):
         trip_date = self.request.POST.get('trip_date')
-        trip = Trip.objects.get(created_at__date= trip_date, delivery_boy = request.user)
-        trip_details = TripSerializer(trip)
+        trip = Trip.objects.filter(created_at__date= trip_date, delivery_boy = request.user)
+        trip_details = TripSerializer(trip, many=True)
         msg = {'is_success': True, 'message': ['Trip Details'], 'response_data': trip_details.data}
         return Response(msg, status=status.HTTP_201_CREATED)
 

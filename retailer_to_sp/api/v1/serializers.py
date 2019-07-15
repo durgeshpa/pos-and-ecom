@@ -632,7 +632,7 @@ class ShipmentDetailSerializer(serializers.ModelSerializer):
 
 class TripSerializer(serializers.ModelSerializer):
     total_trip_amount = serializers.SerializerMethodField()
-    trip_return_amount = serializers.ReadOnlyField()
+    #trip_return_amount = serializers.ReadOnlyField()
     cash_to_be_collected = serializers.SerializerMethodField()
     no_of_shipments = serializers.ReadOnlyField()
     trip_status = serializers.CharField(
