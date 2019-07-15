@@ -35,6 +35,7 @@
     <thead>
       <tr>
         <th>Product Name</th>
+        <th>Product SKU</th>
         <th>Product MRP</th>
         <th>Ordered Quantity</th>
         <th>No of Pieces</th>
@@ -46,6 +47,7 @@
     {% for cart in cart_products %}
       <tr>
         <td>{{ cart.product_name }}</td>
+        <td>{{ cart.product_sku }}</td>
         <td>{{ cart.product_mrp }}</td>
         <td>{{ cart.ordered_qty }}</td>
         <td>{{ cart.no_of_pieces }}</td>
@@ -59,5 +61,3 @@
 
 </body>
 </html>
-
-

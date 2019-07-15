@@ -101,7 +101,7 @@ class OrderedProductForm(forms.ModelForm):
 
     class Meta:
         model = OrderedProduct
-        fields = ['order']
+        fields = ['order', 'shipment_status']
 
     class Media:
         js = (
@@ -118,6 +118,8 @@ class OrderedProductForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(OrderedProductForm, self).__init__(*args, **kwargs)
+        self.fields['shipment_status'].choices = OrderedProduct.SHIPMENT_STATUS[:2]
+
 
 
 class OrderedProductMappingForm(forms.ModelForm):
@@ -474,7 +476,7 @@ class CartForm(forms.ModelForm):
     class Meta:
         model = Cart
         fields = ('seller_shop', 'buyer_shop')
-        
+
 
 class CommercialForm(forms.ModelForm):
     class Meta:
@@ -611,12 +613,25 @@ class OrderForm(forms.ModelForm):
     shipping_address = forms.ChoiceField(required=False,choices=Address.objects.values_list('id', 'address_line1'))
     ordered_by = forms.ChoiceField(required=False,choices=UserWithName.objects.values_list('id', 'phone_number'))
     last_modified_by = forms.ChoiceField(required=False,choices=UserWithName.objects.values_list('id', 'phone_number'))
+    total_final_amount = forms.CharField()
+    total_mrp_amount = forms.CharField()
 
     class Meta:
         model = Order
+        # fields = '__all__'
         fields = ('seller_shop', 'buyer_shop', 'ordered_cart', 'order_no', 'billing_address', 'shipping_address',
-                  'total_mrp', 'total_discount_amount', 'total_tax_amount', 'total_final_amount', 'order_status',
+                  'total_mrp_amount', 'total_discount_amount', 'total_tax_amount', 'total_final_amount', 'order_status',
                   'ordered_by', 'last_modified_by')
 
     class Media:
         js = ('/static/admin/js/retailer_cart.js',)
+
+    def __init__(self, *args, **kwargs):
+        super(OrderForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+        if instance and instance.pk:
+            self.fields['total_final_amount'].widget.attrs['readonly'] = True
+            self.fields['total_final_amount'].initial = instance.total_final_amount
+
+            self.fields['total_mrp_amount'].widget.attrs['readonly'] = True
+            self.fields['total_mrp_amount'].initial = instance.total_mrp_amount

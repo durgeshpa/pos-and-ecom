@@ -1,0 +1,21 @@
+{% extends 'admin/base.html' %}
+{% block footer %}
+{{ block.super }}
+
+<script type="text/javascript">
+(function ($) {
+
+    var form_enabled = true;
+    $( document ).ready(function() {
+        $('.submit-row').on('click','input[type=submit]', function(e){
+               $('.submit-row').hide();
+                setTimeout(function(){
+                    $('.submit-row').show();
+                }, 2000);
+        });
+    });
+})(django.jQuery);
+
+</script>
+
+{% endblock %}

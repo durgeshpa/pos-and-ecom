@@ -60,7 +60,7 @@ from retailer_to_sp.tasks import (
     ordered_product_available_qty_update, release_blocking, create_reserved_order
 )
 from .filters import OrderedProductMappingFilter, OrderedProductFilter
-
+from sp_to_gram.tasks import es_search
 from common.data_wrapper_view import DataWrapperViewSet
 
 from django.contrib.auth import get_user_model
@@ -324,6 +324,95 @@ class GramGRNProductsList(APIView):
                 is_store_active = False
                 p_list.append({"name":p.product.product_name, "mrp":None, "ptr":None, "status":status, "pack_size":pack_size, "id":p.product_id,
                                 "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":None})
+
+        msg = {'is_store_active': is_store_active,
+                'is_success': True,
+                 'message': ['Products found'],
+                 'response_data':p_list }
+        if not p_list:
+            msg = {'is_store_active': is_store_active,
+                    'is_success': False,
+                     'message': ['Sorry! No product found'],
+                     'response_data':None }
+        return Response(msg,
+                         status=200)
+
+    def get(self, request, format=None):
+        product_ids = request.GET.get('product_ids')
+        brand = request.GET.get('brands')
+        category = request.GET.get('categories')
+        keyword = request.GET.get('product_name', None)
+        shop_id = request.GET.get('shop_id')
+        grn_dict = None
+        cart_check = False
+        is_store_active = True
+        sort_preference = request.GET.get('sort_by_price')
+
+        '''1st Step
+            Check If Shop Is exists then 2nd pt else 3rd Pt
+        '''
+        try:
+            shop = Shop.objects.get(id=shop_id,status=True)
+        except ObjectDoesNotExist:
+            '''3rd Step
+                If no shop found then
+            '''
+            message = "Shop not active or does not exists"
+            is_store_active = False
+        else:
+            '''2nd Step
+                Check if shop fond then check weather it is sp 4th Step or retailer 5th Step
+            '''
+            try:
+                parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
+            except ObjectDoesNotExist:
+                message = "Shop Mapping Not Found"
+                is_store_active = False
+            else:
+
+                if parent_mapping.parent.shop_type.shop_type == 'sp':
+                    '''4th Step
+                        SP mapped data shown
+                    '''
+                    search_body = {}
+                    if keyword:
+                        search_body['name']=keyword
+                    if brand:
+                        search_body['brand']=brand
+                    if category:
+                        search_body['category']=category
+                    body = {"query":{"match":search_body}}
+                    products_list = es_search(index=parent_mapping.parent.id, body=body)
+                    cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
+                    if cart:
+                        cart_products = cart.rt_cart_list.all()
+                        cart_check = True
+                else:
+                    is_store_active = False
+        p_list = []
+        if not is_store_active:
+            search_body = {}
+            if keyword:
+                search_body['name']=keyword
+            if brand:
+                search_body['brand']=brand
+            if category:
+                search_body['category']=category
+            if len(search_body.keys()):
+                query = {"match":search_body}
+            else:
+                query = {"match_all":{}}
+            body = {"query":query,"_source":{"includes":["name", "product_images","pack_size","weight_unit","weight_value"]}}
+            products_list = es_search(index="all_products", body=body)
+
+        for p in products_list['hits']['hits']:
+            if cart_check == True:
+                for c_p in cart_products:
+                    if c_p.cart_product_id == p["_source"]["id"]:
+                        user_selected_qty = c_p.qty
+                        p["_source"]["no_of_pieces"] = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
+                        p["_source"]["sub_total"] = float(no_of_pieces) * float(ptr)
+            p_list.append(p["_source"])
 
         msg = {'is_store_active': is_store_active,
                 'is_success': True,
@@ -647,9 +736,7 @@ class CreateOrder(APIView):
         billing_address_id = self.request.POST.get('billing_address_id')
         shipping_address_id = self.request.POST.get('shipping_address_id')
 
-        total_mrp = self.request.POST.get('total_mrp',0)
         total_tax_amount = self.request.POST.get('total_tax_amount',0)
-        total_final_amount = self.request.POST.get('total_final_amount',0)
 
         shop_id = self.request.POST.get('shop_id')
         msg = {'is_success': False, 'message': ['Have some error in shop or mapping'], 'response_data': None}
@@ -697,11 +784,7 @@ class CreateOrder(APIView):
                     order.shipping_address = shipping_address
                     order.buyer_shop = shop
                     order.seller_shop = parent_mapping.parent
-
-                    order.total_mrp = float(total_mrp)
                     order.total_tax_amount = float(total_tax_amount)
-                    order.total_final_amount = float(total_final_amount)
-
                     order.order_status = order.ORDERED
                     order.save()
 
@@ -735,11 +818,6 @@ class CreateOrder(APIView):
                     order.shipping_address = shipping_address
                     order.buyer_shop = shop
                     order.seller_shop = parent_mapping.parent
-
-                    order.total_mrp = float(total_mrp)
-                    order.total_tax_amount = float(total_tax_amount)
-                    order.total_final_amount = float(total_final_amount)
-
                     order.order_status = 'ordered'
                     order.save()
 
@@ -844,9 +922,12 @@ class DownloadInvoiceSP(APIView):
         pk=self.kwargs.get('pk')
         a = OrderedProduct.objects.get(pk=pk)
         shop=a
+        payment_type=''
         products = a.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0)
-        payment_type = a.order.rt_payment.last().payment_choice
+        if a.order.rt_payment.filter(order_id=a.order).exists():
+            payment_type = a.order.rt_payment.last().payment_choice
         order_id= a.order.order_no
+        shop_id = shop.order.buyer_shop.id
 
         sum_qty = 0
         sum_amount=0
@@ -926,6 +1007,7 @@ class DownloadInvoiceSP(APIView):
                 "product_inner_case_size": m.product.product_inner_case_size,
                 "product_no_of_pices": int(m.shipped_qty),
                 "basic_rate": basic_rate,
+                "basic_amount": float(m.shipped_qty) * float(basic_rate),
                 "price_to_retailer": product_pro_price_ptr,
                 "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr),
                 "product_tax_amount": product_tax_amount,
@@ -963,7 +1045,7 @@ class DownloadInvoiceSP(APIView):
         total_amount = sum_amount
         total_amount_int = int(total_amount)
 
-        data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop, "sum_qty": sum_qty,
+        data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop,"shop_id":shop_id, "sum_qty": sum_qty,
                 "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" ,
                 "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,
                 "order_id":order_id,"shop_name_gram":shop_name_gram,"nick_name_gram":nick_name_gram, "city_gram":city_gram,
