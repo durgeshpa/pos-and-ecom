@@ -475,6 +475,10 @@ class Trip(models.Model):
         amount = round(sum(trip_amount),2)
         return amount
 
+    @property
+    def total_trip_amount_value(self):
+        return self.total_trip_amount()
+        
     __trip_status = None
 
     def __init__(self, *args, **kwargs):

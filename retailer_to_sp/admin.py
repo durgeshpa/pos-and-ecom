@@ -844,9 +844,23 @@ class DispatchNoSearch(InputFilter):
                 Q(dispatch_no__icontains=self.value())
             )
 
+class ExportCsvMixin:
+    def export_as_csv_trip(self, request, queryset):
+        meta = self.model._meta
+        list_display = ('created_at', 'dispatch_no', 'total_trip_shipments', 'total_trip_amount_value')
+        field_names = [field.name for field in meta.fields if field.name in list_display]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in list_display])
+        return response
+    export_as_csv_trip.short_description = "Download CSV of Selected Trips"
 
-class TripAdmin(admin.ModelAdmin):
+class TripAdmin(ExportCsvMixin, admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
+    actions = ["export_as_csv_trip",]
     list_display = (
         'dispathces', 'total_trip_shipments', 'total_trip_amount', 'delivery_boy', 'seller_shop', 'vehicle_no',
         'trip_status', 'starts_at', 'completed_at', 'download_trip_pdf'
