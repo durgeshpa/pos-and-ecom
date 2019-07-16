@@ -536,6 +536,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     actions = ["change_picking_status"]
     model = PickerDashboard
     raw_id_fields = ['order', 'shipment']
+
     #form = EditAssignPickerForm
     # list_display = (
     #     'id', 'picklist_id', 'picker_boy', 'order_date', 'download_pick_list'
@@ -546,10 +547,11 @@ class PickerDashboardAdmin(admin.ModelAdmin):
         )
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
     #readonly_fields = ['picklist_id']
-    list_filter = [PickerBoyFilter, PicklistIdFilter, OrderNumberSearch,]
+    list_filter = ['picking_status', PickerBoyFilter, PicklistIdFilter, OrderNumberSearch,('created_at', DateTimeRangeFilter),]
 
     class Media:
         pass
+        #js = ('admin/js/datetime_filter_collapse.js', )
 
     def get_urls(self):
         from django.conf.urls import url
