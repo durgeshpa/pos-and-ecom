@@ -177,9 +177,9 @@ function AddRemoveCheckedIDToList(){
 
 var shop_id = '{{ shop_id | escapejs }}';
 $("#id_shop").val(shop_id);
+//$('#id_shop"] option[value="{{ shop_id | escapejs }}"]').attr("selected","selected");
 
 $("#id_shop").change(function(){
-
   //make call to view 
   var shop_id = $("#id_shop").val();
   // similar behavior as clicking on a link
@@ -189,10 +189,9 @@ $("#id_shop").change(function(){
 
 {% if not request.user.is_superuser %}
 <script type="text/javascript">
-  $("#id_shop").attr("style", "pointer-events: none;");
+  $("#id_shop").attr("style", "pointer-events: none;");  
 </script>
 
 {% endif %}
 
 {% endblock %}
-

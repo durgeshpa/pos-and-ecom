@@ -658,7 +658,6 @@ class OrderedProduct(models.Model): #Shipment
 
 
     def save(self, *args, **kwargs):
-
         if not self.invoice_no:
             if self.shipment_status == self.READY_TO_SHIP:
                 self.invoice_no = retailer_sp_invoice(
@@ -667,6 +666,19 @@ class OrderedProduct(models.Model): #Shipment
                                         shop_name_address_mapping.filter(
                                                         address_type='billing'
                                                         ).last().pk)
+
+
+                picker = PickerDashboard.objects.get(shipment_id=self.id)
+                picker.picking_status="picking_complete"
+                picker.save()
+            
+                # if more shipment required
+                PickerDashboard.objects.create(
+                    order=self.order,
+                    picking_status="picking_pending",
+                    picklist_id= get_random_string(12).lower(), #generate random string of 12 digits
+                    )
+
         super().save(*args, **kwargs)
 
 
@@ -1186,18 +1198,18 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
         picker.shipment=instance
         picker.save()
 
-    if instance.shipment_status == "READY_TO_SHIP":
-        # assign picking_status to done and create new picklist id 
-        picker = PickerDashboard.objects.get(shipment=instance)
-        picker.picking_status="picking_complete"
-        picker.save()
+    # if instance.shipment_status == "READY_TO_SHIP":
+    #     # assign picking_status to done and create new picklist id 
+    #     picker = PickerDashboard.objects.get(shipment=instance)
+    #     picker.picking_status="picking_complete"
+    #     picker.save()
     
-        # if more shipment required
-        PickerDashboard.objects.create(
-            order=instance.order,
-            picking_status="picking_pending",
-            picklist_id= get_random_string(12).lower(), #generate random string of 12 digits
-            )
+    #     # if more shipment required
+    #     PickerDashboard.objects.create(
+    #         order=instance.order,
+    #         picking_status="picking_pending",
+    #         picklist_id= get_random_string(12).lower(), #generate random string of 12 digits
+    #         )
 
 
 
