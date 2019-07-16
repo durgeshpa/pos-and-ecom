@@ -837,16 +837,20 @@ class DownloadInvoiceSP(APIView):
 
             no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
             cart_qty = m.product.rt_cart_product_mapping.last().qty
-            # tax_sum = m.product.rt_cart_product_mapping.last().tax
-            # tax_sum = round(tax_sum, 2)
-            # get_tax_val = tax_sum / 100
 
-            # all_tax_list = m.product.product_pro_tax
-            # if all_tax_list.exists():
-            #     for tax_dt in all_tax_list.all():
-            #         tax_sum = float(tax_sum) + float(tax_dt.tax.tax_percentage)
+            #old code for tax start
+            tax_sum = m.product.rt_cart_product_mapping.last().tax
+            tax_sum = round(tax_sum, 2)
+            get_tax_val = tax_sum / 100
 
-            tax_sum = round(m.product_tax_json.get('tax_sum'), 2)
+            all_tax_list = m.product.product_pro_tax
+            if all_tax_list.exists():
+                for tax_dt in all_tax_list.all():
+                    tax_sum = float(tax_sum) + float(tax_dt.tax.tax_percentage)
+            # old code for tax start
+
+            # new code for tax start
+            #tax_sum = m.product_tax_json.get('tax_sum')
             get_tax_val = tax_sum / 100
             basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
             base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
