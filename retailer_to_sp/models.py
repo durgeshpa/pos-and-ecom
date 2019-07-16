@@ -472,7 +472,8 @@ class Trip(models.Model):
         for shipment in trip_shipments:
             invoice_amount = float(shipment.invoice_amount)
             trip_amount.append(invoice_amount)
-        return sum(trip_amount)
+            amount = round(sum(trip_amount),2)
+        return amount
 
     __trip_status = None
 
