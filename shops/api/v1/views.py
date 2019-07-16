@@ -214,11 +214,11 @@ class TeamListView(generics.ListAPIView):
             rt = {
                 'ordered_sku_pieces': order_map[emp.id][1] if order_map else 0,
                 'ordered_amount': round(order_map[emp.id][3], 2) if order_map else 0,
-                'delivered_amount': '',
+                'delivered_amount': 0,
                 'store_added': store_added,
                 'avg_order_val': round(order_map[emp.id][4], 2) if order_map else 0,
                 'avg_order_line_items': round(order_map[emp.id][2], 2) if order_map else 0,
-                'unique_calls_made': '',
+                'unique_calls_made': 0,
                 'sales_person_name': emp.employee.get_full_name(),
                 'no_of_ordered_sku': order_map[emp.id][0] if order_map else 0,
             }
@@ -233,9 +233,11 @@ class TeamListView(generics.ListAPIView):
         dt={
             'ordered_sku_pieces': ordered_sku_pieces_total,
             'ordered_amount': ordered_amount_total,
+            'delivered_amount': 0,
             'store_added': store_added_total,
             'avg_order_val': avg_order_total,
             'avg_order_line_items': avg_order_line_items_total,
+            'unique_calls_made': 0,
             'no_of_ordered_sku': no_of_ordered_sku_total,
         }
         data_total.append(dt)
