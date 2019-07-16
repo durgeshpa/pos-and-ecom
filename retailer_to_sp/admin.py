@@ -574,17 +574,17 @@ class PickerDashboardAdmin(admin.ModelAdmin):
         ] + urls
         return urls
     
-    def has_change_permission(self, request, obj=None):
-        if request.user.has_perm("can_change_picker_dashboard"):
-            return True
-        else:
-            return False
+    # def has_change_permission(self, request, obj=None):
+    #     if request.user.has_perm("can_change_picker_dashboard"):
+    #         return True
+    #     else:
+    #         return False
 
-    def has_add_permission(self, request):
-        return False
+    # def has_add_permission(self, request):
+    #     return False
 
-    def has_delete_permission(self, request, obj=None):
-        return False
+    # def has_delete_permission(self, request, obj=None):
+    #     return False
 
     # def has_module_permission(self, request):
     #     pass
