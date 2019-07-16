@@ -1093,7 +1093,6 @@ class DeliveryBoyTrips(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, *args, **kwargs):
-        import pdb; pdb.set_trace()
         trip_date = ('{}-{}-{}').format(kwargs['year'], kwargs['month'], kwargs['day'])
         trip = Trip.objects.filter(created_at__date=trip_date, delivery_boy=self.request.user)
         trip_details = TripSerializer(trip, many=True)
