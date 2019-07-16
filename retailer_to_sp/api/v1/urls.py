@@ -18,7 +18,7 @@ urlpatterns = [
     url('^order-payment/$', PaymentApi.as_view(), name='order_payment'),
     url('^release-blocking/$', ReleaseBlocking.as_view(), name='release-blocking'),
     url('^product_detail/(?P<pk>\d+)/$', ProductDetail.as_view(), name='product_detail'),
-    url('^trip-shipments/$', DeliveryBoyTrips.as_view(), name='trip-shipments'),
+    url('^trip-shipments/(?P<day>.+)/(?P<month>.+)/(?P<year>.+)/$', DeliveryBoyTrips.as_view(), name='trip-shipments'),
     url('^trip-shipment-details/(?P<trip>[-\w]+)/$', DeliveryShipmentDetails.as_view(), name = 'trip-shipment-details'),
     url('^shipment-detail/(?P<shipment>[-\w]+)/$', ShipmentDetail.as_view(), name='shipment-detail'),
     #cron

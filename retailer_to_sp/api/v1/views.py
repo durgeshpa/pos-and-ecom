@@ -1092,9 +1092,10 @@ class DeliveryBoyTrips(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def get(self, request):
-        trip_date = self.request.POST.get('trip_date')
-        trip = Trip.objects.filter(created_at__date= trip_date, delivery_boy = request.user)
+    def get(self, *args, **kwargs):
+        import pdb; pdb.set_trace()
+        trip_date = ('{}-{}-{}').format(kwargs['year'], kwargs['month'], kwargs['day'])
+        trip = Trip.objects.filter(created_at__date=trip_date, delivery_boy=self.request.user)
         trip_details = TripSerializer(trip, many=True)
         msg = {'is_success': True, 'message': ['Trip Details'], 'response_data': trip_details.data}
         return Response(msg, status=status.HTTP_201_CREATED)
