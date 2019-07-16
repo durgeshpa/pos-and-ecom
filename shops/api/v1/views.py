@@ -190,6 +190,7 @@ class TeamListView(generics.ListAPIView):
         last_day = today - timedelta(days=days_diff)
         employee_list = ShopUserMapping.objects.filter(manager=self.request.user)
         data = []
+        data_total = []
         order_obj = Order.objects.filter(buyer_shop__created_by__id__in=employee_list,
                                          created_at__range=[today, last_day]).values('ordered_by',
                                                                                      'ordered_by__first_name')\
@@ -206,20 +207,40 @@ class TeamListView(generics.ListAPIView):
         order_map = {i['ordered_by']: (i['no_of_ordered_sku'], i['no_of_ordered_sku_pieces'], i['avg_no_of_ordered_sku_pieces'],
         i['ordered_amount'], i['avg_ordered_amount']) for i in order_obj}
 
+        ordered_sku_pieces_total, ordered_amount_total, store_added_total, avg_order_total, avg_order_line_items_total, no_of_ordered_sku_total = 0,0,0,0,0,0
+
         for emp in employee_list:
+            store_added = emp.employee.shop_created_by.filter(created_at__range=[last_day, today]).count()
             rt = {
                 'ordered_sku_pieces': order_map[emp.id][1] if order_map else 0,
                 'ordered_amount': round(order_map[emp.id][3], 2) if order_map else 0,
                 'delivered_amount': '',
-                'store_added': emp.employee.shop_created_by.filter(created_at__range=[last_day, today]).count(),
+                'store_added': store_added,
                 'avg_order_val': round(order_map[emp.id][4], 2) if order_map else 0,
                 'avg_order_line_items': round(order_map[emp.id][2], 2) if order_map else 0,
                 'unique_calls_made': '',
-                'days': days_diff,
+                'sales_person_name': emp.employee.get_full_name(),
+                'no_of_ordered_sku': order_map[emp.id][0] if order_map else 0,
             }
             data.append(rt)
+            ordered_sku_pieces_total += order_map[emp.id][1] if order_map else 0
+            ordered_amount_total += round(order_map[emp.id][3], 2) if order_map else 0
+            store_added_total += store_added
+            avg_order_total += round(order_map[emp.id][4], 2) if order_map else 0
+            avg_order_line_items_total += round(order_map[emp.id][2], 2) if order_map else 0
+            no_of_ordered_sku_total += order_map[emp.id][1] if order_map else 0
 
-        msg = {'is_success': True, 'message': [""],'response_data': data}
+        dt={
+            'ordered_sku_pieces': ordered_sku_pieces_total,
+            'ordered_amount': ordered_amount_total,
+            'store_added': store_added_total,
+            'avg_order_val': avg_order_total,
+            'avg_order_line_items': avg_order_line_items_total,
+            'no_of_ordered_sku': no_of_ordered_sku_total,
+        }
+        data_total.append(dt)
+
+        msg = {'is_success': True, 'message': [""],'response_data': data,'response_data_total':data_total}
         return Response(msg,status=status.HTTP_200_OK)
 
 
