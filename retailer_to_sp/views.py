@@ -887,11 +887,3 @@ class RetailerCart(APIView):
             context={'parent_mapping_id': order_obj.seller_shop.id,}
         )
         return Response({'is_success': True,'response_data': dt.data}, status=status.HTTP_200_OK)
-
-def update_product_tax(obj):
-    for shipment in OrderedProductMapping.objects.filter(ordered_product=obj):
-        product_tax_query = shipment.product.product_pro_tax.values('product', 'tax', 'tax__tax_name', 'tax__tax_percentage')
-        product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
-        product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
-        shipment.product_tax_json = product_tax
-        shipment.save()

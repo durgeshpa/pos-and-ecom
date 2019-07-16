@@ -790,8 +790,6 @@ class ShipmentAdmin(admin.ModelAdmin):
             close_order_checked=form.cleaned_data.get('close_order'),
             shipment_id=form.instance.id
         )
-        if form.instance.shipment_status == form.instance.READY_TO_SHIP:
-            update_product_tax(form.instance)
 
         if (form.cleaned_data.get('close_order') and
                 (form.instance.shipment_status !=

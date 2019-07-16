@@ -666,6 +666,15 @@ class OrderedProduct(models.Model): #Shipment
                                         shop_name_address_mapping.filter(
                                                         address_type='billing'
                                                         ).last().pk)
+                #Update Product Tax Mapping Start
+                for shipment in OrderedProductMapping.objects.filter(ordered_product_id=self.pk):
+                    product_tax_query = shipment.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
+                                                                                'tax__tax_percentage')
+                    product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
+                    product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
+                    shipment.product_tax_json = product_tax
+                    shipment.save()
+                # Update Product Tax Mapping End
         super().save(*args, **kwargs)
 
 class OrderedProductMapping(models.Model):
