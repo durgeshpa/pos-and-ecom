@@ -72,7 +72,7 @@ def get_warehouse_stock(shop_id=None):
 		                    }
 		                    for p_i in product_img
 		                ]
-		category = ",".join([str(c.category) for c in p.product.product_pro_category.filter(status=True)])
+		category = ",".join([str(c.category.category_name) for c in p.product.product_pro_category.filter(status=True)])
 		product_details = {"name":p.product.product_name,"brand":str(p.product.product_brand),"category": category, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "id":p.product_id, 
 		                "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":user_selected_qty, "pack_size":pack_size,
 		               "loyalty_discount":loyalty_discount,"cash_discount":cash_discount,"margin":margin ,"no_of_pieces":no_of_pieces, "sub_total":sub_total}

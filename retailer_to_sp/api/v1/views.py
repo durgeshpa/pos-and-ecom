@@ -209,7 +209,7 @@ class GramGRNProductsList(APIView):
         if brand:
             query["dis_max"]["queries"].append({"term": {"brand":str(Brand.objects.filter(id__in=list(brand)).last())}})
         if category:
-            category_filter = ",".join([str(s) for s in categorymodel.Category.objects.filter(id__in=category, status=True).all()])
+            category_filter = ",".join([str(s.category_name) for s in categorymodel.Category.objects.filter(id__in=category, status=True).all()])
             q = {
                 "match" :{
                     "category":{"query":category_filter, "fuzziness":0, "operator":"and"}
