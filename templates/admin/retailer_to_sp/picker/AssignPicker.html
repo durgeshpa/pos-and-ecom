@@ -187,7 +187,12 @@ $("#id_shop").change(function(){
 });
 </script>
 
+{% if not request.user.is_superuser %}
+<script type="text/javascript">
+  $("#id_shop").attr("style", "pointer-events: none;");
+</script>
 
+{% endif %}
 
 {% endblock %}
 
