@@ -203,16 +203,16 @@ class GramGRNProductsList(APIView):
                 "name":{"query":keyword, "fuzziness":"AUTO", "operator":"and"}
                 }
             }
-        else:
-            q = {"match_all":{}}
-        query["dis_max"]["queries"].append(q)
+        #else:
+        #    q = {"match_all":{}}
+            query["dis_max"]["queries"].append(q)
         if brand:
             query["dis_max"]["queries"].append({"term": {"brand":str(Brand.objects.filter(id__in=list(brand)).last())}})
         if category:
-            category_filter = [str(s.category_name) for s in categorymodel.Category.objects.filter(id__in=category, status=True).all()]
+            category_filter = str(categorymodel.Category.objects.filter(id__in=category, status=True).last())
             q = {
                 "match" :{
-                    "category":category_filter
+                    "category":{"query":category_filter,"operator":"and"}
                 }
             }
             query["dis_max"]["queries"].append(q)
@@ -240,6 +240,7 @@ class GramGRNProductsList(APIView):
                         SP mapped data shown
                     '''
                     body = {"from" : offset, "size" : page_size, "query":query}
+                    logger.exception(query)
                     products_list = es_search(index=parent_mapping.parent.id, body=body)
                     cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
                     if cart:
