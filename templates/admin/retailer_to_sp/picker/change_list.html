@@ -42,7 +42,7 @@
     {% block object-tools %}
         <ul class="object-tools">
                 <li>
-            {% if perms.retailer_to_sp.change_picker_dashboard %}      
+            {% if perms.retailer_to_sp.change_pickerdashboard %}      
               <a href="{% url 'admin:AssignPicker' %}" class="addlink"> Assign Picker </a>
             {% endif %}
                 </li>
