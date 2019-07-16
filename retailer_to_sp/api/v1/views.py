@@ -40,6 +40,7 @@ from products.models import Product, ProductPrice, ProductOption,ProductImage, P
 from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
                                 OrderedProduct as SPOrderedProduct, StockAdjustment)
 
+from categories import models as categorymodel
 
 from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as GramCartProductMapping,
                                   OrderedProductReserved as GramOrderedProductReserved, PickList, PickListItems )
@@ -51,6 +52,7 @@ from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping 
                                       OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment, CustomerCare as GramMappedCustomerCare )
 
 from shops.models import Shop,ParentRetailerMapping
+from brand.models import Brand
 from products.models import ProductCategory
 from addresses.models import Address
 from retailer_backend.common_function import getShopMapping,checkNotShopAndMapping,getShop
@@ -178,171 +180,14 @@ class ProductsList(generics.ListCreateAPIView):
 class GramGRNProductsList(APIView):
     permission_classes = (AllowAny,)
     serializer_class = GramGRNProductsSearchSerializer
-
     def post(self, request, format=None):
         product_ids = request.data.get('product_ids')
         brand = request.data.get('brands')
         category = request.data.get('categories')
         keyword = request.data.get('product_name', None)
         shop_id = request.data.get('shop_id')
-        offset = request.data.get('offset')
-        pro_count = request.data.get('pro_count')
-        grn_dict = None
-        cart_check = False
-        is_store_active = True
-        sort_preference = request.data.get('sort_by_price')
-
-        '''1st Step
-            Check If Shop Is exists then 2nd pt else 3rd Pt
-        '''
-        try:
-            shop = Shop.objects.get(id=shop_id,status=True)
-        except ObjectDoesNotExist:
-            '''3rd Step
-                If no shop found then
-            '''
-            grn = GRNOrderProductMapping.objects.values('product_id')
-            message = "Shop not active or does not exists"
-            is_store_active = False
-        else:
-            '''2nd Step
-                Check if shop fond then check weather it is sp 4th Step or retailer 5th Step
-            '''
-            try:
-                parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
-            except ObjectDoesNotExist:
-                grn = GRNOrderProductMapping.objects.values('product_id')
-                message = "Shop Mapping Not Found"
-                is_store_active = False
-            else:
-                if parent_mapping.parent.shop_type.shop_type == 'sp':
-                    '''4th Step
-                        SP mapped data shown
-                    '''
-                    grn = SpMappedOrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(available_qty__gt=0).values('product_id').annotate(available_qty=Sum('available_qty'))
-                    grn_dict = {g['product_id']:g['available_qty'] for g in grn}
-                    cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
-                    if cart:
-                        cart_products = cart.rt_cart_list.all()
-                        cart_check = True
-
-                # if shop mapped with gf
-                elif parent_mapping.parent.shop_type.shop_type == 'gf':
-                    '''5th Step
-                        Gramfactory mapped data shown
-                    '''
-                    grn = GRNOrderProductMapping.objects.filter(grn_order__order__ordered_cart__gf_shipping_address__shop_name=parent_mapping.parent,available_qty__gt=0,expiry_date__gt=today).values('product_id')
-                    cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,cart_status__in=['active', 'pending']).last()
-                    if cart:
-                        cart_products = cart.rt_cart_list.all()
-                        cart_check = True
-        if grn_dict:
-            grn_list = grn_dict.keys()
-        else:
-            grn_list = grn
-        products = Product.objects.filter(pk__in=grn_list).order_by('product_name')
-
-        if product_ids:
-            products = products.filter(id__in=product_ids)
-        if brand:
-            products = products.filter(product_brand__in=brand)
-        if category:
-            product_ids = ProductCategory.objects.filter(product__in=grn_list, category__in=category).values_list('product_id')
-            products = products.filter(pk__in=product_ids)
-        if keyword:
-            products = products.annotate(search=SearchVector('product_name', 'product_brand__brand_name', 'product_short_description')).filter(search=keyword)
-
-        if is_store_active is False:
-            products_price = ProductPrice.objects.filter(product__in=products, status=True).order_by('product','-created_at').distinct('product')
-        else:
-            products_price = ProductPrice.objects.filter(product__in=products, shop=parent_mapping.parent, status=True).order_by('product', '-created_at').distinct('product')
-
-
-        if sort_preference:
-            if sort_preference == 'low':
-                products_price = products_price.order_by('price_to_retailer').distinct()
-            if sort_preference == 'high':
-                products_price = products_price.order_by('-price_to_retailer').distinct()
-
-        if offset and pro_count:
-            products_price = products_price[int(offset):int(offset)+int(pro_count)]
-
-        p_list = []
-
-        for p in products_price:
-            user_selected_qty = None
-            no_of_pieces = None
-            sub_total = None
-            name = p.product.product_name
-            mrp = round(p.mrp, 2) if p.mrp else p.mrp
-            ptr = round(p.price_to_retailer, 2) if p.price_to_retailer else p.price_to_retailer
-            loyalty_discount = round(p.loyalty_incentive, 2) if p.loyalty_incentive else p.loyalty_incentive
-            cash_discount = round(p.cash_discount, 2) if p.cash_discount else p.cash_discount
-            margin = round(100 - (float(ptr) * 1000000 / (float(mrp) * (100 - float(cash_discount)) * (100 - float(loyalty_discount)))), 2) if mrp and ptr else 0
-
-            if cart_check == True:
-                for c_p in cart_products:
-                    if c_p.cart_product_id == p.product_id:
-                        user_selected_qty = c_p.qty
-                        no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
-                        sub_total = float(no_of_pieces) * float(ptr)
-            status = p.product.status
-            product_opt = p.product.product_opt_product.all()
-            weight_value = None
-            weight_unit = None
-            pack_size = None
-            try:
-                pack_size = p.product.product_inner_case_size if p.product.product_inner_case_size else None
-            except Exception as e:
-                logger.exception("pack size is not defined for {}".format(p.product.product_name))
-                continue
-            if grn_dict and int(pack_size) > int(grn_dict[p.product.id]):
-                continue
-            try:
-                for p_o in product_opt:
-                    weight_value = p_o.weight.weight_value if p_o.weight.weight_value else None
-                    weight_unit = p_o.weight.weight_unit if p_o.weight.weight_unit else None
-            except:
-                weight_value = None
-                weight_unit = None
-            product_img = p.product.product_pro_image.all()
-            product_images = [
-                                {
-                                    "image_name":p_i.image_name,
-                                    "image_alt":p_i.image_alt_text,
-                                    "image_url":p_i.image.url
-                                }
-                                for p_i in product_img
-                            ]
-            if not product_images:
-                product_images=None
-            if request.user.is_authenticated:
-                p_list.append({"name":p.product.product_name, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "id":p.product_id,
-                                "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":user_selected_qty,
-                               "loyalty_discount":loyalty_discount,"cash_discount":cash_discount,"margin":margin ,"no_of_pieces":no_of_pieces, "sub_total":sub_total})
-            else:
-                is_store_active = False
-                p_list.append({"name":p.product.product_name, "mrp":None, "ptr":None, "status":status, "pack_size":pack_size, "id":p.product_id,
-                                "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":None})
-
-        msg = {'is_store_active': is_store_active,
-                'is_success': True,
-                 'message': ['Products found'],
-                 'response_data':p_list }
-        if not p_list:
-            msg = {'is_store_active': is_store_active,
-                    'is_success': False,
-                     'message': ['Sorry! No product found'],
-                     'response_data':None }
-        return Response(msg,
-                         status=200)
-
-    def get(self, request, format=None):
-        product_ids = request.GET.get('product_ids')
-        brand = request.GET.get('brands')
-        category = request.GET.get('categories')
-        keyword = request.GET.get('product_name', None)
-        shop_id = request.GET.get('shop_id')
+        offset = int(request.data.get('offset',0))
+        page_size = int(request.data.get('pro_count',20))
         grn_dict = None
         cart_check = False
         is_store_active = True
@@ -351,6 +196,26 @@ class GramGRNProductsList(APIView):
         '''1st Step
             Check If Shop Is exists then 2nd pt else 3rd Pt
         '''
+        query = {"dis_max":{"queries":[]}}
+        if keyword:
+            q = {
+            "match":{
+                "name":{"query":keyword, "fuzziness":"AUTO", "operator":"and"}
+                }
+            }
+        else:
+            q = {"match_all":{}}
+        query["dis_max"]["queries"].append(q)
+        if brand:
+            query["dis_max"]["queries"].append({"term": {"brand":str(Brand.objects.filter(id__in=list(brand)).last())}})
+        if category:
+            category_filter = ",".join([str(s) for s in categorymodel.Category.objects.filter(id__in=category, status=True).all()])
+            q = {
+                "match" :{
+                    "category":{"query":category_filter, "fuzziness":0, "operator":"and"}
+                }
+            }
+            query["dis_max"]["queries"].append(q)
         try:
             shop = Shop.objects.get(id=shop_id,status=True)
         except ObjectDoesNotExist:
@@ -374,14 +239,7 @@ class GramGRNProductsList(APIView):
                     '''4th Step
                         SP mapped data shown
                     '''
-                    search_body = {}
-                    if keyword:
-                        search_body['name']=keyword
-                    if brand:
-                        search_body['brand']=brand
-                    if category:
-                        search_body['category']=category
-                    body = {"query":{"match":search_body}}
+                    body = {"from" : offset, "size" : page_size, "query":query}
                     products_list = es_search(index=parent_mapping.parent.id, body=body)
                     cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
                     if cart:
@@ -391,26 +249,24 @@ class GramGRNProductsList(APIView):
                     is_store_active = False
         p_list = []
         if not is_store_active:
-            search_body = {}
-            if keyword:
-                search_body['name']=keyword
-            if brand:
-                search_body['brand']=brand
-            if category:
-                search_body['category']=category
-            if len(search_body.keys()):
-                query = {"match":search_body}
-            else:
-                query = {"match_all":{}}
-            body = {"query":query,"_source":{"includes":["name", "product_images","pack_size","weight_unit","weight_value"]}}
+            body = {
+                "from" : offset, 
+                "size" : page_size, 
+                "query":query,"_source":{"includes":["name", "product_images","pack_size","weight_unit","weight_value"]}
+                }
             products_list = es_search(index="all_products", body=body)
 
         for p in products_list['hits']['hits']:
+
             if cart_check == True:
+                ptr = p["_source"]['ptr'] 
+                loyalty_discount = p["_source"]['loyalty_discount']
+                cash_discount = p["_source"]['cash_discount']
                 for c_p in cart_products:
                     if c_p.cart_product_id == p["_source"]["id"]:
                         user_selected_qty = c_p.qty
-                        p["_source"]["no_of_pieces"] = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
+                        no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
+                        p["_source"]["no_of_pieces"] = no_of_pieces
                         p["_source"]["sub_total"] = float(no_of_pieces) * float(ptr)
             p_list.append(p["_source"])
 
@@ -418,7 +274,7 @@ class GramGRNProductsList(APIView):
                 'is_success': True,
                  'message': ['Products found'],
                  'response_data':p_list }
-        if not p_list:
+        if not p_list or int(offset)>1:
             msg = {'is_store_active': is_store_active,
                     'is_success': False,
                      'message': ['Sorry! No product found'],

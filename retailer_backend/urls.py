@@ -53,6 +53,8 @@ urlpatterns = [
     url('^privacy-policy/$', privacy_policy, name='privacy_policy'),
 
     url('^delete-ordered-product-reserved1/$', cron_to_delete_ordered_product_reserved, name='delete_ordered_product_reserved'),
+    # url(r'^jet/dashboard/', include('jet.dashboard.urls', 'jet-dashboard')),  # Django JET dashboard URLS
+    # url(r'^jet/', include('jet.urls', 'jet')),
     path('admin/', admin.site.urls),
 
 ]
