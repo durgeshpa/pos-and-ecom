@@ -34,7 +34,7 @@ from retailer_to_sp.views import (
     load_dispatches, order_invoices, ordered_product_mapping_shipment,
     trip_planning, trip_planning_change, update_delivered_qty,
     update_order_status, update_shipment_status, reshedule_update_shipment,
-    RetailerCart, update_product_tax
+    RetailerCart
 )
 from shops.models import ParentRetailerMapping, Shop
 from sp_to_gram.models import (
