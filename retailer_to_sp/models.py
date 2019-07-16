@@ -129,7 +129,7 @@ class Cart(models.Model):
     def subtotal(self):
         try:
             return round(self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum'],2)
-        except: 
+        except:
             return None
 
     @property
@@ -350,7 +350,7 @@ class Order(models.Model):
 
     @property
     def shipment_status_reason(self):
-        return order_shipment_status_reason(self.shipments())    
+        return order_shipment_status_reason(self.shipments())
 
     @property
     def order_shipment_amount(self):
@@ -460,6 +460,11 @@ class Trip(models.Model):
     @property
     def cash_to_be_collected_value(self):
         return self.cash_to_be_collected()
+
+    @property
+    def total_trip_shipments(self):
+        trip_shipments = self.rt_invoice_trip.count()
+        return trip_shipments
 
     def total_trip_amount(self):
         trip_shipments = self.rt_invoice_trip.all()

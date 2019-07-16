@@ -175,7 +175,7 @@ class OrderNoSearch(InputFilter):
     def queryset(self, request, queryset):
         if self.value() is not None:
             order_no = self.value()
-            order_nos = order_no.replace(" ", "").replace("\t","").split(',')    
+            order_nos = order_no.replace(" ", "").replace("\t","").split(',')
             return queryset.filter(
                 Q(order_no__in=order_nos)
             )
@@ -848,7 +848,7 @@ class DispatchNoSearch(InputFilter):
 class TripAdmin(admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
     list_display = (
-        'dispathces', 'delivery_boy', 'seller_shop', 'vehicle_no',
+        'dispathces', 'total_trip_shipments', 'total_trip_amount', 'delivery_boy', 'seller_shop', 'vehicle_no',
         'trip_status', 'starts_at', 'completed_at', 'download_trip_pdf'
     )
     readonly_fields = ('dispathces',)
@@ -885,7 +885,7 @@ class ExportCsvMixin:
     def export_as_csv_commercial(self, request, queryset):
         meta = self.model._meta
         list_display = ('dispatch_no', 'trip_amount', 'received_amount',
-            'cash_to_be_collected', 'delivery_boy', 'vehicle_no', 'trip_status', 
+            'cash_to_be_collected', 'delivery_boy', 'vehicle_no', 'trip_status',
             'starts_at', 'completed_at', 'seller_shop',)
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
