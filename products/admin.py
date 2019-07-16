@@ -368,24 +368,36 @@ class ExportCsvMixin:
         return response
     export_as_csv_productprice.short_description = "Download CSV of Selected ProductPrice"
 
+
 class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductPriceResource
     form = ProductPriceNewForm
     actions = ["export_as_csv_productprice"]
+    list_select_related = ('product', 'shop')
     list_display = [
-        'product', 'product_sku', 'product_gf_code', 'mrp', 'price_to_service_partner','price_to_retailer', 'price_to_super_retailer',
-
-        'shop', 'cash_discount','loyalty_incentive','margin','start_date', 'end_date', 'status'
+        'product', 'product_sku', 'product_gf_code', 'mrp',
+        'price_to_service_partner', 'price_to_retailer',
+        'price_to_super_retailer', 'shop', 'cash_discount',
+        'loyalty_incentive', 'margin', 'start_date', 'end_date', 'status',
+        'approval_status'
     ]
-    autocomplete_fields=['product',]
+    autocomplete_fields = ['product']
     search_fields = [
         'product__product_name', 'product__product_gf_code',
         'product__product_brand__brand_name', 'shop__shop_name'
     ]
-    list_filter= [ProductSKUSearch, ProductFilter,ShopFilter,MRPSearch,('start_date', DateRangeFilter),('end_date', DateRangeFilter)]
-    fields=('product','city','area','mrp','shop','price_to_retailer','price_to_super_retailer','price_to_service_partner','cash_discount','loyalty_incentive','start_date','end_date','status')
+    list_filter = [
+        ProductSKUSearch, ProductFilter, ShopFilter, MRPSearch,
+        ('start_date', DateRangeFilter), ('end_date', DateRangeFilter),
+        'approval_status']
+    fields = ('product', 'city', 'area', 'mrp', 'shop', 'price_to_retailer',
+              'price_to_super_retailer', 'price_to_service_partner',
+              'cash_discount', 'loyalty_incentive', 'start_date', 'end_date',
+              'approval_status', 'status')
+
     class Media:
         pass
+
     def get_readonly_fields(self, request, obj=None):
         if obj: # editing an existing object
             return self.readonly_fields + ('mrp','price_to_retailer','price_to_super_retailer','price_to_service_partner' )
@@ -395,7 +407,6 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
         return obj.product.product_sku
 
     product_sku.short_description = 'Product SKU'
-
 
     def product_gf_code(self, obj):
         return obj.product.product_gf_code

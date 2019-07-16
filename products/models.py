@@ -133,6 +133,8 @@ class Product(models.Model):
     def __str__(self):
         return self.product_name
 
+    class Meta:
+        ordering = ['-created_at']
 
     def get_current_shop_price(self, shop):
         today = datetime.datetime.today()
@@ -232,7 +234,8 @@ class ProductPrice(models.Model):
             raise ValidationError(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
 
     def save(self, *args, **kwargs):
-        last_product_prices = ProductPrice.objects.filter(product=self.product,shop=self.shop,status=True).update(status=False)
+        if self.approval_status == APPROVED:
+            ProductPrice.objects.filter(product=self.product,shop=self.shop,status=True).update(status=False)
         self.status = True
         super().save(*args, **kwargs)
 
