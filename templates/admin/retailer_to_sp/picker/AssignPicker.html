@@ -116,8 +116,8 @@ function ShowField(id){
 
 function SubmitFormConfirmDialog(){
   $('form').bind('submit', function(e) {      
-      if ($('input[type=checkbox]:checked').length-11) {
-
+/*      if ($('input[type=checkbox]:checked').length-11) {*/
+        if ($('.order_checkbox:checkbox:checked').length) {
           var c = confirm("Click OK to continue?");
           return c;
       } else {
