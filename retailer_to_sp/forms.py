@@ -431,6 +431,14 @@ class ShipmentForm(forms.ModelForm):
         else:
             self.fields['shipment_status'].choices = SHIPMENT_STATUS[:1]
 
+    def clean(self):
+        data = self.cleaned_data
+        if (data['close_order'] and
+                not data['shipment_status'] == OrderedProduct.READY_TO_SHIP):
+                raise forms.ValidationError(
+                    _('You can only close the order in QC Passed state'),)
+        return data
+
 
 class ShipmentProductMappingForm(forms.ModelForm):
     ordered_qty = forms.CharField(required=False)
