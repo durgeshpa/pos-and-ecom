@@ -886,7 +886,7 @@ class ShipmentAdmin(admin.ModelAdmin):
         'order__shipping_address__city',
     )
     list_display = (
-        'invoice_no', 'order', 'created_at', 'trip', 'shipment_address',
+        'invoice', 'order', 'created_at', 'trip', 'shipment_address',
         'seller_shop', 'invoice_city', 'invoice_amount', 'payment_mode',
         'shipment_status', 'download_invoice', 'pincode',
     )
@@ -933,6 +933,12 @@ class ShipmentAdmin(admin.ModelAdmin):
     def invoice_city(self, obj):
         city = obj.order.shipping_address.city
         return str(city)
+
+    def invoice(self,obj):
+        return obj.invoice_no if obj.invoice_no else format_html(
+            "<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Start QC</a>" %(obj.id))
+    invoice.short_description = 'Invoice No'
+
 
     def save_related(self, request, form, formsets, change):
         #update_shipment_status(form, formsets)

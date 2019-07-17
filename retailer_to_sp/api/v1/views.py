@@ -230,25 +230,28 @@ class GramGRNProductsList(APIView):
             Check If Shop Is exists then 2nd pt else 3rd Pt
         '''
         query = {"dis_max":{"queries":[]}}
-        if keyword:
-            q = {
-            "match":{
-                "name":{"query":keyword, "fuzziness":"AUTO", "operator":"and"}
-                }
-            }
+        if product_ids:
+            query = {"ids":{"type":"product", "values":product_ids}}
         else:
-            q = {"match_all":{}}
-        query["dis_max"]["queries"].append(q)
-        if brand:
-            query["dis_max"]["queries"].append({"term": {"brand":str(Brand.objects.filter(id__in=list(brand)).last())}})
-        if category:
-            category_filter = ",".join([str(s) for s in categorymodel.Category.objects.filter(id__in=category, status=True).all()])
-            q = {
-                "match" :{
-                    "category":{"query":category_filter, "fuzziness":0, "operator":"and"}
+            if keyword:
+                q = {
+                "match":{
+                    "name":{"query":keyword, "fuzziness":"AUTO", "operator":"and"}
+                    }
                 }
-            }
-            query["dis_max"]["queries"].append(q)
+            #else:
+            #    q = {"match_all":{}}
+                query["dis_max"]["queries"].append(q)
+            if brand:
+                query["dis_max"]["queries"].append({"term": {"brand":str(Brand.objects.filter(id__in=list(brand)).last())}})
+            if category:
+                category_filter = str(categorymodel.Category.objects.filter(id__in=category, status=True).last())
+                q = {
+                    "match" :{
+                        "category":{"query":category_filter,"operator":"and"}
+                    }
+                }
+                query["dis_max"]["queries"].append(q)
         try:
             shop = Shop.objects.get(id=shop_id,status=True)
         except ObjectDoesNotExist:
@@ -273,6 +276,7 @@ class GramGRNProductsList(APIView):
                         SP mapped data shown
                     '''
                     body = {"from" : offset, "size" : page_size, "query":query}
+                    logger.exception(query)
                     products_list = es_search(index=parent_mapping.parent.id, body=body)
                     cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
                     if cart:
@@ -865,26 +869,19 @@ class DownloadInvoiceSP(APIView):
             cart_product_map = order_obj.order.ordered_cart.rt_cart_list.filter(cart_product=m.product).last()
             product_price = cart_product_map.get_cart_product_price(order_obj.order.ordered_cart.seller_shop)
 
-            product_pro_price_ptr = round(product_price.price_to_retailer,2)
+            product_pro_price_ptr = product_price.price_to_retailer
             product_pro_price_mrp = round(product_price.mrp,2)
 
             no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
             cart_qty = m.product.rt_cart_product_mapping.last().qty
-            # tax_sum = m.product.rt_cart_product_mapping.last().tax
-            # tax_sum = round(tax_sum, 2)
-            # get_tax_val = tax_sum / 100
 
-            all_tax_list = m.product.product_pro_tax
-            if all_tax_list.exists():
-                for tax_dt in all_tax_list.all():
-                    tax_sum = float(tax_sum) + float(tax_dt.tax.tax_percentage)
-
-                tax_sum = round(tax_sum, 2)
-                get_tax_val = tax_sum / 100
-                basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
-                base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
-                product_tax_amount = float(base_price) * float(get_tax_val)
-                product_tax_amount = round(product_tax_amount, 2)
+            # new code for tax start
+            tax_sum = m.get_product_tax_json()
+            
+            get_tax_val = tax_sum / 100
+            basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
+            base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
+            product_tax_amount = float(base_price) * float(get_tax_val)
 
             ordered_prodcut = {
                 "product_sku": m.product.product_gf_code,
@@ -899,7 +896,7 @@ class DownloadInvoiceSP(APIView):
                 "basic_amount": float(m.shipped_qty) * float(basic_rate),
                 "price_to_retailer": product_pro_price_ptr,
                 "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr),
-                "product_tax_amount": product_tax_amount,
+                "product_tax_amount": round(product_tax_amount, 2),
 
             }
             total_tax_sum = total_tax_sum + product_tax_amount
@@ -941,7 +938,7 @@ class DownloadInvoiceSP(APIView):
                 "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram,
                 "payment_type":payment_type,"total_amount_int":total_amount_int,"product_listing":product_listing,
                 "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
-                "address_contact_number":address_contact_number,"sum_amount_tax":total_tax_sum}
+                "address_contact_number":address_contact_number,"sum_amount_tax":round(total_tax_sum, 2)}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
