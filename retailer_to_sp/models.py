@@ -704,12 +704,14 @@ class OrderedProduct(models.Model): #Shipment
                 picker.picking_status="picking_complete"
                 picker.save()
                 # if more shipment required
-                pincode = self.order.shipping_address.pincode
-
+                try:
+                    pincode = self.order.shipping_address.pincode
+                except:
+                    pincode = "00"
                 PickerDashboard.objects.create(
                     order=self.order,
                     picking_status="picking_pending",
-                    picklist_id= generate_picklist_id(pincode) #get_random_string(12).lower(),
+                    picklist_id= get_random_string(12).lower(),#generate_picklist_id(pincode) #
                     )
 
                 #Update Product Tax Mapping Start
@@ -1276,10 +1278,12 @@ def assign_picklist(sender, instance=None, created=False, **kwargs):
     #assign shipment to picklist once SHIPMENT_CREATED
     if created:
         # assign piclist to order
-        pincode = instance.shipping_address.pincode
-
+        try:
+            pincode = instance.shipping_address.pincode
+        except:
+            pincode = "00"
         PickerDashboard.objects.create(
             order=instance,
             picking_status="picking_pending",
-            picklist_id= generate_picklist_id(pincode), #get_random_string(12).lower(), #generate random string of 12 digits
+            picklist_id= get_random_string(12).lower(), #generate_picklist_id(pincode), ##generate random string of 12 digits
             )
