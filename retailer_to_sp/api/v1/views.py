@@ -850,7 +850,7 @@ class DownloadInvoiceSP(APIView):
             # old code for tax start
 
             # new code for tax start
-            tax_sum = m.product_tax_json.get('tax_sum')
+            tax_sum = m.get_product_tax_json()
             
             get_tax_val = tax_sum / 100
             basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)

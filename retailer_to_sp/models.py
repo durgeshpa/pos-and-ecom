@@ -668,13 +668,11 @@ class OrderedProduct(models.Model): #Shipment
                                                         ).last().pk)
                 #Update Product Tax Mapping Start
                 for shipment in self.rt_order_product_order_product_mapping.all():
-                    print("start")
                     product_tax_query = shipment.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
                                                                                 'tax__tax_percentage')
                     product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
                     product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
                     shipment.product_tax_json = product_tax
-                    print(product_tax)
                     shipment.save()
                 # Update Product Tax Mapping End
         super().save(*args, **kwargs)
@@ -775,6 +773,21 @@ class OrderedProductMapping(models.Model):
 
     def get_products_gst_cess(self):
         return self.product.product_pro_tax.filter(tax__tax_type='cess')
+
+    def set_product_tax_json(self):
+        product_tax_query = self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
+                                                                    'tax__tax_percentage')
+        product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
+        product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
+        self.product_tax_json = product_tax
+        super(self).save()
+
+
+    def get_product_tax_json(self):
+        if not self.product_tax_json:
+            self.set_product_tax_json()
+        return self.product_tax_json.get('tax_sum')
+
 
 class Dispatch(OrderedProduct):
     class Meta:
