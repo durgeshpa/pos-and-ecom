@@ -10,4 +10,4 @@ def save_profile(sender, instance, **kwargs):
 
 @receiver(post_save, sender=ProductPrice)
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
-    update_shop_product_es.delay(instance.shop.id, instance.product.id, available=instance.price_to_retailer)
+    update_shop_product_es.delay(instance.shop.id, instance.product.id, ptr=instance.price_to_retailer, mrp=round(instance.mrp,2))
