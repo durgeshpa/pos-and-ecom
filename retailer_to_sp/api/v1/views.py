@@ -868,8 +868,8 @@ class DownloadInvoiceSP(APIView):
                 "product_no_of_pices": int(m.shipped_qty),
                 "basic_rate": basic_rate,
                 "basic_amount": float(m.shipped_qty) * float(basic_rate),
-                "price_to_retailer": round(product_pro_price_ptr,2),
-                "product_sub_total": round(float(m.shipped_qty) * float(round(product_pro_price_ptr,2)),2),
+                "price_to_retailer": product_pro_price_ptr,
+                "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr),
                 "product_tax_amount": round(product_tax_amount, 2),
 
             }
