@@ -225,7 +225,7 @@ class GramGRNProductsList(APIView):
         '''1st Step
             Check If Shop Is exists then 2nd pt else 3rd Pt
         '''
-        query = self.search_query()
+        query = self.search_query(request)
 
         try:
             shop = Shop.objects.get(id=shop_id,status=True)
