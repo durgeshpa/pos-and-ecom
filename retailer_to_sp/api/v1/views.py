@@ -183,7 +183,7 @@ class GramGRNProductsList(APIView):
 
     def search_query(self, request):
         if self.product_ids:
-            return {"ids":{"type":"product", "values":product_ids}}
+            return {"ids":{"type":"product", "values":self.product_ids}}
         if self.category or self.brand or self.keyword:
             query = {"dis_max":{"queries":[]}}
         else:
@@ -191,16 +191,16 @@ class GramGRNProductsList(APIView):
         if self.keyword:
             q = {
             "match":{
-                "name":{"query":keyword, "fuzziness":"AUTO", "operator":"and"}
+                "name":{"query":self.keyword, "fuzziness":"AUTO", "operator":"and"}
                 }
             }
         #else:
         #    q = {"match_all":{}}
             query["dis_max"]["queries"].append(q)
         if self.brand:
-            query["dis_max"]["queries"].append({"term": {"brand":str(Brand.objects.filter(id__in=list(brand)).last())}})
+            query["dis_max"]["queries"].append({"term": {"brand":str(Brand.objects.filter(id__in=list(self.brand)).last())}})
         if self.category:
-            category_filter = str(categorymodel.Category.objects.filter(id__in=category, status=True).last())
+            category_filter = str(categorymodel.Category.objects.filter(id__in=self.category, status=True).last())
             q = {
                 "match" :{
                     "category":{"query":category_filter,"operator":"and"}
