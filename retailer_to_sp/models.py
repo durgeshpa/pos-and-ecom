@@ -704,7 +704,7 @@ class OrderedProduct(models.Model): #Shipment
                 picker.picking_status="picking_complete"
                 picker.save()
                 # if more shipment required
-                pincode = self.order.buyer_shop.shop_name_address_mapping.all()[0].pincode
+                pincode = self.order.shipping_address.pincode
 
                 PickerDashboard.objects.create(
                     order=self.order,
@@ -1276,7 +1276,8 @@ def assign_picklist(sender, instance=None, created=False, **kwargs):
     #assign shipment to picklist once SHIPMENT_CREATED
     if created:
         # assign piclist to order
-        pincode = instance.buyer_shop.shop_name_address_mapping.all()[0].pincode
+        pincode = instance.shipping_address.pincode
+
         PickerDashboard.objects.create(
             order=instance,
             picking_status="picking_pending",
