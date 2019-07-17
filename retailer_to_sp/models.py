@@ -80,6 +80,19 @@ TRIP_STATUS = (
 )
 
 
+def generate_picklist_id(pincode):
+    if PickerDashboard.objects.exists():
+        last_picking = PickerDashboard.objects.last()
+        picklist_id = last_picking.picklist_id
+
+        new_picklist_id = "PIK/" + str(pincode)[-2:] +"/" +str(int(picklist_id.split('/')[2])+1)
+
+    else:
+        new_picklist_id = "PIK/" + str(pincode)[-2:] +"/" +str(1)        
+
+    return new_picklist_id
+
+
 class Cart(models.Model):
     ACTIVE = "active"
     PENDING = "pending"
@@ -690,12 +703,13 @@ class OrderedProduct(models.Model): #Shipment
                 picker = PickerDashboard.objects.get(shipment_id=self.id)
                 picker.picking_status="picking_complete"
                 picker.save()
-            
                 # if more shipment required
+                pincode = self.order.buyer_shop.shop_name_address_mapping.all()[0].pincode
+
                 PickerDashboard.objects.create(
                     order=self.order,
                     picking_status="picking_pending",
-                    picklist_id= get_random_string(12).lower(), #generate random string of 12 digits
+                    picklist_id= generate_picklist_id(pincode) #get_random_string(12).lower(),
                     )
 
         super().save(*args, **kwargs)
@@ -1231,7 +1245,6 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
     #         )
 
 
-
 @receiver(post_save, sender=Order)
 def assign_picklist(sender, instance=None, created=False, **kwargs):
     '''
@@ -1240,8 +1253,9 @@ def assign_picklist(sender, instance=None, created=False, **kwargs):
     #assign shipment to picklist once SHIPMENT_CREATED
     if created:
         # assign piclist to order
+        pincode = self.order.buyer_shop.shop_name_address_mapping.all()[0].pincode
         PickerDashboard.objects.create(
             order=instance,
             picking_status="picking_pending",
-            picklist_id= get_random_string(12).lower(), #generate random string of 12 digits
+            picklist_id= generate_picklist_id(pincode), #get_random_string(12).lower(), #generate random string of 12 digits
             )

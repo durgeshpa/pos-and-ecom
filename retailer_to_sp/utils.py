@@ -135,14 +135,14 @@ def picking_statuses(picker_dashboards):
 def picker_boys(picker_dashboards):
     return format_html_join(
     "","{}<br><br>",
-            ((s.get_picker_boy_display(),
+            ((s.picker_boy, #get_picker_boy_display(),
             ) for s in picker_dashboards)
     )  
     
 def picklist_ids(picker_dashboards):
     return format_html_join(
     "","{}<br><br>",
-            ((s.get_picklist_id_display(),
+            ((s.picklist_id, #get_picklist_id_display(),
             ) for s in picker_dashboards)
     )        
 
