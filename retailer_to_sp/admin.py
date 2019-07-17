@@ -537,7 +537,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     model = PickerDashboard
     raw_id_fields = ['order', 'shipment']
 
-    #form = EditAssignPickerForm
+    form = EditAssignPickerForm
     # list_display = (
     #     'id', 'picklist_id', 'picker_boy', 'order_date', 'download_pick_list'
     #     )

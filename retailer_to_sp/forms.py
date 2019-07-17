@@ -287,7 +287,7 @@ class EditAssignPickerForm(forms.ModelForm):
 
     class Meta:
         model = PickerDashboard
-        fields = ['picker_boy', 'picking_status', 'picklist_id']
+        fields = ['order', 'shipment', 'picking_status', 'picklist_id', 'picker_boy']
 
     class Media:
         js = ('admin/js/select2.min.js', )
@@ -299,14 +299,15 @@ class EditAssignPickerForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(EditAssignPickerForm, self).__init__(*args, **kwargs)
-
+        #import pdb; pdb.set_trace()
         instance = getattr(self, 'instance', None)
         # assign shop name as readonly with value for shop name for user
-        #shop = Shop.objects.get(related_users=user)      
-        shop = Shop.objects.get(shop_name="TEST SP 1") 
+        shop = instance.order.seller_shop#Shop.objects.get(related_users=user)      
+        #shop = Shop.objects.get(shop_name="TEST SP 1") 
         # find all picker for the shop
         self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
-
+        if instance.picking_status == "picking_pending":
+            self.fields['picker_boy'].required = False
 
 
 # tbd: test for warehouse manager, superuser, other users
