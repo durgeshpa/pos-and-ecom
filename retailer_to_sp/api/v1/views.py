@@ -180,11 +180,40 @@ class ProductsList(generics.ListCreateAPIView):
 class GramGRNProductsList(APIView):
     permission_classes = (AllowAny,)
     serializer_class = GramGRNProductsSearchSerializer
+
+    def search_query(self, request):
+        if self.product_ids:
+            return {"ids":{"type":"product", "values":product_ids}}
+        if self.category or self.brand or self.keyword:
+            query = {"dis_max":{"queries":[]}}
+        else:
+            return {"match_all":{}}
+        if self.keyword:
+            q = {
+            "match":{
+                "name":{"query":keyword, "fuzziness":"AUTO", "operator":"and"}
+                }
+            }
+        #else:
+        #    q = {"match_all":{}}
+            query["dis_max"]["queries"].append(q)
+        if self.brand:
+            query["dis_max"]["queries"].append({"term": {"brand":str(Brand.objects.filter(id__in=list(brand)).last())}})
+        if self.category:
+            category_filter = str(categorymodel.Category.objects.filter(id__in=category, status=True).last())
+            q = {
+                "match" :{
+                    "category":{"query":category_filter,"operator":"and"}
+                }
+            }
+            query["dis_max"]["queries"].append(q)
+        return query
+
     def post(self, request, format=None):
-        product_ids = request.data.get('product_ids')
-        brand = request.data.get('brands')
-        category = request.data.get('categories')
-        keyword = request.data.get('product_name', None)
+        self.product_ids = request.data.get('product_ids')
+        self.brand = request.data.get('brands')
+        self.category = request.data.get('categories')
+        self.keyword = request.data.get('product_name', None)
         shop_id = request.data.get('shop_id')
         offset = int(request.data.get('offset',0))
         page_size = int(request.data.get('pro_count',20))
@@ -196,29 +225,8 @@ class GramGRNProductsList(APIView):
         '''1st Step
             Check If Shop Is exists then 2nd pt else 3rd Pt
         '''
-        query = {"dis_max":{"queries":[]}}
-        if product_ids:
-            query = {"ids":{"type":"product", "values":product_ids}}
-        else:
-            if keyword:
-                q = {
-                "match":{
-                    "name":{"query":keyword, "fuzziness":"AUTO", "operator":"and"}
-                    }
-                }
-            #else:
-            #    q = {"match_all":{}}
-                query["dis_max"]["queries"].append(q)
-            if brand:
-                query["dis_max"]["queries"].append({"term": {"brand":str(Brand.objects.filter(id__in=list(brand)).last())}})
-            if category:
-                category_filter = str(categorymodel.Category.objects.filter(id__in=category, status=True).last())
-                q = {
-                    "match" :{
-                        "category":{"query":category_filter,"operator":"and"}
-                    }
-                }
-                query["dis_max"]["queries"].append(q)
+        query = self.search_query()
+
         try:
             shop = Shop.objects.get(id=shop_id,status=True)
         except ObjectDoesNotExist:
