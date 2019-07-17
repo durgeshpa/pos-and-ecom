@@ -780,7 +780,7 @@ class OrderedProductMapping(models.Model):
         product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
         product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
         self.product_tax_json = product_tax
-        super(self).save()
+        self.save()
 
 
     def get_product_tax_json(self):
