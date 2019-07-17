@@ -270,7 +270,7 @@ class GramGRNProductsList(APIView):
                     if c_p.cart_product_id == p["_source"]["id"]:
                         user_selected_qty = c_p.qty
                         no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
-                        p["user_selected_qty"] = user_selected_qty
+                        p["_source"]["user_selected_qty"] = user_selected_qty
                         p["_source"]["no_of_pieces"] = no_of_pieces
                         p["_source"]["sub_total"] = float(no_of_pieces) * float(ptr)
             p_list.append(p["_source"])
