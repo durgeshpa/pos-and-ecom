@@ -1253,7 +1253,7 @@ def assign_picklist(sender, instance=None, created=False, **kwargs):
     #assign shipment to picklist once SHIPMENT_CREATED
     if created:
         # assign piclist to order
-        pincode = self.order.buyer_shop.shop_name_address_mapping.all()[0].pincode
+        pincode = instance.order.buyer_shop.shop_name_address_mapping.all()[0].pincode
         PickerDashboard.objects.create(
             order=instance,
             picking_status="picking_pending",
