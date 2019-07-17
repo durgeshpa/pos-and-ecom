@@ -20,7 +20,8 @@ from retailer_backend.common_function import (
 )
 from .utils import (order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util,
                     order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
-                    order_damaged_amount, order_delivered_value, order_shipment_status_reason)
+                    order_damaged_amount, order_delivered_value, order_shipment_status_reason,
+                    picking_statuses, picker_boys, picklist_ids)
 from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
@@ -338,6 +339,24 @@ class Order(models.Model):
             return self.shipment_objects
         self.shipment_objects = self.rt_order_order_product.select_related('trip').all()
         return self.shipment_objects
+
+    def picker_dashboards(self):
+        if hasattr(self, 'picker_dashboard_objects'):
+            return self.picker_dashboard_objects
+        self.picker_dashboard_objects = self.picker_order.all()
+        return self.picker_dashboard_objects    
+
+    @property
+    def picking_status(self):
+        return picking_statuses(self.picker_dashboards())
+
+    @property
+    def picker_boy(self):
+        return picker_boys(self.picker_dashboards())
+
+    @property
+    def picklist_id(self):
+        return picklist_ids(self.picker_dashboards())    
 
     @property
     def invoice_no(self):

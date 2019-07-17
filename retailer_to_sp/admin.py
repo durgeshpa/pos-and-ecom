@@ -644,7 +644,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                     'pincode','total_final_amount', 'order_status', 'created_at',
                     'payment_mode', 'invoice_no', 'shipment_date', 'invoice_amount', 'shipment_status',
                     'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
-                    #'damaged_amount',
+                    #'picking_status',# 'picklist_id',#'damaged_amount',
                     )
 
     readonly_fields = ('payment_mode', 'paid_amount', 'total_paid_amount',
