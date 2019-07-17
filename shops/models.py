@@ -221,3 +221,22 @@ class ShopAdjustmentFile(models.Model):
     created_by = models.ForeignKey(get_user_model(),null=True,blank=True, related_name='stock_adjust_by',on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+
+class ShopRequestBrand(models.Model):
+    shop = models.ForeignKey(Shop, related_name='shop_request_brand',
+        on_delete=models.CASCADE)
+    brand_name = models.CharField(max_length=100, blank=True, null=True)
+    product_sku = models.CharField(max_length=100, blank=True, null=True)
+    request_count = models.IntegerField(default = 0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        # if self.brand_name:
+        #     return "%s - %s"%(self.shop.shop_name,self.brand_name)
+        # else:
+        return "%s - %s"%(self.shop.shop_name,self.id)
+
+    def __init__(self, *args, **kwargs):
+        super(ShopRequestBrand, self).__init__(*args, **kwargs)

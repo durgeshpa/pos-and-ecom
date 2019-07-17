@@ -3,7 +3,7 @@ import csv
 from django.contrib import admin
 from .models import (
     Shop, ShopType, RetailerType, ParentRetailerMapping,
-    ShopPhoto, ShopDocument, ShopInvoicePattern
+    ShopPhoto, ShopDocument, ShopInvoicePattern, ShopRequestBrand
 )
 from addresses.models import Address
 from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
@@ -245,7 +245,42 @@ class ParentRetailerMappingAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+class ShopFilter(AutocompleteFilter):
+    title = 'Shop' # display title
+    field_name = 'shop' # name of the foreign key field
+
+
+class BrandNameFilter(InputFilter):
+    title = 'Brand Name' # display title
+    parameter_name = 'brand_name' # name of the foreign key field
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            brand_name = self.value()
+            return queryset.filter(brand_name__icontains=brand_name)
+
+
+class ProductSKUFilter(InputFilter):
+    title = 'Product SKU' # display title
+    parameter_name = 'product_sku' # name of the foreign key field
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            product_sku = self.value()
+            return queryset.filter(product_sku__icontains=product_sku)
+
+class ShopRequestBrandAdmin(admin.ModelAdmin):
+    #change_list_template = 'admin/shops/shop/change_list.html'
+    #form = ShopRequestBrandForm
+    list_display = ('shop', 'brand_name', 'product_sku', 'request_count','created_at',)
+    list_filter = (ShopFilter, ProductSKUFilter, BrandNameFilter, ('created_at', DateTimeRangeFilter))
+    raw_id_fields = ('shop',)
+
+    class Media:
+        pass
+
 admin.site.register(ParentRetailerMapping,ParentRetailerMappingAdmin)
 admin.site.register(ShopType)
 admin.site.register(RetailerType)
 admin.site.register(Shop,ShopAdmin)
+admin.site.register(ShopRequestBrand,ShopRequestBrandAdmin)

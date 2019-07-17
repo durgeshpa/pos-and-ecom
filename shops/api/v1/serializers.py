@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument)
+from shops.models import (RetailerType, ShopType, Shop, 
+    ShopPhoto, ShopDocument, ShopRequestBrand)
 from django.contrib.auth import get_user_model
 from rest_framework import validators
 
@@ -66,3 +67,8 @@ class ShopDocumentSerializer(serializers.ModelSerializer):
         response = super().to_representation(instance)
         response['shop_name'] = ShopSerializer(instance.shop_name).data
         return response
+
+class ShopRequestBrandSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ShopRequestBrand
+        fields = '__all__'
