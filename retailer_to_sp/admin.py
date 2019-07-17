@@ -786,7 +786,7 @@ class ShipmentAdmin(admin.ModelAdmin):
 
     def invoice(self,obj):
         return obj.invoice_no if obj.invoice_no else format_html(
-            "<a href='/admin/retailer_to_sp/shipment/%s/change/' style='background: #79aec8;text-decoration: none;color: #fff;padding: 0px 5px;'>Start QC</a>" %(obj.id))
+            "<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Start QC</a>" %(obj.id))
     invoice.short_description = 'Invoice No'
 
 
