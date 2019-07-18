@@ -297,6 +297,19 @@ class EditAssignPickerForm(forms.ModelForm):
             )
         }
 
+    def get_my_choices(self):
+        # you place some logic here
+        picking_status = self.instance.picking_status
+        if picking_status == "picking_pending":
+            choices_list = ["picking_assigned"]
+        elif picking_status == "picking_assigned":
+            choices_list = ["picking_in_progress"]
+        elif picking_status == "picking_in_progress":
+            choices_list = ["picking_complete"]
+        else:
+            choices_list = []
+        return choices_list
+
     def __init__(self, *args, **kwargs):
         super(EditAssignPickerForm, self).__init__(*args, **kwargs)
         #import pdb; pdb.set_trace()
@@ -307,6 +320,10 @@ class EditAssignPickerForm(forms.ModelForm):
         self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
         if instance.picking_status == "picking_pending":
             self.fields['picker_boy'].required = False
+        else:
+            self.fields['picker_boy'].required = True
+        # self.fields['picking_status'] = forms.ChoiceField(
+        #     choices=self.get_my_choices() )
 
 
 # tbd: test for warehouse manager, superuser, other users
