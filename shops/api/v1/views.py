@@ -305,6 +305,7 @@ class SellerShopOrder(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
         data = []
+        data_total = []
         today = datetime.now()
         last_day = today - timedelta(days=days_diff)
         employee_list = ShopUserMapping.objects.filter(manager=self.request.user).values('employee')
@@ -317,7 +318,7 @@ class SellerShopOrder(generics.ListAPIView):
                                      output_field=FloatField()))\
             .order_by('buyer_shop')
         order_map = {i['buyer_shop']: (i['buyer_shop_count'], i['no_of_ordered_sku'], i['no_of_ordered_sku_pieces'],i['ordered_amount']) for i in order_obj}
-
+        no_of_order_total, no_of_ordered_sku_total, no_of_ordered_sku_pieces_total, ordered_amount_total = 0, 0, 0, 0
         for shop in shop_list:
             rt = {
                 'name': shop['shop_name'],
@@ -325,11 +326,26 @@ class SellerShopOrder(generics.ListAPIView):
                 'no_of_ordered_sku': order_map[shop['id']][1] if order_map else 0,
                 'no_of_ordered_sku_pieces': order_map[shop['id']][2] if order_map else 0,
                 'ordered_amount': round(order_map[shop['id']][3],2) if order_map else 0,
-                'calls_made': '',
+                'calls_made': 0,
+                'delivered_amount': 0,
             }
             data.append(rt)
 
-        msg = {'is_success': True, 'message': [""],'response_data': data}
+            no_of_order_total += order_map[shop['id']][0] if order_map else 0
+            no_of_ordered_sku_total += order_map[shop['id']][1] if order_map else 0
+            no_of_ordered_sku_pieces_total += order_map[shop['id']][2] if order_map else 0
+            ordered_amount_total += round(order_map[shop['id']][3], 2) if order_map else 0
+
+        dt = {
+            'no_of_order': no_of_order_total,
+            'no_of_ordered_sku': no_of_ordered_sku_total,
+            'no_of_ordered_sku_pieces': no_of_ordered_sku_pieces_total,
+            'ordered_amount': ordered_amount_total,
+            'calls_made': 0,
+            'delivered_amount': 0,
+        }
+        data_total.append(dt)
+        msg = {'is_success': True, 'message': [""],'response_data': data, 'response_data_total':data_total}
         return Response(msg,status=status.HTTP_200_OK)
 
 class SellerShopProfile(generics.ListAPIView):
