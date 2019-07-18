@@ -320,15 +320,21 @@ class OrderedProductReserved(models.Model):
     RESERVED = "reserved"
     ORDERED = "ordered"
     FREE = "free"
+    ORDER_CANCELLED = 'order_cancelled'
     RESERVE_STATUS = (
         (RESERVED, "Reserved"),
         (ORDERED, "Ordered"),
         (FREE, "Free"),
+        (ORDER_CANCELLED, 'Order Cancelled')
     )
-    order_product_reserved = models.ForeignKey(OrderedProductMapping, related_name='sp_order_product_order_product_reserved',null=True, blank=True, on_delete=models.CASCADE)
+    order_product_reserved = models.ForeignKey(
+        OrderedProductMapping,
+        related_name='sp_order_product_order_product_reserved', null=True,
+        blank=True, on_delete=models.CASCADE, verbose_name='GRN Product')
     product = models.ForeignKey(Product, related_name='sp_product_order_product_reserved', null=True, blank=True,on_delete=models.CASCADE)
     cart = models.ForeignKey(RetailerCart, related_name='sp_ordered_retailer_cart',null=True,blank=True,on_delete=models.CASCADE)
     reserved_qty = models.PositiveIntegerField(default=0)
+    shipped_qty = models.PositiveIntegerField(default=0)
     order_reserve_end_time = models.DateTimeField(null=True,blank=True,editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
