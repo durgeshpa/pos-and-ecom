@@ -67,7 +67,7 @@ from retailer_to_sp.tasks import (
     ordered_product_available_qty_update, release_blocking, create_reserved_order
 )
 from .filters import OrderedProductMappingFilter, OrderedProductFilter
-from sp_to_gram.tasks import es_search
+
 from common.data_wrapper_view import DataWrapperViewSet
 
 from django.contrib.auth import get_user_model

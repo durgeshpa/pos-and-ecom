@@ -59,15 +59,3 @@ pipelines:
             - zip -r /tmp/artifact.zip appspec.yml scripts/*
             - python codedeploy_deploy.py
 
-    qa2:
-      - step:
-          name: Deploy
-          image: python:3.6.8-stretch
-          deployment: qa2
-          script:
-            - echo "This script runs only on commit to the staging branch."
-            - apt-get update
-            - apt-get install -y zip
-            - pip install boto3==1.3.0
-            - zip -r /tmp/artifact.zip appspec.yml scripts/*
-            - python codedeploy_deploy.py
