@@ -23,6 +23,7 @@ from gram_to_brand.models import GRNOrderProductMapping
 from addresses.api.v1.serializers import AddressSerializer
 from brand.api.v1.serializers import BrandSerializer
 from django.core.validators import RegexValidator
+from shops.models import Shop
 
 from django.contrib.auth import get_user_model
 
@@ -700,3 +701,10 @@ class FeedBackSerializer(serializers.ModelSerializer):
         model = Feedback
         fields = ('user', 'shipment', 'delivery_experience', 'overall_product_packaging', 'comment', 'status')
         extra_kwargs = {'status': {'required': True}, 'user':{'required':False}}
+
+class RetailerShopSerializer(serializers.ModelSerializer):
+    shop_owner = UserSerializer()
+    shipping_address = AddressSerializer()
+    class Meta:
+        model = Shop
+        fields = ('shop_name', 'shipping_address', 'shop_owner', 'shop_type', 'related_users', 'status')

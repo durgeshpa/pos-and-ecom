@@ -33,7 +33,7 @@ from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializ
     PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
     GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,
     OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
-    OrderListSerializer, ReadOrderedProductSerializer,
+    OrderListSerializer, ReadOrderedProductSerializer, RetailerShopSerializer,
 )
 
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
@@ -1305,3 +1305,22 @@ class FeedbackData(generics.ListCreateAPIView):
         serializer = self.get_serializer(queryset, many=True)
         msg = {'is_success': True, 'message': [""], 'response_data': serializer.data}
         return Response(msg, status=status.HTTP_200_OK)
+
+class RetailerShopsList(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request, *args, **kwargs):
+        mobile_number = self.request.GET.get('mobile_number')
+        User = get_user_model()
+        shop_owner = User.objects.get(phone_number = mobile_number)
+        sales_person_sp = Shop.objects.filter(related_users = self.request.user)
+        shops = Shop.objects.filter(shop_owner = shop_owner, shop_type = 1)
+        shops_list =[]
+        for shop in shops:
+            for parent in shop.retiler_mapping.all():
+                if (parent.parent in sales_person_sp):
+                    shops_list.append(shop)
+        shops_serializer = RetailerShopSerializer(shops_list, many=True)
+        is_success = True if shops_list else False
+        return Response({"message":[""], "response_data": shops_serializer.data ,"is_success": is_success})

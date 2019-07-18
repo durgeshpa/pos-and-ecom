@@ -6,7 +6,7 @@ from rest_framework import routers
 from .views import (ProductsList, GramGRNProductsList,AddToCart,CartDetail,
     ReservedOrder,CreateOrder,OrderList,OrderDetail,DownloadInvoiceSP,
     DownloadNote, CustomerCareApi, CustomerOrdersList,  PaymentApi,
-    ProductDetail,ReleaseBlocking, OrderedProductViewSet, OrderedProductMappingView,
+    ProductDetail,ReleaseBlocking, OrderedProductViewSet, OrderedProductMappingView, RetailerShopsList
 )
 
 router = routers.DefaultRouter()
@@ -31,6 +31,7 @@ urlpatterns = [
     url('^product_detail/(?P<pk>\d+)/$', ProductDetail.as_view(), name='product_detail'),
     url('^feedback/$', FeedbackData.as_view(), name='feed_back'),
     url('^feedback/(?P<ship_id>\d+)/list/$', FeedbackData.as_view(), name='feed_back_list'),
+    url('^retailer-shops/$', RetailerShopsList.as_view(), name='retailer_shops'),
 ]
 
 urlpatterns += router.urls
