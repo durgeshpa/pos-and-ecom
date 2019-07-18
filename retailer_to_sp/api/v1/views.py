@@ -73,6 +73,7 @@ from common.data_wrapper_view import DataWrapperViewSet
 from django.contrib.auth import get_user_model
 from django.utils.translation import ugettext_lazy as _
 from common.data_wrapper import format_serializer_errors
+from sp_to_gram.tasks import es_search
 
 User = get_user_model()
 
