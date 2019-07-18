@@ -234,8 +234,8 @@ class ProductPrice(models.Model):
             raise ValidationError(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
 
     def save(self, *args, **kwargs):
-        if self.approval_status == APPROVED:
-            ProductPrice.objects.filter(product=self.product,shop=self.shop,status=True).update(status=False)
+        if self.approval_status == self.APPROVED:
+            ProductPrice.objects.filter(product=self.product, shop=self.shop, status=True).update(status=False)
         self.status = True
         super().save(*args, **kwargs)
 
