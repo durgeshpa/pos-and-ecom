@@ -10,7 +10,8 @@ class OrderedProductMappingFilter(django_filters.FilterSet):
     '''
     class Meta:
         model = OrderedProductMapping
-        fields = '__all__'    
+        fields = ('ordered_product','product','shipped_qty','delivered_qty','returned_qty','damaged_qty',
+                  'last_modified_by','created_at','modified_at')
 
 
 class OrderedProductFilter(django_filters.FilterSet):

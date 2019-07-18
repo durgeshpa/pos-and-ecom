@@ -11,10 +11,14 @@ from django.contrib.postgres.search import SearchVector
 from django_filters import rest_framework as filters
 
 from rest_framework import generics
-from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,
-                          OrderSerializer, CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
-
-                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer, OrderListSerializer, FeedBackSerializer )
+from .serializers import (
+    ProductsSearchSerializer, GramGRNProductsSearchSerializer,
+    CartProductMappingSerializer, CartSerializer, OrderSerializer,
+    CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,
+    PaymentNeftSerializer, GramPaymentCodSerializer,
+    GramPaymentNeftSerializer, GramMappedCartSerializer,
+    GramMappedOrderSerializer, ProductDetailSerializer, OrderDetailSerializer,
+    OrderListSerializer, FeedBackSerializer, CancelOrderSerializer)
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
 from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
                                 OrderedProduct as SPOrderedProduct, StockAdjustment)
@@ -25,6 +29,7 @@ from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
+from rest_framework import serializers
 from rest_framework import generics, viewsets
 
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,
@@ -66,6 +71,9 @@ from sp_to_gram.tasks import es_search
 from common.data_wrapper_view import DataWrapperViewSet
 
 from django.contrib.auth import get_user_model
+from django.utils.translation import ugettext_lazy as _
+from common.data_wrapper import format_serializer_errors
+
 User = get_user_model()
 
 logger = logging.getLogger(__name__)
@@ -180,11 +188,40 @@ class ProductsList(generics.ListCreateAPIView):
 class GramGRNProductsList(APIView):
     permission_classes = (AllowAny,)
     serializer_class = GramGRNProductsSearchSerializer
+
+    def search_query(self, request):
+        if self.product_ids:
+            return {"ids":{"type":"product", "values":self.product_ids}}
+        if self.category or self.brand or self.keyword:
+            query = {"dis_max":{"queries":[]}}
+        else:
+            return {"match_all":{}}
+        if self.keyword:
+            q = {
+            "match":{
+                "name":{"query":self.keyword, "fuzziness":"AUTO", "operator":"and"}
+                }
+            }
+        #else:
+        #    q = {"match_all":{}}
+            query["dis_max"]["queries"].append(q)
+        if self.brand:
+            query["dis_max"]["queries"].append({"term": {"brand":str(Brand.objects.filter(id__in=list(self.brand)).last())}})
+        if self.category:
+            category_filter = str(categorymodel.Category.objects.filter(id__in=self.category, status=True).last())
+            q = {
+                "match" :{
+                    "category":{"query":category_filter,"operator":"and"}
+                }
+            }
+            query["dis_max"]["queries"].append(q)
+        return query
+
     def post(self, request, format=None):
-        product_ids = request.data.get('product_ids')
-        brand = request.data.get('brands')
-        category = request.data.get('categories')
-        keyword = request.data.get('product_name', None)
+        self.product_ids = request.data.get('product_ids')
+        self.brand = request.data.get('brands')
+        self.category = request.data.get('categories')
+        self.keyword = request.data.get('product_name', None)
         shop_id = request.data.get('shop_id')
         offset = int(request.data.get('offset',0))
         page_size = int(request.data.get('pro_count',20))
@@ -196,29 +233,8 @@ class GramGRNProductsList(APIView):
         '''1st Step
             Check If Shop Is exists then 2nd pt else 3rd Pt
         '''
-        query = {"dis_max":{"queries":[]}}
-        if product_ids:
-            query = {"ids":{"type":"product", "values":product_ids}}
-        else:
-            if keyword:
-                q = {
-                "match":{
-                    "name":{"query":keyword, "fuzziness":"AUTO", "operator":"and"}
-                    }
-                }
-            #else:
-            #    q = {"match_all":{}}
-                query["dis_max"]["queries"].append(q)
-            if brand:
-                query["dis_max"]["queries"].append({"term": {"brand":str(Brand.objects.filter(id__in=list(brand)).last())}})
-            if category:
-                category_filter = str(categorymodel.Category.objects.filter(id__in=category, status=True).last())
-                q = {
-                    "match" :{
-                        "category":{"query":category_filter,"operator":"and"}
-                    }
-                }
-                query["dis_max"]["queries"].append(q)
+        query = self.search_query(request)
+
         try:
             shop = Shop.objects.get(id=shop_id,status=True)
         except ObjectDoesNotExist:
@@ -270,6 +286,7 @@ class GramGRNProductsList(APIView):
                     if c_p.cart_product_id == p["_source"]["id"]:
                         user_selected_qty = c_p.qty
                         no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
+                        p["_source"]["user_selected_qty"] = user_selected_qty
                         p["_source"]["no_of_pieces"] = no_of_pieces
                         p["_source"]["sub_total"] = float(no_of_pieces) * float(ptr)
             p_list.append(p["_source"])
@@ -836,26 +853,19 @@ class DownloadInvoiceSP(APIView):
             cart_product_map = order_obj.order.ordered_cart.rt_cart_list.filter(cart_product=m.product).last()
             product_price = cart_product_map.get_cart_product_price(order_obj.order.ordered_cart.seller_shop)
 
-            product_pro_price_ptr = round(product_price.price_to_retailer,2)
+            product_pro_price_ptr = product_price.price_to_retailer
             product_pro_price_mrp = round(product_price.mrp,2)
 
             no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
             cart_qty = m.product.rt_cart_product_mapping.last().qty
-            # tax_sum = m.product.rt_cart_product_mapping.last().tax
-            # tax_sum = round(tax_sum, 2)
-            # get_tax_val = tax_sum / 100
 
-            all_tax_list = m.product.product_pro_tax
-            if all_tax_list.exists():
-                for tax_dt in all_tax_list.all():
-                    tax_sum = float(tax_sum) + float(tax_dt.tax.tax_percentage)
-
-                tax_sum = round(tax_sum, 2)
-                get_tax_val = tax_sum / 100
-                basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
-                base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
-                product_tax_amount = float(base_price) * float(get_tax_val)
-                product_tax_amount = round(product_tax_amount, 2)
+            # new code for tax start
+            tax_sum = m.get_product_tax_json()
+            
+            get_tax_val = tax_sum / 100
+            basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
+            base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
+            product_tax_amount = float(base_price) * float(get_tax_val)
 
             ordered_prodcut = {
                 "product_sku": m.product.product_gf_code,
@@ -870,7 +880,7 @@ class DownloadInvoiceSP(APIView):
                 "basic_amount": float(m.shipped_qty) * float(basic_rate),
                 "price_to_retailer": product_pro_price_ptr,
                 "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr),
-                "product_tax_amount": product_tax_amount,
+                "product_tax_amount": round(product_tax_amount, 2),
 
             }
             total_tax_sum = total_tax_sum + product_tax_amount
@@ -912,7 +922,7 @@ class DownloadInvoiceSP(APIView):
                 "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram,
                 "payment_type":payment_type,"total_amount_int":total_amount_int,"product_listing":product_listing,
                 "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
-                "address_contact_number":address_contact_number,"sum_amount_tax":total_tax_sum}
+                "address_contact_number":address_contact_number,"sum_amount_tax":round(total_tax_sum, 2)}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
@@ -1165,3 +1175,29 @@ class FeedbackData(generics.ListCreateAPIView):
         serializer = self.get_serializer(queryset, many=True)
         msg = {'is_success': True, 'message': [""], 'response_data': serializer.data}
         return Response(msg, status=status.HTTP_200_OK)
+
+
+class CancelOrder(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def put(self, request, format=None):
+        try:
+            order = Order.objects.get(buyer_shop__shop_owner=request.user,
+                                      pk=request.data['order_id'])
+        except ObjectDoesNotExist:
+            msg = {'is_success': False,
+                   'message': ['Order is not associated with the current user'],
+                   'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+        serializer = CancelOrderSerializer(order, data=request.data,
+                                           context={'order': order})
+        if serializer.is_valid():
+            serializer.save()
+            msg = {'is_success': True,
+                    'message': ["Order Cancelled Successfully!"],
+                    'response_data': serializer.data}
+            return Response(msg, status=status.HTTP_200_OK)
+        else:
+            return format_serializer_errors(serializer.errors)

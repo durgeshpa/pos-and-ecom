@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.postgres',
     'rest_framework',
     'rest_framework.authtoken',
     'rest_auth',
@@ -290,9 +291,10 @@ DEBUG_TOOLBAR_PATCH_SETTINGS = False
 
 # Initiate Sentry SDK
 if ENVIRONMENT.lower() in ["production","staging", "qa", "qa1"]:
+    from sentry_sdk.integrations.celery import CeleryIntegration
     sentry_sdk.init(
         dsn="https://2f8d192414f94cd6a0ba5b26d6461684@sentry.io/1407300",
-        integrations=[DjangoIntegration()],
+        integrations=[DjangoIntegration(),CeleryIntegration()],
         environment=ENVIRONMENT.lower()
     )
 
@@ -301,9 +303,10 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = 20000
 REDIS_DB_CHOICE = {
     'production': '1',
     'staging': '2',
-    'qa': '3',
+    'qa': '7',
     'qa1': '3',
-    'local':'5'
+    'local':'5',
+    'qa3':'6'
 }
 
 # JET_THEMES = [
