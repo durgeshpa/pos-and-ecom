@@ -260,7 +260,6 @@ class GramGRNProductsList(APIView):
                         SP mapped data shown
                     '''
                     body = {"from" : offset, "size" : page_size, "query":query}
-                    logger.exception(query)
                     products_list = es_search(index=parent_mapping.parent.id, body=body)
                     cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
                     if cart:
