@@ -591,8 +591,11 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
-    # def has_delete_permission(self, request, obj=None):
-    #     return False
+    def has_delete_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        else:
+            return False
 
     # def has_module_permission(self, request):
     #     pass
@@ -631,7 +634,6 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     resource_class = OrderResource
     search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name','order_status')
     form = OrderForm
-    #list_per_page = 5
     fieldsets = (
         (_('Shop Details'), {
             'fields': ('seller_shop', 'buyer_shop',
@@ -909,7 +911,7 @@ class ShipmentAdmin(admin.ModelAdmin):
         'order__buyer_shop__shop_name', 'trip__dispatch_no',
         'trip__vehicle_no', 'trip__delivery_boy__phone_number']
     readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city']
-    list_per_page = 50
+    #list_per_page = 50
 
 
     def has_delete_permission(self, request, obj=None):

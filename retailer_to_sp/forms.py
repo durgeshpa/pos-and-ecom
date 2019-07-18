@@ -547,6 +547,7 @@ class ShipmentForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(ShipmentForm, self).__init__(*args, **kwargs)
         ordered_product = getattr(self, 'instance', None)
+
         SHIPMENT_STATUS = OrderedProduct.SHIPMENT_STATUS
         if ordered_product:
             shipment_status = ordered_product.shipment_status
@@ -564,6 +565,12 @@ class ShipmentForm(forms.ModelForm):
 
         else:
             self.fields['shipment_status'].choices = SHIPMENT_STATUS[:1]
+
+    def clean(self): 
+        if self.instance.picker_shipment.last().picking_status == "picking_pending": 
+            raise forms.ValidationError("Please set the picking status in picker dashboard")
+
+        return self.cleaned_data
 
 
 class ShipmentProductMappingForm(forms.ModelForm):
