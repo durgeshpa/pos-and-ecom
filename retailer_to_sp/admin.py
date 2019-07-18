@@ -411,7 +411,8 @@ class ExportCsvMixin:
         meta = self.model._meta
         list_display = ['order_no', 'seller_shop', 'buyer_shop', 'pincode', 'total_final_amount',
                         'order_status', 'created_at', 'payment_mode', 'paid_amount',
-                        'total_paid_amount', 'shipment_status', 'shipment_status_reason','order_shipment_amount', 'order_shipment_details']
+                        'total_paid_amount', 'shipment_status', 'shipment_status_reason','order_shipment_amount', 'order_shipment_details',
+                        'picking_status', 'picker_boy', 'picklist_id',]
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
@@ -419,7 +420,7 @@ class ExportCsvMixin:
         writer.writerow(list_display)
         for obj in queryset:
             row = writer.writerow([getattr(obj, field).replace('<br>', '\n') if field in ['shipment_status','shipment_status_reason','order_shipment_amount',
-                                                            'order_shipment_details'] else getattr(obj, field) for field in list_display])
+                                  'picking_status', 'picker_boy', 'picklist_id', 'order_shipment_details'] else getattr(obj, field) for field in list_display])
         return response
     export_as_csv.short_description = "Download CSV of Selected Orders"
 
