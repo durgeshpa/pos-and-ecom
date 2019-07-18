@@ -303,7 +303,7 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = 20000
 REDIS_DB_CHOICE = {
     'production': '1',
     'staging': '2',
-    'qa': '3',
+    'qa': '7',
     'qa1': '3',
     'local':'5'
 }
