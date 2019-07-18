@@ -97,7 +97,7 @@ class Shop(models.Model):
 
     @property
     def shipping_address(self):
-       return self.shop_name_address_mapping.filter(address_type=‘shipping’).last()
+       return self.shop_name_address_mapping.filter(address_type='shipping').last()
 
     def save(self, force_insert=False, force_update=False, *args, **kwargs):
         if self.status != self.__original_status and self.status is True and ParentRetailerMapping.objects.filter(retailer=self, status=True).exists():
