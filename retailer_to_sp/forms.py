@@ -284,7 +284,7 @@ class EditAssignPickerForm(forms.ModelForm):
                         widget=RelatedFieldWidgetCanAddPicker(
                                 UserWithName,
                                 related_url="admin:accounts_user_add"))
-
+    
     class Meta:
         model = PickerDashboard
         fields = ['order', 'shipment', 'picking_status', 'picklist_id', 'picker_boy']
@@ -301,7 +301,6 @@ class EditAssignPickerForm(forms.ModelForm):
         super(EditAssignPickerForm, self).__init__(*args, **kwargs)
         #import pdb; pdb.set_trace()
         instance = getattr(self, 'instance', None)
-        # assign shop name as readonly with value for shop name for user
         shop = instance.order.seller_shop#Shop.objects.get(related_users=user)      
         #shop = Shop.objects.get(shop_name="TEST SP 1") 
         # find all picker for the shop

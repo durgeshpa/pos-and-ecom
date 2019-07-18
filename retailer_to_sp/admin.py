@@ -553,6 +553,11 @@ class PickerDashboardAdmin(admin.ModelAdmin):
         pass
         #js = ('admin/js/datetime_filter_collapse.js', )
 
+    def get_readonly_fields(self, request, obj=None):
+        if obj: # editing an existing object
+            return self.readonly_fields + ('order', 'shipment', 'picklist_id')
+        return self.readonly_fields    
+
     def get_urls(self):
         from django.conf.urls import url
         urls = super(PickerDashboardAdmin, self).get_urls()
