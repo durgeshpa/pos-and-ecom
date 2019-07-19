@@ -379,8 +379,8 @@ class AssignPickerForm(forms.ModelForm):
                 #hide the field
                 pass            
             else:
-                #shop = Shop.objects.get(related_users=user)      
-                shop = Shop.objects.get(shop_name="TEST SP 1")
+                shop = Shop.objects.get(related_users=user)      
+                #shop = Shop.objects.get(shop_name="TEST SP 1")
                 # self.fields['shop'].initial = shop.__str__() 
                 self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
 
