@@ -193,7 +193,9 @@ class GramGRNProductsList(APIView):
         if self.product_ids:
             return {"ids":{"type":"product", "values":self.product_ids}}
         if self.category or self.brand or self.keyword:
-            query = {"dis_max":{"queries":[]}}
+            filter_list = []
+            query = {"bool":{filter_list}}
+            # query = {"dis_max":{"queries":[]}}
         else:
             return {"match_all":{}}
         if self.keyword:
@@ -204,9 +206,9 @@ class GramGRNProductsList(APIView):
             }
         #else:
         #    q = {"match_all":{}}
-            query["dis_max"]["queries"].append(q)
+            filter_list.append(q)
         if self.brand:
-            query["dis_max"]["queries"].append({"term": {"brand":str(Brand.objects.filter(id__in=list(self.brand)).last())}})
+            filter_list.append({"term": {"brand":str(Brand.objects.filter(id__in=list(self.brand)).last())}})
         if self.category:
             category_filter = str(categorymodel.Category.objects.filter(id__in=self.category, status=True).last())
             q = {
@@ -214,7 +216,7 @@ class GramGRNProductsList(APIView):
                     "category":{"query":category_filter,"operator":"and"}
                 }
             }
-            query["dis_max"]["queries"].append(q)
+            filter_list.append(q)
         return query
 
     def post(self, request, format=None):
