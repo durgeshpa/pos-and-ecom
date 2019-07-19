@@ -55,8 +55,6 @@ class Shop(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=False)
-    # parent_shop = models.ForeignKey("self", null=True, blank=True, 
-    #     related_name='shop_parent', on_delete=models.SET_NULL)
 
     def __str__(self):
         return "%s - %s"%(self.shop_name,self.shop_owner)

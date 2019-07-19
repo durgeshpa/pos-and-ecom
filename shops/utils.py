@@ -9,7 +9,6 @@ from addresses.models import Address, City, State
 def create_shops_excel(queryset):
     cities_list = City.objects.values_list('city_name', flat=True)
     states_list = State.objects.values_list('state_name', flat=True)
-    #import pdb; pdb.set_trace()
     output = io.BytesIO()
     # data = Address.objects.values_list(
     #     'shop_name_id', 'shop_name__shop_name',
