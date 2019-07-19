@@ -1312,7 +1312,13 @@ class RetailerShopsList(APIView):
 
     def get(self, request, *args, **kwargs):
         mobile_number = self.request.GET.get('mobile_number')
+        msg = {'is_success': False, 'message': [''], 'response_data': None}
         User = get_user_model()
+        try:
+            user = User.objects.get(phone_number=mobile_number)
+        except ObjectDoesNotExist:
+            msg['message'] = ["No retailer exists with this number"]
+            return Response(msg, status=status.HTTP_200_OK)
         shop_owner = User.objects.get(phone_number = mobile_number)
         sales_person_sp = Shop.objects.filter(related_users = self.request.user)
         shops = Shop.objects.filter(shop_owner = shop_owner, shop_type = 1)
