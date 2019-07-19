@@ -624,7 +624,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
         if obj.order.order_status not in ["active", "pending"]:
             return format_html(
                 "<a href= '%s' >Download Pick List</a>" %
-                (reverse('download_pick_list_sp', args=[obj.order.pk]))
+                (reverse('download_pick_list_picker_sp', args=[obj.order.pk]))
             )
     download_pick_list.short_description = 'Download Pick List'
 

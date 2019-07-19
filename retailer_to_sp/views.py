@@ -625,7 +625,7 @@ class DownloadPickListPicker(TemplateView,):
     PDF Download Pick List
     """
     filename = 'pick_list.pdf'
-    template_name = 'admin/download/retailer_sp_pick_picker_list.html'
+    template_name = 'admin/download/retailer_sp_picker_pick_list.html'
 
     def get(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
@@ -675,7 +675,7 @@ class DownloadPickListPicker(TemplateView,):
         else:
             data["cart_products"] = cart_product_list,
             data["shipment"] = False
-                    
+
         cmd_option = {
             "margin-top": 10,
             "zoom": 1,
@@ -688,8 +688,6 @@ class DownloadPickListPicker(TemplateView,):
             filename=self.filename, context=data,
             show_content_in_browser=False, cmd_options=cmd_option)
         return response
-
-
 
 
 class DownloadPickList(TemplateView,):
