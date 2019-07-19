@@ -194,9 +194,7 @@ class GramGRNProductsList(APIView):
         if self.product_ids:
             return {"ids":{"type":"product", "values":self.product_ids}}
         if self.category or self.brand or self.keyword:
-            filter_list = []
-            query = {"bool":{"filter":filter_list}}
-            # query = {"dis_max":{"queries":[]}}
+            query = {"dis_max":{"queries":[]}}
         else:
             return {"match_all":{}}
         if self.keyword:
@@ -207,7 +205,7 @@ class GramGRNProductsList(APIView):
             }
         #else:
         #    q = {"match_all":{}}
-            filter_list.append(q)
+            query["dis_max"]["queries"].append(q)
         if self.brand:
             filter_list.append({"match": {"brand":str(Brand.objects.filter(id__in=list(self.brand)).last())}})
         if self.category:
