@@ -631,6 +631,7 @@ class ShipmentDetailSerializer(serializers.ModelSerializer):
         fields = ( 'product', 'mrp', 'price_to_retailer', 'cash_discount', 'loyalty_incentive', 'margin', 'shipped_qty', 'ordered_product')
 
 class TripSerializer(serializers.ModelSerializer):
+    trip_id = serializers.ReadOnlyField()
     total_trip_amount = serializers.SerializerMethodField()
     #trip_return_amount = serializers.ReadOnlyField()
     cash_to_be_collected = serializers.SerializerMethodField()
@@ -648,4 +649,4 @@ class TripSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Trip
-        fields = ('trip_status', 'no_of_shipments', 'total_trip_amount', 'cash_to_be_collected')
+        fields = ('trip_id', 'trip_status', 'no_of_shipments', 'total_trip_amount', 'cash_to_be_collected')

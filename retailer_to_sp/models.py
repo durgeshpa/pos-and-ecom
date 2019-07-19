@@ -475,6 +475,10 @@ class Trip(models.Model):
         return self.rt_invoice_trip.all().count()
 
     @property
+    def trip_id(self):
+        return self.id
+
+    @property
     def total_return_amount(self):
         return self.rt_invoice_trip.all().count()
 
