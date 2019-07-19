@@ -11,7 +11,7 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
     								cash_discount=instance.cash_discount, margin=instance.margin)
 
 @receiver(post_save, sender=ProductCategory)
-def update_elasticsearch(sender, instance=None, created=False, **kwargs):
+def update_category_elasticsearch(sender, instance=None, created=False, **kwargs):
 	category = [str(c.category) for c in instance.product.product_pro_category.filter(status=True)]
 	for prod_price in instance.product.product_pro_price.all():
 		update_shop_product_es.delay(prod_price.shop.id, prod_price.product.id, category=category)
