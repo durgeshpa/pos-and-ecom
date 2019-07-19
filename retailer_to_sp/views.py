@@ -620,52 +620,74 @@ def load_dispatches(request):
     )
 
 
-# class DownloadPickListPicker(TemplateView,):
-#     """
-#     PDF Download Pick List
-#     """
-#     filename = 'pick_list.pdf'
-#     template_name = 'admin/download/retailer_sp_pick_list.html'
+class DownloadPickListPicker(TemplateView,):
+    """
+    PDF Download Pick List
+    """
+    filename = 'pick_list.pdf'
+    template_name = 'admin/download/retailer_sp_pick_picker_list.html'
 
-#     def get(self, request, *args, **kwargs):
-#         if not request.user.is_authenticated:
-#             return redirect('/admin/login/?next=%s' % request.path)
+    def get(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('/admin/login/?next=%s' % request.path)
 
-#         order_obj = get_object_or_404(Order, pk=self.kwargs.get('pk'))
-#         # get data for already shipped products
-#         cart_products = order_obj.ordered_cart.rt_cart_list.all()
-#         cart_product_list = []
+        order_obj = get_object_or_404(Order, pk=self.kwargs.get('pk'))
+        # get data for already shipped products
+        # find any shipment for the product and loop for shipment products
+        shipment = order_obj.rt_order_order_product.last()
+        if shipment:
+            shipment_products = shipment.rt_order_product_order_product_mapping.all()
+            shipment_product_list = []
 
-#         for cart_pro in cart_products:
-#             product_list = {
-#                 "product_name": cart_pro.cart_product.product_name,
-#                 "product_sku": cart_pro.cart_product.product_sku,
-#                 "product_mrp": round(cart_pro.get_cart_product_price(order_obj.seller_shop).mrp,2),
-#                 "ordered_qty":cart_pro.qty,
-#                 "no_of_pieces":cart_pro.no_of_pieces,
-#             }
-#             cart_product_list.append(product_list)
+            for shipment_pro in shipment_products:
+                product_list = {
+                    "product_name": shipment_pro.product.product_name,
+                    "product_sku": shipment_pro.product.product_sku,
+                    "product_mrp": round(shipment_pro.get_shop_specific_products_prices_sp().mrp,2),
+                    "ordered_qty": shipment_pro.to_be_shipped_qty,
+                }
+            shipment_product_list.append(product_list)
 
-#         data = {
-#             "order_obj": order_obj,
-#             "cart_products":cart_product_list,
-#             "buyer_shop":order_obj.ordered_cart.buyer_shop.shop_name,
-#             "buyer_contact_no":order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
-#             "buyer_shipping_address":order_obj.shipping_address.address_line1,
-#             "buyer_shipping_city":order_obj.shipping_address.city.city_name,
-#         }
-#         cmd_option = {
-#             "margin-top": 10,
-#             "zoom": 1,
-#             "footer-center":
-#             "[page]/[topage]",
-#             "no-stop-slow-scripts": True
-#         }
-#         response = PDFTemplateResponse(
-#             request=request, template=self.template_name,
-#             filename=self.filename, context=data,
-#             show_content_in_browser=False, cmd_options=cmd_option)
-#         return response
+        else:
+            cart_products = order_obj.ordered_cart.rt_cart_list.all()
+            cart_product_list = []
+
+            for cart_pro in cart_products:
+                product_list = {
+                    "product_name": cart_pro.cart_product.product_name,
+                    "product_sku": cart_pro.cart_product.product_sku,
+                    "product_mrp": round(cart_pro.get_cart_product_price(order_obj.seller_shop).mrp,2),
+                    "ordered_qty":cart_pro.qty,
+                    "no_of_pieces":cart_pro.no_of_pieces,
+                }
+                cart_product_list.append(product_list)
+
+        data = {
+            "order_obj": order_obj,            
+            "buyer_shop":order_obj.ordered_cart.buyer_shop.shop_name,
+            "buyer_contact_no":order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
+            "buyer_shipping_address":order_obj.shipping_address.address_line1,
+            "buyer_shipping_city":order_obj.shipping_address.city.city_name,
+        }
+        if shipment:
+            data["shipment_products"] = shipment_product_list,
+            data["shipment"] = True
+        else:
+            data["cart_products"] = cart_product_list,
+            data["shipment"] = False
+                    
+        cmd_option = {
+            "margin-top": 10,
+            "zoom": 1,
+            "footer-center":
+            "[page]/[topage]",
+            "no-stop-slow-scripts": True
+        }
+        response = PDFTemplateResponse(
+            request=request, template=self.template_name,
+            filename=self.filename, context=data,
+            show_content_in_browser=False, cmd_options=cmd_option)
+        return response
 
 
 
