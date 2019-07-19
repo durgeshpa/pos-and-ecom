@@ -87,12 +87,12 @@ class PickerDashboardViewSet(DataWrapperViewSet):
     '''
     This class handles all operation of ordered product
     '''
-    permission_classes = (AllowAny,)
+    # permission_classes = (AllowAny,)
     model = PickerDashboard
     queryset = PickerDashboard.objects.all()
     serializer_class = PickerDashboardSerializer
-    # authentication_classes = (authentication.TokenAuthentication,)
-    # permission_classes = (permissions.IsAuthenticated,)
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
     # filter_backends = (filters.DjangoFilterBackend,)
     # filter_class = PickerDashboardFilter
 

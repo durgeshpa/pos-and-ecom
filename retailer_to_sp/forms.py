@@ -338,10 +338,6 @@ class AssignPickerForm(forms.ModelForm):
                                 UserWithName,
                                 related_url="admin:accounts_user_add"))
 
-    #shop = forms.CharField()
-    # picklist_id = forms.Chardelivery_boyField(required=False)
-    # order_date = forms.DateField(required=False)
-
     # for receiving selected orders
     selected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
     unselected_id = forms.CharField(widget=forms.HiddenInput(), required=False)

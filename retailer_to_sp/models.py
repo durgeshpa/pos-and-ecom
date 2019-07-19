@@ -1256,19 +1256,6 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
         picker.shipment=instance
         picker.save()
 
-    # if instance.shipment_status == "READY_TO_SHIP":
-    #     # assign picking_status to done and create new picklist id 
-    #     picker = PickerDashboard.objects.get(shipment=instance)
-    #     picker.picking_status="picking_complete"
-    #     picker.save()
-    
-    #     # if more shipment required
-    #     PickerDashboard.objects.create(
-    #         order=instance.order,
-    #         picking_status="picking_pending",
-    #         picklist_id= get_random_string(12).lower(), #generate random string of 12 digits
-    #         )
-
 
 @receiver(post_save, sender=Order)
 def assign_picklist(sender, instance=None, created=False, **kwargs):

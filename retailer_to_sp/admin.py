@@ -911,7 +911,7 @@ class ShipmentAdmin(admin.ModelAdmin):
         'order__buyer_shop__shop_name', 'trip__dispatch_no',
         'trip__vehicle_no', 'trip__delivery_boy__phone_number']
     readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city']
-    #list_per_page = 50
+    list_per_page = 50
 
 
     def has_delete_permission(self, request, obj=None):
