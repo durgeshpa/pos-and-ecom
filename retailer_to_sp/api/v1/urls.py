@@ -1,4 +1,5 @@
 from django.conf.urls import include, url
+
 from .views import (ProductsList, GramGRNProductsList,AddToCart,CartDetail,ReservedOrder,CreateOrder,OrderList,OrderDetail,DownloadInvoiceSP,
                     DownloadNote, CustomerCareApi, CustomerOrdersList,  PaymentApi, ProductDetail,ReleaseBlocking, FeedbackData)
 from rest_framework import routers
@@ -7,6 +8,7 @@ from .views import (ProductsList, GramGRNProductsList,AddToCart,CartDetail,
     ReservedOrder,CreateOrder,OrderList,OrderDetail,DownloadInvoiceSP,
     DownloadNote, CustomerCareApi, CustomerOrdersList,  PaymentApi,
     ProductDetail,ReleaseBlocking, OrderedProductViewSet, OrderedProductMappingView,
+    CancelOrder
 )
 
 router = routers.DefaultRouter()
@@ -31,6 +33,7 @@ urlpatterns = [
     url('^product_detail/(?P<pk>\d+)/$', ProductDetail.as_view(), name='product_detail'),
     url('^feedback/$', FeedbackData.as_view(), name='feed_back'),
     url('^feedback/(?P<ship_id>\d+)/list/$', FeedbackData.as_view(), name='feed_back_list'),
+    url('^cancel-order/$', CancelOrder.as_view(), name='cancel_order', ),
 ]
 
 urlpatterns += router.urls
