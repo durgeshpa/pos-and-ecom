@@ -566,11 +566,17 @@ class ShipmentForm(forms.ModelForm):
         else:
             self.fields['shipment_status'].choices = SHIPMENT_STATUS[:1]
 
-    def clean(self): 
+    def clean(self):
+        data = self.cleaned_data
         if self.instance.picker_shipment.last().picking_status == "picking_pending": 
             raise forms.ValidationError("Please set the picking status in picker dashboard")
 
-        return self.cleaned_data
+        if (data['close_order'] and
+                not data['shipment_status'] == OrderedProduct.READY_TO_SHIP):
+                raise forms.ValidationError(
+                    _('You can only close the order in QC Passed state'),)
+        return data
+
 
 
 class ShipmentProductMappingForm(forms.ModelForm):

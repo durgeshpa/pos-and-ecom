@@ -1092,7 +1092,7 @@ class OrderCancellation(object):
 
         return product_price_map
 
-    def generate_credit_note(self):
+    def generate_credit_note(self, order_closed):
         address_id = Address.objects \
             .values('id') \
             .filter(shop_name_id=self.seller_shop_id) \
@@ -1116,22 +1116,40 @@ class OrderCancellation(object):
         reserved_qty_queryset = self.get_reserved_qty()
 
         # Creating SP GRN products
-        for item in reserved_qty_queryset:
-            SPOrderedProductMapping.objects.create(
-                shop_id=self.seller_shop_id, ordered_product=credit_grn,
-                product_id=item['r_product'],
-                shipped_qty=item['r_qty'],
-                available_qty=item['r_qty'],
-                damaged_qty=item['r_qty'],
-                ordered_qty=item['r_qty'],
-                delivered_qty=item['r_qty'],
-                manufacture_date=item['man_date'],
-                expiry_date=item['exp_date'],
-            )
-            product_price = product_price_map[item['r_product']]
-            product_price = float(round(product_price, 2))
-            credit_amount += (int(item['s_qty']) *
-                              product_price)
+        if order_closed:
+            for item in reserved_qty_queryset:
+                SPOrderedProductMapping.objects.create(
+                    shop_id=self.seller_shop_id, ordered_product=credit_grn,
+                    product_id=item['r_product'],
+                    shipped_qty=item['s_qty'],
+                    available_qty=item['s_qty'],
+                    damaged_qty=0,
+                    ordered_qty=item['s_qty'],
+                    delivered_qty=item['s_qty'],
+                    manufacture_date=item['man_date'],
+                    expiry_date=item['exp_date'],
+                )
+                product_price = product_price_map[item['r_product']]
+                product_price = float(round(product_price, 2))
+                credit_amount += (int(item['s_qty']) *
+                                  product_price)
+        else:
+            for item in reserved_qty_queryset:
+                SPOrderedProductMapping.objects.create(
+                    shop_id=self.seller_shop_id, ordered_product=credit_grn,
+                    product_id=item['r_product'],
+                    shipped_qty=item['r_qty'],
+                    available_qty=item['r_qty'],
+                    damaged_qty=0,
+                    ordered_qty=item['r_qty'],
+                    delivered_qty=item['r_qty'],
+                    manufacture_date=item['man_date'],
+                    expiry_date=item['exp_date'],
+                )
+                product_price = product_price_map[item['r_product']]
+                product_price = float(round(product_price, 2))
+                credit_amount += (int(item['s_qty']) *
+                                  product_price)
 
         # update credit note amount
         credit_note.amount = credit_amount
@@ -1166,14 +1184,14 @@ class OrderCancellation(object):
             # cancel order and generate credit note
             elif (self.last_shipment_status == 'READY_TO_SHIP' and
                     not self.trip_status):
-                self.generate_credit_note()
+                self.generate_credit_note(order_closed=self.order.order_closed)
                 # updating shipment status
                 self.get_shipment_queryset().update(shipment_status='CANCELLED')
 
             elif self.trip_status and self.trip_status == 'READY':
                 # cancel order and generate credit note and
                 # remove shipment from trip
-                self.generate_credit_note()
+                self.generate_credit_note(order_closed=self.order.order_closed)
                 # updating shipment status and remove trip
                 self.get_shipment_queryset().update(
                     shipment_status='CANCELLED', trip=None)

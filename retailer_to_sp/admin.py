@@ -957,9 +957,8 @@ class ShipmentAdmin(admin.ModelAdmin):
         )
 
         if (form.cleaned_data.get('close_order') and
-                (form.instance.shipment_status !=
-                 form.instance.CLOSED)):
-
+                (form.instance.shipment_status != form.instance.CLOSED and
+                 not form.instance.order.order_closed)):
             update_quantity = UpdateSpQuantity(form, formsets)
             update_quantity.update()
         super(ShipmentAdmin, self).save_related(request, form, formsets, change)
