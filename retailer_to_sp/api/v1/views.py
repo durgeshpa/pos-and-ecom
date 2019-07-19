@@ -209,7 +209,7 @@ class GramGRNProductsList(APIView):
         #    q = {"match_all":{}}
             filter_list.append(q)
         if self.brand:
-            filter_list.append({"term": {"brand":str(Brand.objects.filter(id__in=list(self.brand)).last())}})
+            filter_list.append({"match": {"brand":str(Brand.objects.filter(id__in=list(self.brand)).last())}})
         if self.category:
             category_filter = str(categorymodel.Category.objects.filter(id__in=self.category, status=True).last())
             q = {
