@@ -21,7 +21,7 @@ from retailer_to_sp.models import Note as CreditNote, OrderedProduct as Retailer
 from retailer_backend.common_function import (
     order_id_pattern, brand_credit_note_pattern, getcredit_note_id
 )
-from .tasks import update_shop_product_es
+
 logger = logging.getLogger(__name__)
 
 
@@ -395,17 +395,6 @@ class StockAdjustmentMapping(models.Model):
     adjustment_type = models.CharField(max_length=5, choices=ADJUSTMENT_TYPE_CHOICES)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-
-@receiver(post_save, sender=OrderedProductMapping)
-def update_elasticsearch(sender, instance=None, created=False, **kwargs):
-    db_available_products = instance.get_product_availability(instance.shop, instance.product)
-    products_available = db_available_products.aggregate(Sum('available_qty'))['available_qty__sum']
-    if products_available and products_available > int(instance.product.product_inner_case_size):
-        product_status = True
-    else:
-        product_status = False
-        products_available = 0
-    update_shop_product_es.delay(instance.shop.id, instance.product.id, available=products_available, status=product_status)
 
 
 @receiver(pre_save, sender=SpNote)

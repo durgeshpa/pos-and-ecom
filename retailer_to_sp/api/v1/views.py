@@ -67,12 +67,13 @@ from retailer_to_sp.tasks import (
     ordered_product_available_qty_update, release_blocking, create_reserved_order
 )
 from .filters import OrderedProductMappingFilter, OrderedProductFilter
-from sp_to_gram.tasks import es_search
+
 from common.data_wrapper_view import DataWrapperViewSet
 
 from django.contrib.auth import get_user_model
 from django.utils.translation import ugettext_lazy as _
 from common.data_wrapper import format_serializer_errors
+from sp_to_gram.tasks import es_search
 
 User = get_user_model()
 
@@ -261,7 +262,6 @@ class GramGRNProductsList(APIView):
                         SP mapped data shown
                     '''
                     body = {"from" : offset, "size" : page_size, "query":query}
-                    logger.exception(query)
                     products_list = es_search(index=parent_mapping.parent.id, body=body)
                     cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
                     if cart:
@@ -297,7 +297,7 @@ class GramGRNProductsList(APIView):
                 'is_success': True,
                  'message': ['Products found'],
                  'response_data':p_list }
-        if not p_list or int(offset)>1:
+        if not p_list:
             msg = {'is_store_active': is_store_active,
                     'is_success': False,
                      'message': ['Sorry! No product found'],
