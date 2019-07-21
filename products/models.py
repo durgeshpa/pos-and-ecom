@@ -219,7 +219,7 @@ class ProductPrice(models.Model):
                                        null=True, max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-    status = models.BooleanField(default=True)
+    status = models.BooleanField(default=False)
 
     def __str__(self):
         return "%s - %s"%(self.product.product_name, self.price_to_retailer)
@@ -235,8 +235,9 @@ class ProductPrice(models.Model):
 
     def save(self, *args, **kwargs):
         if self.approval_status == self.APPROVED:
-            ProductPrice.objects.filter(product=self.product, shop=self.shop, status=True).update(status=False)
-        self.status = True
+            ProductPrice.objects.filter(product=self.product, shop=self.shop,
+                                        status=True).update(status=False)
+            self.status = True
         super().save(*args, **kwargs)
 
     def margin(self):

@@ -396,15 +396,17 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
               'approval_status', 'status')
 
     class Media:
-        pass
+        js = ('admin/js/sweetalert.min.js',
+              'admin/js/product_price_approval.js')
 
     def get_readonly_fields(self, request, obj=None):
-        if obj and obj.approval_status == ProductPrice.APPROVED:
-            return self.readonly_fields + (
-                'mrp', 'price_to_retailer', 'price_to_super_retailer',
-                'price_to_service_partner', 'approval_status', 'status',
-                'product', 'city', 'area', 'shop', 'cash_discount',
-                'loyalty_incentive', 'start_date', 'end_date')
+        if not request.user.is_superuser:
+            if obj and obj.approval_status == ProductPrice.APPROVED:
+                return self.readonly_fields + (
+                    'mrp', 'price_to_retailer', 'price_to_super_retailer',
+                    'price_to_service_partner', 'approval_status', 'status',
+                    'product', 'city', 'area', 'shop', 'cash_discount',
+                    'loyalty_incentive', 'start_date', 'end_date')
         return self.readonly_fields
 
     def product_sku(self, obj):
@@ -418,31 +420,11 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     product_gf_code.short_description = 'Gf Code'
 
     def approve_product_price(self, request, queryset):
-        queryset.update(approval_status=ProductPrice.APPROVED)
-    approve_product_price.short_description = "Approve Selected Product Prices"
+        for product in queryset:
+            product.status = ProductPrice.APPROVED
+            product.save()
 
-    # def change_view(self, request, object_id, extra_context=None):
-    #     if request.user.is_superuser:
-    #         #import pdb; pdb.set_trace()
-    #         extra_context = extra_context or {}
-    #         extra_context['has_add_permission'] = False
-    #         extra_context['show_save_and_add_another'] = False
-    #         extra_context['show_save_and_continue'] = False
-    #         extra_context['show_save'] = False
-    #     return super(ProductPriceAdmin, self).change_view(request, object_id, extra_context=extra_context)
-
-    def change_view(self, request, object_id=None, form_url='',
-                    extra_context=None):
-        # get the default template response
-        import pdb; pdb.set_trace()
-        template_response = super().change_view(request, object_id, form_url,
-                                                extra_context)
-        # here we simply hide the div that contains the save and delete buttons
-        template_response.content = template_response.rendered_content.replace(
-            '<div class="submit-row">',
-            '<div class="submit-row" style="display: none">')
-        return template_response
-
+    approve_product_price.short_description = "Approve Selected Products Prices"
 
     def has_delete_permission(self, request, obj=None):
         return False

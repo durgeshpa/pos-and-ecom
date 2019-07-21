@@ -288,7 +288,15 @@ class ProductPriceNewForm(forms.ModelForm):
         fields = ('product', 'city', 'area', 'shop',
                   'price_to_service_partner', 'price_to_retailer',
                   'price_to_super_retailer', 'start_date', 'end_date',
-                  'status')
+                  'approval_status', 'status',)
+
+    def clean_status(self):
+        data = self.cleaned_data
+        if (data['approval_status'] == ProductPrice.APPROVAL_PENDING and
+                data['status']):
+            raise forms.ValidationError("Status can't be True in Approval"
+                                        " Pending state")
+        return data['status']
 
 
 class ProductsFilterForm(forms.Form):
