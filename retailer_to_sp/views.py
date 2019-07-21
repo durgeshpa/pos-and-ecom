@@ -670,10 +670,10 @@ class DownloadPickListPicker(TemplateView,):
             "buyer_shipping_city":order_obj.shipping_address.city.city_name,
         }
         if shipment:
-            data["shipment_products"] = shipment_product_list,
+            data["shipment_products"] = shipment_product_list
             data["shipment"] = True
         else:
-            data["cart_products"] = cart_product_list,
+            data["cart_products"] = cart_product_list
             data["shipment"] = False
 
         cmd_option = {
@@ -683,6 +683,7 @@ class DownloadPickListPicker(TemplateView,):
             "[page]/[topage]",
             "no-stop-slow-scripts": True
         }
+        print (data)
         response = PDFTemplateResponse(
             request=request, template=self.template_name,
             filename=self.filename, context=data,
