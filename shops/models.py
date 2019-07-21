@@ -95,6 +95,9 @@ class Shop(models.Model):
     def shop_approved(self):
         return True if self.status==True and self.retiler_mapping.exists() else False
 
+    @property
+    def shipping_address(self):
+       return self.shop_name_address_mapping.filter(address_type='shipping').last()
 
     def save(self, force_insert=False, force_update=False, *args, **kwargs):
         if self.status != self.__original_status and self.status is True and ParentRetailerMapping.objects.filter(retailer=self, status=True).exists():
