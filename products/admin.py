@@ -422,7 +422,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     def approve_product_price(self, request, queryset):
         queryset = queryset.filter(approval_status='approval_pending')
         for product in queryset:
-            product.status = ProductPrice.APPROVED
+            product.approval_status = ProductPrice.APPROVED
             product.save()
 
     approve_product_price.short_description = "Approve Selected Products Prices"
