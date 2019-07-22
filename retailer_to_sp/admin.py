@@ -621,6 +621,8 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     order_number.short_description = 'Order No'
 
     def download_pick_list(self,obj):
+        if obj.picking_status == "picking_complete":
+            return ""
         if obj.order.order_status not in ["active", "pending"]:
             return format_html(
                 "<a href= '%s' >Download Pick List</a>" %
