@@ -721,7 +721,7 @@ class OrderedProduct(models.Model): #Shipment
                 PickerDashboard.objects.create(
                     order=self.order,
                     picking_status="picking_pending",
-                    picklist_id= get_random_string(12).lower(),#generate_picklist_id(pincode) #
+                    picklist_id= generate_picklist_id(pincode) #get_random_string(12).lower(),#
                     )
 
                 #Update Product Tax Mapping Start
@@ -1282,5 +1282,5 @@ def assign_picklist(sender, instance=None, created=False, **kwargs):
         PickerDashboard.objects.create(
             order=instance,
             picking_status="picking_pending",
-            picklist_id= get_random_string(12).lower(), #generate_picklist_id(pincode), ##generate random string of 12 digits
+            picklist_id= generate_picklist_id(pincode), #get_random_string(12).lower(), ##generate random string of 12 digits
             )
