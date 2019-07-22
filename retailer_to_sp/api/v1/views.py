@@ -1212,11 +1212,9 @@ class RetailerShopsList(APIView):
                     return Response({"message":["The user is not mapped with the same service partner as the sales person"], "response_data": None ,"is_success": True, "is_user_mapped_with_same_sp": False})
         shops_serializer = RetailerShopSerializer(shops_list, many=True)
         if shops_list:
-            is_success = True
-            return Response({"message":[""], "response_data": shops_serializer.data ,"is_success": is_success, "is_user_mapped_with_same_sp": True})
+            return Response({"message":[""], "response_data": shops_serializer.data ,"is_success": True, "is_user_mapped_with_same_sp": True})
         else:
-            is_success = False
-            return Response({"message":[""], "response_data": None ,"is_success": is_success, "is_user_mapped_with_same_sp": False})
+            return Response({"message":[""], "response_data": None ,"is_success": True, "is_user_mapped_with_same_sp": False})
 
 
 class SellerOrderList(generics.ListAPIView):
