@@ -1,5 +1,5 @@
 from django.contrib.auth.models import User
-from products.models import Product, ProductPrice, ProductCategory, ProductTaxMapping
+from products.models import Product, ProductPrice, ProductCategory, ProductTaxMapping, ProductImage
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from sp_to_gram.tasks import update_shop_product_es
@@ -11,6 +11,10 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
     								cash_discount=instance.cash_discount, margin=instance.margin)
 
 @receiver(post_save, sender=ProductCategory)
-def update_elasticsearch(sender, instance=None, created=False, **kwargs):
+def update_category_elasticsearch(sender, instance=None, created=False, **kwargs):
 	category = [str(c.category) for c in instance.product.product_pro_category.filter(status=True)]
 	update_shop_product_es.delay(instance.shop.id, instance.product.id, category=category)
+
+@receiver(post_save, sender=ProductImage)
+def update_product_image_elasticsearch(sender, instance=None, created=False, **kwargs):
+	update_shop_product_es.delay(instance.shop.id, instance.product.id, image_url=instance.image.url)
