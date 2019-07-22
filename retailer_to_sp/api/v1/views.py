@@ -1237,7 +1237,8 @@ class SellerOrderList(generics.ListAPIView):
         msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
         current_url = request.get_host()
         queryset = Order.objects.filter(last_modified_by__in=self.get_queryset()).order_by('-created_at')
-        serializer = SellerOrderListSerializer(queryset, many=True, context={'current_url':current_url, 'sales_person_list':self.get_queryset()})
+        users_list = [v['employee_id'] for v in self.get_queryset().values('employee_id')]
+        serializer = SellerOrderListSerializer(queryset, many=True, context={'current_url':current_url, 'sales_person_list':users_list})
         if serializer.data:
             msg = {'is_success': True,'message': None,'response_data': serializer.data}
         return Response(msg,status=status.HTTP_200_OK)
