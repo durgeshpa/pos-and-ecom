@@ -770,7 +770,7 @@ class SellerCartProductMappingListSerializer(serializers.ModelSerializer):
         return int(obj.no_of_pieces)
 
     def product_sub_total_dt(self,obj):
-        return float(obj.no_of_pieces) * float(obj.price_to_retailer,2)
+        return float(obj.no_of_pieces) * float(obj.cart_product_price.price_to_retailer)
 
     def product_inner_case_size_dt(self,obj):
         return int(int(obj.no_of_pieces) // int(obj.qty))
@@ -790,6 +790,7 @@ class SellerOrderListSerializer(serializers.ModelSerializer):
     order_status = serializers.CharField(source='get_order_status_display')
     rt_order_order_product = serializers.SerializerMethodField()
     is_ordered_by_sales = serializers.SerializerMethodField('is_ordered_by_sales_dt')
+    shop_name = serializers.SerializerMethodField('shop_name_dt')
 
     def get_rt_order_order_product(self, obj):
         qs = OrderedProduct.objects.filter(order_id=obj.id).exclude(shipment_status='SHIPMENT_CREATED')
@@ -802,10 +803,14 @@ class SellerOrderListSerializer(serializers.ModelSerializer):
         return representation
 
     def is_ordered_by_sales_dt(self, obj):
-        qs = self.context('sales_person_list')
+        qs = self.context.get('sales_person_list')
         return obj.ordered_by.id in qs
+
+    def shop_name_dt(self, obj):
+        return obj.buyer_shop.shop_name
+
 
     class Meta:
         model= Order
         fields = ('id', 'ordered_cart', 'order_no', 'total_final_amount', 'order_status',
-                  'created_at', 'modified_at', 'rt_order_order_product', 'is_ordered_by_sales')
+                  'created_at', 'modified_at', 'rt_order_order_product', 'is_ordered_by_sales', 'shop_name')
