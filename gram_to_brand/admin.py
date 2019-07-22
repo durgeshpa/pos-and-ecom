@@ -73,25 +73,6 @@ class CartAdmin(admin.ModelAdmin):
 
     def get_list_display(self, request):
 
-<<<<<<< HEAD
-            data = {}
-            data['link_to_po'] = self.download_purchase_order()
-            data['shop_id'] = self.gf_shipping_address.shop_name.id
-            activity_type = "PO_APPROVED"
-            from notification_center.utils import SendNotification
-            SendNotification(activity_type=activity_type, data=data).send_to_a_group()    
-
-            return HttpResponseRedirect("/admin/gram_to_brand/cart/")
-        elif "_disapprove" in request.POST:
-            if request.POST.get('message'):
-                get_po_msg, _ = Po_Message.objects.get_or_create(message=request.POST.get('message'))
-                obj.po_message = get_po_msg
-            obj.is_approve = False
-            obj.po_status = obj.UNAPPROVED
-            obj.created_by = request.user
-            obj.last_modified_by = request.user
-            obj.save()
-=======
         def po_edit_link(obj):
             if request.user.is_superuser:
                 return format_html("<a href= '/admin/gram_to_brand/cart/%s/change/' >%s</a>" % (obj.pk, obj.po_no))
@@ -99,27 +80,14 @@ class CartAdmin(admin.ModelAdmin):
                 return format_html("%s" %obj.po_no)
             return format_html("<a href= '/admin/gram_to_brand/cart/%s/change/' >%s</a>" % (obj.pk,obj.po_no))
         po_edit_link.short_description = 'Po No'
->>>>>>> dev
 
         return [po_edit_link,'brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_raised_by','po_status', 'download_purchase_order']
 
-<<<<<<< HEAD
-            # PO Number, Date, HTML of PO, link to PO should be mailed
-            data = {}
-            data['link_to_po'] = self.download_purchase_order()
-            data['shop_id'] = self.gf_shipping_address.shop_name.id
-            activity_type = "PO_EDITED"
-            from notification_center.utils import SendNotification
-            SendNotification(activity_type=activity_type, data=data).send_to_a_group()    
-
-        return super().response_change(request, obj)
-=======
     def save_formset(self, request, form, formset, change):
         obj = form.instance
         flag = False
         get_po_msg = Po_Message.objects.create(message=request.POST.get('message'),
                                                created_by=request.user) if request.POST.get('message') else None
->>>>>>> dev
 
         if "_approve" in request.POST:
             obj.po_status = obj.FINANCE_APPROVED
@@ -150,16 +118,6 @@ class CartAdmin(admin.ModelAdmin):
                 change_message=SUCCESS_MESSAGES['CHANGED_STATUS'] % obj.get_po_status_display(),
             )
             return HttpResponseRedirect("/admin/gram_to_brand/cart/")
-
-            data = {}
-            data['link_to_po'] = self.download_purchase_order()
-            data['shop_id'] = self.gf_shipping_address.shop_name.id
-
-            user_id = instance.order_id.ordered_by.id
-            activity_type = "PO_CREATED"
-            from notification_center.utils import SendNotification
-            SendNotification(activity_type=activity_type, data=data).send_to_a_group()    
-
 
     class Media:
             pass
