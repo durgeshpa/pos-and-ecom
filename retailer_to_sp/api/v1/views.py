@@ -11,10 +11,14 @@ from django.contrib.postgres.search import SearchVector
 from django_filters import rest_framework as filters
 
 from rest_framework import generics
-from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,
-                          OrderSerializer, CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
-
-                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer, OrderListSerializer, FeedBackSerializer )
+from .serializers import (
+    ProductsSearchSerializer, GramGRNProductsSearchSerializer,
+    CartProductMappingSerializer, CartSerializer, OrderSerializer,
+    CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,
+    PaymentNeftSerializer, GramPaymentCodSerializer,
+    GramPaymentNeftSerializer, GramMappedCartSerializer,
+    GramMappedOrderSerializer, ProductDetailSerializer, OrderDetailSerializer,
+    OrderListSerializer, FeedBackSerializer, CancelOrderSerializer)
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
 from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
                                 OrderedProduct as SPOrderedProduct, StockAdjustment)
@@ -25,6 +29,7 @@ from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
+from rest_framework import serializers
 from rest_framework import generics, viewsets
 
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,
@@ -40,6 +45,7 @@ from products.models import Product, ProductPrice, ProductOption,ProductImage, P
 from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
                                 OrderedProduct as SPOrderedProduct, StockAdjustment)
 
+from categories import models as categorymodel
 
 from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as GramCartProductMapping,
                                   OrderedProductReserved as GramOrderedProductReserved, PickList, PickListItems )
@@ -51,6 +57,7 @@ from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping 
                                       OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment, CustomerCare as GramMappedCustomerCare )
 
 from shops.models import Shop,ParentRetailerMapping
+from brand.models import Brand
 from products.models import ProductCategory
 from addresses.models import Address
 from retailer_backend.common_function import getShopMapping,checkNotShopAndMapping,getShop
@@ -64,6 +71,10 @@ from .filters import OrderedProductMappingFilter, OrderedProductFilter
 from common.data_wrapper_view import DataWrapperViewSet
 
 from django.contrib.auth import get_user_model
+from django.utils.translation import ugettext_lazy as _
+from common.data_wrapper import format_serializer_errors
+from sp_to_gram.tasks import es_search
+
 User = get_user_model()
 
 logger = logging.getLogger(__name__)
@@ -179,29 +190,61 @@ class GramGRNProductsList(APIView):
     permission_classes = (AllowAny,)
     serializer_class = GramGRNProductsSearchSerializer
 
+    def search_query(self, request):
+        filter_list = [{"term":{"status":True}}]
+        if self.product_ids:
+            filter_list.append( {"ids":{"type":"product", "values":self.product_ids}})
+            query = {"bool":{"filter":filter_list}}
+            return query
+        if self.category or self.brand or self.keyword:
+            query = {"bool":{"filter":filter_list}}
+        else:
+            return {"match_all":{}}
+        if self.keyword:
+            q = {
+            "match":{
+                "name":{"query":self.keyword, "fuzziness":"AUTO", "operator":"and"}
+                }
+            }
+        #else:
+        #    q = {"match_all":{}}
+            filter_list.append(q)
+        if self.brand:
+            filter_list.append({"match": {"brand":str(Brand.objects.filter(id__in=list(self.brand)).last())}})
+        if self.category:
+            category_filter = str(categorymodel.Category.objects.filter(id__in=self.category, status=True).last())
+            q = {
+                "match" :{
+                    "category":{"query":category_filter,"operator":"and"}
+                }
+            }
+            filter_list.append(q)
+        return query
+
     def post(self, request, format=None):
-        product_ids = request.data.get('product_ids')
-        brand = request.data.get('brands')
-        category = request.data.get('categories')
-        keyword = request.data.get('product_name', None)
+        self.product_ids = request.data.get('product_ids')
+        self.brand = request.data.get('brands')
+        self.category = request.data.get('categories')
+        self.keyword = request.data.get('product_name', None)
         shop_id = request.data.get('shop_id')
-        offset = request.data.get('offset')
-        pro_count = request.data.get('pro_count')
+        offset = int(request.data.get('offset',0))
+        page_size = int(request.data.get('pro_count',20))
         grn_dict = None
         cart_check = False
         is_store_active = True
-        sort_preference = request.data.get('sort_by_price')
+        sort_preference = request.GET.get('sort_by_price')
 
         '''1st Step
             Check If Shop Is exists then 2nd pt else 3rd Pt
         '''
+        query = self.search_query(request)
+
         try:
             shop = Shop.objects.get(id=shop_id,status=True)
         except ObjectDoesNotExist:
             '''3rd Step
                 If no shop found then
             '''
-            grn = GRNOrderProductMapping.objects.values('product_id')
             message = "Shop not active or does not exists"
             is_store_active = False
         else:
@@ -211,119 +254,45 @@ class GramGRNProductsList(APIView):
             try:
                 parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
             except ObjectDoesNotExist:
-                grn = GRNOrderProductMapping.objects.values('product_id')
                 message = "Shop Mapping Not Found"
                 is_store_active = False
             else:
+
                 if parent_mapping.parent.shop_type.shop_type == 'sp':
                     '''4th Step
                         SP mapped data shown
                     '''
-                    grn = SpMappedOrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(available_qty__gt=0).values('product_id').annotate(available_qty=Sum('available_qty'))
-                    grn_dict = {g['product_id']:g['available_qty'] for g in grn}
+                    body = {"from" : offset, "size" : page_size, "query":query}
+                    products_list = es_search(index=parent_mapping.parent.id, body=body)
                     cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
                     if cart:
                         cart_products = cart.rt_cart_list.all()
                         cart_check = True
-
-                # if shop mapped with gf
-                elif parent_mapping.parent.shop_type.shop_type == 'gf':
-                    '''5th Step
-                        Gramfactory mapped data shown
-                    '''
-                    grn = GRNOrderProductMapping.objects.filter(grn_order__order__ordered_cart__gf_shipping_address__shop_name=parent_mapping.parent,available_qty__gt=0,expiry_date__gt=today).values('product_id')
-                    cart = GramMappedCart.objects.filter(last_modified_by=self.request.user,cart_status__in=['active', 'pending']).last()
-                    if cart:
-                        cart_products = cart.rt_cart_list.all()
-                        cart_check = True
-        if grn_dict:
-            grn_list = grn_dict.keys()
-        else:
-            grn_list = grn
-        products = Product.objects.filter(pk__in=grn_list).order_by('product_name')
-
-        if product_ids:
-            products = products.filter(id__in=product_ids)
-        if brand:
-            products = products.filter(product_brand__in=brand)
-        if category:
-            product_ids = ProductCategory.objects.filter(product__in=grn_list, category__in=category).values_list('product_id')
-            products = products.filter(pk__in=product_ids)
-        if keyword:
-            products = products.annotate(search=SearchVector('product_name', 'product_brand__brand_name', 'product_short_description')).filter(search=keyword)
-
-        if is_store_active is False:
-            products_price = ProductPrice.objects.filter(product__in=products, status=True).order_by('product','-created_at').distinct('product')
-        else:
-            products_price = ProductPrice.objects.filter(product__in=products, shop=parent_mapping.parent, status=True).order_by('product', '-created_at').distinct('product')
-
-
-        if sort_preference:
-            if sort_preference == 'low':
-                products_price = products_price.order_by('price_to_retailer').distinct()
-            if sort_preference == 'high':
-                products_price = products_price.order_by('-price_to_retailer').distinct()
-
-        if offset and pro_count:
-            products_price = products_price[int(offset):int(offset)+int(pro_count)]
-
+                else:
+                    is_store_active = False
         p_list = []
+        if not is_store_active:
+            body = {
+                "from" : offset, 
+                "size" : page_size, 
+                "query":query,"_source":{"includes":["name", "product_images","pack_size","weight_unit","weight_value"]}
+                }
+            products_list = es_search(index="all_products", body=body)
 
-        for p in products_price:
-            user_selected_qty = None
-            no_of_pieces = None
-            sub_total = None
-            name = p.product.product_name
-            mrp = round(p.mrp, 2) if p.mrp else p.mrp
-            ptr = round(p.price_to_retailer, 2) if p.price_to_retailer else p.price_to_retailer
-            loyalty_discount = round(p.loyalty_incentive, 2) if p.loyalty_incentive else p.loyalty_incentive
-            cash_discount = round(p.cash_discount, 2) if p.cash_discount else p.cash_discount
-            margin = round(100 - (float(ptr) * 1000000 / (float(mrp) * (100 - float(cash_discount)) * (100 - float(loyalty_discount)))), 2) if mrp and ptr else 0
+        for p in products_list['hits']['hits']:
 
             if cart_check == True:
+                ptr = p["_source"]['ptr'] 
+                loyalty_discount = p["_source"]['loyalty_discount']
+                cash_discount = p["_source"]['cash_discount']
                 for c_p in cart_products:
-                    if c_p.cart_product_id == p.product_id:
+                    if c_p.cart_product_id == p["_source"]["id"]:
                         user_selected_qty = c_p.qty
                         no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
-                        sub_total = float(no_of_pieces) * float(ptr)
-            status = p.product.status
-            product_opt = p.product.product_opt_product.all()
-            weight_value = None
-            weight_unit = None
-            pack_size = None
-            try:
-                pack_size = p.product.product_inner_case_size if p.product.product_inner_case_size else None
-            except Exception as e:
-                logger.exception("pack size is not defined for {}".format(p.product.product_name))
-                continue
-            if grn_dict and int(pack_size) > int(grn_dict[p.product.id]):
-                continue
-            try:
-                for p_o in product_opt:
-                    weight_value = p_o.weight.weight_value if p_o.weight.weight_value else None
-                    weight_unit = p_o.weight.weight_unit if p_o.weight.weight_unit else None
-            except:
-                weight_value = None
-                weight_unit = None
-            product_img = p.product.product_pro_image.all()
-            product_images = [
-                                {
-                                    "image_name":p_i.image_name,
-                                    "image_alt":p_i.image_alt_text,
-                                    "image_url":p_i.image.url
-                                }
-                                for p_i in product_img
-                            ]
-            if not product_images:
-                product_images=None
-            if request.user.is_authenticated:
-                p_list.append({"name":p.product.product_name, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "id":p.product_id,
-                                "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":user_selected_qty,
-                               "loyalty_discount":loyalty_discount,"cash_discount":cash_discount,"margin":margin ,"no_of_pieces":no_of_pieces, "sub_total":sub_total})
-            else:
-                is_store_active = False
-                p_list.append({"name":p.product.product_name, "mrp":None, "ptr":None, "status":status, "pack_size":pack_size, "id":p.product_id,
-                                "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":None})
+                        p["_source"]["user_selected_qty"] = user_selected_qty
+                        p["_source"]["no_of_pieces"] = no_of_pieces
+                        p["_source"]["sub_total"] = float(no_of_pieces) * float(ptr)
+            p_list.append(p["_source"])
 
         msg = {'is_store_active': is_store_active,
                 'is_success': True,
@@ -887,26 +856,19 @@ class DownloadInvoiceSP(APIView):
             cart_product_map = order_obj.order.ordered_cart.rt_cart_list.filter(cart_product=m.product).last()
             product_price = cart_product_map.get_cart_product_price(order_obj.order.ordered_cart.seller_shop)
 
-            product_pro_price_ptr = round(product_price.price_to_retailer,2)
+            product_pro_price_ptr = product_price.price_to_retailer
             product_pro_price_mrp = round(product_price.mrp,2)
 
             no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
             cart_qty = m.product.rt_cart_product_mapping.last().qty
-            # tax_sum = m.product.rt_cart_product_mapping.last().tax
-            # tax_sum = round(tax_sum, 2)
-            # get_tax_val = tax_sum / 100
 
-            all_tax_list = m.product.product_pro_tax
-            if all_tax_list.exists():
-                for tax_dt in all_tax_list.all():
-                    tax_sum = float(tax_sum) + float(tax_dt.tax.tax_percentage)
-
-                tax_sum = round(tax_sum, 2)
-                get_tax_val = tax_sum / 100
-                basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
-                base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
-                product_tax_amount = float(base_price) * float(get_tax_val)
-                product_tax_amount = round(product_tax_amount, 2)
+            # new code for tax start
+            tax_sum = m.get_product_tax_json()
+            
+            get_tax_val = tax_sum / 100
+            basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
+            base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
+            product_tax_amount = float(base_price) * float(get_tax_val)
 
             ordered_prodcut = {
                 "product_sku": m.product.product_gf_code,
@@ -921,7 +883,7 @@ class DownloadInvoiceSP(APIView):
                 "basic_amount": float(m.shipped_qty) * float(basic_rate),
                 "price_to_retailer": product_pro_price_ptr,
                 "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr),
-                "product_tax_amount": product_tax_amount,
+                "product_tax_amount": round(product_tax_amount, 2),
 
             }
             total_tax_sum = total_tax_sum + product_tax_amount
@@ -963,7 +925,7 @@ class DownloadInvoiceSP(APIView):
                 "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram,
                 "payment_type":payment_type,"total_amount_int":total_amount_int,"product_listing":product_listing,
                 "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
-                "address_contact_number":address_contact_number,"sum_amount_tax":total_tax_sum}
+                "address_contact_number":address_contact_number,"sum_amount_tax":round(total_tax_sum, 2)}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
@@ -1216,3 +1178,29 @@ class FeedbackData(generics.ListCreateAPIView):
         serializer = self.get_serializer(queryset, many=True)
         msg = {'is_success': True, 'message': [""], 'response_data': serializer.data}
         return Response(msg, status=status.HTTP_200_OK)
+
+
+class CancelOrder(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def put(self, request, format=None):
+        try:
+            order = Order.objects.get(buyer_shop__shop_owner=request.user,
+                                      pk=request.data['order_id'])
+        except ObjectDoesNotExist:
+            msg = {'is_success': False,
+                   'message': ['Order is not associated with the current user'],
+                   'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+        serializer = CancelOrderSerializer(order, data=request.data,
+                                           context={'order': order})
+        if serializer.is_valid():
+            serializer.save()
+            msg = {'is_success': True,
+                    'message': ["Order Cancelled Successfully!"],
+                    'response_data': serializer.data}
+            return Response(msg, status=status.HTTP_200_OK)
+        else:
+            return format_serializer_errors(serializer.errors)

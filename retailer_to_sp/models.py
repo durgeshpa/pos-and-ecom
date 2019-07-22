@@ -37,6 +37,7 @@ from .utils import (order_invoices, order_shipment_amount,
 
 from accounts.models import UserWithName, User
 from django.core.validators import RegexValidator
+from django.contrib.postgres.fields import JSONField
 
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
 
@@ -129,7 +130,7 @@ class Cart(models.Model):
     def subtotal(self):
         try:
             return round(self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum'],2)
-        except: 
+        except:
             return None
 
     @property
@@ -350,7 +351,7 @@ class Order(models.Model):
 
     @property
     def shipment_status_reason(self):
-        return order_shipment_status_reason(self.shipments())    
+        return order_shipment_status_reason(self.shipments())
 
     @property
     def order_shipment_amount(self):
@@ -461,14 +462,24 @@ class Trip(models.Model):
     def cash_to_be_collected_value(self):
         return self.cash_to_be_collected()
 
+    @property
+    def total_trip_shipments(self):
+        trip_shipments = self.rt_invoice_trip.count()
+        return trip_shipments
+
     def total_trip_amount(self):
         trip_shipments = self.rt_invoice_trip.all()
         trip_amount = []
         for shipment in trip_shipments:
             invoice_amount = float(shipment.invoice_amount)
             trip_amount.append(invoice_amount)
-        return sum(trip_amount)
+        amount = round(sum(trip_amount),2)
+        return amount
 
+    @property
+    def total_trip_amount_value(self):
+        return self.total_trip_amount()
+        
     __trip_status = None
 
     def __init__(self, *args, **kwargs):
@@ -665,11 +676,16 @@ class OrderedProduct(models.Model): #Shipment
                                         shop_name_address_mapping.filter(
                                                         address_type='billing'
                                                         ).last().pk)
+                #Update Product Tax Mapping Start
+                for shipment in self.rt_order_product_order_product_mapping.all():
+                    product_tax_query = shipment.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
+                                                                                'tax__tax_percentage')
+                    product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
+                    product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
+                    shipment.product_tax_json = product_tax
+                    shipment.save()
+                # Update Product Tax Mapping End
         super().save(*args, **kwargs)
-
-
-
-
 
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(
@@ -688,6 +704,7 @@ class OrderedProductMapping(models.Model):
         get_user_model(), related_name='rt_last_modified_user_order_product',
         null=True, blank=True, on_delete=models.CASCADE
     )
+    product_tax_json = JSONField(null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -766,6 +783,20 @@ class OrderedProductMapping(models.Model):
 
     def get_products_gst_cess(self):
         return self.product.product_pro_tax.filter(tax__tax_type='cess')
+
+    def set_product_tax_json(self):
+        product_tax_query = self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
+                                                                    'tax__tax_percentage')
+        product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
+        product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
+        self.product_tax_json = product_tax
+        self.save()
+
+
+    def get_product_tax_json(self):
+        if not self.product_tax_json:
+            self.set_product_tax_json()
+        return self.product_tax_json.get('tax_sum')
 
 
 class Dispatch(OrderedProduct):
@@ -1105,6 +1136,7 @@ class Note(models.Model):
         if self.shipment:
             return self.shipment.invoice_no
 
+
 class Feedback(models.Model):
     STAR1 = '1'
     STAR2 = '2'
@@ -1119,10 +1151,16 @@ class Feedback(models.Model):
         (STAR4, '4 Star'),
         (STAR5, '5 Star'),
     )
-    user = models.ForeignKey(get_user_model(), related_name='user_feedback', on_delete=models.CASCADE)
-    shipment = models.OneToOneField(OrderedProduct, related_name='shipment_feedback',on_delete=models.CASCADE)
-    delivery_experience = models.CharField(max_length=2, choices=STAR_CHOICE, null=True, blank=True)
-    overall_product_packaging = models.CharField(max_length=2, choices=STAR_CHOICE, null=True, blank=True)
-    comment = models.TextField(null=True,blank=True)
+    user = models.ForeignKey(get_user_model(), related_name='user_feedback',
+                             on_delete=models.CASCADE)
+    shipment = models.OneToOneField(OrderedProduct,
+                                    related_name='shipment_feedback',
+                                    on_delete=models.CASCADE)
+    delivery_experience = models.CharField(max_length=2, choices=STAR_CHOICE,
+                                           null=True, blank=True)
+    overall_product_packaging = models.CharField(max_length=2,
+                                                 choices=STAR_CHOICE,
+                                                 null=True, blank=True)
+    comment = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     status = models.BooleanField(default=False)

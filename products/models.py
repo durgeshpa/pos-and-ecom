@@ -240,6 +240,7 @@ class ProductPrice(models.Model):
             self.status = True
         super().save(*args, **kwargs)
 
+    @property
     def margin(self):
         return round(100-(float(self.price_to_retailer)*1000000/(float(self.mrp)*(100-float(self.cash_discount))*(100-float(self.loyalty_incentive)))),2) if self.mrp>0 and self.price_to_retailer>0 else 0
 
@@ -293,7 +294,7 @@ class Tax(models.Model):
         )
 
     tax_name = models.CharField(max_length=255,validators=[ProductNameValidator])
-    tax_type=  models.CharField(max_length=255, choices=TAX_CHOICES, null=True)
+    tax_type = models.CharField(max_length=255, choices=TAX_CHOICES, null=True)
     tax_percentage = models.FloatField(default=0)
     tax_start_at = models.DateTimeField(null=True,blank=True)
     tax_end_at = models.DateTimeField(null=True,blank=True)
@@ -418,3 +419,5 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
         ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code,brand_sku_code=brand_sku_code,last_auto_increment=last_sku_increment)
         product.product_sku="%s%s%s%s"%(cat_sku_code,parent_cat_sku_code,brand_sku_code,last_sku_increment)
         product.save()
+
+

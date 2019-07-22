@@ -183,10 +183,10 @@ def sp_sr_productprice(request):
                             product_price = ProductPrice.objects.create(
                                 product_id=row[0],
                                 city_id=city,
-                                mrp=row[4],
+                                mrp=float(row[4]),
                                 shop_id=shop.id,
-                                price_to_retailer=row[7],
-                                price_to_service_partner=row[5],
+                                price_to_retailer=float(row[7]),
+                                price_to_service_partner=float(row[5]),
                                 cash_discount=row[8],
                                 loyalty_incentive=row[9],
                                 start_date=start_date,

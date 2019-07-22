@@ -14,6 +14,7 @@ from django.utils.safestring import mark_safe
 from django.urls import reverse
 from django.conf import settings
 from django.forms import widgets
+from django.utils.html import format_html
 
 from .signals import ReservedOrder
 from sp_to_gram.models import (
@@ -316,6 +317,27 @@ class TripForm(forms.ModelForm):
                 self.fields[field].required = False
                 self.fields[field].widget = forms.HiddenInput()
 
+    def clean(self):
+        data = self.cleaned_data
+        if self.instance and self.instance.trip_status == 'READY':
+            shipment_ids = data.get('selected_id').split(',')
+            cancelled_shipments = Shipment.objects.values('id', 'invoice_no'
+                ).filter(id__in=shipment_ids, shipment_status='CANCELLED')
+
+            if cancelled_shipments.exists():
+                shipment_ids_upd = [i for i in shipment_ids if int(i) not in [j['id'] for j in cancelled_shipments]]
+                data['selected_id'] = ", ".join(shipment_ids_upd)
+                raise forms.ValidationError(
+                    ['Following invoices are removed from the trip because'
+                     ' the retailer has cancelled the Order'] +
+                    [format_html(i) for i in
+                        ["<a href=%s target='blank'>%s</a>" %
+                            (reverse("admin:retailer_to_sp_shipment_change",
+                                     args=[i.get('id')]), i.get('invoice_no'))
+                            for i in cancelled_shipments]])
+
+        return data
+
 
 class DispatchForm(forms.ModelForm):
     selected = forms.BooleanField(required=False)
@@ -390,24 +412,33 @@ class ShipmentForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(ShipmentForm, self).__init__(*args, **kwargs)
-        ordered_product = getattr(self, 'instance', None)
-        SHIPMENT_STATUS = OrderedProduct.SHIPMENT_STATUS
-        if ordered_product:
-            shipment_status = ordered_product.shipment_status
-            if shipment_status == 'SHIPMENT_CREATED':
-                self.fields['shipment_status'].choices = SHIPMENT_STATUS[:2]
-            elif shipment_status == 'READY_TO_SHIP':
-                setattr(self.fields['close_order'], 'disabled', True)
-                self.fields['shipment_status'].disabled = True
-            elif shipment_status == 'CANCELLED':
-                setattr(self.fields['close_order'], 'disabled', True)
-                self.fields['shipment_status'].disabled = True
-            if ordered_product.order.order_closed:
-                setattr(self.fields['close_order'], 'initial', True)
-                setattr(self.fields['close_order'], 'disabled', True)
+        if not get_current_user().is_superuser:
+            ordered_product = getattr(self, 'instance', None)
+            SHIPMENT_STATUS = OrderedProduct.SHIPMENT_STATUS
+            if ordered_product:
+                shipment_status = ordered_product.shipment_status
+                if shipment_status == 'SHIPMENT_CREATED':
+                    self.fields['shipment_status'].choices = SHIPMENT_STATUS[:2]
+                elif shipment_status == 'READY_TO_SHIP':
+                    setattr(self.fields['close_order'], 'disabled', True)
+                    self.fields['shipment_status'].disabled = True
+                elif shipment_status == 'CANCELLED':
+                    setattr(self.fields['close_order'], 'disabled', True)
+                    self.fields['shipment_status'].disabled = True
+                if ordered_product.order.order_closed:
+                    setattr(self.fields['close_order'], 'initial', True)
+                    setattr(self.fields['close_order'], 'disabled', True)
 
-        else:
-            self.fields['shipment_status'].choices = SHIPMENT_STATUS[:1]
+            else:
+                self.fields['shipment_status'].choices = SHIPMENT_STATUS[:1]
+
+    def clean(self):
+        data = self.cleaned_data
+        if (data['close_order'] and
+                not data['shipment_status'] == OrderedProduct.READY_TO_SHIP):
+                raise forms.ValidationError(
+                    _('You can only close the order in QC Passed state'),)
+        return data
 
 
 class ShipmentProductMappingForm(forms.ModelForm):
@@ -423,12 +454,13 @@ class ShipmentProductMappingForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(ShipmentProductMappingForm, self).__init__(*args, **kwargs)
-        instance = getattr(self, 'instance', None)
-        if instance.pk:
-            shipment_status = instance.ordered_product.shipment_status
-            if shipment_status == 'READY_TO_SHIP' or shipment_status == 'CANCELLED':
-                for field_name in self.fields:
-                    self.fields[field_name].disabled = True
+        if not get_current_user().is_superuser:
+            instance = getattr(self, 'instance', None)
+            if instance.pk:
+                shipment_status = instance.ordered_product.shipment_status
+                if shipment_status == 'READY_TO_SHIP' or shipment_status == 'CANCELLED':
+                    for field_name in self.fields:
+                        self.fields[field_name].disabled = True
 
 
 class CartProductMappingForm(forms.ModelForm):
@@ -520,9 +552,10 @@ class OrderedProductReschedule(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        instance = getattr(self, 'instance', None)
-        if instance.shipment_status == OrderedProduct.RESCHEDULED or instance.return_reason:
-            self.fields['return_reason'].disabled = True
+        if not get_current_user().is_superuser:
+            instance = getattr(self, 'instance', None)
+            if instance.shipment_status == OrderedProduct.RESCHEDULED or instance.return_reason:
+                self.fields['return_reason'].disabled = True
 
     def clean_return_reason(self):
         return_reason = self.cleaned_data.get('return_reason')
@@ -583,10 +616,11 @@ class ShipmentReschedulingForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(ShipmentReschedulingForm, self).__init__(*args, **kwargs)
-        instance = getattr(self, 'instance', None)
-        if instance and instance.pk:
-            self.fields['rescheduling_reason'].disabled = True
-            self.fields['rescheduling_date'].disabled = True
+        if not get_current_user().is_superuser:
+            instance = getattr(self, 'instance', None)
+            if instance and instance.pk:
+                self.fields['rescheduling_reason'].disabled = True
+                self.fields['rescheduling_date'].disabled = True
 
 
 class OrderedProductMappingRescheduleForm(forms.ModelForm):
@@ -598,11 +632,12 @@ class OrderedProductMappingRescheduleForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        instance = getattr(self, 'instance', None)
-        if instance and instance.pk:
-            if instance.ordered_product.shipment_status == OrderedProduct.RESCHEDULED or instance.ordered_product.return_reason:
-                self.fields['returned_qty'].disabled = True
-                self.fields['damaged_qty'].disabled = True
+        if not get_current_user().is_superuser:
+            instance = getattr(self, 'instance', None)
+            if instance and instance.pk:
+                if instance.ordered_product.shipment_status == OrderedProduct.RESCHEDULED or instance.ordered_product.return_reason:
+                    self.fields['returned_qty'].disabled = True
+                    self.fields['damaged_qty'].disabled = True
 
 
 class OrderForm(forms.ModelForm):
@@ -613,25 +648,44 @@ class OrderForm(forms.ModelForm):
     shipping_address = forms.ChoiceField(required=False,choices=Address.objects.values_list('id', 'address_line1'))
     ordered_by = forms.ChoiceField(required=False,choices=UserWithName.objects.values_list('id', 'phone_number'))
     last_modified_by = forms.ChoiceField(required=False,choices=UserWithName.objects.values_list('id', 'phone_number'))
-    total_final_amount = forms.CharField()
-    total_mrp_amount = forms.CharField()
 
     class Meta:
         model = Order
-        # fields = '__all__'
         fields = ('seller_shop', 'buyer_shop', 'ordered_cart', 'order_no', 'billing_address', 'shipping_address',
-                  'total_mrp_amount', 'total_discount_amount', 'total_tax_amount', 'total_final_amount', 'order_status',
+                  'total_discount_amount', 'total_tax_amount', 'order_status',
                   'ordered_by', 'last_modified_by')
 
     class Media:
         js = ('/static/admin/js/retailer_cart.js',)
 
+    def clean(self):
+        if self.instance.order_status == 'CANCELLED':
+            raise forms.ValidationError(_('This order is already cancelled!'),)
+        data = self.cleaned_data
+        if self.cleaned_data.get('order_status') == 'CANCELLED':
+            shipments_data = list(self.instance.rt_order_order_product.values(
+                'id', 'shipment_status', 'trip__trip_status'))
+            if len(shipments_data) == 1:
+                # last shipment
+                s = shipments_data[-1]
+                if (s['shipment_status'] not in [i[0] for i in OrderedProduct.SHIPMENT_STATUS[:3]]):
+                    raise forms.ValidationError(
+                        _('Sorry! This order cannot be cancelled'),)
+                elif (s['trip__trip_status'] and s['trip__trip_status'] != 'READY'):
+                    raise forms.ValidationError(
+                        _('Sorry! This order cannot be cancelled'),)
+            elif len(shipments_data) > 1:
+                status = [x[0] for x in OrderedProduct.SHIPMENT_STATUS[1:]
+                          if x[0] in [x['shipment_status'] for x in shipments_data]]
+                if status:
+                    raise forms.ValidationError(
+                        _('Sorry! This order cannot be cancelled'),)
+            else:
+                return data
+
     def __init__(self, *args, **kwargs):
         super(OrderForm, self).__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
         if instance and instance.pk:
-            self.fields['total_final_amount'].widget.attrs['readonly'] = True
-            self.fields['total_final_amount'].initial = instance.total_final_amount
-
-            self.fields['total_mrp_amount'].widget.attrs['readonly'] = True
-            self.fields['total_mrp_amount'].initial = instance.total_mrp_amount
+            if instance.order_status == 'CANCELLED':
+                self.fields['order_status'].disabled = True
