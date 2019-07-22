@@ -1208,9 +1208,11 @@ class RetailerShopsList(APIView):
             for parent in shop.retiler_mapping.all():
                 if (parent.parent in sales_person_sp):
                     shops_list.append(shop)
+                else:
+                    return Response({"message":["The user is not mapped with the same service partner as the sales person"], "response_data": None ,"is_success": True, "is_user_mapped_with_same_sp": False})
         shops_serializer = RetailerShopSerializer(shops_list, many=True)
         is_success = True if shops_list else False
-        return Response({"message":[""], "response_data": shops_serializer.data ,"is_success": is_success})
+        return Response({"message":[""], "response_data": shops_serializer.data ,"is_success": is_success, "is_user_mapped_with_same_sp": True})
 
 
 class SellerOrderList(generics.ListAPIView):
