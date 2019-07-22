@@ -5,7 +5,7 @@ from .views import (ProductsList, GramGRNProductsList,AddToCart,CartDetail,
     ReservedOrder,CreateOrder,OrderList,OrderDetail,DownloadInvoiceSP,
     DownloadNote, CustomerCareApi, CustomerOrdersList,  PaymentApi,
     ProductDetail,ReleaseBlocking, OrderedProductViewSet, OrderedProductMappingView,
-    CancelOrder, RetailerShopsList, FeedbackData
+    CancelOrder, RetailerShopsList, FeedbackData, SellerOrderList
 )
 
 router = routers.DefaultRouter()
@@ -32,6 +32,8 @@ urlpatterns = [
     url('^feedback/(?P<ship_id>\d+)/list/$', FeedbackData.as_view(), name='feed_back_list'),
     url('^cancel-order/$', CancelOrder.as_view(), name='cancel_order', ),
     url('^retailer-shops/$', RetailerShopsList.as_view(), name='retailer_shops'),
+
+    url('^seller-order-list/$', SellerOrderList.as_view(), name='seller-order-list'),
 ]
 
 urlpatterns += router.urls

@@ -7,22 +7,6 @@ from django.db.models import F,Sum, Q
 from wkhtmltopdf.views import PDFTemplateResponse
 from django.shortcuts import get_object_or_404, get_list_or_404
 from django.utils import timezone
-from django.contrib.postgres.search import SearchVector
-from django_filters import rest_framework as filters
-
-from rest_framework import generics
-from .serializers import (
-    ProductsSearchSerializer, GramGRNProductsSearchSerializer,
-    CartProductMappingSerializer, CartSerializer, OrderSerializer,
-    CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,
-    PaymentNeftSerializer, GramPaymentCodSerializer,
-    GramPaymentNeftSerializer, GramMappedCartSerializer,
-    GramMappedOrderSerializer, ProductDetailSerializer, OrderDetailSerializer,
-    OrderListSerializer, FeedBackSerializer, CancelOrderSerializer)
-from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
-from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
-                                OrderedProduct as SPOrderedProduct, StockAdjustment)
-
 from rest_framework import permissions, authentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import JSONParser
@@ -39,6 +23,7 @@ from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializ
     GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,
     OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
     OrderListSerializer, ReadOrderedProductSerializer, RetailerShopSerializer,
+    FeedBackSerializer, CancelOrderSerializer, SellerOrderListSerializer
 )
 
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
@@ -56,7 +41,7 @@ from retailer_to_sp.models import (Cart, CartProductMapping, Order,
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
                                       OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment, CustomerCare as GramMappedCustomerCare )
 
-from shops.models import Shop,ParentRetailerMapping
+from shops.models import Shop,ParentRetailerMapping, ShopUserMapping
 from brand.models import Brand
 from products.models import ProductCategory
 from addresses.models import Address
@@ -1226,3 +1211,27 @@ class RetailerShopsList(APIView):
         shops_serializer = RetailerShopSerializer(shops_list, many=True)
         is_success = True if shops_list else False
         return Response({"message":[""], "response_data": shops_serializer.data ,"is_success": is_success})
+
+
+class SellerOrderList(generics.ListAPIView):
+    serializer_class = SellerOrderListSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        shop_emp = ShopUserMapping.objects.filter(employee=self.request.user, status=True)
+        shop_mangr = ShopUserMapping.objects.filter(manager=self.request.user, status=True)
+        if shop_emp.exists() and shop_emp.last().employee_group.permissions.filter(
+                codename='can_sales_person_add_shop').exists():
+            return shop_emp.values('employee')
+        elif shop_mangr.exists():
+            return shop_mangr.values('employee')
+
+    def list(self, request, *args, **kwargs):
+        msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
+        current_url = request.get_host()
+        queryset = Order.objects.filter(last_modified_by__in=self.get_queryset()).order_by('-created_at')
+        serializer = SellerOrderListSerializer(queryset, many=True, context={'current_url':current_url, 'sales_person_list':self.get_queryset()})
+        if serializer.data:
+            msg = {'is_success': True,'message': None,'response_data': serializer.data}
+        return Response(msg,status=status.HTTP_200_OK)
