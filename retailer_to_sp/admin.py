@@ -189,7 +189,7 @@ class OrderNoSearch(InputFilter):
     def queryset(self, request, queryset):
         if self.value() is not None:
             order_no = self.value()
-            order_nos = order_no.replace(" ", "").replace("\t","").split(',')    
+            order_nos = order_no.replace(" ", "").replace("\t","").split(',')
             return queryset.filter(
                 Q(order_no__in=order_nos)
             )
@@ -1010,11 +1010,25 @@ class DispatchNoSearch(InputFilter):
                 Q(dispatch_no__icontains=self.value())
             )
 
+class ExportCsvMixin:
+    def export_as_csv_trip(self, request, queryset):
+        meta = self.model._meta
+        list_display = ('created_at', 'dispatch_no', 'total_trip_shipments', 'total_trip_amount_value')
+        field_names = [field.name for field in meta.fields if field.name in list_display]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in list_display])
+        return response
+    export_as_csv_trip.short_description = "Download CSV of Selected Trips"
 
-class TripAdmin(admin.ModelAdmin):
+class TripAdmin(ExportCsvMixin, admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
+    actions = ["export_as_csv_trip",]
     list_display = (
-        'dispathces', 'delivery_boy', 'seller_shop', 'vehicle_no',
+        'dispathces', 'total_trip_shipments', 'total_trip_amount', 'delivery_boy', 'seller_shop', 'vehicle_no',
         'trip_status', 'starts_at', 'completed_at', 'download_trip_pdf'
     )
     readonly_fields = ('dispathces',)
@@ -1051,7 +1065,7 @@ class ExportCsvMixin:
     def export_as_csv_commercial(self, request, queryset):
         meta = self.model._meta
         list_display = ('dispatch_no', 'trip_amount', 'received_amount',
-            'cash_to_be_collected', 'delivery_boy', 'vehicle_no', 'trip_status', 
+            'cash_to_be_collected', 'delivery_boy', 'vehicle_no', 'trip_status',
             'starts_at', 'completed_at', 'seller_shop',)
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
