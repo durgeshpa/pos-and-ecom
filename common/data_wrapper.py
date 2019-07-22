@@ -1,5 +1,7 @@
 import requests
 from rest_framework.response import Response
+from rest_framework import status
+
 
 '''
 It is data wrapper method.
@@ -40,3 +42,18 @@ def format_data(result):
     result.data = data
 
     return result
+
+def format_serializer_errors(serializer_errors):
+    errors = []
+    for field in serializer_errors:
+        for error in serializer_errors[field]:
+            if 'non_field_errors' in field:
+                result = error
+            else:
+                result = ''.join('{} : {}'.format(field,error))
+            errors.append(result)
+    msg = {'is_success': False,
+            'message': [error for error in errors],
+            'response_data': None }
+    return Response(msg,
+                    status=status.HTTP_406_NOT_ACCEPTABLE)

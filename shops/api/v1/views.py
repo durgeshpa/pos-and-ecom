@@ -182,13 +182,13 @@ class TeamListView(generics.ListAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        return ShopUserMapping.objects.filter(manager=self.request.user)
+        return ShopUserMapping.objects.filter(manager=self.request.user,status=True)
 
     def list(self, request, *args, **kwargs):
         days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
         today = datetime.now()
         last_day = today - timedelta(days=days_diff)
-        employee_list = ShopUserMapping.objects.filter(manager=self.request.user)
+        employee_list = self.get_queryset()
         data = []
         data_total = []
         order_obj = Order.objects.filter(buyer_shop__created_by__id__in=employee_list,
@@ -265,8 +265,8 @@ class SellerShopView(generics.ListCreateAPIView):
                         status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
-        shop_user = ShopUserMapping.objects.filter(employee=request.user)
-        if shop_user.exists() and shop_user.last().employee.has_perm('shops.can_sales_person_add_shop'):
+        shop_user = ShopUserMapping.objects.filter(employee=request.user,status=True)
+        if shop_user.exists() and shop_user.last().employee_group.permissions.filter(codename='can_sales_person_add_shop').exists():
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             shop = self.perform_create(serializer)
@@ -358,7 +358,7 @@ class SellerShopProfile(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         data = []
-        employee_list = ShopUserMapping.objects.filter(manager=self.request.user).values('employee')
+        employee_list = ShopUserMapping.objects.filter(manager=self.request.user,status=True).values('employee')
         shop_list = Shop.objects.filter(created_by__id__in=employee_list).values('shop_name','id').order_by('shop_name')
         order_obj = Order.objects.filter(buyer_shop__created_by__id__in=employee_list).order_by('buyer_shop').last()
 
@@ -391,12 +391,14 @@ class SalesPerformanceView(generics.ListAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        return ShopUserMapping.objects.filter(manager=self.request.user)
+        return ShopUserMapping.objects.filter(manager=self.request.user,status=True)
 
     def list(self, request, *args, **kwargs):
         days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
         data = []
-        if request.user.has_perm('shops.can_sales_person_add_shop'):
+        shop_emp = ShopUserMapping.objects.filter(employee=self.request.user, status=True)
+        shop_mangr = ShopUserMapping.objects.filter(manager=self.request.user, status=True)
+        if shop_emp.exists() and shop_emp.last().employee_group.permissions.filter(codename='can_sales_person_add_shop').exists():
             today = datetime.now()
             last_day = today - timedelta(days=days_diff)
             one_month = today - timedelta(days=days_diff + days_diff)
@@ -413,10 +415,10 @@ class SalesPerformanceView(generics.ListAPIView):
                 'current_store_count': shop_obj.filter(created_at__gte=last_day).count(),
             }
             data.append(rt)
+            msg = {'is_success': True, 'message': [""], 'response_data': data}
 
-        else:
-            employee_list = ShopUserMapping.objects.filter(manager=self.request.user)
-            for employee in employee_list:
+        elif shop_mangr.exists():
+            for employee in shop_mangr:
                 today = datetime.now()
                 last_day = today - timedelta(days=days_diff)
                 one_month = today - timedelta(days=days_diff+days_diff)
@@ -430,7 +432,9 @@ class SalesPerformanceView(generics.ListAPIView):
                     'current_store_count': shop_obj.filter(created_at__gte=last_day).count(),
                 }
                 data.append(rt)
-        msg = {'is_success': True, 'message': [""],'response_data': data}
+            msg = {'is_success': True, 'message': [""], 'response_data': data}
+        else:
+            msg = {'is_success': False, 'message': ["User not exists"], 'response_data': None}
         return Response(msg,status=status.HTTP_200_OK)
 
 class SellerShopListView(generics.ListAPIView):

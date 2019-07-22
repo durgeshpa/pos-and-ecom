@@ -485,7 +485,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
             'fields': ('order_no', 'ordered_cart', 'order_status',
                        'ordered_by', 'last_modified_by')}),
         (_('Amount Details'), {
-            'fields': ('total_mrp', 'total_discount_amount',
+            'fields': ('total_mrp_amount', 'total_discount_amount',
                        'total_tax_amount', 'total_final_amount')}),
         )
     list_select_related =(
@@ -505,7 +505,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                        'shipping_address', 'seller_shop', 'buyer_shop',
                        'ordered_cart', 'ordered_by', 'last_modified_by',
                        'total_mrp', 'total_discount_amount',
-                       'total_tax_amount',)
+                       'total_tax_amount', 'total_final_amount', 'total_mrp_amount')
     list_filter = [PhoneNumberFilter,SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
         ('created_at', DateTimeRangeFilter), Pincode]
 
@@ -537,7 +537,10 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         return p
 
     def total_final_amount(self,obj):
-        return obj.ordered_cart.subtotal
+        return obj.total_final_amount
+
+    def total_mrp_amount(self,obj):
+        return obj.total_mrp_amount
 
     change_form_template = 'admin/retailer_to_sp/order/change_form.html'
 
@@ -736,7 +739,7 @@ class ShipmentAdmin(admin.ModelAdmin):
         'order__shipping_address__city',
     )
     list_display = (
-        'invoice_no', 'order', 'created_at', 'trip', 'shipment_address',
+        'invoice', 'order', 'created_at', 'trip', 'shipment_address',
         'seller_shop', 'invoice_city', 'invoice_amount', 'payment_mode',
         'shipment_status', 'download_invoice', 'pincode',
     )
@@ -784,6 +787,12 @@ class ShipmentAdmin(admin.ModelAdmin):
         city = obj.order.shipping_address.city
         return str(city)
 
+    def invoice(self,obj):
+        return obj.invoice_no if obj.invoice_no else format_html(
+            "<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Start QC</a>" %(obj.id))
+    invoice.short_description = 'Invoice No'
+
+
     def save_related(self, request, form, formsets, change):
         #update_shipment_status(form, formsets)
         update_order_status(
@@ -792,9 +801,8 @@ class ShipmentAdmin(admin.ModelAdmin):
         )
 
         if (form.cleaned_data.get('close_order') and
-                (form.instance.shipment_status !=
-                 form.instance.CLOSED)):
-
+                (form.instance.shipment_status != form.instance.CLOSED and
+                 not form.instance.order.order_closed)):
             update_quantity = UpdateSpQuantity(form, formsets)
             update_quantity.update()
         super(ShipmentAdmin, self).save_related(request, form, formsets, change)
