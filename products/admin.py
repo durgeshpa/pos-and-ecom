@@ -420,8 +420,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     product_gf_code.short_description = 'Gf Code'
 
     def approve_product_price(self, request, queryset):
-        queryset = queryset.filter(
-            status=False, approval_status='approval_pending')
+        queryset = queryset.filter(approval_status='approval_pending')
         for product in queryset:
             product.status = ProductPrice.APPROVED
             product.save()
