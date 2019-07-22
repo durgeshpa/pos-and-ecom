@@ -634,6 +634,10 @@ class OrderedProduct(models.Model): #Shipment
             return round(self._invoice_amount, 2)
         return str("-")
 
+    @property
+    def shipment_id(self):
+        return self.id
+
     def cn_amount(self):
         return round(self._cn_amount, 2)
 

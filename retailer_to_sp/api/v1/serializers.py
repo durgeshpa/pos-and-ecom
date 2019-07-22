@@ -604,10 +604,11 @@ class ShipmentOrderSerializer(serializers.ModelSerializer):
 
 
 class ShipmentSerializer(serializers.ModelSerializer):
+    shipment_id = serializers.ReadOnlyField()
     order = ShipmentOrderSerializer()
     class Meta:
         model = OrderedProduct
-        fields = ('invoice_no', 'shipment_status', 'payment_mode', 'invoice_amount', 'order')
+        fields = ('shipment_id', 'invoice_no', 'shipment_status', 'payment_mode', 'invoice_amount', 'order')
 
 
 class ShipmentStatusSerializer(serializers.ModelSerializer):
