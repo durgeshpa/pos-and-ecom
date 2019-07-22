@@ -412,24 +412,25 @@ class ShipmentForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(ShipmentForm, self).__init__(*args, **kwargs)
-        ordered_product = getattr(self, 'instance', None)
-        SHIPMENT_STATUS = OrderedProduct.SHIPMENT_STATUS
-        if ordered_product:
-            shipment_status = ordered_product.shipment_status
-            if shipment_status == 'SHIPMENT_CREATED':
-                self.fields['shipment_status'].choices = SHIPMENT_STATUS[:2]
-            elif shipment_status == 'READY_TO_SHIP':
-                setattr(self.fields['close_order'], 'disabled', True)
-                self.fields['shipment_status'].disabled = True
-            elif shipment_status == 'CANCELLED':
-                setattr(self.fields['close_order'], 'disabled', True)
-                self.fields['shipment_status'].disabled = True
-            if ordered_product.order.order_closed:
-                setattr(self.fields['close_order'], 'initial', True)
-                setattr(self.fields['close_order'], 'disabled', True)
+        if not get_current_user().is_superuser:
+            ordered_product = getattr(self, 'instance', None)
+            SHIPMENT_STATUS = OrderedProduct.SHIPMENT_STATUS
+            if ordered_product:
+                shipment_status = ordered_product.shipment_status
+                if shipment_status == 'SHIPMENT_CREATED':
+                    self.fields['shipment_status'].choices = SHIPMENT_STATUS[:2]
+                elif shipment_status == 'READY_TO_SHIP':
+                    setattr(self.fields['close_order'], 'disabled', True)
+                    self.fields['shipment_status'].disabled = True
+                elif shipment_status == 'CANCELLED':
+                    setattr(self.fields['close_order'], 'disabled', True)
+                    self.fields['shipment_status'].disabled = True
+                if ordered_product.order.order_closed:
+                    setattr(self.fields['close_order'], 'initial', True)
+                    setattr(self.fields['close_order'], 'disabled', True)
 
-        else:
-            self.fields['shipment_status'].choices = SHIPMENT_STATUS[:1]
+            else:
+                self.fields['shipment_status'].choices = SHIPMENT_STATUS[:1]
 
     def clean(self):
         data = self.cleaned_data
@@ -453,12 +454,13 @@ class ShipmentProductMappingForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(ShipmentProductMappingForm, self).__init__(*args, **kwargs)
-        instance = getattr(self, 'instance', None)
-        if instance.pk:
-            shipment_status = instance.ordered_product.shipment_status
-            if shipment_status == 'READY_TO_SHIP' or shipment_status == 'CANCELLED':
-                for field_name in self.fields:
-                    self.fields[field_name].disabled = True
+        if not get_current_user().is_superuser:
+            instance = getattr(self, 'instance', None)
+            if instance.pk:
+                shipment_status = instance.ordered_product.shipment_status
+                if shipment_status == 'READY_TO_SHIP' or shipment_status == 'CANCELLED':
+                    for field_name in self.fields:
+                        self.fields[field_name].disabled = True
 
 
 class CartProductMappingForm(forms.ModelForm):
@@ -550,9 +552,10 @@ class OrderedProductReschedule(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        instance = getattr(self, 'instance', None)
-        if instance.shipment_status == OrderedProduct.RESCHEDULED or instance.return_reason:
-            self.fields['return_reason'].disabled = True
+        if not get_current_user().is_superuser:
+            instance = getattr(self, 'instance', None)
+            if instance.shipment_status == OrderedProduct.RESCHEDULED or instance.return_reason:
+                self.fields['return_reason'].disabled = True
 
     def clean_return_reason(self):
         return_reason = self.cleaned_data.get('return_reason')
@@ -613,10 +616,11 @@ class ShipmentReschedulingForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(ShipmentReschedulingForm, self).__init__(*args, **kwargs)
-        instance = getattr(self, 'instance', None)
-        if instance and instance.pk:
-            self.fields['rescheduling_reason'].disabled = True
-            self.fields['rescheduling_date'].disabled = True
+        if not get_current_user().is_superuser:
+            instance = getattr(self, 'instance', None)
+            if instance and instance.pk:
+                self.fields['rescheduling_reason'].disabled = True
+                self.fields['rescheduling_date'].disabled = True
 
 
 class OrderedProductMappingRescheduleForm(forms.ModelForm):
@@ -628,11 +632,12 @@ class OrderedProductMappingRescheduleForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        instance = getattr(self, 'instance', None)
-        if instance and instance.pk:
-            if instance.ordered_product.shipment_status == OrderedProduct.RESCHEDULED or instance.ordered_product.return_reason:
-                self.fields['returned_qty'].disabled = True
-                self.fields['damaged_qty'].disabled = True
+        if not get_current_user().is_superuser:
+            instance = getattr(self, 'instance', None)
+            if instance and instance.pk:
+                if instance.ordered_product.shipment_status == OrderedProduct.RESCHEDULED or instance.ordered_product.return_reason:
+                    self.fields['returned_qty'].disabled = True
+                    self.fields['damaged_qty'].disabled = True
 
 
 class OrderForm(forms.ModelForm):

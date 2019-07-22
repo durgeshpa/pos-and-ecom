@@ -6,4 +6,11 @@ from sp_to_gram.tasks import update_shop_product_es
 
 @receiver(post_save, sender=ProductPrice)
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
-    update_shop_product_es.delay(instance.shop.id, instance.product.id, ptr=instance.price_to_retailer, mrp=round(instance.mrp,2))
+    update_shop_product_es.delay(instance.shop.id, instance.product.id, ptr=instance.price_to_retailer, 
+    								mrp=round(instance.mrp,2), loyalty_discount=instance.loyalty_incentive,
+    								cash_discount=instance.cash_discount, margin=instance.margin)
+
+@receiver(post_save, sender=ProductCategory)
+def update_elasticsearch(sender, instance=None, created=False, **kwargs):
+	category = [str(c.category) for c in instance.product.product_pro_category.filter(status=True)]
+	update_shop_product_es.delay(instance.shop.id, instance.product.id, category=category)

@@ -226,6 +226,7 @@ class ProductPrice(models.Model):
         self.status = True
         super().save(*args, **kwargs)
 
+    @property
     def margin(self):
         return round(100-(float(self.price_to_retailer)*1000000/(float(self.mrp)*(100-float(self.cash_discount))*(100-float(self.loyalty_incentive)))),2) if self.mrp>0 and self.price_to_retailer>0 else 0
 
