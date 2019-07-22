@@ -1327,6 +1327,8 @@ class RetailerShopsList(APIView):
             for parent in shop.retiler_mapping.all():
                 if (parent.parent in sales_person_sp):
                     shops_list.append(shop)
+                else:
+                    return Response({"message":["The user is not mapped with the same service partner as the sales person"], "response_data": None ,"is_success": False, "does_user_exists": True})
         shops_serializer = RetailerShopSerializer(shops_list, many=True)
         is_success = True if shops_list else False
         return Response({"message":[""], "response_data": shops_serializer.data ,"is_success": is_success})
