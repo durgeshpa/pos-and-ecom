@@ -437,7 +437,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
         return qs.filter(
             Q(shop__related_users=request.user) |
             Q(shop__shop_owner=request.user),
-            status=True
+            Q(status=True) | Q(approval_status=ProductPrice.APPROVAL_PENDING)
         ).distinct()
 
 
