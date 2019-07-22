@@ -104,7 +104,7 @@ class Shop(models.Model):
     @property
     def get_shop_city(self):
         if self.shop_name_address_mapping.exists():
-            return self.shop_name_address_mapping.last().city
+            return self.shop_name_address_mapping.filter(address_type ='shipping').last().city
     get_shop_city.fget.short_description = 'Shop City'
 
     @property

@@ -10,8 +10,9 @@ from django.utils.safestring import mark_safe
 from django.utils import timezone
 from otp.sms import SendSms
 import datetime
-from .tasks import phone_otp_instance, create_user_token
+from .tasks import phone_otp_instance
 from django.db import transaction
+from rest_framework.authtoken.models import Token
 
 #from notification_center.utils import SendNotification
 
@@ -134,7 +135,7 @@ class UserDocument(models.Model):
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
 def create_auth_token(sender, instance=None, created=False, **kwargs):
     if created:
-        transaction.on_commit(lambda: create_user_token.delay(instance.id))
+        Token.objects.create(user=instance)
 
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)

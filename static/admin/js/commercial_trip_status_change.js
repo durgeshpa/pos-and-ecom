@@ -1,6 +1,8 @@
 (function($) {
     $(document).ready(function() {
       $("#changelist-form").submit(function( event ) {
+        if ($(this).find('select[name=action]').val() === 'change_trip_status'){
+
         event.preventDefault();
         $(this).find('select[name=action]').each(function(){
           if ($(this).val() === 'change_trip_status') {
@@ -17,6 +19,8 @@
             });
           }
         });
+      }
+
 });
 
     });
