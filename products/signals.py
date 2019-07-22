@@ -13,8 +13,10 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
 @receiver(post_save, sender=ProductCategory)
 def update_category_elasticsearch(sender, instance=None, created=False, **kwargs):
 	category = [str(c.category) for c in instance.product.product_pro_category.filter(status=True)]
-	update_shop_product_es.delay(instance.shop.id, instance.product.id, category=category)
+	for prod_price in instance.product.product_pro_price.all():
+		update_shop_product_es.delay(prod_price.shop.id, prod_price.product.id, category=category)
 
 @receiver(post_save, sender=ProductImage)
 def update_product_image_elasticsearch(sender, instance=None, created=False, **kwargs):
-	update_shop_product_es.delay(instance.shop.id, instance.product.id, image_url=instance.image.url)
+    for prod_price in instance.product.product_pro_price.all():
+	    update_shop_product_es.delay(prod_price.shop.id, prod_price.product.id, image_url=instance.image.url)
