@@ -1214,7 +1214,7 @@ class RetailerShopsList(APIView):
         if shops_list:
             return Response({"message":[""], "response_data": shops_serializer.data ,"is_success": True, "is_user_mapped_with_same_sp": True})
         else:
-            return Response({"message":[""], "response_data": None ,"is_success": True, "is_user_mapped_with_same_sp": False})
+            return Response({"message":["The User is registered but does not have any shop"], "response_data": None ,"is_success": True, "is_user_mapped_with_same_sp": False})
 
 
 class SellerOrderList(generics.ListAPIView):
