@@ -632,6 +632,7 @@ class DownloadPickListPicker(TemplateView,):
             return redirect('/admin/login/?next=%s' % request.path)
 
         order_obj = get_object_or_404(Order, pk=self.kwargs.get('pk'))
+        shipment_id = self.kwargs.get('shipment_id')
         # get data for already shipped products
         # find any shipment for the product and loop for shipment products
         shipment = order_obj.rt_order_order_product.last()
@@ -644,8 +645,12 @@ class DownloadPickListPicker(TemplateView,):
                     "product_name": shipment_pro.product.product_name,
                     "product_sku": shipment_pro.product.product_sku,
                     "product_mrp": round(shipment_pro.get_shop_specific_products_prices_sp().mrp,2),
-                    "to_be_shipped_qty": int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_quantity),
+                    #"to_be_shipped_qty": int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_quantity),
                 }
+                if shipment_id:
+                    product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_qty_exclude_current)
+                else:
+                    product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_quantity)
                 shipment_product_list.append(product_list)
 
         else:

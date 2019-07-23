@@ -16,7 +16,7 @@ urlpatterns = [
     url('^download-pick-list-sp/(?P<pk>\d+)/list/$',
         DownloadPickList.as_view(),
         name='download_pick_list_sp'),
-    url('^download-pick-list-picker-sp/(?P<pk>\d+)/list/$',
+    url('^download-pick-list-picker-sp/(?P<pk>\d+)/(?P<shipment_id>\d+)/list/$',
         DownloadPickListPicker.as_view(),
         name='download_pick_list_picker_sp'),
 
