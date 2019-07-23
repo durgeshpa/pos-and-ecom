@@ -239,6 +239,7 @@ class DefaultAddressView(generics.ListCreateAPIView):
 class SellerShopAddress(generics.ListAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = AddressSerializer
 
     def get_queryset(self):
         queryset = Address.objects.none()
