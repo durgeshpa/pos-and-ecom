@@ -25,7 +25,6 @@ from sp_to_gram.tasks import update_shop_product_es
 logger = logging.getLogger(__name__)
 
 
-
 ORDER_STATUS = (
     ("ordered_to_gram", "Ordered To Gramfactory"),
     ("order_shipped", "Order Shipped From Gramfactory"),
