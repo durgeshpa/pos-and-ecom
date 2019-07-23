@@ -646,7 +646,7 @@ class DownloadPickListPicker(TemplateView,):
                     "product_mrp": round(shipment_pro.get_shop_specific_products_prices_sp().mrp,2),
                     "to_be_shipped_qty": shipment_pro.to_be_shipped_qty,
                 }
-            shipment_product_list.append(product_list)
+                shipment_product_list.append(product_list)
 
         else:
             cart_products = order_obj.ordered_cart.rt_cart_list.all()
