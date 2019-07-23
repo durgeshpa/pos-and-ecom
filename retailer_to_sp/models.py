@@ -366,7 +366,7 @@ class Order(models.Model):
 
     @property
     def picker_boy(self):
-        return picker_boys(self.picker_dashboards())
+        return picker_boys(self.picker_dashboards())    
 
     @property
     def picklist_id(self):
@@ -826,6 +826,21 @@ class OrderedProductMapping(models.Model):
             Sum('delivered_qty')).get('delivered_qty__sum', 0)
         return already_shipped_qty if already_shipped_qty else 0
     already_shipped_qty.fget.short_description = "Delivered Qty"
+
+    @property
+    def shipped_quantity(self):
+        all_ordered_product = self.ordered_product.order.rt_order_order_product.all()
+        #all_ordered_product_exclude_current = all_ordered_product.exclude(id=self.ordered_product_id)
+        qty = OrderedProductMapping.objects.filter(
+            ordered_product__in=all_ordered_product,
+            product=self.product)
+        shipped_qty = qty.aggregate(
+            Sum('shipped_qty')).get('shipped_qty__sum', 0)
+        
+        shipped_qty = shipped_qty if shipped_qty else 0
+        return shipped_qty
+    shipped_quantity.fget.short_description = "Shipped Qty"
+
 
     @property
     def to_be_shipped_qty(self):
