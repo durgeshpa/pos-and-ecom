@@ -644,7 +644,7 @@ class DownloadPickListPicker(TemplateView,):
                     "product_name": shipment_pro.product.product_name,
                     "product_sku": shipment_pro.product.product_sku,
                     "product_mrp": round(shipment_pro.get_shop_specific_products_prices_sp().mrp,2),
-                    "to_be_shipped_qty": shipment_pro.to_be_shipped_qty,
+                    "to_be_shipped_qty": int(shipment_pro.ordered_qty)-int(shipment_pro.to_be_shipped_qty),
                 }
                 shipment_product_list.append(product_list)
 
