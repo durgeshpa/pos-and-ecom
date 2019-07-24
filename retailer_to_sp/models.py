@@ -708,7 +708,7 @@ class OrderedProduct(models.Model): #Shipment
                     # assign shipment to picklist
                     # tbd : if manual(by searching relevant picklist id) or automated 
                     picker = PickerDashboard.objects.get(order=self.order, picking_status="picking_assigned")
-                    picker.shipment=instance
+                    picker.shipment=self
                     picker.save()
             except Exception as e:
                 raise ValidationError(_("Please assign picker for order"),)
