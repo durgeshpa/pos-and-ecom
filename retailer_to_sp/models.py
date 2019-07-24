@@ -1280,7 +1280,7 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
     '''
     Method to update picking status 
     '''
-    assign shipment to picklist once SHIPMENT_CREATED
+    #assign shipment to picklist once SHIPMENT_CREATED
     if instance.shipment_status == "SHIPMENT_CREATED":
         # assign shipment to picklist
         # tbd : if manual(by searching relevant picklist id) or automated 
