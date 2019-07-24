@@ -724,7 +724,7 @@ class OrderedProduct(models.Model): #Shipment
                 picker = PickerDashboard.objects.get(shipment_id=self.id)
                 picker.picking_status="picking_complete"
                 picker.save()
-                
+                               
                 order_closed_status = ['denied_and_closed', 'partially_shipped_and_closed',
                     'DENIED', 'CANCELLED', 'CLOSED', 'deleted']
 
