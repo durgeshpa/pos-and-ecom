@@ -703,23 +703,15 @@ class OrderedProduct(models.Model): #Shipment
     def save(self, *args, **kwargs):
         if not self.invoice_no:
 
-            if self.shipment_status == "SHIPMENT_CREATED":
-                # assign shipment to picklist
-                # tbd : if manual(by searching relevant picklist id) or automated 
-                picker = PickerDashboard.objects.get(order=self.order, picking_status="picking_assigned")
-                picker.shipment=self
-                picker.save()
-
-            try:
-                pass
-                # if self.shipment_status == "SHIPMENT_CREATED":
-                #     # assign shipment to picklist
-                #     # tbd : if manual(by searching relevant picklist id) or automated 
-                #     picker = PickerDashboard.objects.get(order=self.order, picking_status="picking_assigned")
-                #     picker.shipment=self
-                #     picker.save()
-            except Exception as e:
-                raise ValidationError(_("Please assign picker for order"),)
+            # try:
+            #     if self.shipment_status == "SHIPMENT_CREATED":
+            #         # assign shipment to picklist
+            #         # tbd : if manual(by searching relevant picklist id) or automated 
+            #         picker = PickerDashboard.objects.get(order=self.order, picking_status="picking_assigned")
+            #         picker.shipment=self
+            #         picker.save()
+            # except Exception as e:
+            #     raise ValidationError(_("Please assign picker for order"),)
 
             if self.shipment_status == self.READY_TO_SHIP:
                 self.invoice_no = retailer_sp_invoice(
@@ -1288,14 +1280,13 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
     '''
     Method to update picking status 
     '''
-    pass
-    #assign shipment to picklist once SHIPMENT_CREATED
-    # if instance.shipment_status == "SHIPMENT_CREATED":
-    #     # assign shipment to picklist
-    #     # tbd : if manual(by searching relevant picklist id) or automated 
-    #     picker = PickerDashboard.objects.get(order=instance.order, picking_status="picking_assigned")
-    #     picker.shipment=instance
-    #     picker.save()
+    assign shipment to picklist once SHIPMENT_CREATED
+    if instance.shipment_status == "SHIPMENT_CREATED":
+        # assign shipment to picklist
+        # tbd : if manual(by searching relevant picklist id) or automated 
+        picker = PickerDashboard.objects.get(order=instance.order, picking_status="picking_assigned")
+        picker.shipment=instance
+        picker.save()
 
 
 @receiver(post_save, sender=Order)
