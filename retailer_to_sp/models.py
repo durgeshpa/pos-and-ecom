@@ -702,6 +702,17 @@ class OrderedProduct(models.Model): #Shipment
 
     def save(self, *args, **kwargs):
         if not self.invoice_no:
+
+            try:
+                if self.shipment_status == "SHIPMENT_CREATED":
+                    # assign shipment to picklist
+                    # tbd : if manual(by searching relevant picklist id) or automated 
+                    picker = PickerDashboard.objects.get(order=self.order, picking_status="picking_assigned")
+                    picker.shipment=instance
+                    picker.save()
+            except Exception as e:
+                raise ValidationError(_("Please assign picker for order"),)
+
             if self.shipment_status == self.READY_TO_SHIP:
                 self.invoice_no = retailer_sp_invoice(
                                         self.__class__, 'invoice_no',
@@ -713,16 +724,20 @@ class OrderedProduct(models.Model): #Shipment
                 picker = PickerDashboard.objects.get(shipment_id=self.id)
                 picker.picking_status="picking_complete"
                 picker.save()
-                # if more shipment required
-                try:
-                    pincode = self.order.shipping_address.pincode
-                except:
-                    pincode = "00"
-                PickerDashboard.objects.create(
-                    order=self.order,
-                    picking_status="picking_pending",
-                    picklist_id= generate_picklist_id(pincode) #get_random_string(12).lower(),#
-                    )
+                
+                order_closed_status = ['denied_and_closed', 'partially_shipped_and_closed',
+                    'DENIED', 'CANCELLED', 'CLOSED', 'deleted']
+
+                if self.order.order_status not in order_closed_status:
+                    try:
+                        pincode = self.order.shipping_address.pincode
+                    except:
+                        pincode = "00"
+                    PickerDashboard.objects.create(
+                        order=self.order,
+                        picking_status="picking_pending",
+                        picklist_id= generate_picklist_id(pincode) #get_random_string(12).lower(),#
+                        )
 
                 #Update Product Tax Mapping Start
                 for shipment in self.rt_order_product_order_product_mapping.all():
@@ -1273,13 +1288,14 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
     '''
     Method to update picking status 
     '''
+    pass
     #assign shipment to picklist once SHIPMENT_CREATED
-    if instance.shipment_status == "SHIPMENT_CREATED":
-        # assign shipment to picklist
-        # tbd : if manual(by searching relevant picklist id) or automated 
-        picker = PickerDashboard.objects.get(order=instance.order, picking_status="picking_assigned")
-        picker.shipment=instance
-        picker.save()
+    # if instance.shipment_status == "SHIPMENT_CREATED":
+    #     # assign shipment to picklist
+    #     # tbd : if manual(by searching relevant picklist id) or automated 
+    #     picker = PickerDashboard.objects.get(order=instance.order, picking_status="picking_assigned")
+    #     picker.shipment=instance
+    #     picker.save()
 
 
 @receiver(post_save, sender=Order)
