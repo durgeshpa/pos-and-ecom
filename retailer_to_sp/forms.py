@@ -301,13 +301,13 @@ class EditAssignPickerForm(forms.ModelForm):
         # you place some logic here
         picking_status = self.instance.picking_status
         if picking_status == "picking_pending":
-            choices_list = ["picking_assigned"]
+            choices_list = "picking_assigned"
         elif picking_status == "picking_assigned":
-            choices_list = ["picking_in_progress"]
+            choices_list = "picking_in_progress"
         elif picking_status == "picking_in_progress":
-            choices_list = ["picking_complete"]
+            choices_list = "picking_complete"
         else:
-            choices_list = []
+            choices_list = ""
         return choices_list
 
     def __init__(self, *args, **kwargs):
@@ -324,6 +324,7 @@ class EditAssignPickerForm(forms.ModelForm):
             self.fields['picker_boy'].required = True
         # self.fields['picking_status'] = forms.ChoiceField(
         #     choices=self.get_my_choices() )
+        #self.fields['picking_status'].choices = self.get_my_choices()
 
 
 # tbd: test for warehouse manager, superuser, other users
@@ -359,28 +360,19 @@ class AssignPickerForm(forms.ModelForm):
         instance = getattr(self, 'instance', None)
         #import pdb; pdb.set_trace()
         # assign shop name as readonly with value for shop name for user
-        self.fields['shop'].queryset = Shop.objects.filter(shop_type__shop_type__in=["sp","gf"])            
+                    
         if user.is_superuser:
             # load all parent shops
-            pass
+            self.fields['shop'].queryset = Shop.objects.filter(shop_type__shop_type__in=["sp","gf"])
         else:   
             # set shop field as read only
-            self.fields['shop'].widget.attrs['readonly'] = True
+            self.fields['shop'].queryset = Shop.objects.filter(related_users=user)
 
         if shop_id:
             shop = Shop.objects.get(id=shop_id)
             self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
-        else:
-            if user.is_superuser:
-                #hide the field
-                pass            
-            else:
-                shop = Shop.objects.get(related_users=user)      
-                #shop = Shop.objects.get(shop_name="TEST SP 1")
-                # self.fields['shop'].initial = shop.__str__() 
-                self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
-
-
+        
+        
 class TripForm(forms.ModelForm):
     delivery_boy = forms.ModelChoiceField(
                         queryset=UserWithName.objects.all(),
@@ -564,7 +556,7 @@ class ShipmentForm(forms.ModelForm):
     def clean(self):
         data = self.cleaned_data
         if self.instance.picker_shipment.last().picking_status == "picking_pending": 
-            raise forms.ValidationError("Please set the picking status in picker dashboard")
+            raise forms.ValidationError(_("Please set the picking status in picker dashboard"),)
 
         if (data['close_order'] and
                 not data['shipment_status'] == OrderedProduct.READY_TO_SHIP):

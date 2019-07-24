@@ -309,16 +309,8 @@ def assign_picker(request, shop_id=None):
     # form for assigning picker
     form = AssignPickerForm(request.user,shop_id)
     picker_orders = {}
-    if request.user.is_superuser:
-        if shop_id:
-            picker_orders = PickerDashboard.objects.filter(order__seller_shop__id=shop_id, picking_status='picking_pending')[:100]
-    else:
-        shop = Shop.objects.filter(related_users=request.user)[0]
-        #shop = Shop.objects.get(shop_name="TEST SP 1")
-        shop_id = shop.id
-        # order for the related shop with picking status =pending
-        picker_orders = PickerDashboard.objects.filter(order__seller_shop=shop, picking_status='picking_pending')
-        #order_form = PickerOrderForm(picker_order)
+    if shop_id:
+        picker_orders = PickerDashboard.objects.filter(order__seller_shop__id=shop_id, picking_status='picking_pending')[:100]
 
     return render(
         request,
@@ -647,7 +639,7 @@ class DownloadPickListPicker(TemplateView,):
                     "product_mrp": round(shipment_pro.get_shop_specific_products_prices_sp().mrp,2),
                     #"to_be_shipped_qty": int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_quantity),
                 }
-                if shipment_id:
+                if shipment_id==0:
                     product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_qty_exclude_current)
                 else:
                     product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_quantity)
