@@ -703,13 +703,21 @@ class OrderedProduct(models.Model): #Shipment
     def save(self, *args, **kwargs):
         if not self.invoice_no:
 
+            if self.shipment_status == "SHIPMENT_CREATED":
+                # assign shipment to picklist
+                # tbd : if manual(by searching relevant picklist id) or automated 
+                picker = PickerDashboard.objects.get(order=self.order, picking_status="picking_assigned")
+                picker.shipment=self
+                picker.save()
+
             try:
-                if self.shipment_status == "SHIPMENT_CREATED":
-                    # assign shipment to picklist
-                    # tbd : if manual(by searching relevant picklist id) or automated 
-                    picker = PickerDashboard.objects.get(order=self.order, picking_status="picking_assigned")
-                    picker.shipment=self
-                    picker.save()
+                pass
+                # if self.shipment_status == "SHIPMENT_CREATED":
+                #     # assign shipment to picklist
+                #     # tbd : if manual(by searching relevant picklist id) or automated 
+                #     picker = PickerDashboard.objects.get(order=self.order, picking_status="picking_assigned")
+                #     picker.shipment=self
+                #     picker.save()
             except Exception as e:
                 raise ValidationError(_("Please assign picker for order"),)
 
