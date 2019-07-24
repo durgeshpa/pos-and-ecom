@@ -781,14 +781,6 @@ class PickerDashboard(models.Model):
     def __str__(self):
         return self.picklist_id if self.picklist_id is not None else str(self.id)
 
-    def picklist(self, user):
-        if user.has_perm("can_change_picker_dashboard"):
-            return mark_safe("<a href='/admin/retailer_to_sp/pickerdashboard/assign-picker/%s/change/'>%s<a/>" % (self.pk,
-                                                                                                   self.picklist_id)
-                         )
-        else:
-            return self.picklist_id
-
 
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(

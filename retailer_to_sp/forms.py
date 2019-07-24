@@ -360,7 +360,7 @@ class AssignPickerForm(forms.ModelForm):
         instance = getattr(self, 'instance', None)
         #import pdb; pdb.set_trace()
         # assign shop name as readonly with value for shop name for user
-                    
+        self.fields['picker_boy'].queryset = User.objects.none()            
         if user.is_superuser:
             # load all parent shops
             self.fields['shop'].queryset = Shop.objects.filter(shop_type__shop_type__in=["sp","gf"])

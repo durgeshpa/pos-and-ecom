@@ -23,6 +23,8 @@ from django.utils.translation import ugettext_lazy as _
 from django_admin_listfilter_dropdown.filters import (ChoiceDropdownFilter,
                                                       DropdownFilter)
 from django_select2.forms import ModelSelect2Widget, Select2MultipleWidget
+from django.utils.safestring import mark_safe
+
 from rangefilter.filter import DateRangeFilter, DateTimeRangeFilter
 
 from gram_to_brand.models import GRNOrderProductMapping
@@ -534,7 +536,7 @@ from django.contrib.admin.views.main import ChangeList
 
 class PickerDashboardAdmin(admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/picker/change_list.html'
-    actions = ["change_picking_status"]
+    #actions = ["change_picking_status"]
     model = PickerDashboard
     raw_id_fields = ['order', 'shipment']
 
@@ -543,8 +545,8 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     #     'id', 'picklist_id', 'picker_boy', 'order_date', 'download_pick_list'
     #     )
     list_display = (
-        'id', 'picklist_id', 'picking_status', 'picker_boy', 
-        'created_at', 'download_pick_list', 'order_number'
+        'picklist', 'picking_status', 'picker_boy', 
+        'created_at', 'download_pick_list', 'order_number', 'order_date'
         )
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
     #readonly_fields = ['picklist_id']
@@ -583,7 +585,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
         return urls
     
     def has_change_permission(self, request, obj=None):
-        if request.user.has_perm("can_change_picker_dashboard"):
+        if request.user.has_perm("retailer_to_sp.change_pickerdashboard"):
             return True
         else:
             return False
@@ -619,6 +621,21 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     def order_number(self,obj):
         return obj.order.order_no
     order_number.short_description = 'Order No'
+
+    def order_date(self,obj):
+        return obj.order.created_at
+    order_date.short_description = 'Order Date'
+
+
+    def picklist(self, obj):
+        return mark_safe("<a href='/admin/retailer_to_sp/pickerdashboard/%s/change/'>%s<a/>" % (obj.pk,
+                                                                                                   obj.picklist_id)
+                         )
+        # if user.has_perm("can_change_picker_dashboard"):
+            
+        # else:
+        #     return self.picklist_id
+    picklist.short_description = 'Picklist'
 
     def download_pick_list(self,obj):
         if obj.picking_status == "picking_complete":
