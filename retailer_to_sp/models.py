@@ -766,7 +766,10 @@ class OrderedProductMapping(models.Model):
     def margin(self):
         return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.margin
 
-
+    @property
+    def ordered_product_status(self):
+        return self.ordered_product.get_shipment_status_display
+        
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
             shop__shop_type__shop_type='sp', status=True
