@@ -52,12 +52,13 @@ from retailer_to_sp.tasks import (
     ordered_product_available_qty_update, release_blocking, create_reserved_order
 )
 from .filters import OrderedProductMappingFilter, OrderedProductFilter
-from sp_to_gram.tasks import es_search
+
 from common.data_wrapper_view import DataWrapperViewSet
 
 from django.contrib.auth import get_user_model
 from django.utils.translation import ugettext_lazy as _
 from common.data_wrapper import format_serializer_errors
+from sp_to_gram.tasks import es_search
 
 User = get_user_model()
 
@@ -175,10 +176,13 @@ class GramGRNProductsList(APIView):
     serializer_class = GramGRNProductsSearchSerializer
 
     def search_query(self, request):
+        filter_list = [{"term":{"status":True}}]
         if self.product_ids:
-            return {"ids":{"type":"product", "values":self.product_ids}}
+            filter_list.append( {"ids":{"type":"product", "values":self.product_ids}})
+            query = {"bool":{"filter":filter_list}}
+            return query
         if self.category or self.brand or self.keyword:
-            query = {"dis_max":{"queries":[]}}
+            query = {"bool":{"filter":filter_list}}
         else:
             return {"match_all":{}}
         if self.keyword:
@@ -189,9 +193,9 @@ class GramGRNProductsList(APIView):
             }
         #else:
         #    q = {"match_all":{}}
-            query["dis_max"]["queries"].append(q)
+            filter_list.append(q)
         if self.brand:
-            query["dis_max"]["queries"].append({"term": {"brand":str(Brand.objects.filter(id__in=list(self.brand)).last())}})
+            filter_list.append({"match": {"brand":str(Brand.objects.filter(id__in=list(self.brand)).last())}})
         if self.category:
             category_filter = str(categorymodel.Category.objects.filter(id__in=self.category, status=True).last())
             q = {
@@ -199,7 +203,7 @@ class GramGRNProductsList(APIView):
                     "category":{"query":category_filter,"operator":"and"}
                 }
             }
-            query["dis_max"]["queries"].append(q)
+            filter_list.append(q)
         return query
 
     def post(self, request, format=None):
@@ -244,7 +248,6 @@ class GramGRNProductsList(APIView):
                         SP mapped data shown
                     '''
                     body = {"from" : offset, "size" : page_size, "query":query}
-                    logger.exception(query)
                     products_list = es_search(index=parent_mapping.parent.id, body=body)
                     cart = Cart.objects.filter(last_modified_by=self.request.user, cart_status__in=['active', 'pending']).last()
                     if cart:
@@ -280,7 +283,7 @@ class GramGRNProductsList(APIView):
                 'is_success': True,
                  'message': ['Products found'],
                  'response_data':p_list }
-        if not p_list or int(offset)>1:
+        if not p_list:
             msg = {'is_store_active': is_store_active,
                     'is_success': False,
                      'message': ['Sorry! No product found'],

@@ -366,7 +366,7 @@ class GRNOrder(BaseShipment): #Order Shipment
             raise ValidationError(_("Invoice Amount must be positive"))
         today = datetime.date.today()
 
-        if self.invoice_date > today:
+        if self.invoice_date and self.invoice_date > today:
             raise ValidationError(_("Invoice Date must not be greater than today"))
 
     class Meta:
