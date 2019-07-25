@@ -570,7 +570,6 @@ class ShipmentForm(forms.ModelForm):
         return data
 
 
-
 class ShipmentProductMappingForm(forms.ModelForm):
     ordered_qty = forms.CharField(required=False)
     already_shipped_qty = forms.CharField(required=False)

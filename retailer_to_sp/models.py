@@ -723,10 +723,12 @@ class OrderedProduct(models.Model): #Shipment
                                         shop_name_address_mapping.filter(
                                                         address_type='billing'
                                                         ).last().pk)
-
-                picker = PickerDashboard.objects.get(shipment_id=self.id)
-                picker.picking_status="picking_complete"
-                picker.save()
+                try:
+                    picker = PickerDashboard.objects.get(shipment_id=self.id)
+                    picker.picking_status="picking_complete"
+                    picker.save()
+                except:
+                    raise ValidationError(_("Please assign shipment to picker dashboard"),)
 
                 #Update Product Tax Mapping Start
                 for shipment in self.rt_order_product_order_product_mapping.all():
@@ -1273,9 +1275,12 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
     if instance.shipment_status == "SHIPMENT_CREATED":
         # assign shipment to picklist
         # tbd : if manual(by searching relevant picklist id) or automated 
-        picker = PickerDashboard.objects.get(order=instance.order, picking_status="picking_assigned")
-        picker.shipment=instance
-        picker.save()
+        try:
+            picker = PickerDashboard.objects.get(order=instance.order, picking_status="picking_assigned")
+            picker.shipment=instance
+            picker.save()
+        except:
+            raise ValidationError(_("Please correct picker dashboard entry for order" ),)
 
 
 @receiver(post_save, sender=Order)

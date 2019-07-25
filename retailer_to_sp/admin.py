@@ -979,13 +979,16 @@ class ShipmentAdmin(admin.ModelAdmin):
 
     def save_related(self, request, form, formsets, change):
         #update_shipment_status(form, formsets)
+
         update_order_status(
             close_order_checked=form.cleaned_data.get('close_order'),
             shipment_id=form.instance.id
         )        
 
         no_of_pieces = form.instance.order.ordered_cart.rt_cart_list.all().values('no_of_pieces')
-        no_of_pieces = no_of_pieces.first().get('no_of_pieces')
+        # no_of_pieces = no_of_pieces.first().get('no_of_pieces')
+        no_of_pieces = no_of_pieces.aggregate(
+            Sum('no_of_pieces')).get('no_of_pieces__sum', 0)
 
         all_ordered_product = form.instance.order.rt_order_order_product.all()
         qty = OrderedProductMapping.objects.filter(
@@ -995,6 +998,20 @@ class ShipmentAdmin(admin.ModelAdmin):
             Sum('shipped_qty')).get('shipped_qty__sum', 0)
         
         shipped_qty = shipped_qty if shipped_qty else 0
+        #when more shipments needed and status == qc_pass
+        close_order = form.cleaned_data.get('close_order')
+        if form.instance.READY_TO_SHIP and not close_order:
+
+            if int(no_of_pieces) > shipped_qty:
+                try:
+                    pincode = form.instance.order.shipping_address.pincode
+                except:
+                    pincode = "00"
+                PickerDashboard.objects.create(
+                    order=form.instance.order,
+                    picking_status="picking_pending",
+                    picklist_id= generate_picklist_id(pincode) #get_random_string(12).lower(),#
+                    )
 
         if (form.cleaned_data.get('close_order') and
                 (form.instance.shipment_status != form.instance.CLOSED and
@@ -1002,17 +1019,6 @@ class ShipmentAdmin(admin.ModelAdmin):
 
             update_quantity = UpdateSpQuantity(form, formsets)
             update_quantity.update()
-
-            # if int(no_of_pieces) > shipped_qty:
-            #     try:
-            #         pincode = form.instance.order.shipping_address.pincode
-            #     except:
-            #         pincode = "00"
-            #     PickerDashboard.objects.create(
-            #         order=form.instance.order,
-            #         picking_status="picking_pending",
-            #         picklist_id= generate_picklist_id(pincode) #get_random_string(12).lower(),#
-            #         )
 
         super(ShipmentAdmin, self).save_related(request, form, formsets, change)
 
