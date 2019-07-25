@@ -362,7 +362,7 @@ class GRNOrder(BaseShipment): #Order Shipment
 
     def clean(self):
         super(GRNOrder, self).clean()
-        if self.invoice_amount <= 0:
+        if float(self.invoice_amount) and self.invoice_amount <= 0:
             raise ValidationError(_("Invoice Amount must be positive"))
         today = datetime.date.today()
 
