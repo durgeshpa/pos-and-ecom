@@ -14,6 +14,8 @@ from django.contrib.admin import SimpleListFilter, helpers
 from django.utils.html import format_html
 from django.urls import reverse
 from django.db.models import Q
+from django.db.models import F, FloatField, Sum
+
 from django.forms.models import BaseInlineFormSet
 from django import forms
 from django.http import HttpResponse
@@ -59,7 +61,8 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare,
                      Dispatch, DispatchProductMapping, Note, Order,
                      OrderedProduct, OrderedProductMapping, Payment, Return,
                      ReturnProductMapping, Shipment, ShipmentProductMapping,
-                     Trip, ShipmentRescheduling, Feedback, PickerDashboard)
+                     Trip, ShipmentRescheduling, Feedback, PickerDashboard,
+                     generate_picklist_id)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (
@@ -979,13 +982,38 @@ class ShipmentAdmin(admin.ModelAdmin):
         update_order_status(
             close_order_checked=form.cleaned_data.get('close_order'),
             shipment_id=form.instance.id
-        )
+        )        
+
+        no_of_pieces = form.instance.order.ordered_cart.rt_cart_list.all().values('no_of_pieces')
+        no_of_pieces = no_of_pieces.first().get('no_of_pieces')
+
+        all_ordered_product = form.instance.order.rt_order_order_product.all()
+        qty = OrderedProductMapping.objects.filter(
+            ordered_product__in=all_ordered_product,
+            )
+        shipped_qty = qty.aggregate(
+            Sum('shipped_qty')).get('shipped_qty__sum', 0)
+        
+        shipped_qty = shipped_qty if shipped_qty else 0
 
         if (form.cleaned_data.get('close_order') and
                 (form.instance.shipment_status != form.instance.CLOSED and
                  not form.instance.order.order_closed)):
+
             update_quantity = UpdateSpQuantity(form, formsets)
             update_quantity.update()
+
+            # if int(no_of_pieces) > shipped_qty:
+            #     try:
+            #         pincode = form.instance.order.shipping_address.pincode
+            #     except:
+            #         pincode = "00"
+            #     PickerDashboard.objects.create(
+            #         order=form.instance.order,
+            #         picking_status="picking_pending",
+            #         picklist_id= generate_picklist_id(pincode) #get_random_string(12).lower(),#
+            #         )
+
         super(ShipmentAdmin, self).save_related(request, form, formsets, change)
 
 

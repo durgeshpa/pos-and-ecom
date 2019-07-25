@@ -25,7 +25,7 @@ from retailer_to_sp.models import (
     CustomerCare, ReturnProductMapping, OrderedProduct,
     OrderedProductMapping, Order, Dispatch, Trip, TRIP_STATUS,
     Shipment, ShipmentProductMapping, CartProductMapping, Cart,
-    ShipmentRescheduling, PickerDashboard
+    ShipmentRescheduling, PickerDashboard, generate_picklist_id
 )
 from products.models import Product
 from shops.models import Shop
@@ -564,6 +564,9 @@ class ShipmentForm(forms.ModelForm):
                 not data['shipment_status'] == OrderedProduct.READY_TO_SHIP):
                 raise forms.ValidationError(
                     _('You can only close the order in QC Passed state'),)
+        
+        order_closed_status = ['denied_and_closed', 'partially_shipped_and_closed',
+            'DENIED', 'CANCELLED', 'CLOSED', 'deleted']
         return data
 
 

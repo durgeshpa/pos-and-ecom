@@ -82,6 +82,7 @@ TRIP_STATUS = (
 
 
 def generate_picklist_id(pincode):
+
     if PickerDashboard.objects.exists():
         last_picking = PickerDashboard.objects.last()
         picklist_id = last_picking.picklist_id
@@ -699,6 +700,8 @@ class OrderedProduct(models.Model): #Shipment
     def damaged_amount(self):
         return round(self._damaged_amount, 2)
 
+    def clean(self):
+        super(OrderedProduct, self).clean()
 
     def save(self, *args, **kwargs):
         if not self.invoice_no:
@@ -724,20 +727,6 @@ class OrderedProduct(models.Model): #Shipment
                 picker = PickerDashboard.objects.get(shipment_id=self.id)
                 picker.picking_status="picking_complete"
                 picker.save()
-                               
-                order_closed_status = ['denied_and_closed', 'partially_shipped_and_closed',
-                    'DENIED', 'CANCELLED', 'CLOSED', 'deleted']
-
-                if self.order.order_status not in order_closed_status:
-                    try:
-                        pincode = self.order.shipping_address.pincode
-                    except:
-                        pincode = "00"
-                    PickerDashboard.objects.create(
-                        order=self.order,
-                        picking_status="picking_pending",
-                        picklist_id= generate_picklist_id(pincode) #get_random_string(12).lower(),#
-                        )
 
                 #Update Product Tax Mapping Start
                 for shipment in self.rt_order_product_order_product_mapping.all():
