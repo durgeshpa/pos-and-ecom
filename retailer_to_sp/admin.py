@@ -1000,7 +1000,7 @@ class ShipmentAdmin(admin.ModelAdmin):
         shipped_qty = shipped_qty if shipped_qty else 0
         #when more shipments needed and status == qc_pass
         close_order = form.cleaned_data.get('close_order')
-        if form.instance.READY_TO_SHIP and not close_order:
+        if (form.instance.shipment_status == form.instance.READY_TO_SHIP) and (not close_order):
 
             if int(no_of_pieces) > shipped_qty:
                 try:
