@@ -10,12 +10,12 @@ from daterange_filter.filter import DateRangeFilter
 from retailer_backend.admin import InputFilter
 from .models import *
 from .views import (
-    sp_sr_productprice, load_cities, load_sp_sr, export,
+    SpSrProductPrice, load_cities, load_sp_sr, export,
     load_brands, products_filter_view, products_price_filter_view,
     ProductsUploadSample, products_csv_upload_view, gf_product_price,
     load_gf, products_export_for_vendor, products_vendor_mapping,
-    MultiPhotoUploadView, ProductPriceAutocomplete, ProductCategoryAutocomplete
-    )
+    MultiPhotoUploadView, ProductPriceAutocomplete,
+    ProductCategoryAutocomplete, download_all_products)
 from .resources import (
     SizeResource, ColorResource, FragranceResource,
     FlavorResource, WeightResource, PackageSizeResource,
@@ -256,7 +256,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
             ),
             url(
                 r'^sp-sr-productprice/$',
-                self.admin_site.admin_view(sp_sr_productprice),
+                self.admin_site.admin_view(SpSrProductPrice.as_view()),
                 name="sp_sr_productprice"
             ),
             url(
@@ -314,6 +314,11 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 self.admin_site.admin_view(ProductCategoryAutocomplete.as_view()),
                 name="product-category-autocomplete"
             ),
+            url(
+                r'^download-all-products/$',
+                self.admin_site.admin_view(download_all_products),
+                name="download-all-products"
+            ),
         ] + urls
         return urls
 
@@ -337,6 +342,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                                     obj.product_pro_image.first().image.url))
 
     product_images.short_description = 'Product Image'
+
 
 class MRPSearch(InputFilter):
     parameter_name = 'mrp'
@@ -428,6 +434,8 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     approve_product_price.short_description = "Approve Selected Products Prices"
 
     def has_delete_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
         return False
 
     def get_queryset(self, request):

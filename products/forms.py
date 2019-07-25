@@ -91,45 +91,14 @@ class ProductPriceForm(forms.Form):
             try:
                 state_id = int(self.data.get('state'))
                 city_id = int(self.data.get('city'))
-                self.fields['sp_sr_list'].queryset = Shop.objects.all()
+                self.fields['sp_sr_list'].queryset = Shop.objects.filter(
+                    id__in=self.data.get('sp_sr_list').split(','))
             except (ValueError, TypeError):
                 pass  # invalid input from the client; ignore and fallback to empty City queryset
 
     def clean_file(self):
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only csv file accepted")
-        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
-        first_row = next(reader)
-        for id,row in enumerate(reader):
-            if not row[0] or not re.match("^[\d]*$", row[0]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_ID'])
-            if not row[1]:
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
-                    1]+":"+row[1]+" | Product Name required")
-            if not row[4] or not re.match("^\d{0,8}(\.\d{1,4})?$", row[4]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
-                    4]+":"+row[4]+" | "+VALIDATION_ERROR_MESSAGES[
-                    'INVALID_PRICE'])
-            if not row[5] or not re.match("^\d{0,8}(\.\d{1,4})?$", row[5]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
-                    5]+":"+row[5]+" | "+VALIDATION_ERROR_MESSAGES[
-                    'INVALID_PRICE'])
-            if not row[6] or not re.match("^\d{0,8}(\.\d{1,4})?$", row[6]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
-                    6]+":"+row[6]+" | "+VALIDATION_ERROR_MESSAGES[
-                    'INVALID_PRICE'])
-            if not row[7] or not re.match("^\d{0,8}(\.\d{1,4})?$", row[7]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
-                    7]+":"+row[7]+" | "+VALIDATION_ERROR_MESSAGES[
-                    'INVALID_PRICE'])
-            if not row[8] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[8]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
-                    8]+":"+row[8]+" | "+VALIDATION_ERROR_MESSAGES[
-                    'INVALID_PRICE'])
-            if not row[9] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[9]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
-                    9]+":"+row[9]+" | "+VALIDATION_ERROR_MESSAGES[
-                    'INVALID_PRICE'])
         return self.cleaned_data['file']
 
 class GFProductPriceForm(forms.Form):
