@@ -1,3 +1,6 @@
+import sys
+import traceback
+
 from fcm.utils import get_device_model
 
 Device = get_device_model()
@@ -16,13 +19,13 @@ class SendFCMNotification:
 		try:
 			#registration_ids = []
 			#print (self.registration_id, self.message_title, self.message_body)
-			devices = Device.objects.all()
-			devices.send_message({'message':self.message_body}, collapse_key='something')
+			# devices = Device.objects.all()
+			# devices.send_message({'message':self.message_body}, collapse_key='something')
+			Device.objects.all().send_message({'message':'my test message'})
 
-		except:
-			# print (traceback.format_exc(sys.exc_info()))
-			if not self.fail_silently:
-				raise
+		except Exception as e:
+			print (traceback.format_exc(sys.exc_info()))
+			print (e)
 
 	def send(self):
 		try:
@@ -31,7 +34,6 @@ class SendFCMNotification:
 			my_phone = Device.objects.get(reg_id=self.registration_id)
 			my_phone.send_message({'message':self.message_body}, collapse_key='something')
 
-		except:
-			# print (traceback.format_exc(sys.exc_info()))
-			if not self.fail_silently:
-				raise
+		except Exception as e:
+			print (traceback.format_exc(sys.exc_info()))
+			print (e)

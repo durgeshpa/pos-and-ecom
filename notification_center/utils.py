@@ -127,6 +127,7 @@ class SendNotification:
         return final_template.render(Context(self.template_data))
 
     def send_to_all(self):
+        #import pdb; pdb.set_trace()
         template = Template.objects.get(type=self.template_type)
 
         self.template_data = GenerateTemplateData(
