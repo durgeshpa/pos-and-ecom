@@ -1133,7 +1133,7 @@ class ShipmentDetail(APIView):
         datas = OrderedProductMapping.objects.filter(ordered_product = shipment_id, product = product).update(returned_qty=returned_qty, damaged_qty=damaged_qty)
         serializer = ShipmentDetailSerializer(shipment, many=True)
         if serializer.data:
-            msg = {'is_success': True, 'message': ['Message Sent'], 'response_data': serializer.data}
+            msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': serializer.data}
             return Response( msg, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         # else:
