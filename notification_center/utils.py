@@ -126,6 +126,24 @@ class SendNotification:
         
         return final_template.render(Context(self.template_data))
 
+    def send_to_all(self):
+        template = Template.objects.get(type=self.template_type)
+
+        self.template_data = GenerateTemplateData(
+            transaction_type=self.template_type,
+            transaction_data=self.data).create()
+
+        self.template_data = {**self.template_data, **self.data}
+
+        message_title = template.gcm_title
+        message_body = self.merge_template_with_data(template.gcm_description)
+        # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
+        notification = SendFCMNotification(
+            message_title=message_title,
+            message_body=message_body
+            )            
+        notification.send_to_all()
+
     def send_to_a_group(self):
         # fetch the group and location and call send for each user specifically
         #import pdb; pdb.set_trace()

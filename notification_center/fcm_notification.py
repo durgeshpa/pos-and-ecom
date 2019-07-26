@@ -15,9 +15,9 @@ class SendFCMNotification:
 	def send_to_all(self):
 		try:
 			#registration_ids = []
-			print (self.registration_id, self.message_title, self.message_body)
-			# devices = Device.objects.all()
-			# devices.send_message({'message':self.message_body}, collapse_key='something')
+			#print (self.registration_id, self.message_title, self.message_body)
+			devices = Device.objects.all()
+			devices.send_message({'message':self.message_body}, collapse_key='something')
 
 		except:
 			# print (traceback.format_exc(sys.exc_info()))
