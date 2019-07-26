@@ -22,7 +22,8 @@ from .resources import (
     ProductResource, ProductPriceResource, TaxResource
     )
 
-from .forms import ProductPriceNewForm
+from .forms import (ProductPriceNewForm, ProductPriceChangePerm,
+                    ProductPriceAddPerm)
 
 class ProductFilter(AutocompleteFilter):
     title = 'Product Name' # display title
@@ -378,7 +379,7 @@ class ExportCsvMixin:
 class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductPriceResource
     form = ProductPriceNewForm
-    actions = ["export_as_csv_productprice", 'approve_product_price']
+    actions = ['export_as_csv_productprice', 'approve_product_price']
     list_select_related = ('product', 'shop')
     list_display = [
         'product', 'product_sku', 'product_gf_code', 'mrp',
@@ -432,11 +433,21 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
             product.save()
 
     approve_product_price.short_description = "Approve Selected Products Prices"
+    approve_product_price.allowed_permissions = ('change',)
 
     def has_delete_permission(self, request, obj=None):
         if request.user.is_superuser:
             return True
         return False
+
+    def get_form(self, request, obj=None, **kwargs):
+        if request.user.is_superuser:
+            kwargs['form'] = ProductPriceNewForm
+        if request.user.has_perm('products.add_productprice'):
+            kwargs['form'] = ProductPriceAddPerm
+        if request.user.has_perm('products.change_productprice'):
+            kwargs['form'] = ProductPriceChangePerm
+        return super().get_form(request, obj, **kwargs)
 
     def get_queryset(self, request):
         qs = super(ProductPriceAdmin, self).get_queryset(request)

@@ -234,6 +234,12 @@ class ProductPrice(models.Model):
             raise ValidationError(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
 
     def save(self, *args, **kwargs):
+        if self.price_to_service_partner > self.price_to_super_retailer:
+            raise Exception(ERROR_MESSAGES['INVALID_SP_PRICE'])
+        if self.price_to_super_retailer > self.price_to_retailer:
+            raise Exception(ERROR_MESSAGES['INVALID_SR_PRICE'])
+        if self.price_to_retailer > self.mrp:
+            raise Exception(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
         if self.approval_status == self.APPROVED:
             ProductPrice.objects.filter(product=self.product, shop=self.shop,
                                         status=True).update(status=False)

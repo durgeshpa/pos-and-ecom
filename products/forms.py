@@ -411,3 +411,50 @@ class ProductsCSVUploadForm(forms.Form):
             if not row[16]:
                 raise ValidationError(_('HSN_CODE_REQUIRED at Row[%(value)s].'), params={'value': id+1},)
         return self.cleaned_data['file']
+
+
+class ProductPriceAddPerm(forms.ModelForm):
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:product-price-autocomplete',)
+    )
+    shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['gf', 'sp']),
+    )
+
+    class Meta:
+        model = ProductPrice
+        fields = ('product', 'city', 'area', 'shop',
+                  'price_to_service_partner', 'price_to_retailer',
+                  'price_to_super_retailer', 'start_date', 'end_date',
+                  'approval_status', 'status',)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'approval_status' and 'status' in self.fields:
+            self.fields['approval_status'].widget = forms.HiddenInput()
+            self.fields['status'].widget = forms.HiddenInput()
+
+
+class ProductPriceChangePerm(forms.ModelForm):
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:product-price-autocomplete',)
+    )
+    shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['gf', 'sp']),
+    )
+
+    class Meta:
+        model = ProductPrice
+        fields = ('product', 'city', 'area', 'shop',
+                  'price_to_service_partner', 'price_to_retailer',
+                  'price_to_super_retailer', 'start_date', 'end_date',
+                  'approval_status', 'status',)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'status' in self.fields:
+            self.fields['status'].widget = forms.HiddenInput()
