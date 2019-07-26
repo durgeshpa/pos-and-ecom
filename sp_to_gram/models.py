@@ -21,9 +21,8 @@ from retailer_to_sp.models import Note as CreditNote, OrderedProduct as Retailer
 from retailer_backend.common_function import (
     order_id_pattern, brand_credit_note_pattern, getcredit_note_id
 )
-
+from sp_to_gram.tasks import update_shop_product_es
 logger = logging.getLogger(__name__)
-
 
 
 ORDER_STATUS = (
