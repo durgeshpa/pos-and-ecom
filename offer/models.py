@@ -102,3 +102,9 @@ class OfferBannerData(SortableMixin):
 
     class Meta:
         ordering = ['offer_banner_data_order']
+
+class TopSKU(models.Model):
+    product = models.ForeignKey(Product, blank=True, null=True, on_delete=models.CASCADE)
+    start_date = models.DateTimeField(blank=True, null=True)
+    end_date = models.DateTimeField(blank=True, null=True)
+    status = models.BooleanField(('Status'),help_text=('Designates whether the product is to be displayed or not.'),default=False)
