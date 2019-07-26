@@ -48,6 +48,7 @@ class Template(models.Model):
         ('SALE', 'Sale'),
         ('SCHEME', 'Scheme'),
         ('CUSTOM', 'Custom'),
+        ('PROMOTIONAL', 'Promotional'),
     )
     name = models.CharField(
         max_length=255

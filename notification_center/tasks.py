@@ -27,10 +27,10 @@ def schedule_notification(*args, **kwargs):
 def schedule_notification_to_all(*args, **kwargs):
     #setup_periodic_tasks()
     try:
-        activity_type = kwargs.get('activity_type')
-
+        activity_type = kwargs.get('activity_type', None)
+        content = kwargs.get('content', "")
         # user_id = args[0]
         # activity_type = args[1]
-        SendNotification(user_id=user_id, activity_type=activity_type).send_to_all()
+        SendNotification(activity_type=activity_type).send_to_all()
     except Exception as e:
         logging.error(str(e))
