@@ -768,8 +768,8 @@ class OrderedProductMapping(models.Model):
 
     @property
     def ordered_product_status(self):
-        return self.ordered_product.get_shipment_status_display
-        
+        return self.ordered_product.shipment_status
+
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
             shop__shop_type__shop_type='sp', status=True
