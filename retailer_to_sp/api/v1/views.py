@@ -200,7 +200,7 @@ class GramGRNProductsList(APIView):
             query = {"bool":{"filter":filter_list}}
         else:
             return {"match_all":{}}
-        if not self.brand and self.keyword:
+        if self.keyword:
             q = {
             "match":{
                 "name":{"query":self.keyword, "fuzziness":"AUTO", "operator":"and"}
