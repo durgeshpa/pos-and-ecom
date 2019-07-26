@@ -733,10 +733,10 @@ class OrderList(generics.ListAPIView):
 
         current_url = request.get_host()
         if parent_mapping.parent.shop_type.shop_type == 'sp':
-            queryset = Order.objects.filter(last_modified_by=user,buyer_shop=parent_mapping.retailer).order_by('-created_at')
+            queryset = Order.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
             serializer = OrderListSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
-            queryset = GramMappedOrder.objects.filter(last_modified_by=user).order_by('-created_at')
+            queryset = GramMappedOrder.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
             serializer = GramMappedOrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
 
         if serializer.data:
@@ -1230,14 +1230,14 @@ class SellerOrderList(generics.ListAPIView):
         shop_mangr = ShopUserMapping.objects.filter(manager=self.request.user, status=True)
         if shop_emp.exists() and shop_emp.last().employee_group.permissions.filter(
                 codename='can_sales_person_add_shop').exists():
-            return shop_emp.values('employee')
+            return shop_emp.values('shop')
         elif shop_mangr.exists():
-            return shop_mangr.values('employee')
+            return shop_mangr.values('shop')
 
     def list(self, request, *args, **kwargs):
         msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
         current_url = request.get_host()
-        queryset = Order.objects.filter(last_modified_by__in=self.get_queryset()).order_by('-created_at')
+        queryset = Order.objects.filter(buyer_shop__in=self.get_queryset()).order_by('-created_at')
         users_list = [v['employee_id'] for v in self.get_queryset().values('employee_id')]
         serializer = SellerOrderListSerializer(queryset, many=True, context={'current_url':current_url, 'sales_person_list':users_list})
         if serializer.data:
