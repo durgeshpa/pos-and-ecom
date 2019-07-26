@@ -620,6 +620,7 @@ class ShipmentStatusSerializer(serializers.ModelSerializer):
 
 class ShipmentDetailSerializer(serializers.ModelSerializer):
     ordered_product_status = serializers.ReadOnlyField()
+    product_short_description = serializers.ReadOnlyField()
     mrp = serializers.ReadOnlyField()
     price_to_retailer = serializers.ReadOnlyField()
     cash_discount = serializers.ReadOnlyField()
@@ -628,7 +629,7 @@ class ShipmentDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderedProductMapping
-        fields = ( 'ordered_product', 'ordered_product_status', 'product', 'mrp', 'price_to_retailer', 'cash_discount', 'loyalty_incentive', 'margin', 'shipped_qty',  'returned_qty', 'damaged_qty')
+        fields = ( 'ordered_product', 'ordered_product_status', 'product', 'product_short_description', 'mrp', 'price_to_retailer', 'cash_discount', 'loyalty_incentive', 'margin', 'shipped_qty',  'returned_qty', 'damaged_qty')
 
 class TripSerializer(serializers.ModelSerializer):
     trip_id = serializers.ReadOnlyField()
