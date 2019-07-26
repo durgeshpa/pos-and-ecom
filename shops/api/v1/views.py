@@ -453,7 +453,7 @@ class SellerShopListView(generics.ListAPIView):
             shop_list = shop_list.filter(pincode__icontains=self.request.query_params.get('pin_code'))
         if self.request.query_params.get('address'):
             shop_list = shop_list.filter(address_line1__icontains=self.request.query_params.get('address'))
-        return shop_list.values('shop_name', 'shop_name__shop_name','shop_name__phone_number', 'address_line1', 'city__city_name', 'state__state_name', 'pincode', 'address_contact_name','address_contact_number').order_by('shop_name').distinct('shop_name')
+        return shop_list.values('shop_name','shop_name__shop_name','shop_name__shop_owner__phone_number', 'address_line1', 'city__city_name', 'state__state_name', 'pincode', 'address_contact_name','address_contact_number').order_by('shop_name').distinct('shop_name')
 
     def list(self, request, *args, **kwargs):
         data = []
@@ -462,7 +462,7 @@ class SellerShopListView(generics.ListAPIView):
             dt = {
                 'shop_id': shop['shop_name'],
                 'shop_name': shop['shop_name__shop_name'],
-                'retailer_contact_number': shop['shop_name__phone_number'],
+                'retailer_contact_number': shop['shop_name__shop_owner__phone_number'],
                 'address': shop['address_line1'],
                 'city': shop['city__city_name'],
                 'state': shop['state__state_name'],
