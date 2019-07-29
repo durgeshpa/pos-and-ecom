@@ -268,7 +268,7 @@ def ordered_product_mapping_shipment(request):
                                 if max_pieces_allowed < int(to_be_ship_qty):
                                     raise Exception('{}: Max Qty allowed is {}'.format(product_name, max_pieces_allowed))
                                 formset_data.save()
-                    update_reserved_order.delay(json.dumps({'shipment_id': shipment.id}))
+                    #update_reserved_order.delay(json.dumps({'shipment_id': shipment.id}))
                 return redirect('/admin/retailer_to_sp/shipment/')
 
             except Exception as e:
@@ -622,7 +622,7 @@ class DownloadPickListPicker(TemplateView,):
     def get(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect('/admin/login/?next=%s' % request.path)
-
+            
         order_obj = get_object_or_404(Order, pk=self.kwargs.get('pk'))
         shipment_id = self.kwargs.get('shipment_id')
         # get data for already shipped products
@@ -631,6 +631,21 @@ class DownloadPickListPicker(TemplateView,):
         if shipment:
             shipment_products = shipment.rt_order_product_order_product_mapping.all()
             shipment_product_list = []
+
+            shipment_product_items = shipment_products.values('product')
+            cart_products = order_obj.ordered_cart.rt_cart_list.all()
+            cart_products_remaining = cart_products.exclude(cart_product__in=shipment_product_items)
+
+            for cart_pro in cart_products_remaining:
+                product_list = {
+                    "product_name": cart_pro.cart_product.product_name,
+                    "product_sku": cart_pro.cart_product.product_sku,
+                    "product_mrp": round(cart_pro.get_cart_product_price(order_obj.seller_shop).mrp,2),
+                    "to_be_shipped_qty":cart_pro.qty,
+                    # "no_of_pieces":cart_pro.no_of_pieces,
+                }
+
+                shipment_product_list.append(product_list)
 
             for shipment_pro in shipment_products:
                 product_list = {
