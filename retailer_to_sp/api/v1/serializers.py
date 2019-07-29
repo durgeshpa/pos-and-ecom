@@ -7,6 +7,7 @@ from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMap
 from retailer_to_sp.models import (CartProductMapping, Cart, Order,
                                    OrderedProduct, Note, CustomerCare,
                                    Payment, Dispatch, Feedback)
+                                   Payment, Dispatch, OrderedProductMapping, Trip)
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
 
                                       OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment)
@@ -745,7 +746,50 @@ class ShipmentOrderSerializer(serializers.ModelSerializer):
 
 
 class ShipmentSerializer(serializers.ModelSerializer):
+    shipment_id = serializers.ReadOnlyField()
     order = ShipmentOrderSerializer()
     class Meta:
         model = OrderedProduct
-        fields = ('invoice_no', 'shipment_status', 'payment_mode', 'invoice_amount', 'order')
+        fields = ('shipment_id', 'invoice_no', 'shipment_status', 'payment_mode', 'invoice_amount', 'order')
+
+
+class ShipmentStatusSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = OrderedProduct
+        fields = ('shipment_status',)
+
+
+class ShipmentDetailSerializer(serializers.ModelSerializer):
+    ordered_product_status = serializers.ReadOnlyField()
+    product_short_description = serializers.ReadOnlyField()
+    mrp = serializers.ReadOnlyField()
+    price_to_retailer = serializers.ReadOnlyField()
+    cash_discount = serializers.ReadOnlyField()
+    loyalty_incentive = serializers.ReadOnlyField()
+    margin = serializers.ReadOnlyField()
+
+    class Meta:
+        model = OrderedProductMapping
+        fields = ( 'ordered_product', 'ordered_product_status', 'product', 'product_short_description', 'mrp', 'price_to_retailer', 'cash_discount', 'loyalty_incentive', 'margin', 'shipped_qty',  'returned_qty', 'damaged_qty')
+
+class TripSerializer(serializers.ModelSerializer):
+    trip_id = serializers.ReadOnlyField()
+    total_trip_amount = serializers.SerializerMethodField()
+    #trip_return_amount = serializers.ReadOnlyField()
+    cash_to_be_collected = serializers.SerializerMethodField()
+    no_of_shipments = serializers.ReadOnlyField()
+    trip_status = serializers.CharField(
+                                        source='get_trip_status_display')
+
+    def get_total_trip_amount(self, obj):
+        return obj.total_trip_amount()
+
+    def get_cash_to_be_collected(self, obj):
+        return obj.cash_to_be_collected()
+
+
+
+    class Meta:
+        model = Trip
+        fields = ('trip_id', 'trip_status', 'no_of_shipments', 'total_trip_amount', 'cash_to_be_collected')

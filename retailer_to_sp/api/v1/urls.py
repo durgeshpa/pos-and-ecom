@@ -1,4 +1,6 @@
 from django.conf.urls import include, url
+from .views import (ProductsList, GramGRNProductsList,AddToCart,CartDetail,ReservedOrder,CreateOrder,OrderList,OrderDetail,DownloadInvoiceSP,
+                    DownloadNote, CustomerCareApi, CustomerOrdersList,  PaymentApi, ProductDetail,ReleaseBlocking, DeliveryBoyTrips, DeliveryShipmentDetails, ShipmentDetail)
 from rest_framework import routers
 
 from .views import (ProductsList, GramGRNProductsList,AddToCart,CartDetail,
@@ -29,7 +31,9 @@ urlpatterns = [
     url('^order-payment/$', PaymentApi.as_view(), name='order_payment'),
     url('^release-blocking/$', ReleaseBlocking.as_view(), name='release-blocking'),
     url('^product_detail/(?P<pk>\d+)/$', ProductDetail.as_view(), name='product_detail'),
-    url('^trip-shipments/$', DeliveryBoyTrips.as_view(), name='trip-shipments'),
+    url('^trip-shipments/(?P<day>.+)/(?P<month>.+)/(?P<year>.+)/$', DeliveryBoyTrips.as_view(), name='trip-shipments'),
+    url('^trip-shipment-details/(?P<trip>[-\w]+)/$', DeliveryShipmentDetails.as_view(), name = 'trip-shipment-details'),
+    url('^shipment-detail/(?P<shipment>[-\w]+)/$', ShipmentDetail.as_view(), name='shipment-detail'),
     #cron
     #url('^delete-ordered-product-reserved/$', CronToDeleteOrderedProductReserved.as_view(), name='delete_ordered_product_reserved'),
     url('^feedback/$', FeedbackData.as_view(), name='feed_back'),

@@ -22,7 +22,7 @@ from .serializers import (
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,
                           OrderSerializer, CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
 
-                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer, OrderListSerializer, ShipmentSerializer, ShipmentOrderSerializer )
+                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer, OrderListSerializer, ShipmentSerializer, ShipmentOrderSerializer, ShipmentDetailSerializer, TripSerializer)
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
 from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
                                 OrderedProduct as SPOrderedProduct, StockAdjustment)
@@ -56,6 +56,7 @@ from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as 
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
                                    OrderedProduct, Payment, CustomerCare,
                                    Return, Feedback, OrderedProductMapping as ShipmentProducts)
+                                   Return, OrderedProductMapping,Trip)
 
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
                                       OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment, CustomerCare as GramMappedCustomerCare )
@@ -1164,31 +1165,54 @@ class DeliveryBoyTrips(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def get(self, request):
-        trip_date = self.request.GET.get('trip_date')
-        trips = Trip.objects.get(created_at = trip_date, delivery_boy = request.user)
-        shipments = trips.rt_invoice_trip.all().count()
-        msg = {'is_success': True, 'message': ['Number Of Trips'], 'response_data': shipments}
+    def get(self, *args, **kwargs):
+        trip_date = ('{}-{}-{}').format(kwargs['year'], kwargs['month'], kwargs['day'])
+        trip = Trip.objects.filter(created_at__date=trip_date, delivery_boy=self.request.user)
+        trip_details = TripSerializer(trip, many=True)
+        msg = {'is_success': True, 'message': ['Trip Details'], 'response_data': trip_details.data}
         return Response(msg, status=status.HTTP_201_CREATED)
 
 class DeliveryShipmentDetails(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def get(self, request):
-        trip_date = self.request.GET.get('trip_date')
-        trips = Trip.objects.get(created_at = trip_date, delivery_boy = request.user)
+    def get(self, *args, **kwargs):
+        trip_id = kwargs.get('trip')
+        trips = Trip.objects.get(id = trip_id , delivery_boy = self.request.user)
         shipments = trips.rt_invoice_trip.all()
         shipment_details = ShipmentSerializer(shipments, many=True)
         msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': shipment_details.data}
         return Response(msg, status=status.HTTP_201_CREATED)
 
-# class ShipmentDetail(APIView):
-#     authentication_classes = (authentication.TokenAuthentication,)
-#     permission_classes = (permissions.IsAuthenticated,)
-#
-#     def get(self, request):
-#         shipment_id =
+class ShipmentDetail(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, *args, **kwargs):
+        shipment_id = kwargs.get('shipment')
+        shipment = OrderedProductMapping.objects.filter(ordered_product__id = shipment_id)
+        shipment_product_details = ShipmentDetailSerializer(shipment, many=True)
+        msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': shipment_product_details.data}
+        return Response(msg, status=status.HTTP_201_CREATED)
+
+    def post(self, *args, **kwargs):
+        shipment_id = kwargs.get('shipment')
+        shipment = OrderedProductMapping.objects.filter(ordered_product__id = shipment_id)
+        product = self.request.POST.get('product')
+        returned_qty = self.request.POST.get('returned_qty')
+        damaged_qty=self.request.POST.get('damaged_qty')
+        msg = {'is_success': False,'message': [''],'response_data': None}
+
+        datas = OrderedProductMapping.objects.filter(ordered_product = shipment_id, product = product).update(returned_qty=returned_qty, damaged_qty=damaged_qty)
+        serializer = ShipmentDetailSerializer(shipment, many=True)
+        if serializer.data:
+            msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': serializer.data}
+            return Response( msg, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # else:
+        #     msg = {'is_success': False, 'message': ['Phone Number is not Valid'], 'response_data': None}
+        #     return Response( msg, status=status.HTTP_400_BAD_REQUEST)
+        # return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class FeedbackData(generics.ListCreateAPIView):
     serializer_class = FeedBackSerializer

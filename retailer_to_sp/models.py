@@ -508,6 +508,18 @@ class Trip(models.Model):
             return str(self.get_trip_status_display())
         return str("-------")
 
+    @property
+    def no_of_shipments(self):
+        return self.rt_invoice_trip.all().count()
+
+    @property
+    def trip_id(self):
+        return self.id
+
+    @property
+    def total_return_amount(self):
+        return self.rt_invoice_trip.all().count()
+
 
 class OrderedProduct(models.Model): #Shipment
     CLOSED = "closed"
@@ -660,6 +672,10 @@ class OrderedProduct(models.Model): #Shipment
             return round(self._invoice_amount, 2)
         return str("-")
 
+    @property
+    def shipment_id(self):
+        return self.id
+
     def cn_amount(self):
         return round(self._cn_amount, 2)
 
@@ -772,6 +788,35 @@ class OrderedProductMapping(models.Model):
             gf_code = self.product.product_gf_code
             return str(gf_code)
         return str("-")
+
+
+    @property
+    def mrp(self):
+        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.mrp
+
+    @property
+    def price_to_retailer(self):
+        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.price_to_retailer
+
+    @property
+    def cash_discount(self):
+        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.cash_discount
+
+    @property
+    def loyalty_incentive(self):
+        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.loyalty_incentive
+
+    @property
+    def margin(self):
+        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.margin
+
+    @property
+    def ordered_product_status(self):
+        return self.ordered_product.shipment_status
+
+    @property
+    def product_short_description(self):
+        return self.product.product_short_description
 
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
