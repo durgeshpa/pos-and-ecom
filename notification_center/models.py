@@ -17,7 +17,7 @@ Shop = 'shops.shop'
 class FCMDevice(AbstractDevice):
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='user_fcm')
-
+    is_active = models.BooleanField(verbose_name=("Is active?"), default=True)
 
 class DateTime(models.Model):
 
