@@ -1177,23 +1177,26 @@ class ShipmentDetail(APIView):
 
     def get(self, *args, **kwargs):
         shipment_id = kwargs.get('shipment')
-        shipment = OrderedProductMapping.objects.filter(ordered_product__id = shipment_id)
+        shipment = ShipmentProducts.objects.filter(ordered_product__id = shipment_id)
         shipment_product_details = ShipmentDetailSerializer(shipment, many=True)
-        msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': shipment_product_details.data}
+        cash_to_be_collected = shipment.last().ordered_product.cash_to_be_collected()
+        msg = {'is_success': True, 'message': ['Shipment Details'],
+               'response_data': shipment_product_details.data,'cash_to_be_collected': cash_to_be_collected}
         return Response(msg, status=status.HTTP_201_CREATED)
 
     def post(self, *args, **kwargs):
         shipment_id = kwargs.get('shipment')
-        shipment = OrderedProductMapping.objects.filter(ordered_product__id = shipment_id)
+        shipment = ShipmentProducts.objects.filter(ordered_product__id = shipment_id)
         product = self.request.POST.get('product')
         returned_qty = self.request.POST.get('returned_qty')
         damaged_qty=self.request.POST.get('damaged_qty')
         msg = {'is_success': False,'message': [''],'response_data': None}
 
-        datas = OrderedProductMapping.objects.filter(ordered_product = shipment_id, product = product).update(returned_qty=returned_qty, damaged_qty=damaged_qty)
+        datas = ShipmentProducts.objects.filter(ordered_product = shipment_id, product = product).update(returned_qty=returned_qty, damaged_qty=damaged_qty)
         serializer = ShipmentDetailSerializer(shipment, many=True)
         if serializer.data:
-            msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': serializer.data}
+            cash_to_be_collected = shipment.last().ordered_product.cash_to_be_collected()
+            msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': serializer.data, 'cash_to_be_collected': cash_to_be_collected}
             return Response( msg, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         # else:

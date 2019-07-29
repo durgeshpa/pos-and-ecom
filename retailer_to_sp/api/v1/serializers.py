@@ -766,16 +766,12 @@ class ShipmentDetailSerializer(serializers.ModelSerializer):
     cash_discount = serializers.ReadOnlyField()
     loyalty_incentive = serializers.ReadOnlyField()
     margin = serializers.ReadOnlyField()
-    cash_to_be_collected = serializers.SerializerMethodField()
-
-    def get_cash_to_be_collected(self, obj):
-        return obj.cash_to_be_collected()
 
     class Meta:
         model = OrderedProductMapping
         fields = ( 'ordered_product', 'ordered_product_status', 'product', 'product_short_description', 'mrp',
                    'price_to_retailer', 'cash_discount', 'loyalty_incentive', 'margin', 'shipped_qty',  'returned_qty',
-                   'damaged_qty', 'cash_to_be_collected')
+                   'damaged_qty')
 
 class TripSerializer(serializers.ModelSerializer):
     trip_id = serializers.ReadOnlyField()
