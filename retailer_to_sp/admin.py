@@ -1000,6 +1000,8 @@ class ShipmentAdmin(admin.ModelAdmin):
         shipped_qty = shipped_qty if shipped_qty else 0
         #when more shipments needed and status == qc_pass
         close_order = form.cleaned_data.get('close_order')
+        if close_order:
+            PickerDashboard.objects.filter(order=form.instance.order).update(picking_status="picking_complete")
         change_value = form.instance.shipment_status == form.instance.READY_TO_SHIP
         if "shipment_status" in form.changed_data and change_value and (not close_order):
 
