@@ -120,11 +120,13 @@ class ReturnProductMappingForm(forms.ModelForm):
 
 
 class OrderedProductForm(forms.ModelForm):
-    order = forms.ModelChoiceField(queryset=Order.objects.filter(
-        order_status__in=[Order.OPDP, 'ordered',
-                          'PARTIALLY_SHIPPED', 'DISPATCH_PENDING'],
-        order_closed=False),
+    order = forms.ModelChoiceField(queryset=Order.objects.all(),
         required=True)
+    # order = forms.ModelChoiceField(queryset=Order.objects.filter(
+    #     order_status__in=[Order.OPDP, 'ordered',
+    #                       'PARTIALLY_SHIPPED', 'DISPATCH_PENDING'],
+    #     order_closed=False),
+    #     required=True)
 
     class Meta:
         model = OrderedProduct
@@ -146,7 +148,13 @@ class OrderedProductForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(OrderedProductForm, self).__init__(*args, **kwargs)
         self.fields['shipment_status'].choices = OrderedProduct.SHIPMENT_STATUS[:2]
-
+        ordered_product = getattr(self, 'instance', None)
+        
+        # if ordered_product is None:
+        qc_pending_orders = OrderedProduct.objects.filter(shipment_status="SHIPMENT_CREATED").values('order')
+        self.fields['order'].queryset = Order.objects.filter(order_status__in=[Order.OPDP, 'ordered',
+                      'PARTIALLY_SHIPPED', 'DISPATCH_PENDING'],
+                        order_closed=False).exclude(id__in=qc_pending_orders)
 
 
 class OrderedProductMappingForm(forms.ModelForm):
@@ -513,7 +521,6 @@ class DispatchDisabledForm(DispatchForm):
 
 class ShipmentForm(forms.ModelForm):
     close_order = forms.BooleanField(required=False)
-
     class Meta:
         model = Shipment
         fields = ['order', 'shipment_status']
@@ -534,6 +541,8 @@ class ShipmentForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(ShipmentForm, self).__init__(*args, **kwargs)
+        # order with status picking pending
+
         if not get_current_user().is_superuser:
             ordered_product = getattr(self, 'instance', None)
             SHIPMENT_STATUS = OrderedProduct.SHIPMENT_STATUS
