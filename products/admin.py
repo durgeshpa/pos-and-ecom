@@ -443,9 +443,9 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     def get_form(self, request, obj=None, **kwargs):
         if request.user.is_superuser:
             kwargs['form'] = ProductPriceNewForm
-        if request.user.has_perm('products.add_productprice'):
+        elif request.user.has_perm('products.add_productprice'):
             kwargs['form'] = ProductPriceAddPerm
-        if request.user.has_perm('products.change_productprice'):
+        elif request.user.has_perm('products.change_productprice'):
             kwargs['form'] = ProductPriceChangePerm
         return super().get_form(request, obj, **kwargs)
 
