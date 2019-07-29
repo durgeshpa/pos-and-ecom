@@ -6,11 +6,9 @@ from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMap
                              Size,Color,Fragrance,Flavor,Weight,PackageSize)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order,
                                    OrderedProduct, Note, CustomerCare,
-                                   Payment, Dispatch, Feedback)
-                                   Payment, Dispatch, OrderedProductMapping, Trip)
+                                   Payment, Dispatch, Feedback, OrderedProductMapping, Trip)
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
-
-                                      OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment)
+                            OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment)
 from addresses.models import Address,City,State,Country
 
 
@@ -787,8 +785,6 @@ class TripSerializer(serializers.ModelSerializer):
 
     def get_cash_to_be_collected(self, obj):
         return obj.cash_to_be_collected()
-
-
 
     class Meta:
         model = Trip

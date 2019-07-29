@@ -9,24 +9,6 @@ from django.shortcuts import get_object_or_404, get_list_or_404
 from django.utils import timezone
 from django.contrib.postgres.search import SearchVector
 from django_filters import rest_framework as filters
-
-from rest_framework import generics
-from .serializers import (
-    ProductsSearchSerializer, GramGRNProductsSearchSerializer,
-    CartProductMappingSerializer, CartSerializer, OrderSerializer,
-    CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,
-    PaymentNeftSerializer, GramPaymentCodSerializer,
-    GramPaymentNeftSerializer, GramMappedCartSerializer,
-    GramMappedOrderSerializer, ProductDetailSerializer, OrderDetailSerializer,
-    OrderListSerializer, FeedBackSerializer, CancelOrderSerializer)
-from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,
-                          OrderSerializer, CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
-
-                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer, OrderListSerializer, ShipmentSerializer, ShipmentOrderSerializer, ShipmentDetailSerializer, TripSerializer)
-from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
-from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
-                                OrderedProduct as SPOrderedProduct, StockAdjustment)
-
 from rest_framework import permissions, authentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import JSONParser
@@ -42,7 +24,8 @@ from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializ
     PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
     GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,
     OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
-    OrderListSerializer, ReadOrderedProductSerializer,
+    OrderListSerializer, ReadOrderedProductSerializer,FeedBackSerializer, CancelOrderSerializer,
+    ShipmentDetailSerializer, TripSerializer, ShipmentSerializer
 )
 
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
@@ -52,16 +35,19 @@ from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, Ord
 from categories import models as categorymodel
 
 from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as GramCartProductMapping,
-                                  OrderedProductReserved as GramOrderedProductReserved, PickList, PickListItems )
+    OrderedProductReserved as GramOrderedProductReserved, PickList, PickListItems
+)
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
-                                   OrderedProduct, Payment, CustomerCare,
-                                   Return, Feedback, OrderedProductMapping as ShipmentProducts)
-                                   Return, OrderedProductMapping,Trip)
+    OrderedProduct, Payment, CustomerCare, Return, Feedback, OrderedProductMapping as ShipmentProducts, Trip
+)
 
-from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
-                                      OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment, CustomerCare as GramMappedCustomerCare )
 
-from shops.models import Shop,ParentRetailerMapping
+from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,
+    Order as GramMappedOrder, OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment,
+    CustomerCare as GramMappedCustomerCare
+)
+
+from shops.models import Shop, ParentRetailerMapping
 from brand.models import Brand
 from products.models import ProductCategory
 from addresses.models import Address
