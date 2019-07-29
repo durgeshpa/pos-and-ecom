@@ -37,6 +37,7 @@ urlpatterns = [
     url(r'^addresses/', include('addresses.urls')),
     url(r'^shops/', include('shops.urls')),
     url(r'^category/', include('categories.urls')),
+    url(r'^product/', include('products.urls')),
     url(r'^rest-auth/registration/', include('rest_auth.registration.urls')),
     url(r'^bannerapi/', include('banner.urls')),
     url(r'^brandapi/', include('brand.urls')),
@@ -52,6 +53,8 @@ urlpatterns = [
     url('^privacy-policy/$', privacy_policy, name='privacy_policy'),
 
     url('^delete-ordered-product-reserved1/$', cron_to_delete_ordered_product_reserved, name='delete_ordered_product_reserved'),
+    # url(r'^jet/dashboard/', include('jet.dashboard.urls', 'jet-dashboard')),  # Django JET dashboard URLS
+    # url(r'^jet/', include('jet.urls', 'jet')),
     path('admin/', admin.site.urls),
 
 ]

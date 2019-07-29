@@ -40,12 +40,15 @@ INSTALLED_APPS = [
     'dal',
     'dal_select2',
     'dal_admin_filters',
+    # 'jet.dashboard',
+    # 'jet',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.postgres',
     'rest_framework',
     'rest_framework.authtoken',
     'rest_auth',
@@ -87,7 +90,6 @@ INSTALLED_APPS = [
     'debug_toolbar',
     'django_celery_beat',
     'django_celery_results',
-
 ]
 
 
@@ -289,9 +291,10 @@ DEBUG_TOOLBAR_PATCH_SETTINGS = False
 
 # Initiate Sentry SDK
 if ENVIRONMENT.lower() in ["production","staging", "qa", "qa1"]:
+    from sentry_sdk.integrations.celery import CeleryIntegration
     sentry_sdk.init(
         dsn="https://2f8d192414f94cd6a0ba5b26d6461684@sentry.io/1407300",
-        integrations=[DjangoIntegration()],
+        integrations=[DjangoIntegration(),CeleryIntegration()],
         environment=ENVIRONMENT.lower()
     )
 
@@ -300,16 +303,54 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = 20000
 REDIS_DB_CHOICE = {
     'production': '1',
     'staging': '2',
-    'qa': '3',
+    'qa': '7',
     'qa1': '3',
-    'local':'5'
+    'local':'5',
+    'qa3':'6'
 }
 
-if config('REDIS_PRESENT') and int(config('REDIS_PRESENT')):
-    REDIS_URL = "{}/{}".format(config('CACHE_HOST'), REDIS_DB_CHOICE[ENVIRONMENT.lower()])
-    CELERY_BROKER_URL = REDIS_URL
-    CELERY_RESULT_BACKEND = REDIS_URL
-    CELERY_ACCEPT_CONTENT = ['application/json']
-    CELERY_TASK_SERIALIZER = 'json'
-    CELERY_RESULT_SERIALIZER = 'json'
-    CELERY_TIMEZONE = TIME_ZONE
+# JET_THEMES = [
+#     {
+#         'theme': 'default', # theme folder name
+#         'color': '#47bac1', # color of the theme's button in user menu
+#         'title': 'Default' # theme title
+#     },
+#     {
+#         'theme': 'green',
+#         'color': '#44b78b',
+#         'title': 'Green'
+#     },
+#     {
+#         'theme': 'light-green',
+#         'color': '#2faa60',
+#         'title': 'Light Green'
+#     },
+#     {
+#         'theme': 'light-violet',
+#         'color': '#a464c4',
+#         'title': 'Light Violet'
+#     },
+#     {
+#         'theme': 'light-blue',
+#         'color': '#5EADDE',
+#         'title': 'Light Blue'
+#     },
+#     {
+#         'theme': 'light-gray',
+#         'color': '#222',
+#         'title': 'Light Gray'
+#     }
+# ]
+# JET_SIDE_MENU_COMPACT = True
+
+
+REDIS_URL = "{}/{}".format(config('CACHE_HOST'), REDIS_DB_CHOICE[ENVIRONMENT.lower()])
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+
+# ElasticSearch
+ELASTICSEARCH_PREFIX = config('ELASTICSEARCH_PREFIX')

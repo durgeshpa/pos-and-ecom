@@ -31,7 +31,7 @@ def create_order_from_cart(form, formsets, request, order):
 	order.total_mrp = order_amounts.get('total_mrp')
 	order.total_discount_amount = order_amounts.get('total_discount_amount')
 	order.total_tax_amount = order_amounts.get('total_tax_amount')
-	order.total_final_amount = order_amounts.get('total_final_amount')
+	#order.total_final_amount = order_amounts.get('total_final_amount')
 	order.ordered_by = request.user
 	order.order_status = order.ORDER_PLACED_DISPATCH_PENDING
 	order.last_modified_by = request.user
@@ -131,6 +131,14 @@ def order_shipment_status(shipments):
             ((s.get_shipment_status_display(),
             ) for s in shipments)
     )   
+
+def order_shipment_status_reason(shipments):
+    return format_html_join(
+    "","{}<br><br>",
+            ((s.get_return_reason_display(),
+            ) for s in shipments)
+    )   
+
 
 def order_shipment_amount(shipments):
     return format_html_join(

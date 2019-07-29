@@ -1,6 +1,17 @@
 from django.conf.urls import include, url
-from .views import (ProductsList, GramGRNProductsList,AddToCart,CartDetail,ReservedOrder,CreateOrder,OrderList,OrderDetail,DownloadInvoiceSP,
-                    DownloadNote, CustomerCareApi, CustomerOrdersList,  PaymentApi, ProductDetail,ReleaseBlocking, DeliveryBoyTrips)
+from rest_framework import routers
+
+from .views import (ProductsList, GramGRNProductsList,AddToCart,CartDetail,
+    ReservedOrder,CreateOrder,OrderList,OrderDetail,DownloadInvoiceSP,
+    DownloadNote, CustomerCareApi, CustomerOrdersList,  PaymentApi,
+    ProductDetail,ReleaseBlocking, OrderedProductViewSet, OrderedProductMappingView,
+    CancelOrder, FeedbackData, DeliveryBoyTrips
+)
+
+router = routers.DefaultRouter()
+router.register(r'ordered-product', OrderedProductViewSet)
+router.register(r'ordered-product-mapping', OrderedProductMappingView)
+
 
 urlpatterns = [
     url('^search/(?P<product_name>.+)/$', ProductsList.as_view()),
@@ -21,4 +32,9 @@ urlpatterns = [
     url('^trip-shipments/$', DeliveryBoyTrips.as_view(), name='trip-shipments'),
     #cron
     #url('^delete-ordered-product-reserved/$', CronToDeleteOrderedProductReserved.as_view(), name='delete_ordered_product_reserved'),
+    url('^feedback/$', FeedbackData.as_view(), name='feed_back'),
+    url('^feedback/(?P<ship_id>\d+)/list/$', FeedbackData.as_view(), name='feed_back_list'),
+    url('^cancel-order/$', CancelOrder.as_view(), name='cancel_order', ),
 ]
+
+urlpatterns += router.urls

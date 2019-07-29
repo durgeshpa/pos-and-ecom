@@ -166,3 +166,12 @@ class AddressInlineFormSet(BaseInlineFormSet):
         elif flag==0:
             raise forms.ValidationError('Please add at least one shipping address')
 
+
+class BulkShopUpdation(forms.Form):
+    file = forms.FileField(label='Select a file')
+
+    def clean_file(self):
+        file = self.cleaned_data['file']
+        if not file.name[-5:] == '.xlsx':
+            raise forms.ValidationError("Sorry! Only Excel file accepted")
+        return file

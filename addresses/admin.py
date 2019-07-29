@@ -17,6 +17,7 @@ class CityAdmin(admin.ModelAdmin):
 
 class AddressAdmin(admin.ModelAdmin):
     form = AddressForm
+    raw_id_fields = ('shop_name',)
 
 
 class InvoiceCityMappingAdmin(admin.ModelAdmin):

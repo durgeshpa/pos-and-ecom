@@ -226,8 +226,13 @@ class ProductPrice(models.Model):
         self.status = True
         super().save(*args, **kwargs)
 
+    @property
     def margin(self):
         return round(100-(float(self.price_to_retailer)*1000000/(float(self.mrp)*(100-float(self.cash_discount))*(100-float(self.loyalty_incentive)))),2) if self.mrp>0 and self.price_to_retailer>0 else 0
+
+    @property
+    def sku_code(self):
+        return self.product.product_sku
 
 class ProductCategory(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_category',on_delete=models.CASCADE)
@@ -275,7 +280,7 @@ class Tax(models.Model):
         )
 
     tax_name = models.CharField(max_length=255,validators=[ProductNameValidator])
-    tax_type=  models.CharField(max_length=255, choices=TAX_CHOICES, null=True)
+    tax_type = models.CharField(max_length=255, choices=TAX_CHOICES, null=True)
     tax_percentage = models.FloatField(default=0)
     tax_start_at = models.DateTimeField(null=True,blank=True)
     tax_end_at = models.DateTimeField(null=True,blank=True)
@@ -364,6 +369,9 @@ class ProductVendorMapping(models.Model):
     def __str__(self):
         return '%s' % (self.vendor)
 
+    def sku(self):
+        return self.product.product_sku
+
 @receiver(post_save, sender=Vendor)
 def create_product_vendor_mapping(sender, instance=None, created=False, **kwargs):
     vendor = instance
@@ -373,11 +381,11 @@ def create_product_vendor_mapping(sender, instance=None, created=False, **kwargs
         first_row = next(reader)
         product_mapping = []
         for row in reader:
-            if row[3]:
+            if row[4]:
                 vendor_product = ProductVendorMapping.objects.filter(vendor=vendor, product_id=row[0])
                 if vendor_product.exists():
                     vendor_product.update(status=False)
-                product_mapping.append(ProductVendorMapping(vendor=vendor, product_id=row[0], product_mrp=row[3], product_price=row[4],case_size=row[5]))
+                product_mapping.append(ProductVendorMapping(vendor=vendor, product_id=row[0], product_mrp=row[4], product_price=row[5],case_size=row[6]))
 
         ProductVendorMapping.objects.bulk_create(product_mapping)
         #ProductVendorMapping.objects.bulk_create([ProductVendorMapping(vendor=vendor, product_id = row[0], product_price=row[3]) for row in reader if row[3]])
@@ -397,3 +405,5 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
         ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code,brand_sku_code=brand_sku_code,last_auto_increment=last_sku_increment)
         product.product_sku="%s%s%s%s"%(cat_sku_code,parent_cat_sku_code,brand_sku_code,last_sku_increment)
         product.save()
+
+
