@@ -306,7 +306,8 @@ REDIS_DB_CHOICE = {
     'qa': '7',
     'qa1': '3',
     'local':'5',
-    'qa3':'6'
+    'qa3':'6',
+    'qa2':'8',
 }
 
 # JET_THEMES = [
