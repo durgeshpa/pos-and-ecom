@@ -3,7 +3,7 @@ import csv
 from django.contrib import admin
 from .models import (
     Shop, ShopType, RetailerType, ParentRetailerMapping,
-    ShopPhoto, ShopDocument, ShopInvoicePattern, ShopUserMapping
+    ShopPhoto, ShopDocument, ShopInvoicePattern, ShopUserMapping, SalesAppVersion
 )
 from addresses.models import Address
 from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
@@ -258,9 +258,15 @@ class ShopUserMappingAdmin(admin.ModelAdmin):
     form = ShopUserMappingForm
     list_display = ('shop','manager','employee','employee_group','created_at','status')
 
+class SalesAppVersionAdmin(admin.ModelAdmin):
+    list_display = ('app_version','update_recommended','force_update_required','created_at','modified_at')
+
+
 admin.site.register(ParentRetailerMapping,ParentRetailerMappingAdmin)
 admin.site.register(ShopType)
 admin.site.register(RetailerType)
 admin.site.register(Shop,ShopAdmin)
 admin.site.register(ShopUserMapping,ShopUserMappingAdmin)
+admin.site.register(SalesAppVersion, SalesAppVersionAdmin)
+
 

@@ -3,8 +3,8 @@ from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 from rest_framework.response import Response
 from .serializers import (RetailerTypeSerializer, ShopTypeSerializer,
-        ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer, ShopUserMappingSerializer, SellerShopSerializer)
-from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping)
+        ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer, ShopUserMappingSerializer, SellerShopSerializer, AppVersionSerializer)
+from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping, SalesAppVersion)
 from rest_framework import generics
 from addresses.models import City, Area, Address
 from rest_framework import status
@@ -18,6 +18,9 @@ from retailer_to_sp.models import Order
 from django.contrib.auth.models import Group
 User =  get_user_model()
 from addresses.api.v1.serializers import AddressSerializer
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from django.core.exceptions import ObjectDoesNotExist
+
 
 class RetailerTypeView(generics.ListAPIView):
     queryset = RetailerType.objects.all()
@@ -484,3 +487,19 @@ class CheckUser(generics.ListAPIView):
         is_sales = True if shop_user.exists() and shop_user.last().employee.has_perm('shops.can_sales_person_add_shop') else False
         msg = {'is_success': True, 'message': [""], 'response_data': None,'is_sales':is_sales}
         return Response(msg, status=status.HTTP_200_OK)
+
+class CheckAppVersion(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self,*args, **kwargs):
+        version = self.request.GET.get('app_version')
+        msg = {'is_success': False, 'message': ['Please send version'], 'response_data': None}
+        try:
+            app_version = SalesAppVersion.objects.get(app_version=version)
+        except ObjectDoesNotExist:
+            msg["message"] = ['App version not found']
+            return Response(msg, status=status.HTTP_200_OK)
+
+        app_version_serializer = AppVersionSerializer(app_version)
+        return Response({"is_success": True, "message": [""], "response_data": app_version_serializer.data})
+

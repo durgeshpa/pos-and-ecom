@@ -243,3 +243,13 @@ class ShopUserMapping(models.Model):
 
     class Meta:
         unique_together = ('shop', 'employee',)
+
+class SalesAppVersion(models.Model):
+    app_version = models.CharField(max_length=200)
+    update_recommended = models.BooleanField(default=False)
+    force_update_required = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.app_version
