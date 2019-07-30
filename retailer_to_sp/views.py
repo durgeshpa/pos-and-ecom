@@ -641,7 +641,7 @@ class DownloadPickListPicker(TemplateView,):
                     "product_name": cart_pro.cart_product.product_name,
                     "product_sku": cart_pro.cart_product.product_sku,
                     "product_mrp": round(cart_pro.get_cart_product_price(order_obj.seller_shop).mrp,2),
-                    "to_be_shipped_qty":int(cart_pro.qty)*int(cart_pro.no_of_pieces),
+                    "to_be_shipped_qty":int(cart_pro.no_of_pieces),
                     # "no_of_pieces":cart_pro.no_of_pieces,
                 }
 
@@ -654,10 +654,11 @@ class DownloadPickListPicker(TemplateView,):
                     "product_mrp": round(shipment_pro.get_shop_specific_products_prices_sp().mrp,2),
                     #"to_be_shipped_qty": int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_quantity),
                 }
-                if shipment_id==0:
-                    product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_qty_exclude_current)
-                else:
-                    product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_quantity)
+                product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_qty_exclude_current)
+                # if shipment_id==0:
+                #     product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_qty_exclude_current)
+                # else:
+                #     product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_quantity)
                 shipment_product_list.append(product_list)
 
         else:
@@ -669,8 +670,8 @@ class DownloadPickListPicker(TemplateView,):
                     "product_name": cart_pro.cart_product.product_name,
                     "product_sku": cart_pro.cart_product.product_sku,
                     "product_mrp": round(cart_pro.get_cart_product_price(order_obj.seller_shop).mrp,2),
-                    "ordered_qty": int(cart_pro.qty)*int(cart_pro.no_of_pieces),
-                    #"no_of_pieces":cart_pro.no_of_pieces,
+                    "ordered_qty": int(cart_pro.qty),
+                    "no_of_pieces":cart_pro.no_of_pieces,
                 }
                 cart_product_list.append(product_list)
 
