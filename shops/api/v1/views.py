@@ -361,8 +361,10 @@ class SellerShopProfile(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         data = []
-        employee_list = ShopUserMapping.objects.filter(manager=self.request.user,status=True).values('employee')
-        shop_list = Shop.objects.filter(created_by__id__in=employee_list).values('shop_name','id').order_by('shop_name')
+        shop_user_obj = ShopUserMapping.objects.filter(manager=self.request.user,status=True)
+        employee_list = shop_user_obj.values('employee')
+        shop_list = shop_user_obj.values('shop','shop__id','shop__shop_name').distinct('shop')
+        #shop_list = Shop.objects.filter(created_by__id__in=employee_list).values('shop_name','id').order_by('shop_name')
         order_obj = Order.objects.filter(buyer_shop__created_by__id__in=employee_list).order_by('buyer_shop').last()
 
         order_list = Order.objects.filter(buyer_shop__created_by__id__in=employee_list).values('buyer_shop','buyer_shop__shop_name').\
@@ -375,11 +377,11 @@ class SellerShopProfile(generics.ListAPIView):
 
         for shop in shop_list:
             rt = {
-                'name': shop['shop_name'],
+                'name': shop['shop__shop_name'],
                 'last_order_date': order_obj.created_at.strftime('%d-%m-%Y %H:%M') if order_obj else 0,
                 'last_order_value': order_obj.ordered_cart.subtotal if order_obj else 0,
-                'avg_order_value': round(order_map[shop['id']][2], 2) if order_map else 0,
-                'avg_ordered_sku': round(order_map[shop['id']][1], 0) if order_map else 0,
+                'avg_order_value': round(order_map[shop['shop']][2], 2) if order_map else 0,
+                'avg_ordered_sku': round(order_map[shop['shop']][1], 0) if order_map else 0,
                 'avg_time_between_order': '',
                 'last_calls_made': '',
             }
