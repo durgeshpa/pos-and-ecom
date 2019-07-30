@@ -376,7 +376,7 @@ class SellerShopProfile(generics.ListAPIView):
             .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer') * F(
             'ordered_cart__rt_cart_list__no_of_pieces'),
                                          output_field=FloatField())) \
-        .order_by('buyer_shop','created_at').distinct('buyer_shop')
+        .order_by('buyer_shop','created_at')
         order_map = {i['buyer_shop']: (i['buyer_shop_count'], i['avg_no_of_ordered_sku'], i['avg_ordered_amount'], i['created_at'], i['ordered_amount']) for i in order_list}
 
         for shop in shop_list:
