@@ -658,7 +658,7 @@ class DownloadPickListPicker(TemplateView,):
                 if shipment_id==0:
                     product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_qty_exclude_current)
                 else:
-                    product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_quantity)
+                    product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_qty_exclude_current)#shipped_quantity)
                 shipment_product_list.append(product_list)
 
         else:
