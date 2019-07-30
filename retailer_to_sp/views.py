@@ -1164,7 +1164,7 @@ class OrderCancellation(object):
                     manufacture_date=item['man_date'],
                     expiry_date=item['exp_date'],
                 )
-                product_price = product_price_map[item['r_product']]
+                product_price = product_price_map.get(item['r_product'],0)
                 product_price = float(round(product_price, 2))
                 credit_amount += (int(item['s_qty']) *
                                   product_price)
@@ -1181,7 +1181,7 @@ class OrderCancellation(object):
                     manufacture_date=item['man_date'],
                     expiry_date=item['exp_date'],
                 )
-                product_price = product_price_map[item['r_product']]
+                product_price = product_price_map.get(item['r_product'],0)
                 product_price = float(round(product_price, 2))
                 credit_amount += (int(item['s_qty']) *
                                   product_price)
