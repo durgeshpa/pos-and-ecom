@@ -21,7 +21,7 @@ from addresses.api.v1.serializers import AddressSerializer
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.core.exceptions import ObjectDoesNotExist
 from retailer_to_sp.models import OrderedProduct
-from retailer_to_sp.views import update_shipment_status
+from retailer_to_sp.views import update_order_status
 
 class RetailerTypeView(generics.ListAPIView):
     queryset = RetailerType.objects.all()
