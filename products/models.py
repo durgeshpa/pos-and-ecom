@@ -214,9 +214,7 @@ class ProductPrice(models.Model):
     loyalty_incentive = models.FloatField(default=0, blank=True,validators=[PriceValidator2])
     start_date = models.DateTimeField(null=True,blank=True)
     end_date = models.DateTimeField(null=True,blank=True)
-    approval_status = models.CharField(choices=APPROVAL_CHOICES,
-                                       default=APPROVAL_PENDING, blank=True,
-                                       null=True, max_length=255)
+    approval_status = models.CharField(choices=APPROVAL_CHOICES, max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=False)
