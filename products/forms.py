@@ -429,6 +429,7 @@ class ProductPriceAddPerm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if 'approval_status' and 'status' in self.fields:
+            self.fields['approval_status'].initial = ProductPrice.APPROVAL_PENDING
             self.fields['approval_status'].widget = forms.HiddenInput()
             self.fields['status'].widget = forms.HiddenInput()
 
