@@ -641,7 +641,7 @@ class DownloadPickListPicker(TemplateView,):
                     "product_name": cart_pro.cart_product.product_name,
                     "product_sku": cart_pro.cart_product.product_sku,
                     "product_mrp": round(cart_pro.get_cart_product_price(order_obj.seller_shop).mrp,2),
-                    "to_be_shipped_qty":cart_pro.qty,
+                    "to_be_shipped_qty":int(cart_pro.qty)*int(cart_pro.no_of_pieces),
                     # "no_of_pieces":cart_pro.no_of_pieces,
                 }
 
@@ -669,8 +669,8 @@ class DownloadPickListPicker(TemplateView,):
                     "product_name": cart_pro.cart_product.product_name,
                     "product_sku": cart_pro.cart_product.product_sku,
                     "product_mrp": round(cart_pro.get_cart_product_price(order_obj.seller_shop).mrp,2),
-                    "ordered_qty":cart_pro.qty,
-                    "no_of_pieces":cart_pro.no_of_pieces,
+                    "ordered_qty": int(cart_pro.qty)*int(cart_pro.no_of_pieces),
+                    #"no_of_pieces":cart_pro.no_of_pieces,
                 }
                 cart_product_list.append(product_list)
 
