@@ -310,7 +310,7 @@ def assign_picker(request, shop_id=None):
     form = AssignPickerForm(request.user,shop_id)
     picker_orders = {}
     if shop_id:
-        picker_orders = PickerDashboard.objects.filter(order__seller_shop__id=shop_id, picking_status='picking_pending')[:100]
+        picker_orders = PickerDashboard.objects.filter(order__seller_shop__id=shop_id, picking_status='picking_pending')
 
     return render(
         request,
@@ -659,7 +659,8 @@ class DownloadPickListPicker(TemplateView,):
                     product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_qty_exclude_current)
                 else:
                     product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_quantity)
-                shipment_product_list.append(product_list)
+                if (product_list["to_be_shipped_qty"]>0):
+                    shipment_product_list.append(product_list)
 
         else:
             cart_products = order_obj.ordered_cart.rt_cart_list.all()

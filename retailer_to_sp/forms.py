@@ -371,7 +371,7 @@ class AssignPickerForm(forms.ModelForm):
         self.fields['picker_boy'].queryset = User.objects.none()            
         if user.is_superuser:
             # load all parent shops
-            self.fields['shop'].queryset = Shop.objects.filter(shop_type__shop_type__in=["sp","gf"])
+            self.fields['shop'].queryset = Shop.objects.filter(shop_type__shop_type__in=["sp"])
         else:   
             # set shop field as read only
             self.fields['shop'].queryset = Shop.objects.filter(related_users=user)
