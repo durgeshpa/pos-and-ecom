@@ -850,6 +850,7 @@ class SellerOrderListSerializer(serializers.ModelSerializer):
     rt_order_order_product = serializers.SerializerMethodField()
     is_ordered_by_sales = serializers.SerializerMethodField('is_ordered_by_sales_dt')
     shop_name = serializers.SerializerMethodField('shop_name_dt')
+    shop_id = serializers.SerializerMethodField('shop_id_dt')
 
     def get_rt_order_order_product(self, obj):
         qs = OrderedProduct.objects.filter(order_id=obj.id).exclude(shipment_status='SHIPMENT_CREATED')
@@ -868,8 +869,11 @@ class SellerOrderListSerializer(serializers.ModelSerializer):
     def shop_name_dt(self, obj):
         return obj.buyer_shop.shop_name
 
+    def shop_id_dt(self, obj):
+        return obj.buyer_shop.id
+
 
     class Meta:
         model= Order
         fields = ('id', 'ordered_cart', 'order_no', 'total_final_amount', 'order_status',
-                  'created_at', 'modified_at', 'rt_order_order_product', 'is_ordered_by_sales', 'shop_name')
+                  'created_at', 'modified_at', 'rt_order_order_product', 'is_ordered_by_sales', 'shop_name','shop_id')
