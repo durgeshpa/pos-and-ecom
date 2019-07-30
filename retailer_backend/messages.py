@@ -23,6 +23,7 @@ VALIDATION_ERROR_MESSAGES = {
     'EMPTY_OR_NOT_VALID':'%s cant be empty or not valid( eg: 11.11)',
     'INVALID_GSTIN_Number': 'Invalid Gstin number',
     'INVALID_MARGIN': '%s has not valid format( eg: 0, 201, 17.11)',
+    'ALREADY_ADDED_SHOP':'Already added Sales Executive with this shop',
 
 }
 
@@ -37,4 +38,5 @@ SUCCESS_MESSAGES = {
 ERROR_MESSAGES = {
     'AVAILABLE_PRODUCT': 'Available No of Pieces : {0}',
     'INVALID_PRICE_UPLOAD': 'You cant upload Retailer Price greater than MRP',
+
 }

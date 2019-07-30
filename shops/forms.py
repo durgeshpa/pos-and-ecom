@@ -12,6 +12,8 @@ import re
 from .models import Shop
 from addresses.models import State
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group, Permission
+from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 
 class ParentRetailerMappingForm(forms.ModelForm):
     parent = forms.ModelChoiceField(
@@ -194,3 +196,13 @@ class ShopUserMappingForm(forms.ModelForm):
     class Meta:
         model = ShopUserMapping
         fields = ('shop', 'manager', 'employee','employee_group','status')
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if self.cleaned_data.get('shop') and self.cleaned_data.get('employee') and self.cleaned_data.get('employee_group'):
+            group = Permission.objects.get(codename='can_sales_person_add_shop').group_set.last()
+            if ShopUserMapping.objects.filter(shop=self.cleaned_data.get('shop'), employee_group=group).exists():
+                raise ValidationError(_(VALIDATION_ERROR_MESSAGES['ALREADY_ADDED_SHOP']))
+        return cleaned_data
+
+
