@@ -24,7 +24,8 @@ from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializ
     PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
     GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,
     OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
-    OrderListSerializer, ReadOrderedProductSerializer,FeedBackSerializer, CancelOrderSerializer,
+    RetailerShopSerializer, SellerOrderListSerializer,OrderListSerializer,
+    ReadOrderedProductSerializer,FeedBackSerializer, CancelOrderSerializer,
     ShipmentDetailSerializer, TripSerializer, ShipmentSerializer
 )
 
@@ -48,6 +49,7 @@ from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping 
 )
 
 from shops.models import Shop, ParentRetailerMapping
+from shops.models import Shop,ParentRetailerMapping, ShopUserMapping
 from brand.models import Brand
 from products.models import ProductCategory
 from addresses.models import Address
@@ -65,7 +67,7 @@ from django.contrib.auth import get_user_model
 from django.utils.translation import ugettext_lazy as _
 from common.data_wrapper import format_serializer_errors
 from sp_to_gram.tasks import es_search
-from retailer_to_sp.views import update_order_status
+
 
 User = get_user_model()
 
@@ -751,10 +753,10 @@ class OrderList(generics.ListAPIView):
 
         current_url = request.get_host()
         if parent_mapping.parent.shop_type.shop_type == 'sp':
-            queryset = Order.objects.filter(last_modified_by=user,buyer_shop=parent_mapping.retailer).order_by('-created_at')
+            queryset = Order.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
             serializer = OrderListSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
-            queryset = GramMappedOrder.objects.filter(last_modified_by=user).order_by('-created_at')
+            queryset = GramMappedOrder.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
             serializer = GramMappedOrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
 
         if serializer.data:
@@ -1264,21 +1266,56 @@ class CancelOrder(APIView):
         else:
             return format_serializer_errors(serializer.errors)
 
-class StatusChangedAfterAmountCollected(APIView):
+class RetailerShopsList(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def post(self, *args, **kwargs):
-        shipment_id = kwargs.get('shipment')
-        cash_collected = self.request.POST.get('cash_collected')
-        shipment = OrderedProduct.objects.get(id=shipment_id)
-        if float(cash_collected) == float(shipment.cash_to_be_collected()):
-            update_order_status(
-                close_order_checked=False,
-                shipment_id=shipment_id
-            )
-            msg = {'is_success': True, 'message': ['Status Changed'], 'response_data': None}
+    def get(self, request, *args, **kwargs):
+        mobile_number = self.request.GET.get('mobile_number')
+        msg = {'is_success': False, 'message': [''], 'response_data': None}
+        User = get_user_model()
+        try:
+            user = User.objects.get(phone_number=mobile_number)
+        except ObjectDoesNotExist:
+            msg['message'] = ["No retailer exists with this number"]
+            return Response(msg, status=status.HTTP_200_OK)
+        shop_owner = User.objects.get(phone_number = mobile_number)
+        sales_person_sp = Shop.objects.filter(related_users = self.request.user)
+        shops = Shop.objects.filter(shop_owner = shop_owner, shop_type = 1)
+        shops_list =[]
+        for shop in shops:
+            for parent in shop.retiler_mapping.all():
+                if (parent.parent in sales_person_sp):
+                    shops_list.append(shop)
+                else:
+                    return Response({"message":["The user is not mapped with the same service partner as the sales person"], "response_data": None ,"is_success": True, "is_user_mapped_with_same_sp": False})
+        shops_serializer = RetailerShopSerializer(shops_list, many=True)
+        if shops_list:
+            return Response({"message":[""], "response_data": shops_serializer.data ,"is_success": True, "is_user_mapped_with_same_sp": True})
         else:
-            msg = {'is_success': False, 'message': ['Amount is different'], 'response_data': None}
-        return Response(msg, status=status.HTTP_201_CREATED)
+            return Response({"message":["The User is registered but does not have any shop"], "response_data": None ,"is_success": True, "is_user_mapped_with_same_sp": False})
 
+
+class SellerOrderList(generics.ListAPIView):
+    serializer_class = SellerOrderListSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        shop_emp = ShopUserMapping.objects.filter(employee=self.request.user, status=True)
+        shop_mangr = ShopUserMapping.objects.filter(manager=self.request.user, status=True)
+        if shop_emp.exists() and shop_emp.last().employee_group.permissions.filter(
+                codename='can_sales_person_add_shop').exists():
+            return shop_emp.values('shop')
+        elif shop_mangr.exists():
+            return shop_mangr.values('shop')
+
+    def list(self, request, *args, **kwargs):
+        msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
+        current_url = request.get_host()
+        queryset = Order.objects.filter(buyer_shop__in=self.get_queryset()).order_by('-created_at')
+        users_list = [v['employee_id'] for v in self.get_queryset().values('employee_id')]
+        serializer = SellerOrderListSerializer(queryset, many=True, context={'current_url':current_url, 'sales_person_list':users_list})
+        if serializer.data:
+            msg = {'is_success': True,'message': None,'response_data': serializer.data}
+        return Response(msg,status=status.HTTP_200_OK)

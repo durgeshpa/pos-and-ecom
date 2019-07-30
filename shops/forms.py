@@ -1,5 +1,5 @@
 from django import forms
-from .models import ParentRetailerMapping, Shop, ShopType
+from .models import ParentRetailerMapping, Shop, ShopType, ShopUserMapping
 from addresses.models import Address
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -11,6 +11,7 @@ from products.models import Product, ProductPrice
 import re
 from .models import Shop
 from addresses.models import State
+from django.contrib.auth import get_user_model
 
 class ParentRetailerMappingForm(forms.ModelForm):
     parent = forms.ModelChoiceField(
@@ -103,7 +104,7 @@ class ShopForm(forms.ModelForm):
         Model = Shop
         fields = (
             'shop_name', 'shop_owner', 'shop_type', 'related_users',
-            'shop_code', 'warehouse_code', 'status')
+            'shop_code', 'warehouse_code','created_by', 'status')
 
     @classmethod
     def get_shop_type(cls, data):
@@ -175,3 +176,21 @@ class BulkShopUpdation(forms.Form):
         if not file.name[-5:] == '.xlsx':
             raise forms.ValidationError("Sorry! Only Excel file accepted")
         return file
+
+class ShopUserMappingForm(forms.ModelForm):
+    shop = forms.ModelChoiceField(
+        queryset=Shop.objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:shop-autocomplete',)
+    )
+    manager = forms.ModelChoiceField(required=False,
+        queryset=get_user_model().objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:user-autocomplete', )
+    )
+    employee = forms.ModelChoiceField(
+        queryset=get_user_model().objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:user-autocomplete', )
+    )
+
+    class Meta:
+        model = ShopUserMapping
+        fields = ('shop', 'manager', 'employee','employee_group','status')

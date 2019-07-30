@@ -3,14 +3,14 @@ import csv
 from django.contrib import admin
 from .models import (
     Shop, ShopType, RetailerType, ParentRetailerMapping,
-    ShopPhoto, ShopDocument, ShopInvoicePattern
+    ShopPhoto, ShopDocument, ShopInvoicePattern, ShopUserMapping, SalesAppVersion
 )
 from addresses.models import Address
 from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
                     ShopForm, AddressForm, RequiredInlineFormSet,
-                    AddressInlineFormSet)
+                    AddressInlineFormSet, ShopUserMappingForm)
 from .views import (StockAdjustmentView, stock_adjust_sample,
-                    bulk_shop_updation)
+                    bulk_shop_updation, ShopAutocomplete, UserAutocomplete)
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
 from django.utils.html import format_html
@@ -180,6 +180,16 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                 self.admin_site.admin_view(bulk_shop_updation),
                 name="bulk-shop-updation"
             ),
+            url(
+                r'^shop-autocomplete/$',
+                self.admin_site.admin_view(ShopAutocomplete.as_view()),
+                name="shop-autocomplete"
+            ),
+            url(
+                r'^user-autocomplete/$',
+                self.admin_site.admin_view(UserAutocomplete.as_view()),
+                name="user-autocomplete"
+            ),
         ] + urls
         return urls
 
@@ -244,8 +254,19 @@ class ParentRetailerMappingAdmin(admin.ModelAdmin):
 
     class Media:
         pass
+class ShopUserMappingAdmin(admin.ModelAdmin):
+    form = ShopUserMappingForm
+    list_display = ('shop','manager','employee','employee_group','created_at','status')
+
+class SalesAppVersionAdmin(admin.ModelAdmin):
+    list_display = ('app_version','update_recommended','force_update_required','created_at','modified_at')
+
 
 admin.site.register(ParentRetailerMapping,ParentRetailerMappingAdmin)
 admin.site.register(ShopType)
 admin.site.register(RetailerType)
 admin.site.register(Shop,ShopAdmin)
+admin.site.register(ShopUserMapping,ShopUserMappingAdmin)
+admin.site.register(SalesAppVersion, SalesAppVersionAdmin)
+
+
