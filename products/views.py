@@ -10,6 +10,8 @@ from django.contrib import messages
 from django.shortcuts import render, redirect
 from django.views import View
 from django.db import transaction
+from django.utils.decorators import method_decorator
+from django.contrib.auth.decorators import permission_required
 
 from shops.models import Shop, ShopType
 from addresses.models import City, State, Address
@@ -17,7 +19,8 @@ from categories.models import Category
 from brand.models import Brand
 from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
-    ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm
+    ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
+    ProductCategoryMappingForm
     )
 from products.models import (
     Product, ProductCategory, ProductOption,
@@ -734,4 +737,54 @@ def download_all_products(request):
     writer.writerows([[i['id'], i['product_name'], i['product_gf_code'],
                       i['product_hsn'], '', '', '', '']
                       for i in products_list])
+    return response
+
+
+class ProductCategoryMapping(View):
+
+    def validate_row(self, first_row, row):
+        if not row[0]:
+            raise Exception("{} is requied".format(first_row[0]))
+        if not row[1]:
+            raise Exception("{} is requied".format(first_row[1]))
+
+    def update_mapping(self, request, file):
+        try:
+            with transaction.atomic():
+                reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+                first_row = next(reader)
+                for row_id, row in enumerate(reader):
+                    self.validate_row(first_row, row)
+                    ProductCategory.objects.filter(
+                        product=Product.objects.get(product_gf_code=row[0])
+                    ).update(category=Category.objects.get(id=row[1]))
+
+                messages.success(request, 'Category Mapping updated successfully')
+
+        except Exception as e:
+            messages.error(request, "{} at Row[{}]".format(e, row_id + 2))
+
+    @method_decorator(permission_required('products.change_product'))
+    def get(self, request):
+        form = ProductCategoryMappingForm()
+        return render(request, 'admin/products/productcategorymapping.html',
+                      {'form': form})
+
+    @method_decorator(permission_required('products.change_product'))
+    def post(self, request):
+        form = ProductCategoryMappingForm(request.POST, request.FILES)
+        if form.is_valid():
+            file = form.cleaned_data.get('file')
+            self.update_mapping(request, file)
+
+        return render(request, 'admin/products/productcategorymapping.html',
+                      {'form': form})
+
+
+def product_category_mapping_sample(self):
+    filename = "product_category_mapping_sample.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerows([['gf_code', 'category_id'], ['GF01641', '161']])
     return response

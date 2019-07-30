@@ -455,3 +455,18 @@ class ProductPriceChangePerm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if 'status' in self.fields:
             self.fields['status'].widget = forms.HiddenInput()
+
+
+class ProductCategoryMappingForm(forms.Form):
+    file = forms.FileField()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields['file'].label = 'Choose File'
+        self.fields['file'].widget.attrs = {'class': 'custom-file-input', }
+
+    def clean_file(self):
+        if not self.cleaned_data['file'].name[-4:] in ('.csv'):
+            raise forms.ValidationError("Sorry! Only csv file accepted")
+        return self.cleaned_data['file']

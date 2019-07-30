@@ -15,7 +15,8 @@ from .views import (
     ProductsUploadSample, products_csv_upload_view, gf_product_price,
     load_gf, products_export_for_vendor, products_vendor_mapping,
     MultiPhotoUploadView, ProductPriceAutocomplete,
-    ProductCategoryAutocomplete, download_all_products)
+    ProductCategoryAutocomplete, download_all_products,
+    ProductCategoryMapping, product_category_mapping_sample)
 from .resources import (
     SizeResource, ColorResource, FragranceResource,
     FlavorResource, WeightResource, PackageSizeResource,
@@ -319,6 +320,16 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 r'^download-all-products/$',
                 self.admin_site.admin_view(download_all_products),
                 name="download-all-products"
+            ),
+            url(
+                r'^product-category-mapping/$',
+                self.admin_site.admin_view(ProductCategoryMapping.as_view()),
+                name="product-category-mapping"
+            ),
+            url(
+                r'^product-category-mapping-sample/$',
+                self.admin_site.admin_view(product_category_mapping_sample),
+                name="product-category-mapping-sample"
             ),
         ] + urls
         return urls

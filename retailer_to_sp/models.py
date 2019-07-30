@@ -542,7 +542,11 @@ class OrderedProduct(models.Model): #Shipment
     RATE_ISSUE = 'rate_issue'
     ALREADY_PURCHASED = 'already_purchased'
     GST_ISSUE = 'gst_issue'
-
+    CLEANLINESS = 'CLEAN'
+    CUSOTMER_CANCEL = 'CUS_CAN'
+    CUSTOMER_UNAVAILABLE = 'CUS_AVL'
+    MANUFACTURING_DEFECT = "DEFECT"
+    SHORT = 'SHORT'
 
     RETURN_REASON = (
         (CASH_NOT_AVAILABLE, 'Cash not available'),
@@ -558,6 +562,11 @@ class OrderedProduct(models.Model): #Shipment
         (RATE_ISSUE, 'Rate issue'),
         (ALREADY_PURCHASED, 'Already Purchased'),
         (GST_ISSUE, 'GST Issue'),
+        (CLEANLINESS, 'Item not clean'),
+        (CUSOTMER_CANCEL, 'Cancelled by customer'),
+        (CUSTOMER_UNAVAILABLE, 'Customer not available'),
+        (MANUFACTURING_DEFECT,'Manufacturing Defect'),
+        (SHORT, 'Item short')
     )
 
     order = models.ForeignKey(
