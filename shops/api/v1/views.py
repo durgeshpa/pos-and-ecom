@@ -362,6 +362,8 @@ class SellerShopProfile(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         data = []
+        import ipdb
+        ipdb.set_trace()
         shop_user_obj = ShopUserMapping.objects.filter(manager=self.request.user,status=True)
         employee_list = shop_user_obj.values('employee')
         shop_list = shop_user_obj.values('shop','shop__id','shop__shop_name').distinct('shop')
