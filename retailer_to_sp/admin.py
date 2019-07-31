@@ -983,21 +983,30 @@ class ShipmentAdmin(admin.ModelAdmin):
         update_order_status(
             close_order_checked=form.cleaned_data.get('close_order'),
             shipment_id=form.instance.id
-        )        
+        ) 
+        if (form.cleaned_data.get('close_order') and
+                (form.instance.shipment_status != form.instance.CLOSED and
+                 not form.instance.order.order_closed)):
 
+            update_quantity = UpdateSpQuantity(form, formsets)
+            update_quantity.update()
+
+        super(ShipmentAdmin, self).save_related(request, form, formsets, change)
+
+        # check if all the items are shipped
         no_of_pieces = form.instance.order.ordered_cart.rt_cart_list.all().values('no_of_pieces')
         # no_of_pieces = no_of_pieces.first().get('no_of_pieces')
-        no_of_pieces = no_of_pieces.aggregate(
+        no_of_pieces1 = no_of_pieces.aggregate(
             Sum('no_of_pieces')).get('no_of_pieces__sum', 0)
 
         all_ordered_product = form.instance.order.rt_order_order_product.all()
         qty = OrderedProductMapping.objects.filter(
             ordered_product__in=all_ordered_product,
             )
-        shipped_qty = qty.aggregate(
+        shipped_qty1 = qty.aggregate(
             Sum('shipped_qty')).get('shipped_qty__sum', 0)
         
-        shipped_qty = shipped_qty if shipped_qty else 0
+        shipped_qty1 = shipped_qty1 if shipped_qty1 else 0
         #when more shipments needed and status == qc_pass
         close_order = form.cleaned_data.get('close_order')
         if close_order:
@@ -1005,7 +1014,7 @@ class ShipmentAdmin(admin.ModelAdmin):
         change_value = form.instance.shipment_status == form.instance.READY_TO_SHIP
         if "shipment_status" in form.changed_data and change_value and (not close_order):
 
-            if int(no_of_pieces) > shipped_qty:
+            if int(no_of_pieces1) > shipped_qty1:
                 try:
                     pincode = form.instance.order.shipping_address.pincode
                 except:
@@ -1016,14 +1025,14 @@ class ShipmentAdmin(admin.ModelAdmin):
                     picklist_id= generate_picklist_id(pincode) #get_random_string(12).lower(),#
                     )
 
-        if (form.cleaned_data.get('close_order') and
-                (form.instance.shipment_status != form.instance.CLOSED and
-                 not form.instance.order.order_closed)):
+        # if (form.cleaned_data.get('close_order') and
+        #         (form.instance.shipment_status != form.instance.CLOSED and
+        #          not form.instance.order.order_closed)):
 
-            update_quantity = UpdateSpQuantity(form, formsets)
-            update_quantity.update()
+        #     update_quantity = UpdateSpQuantity(form, formsets)
+        #     update_quantity.update()
 
-        super(ShipmentAdmin, self).save_related(request, form, formsets, change)
+        # super(ShipmentAdmin, self).save_related(request, form, formsets, change)
 
 
     def get_queryset(self, request):
