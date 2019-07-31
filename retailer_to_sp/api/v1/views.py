@@ -194,7 +194,7 @@ class GramGRNProductsList(APIView):
             query = {"bool":{"filter":filter_list}}
         else:
             return {"match_all":{}}
-        if not self.brand and self.keyword:
+        if self.keyword:
             q = {
             "match":{
                 "name":{"query":self.keyword, "fuzziness":"AUTO", "operator":"and"}
@@ -273,17 +273,6 @@ class GramGRNProductsList(APIView):
                 }
             products_list = es_search(index="all_products", body=body)
 
-        for p in products_price:
-            user_selected_qty = None
-            no_of_pieces = None
-            sub_total = None
-            name = p.product.product_name
-            mrp = round(p.mrp, 2) if p.mrp else p.mrp
-            ptr = round(p.price_to_retailer, 2) if p.price_to_retailer else p.price_to_retailer
-            loyalty_discount = round(p.loyalty_incentive, 2) if p.loyalty_incentive else p.loyalty_incentive
-            cash_discount = round(p.cash_discount, 2) if p.cash_discount else p.cash_discount
-            margin = round((100 * (float(mrp) - float(ptr) - (float(cash_discount) + float(loyalty_discount)) * float(
-                mrp) / 100) / float(mrp)), 2) if mrp and ptr else 0
         for p in products_list['hits']['hits']:
 
             if cart_check == True:
