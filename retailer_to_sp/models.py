@@ -835,8 +835,8 @@ class OrderedProductMapping(models.Model):
     already_shipped_qty.fget.short_description = "Delivered Qty"
 
     @property
-    def shipped_quantity(self):
-        all_ordered_product = self.ordered_product.order.rt_order_order_product.all()
+    def shipped_quantity_including_current(self):
+        all_ordered_product = self.ordered_product.order.rt_order_order_product.filter(created_at__lte=self.ordered_product.created_at)#all()
         #all_ordered_product_exclude_current = all_ordered_product.exclude(id=self.ordered_product_id)
         qty = OrderedProductMapping.objects.filter(
             ordered_product__in=all_ordered_product,
@@ -846,7 +846,7 @@ class OrderedProductMapping(models.Model):
         
         shipped_qty = shipped_qty if shipped_qty else 0
         return shipped_qty
-    shipped_quantity.fget.short_description = "Shipped Qty"
+    shipped_quantity_including_current.fget.short_description = "Shipped Quantity"
 
 
     @property
@@ -864,6 +864,20 @@ class OrderedProductMapping(models.Model):
         to_be_shipped_qty = to_be_shipped_qty - returned_qty
         return to_be_shipped_qty
     to_be_shipped_qty.fget.short_description = "Already Shipped Qty"
+
+
+    @property
+    def shipped_qty_exclude_current1(self):
+        all_ordered_product = self.ordered_product.order.rt_order_order_product.filter(created_at__lt=self.created_at)#all()
+        all_ordered_product_exclude_current = all_ordered_product.exclude(id=self.ordered_product_id)
+        to_be_shipped_qty = OrderedProductMapping.objects.filter(
+            ordered_product__in=all_ordered_product_exclude_current,
+            product=self.product).aggregate(
+            Sum('shipped_qty')).get('shipped_qty__sum', 0)
+        to_be_shipped_qty = to_be_shipped_qty if to_be_shipped_qty else 0
+        return to_be_shipped_qty
+
+
 
     @property
     def shipped_qty_exclude_current(self):

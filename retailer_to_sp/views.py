@@ -627,7 +627,11 @@ class DownloadPickListPicker(TemplateView,):
         shipment_id = self.kwargs.get('shipment_id')
         # get data for already shipped products
         # find any shipment for the product and loop for shipment products
-        shipment = order_obj.rt_order_order_product.last()
+        #shipment = order_obj.rt_order_order_product.last()
+        if shipment_id != "0":
+            shipment = OrderedProduct.objects.get(id=shipment_id)
+        else:
+            shipment = order_obj.rt_order_order_product.last()
         if shipment:
             shipment_products = shipment.rt_order_product_order_product_mapping.all()
             shipment_product_list = []
@@ -656,9 +660,9 @@ class DownloadPickListPicker(TemplateView,):
                 }
                 #product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_qty_exclude_current)
                 if shipment_id==0:
-                    product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_qty_exclude_current)
+                    product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_qty_exclude_current1)
                 else:
-                    product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_quantity)
+                    product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_quantity_including_current)
                 if (product_list["to_be_shipped_qty"]>0):
                     shipment_product_list.append(product_list)
 
