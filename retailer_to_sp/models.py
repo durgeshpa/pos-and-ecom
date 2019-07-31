@@ -1303,7 +1303,7 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
             picker.shipment=instance
             picker.save()
         except:
-            raise ValidationError(_("Please correct picker dashboard entry for order" ),)
+            raise ValidationError("Please assign picker for the order")
 
 
 @receiver(post_save, sender=Order)
