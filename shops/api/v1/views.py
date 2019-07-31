@@ -493,7 +493,7 @@ class CheckUser(generics.ListAPIView):
 
     def get(self, *args, **kwargs):
         shop_user = ShopUserMapping.objects.filter(employee=self.request.user)
-        is_sales = True if shop_user.exists() and shop_user.last().employee.has_perm('shops.can_sales_person_add_shop') else False
+        is_sales = True if shop_user.exists() and shop_user.last().employee_group.permissions.filter(codename='can_sales_person_add_shop').exists() else False
         msg = {'is_success': True, 'message': [""], 'response_data': None,'is_sales':is_sales}
         return Response(msg, status=status.HTTP_200_OK)
 
