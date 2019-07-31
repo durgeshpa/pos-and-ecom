@@ -268,7 +268,7 @@ def ordered_product_mapping_shipment(request):
                                 if max_pieces_allowed < int(to_be_ship_qty):
                                     raise Exception('{}: Max Qty allowed is {}'.format(product_name, max_pieces_allowed))
                                 formset_data.save()
-                    #update_reserved_order.delay(json.dumps({'shipment_id': shipment.id}))
+                    update_reserved_order.delay(json.dumps({'shipment_id': shipment.id}))
                 return redirect('/admin/retailer_to_sp/shipment/')
 
             except Exception as e:
