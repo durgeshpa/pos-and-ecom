@@ -5,6 +5,9 @@ from shops.api.v1.views import (RetailerTypeView, ShopTypeView,ShopView, ShopPho
         SellerShopListView, CheckUser, CheckAppVersion, StatusChangedAfterAmountCollected
 )
 from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetail, SellerShopAddress
+from shops.api.v1.views import (RetailerTypeView, ShopTypeView,
+        ShopView, ShopPhotoView, ShopDocumentView, StatusChangedAfterAmountCollected)
+from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetail
 
 urlpatterns = [
     path('user-shops/', ShopView.as_view(), name='user-shops', ),
@@ -27,4 +30,6 @@ urlpatterns = [
     path('check-app-version/', CheckAppVersion.as_view(), name='check-app-version', ),
 
     url('^amount-collected/(?P<shipment>\d+)/$', StatusChangedAfterAmountCollected.as_view(), name='amount-collected'),
+    url('^amount-collected/(?P<shipment>\d+)/$', StatusChangedAfterAmountCollected.as_view(), name='amount-collected'),
+
 ]

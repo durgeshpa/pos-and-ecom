@@ -5,8 +5,7 @@ from .views import (ProductsList, GramGRNProductsList,AddToCart,CartDetail,
     ReservedOrder,CreateOrder,OrderList,OrderDetail,DownloadInvoiceSP,
     DownloadNote, CustomerCareApi, CustomerOrdersList,  PaymentApi,
     ProductDetail,ReleaseBlocking, OrderedProductViewSet, OrderedProductMappingView,
-    CancelOrder, FeedbackData, DeliveryBoyTrips,
-    RetailerShopsList, FeedbackData, SellerOrderList,
+    CancelOrder, DeliveryBoyTrips,RetailerShopsList, FeedbackData, SellerOrderList,
     DeliveryShipmentDetails, ShipmentDetail
 )
 
