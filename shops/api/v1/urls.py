@@ -30,6 +30,5 @@ urlpatterns = [
     path('check-app-version/', CheckAppVersion.as_view(), name='check-app-version', ),
 
     url('^amount-collected/(?P<shipment>\d+)/$', StatusChangedAfterAmountCollected.as_view(), name='amount-collected'),
-    url('^amount-collected/(?P<shipment>\d+)/$', StatusChangedAfterAmountCollected.as_view(), name='amount-collected'),
 
 ]
