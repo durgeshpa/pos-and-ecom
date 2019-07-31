@@ -1187,8 +1187,6 @@ class ShipmentDetail(APIView):
         return Response(msg, status=status.HTTP_201_CREATED)
 
     def post(self, *args, **kwargs):
-        import ipdb
-        ipdb.set_trace()
         shipment_id = kwargs.get('shipment')
         shipment = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
         product = self.request.POST.get('product')
