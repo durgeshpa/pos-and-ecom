@@ -1181,7 +1181,7 @@ class ShipmentDetail(APIView):
         shipment_id = kwargs.get('shipment')
         shipment = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
         shipment_product_details = ShipmentDetailSerializer(shipment, many=True)
-        cash_to_be_collected = shipment.last().ordered_product.cash_to_be_collected()
+        cash_to_be_collected = shipment.last().ordered_product.get_cash_to_be_collected()
         msg = {'is_success': True, 'message': ['Shipment Details'],
                'response_data': shipment_product_details.data,'cash_to_be_collected': cash_to_be_collected}
         return Response(msg, status=status.HTTP_201_CREATED)
@@ -1197,7 +1197,7 @@ class ShipmentDetail(APIView):
         datas = ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(returned_qty=returned_qty, damaged_qty=damaged_qty)
         serializer = ShipmentDetailSerializer(shipment, many=True)
         if serializer.data:
-            cash_to_be_collected = shipment.last().ordered_product.cash_to_be_collected()
+            cash_to_be_collected = shipment.last().ordered_product.get_cash_to_be_collected()
             msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': serializer.data, 'cash_to_be_collected': cash_to_be_collected}
             return Response( msg, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
