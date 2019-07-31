@@ -1176,7 +1176,7 @@ class ShipmentDetail(APIView):
 
     def get(self, *args, **kwargs):
         shipment_id = kwargs.get('shipment')
-        shipment = ShipmentProducts.objects.filter(ordered_product__id = shipment_id)
+        shipment = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
         shipment_product_details = ShipmentDetailSerializer(shipment, many=True)
         cash_to_be_collected = shipment.last().ordered_product.cash_to_be_collected()
         msg = {'is_success': True, 'message': ['Shipment Details'],
@@ -1185,13 +1185,13 @@ class ShipmentDetail(APIView):
 
     def post(self, *args, **kwargs):
         shipment_id = kwargs.get('shipment')
-        shipment = ShipmentProducts.objects.filter(ordered_product__id = shipment_id)
+        shipment = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
         product = self.request.POST.get('product')
         returned_qty = self.request.POST.get('returned_qty')
-        damaged_qty=self.request.POST.get('damaged_qty')
+        damaged_qty = self.request.POST.get('damaged_qty')
         msg = {'is_success': False,'message': [''],'response_data': None}
 
-        datas = ShipmentProducts.objects.filter(ordered_product = shipment_id, product = product).update(returned_qty=returned_qty, damaged_qty=damaged_qty)
+        datas = ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(returned_qty=returned_qty, damaged_qty=damaged_qty)
         serializer = ShipmentDetailSerializer(shipment, many=True)
         if serializer.data:
             cash_to_be_collected = shipment.last().ordered_product.cash_to_be_collected()
