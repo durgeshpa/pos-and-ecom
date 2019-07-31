@@ -276,7 +276,7 @@ class SellerShopView(generics.ListCreateAPIView):
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             shop = self.perform_create(serializer)
-            self.add_shop_user_mapping(shop)
+            #self.add_shop_user_mapping(shop)
             msg = {'is_success': True,
                     'message': [SUCCESS_MESSAGES['USER_SHOP_ADDED']],
                     'response_data': [{
@@ -296,9 +296,9 @@ class SellerShopView(generics.ListCreateAPIView):
         shop = serializer.save(created_by=self.request.user,shop_owner= get_user_model().objects.get(phone_number=self.request.data['shop_owner']))
         return shop
 
-    def add_shop_user_mapping(self,shop):
-        if not ShopUserMapping.objects.filter(shop=shop,employee=self.request.user).exists():
-            ShopUserMapping.objects.create(shop=shop, employee=self.request.user, employee_group=Group.objects.get(name='Sales Executive'))
+    # def add_shop_user_mapping(self,shop):
+    #     if not ShopUserMapping.objects.filter(shop=shop,employee=self.request.user).exists():
+    #         ShopUserMapping.objects.create(shop=shop, employee=self.request.user, employee_group=Group.objects.get(name='Sales Executive'))
 
 class SellerShopOrder(generics.ListAPIView):
     serializer_class = ShopUserMappingSerializer
