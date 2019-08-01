@@ -1,0 +1,51 @@
+{% extends "admin/change_form.html" %}
+
+{% block admin_change_form_document_ready %}
+<script type="text/javascript">
+
+	var $ = django.jQuery;
+	$('.field-shop').hide();
+	$('.field-last_order').hide();
+	$('.field-last_login').hide();
+	$('#id_selection_type').change(function(){
+		
+		var field_value = $('#id_selection_type').val();
+		if (field_value == "user"){
+			$('.field-user').show();
+			$('.field-shop').hide();
+			$('.field-last_order').hide();
+			$('.field-last_login').hide();
+		}
+		else if (field_value == "shop"){
+			$('.field-user').hide();
+			$('.field-shop').show();
+			$('.field-last_order').hide();
+			$('.field-last_login').hide();
+		}
+		else if (field_value == "last_login"){
+			$('.field-user').hide();
+			$('.field-shop').hide();
+			$('.field-last_login').show();
+			$('.field-last_order').hide();			
+		}
+		else if (field_value == "last_order"){
+			$('.field-user').hide();
+			$('.field-shop').hide();
+			$('.field-last_order').show();
+			$('.field-last_login').hide();			
+		}
+	});
+
+</script>
+{% endblock %}
+
+
+<!-- 
+	showing the form
+-->
+
+
+<!-- 
+add the javascript for dynamically showing/hiding fields
+
+-->

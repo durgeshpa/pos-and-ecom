@@ -1,14 +1,12 @@
 from django.conf.urls import include, url
 
-from .views import (ProductsList, GramGRNProductsList,AddToCart,CartDetail,ReservedOrder,CreateOrder,OrderList,OrderDetail,DownloadInvoiceSP,
-                    DownloadNote, CustomerCareApi, CustomerOrdersList,  PaymentApi, ProductDetail,ReleaseBlocking, FeedbackData)
 from rest_framework import routers
 
 from .views import (ProductsList, GramGRNProductsList,AddToCart,CartDetail,
     ReservedOrder,CreateOrder,OrderList,OrderDetail,DownloadInvoiceSP,
     DownloadNote, CustomerCareApi, CustomerOrdersList,  PaymentApi,
     ProductDetail,ReleaseBlocking, OrderedProductViewSet, OrderedProductMappingView,
-    CancelOrder, PickerDashboardViewSet
+    CancelOrder, FeedbackData, PickerDashboardViewSet
 )
 
 router = routers.DefaultRouter()

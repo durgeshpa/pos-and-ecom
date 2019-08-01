@@ -176,7 +176,6 @@ class OrderedProductMappingView(DataWrapperViewSet):
         return ordered_product_mapping
 
 
-
 class ProductsList(generics.ListCreateAPIView):
     permission_classes = (AllowAny,)
     model = Product
