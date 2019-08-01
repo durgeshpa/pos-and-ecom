@@ -118,7 +118,6 @@ class SendNotification:
         pass
 
     def merge_template_with_data(self, template_content=""):
-        #import pdb; pdb.set_trace()
         final_template = DjangoTemplate(template_content)
 
         # if template_content is not None:
@@ -127,7 +126,6 @@ class SendNotification:
         return final_template.render(Context(self.template_data))
 
     def send_to_all(self):
-        #import pdb; pdb.set_trace()
         template = Template.objects.get(type=self.template_type)
 
         self.template_data = GenerateTemplateData(
@@ -146,8 +144,6 @@ class SendNotification:
         notification.send_to_all()
 
     def send_to_a_group(self):
-        # fetch the group and location and call send for each user specifically
-        #import pdb; pdb.set_trace()
         template = Template.objects.get(type=self.template_type)
         notification_groups = template.notification_groups.all()
         shop = ParentRetailerMapping.objects.get(retailer_id=self.data['shop_id']).parent        
@@ -177,8 +173,6 @@ class SendNotification:
 
     def send(self):
         try:
-            #import pdb; pdb.set_trace()
-            #generate template content
             template = Template.objects.get(type=self.template_type)
  
             # generate template variable data
@@ -220,20 +214,3 @@ class SendNotification:
         except Exception as e:
             # print (str(e))
             logging.error(str(e))    
-
-
-def test():
-    activity_type = "ORDER_RECEIVED" #SHOP_VERIFIED
-    user_id = 1 #self.shop_owner.id
-    data = {}
-    data['username'] = "sagar" #username
-    data['phone_number'] = "9643112048" #self.shop_owner.phone_number
-    data['shop_title'] = "saggy-shop" #shop_title
-
-    #from notification_center.utils import SendNotification
-    SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
-    # message = SendSms(phone="9643112048",
-    #                   body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App." \
-    #                        " Thanks," \
-    #                        " Team GramFactory " % ("sagar", "saggy-shop"))
-    # message.send()

@@ -27,7 +27,6 @@ from notification_center.models import Template
 
 @receiver(delivery_received)
 def delivery_handler(sender, *args, **kwargs):
-    #import pdb; pdb.set_trace()
     print("This is delivery email object")
     print(kwargs.get('mail_obj'))
 

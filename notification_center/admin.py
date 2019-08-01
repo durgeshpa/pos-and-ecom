@@ -141,8 +141,6 @@ class NotificationSchedulerAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         try:
-            # import pdb; pdb.set_trace()
-            #integrate with celery beat
             user_id = User.objects.get(id=obj.user.id).id
             activity_type = Template.objects.get(id=obj.template.id).type
             # code to send notification
@@ -170,18 +168,6 @@ class NotificationSchedulerAdmin(admin.ModelAdmin):
         super(NotificationSchedulerAdmin, self).save_model(request, obj, form, change)    
 
 
-def test_celery():
-    import pdb; pdb.set_trace()
-    data = {}
-    #data['test'] = "test"
-    data['user_id'] = 1 #user_id
-    data['activity_type'] = "SIGNUP" #activity_type
-
-    schedule= IntervalSchedule.objects.create(every=10, period=IntervalSchedule.SECONDS)
-    task = PeriodicTask.objects.create(interval=schedule, name='any name2', task='tasks.schedule_notification', args=json.dumps(data))
-
-
-
 class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
     model = GroupNotificationScheduler
     list_display = ('id', 'user', 'template', 'run_at', 'repeat', 'created_at')
@@ -192,7 +178,6 @@ class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         try:
             #pass
-            #import pdb; pdb.set_trace()
             activity_type = Template.objects.get(id=obj.template.id).type
 
             if obj.selection_type == "user":      
