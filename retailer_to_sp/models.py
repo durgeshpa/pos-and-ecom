@@ -437,6 +437,14 @@ class Order(models.Model):
     # def delivered_value(self):
     #     return order_delivered_value(self.shipments())
 
+    def save(self, *args, **kwargs):
+        super(Order, self).save()
+        pincode = self.shipping_address.pincode
+        PickerDashboard.objects.create(
+            order=self,
+            picking_status="picking_pending",
+            picklist_id= generate_picklist_id(pincode), #get_random_string(12).lower(), ##generate random string of 12 digits
+            )
 
 
 class Trip(models.Model):
@@ -1294,20 +1302,20 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
             raise ValidationError("Please assign picker for the order")
 
 
-@receiver(post_save, sender=Order)
-def assign_picklist(sender, instance=None, created=False, **kwargs):
-    '''
-    Method to update picking status 
-    '''
-    #assign shipment to picklist once SHIPMENT_CREATED
-    if created:
-        # assign piclist to order
-        try:
-            pincode = "00" #instance.shipping_address.pincode
-        except:
-            pincode = "00"
-        PickerDashboard.objects.create(
-            order=instance,
-            picking_status="picking_pending",
-            picklist_id= generate_picklist_id(pincode), #get_random_string(12).lower(), ##generate random string of 12 digits
-            )
+# @receiver(post_save, sender=Order)
+# def assign_picklist(sender, instance=None, created=False, **kwargs):
+#     '''
+#     Method to update picking status 
+#     '''
+#     #assign shipment to picklist once SHIPMENT_CREATED
+#     if created:
+#         # assign piclist to order
+#         try:
+#             pincode = instance.shipping_address.pincode
+#         except:
+#             pincode = "00"
+#         PickerDashboard.objects.create(
+#             order=instance,
+#             picking_status="picking_pending",
+#             picklist_id= generate_picklist_id(pincode), #get_random_string(12).lower(), ##generate random string of 12 digits
+#             )
