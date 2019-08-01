@@ -1303,10 +1303,9 @@ def assign_picklist(sender, instance=None, created=False, **kwargs):
         pincode = instance.shipping_address.pincode
     except:
         pincode = "00"
-    picker, create = PickerDashboard.objects.get_or_create(
-        order=instance,
-        picking_status="picking_pending",
-        )
-    if create:
-        picker.picklist_id= generate_picklist_id(pincode)
-        picker.save()
+    if not PickerDashboard.objects.filter(order=instance, picking_status="picking_pending").exists():
+        PickerDashboard.objects.create(
+            order=instance,
+            picking_status="picking_pending",
+            picklist_id= generate_picklist_id(pincode)
+            )
