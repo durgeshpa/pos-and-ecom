@@ -530,21 +530,3 @@ class StatusChangedAfterAmountCollected(APIView):
         else:
             msg = {'is_success': False, 'message': ['Amount is different'], 'response_data': None}
         return Response(msg, status=status.HTTP_201_CREATED)
-
-class StatusChangedAfterAmountCollected(APIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
-
-    def post(self, *args, **kwargs):
-        shipment_id = kwargs.get('shipment')
-        cash_collected = self.request.POST.get('cash_collected')
-        shipment = OrderedProduct.objects.get(id=shipment_id)
-        if float(cash_collected) == float(shipment.cash_to_be_collected()):
-            update_order_status(
-                close_order_checked=False,
-                shipment_id=shipment_id
-            )
-            msg = {'is_success': True, 'message': ['Status Changed'], 'response_data': None}
-        else:
-            msg = {'is_success': False, 'message': ['Amount is different'], 'response_data': None}
-        return Response(msg, status=status.HTTP_201_CREATED)
