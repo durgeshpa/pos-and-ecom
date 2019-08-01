@@ -5,7 +5,7 @@ from common.common_utils import convert_date_format_ddmmmyyyy
 from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMapping,ProductOption,
                              Size,Color,Fragrance,Flavor,Weight,PackageSize)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order,
-                                   OrderedProduct, Note, CustomerCare,
+                                   OrderedProduct, Note, CustomerCare, PickerDashboard,
                                    Payment, Dispatch, Feedback, OrderedProductMapping)
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
                                       OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment)
@@ -27,6 +27,13 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
+
+
+class PickerDashboardSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = PickerDashboard
+      fields = '__all__'
+
 
 class ProductImageSerializer(serializers.ModelSerializer):
    class Meta:
