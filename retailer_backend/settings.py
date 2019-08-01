@@ -91,7 +91,6 @@ INSTALLED_APPS = [
     'django_admin_listfilter_dropdown',
     'debug_toolbar',
     # used for installing shell_plus
-    'django_extensions',
     'fcm',
     'django_celery_beat',
     'django_celery_results',
