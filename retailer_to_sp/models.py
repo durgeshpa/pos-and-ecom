@@ -1308,5 +1308,5 @@ def assign_picklist(sender, instance=None, created=False, **kwargs):
         picking_status="picking_pending",
         )
     if create:
-        picker.picklist_id= generate_picklist_id(pincode),
+        picker.picklist_id= generate_picklist_id(pincode)
         picker.save()
