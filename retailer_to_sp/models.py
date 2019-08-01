@@ -1300,14 +1300,14 @@ def assign_picklist(sender, instance=None, created=False, **kwargs):
     Method to update picking status 
     '''
     #assign shipment to picklist once SHIPMENT_CREATED
-    if created:
+    # if created:
         # assign piclist to order
-        try:
-            pincode = "00" #instance.shipping_address.pincode
-        except:
-            pincode = "00"
-        PickerDashboard.objects.create(
-            order=instance,
-            picking_status="picking_pending",
-            picklist_id= generate_picklist_id(pincode), #get_random_string(12).lower(), ##generate random string of 12 digits
-            )
+    try:
+        pincode = instance.shipping_address.pincode
+    except:
+        pincode = "00"
+    PickerDashboard.objects.create(
+        order=instance,
+        picking_status="picking_pending",
+        picklist_id= generate_picklist_id(pincode), #get_random_string(12).lower(), ##generate random string of 12 digits
+        )
