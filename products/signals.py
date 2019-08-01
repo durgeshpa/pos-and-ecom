@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+
 from products.models import Product, ProductPrice, ProductCategory, ProductTaxMapping, ProductImage
 from django.db.models.signals import post_save
 from django.dispatch import receiver
