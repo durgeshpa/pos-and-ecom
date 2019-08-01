@@ -1304,8 +1304,9 @@ def assign_picklist(sender, instance=None, created=False, **kwargs):
         # assign piclist to order
         try:
             pincode = instance.shipping_address.pincode
-        except:
-            pincode = "00"
+        except Exception as e:
+            raise ValidationError(str(e))
+            #pincode = "00"
         PickerDashboard.objects.create(
             order=instance,
             picking_status="picking_pending",

@@ -1008,8 +1008,10 @@ class ShipmentAdmin(admin.ModelAdmin):
             if int(no_of_pieces) > shipped_qty:
                 try:
                     pincode = form.instance.order.shipping_address.pincode
-                except:
-                    pincode = "00"
+                except Exception as e:
+                    raise ValidationError(str(e))
+                    #pincode = "00"
+
                 PickerDashboard.objects.create(
                     order=form.instance.order,
                     picking_status="picking_pending",
