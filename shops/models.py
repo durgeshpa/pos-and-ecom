@@ -64,6 +64,16 @@ class Shop(models.Model):
         self.__original_status = self.status
 
     @property
+    def parent_shop(self):
+        # return self.get_shop_parent
+        try:
+            if self.retiler_mapping.exists():
+                parent = ParentRetailerMapping.objects.get(retailer=self.id, status=True).parent
+                return parent.shop_name
+        except:
+            return None
+
+    @property
     def get_shop_shipping_address(self):
         if self.shop_name_address_mapping.exists():
             for address in self.shop_name_address_mapping.filter(address_type ='shipping').all():
@@ -88,6 +98,12 @@ class Shop(models.Model):
         if self.retiler_mapping.exists():
             return self.retiler_mapping.last().parent
     get_shop_parent.fget.short_description = 'Parent Shop'
+
+    @property
+    def get_shop_parent_name(self):
+        if self.retiler_mapping.exists():
+            return self.retiler_mapping.last().parent.shop_name
+    get_shop_parent_name.fget.short_description = 'Parent Shop Name'
 
 
     def save(self, force_insert=False, force_update=False, *args, **kwargs):
