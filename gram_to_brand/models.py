@@ -391,18 +391,18 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
                     shop=shop.retailer,
                     po_validity_date=datetime.date.today() + timedelta(days=15)
                 )
-        data = {}
-        data['username'] = username
-        data['phone_number'] = instance.order_id.ordered_by
-        data['order_no'] = order_no
-        data['items_count'] = items_count
-        data['total_amount'] = total_amount
-        data['shop_name'] = shop_name
+        # data = {}
+        # data['username'] = username
+        # data['phone_number'] = instance.order_id.ordered_by
+        # data['order_no'] = order_no
+        # data['items_count'] = items_count
+        # data['total_amount'] = total_amount
+        # data['shop_name'] = shop_name
 
         user_id = instance.order_id.ordered_by.id
         activity_type = "STOCK_IN"
-        from notification_center.utils import SendNotification
-        SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
+        # from notification_center.utils import SendNotification
+        # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
 
 
 

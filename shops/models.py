@@ -48,23 +48,6 @@ class ShopType(models.Model):
     def __str__(self):
         return "%s - %s"%(self.get_shop_type_display(),self.shop_sub_type.retailer_type_name) if self.shop_sub_type else "%s"%(self.get_shop_type_display())
 
-def test():
-    activity_type = "SHOP_VERIFIED" #SHOP_VERIFIED
-    user_id = 1 #self.shop_owner.id
-    data = {}
-    data['username'] = "sagar" #username
-    data['phone_number'] = "9643112048" #self.shop_owner.phone_number
-    data['shop_title'] = "saggy-shop" #shop_title
-
-    from notification_center.utils import SendNotification
-    SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
-    message = SendSms(phone="9643112048",
-                      body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App." \
-                           " Thanks," \
-                           " Team GramFactory " % ("sagar", "saggy-shop"))
-    message.send()
-
-
 
 class Shop(models.Model):
     shop_name = models.CharField(max_length=255)
@@ -142,8 +125,8 @@ class Shop(models.Model):
             data['phone_number'] = self.shop_owner.phone_number
             data['shop_title'] = shop_title
     
-            from notification_center.utils import SendNotification
-            SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
+            # from notification_center.utils import SendNotification
+            # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
 
 
             message = SendSms(phone=self.shop_owner,
@@ -291,8 +274,8 @@ def shop_verification_notification1(sender, instance=None, created=False, **kwar
 
             activity_type = "SHOP_CREATED"
 
-            from notification_center.utils import SendNotification
-            SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()
+            # from notification_center.utils import SendNotification
+            # SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()
     except Exception as e:
         logging.error("error in post_save: shop verification")
         logging.error(str(e))            
