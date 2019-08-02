@@ -487,15 +487,24 @@ class SellerShopListView(generics.ListAPIView):
         msg = {'is_success': is_success, 'message': [""],'response_data': data}
         return Response(msg,status=status.HTTP_200_OK)
 
+
 class CheckUser(generics.ListAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, *args, **kwargs):
-        shop_user = ShopUserMapping.objects.filter(employee=self.request.user)
-        is_sales = True if shop_user.exists() and shop_user.last().employee_group.permissions.filter(codename='can_sales_person_add_shop').exists() else False
-        msg = {'is_success': True, 'message': [""], 'response_data': None,'is_sales':is_sales}
+        all_user = ShopUserMapping.objects.filter(
+            Q(employee=self.request.user) |
+            Q(manager=self.request.user), status=True
+        )
+        if not all_user.exists():
+            msg = {'is_success': False, 'message': ["Sorry you are not authorize"], 'response_data': None, 'is_sales': False,'is_sales_manager': False}
+        else:
+            is_sales = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop',status=True).exists() else False
+            is_sales_manager = True if ShopUserMapping.objects.filter(manager=self.request.user, employee_group__permissions__codename='can_sales_manager_add_shop',status=True).exists() else False
+            msg = {'is_success': True, 'message': [""], 'response_data': None,'is_sales':is_sales, 'is_sales_manager':is_sales_manager}
         return Response(msg, status=status.HTTP_200_OK)
+
 
 class CheckAppVersion(APIView):
     permission_classes = (AllowAny,)
