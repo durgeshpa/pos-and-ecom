@@ -261,10 +261,10 @@ def order_notification(sender, instance=None, created=False, **kwargs):
         data['total_amount'] = total_amount
         data['shop_name'] = shop_name
 
-        user_id = instance.order_id.ordered_by.id
-        activity_type = "ORDER_CREATED"
-        from notification_center.utils import SendNotification
-        SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
+        # user_id = instance.order_id.ordered_by.id
+        # activity_type = "ORDER_CREATED"
+        # from notification_center.utils import SendNotification
+        # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
 
         message = SendSms(phone=instance.order_id.ordered_by,
                           body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
