@@ -17,6 +17,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from celery.task import task
+from rest_framework.decorators import permission_classes
 
 from sp_to_gram.models import (
     OrderedProductReserved, OrderedProductMapping as SPOrderedProductMapping,
@@ -24,13 +25,14 @@ from sp_to_gram.models import (
 from retailer_to_sp.models import (
     Cart, CartProductMapping, Order, OrderedProduct, OrderedProductMapping,
     CustomerCare, Payment, Return, ReturnProductMapping, Note, Trip, Dispatch,
-    ShipmentRescheduling
+    ShipmentRescheduling, PickerDashboard
 )
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
     OrderedProductMappingDeliveryForm, OrderedProductDispatchForm,
-    TripForm, DispatchForm, DispatchDisabledForm
+    TripForm, DispatchForm, DispatchDisabledForm, AssignPickerForm, 
+    OrderForm, 
 )
 from django.views.generic import TemplateView
 from django.conf import settings
@@ -277,6 +279,81 @@ def ordered_product_mapping_shipment(request):
         request,
         'admin/retailer_to_sp/OrderedProductMappingShipment.html',
         {'ordered_form': form, 'formset': form_set}
+    )
+
+# test for superuser, warehouse manager
+#@permission_classes(("can_change_picker_dashboard"))
+def assign_picker(request, shop_id=None):
+    #update status to pick
+    # if not request.user.has_perm("can_change_pickerdashboard"):
+    #     return redirect('/admin')
+    if request.method == 'POST':
+        # saving picker data to pickerdashboard model
+        form = AssignPickerForm(request.user, shop_id, request.POST)
+        if form.is_valid():
+            #saving selected order picking status
+            selected_orders = form.cleaned_data.get('selected_id', None)
+            picker_boy = form.cleaned_data.get('picker_boy', None)
+            if selected_orders:
+ 
+                selected_orders = selected_orders.split(',')
+                selected_orders = PickerDashboard.objects.filter(
+                                                    pk__in=selected_orders)
+
+                for picker_instance in selected_orders:
+                    picker_instance.picker_boy = picker_boy
+                    picker_instance.picking_status = 'picking_assigned'
+                    picker_instance.save()
+
+            return redirect('/admin/retailer_to_sp/pickerdashboard/')
+    # form for assigning picker
+    form = AssignPickerForm(request.user,shop_id)
+    picker_orders = {}
+    if shop_id:
+        picker_orders = PickerDashboard.objects.filter(order__seller_shop__id=shop_id, picking_status='picking_pending')
+
+    return render(
+        request,
+        'admin/retailer_to_sp/picker/AssignPicker.html',
+        {'form': form, 'picker_orders': picker_orders, 'shop_id':shop_id}
+    )
+
+
+def assign_picker_data(request, shop_id):
+    #update status to pick
+    #import pdb; pdb.set_trace()
+    form = AssignPickerForm(request.user)
+    #shop_id = request.GET.get('shop_id',None)
+
+    picker_orders = PickerDashboard.objects.filter(order__seller_shop__id=shop_id, picking_status='picking_pending')
+    #order_form = PickerOrderForm(picker_order)
+
+    return render(
+        request,
+        'admin/retailer_to_sp/picker/AssignPicker.html',
+        {'form': form, 'picker_orders': picker_orders }
+    )
+
+
+
+def assign_picker_change(request, pk):
+    # save the changes
+    picking_instance = PickerDashboard.objects.get(pk=pk)
+    #picking_status = picking_instance.picking_status
+    # import pdb; pdb.set_trace()
+
+    if request.method == 'POST':
+        form = AssignPickerForm(request.user, request.POST, instance=picking_instance)
+        
+        if form.is_valid():
+            form.save()
+        return redirect('/admin/retailer_to_sp/pickerdashboard/')
+
+    form = AssignPickerForm(request.user, instance=picking_instance)
+    return render(
+        request,
+        'admin/retailer_to_sp/picker/AssignPickerChange.html',
+        {'form': form}
     )
 
 
@@ -535,6 +612,105 @@ def load_dispatches(request):
     )
 
 
+class DownloadPickListPicker(TemplateView,):
+    """
+    PDF Download Pick List
+    """
+    filename = 'pick_list.pdf'
+    template_name = 'admin/download/retailer_sp_picker_pick_list.html'
+
+    def get(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('/admin/login/?next=%s' % request.path)
+            
+        order_obj = get_object_or_404(Order, pk=self.kwargs.get('pk'))
+        shipment_id = self.kwargs.get('shipment_id')
+        # get data for already shipped products
+        # find any shipment for the product and loop for shipment products
+        #shipment = order_obj.rt_order_order_product.last()
+        if shipment_id != "0":
+            shipment = OrderedProduct.objects.get(id=shipment_id)
+        else:
+            shipment = order_obj.rt_order_order_product.last()
+        if shipment:
+            shipment_products = shipment.rt_order_product_order_product_mapping.all()
+            shipment_product_list = []
+
+            shipment_product_items = shipment_products.values('product')
+            cart_products = order_obj.ordered_cart.rt_cart_list.all()
+            cart_products_remaining = cart_products.exclude(cart_product__in=shipment_product_items)
+
+            for cart_pro in cart_products_remaining:
+                product_list = {
+                    "product_name": cart_pro.cart_product.product_name,
+                    "product_sku": cart_pro.cart_product.product_sku,
+                    "product_mrp": round(cart_pro.get_cart_product_price(order_obj.seller_shop).mrp,2),
+                    "to_be_shipped_qty":int(cart_pro.no_of_pieces),
+                    # "no_of_pieces":cart_pro.no_of_pieces,
+                }
+
+                shipment_product_list.append(product_list)
+
+            for shipment_pro in shipment_products:
+                product_list = {
+                    "product_name": shipment_pro.product.product_name,
+                    "product_sku": shipment_pro.product.product_sku,
+                    "product_mrp": round(shipment_pro.get_shop_specific_products_prices_sp().mrp,2),
+                    #"to_be_shipped_qty": int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_quantity),
+                }
+                #product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_qty_exclude_current)
+                if shipment_id!="0":
+                    #  quantity excluding current
+                    product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_qty_exclude_current1)
+                else:
+                    #  quantity including current
+                    product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_quantity_including_current)
+                if (product_list["to_be_shipped_qty"]>0):
+                    shipment_product_list.append(product_list)
+
+        else:
+            cart_products = order_obj.ordered_cart.rt_cart_list.all()
+            cart_product_list = []
+
+            for cart_pro in cart_products:
+                product_list = {
+                    "product_name": cart_pro.cart_product.product_name,
+                    "product_sku": cart_pro.cart_product.product_sku,
+                    "product_mrp": round(cart_pro.get_cart_product_price(order_obj.seller_shop).mrp,2),
+                    #"ordered_qty": int(cart_pro.qty),
+                    "ordered_qty": int(cart_pro.no_of_pieces),
+                    #"no_of_pieces":cart_pro.no_of_pieces,
+                }
+                cart_product_list.append(product_list)
+
+        data = {
+            "order_obj": order_obj,            
+            "buyer_shop":order_obj.ordered_cart.buyer_shop.shop_name,
+            "buyer_contact_no":order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
+            "buyer_shipping_address":order_obj.shipping_address.address_line1,
+            "buyer_shipping_city":order_obj.shipping_address.city.city_name,
+        }
+        if shipment:
+            data["shipment_products"] = shipment_product_list
+            data["shipment"] = True
+        else:
+            data["cart_products"] = cart_product_list
+            data["shipment"] = False
+
+        cmd_option = {
+            "margin-top": 10,
+            "zoom": 1,
+            "footer-center":
+            "[page]/[topage]",
+            "no-stop-slow-scripts": True
+        }
+        response = PDFTemplateResponse(
+            request=request, template=self.template_name,
+            filename=self.filename, context=data,
+            show_content_in_browser=False, cmd_options=cmd_option)
+        return response
+
+
 class DownloadPickList(TemplateView,):
     """
     PDF Download Pick List
@@ -697,6 +873,16 @@ class SellerShopAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(shop_name__startswith=self.q)
         return qs
+
+
+class PickerNameAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = PickerDashboard.objects.all()
+
+        if self.q:
+            qs = qs.filter(picker_boy__first_name__startswith=self.q)
+        return qs
+
 
 class BuyerShopAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):

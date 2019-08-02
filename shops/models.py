@@ -1,3 +1,5 @@
+import logging
+
 from django.db import models
 from django.contrib.auth import get_user_model
 #from django.conf import settings
@@ -11,6 +13,8 @@ from django.utils.translation import gettext_lazy as _
 from retailer_backend.validators import *
 import datetime
 from django.core.validators import MinLengthValidator
+
+logger = logging.getLogger(__name__)
 
 
 SHOP_TYPE_CHOICES = (
@@ -44,6 +48,24 @@ class ShopType(models.Model):
     def __str__(self):
         return "%s - %s"%(self.get_shop_type_display(),self.shop_sub_type.retailer_type_name) if self.shop_sub_type else "%s"%(self.get_shop_type_display())
 
+def test():
+    activity_type = "SHOP_VERIFIED" #SHOP_VERIFIED
+    user_id = 1 #self.shop_owner.id
+    data = {}
+    data['username'] = "sagar" #username
+    data['phone_number'] = "9643112048" #self.shop_owner.phone_number
+    data['shop_title'] = "saggy-shop" #shop_title
+
+    from notification_center.utils import SendNotification
+    SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
+    message = SendSms(phone="9643112048",
+                      body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App." \
+                           " Thanks," \
+                           " Team GramFactory " % ("sagar", "saggy-shop"))
+    message.send()
+
+
+
 class Shop(models.Model):
     shop_name = models.CharField(max_length=255)
     shop_owner = models.ForeignKey(get_user_model(), related_name='shop_owner_shop',on_delete=models.CASCADE)
@@ -55,6 +77,8 @@ class Shop(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=False)
+    #last_order_at = models.DateTimeField(auto_now_add=True)
+    #last_login_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return "%s - %s"%(self.shop_name,self.shop_owner)
@@ -62,6 +86,16 @@ class Shop(models.Model):
     def __init__(self, *args, **kwargs):
         super(Shop, self).__init__(*args, **kwargs)
         self.__original_status = self.status
+
+    @property
+    def parent_shop(self):
+        # return self.get_shop_parent
+        try:
+            if self.retiler_mapping.exists():
+                parent = ParentRetailerMapping.objects.get(retailer=self.id, status=True).parent
+                return parent.shop_name
+        except:
+            return None
 
     @property
     def get_shop_shipping_address(self):
@@ -89,11 +123,29 @@ class Shop(models.Model):
             return self.retiler_mapping.last().parent
     get_shop_parent.fget.short_description = 'Parent Shop'
 
+    @property
+    def get_shop_parent_name(self):
+        if self.retiler_mapping.exists():
+            return self.retiler_mapping.last().parent.shop_name
+    get_shop_parent_name.fget.short_description = 'Parent Shop Name'
+
 
     def save(self, force_insert=False, force_update=False, *args, **kwargs):
         if self.status != self.__original_status and self.status is True and ParentRetailerMapping.objects.filter(retailer=self, status=True).exists():
             username = self.shop_owner.first_name if self.shop_owner.first_name else self.shop_owner.phone_number
             shop_title = str(self.shop_name)
+
+            activity_type = "SHOP_VERIFIED" #SHOP_VERIFIED
+            user_id = self.shop_owner.id
+            data = {}
+            data['username'] = username
+            data['phone_number'] = self.shop_owner.phone_number
+            data['shop_title'] = shop_title
+    
+            from notification_center.utils import SendNotification
+            SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
+
+
             message = SendSms(phone=self.shop_owner,
                               body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App." \
                                    " Thanks," \
@@ -203,17 +255,48 @@ class ParentRetailerMapping(models.Model):
 
 @receiver(post_save, sender=ParentRetailerMapping)
 def shop_verification_notification1(sender, instance=None, created=False, **kwargs):
+    try:
+        logging.info("in post_save: ParentRetailerMapping")
+        shop = instance.retailer
+        username = shop.shop_owner.first_name if shop.shop_owner.first_name else shop.shop_owner.phone_number
+        shop_title = str(shop.shop_name)
+
+        user_id = shop.shop_owner.id
+        data = {}
+        data['username'] = username
+        data['phone_number'] = instance.retailer.shop_owner.phone_number
+        data['shop_id'] = shop.id
+
         if created:
-            shop = instance.retailer
+            logging.info("created: ParentRetailerMapping")
+
             if shop.status == True:
                 username = shop.shop_owner.first_name if shop.shop_owner.first_name else shop.shop_owner.phone_number
                 shop_title = str(shop.shop_name)
-                message = SendSms(phone=shop.shop_owner,
-                                  body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App."\
-                                      " Thanks,"\
-                                      " Team GramFactory " % (username, shop_title))
 
-                message.send()
+                activity_type = "SHOP_VERIFIED"
+
+                from notification_center.utils import SendNotification
+                SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()    
+
+                # message = SendSms(phone=shop.shop_owner,
+                #                   body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App."\
+                #                       " Thanks,"\
+                #                       " Team GramFactory " % (username, shop_title))
+
+                # message.send()
+
+        else:
+            logging.info("edited: ParentRetailerMapping")
+
+            activity_type = "SHOP_CREATED"
+
+            from notification_center.utils import SendNotification
+            SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()
+    except Exception as e:
+        logging.error("error in post_save: shop verification")
+        logging.error(str(e))            
+
 
 class ShopAdjustmentFile(models.Model):
     shop = models.ForeignKey(Shop, related_name='stock_adjustment_shop', on_delete=models.CASCADE)

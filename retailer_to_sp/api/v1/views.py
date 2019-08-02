@@ -11,14 +11,6 @@ from django.contrib.postgres.search import SearchVector
 from django_filters import rest_framework as filters
 
 from rest_framework import generics
-from .serializers import (
-    ProductsSearchSerializer, GramGRNProductsSearchSerializer,
-    CartProductMappingSerializer, CartSerializer, OrderSerializer,
-    CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,
-    PaymentNeftSerializer, GramPaymentCodSerializer,
-    GramPaymentNeftSerializer, GramMappedCartSerializer,
-    GramMappedOrderSerializer, ProductDetailSerializer, OrderDetailSerializer,
-    OrderListSerializer, FeedBackSerializer, CancelOrderSerializer)
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
 from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
                                 OrderedProduct as SPOrderedProduct, StockAdjustment)
@@ -38,7 +30,8 @@ from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializ
     PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
     GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,
     OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
-    OrderListSerializer, ReadOrderedProductSerializer,
+    OrderListSerializer, ReadOrderedProductSerializer, PickerDashboardSerializer,
+    FeedBackSerializer, CancelOrderSerializer
 )
 
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
@@ -51,7 +44,8 @@ from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as 
                                   OrderedProductReserved as GramOrderedProductReserved, PickList, PickListItems )
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
                                    OrderedProduct, Payment, CustomerCare,
-                                   Return, Feedback, OrderedProductMapping as ShipmentProducts)
+                                   Return, Feedback, OrderedProductMapping as ShipmentProducts,
+                                   PickerDashboard)
 
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
                                       OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment, CustomerCare as GramMappedCustomerCare )
@@ -67,7 +61,7 @@ from retailer_to_sp.tasks import (
     ordered_product_available_qty_update, release_blocking, create_reserved_order
 )
 from .filters import OrderedProductMappingFilter, OrderedProductFilter
-
+from retailer_to_sp.filters import PickerDashboardFilter
 from common.data_wrapper_view import DataWrapperViewSet
 
 from django.contrib.auth import get_user_model
@@ -81,6 +75,29 @@ logger = logging.getLogger(__name__)
 
 today = datetime.today()
 
+
+class PickerDashboardViewSet(DataWrapperViewSet):
+    '''
+    This class handles all operation of ordered product
+    '''
+    # permission_classes = (AllowAny,)
+    model = PickerDashboard
+    queryset = PickerDashboard.objects.all()
+    serializer_class = PickerDashboardSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    # filter_backends = (filters.DjangoFilterBackend,)
+    # filter_class = PickerDashboardFilter
+
+    def get_queryset(self):
+        shop_id = self.request.query_params.get('shop_id', None)
+        picker_dashboard = PickerDashboard.objects.all()
+
+        if shop_id is not None:
+            picker_dashboard = picker_dashboard.filter(
+                order__seller_shop__id=shop_id, picking_status='picking_pending'
+                )
+        return picker_dashboard
 
 class OrderedProductViewSet(DataWrapperViewSet):
     '''
@@ -157,7 +174,6 @@ class OrderedProductMappingView(DataWrapperViewSet):
                 ordered_product=ordered_product
                 )
         return ordered_product_mapping
-
 
 
 class ProductsList(generics.ListCreateAPIView):
