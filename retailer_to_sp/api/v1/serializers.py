@@ -5,10 +5,9 @@ from common.common_utils import convert_date_format_ddmmmyyyy
 from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMapping,ProductOption,
                              Size,Color,Fragrance,Flavor,Weight,PackageSize)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order,
-                                   OrderedProduct, Note, CustomerCare,
-                                   Payment, Dispatch, Feedback)
+                                   OrderedProduct, Note, CustomerCare, PickerDashboard,
+                                   Payment, Dispatch, Feedback, OrderedProductMapping)
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
-
                                       OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment)
 from addresses.models import Address,City,State,Country
 
@@ -23,10 +22,18 @@ from gram_to_brand.models import GRNOrderProductMapping
 from addresses.api.v1.serializers import AddressSerializer
 from brand.api.v1.serializers import BrandSerializer
 from django.core.validators import RegexValidator
-
+from django.utils.translation import ugettext_lazy as _
+from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
+
+
+class PickerDashboardSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = PickerDashboard
+      fields = '__all__'
+
 
 class ProductImageSerializer(serializers.ModelSerializer):
    class Meta:
@@ -55,7 +62,6 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = ('id','product_name','product_inner_case_size',
             'product_case_size', 'product_image'
             )
-
 
 class OrderedProductMappingSerializer(serializers.ModelSerializer):
     # This serializer is used to fetch the products for a shipment
@@ -111,6 +117,7 @@ class ReadOrderedProductSerializer(serializers.ModelSerializer):
 
     def get_order_created_date(self, obj):
         order_created_date = obj.order.created_at
+
         return order_created_date.strftime("%d/%b/%Y")
 
     class Meta:
@@ -700,3 +707,36 @@ class FeedBackSerializer(serializers.ModelSerializer):
         model = Feedback
         fields = ('user', 'shipment', 'delivery_experience', 'overall_product_packaging', 'comment', 'status')
         extra_kwargs = {'status': {'required': True}, 'user':{'required':False}}
+
+
+class CancelOrderSerializer(serializers.ModelSerializer):
+    order_id = serializers.IntegerField(required=True)
+    order_status = serializers.HiddenField(default='CANCELLED')
+
+    class Meta:
+        model = Order
+        fields = ('order_id', 'order_status')
+
+    def validate(self, data):
+        order = self.context.get('order')
+        if order.order_status == 'CANCELLED':
+            raise serializers.ValidationError(_('This order is already cancelled!'),)
+        shipments_data = list(order.rt_order_order_product.values(
+            'id', 'shipment_status', 'trip__trip_status'))
+        if len(shipments_data) == 1:
+            # last shipment
+            s = shipments_data[-1]
+            if (s['shipment_status'] not in [i[0] for i in OrderedProduct.SHIPMENT_STATUS[:3]]):
+                raise serializers.ValidationError(
+                    _('Sorry! This order cannot be cancelled'),)
+            elif (s['trip__trip_status'] and s['trip__trip_status'] != 'READY'):
+                raise serializers.ValidationError(
+                    _('Sorry! This order cannot be cancelled'),)
+        elif len(shipments_data) > 1:
+            status = [x[0] for x in OrderedProduct.SHIPMENT_STATUS[1:]
+                      if x[0] in [x['shipment_status'] for x in shipments_data]]
+            if status:
+                raise serializers.ValidationError(
+                    _('Sorry! This order cannot be cancelled'),)
+        else:
+            return data

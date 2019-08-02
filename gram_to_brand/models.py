@@ -362,11 +362,12 @@ class GRNOrder(BaseShipment): #Order Shipment
 
     def clean(self):
         super(GRNOrder, self).clean()
-        if self.invoice_amount <= 0:
-            raise ValidationError(_("Invoice Amount must be positive"))
         today = datetime.date.today()
 
-        if self.invoice_date > today:
+        if float(self.invoice_amount) <= 0:
+            raise ValidationError(_("Invoice Amount must be positive"))
+        
+        if self.invoice_date and self.invoice_date > today:
             raise ValidationError(_("Invoice Date must not be greater than today"))
 
     class Meta:
@@ -390,6 +391,21 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
                     shop=shop.retailer,
                     po_validity_date=datetime.date.today() + timedelta(days=15)
                 )
+        data = {}
+        data['username'] = username
+        data['phone_number'] = instance.order_id.ordered_by
+        data['order_no'] = order_no
+        data['items_count'] = items_count
+        data['total_amount'] = total_amount
+        data['shop_name'] = shop_name
+
+        user_id = instance.order_id.ordered_by.id
+        activity_type = "STOCK_IN"
+        from notification_center.utils import SendNotification
+        SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
+
+
+
 
 class Document(models.Model):
     grn_order = models.ForeignKey(GRNOrder,related_name='grn_order_images',null=True,blank=True,on_delete=models.CASCADE)

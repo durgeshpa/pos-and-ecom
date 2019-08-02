@@ -72,7 +72,7 @@ class POGenerationForm(forms.ModelForm):
         model = Cart
         fields = ('brand', 'supplier_state','supplier_name', 'gf_shipping_address',
                   'gf_billing_address', 'po_validity_date', 'payment_term',
-                  'delivery_term', 'cart_product_mapping_csv'
+                  'delivery_term', 'cart_product_mapping_csv','po_status'
                   )
 
     def __init__(self, *args, **kwargs):
@@ -125,7 +125,7 @@ class POGenerationAccountForm(forms.ModelForm):
         model = Cart
         fields = ('brand', 'supplier_state','supplier_name', 'gf_shipping_address',
                   'gf_billing_address', 'po_validity_date', 'payment_term',
-                  'delivery_term')
+                  'delivery_term','po_status')
 
     class Media:
         js = ('/static/admin/js/po_generation_acc_form.js',)
@@ -171,7 +171,7 @@ class GRNOrderProductForm(forms.ModelForm):
         queryset=Product.objects.all(),
         widget=autocomplete.ModelSelect2(url='product-autocomplete',forward=('order',))
      )
-    product_mrp = forms.IntegerField()
+    product_mrp = forms.DecimalField()
     po_product_quantity = forms.IntegerField()
     po_product_price = forms.DecimalField()
     already_grned_product = forms.IntegerField()

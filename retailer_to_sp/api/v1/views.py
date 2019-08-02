@@ -11,10 +11,6 @@ from django.contrib.postgres.search import SearchVector
 from django_filters import rest_framework as filters
 
 from rest_framework import generics
-from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,CartProductMappingSerializer,CartSerializer,
-                          OrderSerializer, CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
-
-                          GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,OrderDetailSerializer, OrderListSerializer, FeedBackSerializer )
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
 from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
                                 OrderedProduct as SPOrderedProduct, StockAdjustment)
@@ -25,6 +21,7 @@ from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
+from rest_framework import serializers
 from rest_framework import generics, viewsets
 
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,
@@ -33,7 +30,8 @@ from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializ
     PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
     GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,
     OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
-    OrderListSerializer, ReadOrderedProductSerializer,
+    OrderListSerializer, ReadOrderedProductSerializer, PickerDashboardSerializer,
+    FeedBackSerializer, CancelOrderSerializer
 )
 
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
@@ -46,7 +44,8 @@ from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as 
                                   OrderedProductReserved as GramOrderedProductReserved, PickList, PickListItems )
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
                                    OrderedProduct, Payment, CustomerCare,
-                                   Return, Feedback, OrderedProductMapping as ShipmentProducts)
+                                   Return, Feedback, OrderedProductMapping as ShipmentProducts,
+                                   PickerDashboard)
 
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
                                       OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment, CustomerCare as GramMappedCustomerCare )
@@ -62,16 +61,43 @@ from retailer_to_sp.tasks import (
     ordered_product_available_qty_update, release_blocking, create_reserved_order
 )
 from .filters import OrderedProductMappingFilter, OrderedProductFilter
-from sp_to_gram.tasks import es_search
+from retailer_to_sp.filters import PickerDashboardFilter
 from common.data_wrapper_view import DataWrapperViewSet
 
 from django.contrib.auth import get_user_model
+from django.utils.translation import ugettext_lazy as _
+from common.data_wrapper import format_serializer_errors
+from sp_to_gram.tasks import es_search
+
 User = get_user_model()
 
 logger = logging.getLogger(__name__)
 
 today = datetime.today()
 
+
+class PickerDashboardViewSet(DataWrapperViewSet):
+    '''
+    This class handles all operation of ordered product
+    '''
+    # permission_classes = (AllowAny,)
+    model = PickerDashboard
+    queryset = PickerDashboard.objects.all()
+    serializer_class = PickerDashboardSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    # filter_backends = (filters.DjangoFilterBackend,)
+    # filter_class = PickerDashboardFilter
+
+    def get_queryset(self):
+        shop_id = self.request.query_params.get('shop_id', None)
+        picker_dashboard = PickerDashboard.objects.all()
+
+        if shop_id is not None:
+            picker_dashboard = picker_dashboard.filter(
+                order__seller_shop__id=shop_id, picking_status='picking_pending'
+                )
+        return picker_dashboard
 
 class OrderedProductViewSet(DataWrapperViewSet):
     '''
@@ -150,7 +176,6 @@ class OrderedProductMappingView(DataWrapperViewSet):
         return ordered_product_mapping
 
 
-
 class ProductsList(generics.ListCreateAPIView):
     permission_classes = (AllowAny,)
     model = Product
@@ -180,11 +205,47 @@ class ProductsList(generics.ListCreateAPIView):
 class GramGRNProductsList(APIView):
     permission_classes = (AllowAny,)
     serializer_class = GramGRNProductsSearchSerializer
+
+    def search_query(self, request):
+        filter_list = [{"term":{"status":True}}]
+        if self.product_ids:
+            filter_list.append( {"ids":{"type":"product", "values":self.product_ids}})
+            query = {"bool":{"filter":filter_list}}
+            return query
+        if self.category or self.brand or self.keyword:
+            query = {"bool":{"filter":filter_list}}
+        else:
+            return {"match_all":{}}
+        if self.brand:
+            brand_name = "{} -> {}".format(Brand.objects.filter(id__in=list(self.brand)).last(), self.keyword)
+            filter_list.append({"match": {
+                                    "brand":{"query":brand_name, "fuzziness":"AUTO", "operator":"and"}
+                                    }})
+
+        elif self.keyword:
+            q = {
+            "match":{
+                "name":{"query":self.keyword, "fuzziness":"AUTO", "operator":"and"}
+                }
+            }
+        #else:
+        #    q = {"match_all":{}}
+            filter_list.append(q)
+        if self.category:
+            category_filter = str(categorymodel.Category.objects.filter(id__in=self.category, status=True).last())
+            q = {
+                "match" :{
+                    "category":{"query":category_filter,"operator":"and"}
+                }
+            }
+            filter_list.append(q)
+        return query
+
     def post(self, request, format=None):
-        product_ids = request.data.get('product_ids')
-        brand = request.data.get('brands')
-        category = request.data.get('categories')
-        keyword = request.data.get('product_name', None)
+        self.product_ids = request.data.get('product_ids')
+        self.brand = request.data.get('brands')
+        self.category = request.data.get('categories')
+        self.keyword = request.data.get('product_name', None)
         shop_id = request.data.get('shop_id')
         offset = int(request.data.get('offset',0))
         page_size = int(request.data.get('pro_count',20))
@@ -196,26 +257,8 @@ class GramGRNProductsList(APIView):
         '''1st Step
             Check If Shop Is exists then 2nd pt else 3rd Pt
         '''
-        query = {"dis_max":{"queries":[]}}
-        if keyword:
-            q = {
-            "match":{
-                "name":{"query":keyword, "fuzziness":"AUTO", "operator":"and"}
-                }
-            }
-        else:
-            q = {"match_all":{}}
-        query["dis_max"]["queries"].append(q)
-        if brand:
-            query["dis_max"]["queries"].append({"term": {"brand":str(Brand.objects.filter(id__in=list(brand)).last())}})
-        if category:
-            category_filter = ",".join([str(s) for s in categorymodel.Category.objects.filter(id__in=category, status=True).all()])
-            q = {
-                "match" :{
-                    "category":{"query":category_filter, "fuzziness":0, "operator":"and"}
-                }
-            }
-            query["dis_max"]["queries"].append(q)
+        query = self.search_query(request)
+
         try:
             shop = Shop.objects.get(id=shop_id,status=True)
         except ObjectDoesNotExist:
@@ -266,6 +309,7 @@ class GramGRNProductsList(APIView):
                     if c_p.cart_product_id == p["_source"]["id"]:
                         user_selected_qty = c_p.qty
                         no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
+                        p["_source"]["user_selected_qty"] = user_selected_qty
                         p["_source"]["no_of_pieces"] = no_of_pieces
                         p["_source"]["sub_total"] = float(no_of_pieces) * float(ptr)
             p_list.append(p["_source"])
@@ -274,7 +318,7 @@ class GramGRNProductsList(APIView):
                 'is_success': True,
                  'message': ['Products found'],
                  'response_data':p_list }
-        if not p_list or int(offset)>1:
+        if not p_list:
             msg = {'is_store_active': is_store_active,
                     'is_success': False,
                      'message': ['Sorry! No product found'],
@@ -1154,3 +1198,29 @@ class FeedbackData(generics.ListCreateAPIView):
         serializer = self.get_serializer(queryset, many=True)
         msg = {'is_success': True, 'message': [""], 'response_data': serializer.data}
         return Response(msg, status=status.HTTP_200_OK)
+
+
+class CancelOrder(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def put(self, request, format=None):
+        try:
+            order = Order.objects.get(buyer_shop__shop_owner=request.user,
+                                      pk=request.data['order_id'])
+        except ObjectDoesNotExist:
+            msg = {'is_success': False,
+                   'message': ['Order is not associated with the current user'],
+                   'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+        serializer = CancelOrderSerializer(order, data=request.data,
+                                           context={'order': order})
+        if serializer.is_valid():
+            serializer.save()
+            msg = {'is_success': True,
+                    'message': ["Order Cancelled Successfully!"],
+                    'response_data': serializer.data}
+            return Response(msg, status=status.HTTP_200_OK)
+        else:
+            return format_serializer_errors(serializer.errors)
