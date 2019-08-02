@@ -399,7 +399,7 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
         # data['total_amount'] = total_amount
         # data['shop_name'] = shop_name
 
-        user_id = instance.order_id.ordered_by.id
+        # user_id = instance.order_id.ordered_by.id
         activity_type = "STOCK_IN"
         # from notification_center.utils import SendNotification
         # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
