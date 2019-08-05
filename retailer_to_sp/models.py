@@ -711,34 +711,8 @@ class OrderedProduct(models.Model): #Shipment
         super(OrderedProduct, self).clean()
 
     def save(self, *args, **kwargs):
-        if not self.invoice_no:
-
-            if self.shipment_status == self.READY_TO_SHIP:
-                self.invoice_no = retailer_sp_invoice(
-                                        self.__class__, 'invoice_no',
-                                        self.pk, self.order.seller_shop.
-                                        shop_name_address_mapping.filter(
-                                                        address_type='billing'
-                                                        ).last().pk)
-                # try:
-                # if self.order:
-                    
-                    #picker = PickerDashboard.objects.filter(shipment_id=self.id).update(picking_status="picking_complete")
-                    # picker.picking_status="picking_complete"
-                    # picker.save()
-                # except:
-                #     raise ValidationError(_("Please assign shipment to picker dashboard"),)
-
-                #Update Product Tax Mapping Start
-                for shipment in self.rt_order_product_order_product_mapping.all():
-                    product_tax_query = shipment.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
-                                                                                'tax__tax_percentage')
-                    product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
-                    product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
-                    shipment.product_tax_json = product_tax
-                    shipment.save()
-                # Update Product Tax Mapping End
         super().save(*args, **kwargs)
+                # Update Product Tax Mapping End
 
 class PickerDashboard(models.Model):
 
@@ -1318,11 +1292,21 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
             picker_lists.update(shipment=instance)
     elif instance.shipment_status == OrderedProduct.READY_TO_SHIP:
         PickerDashboard.objects.filter(shipment=instance).update(picking_status="picking_complete")
-        # picker = PickerDashboard.objects.get(order=instance.order, picking_status="picking_assigned")
-        # picker.shipment=instance
-        # picker.save()
-        # except:
-        #     raise ValidationError("Please assign picker for the order")
+
+    if not instance.invoice_no and instance.shipment_status == self.READY_TO_SHIP:
+        self.invoice_no = retailer_sp_invoice(
+                                instance.__class__, 'invoice_no',
+                                instance.pk, instance.order.seller_shop.
+                                shop_name_address_mapping.filter(
+                                                address_type='billing'
+                                                ).last().pk)
+        for shipment in instance.rt_order_product_order_product_mapping.all():
+            product_tax_query = shipment.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
+                                                                        'tax__tax_percentage')
+            product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
+            product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
+            shipment.product_tax_json = product_tax
+            shipment.save()
 
 
 @receiver(post_save, sender=Order)
