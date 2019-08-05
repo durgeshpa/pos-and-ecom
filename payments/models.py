@@ -29,6 +29,12 @@ PAYMENT_STATUS_CHOICES = (
     ('completed', 'completed'),
   )
 
+ORDER_PAYMENT_STATUS_CHOICES = (
+    ('not_initiated', 'not_initiated'),
+    ('initiated', 'initiated'),
+    ('completed', 'completed'),
+  )
+
 PAYMENT_PARTY_CHOICES = (
     ('bharatpe', 'bharatpe'),
   )
@@ -37,6 +43,12 @@ PAYMENT_TYPE_CHOICES = (
     ('prepaid', 'prepaid'),
     ('postpaid', 'postpaid'),
   )
+
+ORDER_PAYMENT_TYPE_CHOICES = (
+    ('prepaid', 'prepaid'),
+    ('postpaid', 'postpaid'),
+  )
+
 
 DISCOUNT_TYPE_CHOICES = (
     ('new_user_discount', 'new_user_discount'),
@@ -65,9 +77,20 @@ class AbstractDateTime(models.Model):
         abstract = True
 
 
-class Payment(AbstractDateTime):
+class OrderPayment(AbstractDateTime):
     # This class stores the payment information for the shipment
-    shop = models.ForeignKey(Shop, related_name='shop_payment', on_delete=models.CASCADE)
+    name = models.CharField(max_length=255, null=True, blank=True)
+    description = models.CharField(max_length=255, null=True, blank=True)
+    payment_type = models.CharField(max_length=255, choices=ORDER_PAYMENT_TYPE_CHOICES,null=True, blank=True)
+    order = models.ForeignKey(Order, related_name='order_payment', on_delete=models.CASCADE)
+    payment_status = models.CharField(max_length=255, choices=ORDER_PAYMENT_STATUS_CHOICES, null=True, blank=True)
+    due_date = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(User, related_name='payment_created', null=True, blank=True, on_delete=models.SET_NULL)
+    updated_by = models.ForeignKey(User, related_name='payment_updated', null=True, blank=True, on_delete=models.SET_NULL)
+
+
+class ShipmentPayment(AbstractDateTime):
+    # This class stores the payment information for the shipment
     name = models.CharField(max_length=255, null=True, blank=True)
     payment_id = models.CharField(max_length=255, unique=True)
     description = models.CharField(max_length=255, null=True, blank=True)
@@ -141,6 +164,3 @@ class Offer(AbstractDateTime):
     class Meta:
         verbose_name = _("Offer")
         verbose_name_plural = _("Offers")
-
-
-
