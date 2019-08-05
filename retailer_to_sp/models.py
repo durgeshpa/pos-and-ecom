@@ -711,6 +711,13 @@ class OrderedProduct(models.Model): #Shipment
         super(OrderedProduct, self).clean()
 
     def save(self, *args, **kwargs):
+            if not self.invoice_no:
+                self.invoice_no = retailer_sp_invoice(
+                                        self.__class__, 'invoice_no',
+                                        self.pk, self.order.seller_shop.
+                                        shop_name_address_mapping.filter(
+                                                        address_type='billing'
+                                                        ).last().pk)
         super().save(*args, **kwargs)
                 # Update Product Tax Mapping End
 
@@ -1294,12 +1301,6 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
         PickerDashboard.objects.filter(shipment=instance).update(picking_status="picking_complete")
 
     if not instance.invoice_no and instance.shipment_status == instance.READY_TO_SHIP:
-        insance.invoice_no = retailer_sp_invoice(
-                                instance.__class__, 'invoice_no',
-                                instance.pk, instance.order.seller_shop.
-                                shop_name_address_mapping.filter(
-                                                address_type='billing'
-                                                ).last().pk)
         for shipment in instance.rt_order_product_order_product_mapping.all():
             product_tax_query = shipment.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
                                                                         'tax__tax_percentage')
