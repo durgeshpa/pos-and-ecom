@@ -564,8 +564,9 @@ class ShipmentForm(forms.ModelForm):
 
     def clean(self):
         data = self.cleaned_data
-        if self.instance and self.cleaned_data['shipment_status']=='READY_TO_SHIP' and self.instance.picker_shipment.last().picking_status == "picking_pending":
-            raise forms.ValidationError(_("Please set the picking status in picker dashboard"),)
+        # if self.instance and self.cleaned_data['shipment_status']=='READY_TO_SHIP' 
+        #     and self.instance.order.picker_order.last().picking_status == "picking_pending":
+        #     raise forms.ValidationError(_("Please set the picking status in picker dashboard"),)
         if (data['close_order'] and
                 not data['shipment_status'] == OrderedProduct.READY_TO_SHIP):
                 raise forms.ValidationError(
