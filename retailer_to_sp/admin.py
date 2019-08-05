@@ -613,11 +613,11 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         qs = super(PickerDashboardAdmin, self).get_queryset(request)
         if request.user.is_superuser:
-            return qs
+            return qs.order_by('-order__created_at')
         return qs.filter(
             Q(order__seller_shop__related_users=request.user) |
             Q(order__seller_shop__shop_owner=request.user)
-                )
+                ).order_by('-order__created_at')
 
     # def _picklist(self, obj, request):
     #     return obj.picklist(request.user)

@@ -147,7 +147,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     filter_horizontal = ('related_users',)
     list_filter = (ShopCityFilter,ServicePartnerFilter,ShopNameSearch,ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,'status',('created_at', DateTimeRangeFilter))
     search_fields = ('shop_name', )
-    list_per_page = 10
+    list_per_page = 50
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
