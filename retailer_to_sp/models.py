@@ -1312,12 +1312,14 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
     if instance.shipment_status == "SHIPMENT_CREATED":
         # assign shipment to picklist
         # tbd : if manual(by searching relevant picklist id) or automated 
-        try:
-            picker = PickerDashboard.objects.get(order=instance.order, picking_status="picking_assigned")
-            picker.shipment=instance
-            picker.save()
-        except:
-            raise ValidationError("Please assign picker for the order")
+        picker_lists = PickerDashboard.objects.filter(order=instance.order, picking_status="picking_assigned")
+        if picker_lists.exists():
+            picker_list.update(shipment=instance)
+        # picker = PickerDashboard.objects.get(order=instance.order, picking_status="picking_assigned")
+        # picker.shipment=instance
+        # picker.save()
+        # except:
+        #     raise ValidationError("Please assign picker for the order")
 
 
 @receiver(post_save, sender=Order)
