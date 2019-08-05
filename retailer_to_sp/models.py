@@ -1293,8 +1293,8 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
     elif instance.shipment_status == OrderedProduct.READY_TO_SHIP:
         PickerDashboard.objects.filter(shipment=instance).update(picking_status="picking_complete")
 
-    if not instance.invoice_no and instance.shipment_status == self.READY_TO_SHIP:
-        self.invoice_no = retailer_sp_invoice(
+    if not instance.invoice_no and instance.shipment_status == instance.READY_TO_SHIP:
+        insance.invoice_no = retailer_sp_invoice(
                                 instance.__class__, 'invoice_no',
                                 instance.pk, instance.order.seller_shop.
                                 shop_name_address_mapping.filter(
