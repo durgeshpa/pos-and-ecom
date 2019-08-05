@@ -721,8 +721,8 @@ class OrderedProduct(models.Model): #Shipment
                                                         address_type='billing'
                                                         ).last().pk)
                 # try:
-                if self.order:
-                    PickerDashboard.objects.filter(order=self.order).update(picking_status="picking_complete")
+                # if self.order:
+                    
                     #picker = PickerDashboard.objects.filter(shipment_id=self.id).update(picking_status="picking_complete")
                     # picker.picking_status="picking_complete"
                     # picker.save()
@@ -1316,6 +1316,8 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
         picker_lists = PickerDashboard.objects.filter(order=instance.order, picking_status="picking_assigned")
         if picker_lists.exists():
             picker_lists.update(shipment=instance)
+    elif instance.shipment_status == OrderedProduct.READY_TO_SHIP:
+        PickerDashboard.objects.filter(shipment=instance).update(picking_status="picking_complete")
         # picker = PickerDashboard.objects.get(order=instance.order, picking_status="picking_assigned")
         # picker.shipment=instance
         # picker.save()
