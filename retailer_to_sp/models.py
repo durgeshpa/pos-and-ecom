@@ -1314,7 +1314,7 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
         # tbd : if manual(by searching relevant picklist id) or automated 
         picker_lists = PickerDashboard.objects.filter(order=instance.order, picking_status="picking_assigned")
         if picker_lists.exists():
-            picker_list.update(shipment=instance)
+            picker_lists.update(shipment=instance)
         # picker = PickerDashboard.objects.get(order=instance.order, picking_status="picking_assigned")
         # picker.shipment=instance
         # picker.save()
