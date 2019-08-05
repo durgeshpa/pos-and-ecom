@@ -118,16 +118,14 @@
 
         <h1>Plan Shipment</h1>
         <div id="content-main">
-
-
+{% if formset|length != 0 and not messages %}
   <ul class="object-tools">
 
 
 
-<!--<li>-->
-
-    <!--<a href="/admin/retailer_to_sp/orderedproduct/119/history/" class="historylink">History</a>-->
-<!--</li>-->
+<li>
+<input type="button" id="update_button" value="AUTO FILL NO. OF PIECES TO SHIP">
+</li>
 
 
 
@@ -135,7 +133,15 @@
   </ul>
 
 
+ {% endif %}
+
 <form method="post" enctype="multipart/form-data">
+                    {% if messages %}
+<ul class="messagelist">
+    <li class="warning"><input style="background: #79aec800; color: #447e9b; padding: 0px;" type="button" id="reload_page" value="Please click here to refresh the page!"></li>
+</ul>
+            {% endif %}
+
 <div>
 
 
@@ -160,8 +166,17 @@
             <p class="errornote">{{ error|escape }}</p>
           {% endfor %}
       {% endif %}
+
+                  {% if messages %}
+                {% for message in messages %}
+                <p class="errornote">{{ message|escape }}</p>
+                {% endfor %}
+            {% endif %}
 {{ordered_form.management_form}}
   {{ordered_form.as_p}}
+
+
+
 
 
 
@@ -188,9 +203,8 @@
 <fieldset class="module ">
 
 
-
+  {% if formset|length != 0 %}
    <h2>Ordered Products</h2>
-
    <table>
      <thead><tr>
 
@@ -222,20 +236,17 @@
 
      <tbody>
 
-
-
         {% for order_form in formset %}
-{% if order_form.errors %}
-
-
+      {% if order_form.errors %}
+          
           {% for error in order_form.non_field_errors %}
             <p class="errornote">{{ error|escape }}</p>
           {% endfor %}
       {% endif %}
         <tr>
 
-
-         <div id="readonly"><td>{{ order_form.product }}</td></div>
+            {{ order_form.product }}
+            <td>{{ order_form.product_name }}</td>
             <td> <b>{{ order_form.ordered_qty }}</b></td>
             <td> <b>{{ order_form.already_shipped_qty }}</b></td>
             <td> <b>{{ order_form.to_be_shipped_qty }}</b></td>
@@ -246,7 +257,7 @@
       {% endfor %}
 
      </tbody>
-   </table>
+   </table> 
 </fieldset>
 
   </div>
@@ -269,7 +280,15 @@
 
 
 </div>
-
+{% elif not ordered_form.order.value %}
+<ul class="messagelist">
+    <li class="warning">Please select an Order first!</li>
+</ul>
+{% else %}
+<ul class="messagelist">
+    <li class="warning">All the Shipments of this particular Order has been created successfully!</li>
+</ul>
+{% endif %}
 
 
     <!--<script type="text/javascript"-->
@@ -302,22 +321,39 @@
 
 </body>
 <script src='https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/js/select2.min.js'></script>
-
 <script>
 $(document).ready(function(){
-$("input[id$='ordered_qty']").css('border', 'none');
-$("input[id$='already_shipped_qty']").css('border', 'none');
-  $("input[id$='to_be_shipped_qty']").css('border', 'none');
+
+$('#update_button').click(function(){
+  $("input[id$='product_name']").each(function() {
+    var row_no = $(this).attr('id').match(/\d+/);
+    var ordered_qty = $('#id_form-'+row_no+'-ordered_qty').val();
+    var already_shipped_qty = $('#id_form-'+row_no+'-to_be_shipped_qty').val();
+    var to_be_shipped_qty = ordered_qty - already_shipped_qty
+    $('#id_form-'+row_no+'-shipped_qty').val(to_be_shipped_qty);
+  });
+});
 
 
-  $("input[id$='ordered_qty']").attr("readOnly", true);
-  $("input[id$='already_shipped_qty']").attr("readOnly", true);
+$('#reload_page').click(function(){
+  var pageURL = $(location).attr("href");
+  location.replace(pageURL);
+});
+
+
+// $("input[id$='ordered_qty']").css('border', 'none');
+// $("input[id$='already_shipped_qty']").css('border', 'none');
+//   $("input[id$='to_be_shipped_qty']").css('border', 'none');
+
+
+//   $("input[id$='ordered_qty']").attr("readOnly", true);
+//   $("input[id$='already_shipped_qty']").attr("readOnly", true);
 
   $('select#id_order').select2({width: '50%'});
      // $('select#id_shipment_status').val("PLANNING").attr("disabled", true);
-    $('select#id_shipment_status').select2({width: '50%'});
+  //   $('select#id_shipment_status').select2({width: '50%'});
 
-  $("select[id$='product']").attr("disabled", true);
+  // $("select[id$='product']").attr("disabled", true);
 
     $("select#id_order").change(function(){
         $("#submitbutton").hide();
@@ -349,12 +385,29 @@ jQuery.fn.preventDoubleSubmission = function() {
 $('form').preventDoubleSubmission();
 
 });
-jQuery(function ($) {
-  $('form').bind('submit', function () {
-    $("select[id$='product']").attr("disabled", false);
-      $('select#id_shipment_status').attr("disabled", false);
-    $(this).find(':input').prop('disabled', false);
-  });
-});
+// jQuery(function ($) {
+//   $('form').bind('submit', function () {
+//     $("select[id$='product']").attr("disabled", false);
+//       $('select#id_shipment_status').attr("disabled", false);
+//     $(this).find(':input').prop('disabled', false);
+//   });
+// });
 </script>
+
+
+<script type="text/javascript">
+
+    var form_enabled = true;
+    $( document ).ready(function() {
+        $('.submit-row').on('click','input[type=submit]', function(e){
+               $('.submit-row').hide();
+                setTimeout(function(){
+                    $('.submit-row').show();
+                }, 2000);
+        });
+    });
+
+</script>
+
+
 </html>

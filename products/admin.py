@@ -10,19 +10,21 @@ from daterange_filter.filter import DateRangeFilter
 from retailer_backend.admin import InputFilter
 from .models import *
 from .views import (
-    sp_sr_productprice, load_cities, load_sp_sr, export,
+    SpSrProductPrice, load_cities, load_sp_sr, export,
     load_brands, products_filter_view, products_price_filter_view,
     ProductsUploadSample, products_csv_upload_view, gf_product_price,
     load_gf, products_export_for_vendor, products_vendor_mapping,
-    MultiPhotoUploadView, ProductPriceAutocomplete
-    )
+    MultiPhotoUploadView, ProductPriceAutocomplete,
+    ProductCategoryAutocomplete, download_all_products,
+    ProductCategoryMapping, product_category_mapping_sample)
 from .resources import (
     SizeResource, ColorResource, FragranceResource,
     FlavorResource, WeightResource, PackageSizeResource,
     ProductResource, ProductPriceResource, TaxResource
     )
 
-from .forms import ProductPriceNewForm
+from .forms import (ProductPriceNewForm, ProductPriceChangePerm,
+                    ProductPriceAddPerm)
 
 class ProductFilter(AutocompleteFilter):
     title = 'Product Name' # display title
@@ -149,6 +151,21 @@ class ProductSearch(InputFilter):
             )
 
 
+class ProductSKUSearch(InputFilter):
+    parameter_name = 'product_sku'
+    title = 'Product SKU'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            product_sku = self.value()
+            if product_sku is None:
+                return
+            return queryset.filter(
+                Q(product__product_sku__icontains=product_sku)
+            )
+
+
+
 class ProductOptionAdmin(admin.TabularInline):
     model = ProductOption
     extra = 1
@@ -241,7 +258,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
             ),
             url(
                 r'^sp-sr-productprice/$',
-                self.admin_site.admin_view(sp_sr_productprice),
+                self.admin_site.admin_view(SpSrProductPrice.as_view()),
                 name="sp_sr_productprice"
             ),
             url(
@@ -294,6 +311,26 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 self.admin_site.admin_view(ProductPriceAutocomplete.as_view()),
                 name="product-price-autocomplete"
             ),
+            url(
+                r'^product-category-autocomplete/$',
+                self.admin_site.admin_view(ProductCategoryAutocomplete.as_view()),
+                name="product-category-autocomplete"
+            ),
+            url(
+                r'^download-all-products/$',
+                self.admin_site.admin_view(download_all_products),
+                name="download-all-products"
+            ),
+            url(
+                r'^product-category-mapping/$',
+                self.admin_site.admin_view(ProductCategoryMapping.as_view()),
+                name="product-category-mapping"
+            ),
+            url(
+                r'^product-category-mapping-sample/$',
+                self.admin_site.admin_view(product_category_mapping_sample),
+                name="product-category-mapping-sample"
+            ),
         ] + urls
         return urls
 
@@ -311,12 +348,13 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     ]
 
     def product_images(self,obj):
-        if obj.product_pro_image.first():
+        if obj.product_pro_image.exists():
             return mark_safe('<a href="{}"><img alt="{}" src="{}" height="50px" width="50px"/></a>'.
-                             format(obj.product_pro_image.first().image.url,obj.product_pro_image.first().image_alt_text,
-                                    obj.product_pro_image.first().image.url))
+                             format(obj.product_pro_image.last().image.url,obj.product_pro_image.last().image_alt_text,
+                                    obj.product_pro_image.last().image.url))
 
     product_images.short_description = 'Product Image'
+
 
 class MRPSearch(InputFilter):
     parameter_name = 'mrp'
@@ -330,32 +368,97 @@ class MRPSearch(InputFilter):
             return queryset.filter(
                 Q(mrp__icontains=mrp)
             )
+
+class ExportCsvMixin:
+    def export_as_csv_productprice(self, request, queryset):
+        meta = self.model._meta
+        list_display = [
+            'product' ,'sku_code', 'mrp', 'price_to_service_partner','price_to_retailer', 'price_to_super_retailer',
+            'shop', 'cash_discount','loyalty_incentive','margin','start_date', 'end_date', 'status'
+        ]
+        field_names = [field.name for field in meta.fields if field.name in list_display]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in list_display])
+        return response
+    export_as_csv_productprice.short_description = "Download CSV of Selected ProductPrice"
+
+
 class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductPriceResource
     form = ProductPriceNewForm
-    actions = ["export_as_csv"]
+    actions = ['export_as_csv_productprice', 'approve_product_price']
+    list_select_related = ('product', 'shop')
     list_display = [
-        'product', 'product_gf_code', 'mrp', 'price_to_service_partner','price_to_retailer', 'price_to_super_retailer',
-        'shop', 'cash_discount','loyalty_incentive','margin','start_date', 'end_date', 'status'
+        'product', 'product_sku', 'product_gf_code', 'mrp',
+        'price_to_service_partner', 'price_to_retailer',
+        'price_to_super_retailer', 'shop', 'cash_discount',
+        'loyalty_incentive', 'margin', 'start_date', 'end_date', 'status',
+        'approval_status'
     ]
-    autocomplete_fields=['product',]
+    autocomplete_fields = ['product']
     search_fields = [
         'product__product_name', 'product__product_gf_code',
         'product__product_brand__brand_name', 'shop__shop_name'
     ]
-    list_filter= [ProductFilter,ShopFilter,MRPSearch,('start_date', DateRangeFilter),('end_date', DateRangeFilter)]
-    fields=('product','city','area','mrp','shop','price_to_retailer','price_to_super_retailer','price_to_service_partner','cash_discount','loyalty_incentive','start_date','end_date','status')
+    list_filter = [
+        ProductSKUSearch, ProductFilter, ShopFilter, MRPSearch,
+        ('start_date', DateRangeFilter), ('end_date', DateRangeFilter),
+        'approval_status']
+    fields = ('product', 'city', 'area', 'mrp', 'shop', 'price_to_retailer',
+              'price_to_super_retailer', 'price_to_service_partner',
+              'cash_discount', 'loyalty_incentive', 'start_date', 'end_date',
+              'approval_status', 'status')
+
     class Media:
-        pass
+        js = ('admin/js/sweetalert.min.js',
+              'admin/js/product_price_approval.js')
+
     def get_readonly_fields(self, request, obj=None):
-        if obj: # editing an existing object
-            return self.readonly_fields + ('mrp','price_to_retailer','price_to_super_retailer','price_to_service_partner' )
+        if not request.user.is_superuser:
+            if obj and obj.approval_status == ProductPrice.APPROVED:
+                return self.readonly_fields + (
+                    'mrp', 'price_to_retailer', 'price_to_super_retailer',
+                    'price_to_service_partner', 'approval_status', 'status',
+                    'product', 'city', 'area', 'shop', 'cash_discount',
+                    'loyalty_incentive', 'start_date', 'end_date')
         return self.readonly_fields
+
+    def product_sku(self, obj):
+        return obj.product.product_sku
+
+    product_sku.short_description = 'Product SKU'
 
     def product_gf_code(self, obj):
         return obj.product.product_gf_code
 
     product_gf_code.short_description = 'Gf Code'
+
+    def approve_product_price(self, request, queryset):
+        queryset = queryset.filter(approval_status='approval_pending')
+        for product in queryset:
+            product.approval_status = ProductPrice.APPROVED
+            product.save()
+
+    approve_product_price.short_description = "Approve Selected Products Prices"
+    approve_product_price.allowed_permissions = ('change',)
+
+    def has_delete_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        return False
+
+    def get_form(self, request, obj=None, **kwargs):
+        if request.user.is_superuser:
+            kwargs['form'] = ProductPriceNewForm
+        elif request.user.has_perm('products.add_productprice'):
+            kwargs['form'] = ProductPriceAddPerm
+        elif request.user.has_perm('products.change_productprice'):
+            kwargs['form'] = ProductPriceChangePerm
+        return super().get_form(request, obj, **kwargs)
 
     def get_queryset(self, request):
         qs = super(ProductPriceAdmin, self).get_queryset(request)
@@ -364,7 +467,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
         return qs.filter(
             Q(shop__related_users=request.user) |
             Q(shop__shop_owner=request.user),
-            status=True
+            Q(status=True) | Q(approval_status=ProductPrice.APPROVAL_PENDING)
         ).distinct()
 
 
