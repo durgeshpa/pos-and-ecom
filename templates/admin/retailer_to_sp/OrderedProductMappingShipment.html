@@ -236,12 +236,9 @@
 
      <tbody>
 
-
-
         {% for order_form in formset %}
-{% if order_form.errors %}
-
-
+      {% if order_form.errors %}
+          
           {% for error in order_form.non_field_errors %}
             <p class="errornote">{{ error|escape }}</p>
           {% endfor %}
@@ -260,7 +257,7 @@
       {% endfor %}
 
      </tbody>
-   </table>
+   </table> 
 </fieldset>
 
   </div>
@@ -396,4 +393,21 @@ $('form').preventDoubleSubmission();
 //   });
 // });
 </script>
+
+
+<script type="text/javascript">
+
+    var form_enabled = true;
+    $( document ).ready(function() {
+        $('.submit-row').on('click','input[type=submit]', function(e){
+               $('.submit-row').hide();
+                setTimeout(function(){
+                    $('.submit-row').show();
+                }, 2000);
+        });
+    });
+
+</script>
+
+
 </html>

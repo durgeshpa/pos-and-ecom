@@ -9,7 +9,6 @@ from addresses.models import Address, City, State, Shop
 def create_shops_excel(queryset):
     cities_list = City.objects.values_list('city_name', flat=True)
     states_list = State.objects.values_list('state_name', flat=True)
-
     output = io.BytesIO()
     data = Shop.objects.values_list(
         'id', 'shop_name', 'shop_type__shop_type',
@@ -20,7 +19,19 @@ def create_shops_excel(queryset):
         'shop_name_address_mapping__city__city_name', 'shop_name_address_mapping__address_type'
     ).filter(id__in=queryset)
 
-    data_rows = data.count()
+    items = Address.objects.filter(shop_name__in=queryset)
+    data = []
+    for item in items:
+        _data = [item.shop_name.id, item.shop_name.shop_name,
+            item.shop_name.shop_type.shop_type,
+            item.shop_name.shop_owner.phone_number,
+            item.shop_name.status, item.id, item.nick_name, item.address_line1,
+            item.address_contact_name, item.address_contact_number, item.pincode,
+            item.state.state_name, item.city.city_name, item.address_type,
+            item.shop_name.imei_no, item.shop_name.parent_shop]
+        data.append(_data)
+
+    data_rows = len(data)#data.count()
     workbook = xlsxwriter.Workbook(output)
     worksheet = workbook.add_worksheet()
     unlocked = workbook.add_format({'locked': 0})
@@ -52,6 +63,8 @@ def create_shops_excel(queryset):
     worksheet.set_column('L:L', 20)
     worksheet.set_column('M:M', 20)
     worksheet.set_column('N:N', 10)
+    worksheet.set_column('O:O', 20)
+    worksheet.set_column('P:P', 10)
 
     # to set the hieght of row
     worksheet.set_row(0, 36)
@@ -71,6 +84,8 @@ def create_shops_excel(queryset):
     worksheet.write('L1', 'State', header_format)
     worksheet.write('M1', 'City', header_format)
     worksheet.write('N1', 'Address Type', header_format)
+    worksheet.write('O1', 'IMEI', header_format)
+    worksheet.write('P1', 'Parent Shop Name', header_format)
 
     for row_num, columns in enumerate(data):
         for col_num, cell_data in enumerate(columns):
