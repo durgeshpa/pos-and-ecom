@@ -1314,14 +1314,6 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
     elif instance.shipment_status == OrderedProduct.READY_TO_SHIP:
         PickerDashboard.objects.filter(shipment=instance).update(picking_status="picking_complete")
 
-    if not instance.invoice_no and instance.shipment_status == instance.READY_TO_SHIP:
-        shipment_products = instance.rt_order_product_order_product_mapping.all()
-
-
-
-
-        for shipment in instance.rt_order_product_order_product_mapping.all():
-
 
 @receiver(post_save, sender=Order)
 def assign_picklist(sender, instance=None, created=False, **kwargs):
