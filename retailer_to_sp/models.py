@@ -711,7 +711,7 @@ class OrderedProduct(models.Model): #Shipment
         super(OrderedProduct, self).clean()
 
     def save(self, *args, **kwargs):
-        if not self.invoice_no:
+        if not self.invoice_no and self.shipment_status == self.READY_TO_SHIP:
             self.invoice_no = retailer_sp_invoice(
                                     self.__class__, 'invoice_no',
                                     self.pk, self.order.seller_shop.
@@ -720,7 +720,7 @@ class OrderedProduct(models.Model): #Shipment
                                                     ).last().pk)
         super().save(*args, **kwargs)
                 # Update Product Tax Mapping End
-                
+
 class PickerDashboard(models.Model):
 
     PICKING_STATUS = (
