@@ -28,9 +28,9 @@ def get_warehouse_stock(shop_id=None):
 		grn_list = models.OrderedProductMapping.objects.values('product_id').distinct()
 	products = Product.objects.filter(pk__in=grn_list).order_by('product_name')
 	if shop_id:
-		products_price = ProductPrice.objects.filter(product__in=products, shop=shop, status=True).order_by('product', '-created_at').distinct('product')
+		products_price = ProductPrice.objects.filter(product__in=products, shop=shop, status=True).order_by('product_id', '-created_at').distinct('product')
 	else:
-		products_price = ProductPrice.objects.filter(product__in=products, status=True).order_by('product', '-created_at').distinct('product')
+		products_price = ProductPrice.objects.filter(product__in=products, status=True).order_by('product_id', '-created_at').distinct('product')
 	p_list = []
 
 	for p in products_price:
