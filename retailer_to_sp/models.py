@@ -890,6 +890,20 @@ class OrderedProductMapping(models.Model):
             self.set_product_tax_json()
         return self.product_tax_json.get('tax_sum')
 
+    def save(self, *args, **kwargs):
+        # super().save(*args, **kwargs)
+        if self.product_tax_json:
+            super().save(*args, **kwargs)
+        else:
+            try:
+                product_tax_query = self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
+                                                                        'tax__tax_percentage')
+                product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
+                product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
+                shipment.product_tax_json = product_tax
+            except Exception as e:
+                logger.exception("Exception occurred while saving product {}".format(e))
+            super().save(*args, **kwargs)
 
 class Dispatch(OrderedProduct):
     class Meta:
@@ -1301,13 +1315,12 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
         PickerDashboard.objects.filter(shipment=instance).update(picking_status="picking_complete")
 
     if not instance.invoice_no and instance.shipment_status == instance.READY_TO_SHIP:
+        shipment_products = instance.rt_order_product_order_product_mapping.all()
+
+
+
+
         for shipment in instance.rt_order_product_order_product_mapping.all():
-            product_tax_query = shipment.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
-                                                                        'tax__tax_percentage')
-            product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
-            product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
-            shipment.product_tax_json = product_tax
-            shipment.save()
 
 
 @receiver(post_save, sender=Order)
