@@ -711,16 +711,16 @@ class OrderedProduct(models.Model): #Shipment
         super(OrderedProduct, self).clean()
 
     def save(self, *args, **kwargs):
-            if not self.invoice_no:
-                self.invoice_no = retailer_sp_invoice(
-                                        self.__class__, 'invoice_no',
-                                        self.pk, self.order.seller_shop.
-                                        shop_name_address_mapping.filter(
-                                                        address_type='billing'
-                                                        ).last().pk)
+        if not self.invoice_no:
+            self.invoice_no = retailer_sp_invoice(
+                                    self.__class__, 'invoice_no',
+                                    self.pk, self.order.seller_shop.
+                                    shop_name_address_mapping.filter(
+                                                    address_type='billing'
+                                                    ).last().pk)
         super().save(*args, **kwargs)
                 # Update Product Tax Mapping End
-
+                
 class PickerDashboard(models.Model):
 
     PICKING_STATUS = (
