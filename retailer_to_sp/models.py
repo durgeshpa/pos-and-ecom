@@ -720,13 +720,14 @@ class OrderedProduct(models.Model): #Shipment
                                         shop_name_address_mapping.filter(
                                                         address_type='billing'
                                                         ).last().pk)
-                try:
-                    PickerDashboard.objects.filter(shipment_id=self.id).update(picking_status="picking_complete")
+                # try:
+                if self.order:
+                    PickerDashboard.objects.filter(order=self.order).update(picking_status="picking_complete")
                     #picker = PickerDashboard.objects.filter(shipment_id=self.id).update(picking_status="picking_complete")
                     # picker.picking_status="picking_complete"
                     # picker.save()
-                except:
-                    raise ValidationError(_("Please assign shipment to picker dashboard"),)
+                # except:
+                #     raise ValidationError(_("Please assign shipment to picker dashboard"),)
 
                 #Update Product Tax Mapping Start
                 for shipment in self.rt_order_product_order_product_mapping.all():
