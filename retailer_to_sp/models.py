@@ -751,6 +751,8 @@ class PickerDashboard(models.Model):
     def __str__(self):
         return self.picklist_id if self.picklist_id is not None else str(self.id)
 
+    # class Meta:
+    #     unique_together = (('shipment'),('order', 'picking_status'),)
 
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(

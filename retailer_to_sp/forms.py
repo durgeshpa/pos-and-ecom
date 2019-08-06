@@ -149,12 +149,21 @@ class OrderedProductForm(forms.ModelForm):
         super(OrderedProductForm, self).__init__(*args, **kwargs)
         self.fields['shipment_status'].choices = OrderedProduct.SHIPMENT_STATUS[:2]
         ordered_product = getattr(self, 'instance', None)
-        
         # if ordered_product is None:
         qc_pending_orders = OrderedProduct.objects.filter(shipment_status="SHIPMENT_CREATED").values('order')
         self.fields['order'].queryset = Order.objects.filter(order_status__in=[Order.OPDP, 'ordered',
                       'PARTIALLY_SHIPPED', 'DISPATCH_PENDING'],
                         order_closed=False).exclude(id__in=qc_pending_orders)
+
+    def clean(self):
+        data = self.cleaned_data
+        if not self.cleaned_data['order'].picker_order.all().exists():
+            raise forms.ValidationError(_("Please assign picklist to the order"),)            
+        if self.cleaned_data['shipment_status']=='SHIPMENT_CREATED' and \
+            self.cleaned_data['order'].picker_order.last().picking_status != "picking_assigned":
+            raise forms.ValidationError(_("Please set the picking status in picker dashboard"),)
+
+        return data
 
 
 class OrderedProductMappingForm(forms.ModelForm):
@@ -564,9 +573,10 @@ class ShipmentForm(forms.ModelForm):
 
     def clean(self):
         data = self.cleaned_data
-        if self.instance and self.cleaned_data['shipment_status']=='READY_TO_SHIP' and \
-            self.instance.order.picker_order.last().picking_status == "picking_pending":
-            raise forms.ValidationError(_("Please set the picking status in picker dashboard"),)
+        # if self.instance and self.cleaned_data['shipment_status']=='SHIPMENT_CREATED' and \
+        #     self.instance.order.picker_order.last().picking_status != "picking_assigned":
+        #     raise forms.ValidationError(_("Please set the picking status in picker dashboard"),)
+
         if (data['close_order'] and
                 not data['shipment_status'] == OrderedProduct.READY_TO_SHIP):
                 raise forms.ValidationError(
