@@ -310,7 +310,7 @@ def assign_picker(request, shop_id=None):
     form = AssignPickerForm(request.user,shop_id)
     picker_orders = {}
     if shop_id:
-        picker_orders = PickerDashboard.objects.filter(order__seller_shop__id=shop_id, picking_status='picking_pending')
+        picker_orders = PickerDashboard.objects.filter(order__seller_shop__id=shop_id, picking_status='picking_pending').order_by('-order__created_at')
 
     return render(
         request,
