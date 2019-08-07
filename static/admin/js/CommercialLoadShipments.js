@@ -43,6 +43,21 @@ function GetResultByTripID() {
   });
 }
 
+function ApprovePayment(id) {
+  $.ajax({
+      url: ,
+      data: {
+          'is_payment_approved': true,
+      },
+      complete: function(){
+        $("#loading").hide();
+      },
+      success: function(data) {
+        CheckResponse(data);
+      }
+  });
+}
+
 function CheckResponse(data){
   if (data['is_success']){
     CreateResponseTable(data);
@@ -63,6 +78,7 @@ function CreateResponseTable(data){
           var row = "row1";
       }
       var pk = data['response_data'][i]['pk'];
+      var is_payment_approved = data['response_data'][i]['is_payment_approved'];
       var trip = data['response_data'][i]['trip'];
       var order = "<td>" + data['response_data'][i]['order'] + "</td>";
       var shipment_status = "<td>" + data['response_data'][i]['shipment_status'] + "</td>";
@@ -72,8 +88,13 @@ function CreateResponseTable(data){
       var invoice_city = "<td>" + data['response_data'][i]['invoice_city'] + "</td>";
       var shipment_address = "<td>" + data['response_data'][i]['shipment_address'] + "</td>";
       var created_at = "<td>" + data['response_data'][i]['created_at'] + "</td>";
+      if (is_payment_approved == false)         
+        var submit = "<td><button class='approve' id='"+ pk +"'>Approve</button></td>";
+      else
+        var submit = "";
+      var append_data = "<tr class="+ row +"><td class='original'></td>" + invoice_no + invoice_amount + cash_to_be_collected + shipment_status + invoice_city + created_at + order + shipment_address + submit +"</tr>"
 
-      $("tbody#data").append("<tr class="+ row +"><td class='original'></td>" + invoice_no + invoice_amount + cash_to_be_collected + shipment_status + invoice_city + created_at + order + shipment_address +"</tr>");
+      $("tbody#data").append(append_data);
   }
 }
 

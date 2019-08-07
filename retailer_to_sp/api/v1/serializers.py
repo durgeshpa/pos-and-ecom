@@ -680,8 +680,8 @@ class DispatchSerializer(serializers.ModelSerializer):
         model = Dispatch
         fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
                   'shipment_address', 'invoice_city', 'invoice_amount',
-                  'created_at')
-        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount')
+                  'created_at', 'is_payment_approved')
+        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 'is_payment_approved')
 
 
 class CommercialShipmentSerializer(serializers.ModelSerializer):
@@ -698,8 +698,8 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
         model = OrderedProduct
         fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
                   'shipment_address', 'invoice_city', 'invoice_amount',
-                  'created_at', 'cash_to_be_collected')
-        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 'cash_to_be_collected')
+                  'created_at', 'cash_to_be_collected', 'is_payment_approved')
+        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 'cash_to_be_collected', 'is_payment_approved')
 
 class FeedBackSerializer(serializers.ModelSerializer):
 

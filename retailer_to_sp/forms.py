@@ -4,7 +4,6 @@ from dal import autocomplete
 from django_select2.forms import Select2MultipleWidget, ModelSelect2Widget
 from tempus_dominus.widgets import DatePicker
 
-
 from django.contrib.auth import get_user_model
 from django.contrib.admin import widgets
 from django import forms
