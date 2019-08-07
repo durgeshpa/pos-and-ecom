@@ -188,16 +188,21 @@ class TeamListView(generics.ListAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        return ShopUserMapping.objects.filter(manager=self.request.user,status=True)
+        return ShopUserMapping.objects.filter(manager=self.request.user,status=True).order_by('employee').distinct('employee')
+
+    def get_shops(self):
+        return ShopUserMapping.objects.filter(manager=self.request.user,status=True).values('shop').order_by('shop').distinct('shop')
+
 
     def list(self, request, *args, **kwargs):
         days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
         today = datetime.now()
         last_day = today - timedelta(days=days_diff)
         employee_list = self.get_queryset()
+        shops_list = self.get_shops()
         data = []
         data_total = []
-        order_obj = Order.objects.filter(buyer_shop__created_by__id__in=employee_list,
+        order_obj = Order.objects.filter(buyer_shop_id__in=shops_list,
                                          created_at__range=[today, last_day]).values('ordered_by',
                                                                                      'ordered_by__first_name')\
             .annotate(no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
@@ -364,7 +369,7 @@ class SellerShopProfile(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         data = []
-        shop_user_obj = ShopUserMapping.objects.filter(manager=self.request.user,status=True)
+        shop_user_obj = ShopUserMapping.objects.filter(manager=self.request.user, status=True)
         employee_list = shop_user_obj.values('employee')
         shop_list = shop_user_obj.values('shop','shop__id','shop__shop_name').order_by('shop').distinct('shop')
         shops_list = shop_user_obj.values('shop').distinct('shop')
