@@ -319,9 +319,9 @@ class SellerShopOrder(generics.ListAPIView):
         data_total = []
         today = datetime.now()
         last_day = today - timedelta(days=days_diff)
-        employee_list = ShopUserMapping.objects.filter(manager=self.request.user).values('employee')
-        shop_list = Shop.objects.filter(created_by__id__in=employee_list).values('shop_name','id').order_by('shop_name')
-        order_obj = Order.objects.filter(buyer_shop__created_by__id__in=employee_list,created_at__range=[today, last_day]).values('buyer_shop','buyer_shop__shop_name').\
+        shop_list = ShopUserMapping.objects.filter(manager=self.request.user).values('shop', 'shop__shop_name')
+        shops_list = ShopUserMapping.objects.filter(manager=self.request.user).values('shop')
+        order_obj = Order.objects.filter(buyer_shop__id__in=shops_list,created_at__range=[today, last_day]).values('buyer_shop','buyer_shop__shop_name').\
             annotate(buyer_shop_count=Count('buyer_shop'))\
             .annotate(no_of_ordered_sku=Count('ordered_cart__rt_cart_list'))\
             .annotate(no_of_ordered_sku_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces'))\
@@ -332,20 +332,20 @@ class SellerShopOrder(generics.ListAPIView):
         no_of_order_total, no_of_ordered_sku_total, no_of_ordered_sku_pieces_total, ordered_amount_total = 0, 0, 0, 0
         for shop in shop_list:
             rt = {
-                'name': shop['shop_name'],
-                'no_of_order': order_map[shop['id']][0] if shop['id'] in order_map else 0,
-                'no_of_ordered_sku': order_map[shop['id']][1] if shop['id'] in order_map else 0,
-                'no_of_ordered_sku_pieces': order_map[shop['id']][2] if shop['id'] in order_map else 0,
-                'ordered_amount': round(order_map[shop['id']][3],2) if shop['id'] in order_map else 0,
+                'name': shop['shop__shop_name'],
+                'no_of_order': order_map[shop['shop']][0] if shop['shop'] in order_map else 0,
+                'no_of_ordered_sku': order_map[shop['shop']][1] if shop['shop'] in order_map else 0,
+                'no_of_ordered_sku_pieces': order_map[shop['shop']][2] if shop['shop'] in order_map else 0,
+                'ordered_amount': round(order_map[shop['shop']][3],2) if shop['shop'] in order_map else 0,
                 'calls_made': 0,
                 'delivered_amount': 0,
             }
             data.append(rt)
 
-            no_of_order_total += order_map[shop['id']][0] if shop['id'] in order_map else 0
-            no_of_ordered_sku_total += order_map[shop['id']][1] if shop['id'] in order_map else 0
-            no_of_ordered_sku_pieces_total += order_map[shop['id']][2] if shop['id'] in order_map else 0
-            ordered_amount_total += round(order_map[shop['id']][3], 2) if shop['id'] in order_map else 0
+            no_of_order_total += order_map[shop['shop']][0] if shop['shop'] in order_map else 0
+            no_of_ordered_sku_total += order_map[shop['shop']][1] if shop['shop'] in order_map else 0
+            no_of_ordered_sku_pieces_total += order_map[shop['shop']][2] if shop['shop'] in order_map else 0
+            ordered_amount_total += round(order_map[shop['shop']][3], 2) if shop['shop'] in order_map else 0
 
         dt = {
             'no_of_order': no_of_order_total,
@@ -415,7 +415,7 @@ class SalesPerformanceView(generics.ListAPIView):
 
 
     def list(self, request, *args, **kwargs):
-        days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
+        days_diff = 15 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
         data = []
         shop_mangr = self.get_queryset()
         if ShopUserMapping.objects.filter(employee=self.request.user,employee_group__permissions__codename='can_sales_person_add_shop',status=True).exists():
