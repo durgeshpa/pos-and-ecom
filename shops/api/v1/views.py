@@ -408,14 +408,18 @@ class SalesPerformanceView(generics.ListAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        return ShopUserMapping.objects.filter(manager=self.request.user,status=True)
+        return ShopUserMapping.objects.filter(manager=self.request.user,status=True).order_by('employee').distinct('employee')
+
+    def get_shops(self):
+        return ShopUserMapping.objects.filter(manager=self.request.user,status=True).values('shop').order_by('shop').distinct('shop')
+
 
     def list(self, request, *args, **kwargs):
         days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
         data = []
-        shop_emp = ShopUserMapping.objects.filter(employee=self.request.user, status=True)
-        shop_mangr = ShopUserMapping.objects.filter(manager=self.request.user, status=True)
-        if shop_emp.exists() and shop_emp.last().employee_group.permissions.filter(codename='can_sales_person_add_shop').exists():
+        shop_mangr = self.get_queryset()
+        if ShopUserMapping.objects.filter(employee=self.request.user,employee_group__permissions__codename='can_sales_person_add_shop',status=True).exists():
+
             today = datetime.now()
             last_day = today - timedelta(days=days_diff)
             one_month = today - timedelta(days=days_diff + days_diff)
