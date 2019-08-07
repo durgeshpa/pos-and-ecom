@@ -314,6 +314,8 @@ class SellerShopOrder(generics.ListAPIView):
         return ShopUserMapping.objects.filter(manager=self.request.user)
 
     def list(self, request, *args, **kwargs):
+        import ipdb
+        ipdb.set_trace()
         days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
         data = []
         data_total = []
