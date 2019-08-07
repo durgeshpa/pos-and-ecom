@@ -195,6 +195,8 @@ class TeamListView(generics.ListAPIView):
 
 
     def list(self, request, *args, **kwargs):
+        import ipdb
+        ipdb.set_trace()
         days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
         today = datetime.now()
         last_day = today - timedelta(days=days_diff)
@@ -202,7 +204,7 @@ class TeamListView(generics.ListAPIView):
         shops_list = self.get_shops()
         data = []
         data_total = []
-        order_obj = Order.objects.filter(buyer_shop_id__in=shops_list,
+        order_obj = Order.objects.filter(buyer_shop__id__in=shops_list,
                                          created_at__date__lte=today, created_at__date__gte=last_day).values('ordered_by',
                                                                                      'ordered_by__first_name')\
             .annotate(no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
