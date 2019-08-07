@@ -133,6 +133,8 @@ class Product(models.Model):
     def __str__(self):
         return self.product_name
 
+    class Meta:
+        ordering = ['-created_at']
 
     def get_current_shop_price(self, shop):
         today = datetime.datetime.today()
@@ -192,7 +194,14 @@ class ProductHistory(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
+
 class ProductPrice(models.Model):
+    APPROVED = 'approved'
+    APPROVAL_PENDING = 'approval_pending'
+    APPROVAL_CHOICES = (
+        (APPROVED, 'Approved'),
+        (APPROVAL_PENDING, 'Approval Pending'),
+    )
     product = models.ForeignKey(Product,related_name='product_pro_price',on_delete=models.CASCADE)
     city = models.ForeignKey(City,related_name='city_pro_price',null=True,blank=True,on_delete=models.CASCADE)
     area = models.ForeignKey(Area,related_name='area_pro_price',null=True,blank=True,on_delete=models.CASCADE)
@@ -205,9 +214,10 @@ class ProductPrice(models.Model):
     loyalty_incentive = models.FloatField(default=0, blank=True,validators=[PriceValidator2])
     start_date = models.DateTimeField(null=True,blank=True)
     end_date = models.DateTimeField(null=True,blank=True)
+    approval_status = models.CharField(choices=APPROVAL_CHOICES, max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-    status = models.BooleanField(default=True)
+    status = models.BooleanField(default=False)
 
     def __str__(self):
         return "%s - %s"%(self.product.product_name, self.price_to_retailer)
@@ -222,10 +232,19 @@ class ProductPrice(models.Model):
             raise ValidationError(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
 
     def save(self, *args, **kwargs):
-        last_product_prices = ProductPrice.objects.filter(product=self.product,shop=self.shop,status=True).update(status=False)
-        self.status = True
+        if self.price_to_service_partner > self.price_to_super_retailer:
+            raise Exception(ERROR_MESSAGES['INVALID_SP_PRICE'])
+        if self.price_to_super_retailer > self.price_to_retailer:
+            raise Exception(ERROR_MESSAGES['INVALID_SR_PRICE'])
+        if self.price_to_retailer > self.mrp:
+            raise Exception(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
+        if self.approval_status == self.APPROVED:
+            ProductPrice.objects.filter(product=self.product, shop=self.shop,
+                                        status=True).update(status=False)
+            self.status = True
         super().save(*args, **kwargs)
 
+    @property
     def margin(self):
         return round(100-(float(self.price_to_retailer)*1000000/(float(self.mrp)*(100-float(self.cash_discount))*(100-float(self.loyalty_incentive)))),2) if self.mrp>0 and self.price_to_retailer>0 else 0
 
@@ -279,7 +298,7 @@ class Tax(models.Model):
         )
 
     tax_name = models.CharField(max_length=255,validators=[ProductNameValidator])
-    tax_type=  models.CharField(max_length=255, choices=TAX_CHOICES, null=True)
+    tax_type = models.CharField(max_length=255, choices=TAX_CHOICES, null=True)
     tax_percentage = models.FloatField(default=0)
     tax_start_at = models.DateTimeField(null=True,blank=True)
     tax_end_at = models.DateTimeField(null=True,blank=True)
@@ -404,3 +423,5 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
         ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code,brand_sku_code=brand_sku_code,last_auto_increment=last_sku_increment)
         product.product_sku="%s%s%s%s"%(cat_sku_code,parent_cat_sku_code,brand_sku_code,last_sku_increment)
         product.save()
+
+

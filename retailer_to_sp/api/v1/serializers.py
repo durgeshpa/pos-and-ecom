@@ -5,10 +5,9 @@ from common.common_utils import convert_date_format_ddmmmyyyy
 from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMapping,ProductOption,
                              Size,Color,Fragrance,Flavor,Weight,PackageSize)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order,
-                                   OrderedProduct, Note, CustomerCare,
-                                   Payment, Dispatch, Feedback)
+                                   OrderedProduct, Note, CustomerCare, PickerDashboard,
+                                   Payment, Dispatch, Feedback, OrderedProductMapping)
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
-
                                       OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment)
 from addresses.models import Address,City,State,Country
 
@@ -28,6 +27,13 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
+
+
+class PickerDashboardSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = PickerDashboard
+      fields = '__all__'
+
 
 class ProductImageSerializer(serializers.ModelSerializer):
    class Meta:
@@ -56,7 +62,6 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = ('id','product_name','product_inner_case_size',
             'product_case_size', 'product_image'
             )
-
 
 class OrderedProductMappingSerializer(serializers.ModelSerializer):
     # This serializer is used to fetch the products for a shipment
@@ -112,6 +117,7 @@ class ReadOrderedProductSerializer(serializers.ModelSerializer):
 
     def get_order_created_date(self, obj):
         order_created_date = obj.order.created_at
+
         return order_created_date.strftime("%d/%b/%Y")
 
     class Meta:

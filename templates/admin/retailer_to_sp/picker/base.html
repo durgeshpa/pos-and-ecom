@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en-us" >
+   <head>
+      <title>{% block title %}{% endblock %}</title>
+      <link rel="stylesheet" type="text/css" href="/static/admin/css/base.css">
+      <link rel="stylesheet" type="text/css" href="/static/admin/css/forms.css">
+      <style type="text/css">
+         /* add an asterisk using CSS */
+         .required {
+         color:#ba2121;
+         }
+         .aligned label.required:after {
+         content: '*';
+         color:#ba2121;
+         }
+         #hide_input_box {
+         border: none;
+         background-color: white;
+         }
+         .ui-select{width: 100%}
+         /* This is to remove the arrow of select element in IE */
+         .ui-select::-ms-expand { display: none; }
+         .ui-select {
+         -webkit-appearance: none;
+         appearance: none;
+         }
+         @-moz-document url-prefix(){
+         .ui-select{border: 1px solid #CCC; border-radius: 4px; box-sizing: border-box; position: relative; overflow: hidden;}
+         .ui-select { width: 110%; background-position: right 30px center !important; border: none !important;}
+         }
+      </style>
+      <script src="https://code.jquery.com/jquery-2.1.1.js"></script>  {{ form.media }}
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/css/select2.min.css">
+      <link rel="stylesheet" type="text/css" href="/static/admin/css/jquery.datetimepicker.css">
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+      <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+      <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1.0, maximum-scale=1.0">
+      <link rel="stylesheet" type="text/css" href="/static/admin/css/responsive.css">
+      <meta name="robots" content="NONE,NOARCHIVE">
+   </head>
+   <body class=" app-retailer_to_sp model-orderedproduct change-form"
+      data-admin-utc-offset="19800">
+      <!-- Container -->
+      <div id="container">
+         <!-- Header -->
+         <div id="header">
+            <div id="branding">
+               <h1 id="site-name">
+                  <a href="/admin/">
+                  <img src="/static/admin/img/logo-1.png" height="40px" />
+                  </a>
+               </h1>
+            </div>
+            <div id="user-tools">
+               Welcome,
+               <strong>{% firstof user.get_short_name user.get_username %}</strong>.
+               <a href="/">View site</a> /
+               <a href="/admin/password_change/">Change password</a> /
+               <a href="/admin/logout/">Log out</a>
+            </div>
+         </div>
+         <!-- END Header -->
+         <div class="breadcrumbs">
+            <a href="/admin/">Home</a>
+            &rsaquo; <a href="/admin/retailer_to_sp/">{% block breadcrumb1 %}{% endblock %}</a>
+            &rsaquo; <a href="/admin/retailer_to_sp/pickerdashboard/">{% block breadcrumb2 %}{% endblock %}</a>
+            &rsaquo; <a href="/admin/retailer_to_sp/pickerdashboard/assign-picker/">{% block breadcrumb3 %}{% endblock %}</a>
+         </div>
+         {% block content %}{% endblock %}
+
+         <div id="footer"></div>
+      </div>
+      <!-- END Container -->
+   </body>
+   <script src='https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/js/select2.min.js'></script>
+    {% block javascript %}{% endblock %}
+</html>

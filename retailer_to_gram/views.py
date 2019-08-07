@@ -35,11 +35,9 @@ def ordered_product_mapping(request):
         if form.is_valid():
             ordered_product_instance=form.save()
             form_set = ordered_product_set(request.POST)
-            #import pdb; pdb.set_trace()
 
             if form_set.is_valid():
                 for form in form_set:
-                    #import pdb; pdb.set_trace()
                     formset_data = form.save(commit=False)
                     formset_data.ordered_product = ordered_product_instance
                     formset_data.save()
