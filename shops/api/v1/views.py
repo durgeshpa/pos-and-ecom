@@ -14,7 +14,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from retailer_to_sp.models import OrderedProduct
 from retailer_to_sp.views import update_order_status
 
-from datetime import datetime,timedelta
+from datetime import datetime,timedelta, date
 from django.db.models import Q,Sum,Count,F, FloatField, Avg
 from retailer_to_sp.models import Order
 from django.contrib.auth.models import Group
@@ -319,11 +319,11 @@ class SellerShopOrder(generics.ListAPIView):
         days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
         data = []
         data_total = []
-        today = datetime.now()
+        today = date.now()
         last_day = today - timedelta(days=days_diff)
         shop_list = ShopUserMapping.objects.filter(manager=self.request.user).values('shop', 'shop__shop_name')
         shops_list = ShopUserMapping.objects.filter(manager=self.request.user).values('shop')
-        order_obj = Order.objects.filter(buyer_shop__id__in=shops_list,created_at__range=[today, last_day]).values('buyer_shop','buyer_shop__shop_name').\
+        order_obj = Order.objects.filter(buyer_shop__id__in=shops_list, created_at__range=[today, last_day]).values('buyer_shop','buyer_shop__shop_name').\
             annotate(buyer_shop_count=Count('buyer_shop'))\
             .annotate(no_of_ordered_sku=Count('ordered_cart__rt_cart_list'))\
             .annotate(no_of_ordered_sku_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces'))\
