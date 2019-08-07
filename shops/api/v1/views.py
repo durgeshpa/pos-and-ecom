@@ -203,7 +203,7 @@ class TeamListView(generics.ListAPIView):
         data = []
         data_total = []
         order_obj = Order.objects.filter(buyer_shop_id__in=shops_list,
-                                         created_at__range=[today, last_day]).values('ordered_by',
+                                         created_at__date__lte=today, created_at__date__gte=last_day).values('ordered_by',
                                                                                      'ordered_by__first_name')\
             .annotate(no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
             .annotate(no_of_ordered_sku_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces')) \
@@ -221,7 +221,7 @@ class TeamListView(generics.ListAPIView):
         ordered_sku_pieces_total, ordered_amount_total, store_added_total, avg_order_total, avg_order_line_items_total, no_of_ordered_sku_total = 0,0,0,0,0,0
 
         for emp in employee_list:
-            store_added = emp.employee.shop_created_by.filter(created_at__range=[last_day, today]).count()
+            store_added = emp.employee.shop_created_by.filter(created_at__date__lte=today, created_at__date__gte=last_day).count()
             rt = {
                 'ordered_sku_pieces': order_map[emp.id][1] if emp.id in order_map else 0,
                 'ordered_amount': round(order_map[emp.id][3], 2) if emp.id in order_map else 0,
@@ -314,16 +314,14 @@ class SellerShopOrder(generics.ListAPIView):
         return ShopUserMapping.objects.filter(manager=self.request.user)
 
     def list(self, request, *args, **kwargs):
-        import ipdb
-        ipdb.set_trace()
         days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
         data = []
         data_total = []
-        today = date.now()
+        today = datetime.now()
         last_day = today - timedelta(days=days_diff)
         shop_list = ShopUserMapping.objects.filter(manager=self.request.user).values('shop', 'shop__shop_name')
         shops_list = ShopUserMapping.objects.filter(manager=self.request.user).values('shop')
-        order_obj = Order.objects.filter(buyer_shop__id__in=shops_list, created_at__range=[today, last_day]).values('buyer_shop','buyer_shop__shop_name').\
+        order_obj = Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today, created_at__date__gte=last_day).values('buyer_shop','buyer_shop__shop_name').\
             annotate(buyer_shop_count=Count('buyer_shop'))\
             .annotate(no_of_ordered_sku=Count('ordered_cart__rt_cart_list'))\
             .annotate(no_of_ordered_sku_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces'))\
@@ -376,7 +374,7 @@ class SellerShopProfile(generics.ListAPIView):
         shop_list = shop_user_obj.values('shop','shop__id','shop__shop_name').order_by('shop').distinct('shop')
         shops_list = shop_user_obj.values('shop').distinct('shop')
         #shop_list = Shop.objects.filter(created_by__id__in=employee_list).values('shop_name','id').order_by('shop_name')
-        order_obj = Order.objects.filter(buyer_shop__created_by__id__in=employee_list).order_by('buyer_shop').last()
+        #order_obj = Order.objects.filter(buyer_shop__created_by__id__in=employee_list).order_by('buyer_shop').last()
 
         order_list = Order.objects.filter(buyer_shop__in=shops_list).values('buyer_shop', 'created_at').\
             annotate(buyer_shop_count=Count('buyer_shop'))\
@@ -433,7 +431,7 @@ class SalesPerformanceView(generics.ListAPIView):
                 'shop_onboard': shop_obj.filter(status=True, created_at__gte=last_day).count() if shop_obj.filter(
                     status=True, created_at__gte=last_day) and shop_obj.retiler_mapping.exists() else 0,
                 'shop_reactivated': shop_obj.filter(status=True).rt_buyer_shop_order.filter(
-                    ~Q(created_at__range=[one_month, last_day]), Q(created_at__gte=last_day)) if hasattr(Order,'rt_buyer_shop_order') else 0,
+                    ~Q(created_at__date__lte=last_day, created_at__date__gte=one_month), Q(created_at__gte=last_day)) if hasattr(Order,'rt_buyer_shop_order') else 0,
                 'current_target_sales_target': '',
                 'current_store_count': shop_obj.filter(created_at__gte=last_day).count(),
             }
@@ -450,7 +448,7 @@ class SalesPerformanceView(generics.ListAPIView):
                     'name': employee.employee.first_name,
                     'shop_inactive': shop_obj.filter(status=True).exclude(shop_obj.rt_buyer_shop_order.filter(created_at__gte=last_day)).count() if hasattr(Order, 'rt_buyer_shop_order') else 0,
                     'shop_onboard':  shop_obj.filter(status=True, created_at__gte=last_day).count() if shop_obj.filter(status=True,created_at__gte=last_day) and shop_obj.retiler_mapping.exists() else 0,
-                    'shop_reactivated': shop_obj.filter(status=True).rt_buyer_shop_order.filter(~Q(created_at__range=[one_month,last_day]),Q(created_at__gte=last_day)) if hasattr(Order, 'rt_buyer_shop_order') else 0,
+                    'shop_reactivated': shop_obj.filter(status=True).rt_buyer_shop_order.filter(~Q(created_at__date__lte=last_day, created_at__date__gte=one_month), Q(created_at__gte=last_day)) if hasattr(Order, 'rt_buyer_shop_order') else 0,
                     'current_target_sales_target': '',
                     'current_store_count': shop_obj.filter(created_at__gte=last_day).count(),
                 }
