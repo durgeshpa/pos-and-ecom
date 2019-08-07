@@ -57,6 +57,13 @@ class ProductSerializer(serializers.ModelSerializer):
              'product_mrp', 'cash_discount', 'loyalty_incentive',
             )
 
+class ListFavouriteProductSerializer(serializers.ModelSerializer):
+    #product = ProductSerializer(many=True)
+
+    class Meta:
+        model = FavouriteProduct
+        fields = ('id', 'buyer_shop', 'product')
+
 
 class AddFavouriteProductSerializer(serializers.ModelSerializer):
 
