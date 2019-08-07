@@ -44,7 +44,7 @@ class FavouriteProductView(DataWrapperViewSet):
         '''
         serializer_action_classes = {
             'retrieve': FavouriteProductSerializer,
-            'list':ListFavouriteProductSerializer,
+            'list': FavouriteProductSerializer,
             'create':AddFavouriteProductSerializer,
             'update':FavouriteProductSerializer
         }
@@ -52,6 +52,24 @@ class FavouriteProductView(DataWrapperViewSet):
             return serializer_action_classes.get(self.action, self.serializer_class)
         return self.serializer_class
 
+
+class FavouriteProductListView(generics.ListAPIView):
+    queryset = FavouriteProduct.objects.all()
+    serializer_class = ListFavouriteProductSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    #permission_classes = (AllowAny,)
+    filter_backends = (filters.DjangoFilterBackend,)
+    filter_class = FavouriteProductFilter
+
+    def list(self, request):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        msg = {'is_success':True,
+                'message': None,
+                'response_data':serializer.data}
+        return Response(msg,
+                        status=status.HTTP_200_OK)
 
 
 class RetailerTypeView(generics.ListAPIView):
