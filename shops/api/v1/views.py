@@ -195,8 +195,6 @@ class TeamListView(generics.ListAPIView):
 
 
     def list(self, request, *args, **kwargs):
-        import ipdb
-        ipdb.set_trace()
         days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
         today = datetime.now()
         last_day = today - timedelta(days=days_diff)
