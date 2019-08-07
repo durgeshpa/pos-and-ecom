@@ -6,7 +6,7 @@ from django_filters import rest_framework as filters
 
 from .serializers import (RetailerTypeSerializer, ShopTypeSerializer,
         ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer,
-        FavouriteProductSerializer
+        FavouriteProductSerializer, AddFavouriteProductSerializer
         )
 from shops.models import (
     RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, FavouriteProduct)
@@ -28,7 +28,7 @@ class FavouriteProductView(DataWrapperViewSet):
     '''
     This class handles all operation of favourite product for a shop
     '''
-    # permission_classes = (AllowAny,)
+    #permission_classes = (AllowAny,)
     model = FavouriteProduct
     serializer_class = FavouriteProductSerializer
     queryset = FavouriteProduct.objects.all()
@@ -44,7 +44,7 @@ class FavouriteProductView(DataWrapperViewSet):
         serializer_action_classes = {
             'retrieve': FavouriteProductSerializer,
             'list':FavouriteProductSerializer,
-            'create':FavouriteProductSerializer,
+            'create':AddFavouriteProductSerializer,
             'update':FavouriteProductSerializer
         }
         if hasattr(self, 'action'):

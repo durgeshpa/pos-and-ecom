@@ -58,9 +58,15 @@ class ProductSerializer(serializers.ModelSerializer):
             )
 
 
+class AddFavouriteProductSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = FavouriteProduct
+        fields = ('id', 'buyer_shop', 'product')
+
+
 class FavouriteProductSerializer(serializers.ModelSerializer):
-    # name, size, image, price, mrp
-    # need to add margin, cash_discount, loyalty discount
+
     product = serializers.SerializerMethodField()   
 
     def get_product(self, obj):
