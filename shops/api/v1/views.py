@@ -417,18 +417,17 @@ class SalesPerformanceView(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         days_diff = 15 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
         data = []
+        today = datetime.now()
+        last_day = today - timedelta(days=days_diff)
+        one_month = today - timedelta(days=days_diff + days_diff)
         shop_mangr = self.get_queryset()
         if ShopUserMapping.objects.filter(employee=self.request.user,employee_group__permissions__codename='can_sales_person_add_shop',status=True).exists():
-
-            today = datetime.now()
-            last_day = today - timedelta(days=days_diff)
-            one_month = today - timedelta(days=days_diff + days_diff)
             shop_obj = Shop.objects.filter(created_by=request.user)
             rt = {
                 'name': request.user.first_name,
                 'shop_inactive': shop_obj.filter(status=True).exclude(
                     shop_obj.rt_buyer_shop_order.filter(created_at__gte=last_day)).count() if hasattr(Order,'rt_buyer_shop_order') else 0,
-                'shop_onboard': shop_obj.filter(status=True, created_at__gte=last_day).count() if shop_obj.filter(
+                'shop_onboard': shop_obj.filter(status=True, created_at__gte=last_day).count() if hasattr(shop_obj,'retiler_mapping') and shop_obj.filter(
                     status=True, created_at__gte=last_day) and shop_obj.retiler_mapping.exists() else 0,
                 'shop_reactivated': shop_obj.filter(status=True).rt_buyer_shop_order.filter(
                     ~Q(created_at__date__lte=last_day, created_at__date__gte=one_month), Q(created_at__gte=last_day)) if hasattr(Order,'rt_buyer_shop_order') else 0,
@@ -440,14 +439,11 @@ class SalesPerformanceView(generics.ListAPIView):
 
         elif shop_mangr.exists():
             for employee in shop_mangr:
-                today = datetime.now()
-                last_day = today - timedelta(days=days_diff)
-                one_month = today - timedelta(days=days_diff+days_diff)
                 shop_obj = Shop.objects.filter(created_by=employee.employee)
                 rt = {
                     'name': employee.employee.first_name,
                     'shop_inactive': shop_obj.filter(status=True).exclude(shop_obj.rt_buyer_shop_order.filter(created_at__gte=last_day)).count() if hasattr(Order, 'rt_buyer_shop_order') else 0,
-                    'shop_onboard':  shop_obj.filter(status=True, created_at__gte=last_day).count() if shop_obj.filter(status=True,created_at__gte=last_day) and shop_obj.retiler_mapping.exists() else 0,
+                    'shop_onboard':  shop_obj.filter(status=True, created_at__gte=last_day).count() if hasattr(shop_obj, 'retiler_mapping') and shop_obj.filter(status=True,created_at__gte=last_day) and shop_obj.retiler_mapping.exists() else 0,
                     'shop_reactivated': shop_obj.filter(status=True).rt_buyer_shop_order.filter(~Q(created_at__date__lte=last_day, created_at__date__gte=one_month), Q(created_at__gte=last_day)) if hasattr(Order, 'rt_buyer_shop_order') else 0,
                     'current_target_sales_target': '',
                     'current_store_count': shop_obj.filter(created_at__gte=last_day).count(),
