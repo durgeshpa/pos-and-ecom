@@ -440,6 +440,18 @@ class SalesPerformanceView(generics.ListAPIView):
         elif shop_mangr.exists():
             for employee in shop_mangr:
                 shop_obj = Shop.objects.filter(created_by=employee.employee)
+                print('shop_inactive')
+                a = shop_obj.filter(status=True).exclude(shop_obj.rt_buyer_shop_order.filter(created_at__gte=last_day)).count()
+                print(a.query)
+                print('shop_onboard')
+                b = shop_obj.filter(status=True, created_at__gte=last_day).count()
+                print(b.query)
+                print('shop_reactivated')
+                c = shop_obj.filter(status=True).rt_buyer_shop_order.filter(~Q(created_at__date__lte=last_day, created_at__date__gte=one_month),Q(created_at__gte=last_day)).count()
+                print(c.query)
+                print('current_store_count')
+                d = shop_obj.filter(created_at__gte=last_day).count()
+                print(d)
                 rt = {
                     'name': employee.employee.first_name,
                     'shop_inactive': shop_obj.filter(status=True).exclude(shop_obj.rt_buyer_shop_order.filter(created_at__gte=last_day)).count() if hasattr(Order, 'rt_buyer_shop_order') else 0,
