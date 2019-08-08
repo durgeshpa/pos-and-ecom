@@ -313,16 +313,23 @@ class SellerShopOrder(generics.ListAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        return ShopUserMapping.objects.filter(manager=self.request.user)
+        return ShopUserMapping.objects.filter(manager=self.request.user,status=True)
 
     def list(self, request, *args, **kwargs):
-        days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
         data = []
         data_total = []
+        shop_user_obj = ShopUserMapping.objects.filter(employee=self.request.user,employee_group__permissions__codename='can_sales_person_add_shop',status=True)
+        if not shop_user_obj:
+            shop_user_obj = self.get_queryset()
+        if not shop_user_obj.exists():
+            msg = {'is_success': True, 'message': ["Sorry No matching user found"], 'response_data': data}
+            return Response(msg, status=status.HTTP_200_OK)
+
         today = datetime.now()
+        days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
         last_day = today - timedelta(days=days_diff)
-        shop_list = ShopUserMapping.objects.filter(manager=self.request.user).values('shop', 'shop__shop_name')
-        shops_list = ShopUserMapping.objects.filter(manager=self.request.user).values('shop')
+        shop_list = shop_user_obj.values('shop', 'shop__id', 'shop__shop_name').order_by('shop').distinct('shop')
+        shops_list = shop_user_obj.values('shop').distinct('shop')
         order_obj = Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today, created_at__date__gte=last_day).values('buyer_shop','buyer_shop__shop_name').\
             annotate(buyer_shop_count=Count('buyer_shop'))\
             .annotate(no_of_ordered_sku=Count('ordered_cart__rt_cart_list'))\
@@ -367,16 +374,19 @@ class SellerShopProfile(generics.ListAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        return ShopUserMapping.objects.filter(manager=self.request.user)
+        return ShopUserMapping.objects.filter(manager=self.request.user,status=True)
 
     def list(self, request, *args, **kwargs):
         data = []
-        shop_user_obj = ShopUserMapping.objects.filter(manager=self.request.user, status=True)
-        employee_list = shop_user_obj.values('employee')
+        shop_user_obj = ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop', status=True)
+        if not shop_user_obj:
+            shop_user_obj = self.get_queryset()
+        if not shop_user_obj.exists():
+            msg = {'is_success': True, 'message': ["Sorry No matching user found"], 'response_data': data}
+            return Response(msg, status=status.HTTP_200_OK)
+
         shop_list = shop_user_obj.values('shop','shop__id','shop__shop_name').order_by('shop').distinct('shop')
         shops_list = shop_user_obj.values('shop').distinct('shop')
-        #shop_list = Shop.objects.filter(created_by__id__in=employee_list).values('shop_name','id').order_by('shop_name')
-        #order_obj = Order.objects.filter(buyer_shop__created_by__id__in=employee_list).order_by('buyer_shop').last()
 
         order_list = Order.objects.filter(buyer_shop__in=shops_list).values('buyer_shop', 'created_at').\
             annotate(buyer_shop_count=Count('buyer_shop'))\
