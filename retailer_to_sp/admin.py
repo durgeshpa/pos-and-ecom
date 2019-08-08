@@ -1138,8 +1138,21 @@ class ExportCsvMixin:
     export_as_csv_commercial.short_description = "Download CSV of Selected Commercial"
 
 
+class ShipmentInlineAdmin(admin.TabularInline):
+    model = Shipment
+    form = ShipmentForm
+    fields = ['product', 'ordered_qty', 'already_shipped_qty', 'to_be_shipped_qty','shipped_qty']
+    readonly_fields = ['product', 'ordered_qty', 'to_be_shipped_qty', 'already_shipped_qty']
+    extra = 0
+    max_num = 0
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
     #change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
+    #inlines = [ShipmentInlineAdmin]
     actions = ["change_trip_status", "export_as_csv_commercial",]
     list_display = (
         'dispatch_no', 'trip_amount', 'received_amount',

@@ -44,7 +44,7 @@ function GetResultByTripID() {
 }
 
 function ApprovePayment(id) {
-  $.ajax({
+  /*$.ajax({
       url: ,
       data: {
           'is_payment_approved': true,
@@ -55,7 +55,7 @@ function ApprovePayment(id) {
       success: function(data) {
         CheckResponse(data);
       }
-  });
+  });*/
 }
 
 function CheckResponse(data){
