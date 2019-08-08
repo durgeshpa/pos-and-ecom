@@ -421,44 +421,29 @@ class SalesPerformanceView(generics.ListAPIView):
         last_day = today - timedelta(days=days_diff)
         one_month = today - timedelta(days=days_diff + days_diff)
         shop_mangr = self.get_queryset()
-        if ShopUserMapping.objects.filter(employee=self.request.user,employee_group__permissions__codename='can_sales_person_add_shop',status=True).exists():
-            shop_obj = Shop.objects.filter(created_by=request.user)
+        shop_emp = ShopUserMapping.objects.filter(employee=self.request.user,employee_group__permissions__codename='can_sales_person_add_shop', status=True)
+        if shop_emp.exists():
             rt = {
                 'name': request.user.first_name,
-                'shop_inactive': shop_obj.filter(status=True).exclude(
-                    shop_obj.rt_buyer_shop_order.filter(created_at__gte=last_day)).count() if hasattr(Order,'rt_buyer_shop_order') else 0,
-                'shop_onboard': shop_obj.filter(status=True, created_at__gte=last_day).count() if hasattr(shop_obj,'retiler_mapping') and shop_obj.filter(
-                    status=True, created_at__gte=last_day) and shop_obj.retiler_mapping.exists() else 0,
-                'shop_reactivated': shop_obj.filter(status=True).rt_buyer_shop_order.filter(
-                    ~Q(created_at__date__lte=last_day, created_at__date__gte=one_month), Q(created_at__gte=last_day)) if hasattr(Order,'rt_buyer_shop_order') else 0,
+                'shop_inactive': Order.objects.filter(buyer_shop__in=shop_emp.values('shop')).exclude(created_at__date__lte=today, created_at__date__gte=last_day).count(),
+                'shop_onboard': Shop.objects.filter(id__in=shop_emp.values('shop'), status=True,created_at__date__lte=today,created_at__date__gte=last_day).count(),
+                'shop_reactivated': Order.objects.filter(buyer_shop__in=shop_emp.values('shop')).filter(~Q(created_at__date__lte=last_day, created_at__date__gte=one_month),
+                    Q(created_at__date__lte=today, created_at__date__gte=last_day)).count(),
                 'current_target_sales_target': '',
-                'current_store_count': shop_obj.filter(created_at__gte=last_day).count(),
+                'current_store_count': Shop.objects.filter(id__in=shop_emp.values('shop'),created_at__date__lte=today,created_at__date__gte=last_day).count(),
             }
             data.append(rt)
             msg = {'is_success': True, 'message': [""], 'response_data': data}
 
         elif shop_mangr.exists():
-            for employee in shop_mangr:
-                shop_obj = Shop.objects.filter(created_by=employee.employee)
-                print('shop_inactive')
-                a = shop_obj.filter(status=True).exclude(shop_obj.rt_buyer_shop_order.filter(created_at__gte=last_day)).count()
-                print(a.query)
-                print('shop_onboard')
-                b = shop_obj.filter(status=True, created_at__gte=last_day).count()
-                print(b.query)
-                print('shop_reactivated')
-                c = shop_obj.filter(status=True).rt_buyer_shop_order.filter(~Q(created_at__date__lte=last_day, created_at__date__gte=one_month),Q(created_at__gte=last_day)).count()
-                print(c.query)
-                print('current_store_count')
-                d = shop_obj.filter(created_at__gte=last_day).count()
-                print(d)
+            for shop_mapping_obj in shop_mangr:
                 rt = {
-                    'name': employee.employee.first_name,
-                    'shop_inactive': shop_obj.filter(status=True).exclude(shop_obj.rt_buyer_shop_order.filter(created_at__gte=last_day)).count() if hasattr(Order, 'rt_buyer_shop_order') else 0,
-                    'shop_onboard':  shop_obj.filter(status=True, created_at__gte=last_day).count() if hasattr(shop_obj, 'retiler_mapping') and shop_obj.filter(status=True,created_at__gte=last_day) and shop_obj.retiler_mapping.exists() else 0,
-                    'shop_reactivated': shop_obj.filter(status=True).rt_buyer_shop_order.filter(~Q(created_at__date__lte=last_day, created_at__date__gte=one_month), Q(created_at__gte=last_day)) if hasattr(Order, 'rt_buyer_shop_order') else 0,
+                    'name': shop_mapping_obj.employee.first_name,
+                    'shop_inactive': Order.objects.filter(buyer_shop__in=shop_mapping_obj.values('shop')).exclude(created_at__date__lte=today, created_at__date__gte=last_day).count(),
+                    'shop_onboard':  Shop.objects.filter(id__in=shop_mapping_obj.values('shop'), status=True, created_at__date__lte=today, created_at__date__gte=last_day).count(),
+                    'shop_reactivated': Order.objects.filter(buyer_shop__in=shop_mapping_obj.values('shop')).filter(~Q(created_at__date__lte=last_day, created_at__date__gte=one_month), Q(created_at__date__lte=today, created_at__date__gte=last_day)).count(),
                     'current_target_sales_target': '',
-                    'current_store_count': shop_obj.filter(created_at__gte=last_day).count(),
+                    'current_store_count': Shop.objects.filter(id__in=shop_mapping_obj.values('shop'), created_at__date__lte=today, created_at__date__gte=last_day).count(),
                 }
                 data.append(rt)
             msg = {'is_success': True, 'message': [""], 'response_data': data}
