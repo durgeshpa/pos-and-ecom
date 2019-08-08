@@ -3,7 +3,9 @@ from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 from rest_framework.response import Response
 from .serializers import (RetailerTypeSerializer, ShopTypeSerializer,
-        ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer, ShopUserMappingSerializer, SellerShopSerializer, AppVersionSerializer)
+    ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer, ShopUserMappingSerializer, SellerShopSerializer,
+    AppVersionSerializer, ShopUserMappingUserSerializer
+)
 from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping, SalesAppVersion)
 from rest_framework import generics
 from addresses.models import City, Area, Address
@@ -408,11 +410,7 @@ class SalesPerformanceView(generics.ListAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        return ShopUserMapping.objects.filter(manager=self.request.user,status=True).order_by('employee').distinct('employee')
-
-    def get_shops(self):
-        return ShopUserMapping.objects.filter(manager=self.request.user,status=True).values('shop').order_by('shop').distinct('shop')
-
+        return ShopUserMapping.objects.filter(employee_id=self.request.query_params.get('user_id', None), status=True).values('shop').order_by('shop').distinct('shop')
 
     def list(self, request, *args, **kwargs):
         days_diff = 15 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
@@ -420,33 +418,37 @@ class SalesPerformanceView(generics.ListAPIView):
         today = datetime.now()
         last_day = today - timedelta(days=days_diff)
         one_month = today - timedelta(days=days_diff + days_diff)
-        shop_mangr = self.get_queryset()
-        shop_emp = ShopUserMapping.objects.filter(employee=self.request.user,employee_group__permissions__codename='can_sales_person_add_shop', status=True)
-        if shop_emp.exists():
+        if self.get_queryset():
             rt = {
                 'name': request.user.first_name,
-                'shop_inactive': Order.objects.filter(buyer_shop__in=shop_emp.values('shop')).exclude(created_at__date__lte=today, created_at__date__gte=last_day).count(),
-                'shop_onboard': Shop.objects.filter(id__in=shop_emp.values('shop'), status=True,created_at__date__lte=today,created_at__date__gte=last_day).count(),
-                'shop_reactivated': Order.objects.filter(buyer_shop__in=shop_emp.values('shop')).filter(~Q(created_at__date__lte=last_day, created_at__date__gte=one_month),
+                'shop_inactive': Order.objects.filter(buyer_shop__in=self.get_queryset()).exclude(created_at__date__lte=today, created_at__date__gte=last_day).count(),
+                'shop_onboard': Shop.objects.filter(id__in=self.get_queryset(), status=True,created_at__date__lte=today,created_at__date__gte=last_day).count(),
+                'shop_reactivated': Order.objects.filter(buyer_shop__in=self.get_queryset()).filter(~Q(created_at__date__lte=last_day, created_at__date__gte=one_month),
                     Q(created_at__date__lte=today, created_at__date__gte=last_day)).count(),
                 'current_target_sales_target': '',
-                'current_store_count': Shop.objects.filter(id__in=shop_emp.values('shop'),created_at__date__lte=today,created_at__date__gte=last_day).count(),
+                'current_store_count': Shop.objects.filter(id__in=self.get_queryset(), created_at__date__lte=today, created_at__date__gte=last_day).count(),
             }
             data.append(rt)
             msg = {'is_success': True, 'message': [""], 'response_data': data}
+        else:
+            msg = {'is_success': False, 'message': ["User not exists"], 'response_data': None}
+        return Response(msg,status=status.HTTP_200_OK)
 
-        elif shop_mangr.exists():
-            for shop_mapping_obj in shop_mangr:
-                rt = {
-                    'name': shop_mapping_obj.employee.first_name,
-                    'shop_inactive': Order.objects.filter(buyer_shop__in=shop_mapping_obj.values('shop')).exclude(created_at__date__lte=today, created_at__date__gte=last_day).count(),
-                    'shop_onboard':  Shop.objects.filter(id__in=shop_mapping_obj.values('shop'), status=True, created_at__date__lte=today, created_at__date__gte=last_day).count(),
-                    'shop_reactivated': Order.objects.filter(buyer_shop__in=shop_mapping_obj.values('shop')).filter(~Q(created_at__date__lte=last_day, created_at__date__gte=one_month), Q(created_at__date__lte=today, created_at__date__gte=last_day)).count(),
-                    'current_target_sales_target': '',
-                    'current_store_count': Shop.objects.filter(id__in=shop_mapping_obj.values('shop'), created_at__date__lte=today, created_at__date__gte=last_day).count(),
-                }
-                data.append(rt)
-            msg = {'is_success': True, 'message': [""], 'response_data': data}
+class SalesPerformanceUserView(generics.ListAPIView):
+    serializer_class = ShopUserMappingUserSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        return ShopUserMapping.objects.filter(manager=self.request.user,status=True).order_by('employee').distinct('employee')
+
+    def list(self, request, *args, **kwargs):
+        shop_emp = ShopUserMapping.objects.filter(employee=self.request.user,employee_group__permissions__codename='can_sales_person_add_shop', status=True)
+        if not shop_emp:
+            shop_mangr = self.get_queryset()
+            msg = {'is_success': True, 'message': [""], 'response_data': self.get_serializer(shop_mangr, many=True).data}
+        elif shop_emp.exists():
+            msg = {'is_success': True, 'message': [""], 'response_data': self.get_serializer(shop_emp).data}
         else:
             msg = {'is_success': False, 'message': ["User not exists"], 'response_data': None}
         return Response(msg,status=status.HTTP_200_OK)

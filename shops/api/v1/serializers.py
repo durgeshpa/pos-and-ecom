@@ -94,3 +94,11 @@ class AppVersionSerializer(serializers.ModelSerializer):
         model = SalesAppVersion
         fields = ('app_version', 'update_recommended','force_update_required')
 
+class ShopUserMappingUserSerializer(serializers.ModelSerializer):
+    employee = UserSerializer()
+
+    class Meta:
+        model = ShopUserMapping
+        fields = ('shop','manager','employee','employee_group','created_at','status')
+
+
