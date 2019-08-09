@@ -29,6 +29,14 @@ PAYMENT_STATUS_CHOICES = (
     ('completed', 'completed'),
   )
 
+ONLINE_PAYMENT_TYPE_CHOICES = (
+    ('paytm', 'paytm'),
+    ('upi', 'upi'),
+    ('neft', 'neft'),
+    ('imps', 'imps'),
+    ('rtgs', 'rtgs'),
+  )
+
 ORDER_PAYMENT_STATUS_CHOICES = (
     ('not_initiated', 'not_initiated'),
     ('initiated', 'initiated'),
@@ -117,14 +125,14 @@ class ShipmentPayment(AbstractDateTime):
 
 class CashPayment(AbstractDateTime):
     # This method stores the info about the cash payment
-    payment = models.ForeignKey(Payment, related_name='cash_payment', on_delete=models.CASCADE)
+    payment = models.ForeignKey(ShipmentPayment, related_name='cash_payment', on_delete=models.CASCADE)
     paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
     description = models.CharField(max_length=255, null=True, blank=True)
 
 
 class CreditPayment(AbstractDateTime):
     # This method stores the credit payment: third party details, payment status
-    payment = models.ForeignKey(Payment, related_name='credit_payment', on_delete=models.CASCADE)
+    payment = models.ForeignKey(ShipmentPayment, related_name='credit_payment', on_delete=models.CASCADE)
     payment_id = models.CharField(max_length=255, unique=True)
     description = models.CharField(max_length=255, null=True, blank=True)
     payment_party_name = models.CharField(max_length=255, choices=PAYMENT_PARTY_CHOICES, null=True, blank=True)
@@ -137,7 +145,7 @@ class CreditPayment(AbstractDateTime):
 
 class WalletPayment(AbstractDateTime):
     # This method stores the wallet payment: third party details, payment status
-    payment = models.ForeignKey(Payment, related_name='wallet_payment', on_delete=models.CASCADE)
+    payment = models.ForeignKey(ShipmentPayment, related_name='wallet_payment', on_delete=models.CASCADE)
     payment_id = models.CharField(max_length=255, unique=True)
     description = models.CharField(max_length=255, null=True, blank=True)
     paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')    
@@ -145,6 +153,20 @@ class WalletPayment(AbstractDateTime):
     initiated_time = models.DateTimeField(null=True, blank=True)
     timeout_time = models.DateTimeField(null=True, blank=True)
     processed_by = models.ForeignKey(User, related_name='payment_boy', on_delete=models.CASCADE)
+
+
+class OnlinePayment(AbstractDateTime):
+    # This method stores the credit payment: third party details, payment status
+    payment = models.ForeignKey(ShipmentPayment, related_name='online_payment', on_delete=models.CASCADE)
+    payment_id = models.CharField(max_length=255, unique=True)
+    description = models.CharField(max_length=255, null=True, blank=True)
+    online_payment_type = models.CharField(max_length=255, choices=ONLINE_PAYMENT_TYPE_CHOICES, null=True, blank=True)
+    paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')    
+    payment_status = models.CharField(max_length=255, choices=PAYMENT_STATUS_CHOICES, null=True, blank=True)
+    initiated_time = models.DateTimeField(null=True, blank=True)
+    timeout_time = models.DateTimeField(null=True, blank=True)
+    processed_by = models.ForeignKey(User, related_name='payment_boy', on_delete=models.CASCADE)
+
 
 
 class Offer(AbstractDateTime):
