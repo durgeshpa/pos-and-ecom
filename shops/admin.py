@@ -10,7 +10,7 @@ from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
                     ShopForm, AddressForm, RequiredInlineFormSet,
                     AddressInlineFormSet, ShopUserMappingForm)
 from .views import (StockAdjustmentView, stock_adjust_sample,
-                    bulk_shop_updation, ShopAutocomplete, UserAutocomplete)
+                    bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView)
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
 from django.utils.html import format_html
@@ -190,6 +190,12 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                 self.admin_site.admin_view(UserAutocomplete.as_view()),
                 name="user-autocomplete"
             ),
+            url(
+               r'^upload/csv/$',
+               self.admin_site.admin_view(ShopUserMappingCsvView.as_view()),
+               name="shop-user-upload-csv"
+            ),
+
         ] + urls
         return urls
 
@@ -257,6 +263,19 @@ class ParentRetailerMappingAdmin(admin.ModelAdmin):
 class ShopUserMappingAdmin(admin.ModelAdmin):
     form = ShopUserMappingForm
     list_display = ('shop','manager','employee','employee_group','created_at','status')
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(ShopUserMappingAdmin, self).get_urls()
+        urls = [
+            url(
+               r'^upload/csv/$',
+               self.admin_site.admin_view(ShopUserMappingCsvView.as_view()),
+               name="shop-user-upload-csv"
+            ),
+
+        ] + urls
+        return urls
 
 class SalesAppVersionAdmin(admin.ModelAdmin):
     list_display = ('app_version','update_recommended','force_update_required','created_at','modified_at')

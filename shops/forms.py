@@ -206,4 +206,7 @@ class ShopUserMappingForm(forms.ModelForm):
                 raise ValidationError(_(VALIDATION_ERROR_MESSAGES['ALREADY_ADDED_SHOP']))
         return cleaned_data
 
+class ShopUserMappingCsvViewForm(forms.Form):
+    file_field = forms.FileField(widget=forms.ClearableFileInput(attrs={'multiple': True}))
+
 

@@ -420,7 +420,8 @@ class SalesPerformanceView(generics.ListAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        return ShopUserMapping.objects.filter(employee_id=self.request.query_params.get('user_id', None), status=True).values('shop').order_by('shop').distinct('shop')
+        #return ShopUserMapping.objects.filter(employee_id=self.request.query_params.get('user_id', None), status=True).values('shop').order_by('shop').distinct('shop')
+        return ShopUserMapping.objects.filter(employee=self.request.user, status=True).values('shop').order_by('shop').distinct('shop')
 
     def list(self, request, *args, **kwargs):
         days_diff = 15 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
@@ -430,7 +431,7 @@ class SalesPerformanceView(generics.ListAPIView):
         one_month = today - timedelta(days=days_diff + days_diff)
         if self.get_queryset():
             rt = {
-                'name': request.user.first_name,
+                'name': request.user.get_full_name(),
                 'shop_inactive': Order.objects.filter(buyer_shop__in=self.get_queryset()).exclude(created_at__date__lte=today, created_at__date__gte=last_day).count(),
                 'shop_onboard': Shop.objects.filter(id__in=self.get_queryset(), status=True,created_at__date__lte=today,created_at__date__gte=last_day).count(),
                 'shop_reactivated': Order.objects.filter(buyer_shop__in=self.get_queryset()).filter(~Q(created_at__date__lte=last_day, created_at__date__gte=one_month),
@@ -456,9 +457,9 @@ class SalesPerformanceUserView(generics.ListAPIView):
         shop_emp = ShopUserMapping.objects.filter(employee=self.request.user,employee_group__permissions__codename='can_sales_person_add_shop', status=True)
         if not shop_emp:
             shop_mangr = self.get_queryset()
-            msg = {'is_success': True, 'message': [""], 'response_data': self.get_serializer(shop_mangr, many=True).data}
+            msg = {'is_success': True, 'message': [""], 'response_data': self.get_serializer(shop_mangr, many=True).data, 'user_list': shop_mangr.values('employee')}
         elif shop_emp.exists():
-            msg = {'is_success': True, 'message': [""], 'response_data': self.get_serializer(shop_emp).data}
+            msg = {'is_success': True, 'message': [""], 'response_data': self.get_serializer(shop_emp).data, 'user_list':shop_emp.values('employee')}
         else:
             msg = {'is_success': False, 'message': ["User not exists"], 'response_data': None}
         return Response(msg,status=status.HTTP_200_OK)

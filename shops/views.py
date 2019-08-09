@@ -13,7 +13,8 @@ from gram_to_brand.models import GRNOrderProductMapping
 from sp_to_gram.models import OrderedProduct, OrderedProductMapping, StockAdjustment, StockAdjustmentMapping,OrderedProductReserved
 from django.db.models import Sum,Q
 from dal import autocomplete
-from .forms import StockAdjustmentUploadForm, BulkShopUpdation
+from .forms import StockAdjustmentUploadForm, BulkShopUpdation, ShopUserMappingCsvViewForm
+from django.views.generic.edit import FormView
 import csv
 import codecs
 import datetime
@@ -275,3 +276,19 @@ class UserAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(phone_number__icontains=self.q)
         return qs
+
+class ShopUserMappingCsvView(FormView):
+    form_class = ShopUserMappingCsvViewForm
+    template_name = 'admin/shops/shopusermapping/shop_user_mapping.html'
+    success_url = '/admin/shops/shopusermapping/'
+
+    def post(self, request, *args, **kwargs):
+        form_class = self.get_form_class()
+        form = self.get_form(form_class)
+        files = request.FILES.getlist('file_field')
+        if form.is_valid():
+            for f in files:
+                pass
+            return self.form_valid(form)
+        else:
+            return self.form_invalid(form)
