@@ -218,7 +218,18 @@ class TeamListView(generics.ListAPIView):
                                          output_field=FloatField())) \
             .order_by('ordered_by')
 
-        print(order_obj.query)
+        avg_order_obj = Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today, created_at__date__gte=last_day).values('buyer_shop') \
+            .annotate(buyer_shop_count=Count('buyer_shop')) \
+            .annotate(sum_no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
+            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer') * F(
+            'ordered_cart__rt_cart_list__no_of_pieces'),output_field=FloatField())).order_by('buyer_shop')
+
+        buyer_order_obj = Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today, created_at__date__gte=last_day).values('buyer_shop').annotate(
+            buyer_shop_count=Count('buyer_shop')).order_by('buyer_shop')
+
+        buyer_order_map = {i['buyer_shop']: (i['buyer_shop_count'],) for i in buyer_order_obj}
+        avg_order_map = {i['buyer_shop']: (i['sum_no_of_ordered_sku'], i['ordered_amount']) for i in avg_order_obj}
+
         order_map = {i['buyer_shop']: (i['no_of_ordered_sku'], i['no_of_ordered_sku_pieces'], i['avg_no_of_ordered_sku_pieces'],
         i['ordered_amount'], i['avg_ordered_amount']) for i in order_obj}
 
@@ -231,9 +242,12 @@ class TeamListView(generics.ListAPIView):
                 'ordered_amount': round(order_map[emp.shop.id][3], 2) if emp.shop.id in order_map else 0,
                 'delivered_amount': 0,
                 'store_added': store_added,
-                'avg_order_val': round(order_map[emp.shop.id][4], 2) if emp.shop.id in order_map else 0,
-                'avg_order_line_items': round(order_map[emp.shop.id][2], 2) if emp.shop.id in order_map else 0,
+                #'avg_order_val': round(order_map[emp.shop.id][4], 2) if emp.shop.id in order_map else 0,
+                #'avg_order_line_items': round(order_map[emp.shop.id][2], 2) if emp.shop.id in order_map else 0,
                 'unique_calls_made': 0,
+                'avg_order_val': round(avg_order_map[emp.shop.id][1] / buyer_order_map[emp.shop.id][0], 2) if emp.shop.id in buyer_order_map else 0,
+                'avg_order_line_items': round(avg_order_map[emp.shop.id][0] / buyer_order_map[emp.shop.id][0], 2) if emp.shop.id in buyer_order_map else 0,
+
                 'sales_person_name': emp.employee.get_full_name(),
                 'no_of_ordered_sku': order_map[emp.shop.id][0] if emp.shop.id in order_map else 0,
             }
