@@ -405,14 +405,17 @@ class SellerShopProfile(generics.ListAPIView):
                                          output_field=FloatField())) \
         .order_by('buyer_shop','created_at')
 
-        buyer_order_obj = Order.objects.filter(buyer_shop__id__in=shops_list).values('buyer_shop')\
+        avg_order_obj = Order.objects.filter(buyer_shop__id__in=shops_list).values('buyer_shop') \
             .annotate(buyer_shop_count=Count('buyer_shop')) \
             .annotate(sum_no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
             .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer') * F('ordered_cart__rt_cart_list__no_of_pieces'),
                                          output_field=FloatField())).order_by('buyer_shop')
 
-        print(buyer_order_obj)
-        buyer_order_map = {i['buyer_shop']: (i['buyer_shop_count'], i['sum_no_of_ordered_sku'], i['ordered_amount']) for i in buyer_order_obj}
+        buyer_order_obj = Order.objects.filter(buyer_shop__id__in=shops_list).values('buyer_shop').annotate(
+            buyer_shop_count=Count('buyer_shop')).order_by('buyer_shop')
+
+        buyer_order_map = {i['buyer_shop']: (i['buyer_shop_count'],) for i in buyer_order_obj}
+        avg_order_map = {i['buyer_shop']: (i['sum_no_of_ordered_sku'], i['ordered_amount']) for i in avg_order_obj}
         order_map = {i['buyer_shop']: (i['buyer_shop_count'], i['sum_no_of_ordered_sku'], i['avg_ordered_amount'], i['created_at'], i['ordered_amount']) for i in order_list}
 
         for shop in shop_list:
@@ -420,8 +423,8 @@ class SellerShopProfile(generics.ListAPIView):
                 'name': shop['shop__shop_name'],
                 'last_order_date': order_map[shop['shop']][3].strftime('%d-%m-%Y %H:%M') if shop['shop'] in order_map else 0,
                 'last_order_value': round(order_map[shop['shop']][4], 2) if shop['shop'] in order_map else 0,
-                'avg_order_value': round(buyer_order_map[shop['shop']][2] / buyer_order_map[shop['shop']][0], 2) if shop['shop'] in buyer_order_map else 0,
-                'avg_ordered_sku': round(buyer_order_map[shop['shop']][1] / buyer_order_map[shop['shop']][0], 2) if shop['shop'] in buyer_order_map else 0,
+                'avg_order_value': round(avg_order_map[shop['shop']][1] / buyer_order_map[shop['shop']][0], 2) if shop['shop'] in buyer_order_map else 0,
+                'avg_ordered_sku': round(avg_order_map[shop['shop']][0] / buyer_order_map[shop['shop']][0], 2) if shop['shop'] in buyer_order_map else 0,
                 'avg_time_between_order': '',
                 'last_calls_made': '',
             }
