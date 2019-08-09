@@ -197,14 +197,14 @@ class ShopUserMappingForm(forms.ModelForm):
         model = ShopUserMapping
         fields = ('shop', 'manager', 'employee','employee_group','status')
 
-    def clean(self):
-        cleaned_data = super().clean()
-        if self.cleaned_data.get('shop') and self.cleaned_data.get('employee') and self.cleaned_data.get('employee_group'):
-            group = Permission.objects.get(codename='can_sales_person_add_shop').group_set.last()
-            shop_user_obj =ShopUserMapping.objects.filter(shop=self.cleaned_data.get('shop'), employee_group=group)
-            if shop_user_obj.exists() and shop_user_obj.last().employee != self.cleaned_data.get('employee'):
-                raise ValidationError(_(VALIDATION_ERROR_MESSAGES['ALREADY_ADDED_SHOP']))
-        return cleaned_data
+    # def clean(self):
+    #     cleaned_data = super().clean()
+    #     if self.cleaned_data.get('shop') and self.cleaned_data.get('employee') and self.cleaned_data.get('employee_group'):
+    #         group = Permission.objects.get(codename='can_sales_person_add_shop').group_set.last()
+    #         shop_user_obj =ShopUserMapping.objects.filter(shop=self.cleaned_data.get('shop'), employee_group=group)
+    #         if shop_user_obj.exists() and shop_user_obj.last().employee != self.cleaned_data.get('employee'):
+    #             raise ValidationError(_(VALIDATION_ERROR_MESSAGES['ALREADY_ADDED_SHOP']))
+    #     return cleaned_data
 
 class ShopUserMappingCsvViewForm(forms.Form):
     file_field = forms.FileField(widget=forms.ClearableFileInput(attrs={'multiple': True}))

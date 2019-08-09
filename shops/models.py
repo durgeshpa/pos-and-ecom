@@ -243,7 +243,12 @@ class ShopUserMapping(models.Model):
     status = models.BooleanField(default=True)
 
     class Meta:
-        unique_together = ('shop', 'employee',)
+        unique_together = ('shop', 'employee','status')
+
+    def save(self, *args, **kwargs):
+        ShopUserMapping.objects.filter(shop=self.shop, employee_group=self.employee_group, status=True).update(status=False)
+        self.status = True
+        super().save(*args, **kwargs)
 
 class SalesAppVersion(models.Model):
     app_version = models.CharField(max_length=200)
