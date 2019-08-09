@@ -87,6 +87,8 @@ function CreateResponseTable(data){
       var cash_to_be_collected = "<td>" + data['response_data'][i]['cash_to_be_collected'] + "</td>";
       var invoice_city = "<td>" + data['response_data'][i]['invoice_city'] + "</td>";
       var shipment_address = "<td>" + data['response_data'][i]['shipment_address'] + "</td>";
+      var cash_payment = "<form action=''><input type='text' name='cash_payment' value='100'></form>";
+      var online_payment = "100";
       var created_at = "<td>" + data['response_data'][i]['created_at'] + "</td>";
       if (is_payment_approved == false)         
         var submit = "<td><button class='approve' id='"+ pk +"'>Approve</button></td>";
@@ -98,7 +100,69 @@ function CreateResponseTable(data){
   }
 }
 
+function submit_update_data(shipment_payment_id)
+{
+    console.log(formData);
+    /*alert("test");*/
+    $.ajax({
+        method: 'PATCH',
+        url: '/payments/api/v1/shipment-payment/'+shipment_payment_id+'/',
+        async: false,
+        contentType: "application/json",
+        data : JSON.stringify(formData),
+        success: function(data){
+            console.log(data);
+            alert('Successfully Updated');
+            formData = {};
+
+        },
+        error: function(xhr, desc, err){
+            console.log("error===");
+            console.log(xhr.responseText);
+            alert(xhr.responseText);
+            formData = {};
+        }
+    });
+}
+
+
+function update_shipment_payment_information(shipment_payment_id)
+{
+    /* Function to update shipment payment */
+
+    formData = {};
+
+    var formarray = $(".shipment_payment_info").serializeArray();
+
+    for(var i=0; i<formarray.length;i++)
+    {
+        formData[formarray[i].name]=formarray[i].value;
+    }    
+    
+/*    var shipment_payment_forms = $('.shipment_payment');
+    //console.log("shipment information form validation");
+    var form_validation = validate_form_js(shipment_payment_forms[0]);
+    if(form_validation['error_count'] >0){
+        alert('Please fill all fields of shipment information form');
+        formData = {};
+        return 0;
+    }
+*/    
+    var cash_payment = [];
+    formData['cash_payment'] = cash_payment;
+
+    submit_update_data(shipment_payment_id);
+}
+
 function CallAPI(){
     GetResultByTripID();
 }
+
+$('.shipment-payment-submit').on('click',  function(event) {  
+    event.preventDefault();
+    update_shipment_payment_information('{{ shipment_payment.id | escapejs }}');
+    if (count == 0)
+    submit_update_data('{{ shipment_payment.id | escapejs }}');
+});
+
 })(django.jQuery);
