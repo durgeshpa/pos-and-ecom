@@ -85,19 +85,23 @@ function CreateResponseTable(data){
       var invoice_no = "<td><a href='/admin/retailer_to_sp/cart/commercial/"+pk+"/shipment-details/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
       var invoice_amount = "<td>" + data['response_data'][i]['invoice_amount'] + "</td>";
       var cash_to_be_collected = "<td>" + data['response_data'][i]['cash_to_be_collected'] + "</td>";
+      var cash_payment = "<td><form action=''><input type='text' name='cash_payment' value='100'></form></td>";
+      var online_payment = "<td>100</td>";
       var invoice_city = "<td>" + data['response_data'][i]['invoice_city'] + "</td>";
       var shipment_address = "<td>" + data['response_data'][i]['shipment_address'] + "</td>";
-      var cash_payment = "<form action=''><input type='text' name='cash_payment' value='100'></form>";
-      var online_payment = "100";
       var created_at = "<td>" + data['response_data'][i]['created_at'] + "</td>";
       if (is_payment_approved == false)         
         var submit = "<td><button class='approve' id='"+ pk +"'>Approve</button></td>";
       else
         var submit = "";
-      var append_data = "<tr class="+ row +"><td class='original'></td>" + invoice_no + invoice_amount + cash_to_be_collected + shipment_status + invoice_city + created_at + order + shipment_address + submit +"</tr>"
+      var append_data = "<tr class="+ row +"><td class='original'></td>" + invoice_no + invoice_amount + cash_to_be_collected + cash_payment + online_payment + shipment_status + invoice_city + created_at + order + shipment_address + submit +"</tr>"
 
       $("tbody#data").append(append_data);
   }
+      var submit_payment_button = "<button class='shipment-payments-submit' type='button'>Submit Payment Info!</button>"
+      $("tbody#data").append(submit_payment_button);
+
+
 }
 
 function submit_update_data(shipment_payment_id)
@@ -151,14 +155,14 @@ function update_shipment_payment_information(shipment_payment_id)
     var cash_payment = [];
     formData['cash_payment'] = cash_payment;
 
-    submit_update_data(shipment_payment_id);
+    //submit_update_data(shipment_payment_id);
 }
 
 function CallAPI(){
     GetResultByTripID();
 }
 
-$('.shipment-payment-submit').on('click',  function(event) {  
+$('.shipment-payments-submit').on('click',  function(event) {  
     event.preventDefault();
     update_shipment_payment_information('{{ shipment_payment.id | escapejs }}');
     if (count == 0)
