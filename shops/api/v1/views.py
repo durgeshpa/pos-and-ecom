@@ -339,13 +339,17 @@ class SellerShopOrder(generics.ListAPIView):
             .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer')* F('ordered_cart__rt_cart_list__no_of_pieces'),
                                      output_field=FloatField()))\
             .order_by('buyer_shop')
-        print(order_obj.query)
+
+        buyer_order_obj = Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today,
+                                         created_at__date__gte=last_day).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop')).order_by('buyer_shop')
+
+        buyer_order_map = {i['buyer_shop']: (i['buyer_shop_count'],) for i in buyer_order_obj}
         order_map = {i['buyer_shop']: (i['buyer_shop_count'], i['no_of_ordered_sku'], i['no_of_ordered_sku_pieces'],i['ordered_amount']) for i in order_obj}
         no_of_order_total, no_of_ordered_sku_total, no_of_ordered_sku_pieces_total, ordered_amount_total = 0, 0, 0, 0
         for shop in shop_list:
             rt = {
                 'name': shop['shop__shop_name'],
-                'no_of_order': order_map[shop['shop']][0] if shop['shop'] in order_map else 0,
+                'no_of_order': buyer_order_map[shop['shop']][0] if shop['shop'] in buyer_order_map else 0,
                 'no_of_ordered_sku': order_map[shop['shop']][1] if shop['shop'] in order_map else 0,
                 'no_of_ordered_sku_pieces': order_map[shop['shop']][2] if shop['shop'] in order_map else 0,
                 'ordered_amount': round(order_map[shop['shop']][3],2) if shop['shop'] in order_map else 0,
@@ -354,7 +358,7 @@ class SellerShopOrder(generics.ListAPIView):
             }
             data.append(rt)
 
-            no_of_order_total += order_map[shop['shop']][0] if shop['shop'] in order_map else 0
+            no_of_order_total += buyer_order_map[shop['shop']][0] if shop['shop'] in buyer_order_map else 0
             no_of_ordered_sku_total += order_map[shop['shop']][1] if shop['shop'] in order_map else 0
             no_of_ordered_sku_pieces_total += order_map[shop['shop']][2] if shop['shop'] in order_map else 0
             ordered_amount_total += round(order_map[shop['shop']][3], 2) if shop['shop'] in order_map else 0
