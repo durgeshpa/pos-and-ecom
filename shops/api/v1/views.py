@@ -29,7 +29,7 @@ class FavouriteProductView(DataWrapperViewSet):
     '''
     This class handles all operation of favourite product for a shop
     '''
-    # permission_classes = (AllowAny,)
+    #permission_classes = (AllowAny,)
     model = FavouriteProduct
     serializer_class = FavouriteProductSerializer
     queryset = FavouriteProduct.objects.all()
@@ -56,8 +56,9 @@ class FavouriteProductView(DataWrapperViewSet):
     def delete(self, request, *args, **kwargs):
     
         try:
-            buyer_shop=request.data['buyer_shop']
-            product=request.data['product']
+            # import pdb; pdb.set_trace()
+            buyer_shop=request.query_params['buyer_shop']
+            product=request.query_params['product']
             favourite = FavouriteProduct.objects.filter(buyer_shop=buyer_shop, product=product)
             if favourite.exists():
                 favourite.delete()
