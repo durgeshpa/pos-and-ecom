@@ -217,6 +217,8 @@ class TeamListView(generics.ListAPIView):
             'ordered_cart__rt_cart_list__no_of_pieces'),
                                          output_field=FloatField())) \
             .order_by('ordered_by')
+
+        print(order_obj.query)
         order_map = {i['buyer_shop']: (i['no_of_ordered_sku'], i['no_of_ordered_sku_pieces'], i['avg_no_of_ordered_sku_pieces'],
         i['ordered_amount'], i['avg_ordered_amount']) for i in order_obj}
 
@@ -337,6 +339,7 @@ class SellerShopOrder(generics.ListAPIView):
             .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer')* F('ordered_cart__rt_cart_list__no_of_pieces'),
                                      output_field=FloatField()))\
             .order_by('buyer_shop')
+        print(order_obj.query)
         order_map = {i['buyer_shop']: (i['buyer_shop_count'], i['no_of_ordered_sku'], i['no_of_ordered_sku_pieces'],i['ordered_amount']) for i in order_obj}
         no_of_order_total, no_of_ordered_sku_total, no_of_ordered_sku_pieces_total, ordered_amount_total = 0, 0, 0, 0
         for shop in shop_list:
@@ -397,6 +400,7 @@ class SellerShopProfile(generics.ListAPIView):
             'ordered_cart__rt_cart_list__no_of_pieces'),
                                          output_field=FloatField())) \
         .order_by('buyer_shop','created_at')
+        print(order_list.query)
         order_map = {i['buyer_shop']: (i['buyer_shop_count'], i['avg_no_of_ordered_sku'], i['avg_ordered_amount'], i['created_at'], i['ordered_amount']) for i in order_list}
 
         for shop in shop_list:
@@ -429,6 +433,7 @@ class SalesPerformanceView(generics.ListAPIView):
         today = datetime.now()
         last_day = today - timedelta(days=days_diff)
         one_month = today - timedelta(days=days_diff + days_diff)
+        print(self.get_queryset().query)
         if self.get_queryset():
             rt = {
                 'name': request.user.get_full_name(),
