@@ -29,7 +29,7 @@ class FavouriteProductView(DataWrapperViewSet):
     '''
     This class handles all operation of favourite product for a shop
     '''
-    #permission_classes = (AllowAny,)
+    # permission_classes = (AllowAny,)
     model = FavouriteProduct
     serializer_class = FavouriteProductSerializer
     queryset = FavouriteProduct.objects.all()
@@ -46,11 +46,27 @@ class FavouriteProductView(DataWrapperViewSet):
             'retrieve': FavouriteProductSerializer,
             'list': FavouriteProductSerializer,
             'create':AddFavouriteProductSerializer,
-            'update':FavouriteProductSerializer
+            'update':FavouriteProductSerializer,
+            'delete':FavouriteProductSerializer
         }
         if hasattr(self, 'action'):
             return serializer_action_classes.get(self.action, self.serializer_class)
         return self.serializer_class
+
+    def delete(self, request, *args, **kwargs):
+    
+        try:
+            buyer_shop=request.data['buyer_shop']
+            product=request.data['product']
+            favourite = FavouriteProduct.objects.filter(buyer_shop=buyer_shop, product=product)
+            if favourite.exists():
+                favourite.delete()
+                return Response(data={'message':"deleted"})
+            else:
+                return Response(data={'message':"not found"})
+
+        except Exception as e:
+            return Response(data={'message':str(e)})
 
 
 class FavouriteProductListView(generics.ListAPIView):
