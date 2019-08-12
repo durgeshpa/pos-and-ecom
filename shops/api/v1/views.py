@@ -225,13 +225,13 @@ class TeamListView(generics.ListAPIView):
         buyer_order_obj = Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today, created_at__date__gte=last_day).values('buyer_shop').annotate(
             buyer_shop_count=Count('buyer_shop')).order_by('buyer_shop')
 
-        print(order_obj)
+        print(order_obj.query)
         print("------------")
 
-        print(avg_order_obj)
+        print(avg_order_obj.query)
         print("------------")
 
-        print(buyer_order_obj)
+        print(buyer_order_obj.query)
         print("------------")
         buyer_order_map = {i['buyer_shop']: (i['buyer_shop_count'],) for i in buyer_order_obj}
         avg_order_map = {i['buyer_shop']: (i['sum_no_of_ordered_sku'], i['ordered_amount']) for i in avg_order_obj}
