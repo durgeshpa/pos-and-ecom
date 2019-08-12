@@ -56,8 +56,9 @@ $(document).ready(function() {
                 'invoice_no':invoice_no
                },
                success: function(data){
-               CheckResponse(page_data.pending_shipments.response_data.push(data.response_data));
+               CheckResponse(page_data.pending_shipments.response_data.push(data.response_data[0])).selected=true;
                $('#id_Invoice_No').val("");
+               $('#id_selected_id').val(list)
                }
         });
         }
