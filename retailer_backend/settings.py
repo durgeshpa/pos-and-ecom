@@ -84,7 +84,7 @@ INSTALLED_APPS = [
     'retailer_to_gram',
     'admin_auto_filters',
     'notification_center',
-    #'payments',
+    'payments',
     'django_ses',
     'services',
     'rangefilter',

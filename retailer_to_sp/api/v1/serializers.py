@@ -675,13 +675,30 @@ class DispatchSerializer(serializers.ModelSerializer):
                                         source='get_shipment_status_display')
     order = serializers.SlugRelatedField(read_only=True, slug_field='order_no')
     created_at = serializers.DateTimeField()
+    shipment_payment = serializers.SerializerMethodField()
+
+    def get_shipment_payment(self, obj):
+        return ""
+        # payment = ShipmentPayment.objects.get_or_create(shipment=obj.id)
+        # payment_data = {}            
+
+        # cash_payment, created = CashPayment.objects.get_or_create(payment=payment, 
+        #                             paid_amount=obj.cash_to_be_collected)
+        # payment_data['cash_payment'] = cash_payment.paid_amount
+
+        # # online_payment, created = OnlinePayment.objects.get_or_create(payment=payment)
+        # # payment_data['online_payment_amount'] = online_payment.paid_amount
+        # # payment_data['online_payment_type'] = online_payment.online_payment_type
+
+        # return payment_data
 
     class Meta:
         model = Dispatch
         fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
                   'shipment_address', 'invoice_city', 'invoice_amount',
-                  'created_at', 'is_payment_approved')
-        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 'is_payment_approved')
+                  'created_at', 'shipment_payment')
+        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount',
+                 'shipment_payment')
 
 
 class CommercialShipmentSerializer(serializers.ModelSerializer):
@@ -690,6 +707,22 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
     order = serializers.SlugRelatedField(read_only=True, slug_field='order_no')
     cash_to_be_collected = serializers.SerializerMethodField()
     created_at = serializers.DateTimeField()
+    shipment_payment = serializers.SerializerMethodField()
+
+    def get_shipment_payment(self, obj):
+        return ""
+        # payment = ShipmentPayment.objects.get_or_create(shipment=obj.id)
+        # payment_data = {}            
+
+        # cash_payment, created = CashPayment.objects.get_or_create(payment=payment, 
+        #                             paid_amount=obj.cash_to_be_collected)
+        # payment_data['cash_payment_amount'] = cash_payment.paid_amount
+
+        # # online_payment, created = OnlinePayment.objects.get_or_create(payment=payment)
+        # # payment_data['online_payment_amount'] = online_payment.paid_amount
+        # # payment_data['online_payment_type'] = online_payment.online_payment_type
+
+        # return payment_data
 
     def get_cash_to_be_collected(self, obj):
         return obj.cash_to_be_collected()
@@ -698,8 +731,10 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
         model = OrderedProduct
         fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
                   'shipment_address', 'invoice_city', 'invoice_amount',
-                  'created_at', 'cash_to_be_collected', 'is_payment_approved')
-        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 'cash_to_be_collected', 'is_payment_approved')
+                  'created_at', 'cash_to_be_collected', 'shipment_payment')
+        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 
+                    'cash_to_be_collected', 'shipment_payment')
+
 
 class FeedBackSerializer(serializers.ModelSerializer):
 

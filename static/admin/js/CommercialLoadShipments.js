@@ -77,6 +77,7 @@ function CreateResponseTable(data){
       if (i % 2 === 0) {
           var row = "row1";
       }
+      var data1 = data['response_data'][i];
       var pk = data['response_data'][i]['pk'];
       var is_payment_approved = data['response_data'][i]['is_payment_approved'];
       var trip = data['response_data'][i]['trip'];
@@ -85,23 +86,18 @@ function CreateResponseTable(data){
       var invoice_no = "<td><a href='/admin/retailer_to_sp/cart/commercial/"+pk+"/shipment-details/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
       var invoice_amount = "<td>" + data['response_data'][i]['invoice_amount'] + "</td>";
       var cash_to_be_collected = "<td>" + data['response_data'][i]['cash_to_be_collected'] + "</td>";
-      var cash_payment = "<td><form action=''><input type='text' name='cash_payment' value='100'></form></td>";
-      var online_payment = "<td>100</td>";
+      var cash_payment = "<td><form action=''><input type='text' name='cash_payment' value='"+ data1['shipment_payment']['cash_payment_amount'] +"'></form></td>";
+      var online_payment = "<td>100</td>";//"<td><form action=''><input type='text' name='online_payment' value='"+ data['shipment_payment']['online_payment_amount'] +"'></form></td>";
       var invoice_city = "<td>" + data['response_data'][i]['invoice_city'] + "</td>";
       var shipment_address = "<td>" + data['response_data'][i]['shipment_address'] + "</td>";
       var created_at = "<td>" + data['response_data'][i]['created_at'] + "</td>";
-      if (is_payment_approved == false)         
-        var submit = "<td><button class='approve' id='"+ pk +"'>Approve</button></td>";
-      else
-        var submit = "";
-      var append_data = "<tr class="+ row +"><td class='original'></td>" + invoice_no + invoice_amount + cash_to_be_collected + cash_payment + online_payment + shipment_status + invoice_city + created_at + order + shipment_address + submit +"</tr>"
+      
+      var append_data = "<tr class="+ row +"><td class='original'></td>" + invoice_no + invoice_amount + cash_to_be_collected + cash_payment + online_payment + shipment_status + invoice_city + created_at + order + shipment_address + "</tr>"
 
       $("tbody#data").append(append_data);
   }
       var submit_payment_button = "<button class='shipment-payments-submit' type='button'>Submit Payment Info!</button>"
       $("tbody#data").append(submit_payment_button);
-
-
 }
 
 function submit_update_data(shipment_payment_id)
