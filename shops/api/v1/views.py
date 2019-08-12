@@ -252,7 +252,7 @@ class TeamListView(generics.ListAPIView):
             ordered_sku_pieces_total += order_map[emp.shop.id][1] if emp.shop.id in order_map else 0
             ordered_amount_total += round(order_map[emp.shop.id][3], 2) if emp.shop.id in order_map else 0
             store_added_total += store_added
-            no_of_ordered_sku_total += order_map[emp.shop.id][1] if emp.shop.id in order_map else 0
+            no_of_ordered_sku_total += order_map[emp.shop.id][0] if emp.shop.id in order_map else 0
             avg_order_total += round(avg_order_map[emp.shop.id][1] / buyer_order_map[emp.shop.id][0],2) if emp.shop.id in buyer_order_map else 0
             avg_order_line_items_total += round(avg_order_map[emp.shop.id][0] / buyer_order_map[emp.shop.id][0],2) if emp.shop.id in buyer_order_map else 0
 
