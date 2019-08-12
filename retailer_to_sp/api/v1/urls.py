@@ -6,11 +6,12 @@ from .views import (ProductsList, GramGRNProductsList,AddToCart,CartDetail,
     DownloadNote, CustomerCareApi, CustomerOrdersList,  PaymentApi,
     ProductDetail,ReleaseBlocking, OrderedProductViewSet, OrderedProductMappingView,
     CancelOrder, DeliveryBoyTrips,RetailerShopsList, FeedbackData, SellerOrderList,
-    DeliveryShipmentDetails, ShipmentDetail
+    DeliveryShipmentDetails, ShipmentDetail, PickerDashboardViewSet
 )
 
 router = routers.DefaultRouter()
 router.register(r'ordered-product', OrderedProductViewSet)
+router.register(r'picker-dashboard', PickerDashboardViewSet)
 router.register(r'ordered-product-mapping', OrderedProductMappingView)
 
 

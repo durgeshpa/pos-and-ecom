@@ -3,11 +3,15 @@ import codecs
 import datetime
 import os
 import logging
+import re
 
 from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from django.shortcuts import render, redirect
 from django.views import View
+from django.db import transaction
+from django.utils.decorators import method_decorator
+from django.contrib.auth.decorators import permission_required
 
 from shops.models import Shop, ShopType
 from addresses.models import City, State, Address
@@ -15,7 +19,8 @@ from categories.models import Category
 from brand.models import Brand
 from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
-    ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm
+    ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
+    ProductCategoryMappingForm
     )
 from products.models import (
     Product, ProductCategory, ProductOption,
@@ -151,21 +156,71 @@ def load_brands(request):
         )
 
 
-def sp_sr_productprice(request):
-    """CSV to product prices for sp/sr
+class SpSrProductPrice(View):
 
-    :param request: Form
-    :return: product prices for sp/sr
-    """
-    if request.method == 'POST':
+    def validate_row(self, first_row, row):
+        if not re.match("^\d{0,8}(\.\d{1,4})?$", row[4]):
+            raise Exception("{} - Please enter a valid {}"
+                            "".format(row[4], first_row[4]))
+        if not re.match("^\d{0,8}(\.\d{1,4})?$", row[5]):
+            raise Exception("{} - Please enter a valid {}"
+                            "".format(row[5], first_row[5]))
+        if not re.match("^\d{0,8}(\.\d{1,4})?$", row[6]):
+            raise Exception("{} - Please enter a valid {}"
+                            "".format(row[6], first_row[6]))
+        if not re.match("^\d{0,8}(\.\d{1,4})?$", row[7]):
+            raise Exception("{} - Please enter a valid {}"
+                            "".format(row[7], first_row[7]))
+        if row[8] and not re.match("^\d{0,8}(\.\d{1,4})?$", row[8]):
+            raise Exception("{} - Please enter a valid {}"
+                            "".format(row[8], first_row[8]))
+        if row[9] and not re.match("^\d{0,8}(\.\d{1,4})?$", row[9]):
+            raise Exception("{} - Please enter a valid {}"
+                            "".format(row[9], first_row[9]))
+        if (row[0] and not re.match("^[\d]*$", row[0])) or not row[0]:
+            raise Exception("{} - Please enter a valid {}"
+                            "".format(row[0], first_row[0]))
+
+    def create_product_price(self, request, file, shops, city, start_date,
+                             end_date, sp_sr):
+        try:
+            with transaction.atomic():
+                reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+                first_row = next(reader)
+                for row_id, row in enumerate(reader):
+
+                    if (row[4] and row[5] and row[6] and row[7]):
+                        self.validate_row(first_row, row)
+                        for shop in shops:
+                            ProductPrice.objects.create(
+                                product_id=row[0], city_id=city,
+                                mrp=float(row[4]), shop_id=shop.id,
+                                price_to_retailer=float(row[7]),
+                                price_to_service_partner=float(row[5]),
+                                price_to_super_retailer=float(row[6]),
+                                cash_discount=float(row[8]) if row[8] else 0,
+                                loyalty_incentive=float(row[9]) if row[9] else 0,
+                                start_date=start_date, end_date=end_date,
+                                approval_status=ProductPrice.APPROVAL_PENDING)
+
+                    elif (row[4] or row[5] or row[6] or row[7]):
+                        raise Exception("Please enter all the prices")
+                    else:
+                        continue
+
+                messages.success(request, 'Price uploaded successfully')
+
+        except Exception as e:
+            messages.error(request, "{} at Row[{}] for {}"
+                                    "".format(e, row_id + 2, row[1]))
+
+    def get(self, request):
+        form = ProductPriceForm(initial={'sp_sr_list': Shop.objects.none()})
+        return render(request, 'admin/products/productpriceupload.html',
+                      {'form': form})
+
+    def post(self, request):
         form = ProductPriceForm(request.POST, request.FILES)
-
-        if form.errors:
-            return render(
-                request,
-                'admin/products/productpriceupload.html',
-                {'form': form}
-            )
 
         if form.is_valid():
             file = form.cleaned_data.get('file')
@@ -174,52 +229,15 @@ def sp_sr_productprice(request):
             end_date = form.cleaned_data.get('end_date_time')
             sp_sr = form.cleaned_data.get('sp_sr_choice').shop_type
             shops = form.cleaned_data.get('sp_sr_list')
-            reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
-            first_row = next(reader)
-            try:
-                for row in reader:
-                    for shop in shops:
-                        if sp_sr == "sp":
-                            product_price = ProductPrice.objects.create(
-                                product_id=row[0],
-                                city_id=city,
-                                mrp=float(row[4]),
-                                shop_id=shop.id,
-                                price_to_retailer=float(row[7]),
-                                price_to_service_partner=float(row[5]),
-                                cash_discount=row[8],
-                                loyalty_incentive=row[9],
-                                start_date=start_date,
-                                end_date=end_date
-                            )
 
-                        elif sp_sr == "sr":
-                            product_price = ProductPrice.objects.create(
-                                product_id=row[0],
-                                city_id=city,
-                                mrp=row[4],
-                                shop_id=shop.id,
-                                price_to_super_retailer=row[6],
-                                cash_discount=row[8],
-                                loyalty_incentive=row[9],
-                                start_date=start_date,
-                                end_date=end_date
-                            )
-                messages.success(request, 'Price uploaded successfully')
+            self.create_product_price(request, file, shops, city,
+                                      start_date, end_date, sp_sr)
 
-            except:
-                messages.error(request, "Something went wrong!")
-            return redirect('admin:sp_sr_productprice')
-
-    else:
-        form = ProductPriceForm(
-            initial={'sp_sr_list': Shop.objects.none()}
+        return render(
+            request,
+            'admin/products/productpriceupload.html',
+            {'form': form}
         )
-    return render(
-        request,
-        'admin/products/productpriceupload.html',
-        {'form': form}
-    )
 
 
 def gf_product_price(request):
@@ -678,9 +696,10 @@ def NameIDCSV(request):
     writer.writerow(['BRAND NAME','BRAND ID','CATEGORY NAME','CATEGORY ID','TAX NAME','TAX ID','SIZE NAME','SIZE ID','COLOR NAME','COLOR ID','FRAGRANCE NAME','FRAGRANCE ID','FLAVOR NAME','FLAVOR ID','WEIGHT NAME','WEIGHT ID','PACKSIZE NAME','PACKSIZE ID'])
     return response
 
+
 class ProductPriceAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        qs = None
+        qs = Product.objects.none()
         if self.q:
             qs = Product.objects.filter(
                 Q(product_name__icontains=self.q) |
@@ -695,3 +714,78 @@ class ProductCategoryAutocomplete(autocomplete.Select2QuerySetView):
             qs = Category.objects.filter(category_name__icontains=self.q),
             #qs = Product.objects.filter(product_name__icontains=self.q)
         return qs
+
+
+def download_all_products(request):
+    """Returns CSV includes products
+
+    :param request: Form
+    :return: Products CSV
+    """
+    products_list = Product.objects.values(
+        'id', 'product_name', 'product_gf_code', 'product_hsn').all()
+
+    dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
+    filename = str(dt) + "all_products_list.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow([
+        'id', 'product_name',
+        'gf_code', 'product_hsn',
+        'mrp', 'ptsp', 'ptsr', 'ptr', 'cash_discount', 'loyalty_incentive'
+    ])
+    writer.writerows([[i['id'], i['product_name'], i['product_gf_code'],
+                      i['product_hsn'], '', '', '', '']
+                      for i in products_list])
+    return response
+
+
+class ProductCategoryMapping(View):
+
+    def validate_row(self, first_row, row):
+        if not row[0]:
+            raise Exception("{} is requied".format(first_row[0]))
+        if not row[1]:
+            raise Exception("{} is requied".format(first_row[1]))
+
+    def update_mapping(self, request, file):
+        try:
+            with transaction.atomic():
+                reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+                first_row = next(reader)
+                for row_id, row in enumerate(reader):
+                    self.validate_row(first_row, row)
+                    ProductCategory.objects.filter(
+                        product=Product.objects.get(product_gf_code=row[0])
+                    ).update(category=Category.objects.get(id=row[1]))
+
+                messages.success(request, 'Category Mapping updated successfully')
+
+        except Exception as e:
+            messages.error(request, "{} at Row[{}]".format(e, row_id + 2))
+
+    @method_decorator(permission_required('products.change_product'))
+    def get(self, request):
+        form = ProductCategoryMappingForm()
+        return render(request, 'admin/products/productcategorymapping.html',
+                      {'form': form})
+
+    @method_decorator(permission_required('products.change_product'))
+    def post(self, request):
+        form = ProductCategoryMappingForm(request.POST, request.FILES)
+        if form.is_valid():
+            file = form.cleaned_data.get('file')
+            self.update_mapping(request, file)
+
+        return render(request, 'admin/products/productcategorymapping.html',
+                      {'form': form})
+
+
+def product_category_mapping_sample(self):
+    filename = "product_category_mapping_sample.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerows([['gf_code', 'category_id'], ['GF01641', '161']])
+    return response

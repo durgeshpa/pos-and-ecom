@@ -6,7 +6,8 @@ from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMap
                              Size,Color,Fragrance,Flavor,Weight,PackageSize)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order,
                                    OrderedProduct, Note, CustomerCare,
-                                   Payment, Dispatch, Feedback, OrderedProductMapping, Trip)
+                                   Payment, Dispatch, Feedback, OrderedProductMapping, Trip, PickerDashboard)
+
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
     OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment
  )
@@ -28,6 +29,13 @@ from shops.models import Shop
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
+
+
+class PickerDashboardSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = PickerDashboard
+      fields = '__all__'
+
 
 class ProductImageSerializer(serializers.ModelSerializer):
    class Meta:
@@ -56,7 +64,6 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = ('id','product_name','product_inner_case_size',
             'product_case_size', 'product_image'
             )
-
 
 class OrderedProductMappingSerializer(serializers.ModelSerializer):
     # This serializer is used to fetch the products for a shipment

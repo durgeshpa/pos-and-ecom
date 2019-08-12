@@ -15,6 +15,11 @@ This repo includes Django Backend.
  ```brew install mysql```
  
  # How to run db_script for cart update
+
+
+create database mydb;
+create user myuser;
+GRANT permissions ON DATABASE dbname TO username;
  
  python manage.py shell or ./manage.py shell
  exec(open('db_changes/order_history_db_changes.py').read())

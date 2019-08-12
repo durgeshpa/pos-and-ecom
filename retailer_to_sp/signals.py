@@ -1,8 +1,55 @@
+import datetime
+
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.utils.crypto import get_random_string
+from django.db.models import Sum
 
 from retailer_backend.messages import ERROR_MESSAGES
 from retailer_to_sp.api.v1.views import release_blocking
-from django.db.models import Sum
 from shops.models import ParentRetailerMapping
+
+from .models import OrderedProduct, PickerDashboard, Order
+
+
+# @receiver(post_save, sender=OrderedProduct)
+# def update_picking_status(sender, instance=None, created=False, **kwargs):
+#     '''
+#     Method to update picking status 
+#     '''
+#     #assign shipment to picklist once SHIPMENT_CREATED
+#     if instance.shipment_status == "SHIPMENT_CREATED":
+#         # assign shipment to picklist
+#         # tbd : if manual(by searching relevant picklist id) or automated 
+#         picker = PickerDashboard.objects.get(order=instance.order, picking_status="picking_in_progress").update(
+#             shipment=instance)
+
+#     if instance.shipment_status == "READY_TO_SHIP":
+#         # assign picking_status to done and create new picklist id 
+#         picker = PickerDashboard.objects.get(shipment=instance).update(picking_status="picking_complete")
+
+#         # if more shipment required
+#         PickerDashboard.objects.create(
+#             order=instance.order,
+#             picking_status="picking_pending",
+#             picklist_id= get_random_string(12).lower(), #generate random string of 12 digits
+#             )
+
+
+
+# @receiver(post_save, sender=Order)
+# def assign_picklist(sender, instance=None, created=False, **kwargs):
+#     '''
+#     Method to update picking status 
+#     '''
+#     #assign shipment to picklist once SHIPMENT_CREATED
+#     if created:
+#         # assign piclist to order
+#         PickerDashboard.objects.create(
+#             order=instance,
+#             picking_status="picking_pending",
+#             picklist_id= get_random_string(12).lower(), #generate random string of 12 digits
+#             )
 
 
 class ReservedOrder(object):

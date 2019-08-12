@@ -1,0 +1,197 @@
+{% extends 'admin/retailer_to_sp/picker/base.html' %}
+
+{% block title %}Picker Dashboard | Admin{% endblock %}
+{% block breadcrumb1 %}Retailer_To_Sp{% endblock %}
+{% block breadcrumb2 %}Picker Dashboard{% endblock %}
+{% block breadcrumb3 %}Assign Picker{% endblock %}
+
+{% block content %}
+          <!-- Content -->
+         <div id="content" class="colM">
+            <h1>{% block content_header %}{% endblock %}</h1>
+            <div id="content-main">
+               <ul class="object-tools">
+                  <!--<li>-->
+                  <!--<a href="/admin/retailer_to_sp/orderedproduct/119/history/" class="historylink">History</a>-->
+                  <!--</li>-->
+               </ul>
+               <form method="post" enctype="multipart/form-data">
+                  <div>
+                    <fieldset class="module aligned ">
+                        {% csrf_token %}
+                        {% if form.errors %}
+                        {% for error in form.non_field_errors %}
+                        <p class="errornote">
+                           {{ error|escape }}
+                        </p>
+                        {% endfor %}
+                        {% endif %}
+                        {% for hidden in form.hidden_fields %}
+                        {{ hidden.errors }}
+                        {{ hidden }}
+                        {% endfor %}
+                        {% for field in form.visible_fields %}
+                        <p><label for="{{ field.auto_id }}">{{field.label}}:    {% if field.field.required %}
+                           <span class="required">*</span>
+                           {% endif %}
+                           </label>{{ field.errors }}{{ field }}
+                        </p>
+                        {{ field.widget.attrs.id }}
+                        {% endfor %}
+                     </fieldset>
+                     <div class="js-inline-admin-formset inline-group"
+                        data-inline-type="tabular"
+                        data-inline-formset="{&quot;name&quot;: &quot;#rt_order_product_order_product_mapping&quot;, &quot;options&quot;: {&quot;prefix&quot;: &quot;rt_order_product_order_product_mapping&quot;, &quot;addText&quot;: &quot;Add another Ordered product mapping&quot;, &quot;deleteText&quot;: &quot;Remove&quot;}}">
+                        <div class="tabular inline-related last-related">
+                           <fieldset id="inline" class="module ">
+                           <table id="formset" class="form">
+                              <tbody id="data">
+                              <thead>
+                                 <tr id="heading">
+                                    <th>Select</th>
+                                    <th>Order No.</th>
+                                    <th>Picklist</th>
+                                    <th>Order date</th>
+                                    <!-- <th>Download Picklist</th> -->
+                                 </tr>
+                               </thead>
+                               {% for picker in picker_orders %}
+                                 <tr id="loading">
+                                    <td><input type='checkbox' class='order_checkbox' value='{{ picker.id }}' ></td>
+                                    <td>{{ picker.order.order_no }}</td>
+                                    <td>{{ picker.picklist_id }}</td>
+                                    <td>{{ picker.order.created_at  }}</td>
+                                    <!-- <td></td> -->
+                                 </tr>
+                                {% endfor %} 
+                              </tbody>
+                           </table>
+                               {% if not picker_orders %}
+                                No data available.
+                               {% endif %}
+
+                        </div>
+                     </div>
+                     <div class="submit-row">
+                        <input type="submit" value="Save" class="default" name="_save">
+                        <p class="deletelink-box"><a href="/admin/retailer_to_sp/" class="deletelink">Back</a></p>
+                     </div>
+                  </div>
+               </form>
+            </div>
+            <br class="clear">
+         </div>
+         <!-- END Content -->
+{% endblock %}
+
+{% block javascript %}
+<script >
+    
+  var list = new Array();
+
+  $(document).ready(function() {
+/*    HideField('tr#heading');
+    HideField('tr#loading');
+    Select2Field('#id_seller_shop');
+    Select2Field('#id_delivery_boy');*/
+    SubmitFormConfirmDialog();
+    //GetResultOnChangeSellerShop();
+    //GetResultOnTypingArea();
+    AddRemoveCheckedIDToList();
+  });
+
+
+
+function Select2Field(id) {
+  $(id).select2();
+}
+
+function HideField(id){
+  $(id).hide();
+}
+
+function ShowField(id){
+  $(id).show();
+}
+
+function SubmitFormConfirmDialog(){
+  $('form').bind('submit', function(e) {      
+/*      if ($('input[type=checkbox]:checked').length-11) {*/
+        if ($('.order_checkbox:checkbox:checked').length) {
+          var c = confirm("Click OK to continue?");
+          return c;
+      } else {
+          e.preventDefault(e);
+          alert("Please select at least one order");
+
+      }
+  }); 
+}
+
+function GetURL() {
+  var host = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '') + '/';
+  var url = host + 'admin/retailer_to_sp/cart/load-dispatches/';
+  return url;
+}
+
+
+
+function CheckResponse(data){
+  if (data['is_success']){
+    /*EmptyElement('tbody#data');
+    ShowField('tr#heading');
+    HideField('tr#loading');*/
+    CreateResponseTable(data);
+  } else{
+/*    EmptyElement('tbody#data');
+    HideField('tr#heading');
+    HideField('tr#loading');*/
+    ShowMessage(data['message']);
+  }
+}
+
+function ShowMessage(msg){
+  $("tbody#data").append("<tr><td>"+msg+"<td></tr>");
+}
+
+function EmptyElement(id){
+  $(id).empty();
+}
+
+function GetTripStatus(){
+  return $('select#id_trip_status').val();
+}
+
+function AddRemoveCheckedIDToList(){
+  $(document).on("change", "input[type='checkbox']", function () {
+    if(this.checked) {
+          list.push($(this).val());
+          $('#id_selected_id').val(list);
+    } else {
+          list.splice($.inArray($(this).val(), list),1);
+          $('#id_selected_id').val(list);
+      }
+  });
+
+}
+
+var shop_id = '{{ shop_id | escapejs }}';
+$("#id_shop").val(shop_id);
+//$('#id_shop"] option[value="{{ shop_id | escapejs }}"]').attr("selected","selected");
+
+$("#id_shop").change(function(){
+  //make call to view 
+  var shop_id = $("#id_shop").val();
+  // similar behavior as clicking on a link
+  window.location.href = "/admin/retailer_to_sp/pickerdashboard/assign-picker/"+ shop_id+ "/";
+});
+</script>
+
+{% if not request.user.is_superuser %}
+<!-- <script type="text/javascript">
+  $("#id_shop").attr("style", "pointer-events: none;");  
+</script> -->
+
+{% endif %}
+
+{% endblock %}
