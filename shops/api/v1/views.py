@@ -204,8 +204,7 @@ class TeamListView(generics.ListAPIView):
         data = []
         data_total = []
         order_obj = Order.objects.filter(buyer_shop__id__in=shops_list,
-                                         created_at__date__lte=today, created_at__date__gte=last_day).values('buyer_shop',
-                                                                                     'ordered_by__first_name')\
+                                         created_at__date__lte=today, created_at__date__gte=last_day).values('buyer_shop')\
             .annotate(no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
             .annotate(no_of_ordered_sku_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces')) \
             .annotate(avg_no_of_ordered_sku_pieces=Avg('ordered_cart__rt_cart_list__no_of_pieces')) \
