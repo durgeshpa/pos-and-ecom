@@ -17,6 +17,7 @@ from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework import serializers
 from rest_framework import generics, viewsets
+from retailer_backend.utils import SmallOffsetPagination
 
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,
     CartProductMappingSerializer,CartSerializer, OrderSerializer,
@@ -1309,6 +1310,7 @@ class SellerOrderList(generics.ListAPIView):
     serializer_class = SellerOrderListSerializer
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
+    pagination_class = SmallOffsetPagination
 
     def get_queryset(self):
         shop_emp = ShopUserMapping.objects.filter(employee=self.request.user, status=True)
@@ -1323,8 +1325,9 @@ class SellerOrderList(generics.ListAPIView):
         msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
         current_url = request.get_host()
         queryset = Order.objects.filter(buyer_shop__in=self.get_queryset()).order_by('-created_at')
+        objects = self.pagination_class().paginate_queryset(queryset, request)
         users_list = [v['employee_id'] for v in self.get_queryset().values('employee_id')]
-        serializer = SellerOrderListSerializer(queryset, many=True, context={'current_url':current_url, 'sales_person_list':users_list})
+        serializer = self.serializer_class(objects, many=True, context={'current_url':current_url, 'sales_person_list':users_list})
         if serializer.data:
             msg = {'is_success': True,'message': None,'response_data': serializer.data}
         return Response(msg,status=status.HTTP_200_OK)
