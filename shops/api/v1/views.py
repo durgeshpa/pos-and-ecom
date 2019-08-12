@@ -233,6 +233,10 @@ class TeamListView(generics.ListAPIView):
         order_map = {i['ordered_by']: (i['no_of_ordered_sku'], i['no_of_ordered_sku_pieces'], i['avg_no_of_ordered_sku_pieces'],
         i['ordered_amount'], i['avg_ordered_amount'], i['shops_ordered']) for i in order_obj}
 
+        print(buyer_order_map)
+        print(avg_order_map)
+        print(order_map)
+
         ordered_sku_pieces_total, ordered_amount_total, store_added_total, avg_order_total, avg_order_line_items_total, no_of_ordered_sku_total = 0,0,0,0,0,0
         for emp in employee_list:
             store_added = emp.employee.shop_created_by.filter(created_at__date__lte=today, created_at__date__gte=last_day).count()
