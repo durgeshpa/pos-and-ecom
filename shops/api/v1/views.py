@@ -222,7 +222,7 @@ class TeamListView(generics.ListAPIView):
             .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer') * F(
             'ordered_cart__rt_cart_list__no_of_pieces'),output_field=FloatField())).order_by('ordered_by')
 
-        buyer_order_obj = Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today, created_at__date__gte=last_day).values('buyer_shop').annotate(
+        buyer_order_obj = Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today, created_at__date__gte=last_day).values('ordered_by').annotate(
             buyer_shop_count=Count('ordered_by')).order_by('ordered_by')
 
         print(order_obj.query)
