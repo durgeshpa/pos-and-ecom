@@ -233,10 +233,6 @@ class TeamListView(generics.ListAPIView):
         order_map = {i['ordered_by']: (i['no_of_ordered_sku'], i['no_of_ordered_sku_pieces'], i['avg_no_of_ordered_sku_pieces'],
         i['ordered_amount'], i['avg_ordered_amount'], i['shops_ordered']) for i in order_obj}
 
-        print(buyer_order_map)
-        print(avg_order_map)
-        print(order_map)
-
         ordered_sku_pieces_total, ordered_amount_total, store_added_total, avg_order_total, avg_order_line_items_total, no_of_ordered_sku_total = 0,0,0,0,0,0
         for emp in employee_list:
             store_added = emp.employee.shop_created_by.filter(created_at__date__lte=today, created_at__date__gte=last_day).count()
@@ -246,8 +242,8 @@ class TeamListView(generics.ListAPIView):
                 'delivered_amount': 0,
                 'store_added': store_added,
                 'unique_calls_made': 0,
-                'avg_order_val': round(order_map[emp.employee.id][3] / buyer_order_map[emp.employee.id][0], 2) if emp.employee.id in buyer_order_map else 0,
-                'avg_order_line_items': round(order_map[emp.employee.id][0] / buyer_order_map[emp.employee.id][0], 2) if emp.employee.id in buyer_order_map else 0,
+                'avg_order_val': round(order_map[emp.employee.id][3] / buyer_order_map[emp.employee.id][0], 2) if emp.employee.id in order_map else 0,
+                'avg_order_line_items': round(order_map[emp.employee.id][0] / buyer_order_map[emp.employee.id][0], 2) if emp.employee.id in order_map else 0,
                 'sales_person_name': emp.employee.get_full_name(),
                 'no_of_ordered_sku': order_map[emp.employee.id][0] if emp.employee.id in order_map else 0,
                 'shops_ordered': order_map[emp.employee.id][5] if emp.employee.id in order_map else 0,
@@ -257,8 +253,8 @@ class TeamListView(generics.ListAPIView):
             ordered_amount_total += round(order_map[emp.employee.id][3], 2) if emp.employee.id in order_map else 0
             store_added_total += store_added
             no_of_ordered_sku_total += order_map[emp.employee.id][0] if emp.employee.id in order_map else 0
-            avg_order_total += round(avg_order_map[emp.employee.id][1] / buyer_order_map[emp.employee.id][0],2) if emp.employee.id in buyer_order_map else 0
-            avg_order_line_items_total += round(avg_order_map[emp.employee.id][0] / buyer_order_map[emp.employee.id][0], 2) if emp.employee.id in buyer_order_map else 0
+            avg_order_total += round(order_map[emp.employee.id][3] / buyer_order_map[emp.employee.id][0], 2) if emp.employee.id in order_map else 0
+            avg_order_line_items_total += round(order_map[emp.employee.id][0] / buyer_order_map[emp.employee.id][0], 2) if emp.employee.id in order_map else 0
 
             dt ={
                 'ordered_sku_pieces': ordered_sku_pieces_total,
