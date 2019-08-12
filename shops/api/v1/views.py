@@ -195,7 +195,6 @@ class TeamListView(generics.ListAPIView):
     def get_shops(self):
         return ShopUserMapping.objects.filter(manager=self.request.user,status=True).values('shop').order_by('shop').distinct('shop')
 
-
     def list(self, request, *args, **kwargs):
         days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
         today = datetime.now()
@@ -205,7 +204,7 @@ class TeamListView(generics.ListAPIView):
         data = []
         data_total = []
         order_obj = Order.objects.filter(buyer_shop__id__in=shops_list,
-                                         created_at__date__lte=today, created_at__date__gte=last_day).values('buyer_shop','ordered_by',
+                                         created_at__date__lte=today, created_at__date__gte=last_day).values('buyer_shop',
                                                                                      'ordered_by__first_name')\
             .annotate(no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
             .annotate(no_of_ordered_sku_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces')) \
