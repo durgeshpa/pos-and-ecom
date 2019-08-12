@@ -204,7 +204,7 @@ class TeamListView(generics.ListAPIView):
         data = []
         data_total = []
         order_obj = Order.objects.filter(buyer_shop__id__in=shops_list,
-                                         created_at__date__lte=today, created_at__date__gte=last_day).values('buyer_shop')\
+                                         created_at__date__lte=today, created_at__date__gte=last_day).values('ordered_by')\
             .annotate(no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
             .annotate(no_of_ordered_sku_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces')) \
             .annotate(avg_no_of_ordered_sku_pieces=Avg('ordered_cart__rt_cart_list__no_of_pieces')) \
@@ -216,14 +216,14 @@ class TeamListView(generics.ListAPIView):
                                          output_field=FloatField())) \
             .order_by('ordered_by')
 
-        avg_order_obj = Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today, created_at__date__gte=last_day).values('buyer_shop') \
+        avg_order_obj = Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today, created_at__date__gte=last_day).values('ordered_by') \
             .annotate(buyer_shop_count=Count('buyer_shop')) \
             .annotate(sum_no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
             .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer') * F(
-            'ordered_cart__rt_cart_list__no_of_pieces'),output_field=FloatField())).order_by('buyer_shop')
+            'ordered_cart__rt_cart_list__no_of_pieces'),output_field=FloatField())).order_by('ordered_by')
 
         buyer_order_obj = Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today, created_at__date__gte=last_day).values('buyer_shop').annotate(
-            buyer_shop_count=Count('buyer_shop')).order_by('buyer_shop')
+            buyer_shop_count=Count('ordered_by')).order_by('ordered_by')
 
         print(order_obj.query)
         print("------------")
