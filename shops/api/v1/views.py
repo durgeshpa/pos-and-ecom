@@ -217,7 +217,6 @@ class TeamListView(generics.ListAPIView):
             .order_by('ordered_by')
 
         avg_order_obj = Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today, created_at__date__gte=last_day).values('ordered_by') \
-            .annotate(buyer_shop_count=Count('buyer_shop')) \
             .annotate(sum_no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
             .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer') * F(
             'ordered_cart__rt_cart_list__no_of_pieces'),output_field=FloatField())).order_by('ordered_by')
@@ -260,7 +259,7 @@ class TeamListView(generics.ListAPIView):
             store_added_total += store_added
             no_of_ordered_sku_total += order_map[emp.shop.id][0] if emp.shop.id in order_map else 0
             avg_order_total += round(avg_order_map[emp.shop.id][1] / buyer_order_map[emp.shop.id][0],2) if emp.shop.id in buyer_order_map else 0
-            avg_order_line_items_total += round(avg_order_map[emp.shop.id][0] / buyer_order_map[emp.shop.id][0],2) if emp.shop.id in buyer_order_map else 0
+            avg_order_line_items_total += round(avg_order_map[emp.shop.id][0] / buyer_order_map[emp.shop.id][0], 2) if emp.shop.id in buyer_order_map else 0
 
             dt={
             'ordered_sku_pieces': ordered_sku_pieces_total,
