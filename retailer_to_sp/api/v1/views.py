@@ -1,7 +1,7 @@
 import logging
 import json
 from datetime import datetime, timedelta
-
+from barCodeGenerator import barcodeGen
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F,Sum, Q
 from wkhtmltopdf.views import PDFTemplateResponse
@@ -293,8 +293,8 @@ class GramGRNProductsList(APIView):
         p_list = []
         if not is_store_active:
             body = {
-                "from" : offset, 
-                "size" : page_size, 
+                "from" : offset,
+                "size" : page_size,
                 "query":query,"_source":{"includes":["name", "product_images","pack_size","weight_unit","weight_value"]}
                 }
             products_list = es_search(index="all_products", body=body)
@@ -302,7 +302,7 @@ class GramGRNProductsList(APIView):
         for p in products_list['hits']['hits']:
 
             if cart_check == True:
-                ptr = p["_source"]['ptr'] 
+                ptr = p["_source"]['ptr']
                 loyalty_discount = p["_source"]['loyalty_discount']
                 cash_discount = p["_source"]['cash_discount']
                 for c_p in cart_products:
@@ -822,6 +822,7 @@ class DownloadInvoiceSP(APIView):
         pk=self.kwargs.get('pk')
         a = OrderedProduct.objects.get(pk=pk)
         shop=a
+        barcode = barcodeGen(a.invoice_no)
         payment_type=''
         products = a.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0)
         if a.order.rt_payment.filter(order_id=a.order).exists():
@@ -884,7 +885,7 @@ class DownloadInvoiceSP(APIView):
 
             # new code for tax start
             tax_sum = m.get_product_tax_json()
-            
+
             get_tax_val = tax_sum / 100
             basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
             base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
@@ -944,7 +945,7 @@ class DownloadInvoiceSP(APIView):
                 "order_id":order_id,"shop_name_gram":shop_name_gram,"nick_name_gram":nick_name_gram, "city_gram":city_gram,
                 "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram,
                 "payment_type":payment_type,"total_amount_int":total_amount_int,"product_listing":product_listing,
-                "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
+                "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin, "barcode":barcode,
                 "address_contact_number":address_contact_number,"sum_amount_tax":round(total_tax_sum, 2)}
 
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
