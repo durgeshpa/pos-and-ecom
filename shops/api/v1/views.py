@@ -231,7 +231,7 @@ class TeamListView(generics.ListAPIView):
         avg_order_map = {i['ordered_by']: (i['sum_no_of_ordered_sku'], i['ordered_amount']) for i in avg_order_obj}
 
         order_map = {i['ordered_by']: (i['no_of_ordered_sku'], i['no_of_ordered_sku_pieces'], i['avg_no_of_ordered_sku_pieces'],
-        i['ordered_amount'], i['avg_ordered_amount']) for i in order_obj}
+        i['ordered_amount'], i['avg_ordered_amount'], i['shops_ordered']) for i in order_obj}
 
         ordered_sku_pieces_total, ordered_amount_total, store_added_total, avg_order_total, avg_order_line_items_total, no_of_ordered_sku_total = 0,0,0,0,0,0
         for emp in employee_list:
@@ -246,6 +246,7 @@ class TeamListView(generics.ListAPIView):
                 'avg_order_line_items': round(avg_order_map[emp.employee.id][0] / buyer_order_map[emp.employee.id][0], 2) if emp.employee.id in buyer_order_map else 0,
                 'sales_person_name': emp.employee.get_full_name(),
                 'no_of_ordered_sku': order_map[emp.employee.id][0] if emp.employee.id in order_map else 0,
+                'shops_ordered': order_map[emp.employee.id][5] if emp.employee.id in order_map else 0,
             }
             data.append(rt)
             ordered_sku_pieces_total += order_map[emp.employee.id][1] if emp.employee.id in order_map else 0
