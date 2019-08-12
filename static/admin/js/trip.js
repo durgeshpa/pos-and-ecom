@@ -60,7 +60,10 @@ $(document).ready(function() {
        if(invoice_filter(shipment_data, invoice_no).length>0){
        $.each(invoice_filter(shipment_data, invoice_no), function(i, elem){
             elem.selected=true;
-            list.push(elem.pk);
+            if(list.indexOf(elem.pk)==-1)
+            {
+                list.push(elem.pk);
+            }
             $('#id_selected_id').val(list);
        });
         CheckResponse();
@@ -73,10 +76,8 @@ $(document).ready(function() {
                 'invoice_no':invoice_no
                },
                success: function(data){
-               CheckResponse(page_data.pending_shipments.response_data.push(data.response_data[0])).selected=true;
-               //data.selected=true;
+               CheckResponse(page_data.pending_shipments.response_data.push(data.response_data[0]));
                $('#id_Invoice_No').val("");
-               $('#id_selected_id').val(list);
                }
         });
         }

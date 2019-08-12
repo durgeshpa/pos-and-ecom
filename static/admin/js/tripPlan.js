@@ -1,5 +1,6 @@
  var list = new Array();
  page_data = {};
+ var uncheckedlist = new Array();
 
   $(document).ready(function() {
     HideField('tr#heading');
@@ -43,7 +44,10 @@ $(document).ready(function() {
        if(invoice_filter(shipment_data, invoice_no).length>0){
        $.each(invoice_filter(shipment_data, invoice_no), function(i, elem){
             elem.selected=true;
-            list.push(elem.pk);
+            if(list.indexOf(elem.pk)==-1)
+            {
+                list.push(elem.pk);
+            }
             $('#id_selected_id').val(list);
        });
         CheckResponse();
@@ -56,9 +60,8 @@ $(document).ready(function() {
                 'invoice_no':invoice_no
                },
                success: function(data){
-               CheckResponse(page_data.pending_shipments.response_data.push(data.response_data[0])).selected=true;
+               CheckResponse(page_data.pending_shipments.response_data.push(data.response_data[0]));
                $('#id_Invoice_No').val("");
-               $('#id_selected_id').val(list)
                }
         });
         }
@@ -237,7 +240,7 @@ function CreateResponseTable(data){
       if(data['response_data'][i]['shipment_status']=="Ready to Dispatch"){
             data['response_data'][i]['selected'] = true;
             if(list.indexOf(data['response_data'][i]['pk'])==-1){
-                list.push(data['response_data'][i]['pk']);
+//                list.push(data['response_data'][i]['pk']);
             }
       }
 //      var select = "<td><input type='checkbox' class='shipment_checkbox' value='" + pk + "'></td>";
