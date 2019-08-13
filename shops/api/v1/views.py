@@ -463,14 +463,13 @@ class SalesPerformanceView(generics.ListAPIView):
         today = datetime.now()
         last_day = today - timedelta(days=days_diff)
         one_month = today - timedelta(days=days_diff + days_diff)
-        print(self.get_queryset().query)
         if self.get_queryset():
             rt = {
                 'name': request.user.get_full_name(),
-                'shop_inactive': Order.objects.filter(buyer_shop__in=self.get_queryset()).exclude(created_at__date__lte=today, created_at__date__gte=last_day).count(),
+                'shop_inactive': Order.objects.filter(buyer_shop__in=self.get_queryset()).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop')).exclude(created_at__date__lte=today, created_at__date__gte=last_day).count(),
                 'shop_onboard': Shop.objects.filter(id__in=self.get_queryset(), status=True,created_at__date__lte=today,created_at__date__gte=last_day).count(),
                 'shop_reactivated': Order.objects.filter(buyer_shop__in=self.get_queryset()).filter(~Q(created_at__date__lte=last_day, created_at__date__gte=one_month),
-                    Q(created_at__date__lte=today, created_at__date__gte=last_day)).count(),
+                    Q(created_at__date__lte=today, created_at__date__gte=last_day)).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop')).count(),
                 'current_target_sales_target': '',
                 'current_store_count': Shop.objects.filter(id__in=self.get_queryset(), created_at__date__lte=today, created_at__date__gte=last_day).count(),
             }
