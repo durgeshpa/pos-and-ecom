@@ -215,41 +215,17 @@ class ShopUserMappingCsvViewForm(forms.Form):
         reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
         first_row = next(reader)
         for id, row in enumerate(reader):
-            if not row[0] or not re.match("^[\d]*$", row[0]):
+            if not row[0] or not re.match("^[\d]*$", row[0]) or not Shop.objects.filter(pk=row[0]).exists():
                 raise ValidationError(_('INVALID_SHOP_ID at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
-            if row[0]:
-                try:
-                    Shop.objects.get(pk=row[0])
-                except:
-                    raise ValidationError(_('No shop found with given SHOP_ID at Row[%(value)s]'), params={'value': id+1},)
-
-            if not row[1] or not re.match("^[\d]*$", row[1]):
+            
+            if not row[1] or not re.match("^[\d]*$", row[1]) or not get_user_model().objects.filter(phone_number=row[1]).exists():
                 raise ValidationError(_('INVALID_MANAGER_NO at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
 
-            if row[1]:
-                try:
-                    get_user_model().objects.get(phone_number=row[1])
-                except:
-                    raise ValidationError(_('No user found with given MANAGER_NO at Row[%(value)s]'), params={'value': id+1},)
-
-            if not row[2] or not re.match("^[\d]*$", row[2]):
+            if not row[2] or not re.match("^[\d]*$", row[2]) or not get_user_model().objects.filter(phone_number=row[2]).exists():
                 raise ValidationError(_('INVALID_EMPLOYEE_NO at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
 
-            if row[2]:
-                try:
-                    get_user_model().objects.get(phone_number=row[2])
-                except:
-                    raise ValidationError(_('No user found with given EMPLOYEE_NO at Row[%(value)s]'), params={'value': id+1},)
-
-            if not row[3] or not re.match("^[\d]*$", row[3]):
+            if not row[3] or not re.match("^[\d]*$", row[3]) or not Group.objects.filter(pk=row[3]):
                 raise ValidationError(_('INVALID_GROUP_ID at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
-
-            if row[3]:
-                try:
-                    Group.objects.get(pk=row[3])
-                except:
-                    raise ValidationError(_('INVALID_GROUP_ID at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
-
 
 
 
