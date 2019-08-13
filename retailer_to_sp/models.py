@@ -247,6 +247,47 @@ class Order(models.Model):
         (PARTIALLY_SHIPPED_AND_CLOSED, "Partially shipped and closed"),
         (DENIED_AND_CLOSED, 'Denied and Closed')
     )
+
+    CASH_NOT_AVAILABLE = 'cna'
+    SHOP_CLOSED = 'sc'
+    RESCHEDULED_BY_SELLER = 'rbs'
+    UNABLE_TO_ATTEMPT = 'uta'
+    WRONG_ORDER = 'wo'
+    ITEM_MISS_MATCH = 'imm'
+    DAMAGED_ITEM = 'di'
+    LEFT_AT_WAREHOUSE = 'law'
+    BEFORE_DELIVERY_CANCELLED = 'bdc'
+    NEAR_EXPIRY = 'ne'
+    RATE_ISSUE = 'ri'
+    ALREADY_PURCHASED = 'ap'
+    GST_ISSUE = 'gi'
+    CLEANLINESS = 'cl'
+    CUSTOMER_CANCEL = 'cc'
+    CUSTOMER_UNAVAILABLE = 'cu'
+    MANUFACTURING_DEFECT = 'md'
+    SHORT = 's'
+
+    CANCELLATION_REASON = (
+        (CASH_NOT_AVAILABLE, 'Cash not available'),
+        (SHOP_CLOSED, 'Shop Closed'),
+        (RESCHEDULED_BY_SELLER, 'Rescheduled by seller'),
+        (UNABLE_TO_ATTEMPT, 'Unable to attempt'),
+        (WRONG_ORDER, 'Wrong Order'),
+        (ITEM_MISS_MATCH, 'Item miss match'),
+        (DAMAGED_ITEM, 'Damaged item'),
+        (LEFT_AT_WAREHOUSE, 'Left at Warehouse'),
+        (BEFORE_DELIVERY_CANCELLED, 'Before Delivery Cancelled'),
+        (NEAR_EXPIRY, 'Near Expiry'),
+        (RATE_ISSUE, 'Rate issue'),
+        (ALREADY_PURCHASED, 'Already Purchased'),
+        (GST_ISSUE, 'GST Issue'),
+        (CLEANLINESS, 'Item not clean'),
+        (CUSTOMER_CANCEL, 'Cancelled by customer'),
+        (CUSTOMER_UNAVAILABLE, 'Customer not available'),
+        (MANUFACTURING_DEFECT, 'Manufacturing Defect'),
+        (SHORT, 'Item short')
+    )
+
     #Todo Remove
     seller_shop = models.ForeignKey(
         Shop, related_name='rt_seller_shop_order',
@@ -276,6 +317,10 @@ class Order(models.Model):
     # total_final_amount = models.FloatField(
     #     default=0, verbose_name='Ordered Amount')
     order_status = models.CharField(max_length=50,choices=ORDER_STATUS)
+    cancellation_reason = models.CharField(
+        max_length=50, choices=CANCELLATION_REASON,
+        null=True, blank=True, verbose_name='Reason for Cancellation',
+    )
     order_closed = models.BooleanField(default=False, null=True, blank=True)
     ordered_by = models.ForeignKey(
         get_user_model(), related_name='rt_ordered_by_user',

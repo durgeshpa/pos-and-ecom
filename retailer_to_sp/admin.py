@@ -483,7 +483,8 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                        'billing_address', 'shipping_address')}),
         (_('Order Details'), {
             'fields': ('order_no', 'ordered_cart', 'order_status',
-                       'ordered_by', 'last_modified_by')}),
+                       'cancellation_reason', 'ordered_by',
+                       'last_modified_by')}),
         (_('Amount Details'), {
             'fields': ('total_mrp_amount', 'total_discount_amount',
                        'total_tax_amount', 'total_final_amount')}),
