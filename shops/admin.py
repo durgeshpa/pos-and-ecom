@@ -10,7 +10,7 @@ from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
                     ShopForm, AddressForm, RequiredInlineFormSet,
                     AddressInlineFormSet, ShopUserMappingForm)
 from .views import (StockAdjustmentView, stock_adjust_sample,
-                    bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView)
+                    bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView, ShopUserMappingCsvSample)
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
 from django.utils.html import format_html
@@ -196,6 +196,11 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                self.admin_site.admin_view(ShopUserMappingCsvView.as_view()),
                name="shop-user-upload-csv"
             ),
+            url(
+               r'^upload/csv/sample$',
+               self.admin_site.admin_view(ShopUserMappingCsvView.as_view()),
+               name="shop-user-upload-csv"
+            ),
 
         ] + urls
         return urls
@@ -261,6 +266,16 @@ class ParentRetailerMappingAdmin(admin.ModelAdmin):
 
     class Media:
         pass
+
+from import_export.admin import ImportExportModelAdmin
+class ShopUserMappingResource(resources.ModelResource):
+
+    class Meta:
+        model = ShopUserMapping
+        fields = ('id','shop', 'manager__phone_number', 'employee__phone_number', 'employee_group', 'status',)
+        export_order = ('shop', 'manager__phone_number', 'employee__phone_number', 'employee_group', 'status',)
+        #exclude = ('id',)
+
 class ShopUserMappingAdmin(admin.ModelAdmin):
     form = ShopUserMappingForm
     list_display = ('shop','manager','employee','employee_group','created_at','status')
@@ -274,6 +289,11 @@ class ShopUserMappingAdmin(admin.ModelAdmin):
                self.admin_site.admin_view(ShopUserMappingCsvView.as_view()),
                name="shop-user-upload-csv"
             ),
+           url(
+               r'^upload/csv/sample$',
+               self.admin_site.admin_view(ShopUserMappingCsvSample.as_view()),
+               name="shop-user-upload-csv-sample"
+           ),
 
         ] + urls
         return urls

@@ -44,9 +44,12 @@
           {% block object-tools-items %}
             {% change_list_object_tools %}
           {% endblock %}
-          <!--<li>-->
-            <!--<a href="{% url 'admin:shop-user-upload-csv' %}" class="addlink">Upload Csv</a>-->
-          <!--</li>-->
+          <li>
+            <a href="{% url 'admin:shop-user-upload-csv' %}" class="addlink">Upload Csv</a>
+          </li>
+          <li>
+            <a href="{% url 'admin:shop-user-upload-csv-sample' %}" class="addlink">Download Sample</a>
+          </li>
         </ul>
 
     {% endblock %}

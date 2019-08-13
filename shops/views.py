@@ -21,6 +21,8 @@ import datetime
 from django.db import transaction
 from addresses.models import Address, State, City
 from django.contrib.auth import get_user_model
+from shops.models import ShopUserMapping
+from rest_framework.views import APIView
 
 # Create your views here.
 class ShopMappedProduct(TemplateView):
@@ -285,10 +287,28 @@ class ShopUserMappingCsvView(FormView):
     def post(self, request, *args, **kwargs):
         form_class = self.get_form_class()
         form = self.get_form(form_class)
-        files = request.FILES.getlist('file_field')
-        if form.is_valid():
-            for f in files:
-                pass
+        #shop_user_mapping = []
+        file = request.FILES['file']
+        reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+        first_row = next(reader)
+        for row in reader:
+            if row[1]:
+                manager = get_user_model().objects.get(phone_number=row[1])
+            if row[2]:
+                employee = get_user_model().objects.get(phone_number=row[2])
+            ShopUserMapping.objects.create(shop_id=row[0],manager=manager, employee=employee, employee_group_id=row[3])
+        #ShopUserMapping.objects.bulk_create(shop_user_mapping)
             return self.form_valid(form)
         else:
             return self.form_invalid(form)
+
+from django.views.generic import View
+class ShopUserMappingCsvSample(View):
+    def get(self, request, *args, **kwargs):
+        filename = "shop_user_list.csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        writer = csv.writer(response)
+        writer.writerow(['shop', 'manager', 'employee', 'employee_group'])
+        writer.writerow(['23', '8989787878', '8989898989', '2'])
+        return response
