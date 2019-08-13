@@ -369,9 +369,9 @@ class AddToCart(APIView):
             #  if shop mapped with SP
 
             if parent_mapping.parent.shop_type.shop_type == 'sp':
-                if Cart.objects.filter(last_modified_by=self.request.user,
+                if Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
                                        cart_status__in=['active', 'pending']).exists():
-                    cart = Cart.objects.filter(last_modified_by=self.request.user,
+                    cart = Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
                                                cart_status__in=['active', 'pending']).last()
                     cart.cart_status = 'active'
                     cart.seller_shop = parent_mapping.parent
