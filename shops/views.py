@@ -291,14 +291,15 @@ class ShopUserMappingCsvView(FormView):
         file = request.FILES['file']
         reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
         first_row = next(reader)
-        for row in reader:
-            if row[1]:
-                manager = get_user_model().objects.get(phone_number=row[1])
-            if row[2]:
-                employee = get_user_model().objects.get(phone_number=row[2])
-            ShopUserMapping.objects.create(shop_id=row[0],manager=manager, employee=employee, employee_group_id=row[3])
-        #ShopUserMapping.objects.bulk_create(shop_user_mapping)
-            return self.form_valid(form)
+        if form.is_valid():
+            for row in reader:
+                if row[1]:
+                    manager = get_user_model().objects.get(phone_number=row[1])
+                if row[2]:
+                    employee = get_user_model().objects.get(phone_number=row[2])
+                ShopUserMapping.objects.create(shop_id=row[0],manager=manager, employee=employee, employee_group_id=row[3])
+            #ShopUserMapping.objects.bulk_create(shop_user_mapping)
+                return self.form_valid(form)
         else:
             return self.form_invalid(form)
 
