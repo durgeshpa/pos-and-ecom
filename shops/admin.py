@@ -191,16 +191,6 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                 self.admin_site.admin_view(UserAutocomplete.as_view()),
                 name="user-autocomplete"
             ),
-            url(
-               r'^upload/csv/$',
-               self.admin_site.admin_view(ShopUserMappingCsvView.as_view()),
-               name="shop-user-upload-csv"
-            ),
-            url(
-               r'^upload/csv/sample$',
-               self.admin_site.admin_view(ShopUserMappingCsvView.as_view()),
-               name="shop-user-upload-csv"
-            ),
 
         ] + urls
         return urls
