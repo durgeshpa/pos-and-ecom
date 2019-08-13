@@ -195,6 +195,7 @@ class ShopTimingForm(forms.ModelForm):
 
     class Meta:
         fields = ('shop','open_timing','closing_timing','break_start_time','break_end_time','off_day')
+
 class BulkShopUpdation(forms.Form):
     file = forms.FileField(label='Select a file')
 

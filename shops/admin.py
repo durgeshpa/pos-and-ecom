@@ -8,7 +8,8 @@ from addresses.models import Address
 from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
                     ShopForm, AddressForm, RequiredInlineFormSet,
                     AddressInlineFormSet, ShopTimingForm)
-from .views import (StockAdjustmentView, stock_adjust_sample, ShopTimingAutocomplete, bulk_shop_updation)
+from .views import (StockAdjustmentView, stock_adjust_sample, ShopTimingAutocomplete,
+                    bulk_shop_updation)
 
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
@@ -180,7 +181,6 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                 self.admin_site.admin_view(ShopTimingAutocomplete.as_view()),
                 name="shop-timing-autocomplete"
             ),
-
             url(
                 r'^bulk-shop-updation/$',
                 self.admin_site.admin_view(bulk_shop_updation),
