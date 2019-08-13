@@ -106,7 +106,7 @@ class StockAdjustmentView(View):
         self.stock_adjustment = StockAdjustment.objects.create(shop=self.shop)
         for row in reader:
             gfcode = row[0]
-            stock_available, stock_damaged, stock_expired = [int(i) for i in row[1:4]]
+            stock_available, stock_damaged, stock_expired = [int(i) for i in row[3:6]]
             product = Product.objects.get(product_gf_code=gfcode)
             db_available_products = OrderedProductMapping.get_product_availability(self.shop, product)
             db_expired_products = OrderedProductMapping.get_expired_product_qty(self.shop, product)
