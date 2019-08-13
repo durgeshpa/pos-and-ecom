@@ -7,10 +7,14 @@ from django.db import models
 from django.core.validators import RegexValidator
 from django.utils.crypto import get_random_string
 from django.utils.safestring import mark_safe
+from django.utils import timezone
 from otp.sms import SendSms
 import datetime
-from .tasks import phone_otp_instance, create_user_token
+from .tasks import phone_otp_instance
 from django.db import transaction
+from rest_framework.authtoken.models import Token
+
+#from notification_center.utils import SendNotification
 
 
 USER_TYPE_CHOICES = (
@@ -69,6 +73,7 @@ class User(AbstractUser):
     email = models.EmailField(_('email address'),blank=True)
     user_photo = models.ImageField(upload_to='user_photos/', null=True, blank=True)
     user_type = models.PositiveSmallIntegerField(choices=USER_TYPE_CHOICES, default = '6', null=True)
+    #last_login_date = models.DateField(auto_now_add=True)
     imei_no = models.CharField(max_length=20,null=True,blank=True)
 
     USERNAME_FIELD = 'phone_number'
@@ -79,6 +84,20 @@ class User(AbstractUser):
 
     def __str__(self):
         return "%s"%(str(self.phone_number))
+
+
+# class UserInfo(models.Model):
+#     user = models.ForeignKey(User, related_name="user_info", on_delete=models.CASCADE)
+#     shop  = models.ForeignKey(Shop, related_name="shop", on_delete=models.CASCADE)
+#     location = models.CharField(max_length=255, null=True, blank=True)
+#     last_login = models.DateField()
+#     last_order_date = models.DateField()
+
+#     def __str__(self):
+#         return "%s-%s" %(self.user, self.pk)
+
+#     class Meta:
+#         verbose_name = "User Info"
 
 
 class UserWithName(User):
@@ -116,7 +135,7 @@ class UserDocument(models.Model):
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
 def create_auth_token(sender, instance=None, created=False, **kwargs):
     if created:
-        transaction.on_commit(lambda: create_user_token.delay(instance.id))
+        Token.objects.create(user=instance)
 
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
@@ -126,14 +145,21 @@ def user_creation_notification(sender, instance=None, created=False, **kwargs):
             username = instance.first_name
         else:
             username = instance.phone_number
-        message = SendSms(phone=instance.phone_number,
-                          body = '''\
-                                Dear %s, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering.
-Thanks,
-Team GramFactory
-                                ''' % (username))
 
-        message.send()
+        activity_type = "SIGNUP"
+        data = {}
+        data['username'] = username
+        data['phone_number'] = instance.phone_number
+        from notification_center.utils import SendNotification
+        SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()    
+#         message = SendSms(phone=instance.phone_number,
+#                           body = '''\
+#                                 Dear %s, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering.
+# Thanks,
+# Team GramFactory
+#                                 ''' % (username))
+
+#         message.send()
 
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)

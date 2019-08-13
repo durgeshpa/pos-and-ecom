@@ -91,45 +91,14 @@ class ProductPriceForm(forms.Form):
             try:
                 state_id = int(self.data.get('state'))
                 city_id = int(self.data.get('city'))
-                self.fields['sp_sr_list'].queryset = Shop.objects.all()
+                self.fields['sp_sr_list'].queryset = Shop.objects.filter(
+                    id__in=self.data.get('sp_sr_list').split(','))
             except (ValueError, TypeError):
                 pass  # invalid input from the client; ignore and fallback to empty City queryset
 
     def clean_file(self):
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only csv file accepted")
-        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
-        first_row = next(reader)
-        for id,row in enumerate(reader):
-            if not row[0] or not re.match("^[\d]*$", row[0]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | "+VALIDATION_ERROR_MESSAGES['INVALID_ID'])
-            if not row[1]:
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
-                    1]+":"+row[1]+" | Product Name required")
-            if not row[4] or not re.match("^\d{0,8}(\.\d{1,4})?$", row[4]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
-                    4]+":"+row[4]+" | "+VALIDATION_ERROR_MESSAGES[
-                    'INVALID_PRICE'])
-            if not row[5] or not re.match("^\d{0,8}(\.\d{1,4})?$", row[5]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
-                    5]+":"+row[5]+" | "+VALIDATION_ERROR_MESSAGES[
-                    'INVALID_PRICE'])
-            if not row[6] or not re.match("^\d{0,8}(\.\d{1,4})?$", row[6]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
-                    6]+":"+row[6]+" | "+VALIDATION_ERROR_MESSAGES[
-                    'INVALID_PRICE'])
-            if not row[7] or not re.match("^\d{0,8}(\.\d{1,4})?$", row[7]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
-                    7]+":"+row[7]+" | "+VALIDATION_ERROR_MESSAGES[
-                    'INVALID_PRICE'])
-            if not row[8] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[8]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
-                    8]+":"+row[8]+" | "+VALIDATION_ERROR_MESSAGES[
-                    'INVALID_PRICE'])
-            if not row[9] or not re.match("^[0-9]{0,}(\.\d{0,2})?$", row[9]):
-                raise ValidationError("Row["+str(id+1)+"] | "+first_row[
-                    9]+":"+row[9]+" | "+VALIDATION_ERROR_MESSAGES[
-                    'INVALID_PRICE'])
         return self.cleaned_data['file']
 
 class GFProductPriceForm(forms.Form):
@@ -273,15 +242,41 @@ class ProductsPriceFilterForm(forms.Form):
                 pass  # invalid input from the client; ignore and fallback to empty City queryset
 
 
+class ProductPriceNewForm(forms.ModelForm):
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:product-price-autocomplete',)
+    )
+    shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['gf', 'sp']),
+    )
+
+    class Meta:
+        model = ProductPrice
+        fields = ('product', 'city', 'area', 'shop',
+                  'price_to_service_partner', 'price_to_retailer',
+                  'price_to_super_retailer', 'start_date', 'end_date',
+                  'approval_status')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:1]
+
+
 class ProductsFilterForm(forms.Form):
-    category = forms.ModelMultipleChoiceField(queryset=Category.objects.order_by('category_name'))
+    category = forms.ModelMultipleChoiceField(
+        queryset=Category.objects.order_by('category_name'),
+        )
+
     brand = forms.ModelMultipleChoiceField(queryset=Brand.objects.none())
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        #self.fields['category1'].widget.attrs['class'] = 'test'
         self.fields['category'].widget.attrs={
-            'class':'form-control',
-            'size':15,
+            'class':'select2-filter',
+            # 'size':15,
             }
         self.fields['brand'].widget.attrs={
             'class':'form-control',
@@ -414,15 +409,64 @@ class ProductsCSVUploadForm(forms.Form):
         return self.cleaned_data['file']
 
 
-class ProductPriceNewForm(forms.ModelForm):
+class ProductPriceAddPerm(forms.ModelForm):
     product = forms.ModelChoiceField(
         queryset=Product.objects.all(),
-        widget=autocomplete.ModelSelect2(url='admin:product-price-autocomplete',)
+        widget=autocomplete.ModelSelect2(
+            url='admin:product-price-autocomplete',)
     )
     shop = forms.ModelChoiceField(
-        queryset=Shop.objects.filter(shop_type__shop_type__in=['gf','sp']),
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['gf', 'sp']),
     )
 
     class Meta:
         model = ProductPrice
-        fields = ('product','city','area','shop','price_to_service_partner','price_to_retailer','price_to_super_retailer','start_date','end_date','status')
+        fields = ('product', 'city', 'area', 'shop',
+                  'price_to_service_partner', 'price_to_retailer',
+                  'price_to_super_retailer', 'start_date', 'end_date',
+                  'approval_status', 'status',)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'approval_status' and 'status' in self.fields:
+            self.fields['approval_status'].initial = ProductPrice.APPROVAL_PENDING
+            self.fields['approval_status'].widget = forms.HiddenInput()
+            self.fields['status'].widget = forms.HiddenInput()
+
+
+class ProductPriceChangePerm(forms.ModelForm):
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:product-price-autocomplete',)
+    )
+    shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['gf', 'sp']),
+    )
+
+    class Meta:
+        model = ProductPrice
+        fields = ('product', 'city', 'area', 'shop',
+                  'price_to_service_partner', 'price_to_retailer',
+                  'price_to_super_retailer', 'start_date', 'end_date',
+                  'approval_status', 'status',)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'status' in self.fields:
+            self.fields['status'].widget = forms.HiddenInput()
+
+
+class ProductCategoryMappingForm(forms.Form):
+    file = forms.FileField()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields['file'].label = 'Choose File'
+        self.fields['file'].widget.attrs = {'class': 'custom-file-input', }
+
+    def clean_file(self):
+        if not self.cleaned_data['file'].name[-4:] in ('.csv'):
+            raise forms.ValidationError("Sorry! Only csv file accepted")
+        return self.cleaned_data['file']
