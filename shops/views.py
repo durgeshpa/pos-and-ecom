@@ -288,10 +288,10 @@ class ShopUserMappingCsvView(FormView):
         form_class = self.get_form_class()
         form = self.get_form(form_class)
         #shop_user_mapping = []
-        file = request.FILES['file']
-        reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
-        first_row = next(reader)
         if form.is_valid():
+            file = request.FILES['file']
+            reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+            first_row = next(reader)
             for row in reader:
                 if row[1]:
                     manager = get_user_model().objects.get(phone_number=row[1])
