@@ -50,6 +50,9 @@ $(document).ready(function() {
 function initPageData(data){
   page_data={};
   $.each(data.response_data, function(i,elem){
+    if(elem.shipment_status=="Ready to Dispatch"){
+      elem.selected=true;
+    }
     page_data[elem.invoice_no]=elem;
   });
 }
@@ -223,13 +226,6 @@ function CreateResponseTable(data){
       var shipment_address = "<td>" + elem.shipment_address + "</td>";
       var pincode = "<td>" + elem.pincode + "</td>";
       var created_at = "<td>" + elem.created_at + "</td>";
-
-      if(elem.shipment_status=="Ready to Dispatch"){
-            elem.selected = true;
-            if(list.indexOf(i)==-1){
-                list.push(i);
-            }
-      }
       if(elem.selected){
         var select = "<td><input type='checkbox' class='shipment_checkbox' value='"+elem.invoice_no+"' checked></td>";
       $("tbody#data").prepend("<tr class=" + row + ">" + select + invoice_no + invoice_amount + shipment_status + invoice_city + created_at + order + shipment_address + pincode +"</tr>");
@@ -239,6 +235,7 @@ function CreateResponseTable(data){
       $("tbody#data").append("<tr class=" + row + ">" + select + invoice_no + invoice_amount + shipment_status + invoice_city + created_at + order + shipment_address + pincode +"</tr>");
       }
   });
+    initList();
     $("#total_invoices").text(list.length);
   initialload = false;
 }
