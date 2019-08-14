@@ -107,7 +107,7 @@ class ShipmentPayment(AbstractDateTime):
     name = models.CharField(max_length=255, null=True, blank=True)
     description = models.CharField(max_length=255, null=True, blank=True)
     payment_type = models.CharField(max_length=255, choices=PAYMENT_TYPE_CHOICES,null=True, blank=True)
-    shipment = models.ForeignKey(Shipment, related_name='shipment_payment', on_delete=models.CASCADE) #shipment_id
+    shipment = models.ForeignKey(Shipment, unique=True, related_name='shipment_payment', on_delete=models.CASCADE) #shipment_id
     is_cash_payment = models.BooleanField(default=False)
     is_wallet_payment = models.BooleanField(default=False)
     is_credit_payment = models.BooleanField(default=False)
@@ -121,9 +121,7 @@ class ShipmentPayment(AbstractDateTime):
     updated_by = models.ForeignKey(User, related_name='payment_updated_by', null=True, blank=True, on_delete=models.SET_NULL)
 
     def __str__(self):
-        return self.vendor_name
-
-
+        return str(self.shipment.id)
 
     def get_parent_or_self(self,obj):
         pass
@@ -133,7 +131,7 @@ class ShipmentPayment(AbstractDateTime):
 
 class CashPayment(AbstractDateTime):
     # This method stores the info about the cash payment
-    payment = models.ForeignKey(ShipmentPayment, related_name='cash_payment', on_delete=models.CASCADE)
+    payment = models.ForeignKey(ShipmentPayment, unique=True, related_name='cash_payment', on_delete=models.CASCADE)
     paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
     description = models.CharField(max_length=255, null=True, blank=True)
 

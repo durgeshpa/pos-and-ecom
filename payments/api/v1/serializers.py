@@ -1,14 +1,5 @@
 from rest_framework import serializers
-from payments.models import ShipmentPayment, CashPayment, OnlinePaymentSerializer
-
-
-
-class ShipmentPaymentSerializer(serializers.ModelSerializer):
-    cash_payment = CashPaymentSerializer()
-    online_payment = OnlinePaymentSerializer()
-    class Meta:
-        model = ShipmentPayment
-        fields = "__all__"
+from payments.models import ShipmentPayment, CashPayment, OnlinePayment
 
 
 class CashPaymentSerializer(serializers.ModelSerializer):
@@ -22,3 +13,10 @@ class OnlinePaymentSerializer(serializers.ModelSerializer):
         model = OnlinePayment
         fields = "__all__"
         
+
+class ShipmentPaymentSerializer(serializers.ModelSerializer):
+    cash_payment = CashPaymentSerializer()
+    online_payment = OnlinePaymentSerializer()
+    class Meta:
+        model = ShipmentPayment
+        fields = "__all__"

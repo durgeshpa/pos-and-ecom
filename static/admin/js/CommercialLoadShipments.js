@@ -70,6 +70,8 @@ function ShowMessage(msg){
   $("tbody#data").append("<tr class='form-row'><td colspan='7'>"+msg+"<td></tr>");
 }
 
+
+var shipment_payment_id;
 function CreateResponseTable(data){
   var trip_id = $('#id_trip_id').val();
   for (var i = 0; i < data['response_data'].length; i++) {
@@ -77,7 +79,9 @@ function CreateResponseTable(data){
       if (i % 2 === 0) {
           var row = "row1";
       }
+     
       var data1 = data['response_data'][i];
+      shipment_payment_id = data1['shipment_payment']['shipment_payment_id'];
       var pk = data['response_data'][i]['pk'];
       var is_payment_approved = data['response_data'][i]['is_payment_approved'];
       var trip = data['response_data'][i]['trip'];
@@ -86,7 +90,7 @@ function CreateResponseTable(data){
       var invoice_no = "<td><a href='/admin/retailer_to_sp/cart/commercial/"+pk+"/shipment-details/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
       var invoice_amount = "<td>" + data['response_data'][i]['invoice_amount'] + "</td>";
       var cash_to_be_collected = "<td>" + data['response_data'][i]['cash_to_be_collected'] + "</td>";
-      var cash_payment = "<td><form action=''><input type='text' name='cash_payment' value='"+ data1['shipment_payment']['cash_payment_amount'] +"'></form></td>";
+      var cash_payment = "<td><form class='shipment_payment_info' action=''><input type='text' name='cash_payment' value='"+ data1['shipment_payment']['cash_payment_amount'] +"'></form></td>";
       var online_payment = "<td>100</td>";//"<td><form action=''><input type='text' name='online_payment' value='"+ data['shipment_payment']['online_payment_amount'] +"'></form></td>";
       var invoice_city = "<td>" + data['response_data'][i]['invoice_city'] + "</td>";
       var shipment_address = "<td>" + data['response_data'][i]['shipment_address'] + "</td>";
@@ -98,6 +102,17 @@ function CreateResponseTable(data){
   }
       var submit_payment_button = "<button class='shipment-payments-submit' type='button'>Submit Payment Info!</button>"
       $("tbody#data").append(submit_payment_button);
+
+
+      $('.shipment-payments-submit').on('click',  function(event) { 
+          alert("test");
+          //event.preventDefault();
+          update_shipment_payment_information();//('{{ shipment_payment.id | escapejs }}');
+          if (count == 0)
+          submit_update_data(shipment_payment_id);//('{{ shipment_payment.id | escapejs }}');
+
+      });
+
 }
 
 function submit_update_data(shipment_payment_id)
@@ -125,12 +140,12 @@ function submit_update_data(shipment_payment_id)
     });
 }
 
+formData = {};
+count = 0;
 
 function update_shipment_payment_information(shipment_payment_id)
 {
     /* Function to update shipment payment */
-
-    formData = {};
 
     var formarray = $(".shipment_payment_info").serializeArray();
 
@@ -148,8 +163,8 @@ function update_shipment_payment_information(shipment_payment_id)
         return 0;
     }
 */    
-    var cash_payment = [];
-    formData['cash_payment'] = cash_payment;
+    //var cash_payment = [];
+    formData['cash_payment'] = [formData['cash_payment']] //cash_payment;
 
     //submit_update_data(shipment_payment_id);
 }
@@ -158,11 +173,15 @@ function CallAPI(){
     GetResultByTripID();
 }
 
-$('.shipment-payments-submit').on('click',  function(event) {  
-    event.preventDefault();
+//$('.shipment-payments-submit').on('click',  function(event) { 
+
+/*$('.shipment-payments-submit').click(function(){
+    alert("test");
+    //event.preventDefault();
     update_shipment_payment_information('{{ shipment_payment.id | escapejs }}');
     if (count == 0)
     submit_update_data('{{ shipment_payment.id | escapejs }}');
-});
 
+});
+*/
 })(django.jQuery);

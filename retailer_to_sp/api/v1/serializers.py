@@ -680,11 +680,13 @@ class DispatchSerializer(serializers.ModelSerializer):
     def get_shipment_payment(self, obj):
         import pdb; pdb.set_trace()
         #return ""
-        payment, created = ShipmentPayment.objects.get_or_create(shipment=obj)
+        
         payment_data = {}            
-
-        cash_payment, created = CashPayment.objects.get_or_create(payment=payment, 
-                                    paid_amount=obj.cash_to_be_collected())
+        payment, created = ShipmentPayment.objects.get_or_create(shipment=obj)
+        payment_data['shipment_payment_id'] =  payment.id
+        cash_payment = CashPayment.objects.get(payment=payment)
+        # cash_payment, created = CashPayment.objects.get_or_create(payment=payment, 
+        #                             paid_amount=obj.cash_to_be_collected())
         payment_data['cash_payment'] = cash_payment.paid_amount
 
         # online_payment, created = OnlinePayment.objects.get_or_create(payment=payment)
@@ -712,12 +714,15 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
 
     def get_shipment_payment(self, obj):
         # return ""
-        import pdb; pdb.set_trace()
-        payment, created = ShipmentPayment.objects.get_or_create(shipment=obj)
+        #import pdb; pdb.set_trace()
         payment_data = {}            
 
-        cash_payment, created = CashPayment.objects.get_or_create(payment=payment, 
-                                    paid_amount=obj.cash_to_be_collected())
+        payment, created = ShipmentPayment.objects.get_or_create(shipment=obj)
+        payment_data['shipment_payment_id'] =  payment.id
+
+        cash_payment = CashPayment.objects.get(payment=payment)
+        # cash_payment, created = CashPayment.objects.get_or_create(payment=payment, 
+        #                             paid_amount=obj.cash_to_be_collected())
         payment_data['cash_payment_amount'] = cash_payment.paid_amount
 
         # online_payment, created = OnlinePayment.objects.get_or_create(payment=payment)
