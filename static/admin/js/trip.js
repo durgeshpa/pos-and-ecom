@@ -20,6 +20,7 @@ function autoSubmit(){
     Select2Field('#id_seller_shop');
     Select2Field('#id_delivery_boy');
     SubmitFormConfirmDialog();
+    AddCheckedIDToList();
     GetResultOnTypingArea();
     CallAPI();
   });
@@ -325,6 +326,20 @@ function EmptyElement(id){
   $(id).empty();
 }
 
+function AddCheckedIDToList(){
+  $(document).on('click', '.shipment_checkbox', function() {
+      if ($(this).is(':checked')) {
+          GetUncheckedFields();
+          list.push($(this).val());
+          $('#id_selected_id').val(list);
+
+      } else {
+          GetUncheckedFields();
+          list.splice($.inArray($(this).val(), list),1);
+          $('#id_selected_id').val(list);
+      }
+  });
+}
 
 function GetUncheckedFields() {
   uncheckedlist = [];
