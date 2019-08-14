@@ -61,7 +61,7 @@ function initList(){
       list=[];
       $('.shipment_checkbox').each(function(i, elem){
           if ($(this).is(':checked')) {
-            list.push($(this).val());
+            list.push(page_data[$(this).val()].pk);
           }
         });
         $('#id_selected_id').val(list);
