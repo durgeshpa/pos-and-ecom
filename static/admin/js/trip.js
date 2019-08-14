@@ -149,21 +149,21 @@ function GetResultByTripAndSellerShop() {
 }
 
 
+function initList(){
+      list=[];
+      $('.shipment_checkbox').each(function(i, elem){
+          if ($(this).is(':checked')) {
+            list.push($(this).val());
+          }
+        });
+        $('#id_selected_id').val(list);
+
+}
 
 function SubmitFormConfirmDialog(){
   $('form').bind('submit', function(e) {
       if ($('input[type=checkbox]:checked')) {
-        list=[];
-        $('.shipment_checkbox').each(function(i, elem){
-            if ($(this).is(':checked')) {
-              list.push($(this).val());
-            }
-          });
-          $('#id_selected_id').val(list);
-
-
-
-
+        initList();
           var c = confirm("Click OK to continue?");
          return c;
       } else {
@@ -335,7 +335,7 @@ function AddCheckedIDToList(){
 
       } else {
           GetUncheckedFields();
-          list.splice($.inArray($(this).val(), list),1);
+          initList();
           $('#id_selected_id').val(list);
       }
   });
