@@ -181,7 +181,7 @@ function GetResultByTripID() {
 }
 
 function CheckResponse(){
-  if ($.isEmptyObject(page_data)){
+  if(!$.isEmptyObject(page_data)){
     EmptyElement('tbody#data');
     ShowField('tr#heading');
     HideField('tr#loading');
