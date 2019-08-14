@@ -1302,12 +1302,11 @@ class RetailerShopsList(APIView):
         if Shop.objects.filter(shop_owner__phone_number=mobile_number).exists():
             shops_list = Shop.objects.filter(shop_owner__phone_number=mobile_number)
             shops_serializer = RetailerShopSerializer(shops_list, many=True)
-            return Response({"message":[""], "response_data": shops_serializer.data ,"is_success": True, "is_user_mapped_with_same_sp": True})
+            return Response({"message":[""], "response_data": shops_serializer.data, "is_success": True, "is_user_mapped_with_same_sp": True})
         elif get_user_model().objects.filter(phone_number=mobile_number).exists():
             return Response({"message":["The User is registered but does not have any shop"], "response_data": None ,"is_success": True, "is_user_mapped_with_same_sp": False})
         else:
-            return Response({"message": ["The user is not mapped with the same service partner as the sales person"],
-                             "response_data": None, "is_success": True, "is_user_mapped_with_same_sp": False})
+            return Response({"message": ["User is not exists"],"response_data": None, "is_success": False, "is_user_mapped_with_same_sp": False})
 
 class SellerOrderList(generics.ListAPIView):
     serializer_class = SellerOrderListSerializer
