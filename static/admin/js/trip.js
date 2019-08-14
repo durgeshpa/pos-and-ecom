@@ -47,7 +47,7 @@ $(document).ready(function() {
 });
 
 
-initPageData(data){
+function initPageData(data){
   page_data={};
   $.each(data.response_data, function(i,elem){
     page_data[elem.invoice_no]=elem;
