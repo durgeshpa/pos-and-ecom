@@ -250,9 +250,9 @@ function EmptyElement(id){
 function AddCheckedIDToList(){
   $(document).on('click', '.shipment_checkbox', function() {
       if ($(this).is(':checked')) {
-          data[$(this).val()].selected=true
+          page_data[$(this).val()].selected=true
       } else {
-          data[$(this).val()].selected=false
+          page_data[$(this).val()].selected=false
       }
   });
 }
