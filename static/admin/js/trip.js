@@ -201,6 +201,10 @@ function ShowMessage(msg){
   $("tbody#data").append("<tr><td>"+msg+"<td></tr>");
 }
 
+function displaySelectedCount(){
+    initList();
+    $("#total_invoices").text(list.length);
+}
 function CreateResponseTable(data){
   var trip_id = $('#id_trip_id').val();
   row="row2";
@@ -235,8 +239,7 @@ function CreateResponseTable(data){
       $("tbody#data").append("<tr class=" + row + ">" + select + invoice_no + invoice_amount + shipment_status + invoice_city + created_at + order + shipment_address + pincode +"</tr>");
       }
   });
-    initList();
-    $("#total_invoices").text(list.length);
+  displaySelectedCount();
   initialload = false;
 }
 
@@ -251,6 +254,7 @@ function AddCheckedIDToList(){
       } else {
           page_data[$(this).val()].selected=false
       }
+      displaySelectedCount();
   });
 }
 
