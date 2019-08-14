@@ -68,13 +68,13 @@ class StockAdjustmentUploadForm(forms.Form):
                     Product.objects.get(product_gf_code=row[0])
                 except:
                     raise ValidationError(_('INVALID_PRODUCT_ID at Row[%(value)s]'), params={'value': id+1},)
-            if not row[1]:
-                raise ValidationError("Row[" + str(id + 1) + "] | " + second_row[1] + ":" + row[1] + " | Product Name required")
-            else:
-                try:
-                    Product.objects.get(product_name=row[1])
-                except:
-                    raise ValidationError(_('INVALID_PRODUCT_ID at Row[%(value)s]'), params={'value': id+1},)
+            # if not row[1]:
+            #     raise ValidationError("Row[" + str(id + 1) + "] | " + second_row[1] + ":" + row[1] + " | Product Name required")
+            # else:
+            #     try:
+            #         Product.objects.get(product_name=row[1])
+            #     except:
+            #         raise ValidationError(_('INVALID_PRODUCT_NAME at Row[%(value)s]'), params={'value': id+1},)
 
             if not row[2]:
                 raise ValidationError("Row[" + str(id + 1) + "] | " + third_row[2] + ":" + row[1] + " | Product SKU required")
@@ -82,7 +82,7 @@ class StockAdjustmentUploadForm(forms.Form):
                 try:
                     Product.objects.get(product_sku=row[2])
                 except:
-                    raise ValidationError(_('INVALID_PRODUCT_ID at Row[%(value)s]'), params={'value': id+1},)
+                    raise ValidationError(_('INVALID_PRODUCT_SKU at Row[%(value)s]'), params={'value': id+1},)
 
 
 
