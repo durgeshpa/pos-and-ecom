@@ -38,7 +38,7 @@ $(document).ready(function() {
      if(e.target.id=='id_Invoice_No'){
         e.preventDefault();
         var invoice_no = $('#id_Invoice_No').val().trim();
-        elem[invoice_no].selected=true;
+        page_data[invoice_no].selected=true;
         CheckResponse();
         $('#id_Invoice_No').val("");
       }
