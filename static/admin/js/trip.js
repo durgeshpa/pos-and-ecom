@@ -155,12 +155,10 @@ function SubmitFormConfirmDialog(){
         list=[];
         $('.shipment_checkbox').each(function(i, elem){
             if ($(this).is(':checked')) {
-                debugger;
               list.push($(this).val());
-              $('#id_selected_id').val(list);
             }
           });
-
+          $('#id_selected_id').val(list);
 
 
 
