@@ -548,7 +548,7 @@ class ReservedOrder(generics.ListAPIView):
         parent_shop_type = parent_mapping.parent.shop_type.shop_type
         # if shop mapped with sp
         if parent_shop_type == 'sp':
-            cart = Cart.objects.filter(last_modified_by=self.request.user,
+            cart = Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
                                        cart_status__in=['active', 'pending'])
             if cart.exists():
                 cart = cart.last()
@@ -665,8 +665,8 @@ class CreateOrder(APIView):
         # if shop mapped with sp
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             #self.sp_mapping_order_reserve()
-            if Cart.objects.filter(last_modified_by=self.request.user, id=cart_id).exists():
-                cart = Cart.objects.get(last_modified_by=self.request.user, id=cart_id)
+            if Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer, id=cart_id).exists():
+                cart = Cart.objects.get(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer, id=cart_id)
                 cart.cart_status = 'ordered'
                 cart.buyer_shop = shop
                 cart.seller_shop = parent_mapping.parent
