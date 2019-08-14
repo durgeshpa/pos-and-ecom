@@ -58,8 +58,6 @@ class StockAdjustmentUploadForm(forms.Form):
             raise forms.ValidationError("Sorry! Only csv file accepted")
         reader = csv.reader(codecs.iterdecode(self.cleaned_data['upload_file'], 'utf-8'))
         first_row = next(reader)
-        second_row = next(reader)
-        third_row = next(reader)
         for id, row in enumerate(reader):
             if not row[0]:
                 raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | Product Id required")
@@ -68,16 +66,9 @@ class StockAdjustmentUploadForm(forms.Form):
                     Product.objects.get(product_gf_code=row[0])
                 except:
                     raise ValidationError(_('INVALID_PRODUCT_ID at Row[%(value)s]'), params={'value': id+1},)
-            # if not row[1]:
-            #     raise ValidationError("Row[" + str(id + 1) + "] | " + second_row[1] + ":" + row[1] + " | Product Name required")
-            # else:
-            #     try:
-            #         Product.objects.get(product_name=row[1])
-            #     except:
-            #         raise ValidationError(_('INVALID_PRODUCT_NAME at Row[%(value)s]'), params={'value': id+1},)
 
             if not row[2]:
-                raise ValidationError("Row[" + str(id + 1) + "] | " + third_row[2] + ":" + row[1] + " | Product SKU required")
+                raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[2] + ":" + row[1] + " | Product SKU required")
             else:
                 try:
                     Product.objects.get(product_sku=row[2])
