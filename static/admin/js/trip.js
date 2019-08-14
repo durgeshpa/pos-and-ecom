@@ -306,7 +306,7 @@ function CreateResponseTable(data){
                 list.push(data['response_data'][i]['pk']);
             }
       }
-      if(data['response_data'][i]['selected']){
+      if(list.indexOf(data['response_data'][i]['pk'])!=-1){
         var select = "<td><input type='checkbox' class='shipment_checkbox' value='"+pk+"' checked></td>";
       $("tbody#data").prepend("<tr class=" + row + ">" + select + invoice_no + invoice_amount + shipment_status + invoice_city + created_at + order + shipment_address + pincode +"</tr>");
       }
