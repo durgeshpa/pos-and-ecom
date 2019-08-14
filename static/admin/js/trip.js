@@ -21,7 +21,6 @@ function autoSubmit(){
     Select2Field('#id_delivery_boy');
     SubmitFormConfirmDialog();
     GetResultOnTypingArea();
-    AddCheckedIDToList();
     CallAPI();
   });
 
@@ -57,7 +56,6 @@ $(document).ready(function() {
       invoice_filter =function(shipment_data, invoice_no){return shipment_data.filter(function(item){
             return item.invoice_no==invoice_no
        })};
-       if(invoice_filter(shipment_data, invoice_no).length>0){
        $.each(invoice_filter(shipment_data, invoice_no), function(i, elem){
             elem.selected=true;
             if(list.indexOf(elem.pk)==-1)
@@ -68,19 +66,18 @@ $(document).ready(function() {
        });
         CheckResponse();
         $('#id_Invoice_No').val("");
-        }
-        else{
-        $.ajax({
-            url: GetURL(),
-            data:{
-                'invoice_no':invoice_no
-               },
-               success: function(data){
-               CheckResponse(page_data.pending_shipments.response_data.push(data.response_data[0]));
-               $('#id_Invoice_No').val("");
-               }
-        });
-        }
+//        else{
+//        $.ajax({
+//            url: GetURL(),
+//            data:{
+//                'invoice_no':invoice_no
+//               },
+//               success: function(data){
+//               CheckResponse(page_data.pending_shipments.response_data.push(data.response_data[0]));
+//               $('#id_Invoice_No').val("");
+//               }
+//        });
+//        }
     }}
     });
     });
@@ -155,6 +152,19 @@ function GetResultByTripAndSellerShop() {
 function SubmitFormConfirmDialog(){
   $('form').bind('submit', function(e) {
       if ($('input[type=checkbox]:checked')) {
+        list=[];
+        $('.shipment_checkbox').each(function(i, elem){
+            if ($(this).is(':checked')) {
+                debugger;
+              list.push($(this).val());
+              $('#id_selected_id').val(list);
+            }
+          });
+
+
+
+
+
           var c = confirm("Click OK to continue?");
          return c;
       } else {
@@ -307,6 +317,7 @@ function CreateResponseTable(data){
       }
 
   }
+    $('#id_selected_id').val(list);
     $("#total_invoices").text(list.length);
   initialload = false;
   GetUncheckedFields();
@@ -316,20 +327,6 @@ function EmptyElement(id){
   $(id).empty();
 }
 
-function AddCheckedIDToList(){
-  $(document).on('click', '.shipment_checkbox', function() {
-      if ($(this).is(':checked')) {
-          GetUncheckedFields();
-          list.push($(this).val());
-          $('#id_selected_id').val(list);
-
-      } else {
-          GetUncheckedFields();
-          list.splice($.inArray($(this).val(), list),1);
-          $('#id_selected_id').val(list);
-      }
-  });
-}
 
 function GetUncheckedFields() {
   uncheckedlist = [];

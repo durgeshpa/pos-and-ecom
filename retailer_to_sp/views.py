@@ -388,60 +388,45 @@ def trip_planning(request):
         {'form': form}
     )
 
+TRIP_SHIPMENT_STATUS_MAP={
+    'READY': 'READY_TO_DISPATCH',
+    'STARTED':"OUT_FOR_DELIVERY",
+    'CANCELLED': "READY_TO_SHIP",
+    'COMPLETED': "FULLY_DELIVERED_AND_COMPLETED"
 
+}
 def trip_planning_change(request, pk):
     trip_instance = Trip.objects.get(pk=pk)
     trip_status = trip_instance.trip_status
 
     if request.method == 'POST':
         form = TripForm(request.user, request.POST, instance=trip_instance)
-        if (trip_status == 'READY' or trip_status == 'STARTED' or
-                trip_status == 'CANCELLED'):
+        if trip_status == 'READY' or trip_status == 'STARTED':
             if form.is_valid():
                 trip = form.save()
                 current_trip_status = trip.trip_status
+                if trip_status == 'STARTED':
+                    trip_instance.rt_invoice_trip.all().update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
+                    if current_trip_status == "COMPLETED":
+                        OrderedProductMapping.objects.filter(ordered_product__in=trip_instance.rt_invoice_trip.all()).update(delivered_qty=F('shipped_qty'))
+                    return redirect('/admin/retailer_to_sp/trip/')
+
+                if trip_status == 'READY':
+                    trip_instance.rt_invoice_trip.all().update(trip=None, shipment_status='READY_TO_SHIP')
+
+                if current_trip_status == 'CANCELLED':
+                    trip_instance.rt_invoice_trip.all().update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status], trip=None)
+                    return redirect('/admin/retailer_to_sp/trip/')
+
                 selected_shipment_ids = form.cleaned_data.get('selected_id', None)
-                unselected_shipment_ids = form.cleaned_data.get('unselected_id', None)
 
                 if selected_shipment_ids:
-                    selected_shipments = selected_shipment_ids.split(',')
+                    selected_shipment_list = selected_shipment_ids.split(',')
                     selected_shipments = Dispatch.objects.filter(~Q(shipment_status='CANCELLED'),
-                                                                 pk__in=selected_shipments)
-                    for shipment_instance in selected_shipments:
-                        if current_trip_status == 'READY':
-                            shipment_instance.trip = trip
-                            shipment_instance.shipment_status = 'READY_TO_DISPATCH'
+                                                                 pk__in=selected_shipment_list)
+                    selected_shipments.update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status],trip=trip_instance)
 
-                        elif shipment_instance.trip == trip and current_trip_status == 'STARTED':
-                            shipment_instance.shipment_status = 'OUT_FOR_DELIVERY'
 
-                        elif current_trip_status == 'COMPLETED':
-                            ordered_product_mapping = OrderedProductMapping \
-                                .objects.filter(
-                                ordered_product=shipment_instance
-                            ).update(
-                                delivered_qty=F('shipped_qty')
-                            )
-                            shipment_instance.shipment_status = 'FULLY_DELIVERED_AND_COMPLETED'
-                            update_order_status(
-                                close_order_checked=False,
-                                shipment_id=shipment_instance.id
-                            )
-                        elif current_trip_status == 'CANCELLED':
-                            if shipment_instance.trip:
-                                shipment_instance.trip = None
-                                shipment_instance.shipment_status = 'READY_TO_SHIP'
-                        shipment_instance.save()
-
-                if unselected_shipment_ids and current_trip_status == 'READY':
-                    unselected_shipments = unselected_shipment_ids.split(',')
-                    unselected_shipments = Dispatch.objects.filter(
-                        pk__in=unselected_shipments)
-                    for shipment_instance in unselected_shipments:
-                        if shipment_instance.trip:
-                            shipment_instance.trip = None
-                            shipment_instance.shipment_status = 'READY_TO_SHIP'
-                            shipment_instance.save()
                 return redirect('/admin/retailer_to_sp/trip/')
             else:
                 form = TripForm(request.user, request.POST, instance=trip_instance)

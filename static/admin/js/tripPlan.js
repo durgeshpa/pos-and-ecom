@@ -41,7 +41,7 @@ $(document).ready(function() {
       invoice_filter =function(shipment_data, invoice_no){return shipment_data.filter(function(item){
             return item.invoice_no==invoice_no
        })};
-       if(invoice_filter(shipment_data, invoice_no).length>0){
+//       if(invoice_filter(shipment_data, invoice_no).length>0){
        $.each(invoice_filter(shipment_data, invoice_no), function(i, elem){
             elem.selected=true;
             if(list.indexOf(elem.pk)==-1)
@@ -52,19 +52,19 @@ $(document).ready(function() {
        });
         CheckResponse();
         $('#id_Invoice_No').val("");
-        }
-        else{
-        $.ajax({
-            url: GetURL(),
-            data:{
-                'invoice_no':invoice_no
-               },
-               success: function(data){
-               CheckResponse(page_data.pending_shipments.response_data.push(data.response_data[0]));
-               $('#id_Invoice_No').val("");
-               }
-        });
-        }
+//        }
+//        else{
+//        $.ajax({
+//            url: GetURL(),
+//            data:{
+//                'invoice_no':invoice_no
+//               },
+//               success: function(data){
+//               CheckResponse(page_data.pending_shipments.response_data.push(data.response_data[0]));
+//               $('#id_Invoice_No').val("");
+//               }
+//        });
+//        }
     }}
     });
     });
