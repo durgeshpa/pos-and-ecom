@@ -20,6 +20,7 @@ from admin_auto_filters.filters import AutocompleteFilter
 from services.views import SalesReportFormView, SalesReport
 from rangefilter.filter import DateRangeFilter, DateTimeRangeFilter
 from .utils import create_shops_excel
+from retailer_backend.filters import ShopFilter, EmployeeFilter, ManagerFilter
 
 
 class ShopResource(resources.ModelResource):
@@ -269,6 +270,7 @@ class ShopUserMappingResource(resources.ModelResource):
 class ShopUserMappingAdmin(admin.ModelAdmin):
     form = ShopUserMappingForm
     list_display = ('shop','manager','employee','employee_group','created_at','status')
+    list_filter = [ShopFilter, ManagerFilter, EmployeeFilter, 'status', ('created_at', DateTimeRangeFilter), ]
 
     def get_urls(self):
         from django.conf.urls import url
@@ -287,6 +289,9 @@ class ShopUserMappingAdmin(admin.ModelAdmin):
 
         ] + urls
         return urls
+
+    class Media:
+        pass
 
 class SalesAppVersionAdmin(admin.ModelAdmin):
     list_display = ('app_version','update_recommended','force_update_required','created_at','modified_at')
