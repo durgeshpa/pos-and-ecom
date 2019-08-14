@@ -299,7 +299,7 @@ class CartSerializer(serializers.ModelSerializer):
         return round(self.total_amount,2)
 
     def items_count_id(self, obj):
-        return self.items_count
+        return obj.rt_cart_list.count()
 
     def get_delivery_msg(self, obj):
         return self.context.get("delivery_message", None)
