@@ -26,14 +26,14 @@ CHOICES = (
 PAYMENT_STATUS_CHOICES = (
     ('not_initiated', 'not_initiated'),
     ('initiated', 'initiated'),
-    ('in_progress', 'in_progress'),
+    #('in_progress', 'in_progress'),
     ('cancelled', 'cancelled'),
     ('failure', 'failure'),
-    ('completed', 'completed'),
+    ('completed', 'completed'), #successful
   )
 
 ONLINE_PAYMENT_TYPE_CHOICES = (
-    ('paytm', 'paytm'),
+    #('paytm', 'paytm'),
     ('upi', 'upi'),
     ('neft', 'neft'),
     ('imps', 'imps'),
@@ -87,42 +87,48 @@ class AbstractDateTime(models.Model):
     class Meta:
         abstract = True
 
+# merge and create payment table : tbd: let it be same for now       
+# field name : order_payment_or_shipment_payment
 
 class OrderPayment(AbstractDateTime):
     # This class stores the payment information for the shipment
     name = models.CharField(max_length=255, null=True, blank=True)
     description = models.CharField(max_length=255, null=True, blank=True)
     payment_type = models.CharField(max_length=255, choices=ORDER_PAYMENT_TYPE_CHOICES,null=True, blank=True)
-    order = models.ForeignKey(Order, related_name='order_payment', on_delete=models.CASCADE)
+    order = models.ForeignKey(Order, related_name='order_payment', on_delete=models.CASCADE) #order_id
     payment_status = models.CharField(max_length=255, choices=ORDER_PAYMENT_STATUS_CHOICES, null=True, blank=True)
     due_date = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(User, related_name='payment_created', null=True, blank=True, on_delete=models.SET_NULL)
     updated_by = models.ForeignKey(User, related_name='payment_updated', null=True, blank=True, on_delete=models.SET_NULL)
 
-
+# create payment mode table
 class ShipmentPayment(AbstractDateTime):
     # This class stores the payment information for the shipment
     name = models.CharField(max_length=255, null=True, blank=True)
     description = models.CharField(max_length=255, null=True, blank=True)
     payment_type = models.CharField(max_length=255, choices=PAYMENT_TYPE_CHOICES,null=True, blank=True)
-    shipment = models.ForeignKey(Shipment, related_name='shipment_payment', on_delete=models.CASCADE)
+    shipment = models.ForeignKey(Shipment, related_name='shipment_payment', on_delete=models.CASCADE) #shipment_id
     is_cash_payment = models.BooleanField(default=False)
     is_wallet_payment = models.BooleanField(default=False)
     is_credit_payment = models.BooleanField(default=False)
     is_credit_note = models.BooleanField(default=False)
     is_discount = models.BooleanField(default=False)
     payment_status = models.CharField(max_length=255, null=True, blank=True)
+    #collected_payment = models.DecimalField()
     due_date = models.DateTimeField(null=True, blank=True)
-    received_by = models.ForeignKey(User, related_name='payment_boy', on_delete=models.CASCADE)
+    #received_by = models.ForeignKey(User, related_name='payment_boy', on_delete=models.CASCADE)
     created_by = models.ForeignKey(User, related_name='payment_created_by', null=True, blank=True, on_delete=models.SET_NULL)
     updated_by = models.ForeignKey(User, related_name='payment_updated_by', null=True, blank=True, on_delete=models.SET_NULL)
 
     def __str__(self):
         return self.vendor_name
 
+
+
     def get_parent_or_self(self,obj):
         pass
         #return brand.id
+
 
 
 class CashPayment(AbstractDateTime):
