@@ -176,7 +176,7 @@ function GetResultByTripID() {
           'trip_id': trip_id
       },
       success: function(data) {
-        page_data['pending_shipments'] = data;
+        initPageData(data);
         CheckResponse();
       }
 
