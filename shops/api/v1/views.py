@@ -471,7 +471,7 @@ class SalesPerformanceView(generics.ListAPIView):
         import ipdb
         ipdb.set_trace()
         print(self.get_queryset())
-        b = ShopUserMapping.objects.filter(employee=self.request.user, status=True).values('shop').order_by('shop').distinct('shop')
+        b = Order.objects.filter(Q(buyer_shop__in=self.get_queryset()), ~Q(created_at__date__lte=today, created_at__date__gte=last_15_day)).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop'))
         print(b.query)
         print("-------------")
         a = Order.objects.filter(buyer_shop__in=self.get_queryset()).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop')).exclude(created_at__date__lte=today, created_at__date__gte=last_15_day).count()
@@ -484,7 +484,7 @@ class SalesPerformanceView(generics.ListAPIView):
         if self.get_queryset():
             rt = {
                 'name': request.user.get_full_name(),
-                'shop_inactive': Order.objects.filter(buyer_shop__in=self.get_queryset()).values('buyer_shop').filter(~Q(created_at__date__lte=today, created_at__date__gte=last_15_day)).annotate(buyer_shop_count=Count('buyer_shop')).count(),
+                'shop_inactive': Order.objects.filter(Q(buyer_shop__in=self.get_queryset()), ~Q(created_at__date__lte=today, created_at__date__gte=last_15_day)).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop')).count(),
                 'shop_onboard': Shop.objects.filter(created_by=self.request.user, status=True,created_at__date__lte=today,created_at__date__gte=last_day).count(),
                 'shop_reactivated': Order.objects.filter(buyer_shop__in=self.get_queryset()).filter(~Q(created_at__date__lte=last_15_day, created_at__date__gte=last_30_day),
                     Q(created_at__date__lte=today, created_at__date__gte=last_15_day)).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop')).count(),
