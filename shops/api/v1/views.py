@@ -468,6 +468,8 @@ class SalesPerformanceView(generics.ListAPIView):
 
         last_15_day = today - timedelta(days=days_diff + next_15_day)
         last_30_day = today - timedelta(days=days_diff + next_30_day)
+        import ipdb
+        ipdb.set_trace()
         print(self.get_queryset())
         b = ShopUserMapping.objects.filter(employee=self.request.user, status=True).values('shop').order_by('shop').distinct('shop')
         print(b.query)
