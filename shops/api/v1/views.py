@@ -458,7 +458,7 @@ class SalesPerformanceView(generics.ListAPIView):
         return ShopUserMapping.objects.filter(employee=self.request.user, status=True).values('shop').order_by('shop').distinct('shop')
 
     def list(self, request, *args, **kwargs):
-        days_diff = 15 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
+        days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
         data = []
         next_15_day = 15
         next_30_day = 30
