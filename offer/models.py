@@ -48,7 +48,7 @@ class OfferBanner(models.Model):
         return '{}'.format(self.image)
 
     def clean(self):
-        super(Banner, self).clean()
+        super(OfferBanner, self).clean()
         if (self.offer_banner_type == 'brand' and self.brand is None ):
             raise ValidationError('Please select the Brand')
         if (self.offer_banner_type == 'category' and self.category is None ):
@@ -104,6 +104,7 @@ class OfferBannerData(SortableMixin):
         ordering = ['offer_banner_data_order']
 
 class TopSKU(models.Model):
+    shop = models.ForeignKey(Shop,blank=True, on_delete=models.CASCADE, null=True)
     product = models.ForeignKey(Product, blank=True, null=True, on_delete=models.CASCADE)
     start_date = models.DateTimeField(blank=True, null=True)
     end_date = models.DateTimeField(blank=True, null=True)

@@ -4,7 +4,7 @@ from dal import autocomplete
 from django_select2.forms import Select2MultipleWidget, ModelSelect2Widget
 from brand.models import Brand
 from categories.models import Category
-from .models import OfferBanner , OfferBannerPosition
+from .models import OfferBanner , OfferBannerPosition, TopSKU
 from shops.models import Shop
 from products.models import Product
 
@@ -70,3 +70,22 @@ class OfferBannerPositionForm(forms.ModelForm):
     class Meta:
         Model = OfferBannerPosition
         fields = '__all__'
+
+class TopSKUForm(forms.ModelForm):
+    shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['sp',]),
+        widget=autocomplete.ModelSelect2(url='banner-shop-autocomplete', ),
+        required=False
+    )
+
+    product = forms.ModelChoiceField(required=False,
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='banner-product-autocomplete',
+            forward=('brand',)
+        )
+     )
+
+    class Meta:
+        model = TopSKU
+        fields = ('__all__')

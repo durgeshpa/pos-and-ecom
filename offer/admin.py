@@ -4,7 +4,7 @@ from django.contrib import admin
 from adminsortable.admin import NonSortableParentAdmin, SortableStackedInline
 
 from .models import OfferBanner, OfferBannerData,OfferBannerPosition, OfferBannerSlot, OfferPage, TopSKU
-from.forms import OfferBannerForm, OfferBannerPositionForm
+from.forms import OfferBannerForm, OfferBannerPositionForm, TopSKUForm
 class OfferBannerDataInline(SortableStackedInline):
     model = OfferBannerData
 
@@ -41,7 +41,8 @@ class OfferPageAdmin(admin.ModelAdmin):
 admin.site.register(OfferPage,OfferPageAdmin)
 
 class TopSKUAdmin(admin.ModelAdmin):
-    fields = ('product', 'start_date', 'end_date', 'status',)
+    form=TopSKUForm
+    fields = ('shop', 'product', 'start_date', 'end_date', 'status',)
     list_display = ('product', 'start_date', 'end_date', 'status',)
     list_filter = ('product', 'start_date', 'end_date', 'status',)
     search_fields = ('product', 'start_date', 'end_date', 'status',)

@@ -40,6 +40,7 @@ urlpatterns = [
     url(r'^product/', include('products.urls')),
     url(r'^rest-auth/registration/', include('rest_auth.registration.urls')),
     url(r'^bannerapi/', include('banner.urls')),
+    url(r'^offerbannerapi/', include('offer.urls')),
     url(r'^brandapi/', include('brand.urls')),
     url(r'^service-partner/', include('sp_to_gram.urls')),
     url(r'^retailer/sp/', include('retailer_to_sp.urls')),
