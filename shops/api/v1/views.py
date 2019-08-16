@@ -468,23 +468,15 @@ class SalesPerformanceView(generics.ListAPIView):
 
         last_15_day = today - timedelta(days=days_diff + next_15_day)
         last_30_day = today - timedelta(days=days_diff + next_30_day)
-        import ipdb
-        ipdb.set_trace()
-        print(self.get_queryset())
-        b = Order.objects.filter(Q(buyer_shop__in=self.get_queryset()), ~Q(created_at__date__lte=today, created_at__date__gte=last_15_day)).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop'))
-        print(b.query)
-        print("-------------")
-        a = Order.objects.filter(buyer_shop__in=self.get_queryset()).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop')).exclude(created_at__date__lte=today, created_at__date__gte=last_15_day).count()
-        print(a.query)
         print("-------------")
         c = Order.objects.filter(buyer_shop__in=self.get_queryset()).filter(~Q(created_at__date__lte=last_15_day, created_at__date__gte=last_30_day),
-                    Q(created_at__date__lte=today, created_at__date__gte=last_15_day)).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop')).count()
+                    Q(created_at__date__lte=today, created_at__date__gte=last_15_day)).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop'))
         print(c.query)
 
         if self.get_queryset():
             rt = {
                 'name': request.user.get_full_name(),
-                'shop_inactive': Order.objects.filter(Q(buyer_shop__in=self.get_queryset()), ~Q(created_at__date__lte=today, created_at__date__gte=last_15_day)).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop')).count(),
+                'shop_inactive': abs(Order.objects.filter(buyer_shop__in=self.get_queryset(), created_at__date__lte=today, created_at__date__gte=last_15_day).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop')).count() - self.get_queryset().count()),
                 'shop_onboard': Shop.objects.filter(created_by=self.request.user, status=True,created_at__date__lte=today,created_at__date__gte=last_day).count(),
                 'shop_reactivated': Order.objects.filter(buyer_shop__in=self.get_queryset()).filter(~Q(created_at__date__lte=last_15_day, created_at__date__gte=last_30_day),
                     Q(created_at__date__lte=today, created_at__date__gte=last_15_day)).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop')).count(),
