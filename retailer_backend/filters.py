@@ -6,6 +6,7 @@ from retailer_backend.admin import InputFilter
 from django.db.models import Q
 
 
+
 class BrandFilter(AutocompleteFilter):
     title = 'Brand' # display title
     field_name = 'brand' # name of the foreign key field
@@ -33,6 +34,35 @@ class OrderSearch(InputFilter):
             return queryset.filter(
                 Q(order__order_no__icontains=order)
             )
+
+class ProductNameSearch(InputFilter):
+    parameter_name = 'product_name'
+    title = 'Product_Name'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            name = self.value()
+            if name is None:
+                return
+            return queryset.filter(
+                Q(products__product_name__icontains=name)
+            )
+
+
+class ProductSKUSearch(InputFilter):
+    parameter_name = 'product_sku'
+    title = 'Product_SKU'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            sku = self.value()
+            if sku is None:
+                return
+            return queryset.filter(
+                Q(products__product_sku__icontains=sku)
+            )
+
+
 
 class QuantitySearch(InputFilter):
     parameter_name = 'qty'
@@ -73,6 +103,35 @@ class GRNSearch(InputFilter):
                 Q(grn_id__icontains=grn_id)
             )
 
+
+class SupplierNameSearch(InputFilter):
+    parameter_name = 'supp_name'
+    title = 'Supplier_Name'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            supp_name = self.value()
+            if supp_name is None:
+                return
+            return queryset.filter(
+                Q(grn_id__icontains=supp_name)
+            )
+
+class POCreatedBySearch(InputFilter):
+    parameter_name = 'created_by'
+    title = 'Created_BY'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            created_by = self.value()
+            if created_by is None:
+                return
+            return queryset.filter(
+                Q(grn_id__icontains=created_by)
+            )
+
+
+
 class POAmountSearch(InputFilter):
     parameter_name = 'po_amount'
     title = 'PO Amount'
@@ -86,6 +145,18 @@ class POAmountSearch(InputFilter):
                 Q(po_amount=po_amount)
             )
 
+class PONumberSearch(InputFilter):
+    parameter_name = 'po_no'
+    title = 'PO Number'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            po_no = self.value()
+            if po_no is None:
+                return
+            return queryset.filter(
+                Q(po_no=po_no)
+            )
 class PORaisedBy(InputFilter):
     parameter_name = 'po_raised_by'
     title = 'PO Raised By'
