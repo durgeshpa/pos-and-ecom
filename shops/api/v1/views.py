@@ -468,16 +468,26 @@ class SalesPerformanceView(generics.ListAPIView):
 
         last_15_day = today - timedelta(days=days_diff + next_15_day)
         last_30_day = today - timedelta(days=days_diff + next_30_day)
+        print(self.get_queryset())
+        b = ShopUserMapping.objects.filter(employee=self.request.user, status=True).values('shop').order_by('shop').distinct('shop')
+        print(b.query)
+        print("-------------")
+        a = Order.objects.filter(buyer_shop__in=self.get_queryset()).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop')).exclude(created_at__date__lte=today, created_at__date__gte=last_15_day).count()
+        print(a.query)
+        print("-------------")
+        c = Order.objects.filter(buyer_shop__in=self.get_queryset()).filter(~Q(created_at__date__lte=last_15_day, created_at__date__gte=last_30_day),
+                    Q(created_at__date__lte=today, created_at__date__gte=last_15_day)).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop')).count()
+        print(c.query)
 
         if self.get_queryset():
             rt = {
                 'name': request.user.get_full_name(),
-                'shop_inactive': Order.objects.filter(buyer_shop__in=self.get_queryset()).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop')).exclude(created_at__date__lte=today, created_at__date__gte=last_15_day).count(),
-                'shop_onboard': Shop.objects.filter(id__in=self.get_queryset(), status=True,created_at__date__lte=today,created_at__date__gte=last_day).count(),
+                'shop_inactive': Order.objects.filter(buyer_shop__in=self.get_queryset()).values('buyer_shop').filter(~Q(created_at__date__lte=today, created_at__date__gte=last_15_day)).annotate(buyer_shop_count=Count('buyer_shop')).count(),
+                'shop_onboard': Shop.objects.filter(created_by=self.request.user, status=True,created_at__date__lte=today,created_at__date__gte=last_day).count(),
                 'shop_reactivated': Order.objects.filter(buyer_shop__in=self.get_queryset()).filter(~Q(created_at__date__lte=last_15_day, created_at__date__gte=last_30_day),
                     Q(created_at__date__lte=today, created_at__date__gte=last_15_day)).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop')).count(),
                 'current_target_sales_target': '',
-                'current_store_count': Shop.objects.filter(id__in=self.get_queryset(), created_at__date__lte=today, created_at__date__gte=last_day).count(),
+                'current_store_count': Shop.objects.filter(created_by=self.request.user, created_at__date__lte=today, created_at__date__gte=last_day).count(),
             }
             data.append(rt)
             msg = {'is_success': True, 'message': [""], 'response_data': data}
