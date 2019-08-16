@@ -468,6 +468,8 @@ class SalesPerformanceView(generics.ListAPIView):
 
         last_15_day = today - timedelta(days=days_diff + next_15_day)
         last_30_day = today - timedelta(days=days_diff + next_30_day)
+        import ipdb
+        ipdb.set_trace()
         print("-------------")
         c = Order.objects.filter(buyer_shop__in=self.get_queryset()).filter(~Q(created_at__date__lte=last_15_day, created_at__date__gte=last_30_day),
                     Q(created_at__date__lte=today, created_at__date__gte=last_15_day)).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop'))
