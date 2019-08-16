@@ -468,20 +468,16 @@ class SalesPerformanceView(generics.ListAPIView):
 
         last_15_day = today - timedelta(days=days_diff + next_15_day)
         last_30_day = today - timedelta(days=days_diff + next_30_day)
-        import ipdb
-        ipdb.set_trace()
-        print("-------------")
-        c = Order.objects.filter(buyer_shop__in=self.get_queryset()).filter(~Q(created_at__date__lte=last_15_day, created_at__date__gte=last_30_day),
-                    Q(created_at__date__lte=today, created_at__date__gte=last_15_day)).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop'))
-        print(c.query)
+
+        first_15_day = Order.objects.filter(buyer_shop__in=self.get_queryset()).filter(created_at__date__lte=today, created_at__date__gte=last_15_day).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop'))
+        next_15_day = Order.objects.filter(buyer_shop__in=self.get_queryset()).filter(created_at__date__lte=last_15_day, created_at__date__gte=last_30_day).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop'))
 
         if self.get_queryset():
             rt = {
                 'name': request.user.get_full_name(),
                 'shop_inactive': abs(Order.objects.filter(buyer_shop__in=self.get_queryset(), created_at__date__lte=today, created_at__date__gte=last_15_day).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop')).count() - self.get_queryset().count()),
                 'shop_onboard': Shop.objects.filter(created_by=self.request.user, status=True,created_at__date__lte=today,created_at__date__gte=last_day).count(),
-                'shop_reactivated': Order.objects.filter(buyer_shop__in=self.get_queryset()).filter(~Q(created_at__date__lte=last_15_day, created_at__date__gte=last_30_day),
-                    Q(created_at__date__lte=today, created_at__date__gte=last_15_day)).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop')).count(),
+                'shop_reactivated': first_15_day.difference(next_15_day).count(),
                 'current_target_sales_target': '',
                 'current_store_count': Shop.objects.filter(created_by=self.request.user, created_at__date__lte=today, created_at__date__gte=last_day).count(),
             }
