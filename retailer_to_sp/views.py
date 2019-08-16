@@ -1284,59 +1284,45 @@ class StatusChangedAfterAmountCollected(APIView):
             msg = {'is_success': False, 'message': ['Amount is different'], 'response_data': None}
         return Response(msg, status=status.HTTP_201_CREATED)
 
-# def update_shipment_status_with_id(id):
-#     shipped_qty_list = []
-#     returned_qty_list = []
-#     damaged_qty_list = []
-#
-#     shipment = OrderedProduct.objects.get(pk=id)
-#     current_order_shipments = shipment.order.rt_order_order_product \
-#         .values_list('id', flat=True)
-#
-#     shipment_products_dict = OrderedProductMapping.objects \
-#         .values('product', 'ordered_product__order__ordered_cart') \
-#         .filter(ordered_product__in=list(current_order_shipments)) \
-#         .annotate(Sum('delivered_qty'), Sum('shipped_qty'),
-#                   Sum('returned_qty'), Sum('damaged_qty'))
-#
-#     cart_products_dict = CartProductMapping.objects \
-#         .values('cart_product', 'no_of_pieces') \
-#         .filter(cart_product_id__in=[i.get('product')
-#                                      for i in shipment_products_dict],
-#                 cart_id=shipment_products_dict[0].get(
-#                     'ordered_product__order__ordered_cart'
-#                 ))
-#
-#     total_delivered_qty = sum([i.get('delivered_qty__sum')
-#                                for i in shipment_products_dict])
-#     total_shipped_qty = sum([i.get('shipped_qty__sum')
-#                              for i in shipment_products_dict])
-#     total_returned_qty = sum([i.get('returned_qty__sum')
-#                               for i in shipment_products_dict])
-#     total_damaged_qty = sum([i.get('damaged_qty__sum')
-#                              for i in shipment_products_dict])
-#     ordered_qty = sum([i.get('no_of_pieces') for i in cart_products_dict])
-#
-#     order = shipment.order
-#
-#     for inline_form in formset:
-#         instance = getattr(inline_form, 'instance', None)
-#         update_delivered_qty(instance, inline_form)
-#         shipped_qty_list.append(instance.shipped_qty if instance else 0)
-#         returned_qty_list.append(inline_form.cleaned_data.get('returned_qty', 0))
-#         damaged_qty_list.append(inline_form.cleaned_data.get('damaged_qty', 0))
-#
-#     shipped_qty = sum(shipped_qty_list)
-#     returned_qty = sum(returned_qty_list)
-#     damaged_qty = sum(damaged_qty_list)
-#
-#     if shipped_qty == (returned_qty + damaged_qty):
-#         form_instance.shipment_status = 'FULLY_RETURNED_AND_COMPLETED'
-#
-#     elif (returned_qty + damaged_qty) == 0:
-#         form_instance.shipment_status = 'FULLY_DELIVERED_AND_COMPLETED'
-#
-#     elif shipped_qty > (returned_qty + damaged_qty):
-#         form_instance.shipment_status = 'PARTIALLY_DELIVERED_AND_COMPLETED'
-#
-#     form_instance.save()
+
+def update_shipment_status_with_id(shipment_id):
+    shipment = OrderedProduct.objects.get(pk=shipment_id)
+    current_order_shipments = shipment.order.rt_order_order_product \
+        .values_list('id', flat=True)
+
+    shipment_products_dict = OrderedProductMapping.objects \
+        .values('product', 'ordered_product__order__ordered_cart') \
+        .filter(ordered_product__in=list(current_order_shipments)) \
+        .annotate(Sum('delivered_qty'), Sum('shipped_qty'),
+                  Sum('returned_qty'), Sum('damaged_qty'))
+
+    cart_products_dict = CartProductMapping.objects \
+        .values('cart_product', 'no_of_pieces') \
+        .filter(cart_product_id__in=[i.get('product')
+                                     for i in shipment_products_dict],
+                cart_id=shipment_products_dict[0].get(
+                    'ordered_product__order__ordered_cart'
+                ))
+
+    total_delivered_qty = sum([i.get('delivered_qty__sum')
+                               for i in shipment_products_dict])
+    total_shipped_qty = sum([i.get('shipped_qty__sum')
+                             for i in shipment_products_dict])
+    total_returned_qty = sum([i.get('returned_qty__sum')
+                              for i in shipment_products_dict])
+    total_damaged_qty = sum([i.get('damaged_qty__sum')
+                             for i in shipment_products_dict])
+    ordered_qty = sum([i.get('no_of_pieces') for i in cart_products_dict])
+
+    if ordered_qty == (total_returned_qty + total_damaged_qty):
+        shipment.shipment_status = 'FULLY_RETURNED_AND_COMPLETED'
+
+    elif (total_returned_qty + total_damaged_qty) == 0 and ordered_qty == total_delivered_qty:
+        shipment.shipment_status = 'FULLY_DELIVERED_AND_COMPLETED'
+
+    elif ordered_qty >= (total_delivered_qty - (total_returned_qty + total_damaged_qty)):
+        shipment.shipment_status = 'PARTIALLY_DELIVERED_AND_COMPLETED'
+    shipment.save()
+
+
+

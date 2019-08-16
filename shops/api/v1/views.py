@@ -25,7 +25,7 @@ from addresses.api.v1.serializers import AddressSerializer
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.core.exceptions import ObjectDoesNotExist
 from retailer_to_sp.models import OrderedProduct
-from retailer_to_sp.views import update_order_status
+from retailer_to_sp.views import update_order_status, update_shipment_status_with_id
 
 class RetailerTypeView(generics.ListAPIView):
     queryset = RetailerType.objects.all()
@@ -588,8 +588,7 @@ class StatusChangedAfterAmountCollected(APIView):
         cash_collected = self.request.POST.get('cash_collected')
         shipment = OrderedProduct.objects.get(id=shipment_id)
         if float(cash_collected) == float(shipment.cash_to_be_collected()):
-            update_order_status(
-                close_order_checked=False,
+            update_shipment_status_with_id(
                 shipment_id=shipment_id
             )
             msg = {'is_success': True, 'message': ['Status Changed'], 'response_data': None}
