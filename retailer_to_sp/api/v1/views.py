@@ -215,7 +215,13 @@ class GramGRNProductsList(APIView):
             query = {"bool":{"filter":filter_list}}
         else:
             return {"match_all":{}}
-        if self.keyword:
+        if self.brand:
+            brand_name = "{} -> {}".format(Brand.objects.filter(id__in=list(self.brand)).last(), self.keyword)
+            filter_list.append({"match": {
+                                    "brand":{"query":brand_name, "fuzziness":"AUTO", "operator":"and"}
+                                    }})
+
+        elif self.keyword:
             q = {
             "match":{
                 "name":{"query":self.keyword, "fuzziness":"AUTO", "operator":"and"}
@@ -224,8 +230,6 @@ class GramGRNProductsList(APIView):
         #else:
         #    q = {"match_all":{}}
             filter_list.append(q)
-        if self.brand:
-            filter_list.append({"match": {"brand":str(Brand.objects.filter(id__in=list(self.brand)).last())}})
         if self.category:
             category_filter = str(categorymodel.Category.objects.filter(id__in=self.category, status=True).last())
             q = {
