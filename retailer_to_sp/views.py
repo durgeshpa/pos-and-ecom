@@ -1312,15 +1312,15 @@ def update_shipment_status_with_id(shipment_id):
                               for i in shipment_products_dict])
     total_damaged_qty = sum([i.get('damaged_qty__sum')
                              for i in shipment_products_dict])
-    ordered_qty = sum([i.get('no_of_pieces') for i in cart_products_dict])
+    #ordered_qty = sum([i.get('no_of_pieces') for i in cart_products_dict])
 
-    if ordered_qty == (total_returned_qty + total_damaged_qty):
+    if total_shipped_qty == (total_returned_qty + total_damaged_qty):
         shipment.shipment_status = 'FULLY_RETURNED_AND_COMPLETED'
 
-    elif (total_returned_qty + total_damaged_qty) == 0 and ordered_qty == total_delivered_qty:
+    elif (total_returned_qty + total_damaged_qty) == 0 and total_shipped_qty == total_delivered_qty:
         shipment.shipment_status = 'FULLY_DELIVERED_AND_COMPLETED'
 
-    elif ordered_qty >= (total_delivered_qty - (total_returned_qty + total_damaged_qty)):
+    elif total_shipped_qty >= (total_delivered_qty - (total_returned_qty + total_damaged_qty)):
         shipment.shipment_status = 'PARTIALLY_DELIVERED_AND_COMPLETED'
     shipment.save()
 

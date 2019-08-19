@@ -798,7 +798,7 @@ class TripSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Trip
-        fields = ('trip_id', 'trip_status', 'no_of_shipments', 'total_trip_amount', 'cash_to_be_collected')
+        fields = ('trip_id','dispatch_no', 'trip_status', 'no_of_shipments', 'total_trip_amount', 'cash_to_be_collected')
 
 
 class RetailerShopSerializer(serializers.ModelSerializer):
