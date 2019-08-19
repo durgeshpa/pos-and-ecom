@@ -215,7 +215,7 @@ class GramGRNProductsList(APIView):
         if self.category or self.brand or self.keyword:
             query = {"bool":{"filter":filter_list}}
         else:
-            return {"match_all":{}}
+            return {"term":{"status":True}}
         if self.brand:
             brand_name = "{} -> {}".format(Brand.objects.filter(id__in=list(self.brand)).last(), self.keyword)
             filter_list.append({"match": {
