@@ -3,14 +3,14 @@ import csv
 from django.contrib import admin
 from .models import (
     Shop, ShopType, RetailerType, ParentRetailerMapping,
-    ShopPhoto, ShopDocument, ShopInvoicePattern
+    ShopPhoto, ShopDocument, ShopInvoicePattern, ShopUserMapping, SalesAppVersion
 )
 from addresses.models import Address
 from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
                     ShopForm, AddressForm, RequiredInlineFormSet,
-                    AddressInlineFormSet)
+                    AddressInlineFormSet, ShopUserMappingForm)
 from .views import (StockAdjustmentView, stock_adjust_sample,
-                    bulk_shop_updation)
+                    bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView, ShopUserMappingCsvSample)
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
 from django.utils.html import format_html
@@ -20,6 +20,7 @@ from admin_auto_filters.filters import AutocompleteFilter
 from services.views import SalesReportFormView, SalesReport
 from rangefilter.filter import DateRangeFilter, DateTimeRangeFilter
 from .utils import create_shops_excel
+from retailer_backend.filters import ShopFilter, EmployeeFilter, ManagerFilter
 
 
 class ShopResource(resources.ModelResource):
@@ -181,6 +182,17 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                 self.admin_site.admin_view(bulk_shop_updation),
                 name="bulk-shop-updation"
             ),
+            url(
+                r'^shop-autocomplete/$',
+                self.admin_site.admin_view(ShopAutocomplete.as_view()),
+                name="shop-autocomplete"
+            ),
+            url(
+                r'^user-autocomplete/$',
+                self.admin_site.admin_view(UserAutocomplete.as_view()),
+                name="user-autocomplete"
+            ),
+
         ] + urls
         return urls
 
@@ -246,7 +258,50 @@ class ParentRetailerMappingAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+from import_export.admin import ImportExportModelAdmin
+class ShopUserMappingResource(resources.ModelResource):
+
+    class Meta:
+        model = ShopUserMapping
+        fields = ('id','shop', 'manager__phone_number', 'employee__phone_number', 'employee_group', 'status',)
+        export_order = ('shop', 'manager__phone_number', 'employee__phone_number', 'employee_group', 'status',)
+        #exclude = ('id',)
+
+class ShopUserMappingAdmin(admin.ModelAdmin):
+    form = ShopUserMappingForm
+    list_display = ('shop','manager','employee','employee_group','created_at','status')
+    list_filter = [ShopFilter, ManagerFilter, EmployeeFilter, 'status', ('created_at', DateTimeRangeFilter), ]
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(ShopUserMappingAdmin, self).get_urls()
+        urls = [
+            url(
+               r'^upload/csv/$',
+               self.admin_site.admin_view(ShopUserMappingCsvView.as_view()),
+               name="shop-user-upload-csv"
+            ),
+           url(
+               r'^upload/csv/sample$',
+               self.admin_site.admin_view(ShopUserMappingCsvSample.as_view()),
+               name="shop-user-upload-csv-sample"
+           ),
+
+        ] + urls
+        return urls
+
+    class Media:
+        pass
+
+class SalesAppVersionAdmin(admin.ModelAdmin):
+    list_display = ('app_version','update_recommended','force_update_required','created_at','modified_at')
+
+
 admin.site.register(ParentRetailerMapping,ParentRetailerMappingAdmin)
 admin.site.register(ShopType)
 admin.site.register(RetailerType)
 admin.site.register(Shop,ShopAdmin)
+admin.site.register(ShopUserMapping,ShopUserMappingAdmin)
+admin.site.register(SalesAppVersion, SalesAppVersionAdmin)
+
+
