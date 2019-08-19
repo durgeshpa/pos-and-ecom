@@ -215,10 +215,10 @@ class PasswordResetView(GenericAPIView):
                 date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
                 time = datetime.datetime.now().strftime("%I:%M %p")
                 
-                data = {}
-                data['otp'] = otp
-                data['date'] = date
-                data['time'] = time
+                #data = {}
+                #data['otp'] = otp
+                #data['date'] = date
+                #data['time'] = time
 
                 #user_id = user.id
                 activity_type = "PASSWORD_CHANGE"
