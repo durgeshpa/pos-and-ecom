@@ -70,13 +70,23 @@ class StockAdjustmentUploadForm(forms.Form):
                 except:
                     raise ValidationError(_('INVALID_PRODUCT_ID at Row[%(value)s]'), params={'value': id+1},)
 
-            if not row[1] or not re.match("^[\d]*$", row[1]):
-                raise ValidationError(_('INVALID_AVAILABLE_QTY at Row[%(value)s]. It should be numeric'),params={'value': id + 1}, )
+            if not row[2]:
+                raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[2] + ":" + row[1] + " | Product SKU required")
+            else:
+                try:
+                    Product.objects.get(product_sku=row[2])
+                except:
+                    raise ValidationError(_('INVALID_PRODUCT_SKU at Row[%(value)s]'), params={'value': id+1},)
 
-            if not row[2] or not re.match("^[\d]*$", row[2]):
-                raise ValidationError(_('INVALID_DAMAGED_QTY at Row[%(value)s]. It should be numeric'),params={'value': id + 1}, )
+
 
             if not row[3] or not re.match("^[\d]*$", row[3]):
+                raise ValidationError(_('INVALID_AVAILABLE_QTY at Row[%(value)s]. It should be numeric'),params={'value': id + 1}, )
+
+            if not row[4] or not re.match("^[\d]*$", row[4]):
+                raise ValidationError(_('INVALID_DAMAGED_QTY at Row[%(value)s]. It should be numeric'),params={'value': id + 1}, )
+
+            if not row[5] or not re.match("^[\d]*$", row[5]):
                 raise ValidationError(_('INVALID_EXPIRED_QTY at Row[%(value)s]. It should be numeric'),params={'value': id + 1}, )
 
         return self.cleaned_data['upload_file']
