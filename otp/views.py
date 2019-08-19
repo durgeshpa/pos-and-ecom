@@ -403,12 +403,22 @@ class SendSmsOTPAnytime(CreateAPIView):
                         status=status.HTTP_200_OK
                     )
             else:
-                msg = {'is_success': False,
-                        'message': [VALIDATION_ERROR_MESSAGES['USER_NOT_EXIST']],
-                        'response_data': None }
+                phone_otp, otp = PhoneOTP.create_otp_for_number(number)
+                date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
+                time = datetime.datetime.now().strftime("%I:%M %p")
+                message = SendSms(phone=number,
+                                  body="%s is your One Time Password for GramFactory Account." \
+                                       " Request time is %s, %s IST." % (otp, date, time))
+                message.send()
+                phone_otp.last_otp = timezone.now()
+                phone_otp.save()
+
+                msg = {'is_success': True,
+                       'message': ["message sent"],
+                       'response_data': None}
                 return Response(msg,
-                    status=status.HTTP_406_NOT_ACCEPTABLE
-                )
+                                status=status.HTTP_200_OK
+                                )
         else:
             errors = []
             for field in serializer.errors:
