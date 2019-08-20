@@ -6,7 +6,6 @@ from django.utils.html import format_html_join, format_html
 from django.utils.safestring import mark_safe
 from django.urls import reverse
 
-
 from products.models import Product
 
 
@@ -125,12 +124,36 @@ def order_invoices(shipments):
             ) for s in shipments)
     )
 
+def picking_statuses(picker_dashboards):
+    return format_html_join(
+    "","{}<br><br>",
+            ((s.get_picking_status_display(),
+            ) for s in picker_dashboards)
+    ) 
+
+def picker_boys(picker_dashboards):
+    return format_html_join(
+    "","{}<br><br>",
+            ((s.picker_boy, #get_picker_boy_display(),
+            ) for s in picker_dashboards)
+    )  
+    
+def picklist_ids(picker_dashboards):
+    return format_html_join(
+    "","{}<br><br>",
+            ((s.picklist_id, #get_picklist_id_display(),
+            ) for s in picker_dashboards)
+    )        
+
+
 def order_shipment_status(shipments):
     return format_html_join(
     "","{}<br><br>",
             ((s.get_shipment_status_display(),
             ) for s in shipments)
     )   
+
+
 
 def order_shipment_status_reason(shipments):
     return format_html_join(
@@ -215,4 +238,3 @@ def reschedule_shipment_button(obj):
         (reverse('admin:retailer_to_sp_shipmentrescheduling_add'),
          obj.id)
     )
-
