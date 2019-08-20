@@ -171,7 +171,7 @@ class OnlinePayment(AbstractDateTime):
     payment_status = models.CharField(max_length=255, choices=PAYMENT_STATUS_CHOICES, null=True, blank=True)
     initiated_time = models.DateTimeField(null=True, blank=True)
     timeout_time = models.DateTimeField(null=True, blank=True)
-    #processed_by = models.ForeignKey(User, related_name='online_payment_boy', on_delete=models.CASCADE)
+    processed_by = models.ForeignKey(User, related_name='online_payment_boy', on_delete=models.CASCADE)
 
 
 

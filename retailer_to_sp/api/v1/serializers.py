@@ -721,7 +721,7 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
 
     def get_shipment_payment(self, obj):
         # return ""
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         payment_data = {}            
         #payment = ShipmentPayment.objects.get(shipment=obj)
         payment, created = ShipmentPayment.objects.get_or_create(shipment=obj)
