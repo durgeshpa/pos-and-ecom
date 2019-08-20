@@ -1428,7 +1428,7 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
     '''
     Method to update picking status 
     '''
-    assign_update_picker_to_shipment(instance.id)
+    assign_update_picker_to_shipment.delay(instance.id)
     #assign shipment to picklist once SHIPMENT_CREATED
     # if instance.shipment_status == "SHIPMENT_CREATED":
     #     # assign shipment to picklist
