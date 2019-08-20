@@ -2,6 +2,7 @@ import datetime
 import logging
 from decimal import Decimal
 
+from celery.task import task
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -1411,20 +1412,32 @@ class Feedback(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     status = models.BooleanField(default=False)
 
+@task
+def assign_update_picker_to_shipment(shipment_id):
+   shipment = OrderedProduct.objects.get(pk=shipment_id)
+   if shipment.shipment_status == "SHIPMENT_CREATED":
+       # assign shipment to picklist
+       # tbd : if manual(by searching relevant picklist id) or automated
+       picker_lists = shipment.order.picker_order.filter(picking_status="picking_assigned").update(shipment=shipment)
+   elif shipment.shipment_status == OrderedProduct.READY_TO_SHIP:
+       shipment.picker_shipment.all().update(picking_status="picking_complete")
+
+
 @receiver(post_save, sender=OrderedProduct)
 def update_picking_status(sender, instance=None, created=False, **kwargs):
     '''
     Method to update picking status 
     '''
+    assign_update_picker_to_shipment.delay(instance.id)
     #assign shipment to picklist once SHIPMENT_CREATED
-    if instance.shipment_status == "SHIPMENT_CREATED":
-        # assign shipment to picklist
-        # tbd : if manual(by searching relevant picklist id) or automated 
-        picker_lists = PickerDashboard.objects.filter(order=instance.order, picking_status="picking_assigned")
-        if picker_lists.exists():
-            picker_lists.update(shipment=instance)
-    elif instance.shipment_status == OrderedProduct.READY_TO_SHIP:
-        PickerDashboard.objects.filter(shipment=instance).update(picking_status="picking_complete")
+    # if instance.shipment_status == "SHIPMENT_CREATED":
+    #     # assign shipment to picklist
+    #     # tbd : if manual(by searching relevant picklist id) or automated 
+    #     picker_lists = PickerDashboard.objects.filter(order=instance.order, picking_status="picking_assigned")
+    #     if picker_lists.exists():
+    #         picker_lists.update(shipment=instance)
+    # elif instance.shipment_status == OrderedProduct.READY_TO_SHIP:
+    #     PickerDashboard.objects.filter(shipment=instance).update(picking_status="picking_complete")
 
 
 @receiver(post_save, sender=Order)
