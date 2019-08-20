@@ -163,7 +163,7 @@ class WalletPayment(AbstractDateTime):
 
 class OnlinePayment(AbstractDateTime):
     # This method stores the credit payment: third party details, payment status
-    payment = models.ForeignKey(ShipmentPayment, related_name='online_payment', on_delete=models.CASCADE)
+    payment = models.OneToOneField(ShipmentPayment, related_name='online_payment', on_delete=models.CASCADE)
     reference_no = models.CharField(max_length=255, unique=True)
     description = models.CharField(max_length=255, null=True, blank=True)
     online_payment_type = models.CharField(max_length=255, choices=ONLINE_PAYMENT_TYPE_CHOICES, null=True, blank=True)
@@ -171,7 +171,7 @@ class OnlinePayment(AbstractDateTime):
     payment_status = models.CharField(max_length=255, choices=PAYMENT_STATUS_CHOICES, null=True, blank=True)
     initiated_time = models.DateTimeField(null=True, blank=True)
     timeout_time = models.DateTimeField(null=True, blank=True)
-    processed_by = models.ForeignKey(User, related_name='online_payment_boy', on_delete=models.CASCADE)
+    #processed_by = models.ForeignKey(User, related_name='online_payment_boy', on_delete=models.CASCADE)
 
 
 

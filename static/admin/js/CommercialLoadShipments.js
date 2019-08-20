@@ -91,12 +91,17 @@ function CreateResponseTable(data){
       var invoice_amount = "<td>" + data['response_data'][i]['invoice_amount'] + "</td>";
       var cash_to_be_collected = "<td>" + data['response_data'][i]['cash_to_be_collected'] + "</td>";
       var cash_payment = "<td><form class='shipment_payment_info' action=''><input type='text' name='cash_payment' value='"+ data1['shipment_payment']['cash_payment_amount'] +"'></form></td>";
-      var online_payment = "<td>100</td>";//"<td><form action=''><input type='text' name='online_payment' value='"+ data['shipment_payment']['online_payment_amount'] +"'></form></td>";
+      var online_payment_mode = "<td><select name='payment_mode'><option value='neft'>NEFT</option></select></td>";
+      var online_payment = "<td><input type='text' name='online_payment' value='"+ data1['shipment_payment']['online_payment_amount'] +"'></td>";
+      var reference_no = "<td><input type='text' name='reference_no' value='"+ data1['shipment_payment']['reference_no'] +"'></form></td>";
+
       var invoice_city = "<td>" + data['response_data'][i]['invoice_city'] + "</td>";
       var shipment_address = "<td>" + data['response_data'][i]['shipment_address'] + "</td>";
       var created_at = "<td>" + data['response_data'][i]['created_at'] + "</td>";
       
-      var append_data = "<tr class="+ row +"><td class='original'></td>" + invoice_no + invoice_amount + cash_to_be_collected + cash_payment + online_payment + shipment_status + invoice_city + created_at + order + shipment_address + "</tr>"
+      var append_data = "<tr class="+ row +"><td class='original'></td>" + invoice_no + invoice_amount + cash_to_be_collected + cash_payment 
+      + online_payment_mode + online_payment + reference_no 
+      + shipment_status + invoice_city + created_at + order + shipment_address + "</tr>"
 
       $("tbody#data").append(append_data);
   }
@@ -105,7 +110,6 @@ function CreateResponseTable(data){
 
 
       $('.shipment-payments-submit').on('click',  function(event) { 
-          alert("test");
           //event.preventDefault();
           update_shipment_payment_information();//('{{ shipment_payment.id | escapejs }}');
           if (count == 0)
@@ -168,6 +172,8 @@ function update_shipment_payment_information(shipment_payment_id)
     cash_payment['paid_amount'] = formData['cash_payment'];
     formData['cash_payment'] = cash_payment; */
     formData['cash_amount'] = formData['cash_payment'];
+    formData['online_amount'] = formData['online_payment'];
+
     //submit_update_data(shipment_payment_id);
 }
 
