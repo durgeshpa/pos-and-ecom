@@ -670,6 +670,13 @@ class GramMappedOrderSerializer(serializers.ModelSerializer):
                   'created_at','modified_at','rt_order_order_product')
 
 
+# class DispatchSerializer(serializers.ModelSerializer):
+
+
+#     class Meta:
+#         model = Dispatch
+#         fields = '__all__'
+
 class DispatchSerializer(serializers.ModelSerializer):
     shipment_status = serializers.CharField(
                                         source='get_shipment_status_display')
@@ -678,7 +685,7 @@ class DispatchSerializer(serializers.ModelSerializer):
     shipment_payment = serializers.SerializerMethodField()
 
     def get_shipment_payment(self, obj):
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         #return ""
         
         payment_data = {}            
@@ -716,7 +723,7 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
         # return ""
         #import pdb; pdb.set_trace()
         payment_data = {}            
-
+        #payment = ShipmentPayment.objects.get(shipment=obj)
         payment, created = ShipmentPayment.objects.get_or_create(shipment=obj)
         payment_data['shipment_payment_id'] =  payment.id
 

@@ -129,6 +129,7 @@ function submit_update_data(shipment_payment_id)
             console.log(data);
             alert('Successfully Updated');
             formData = {};
+            location.reload();
 
         },
         error: function(xhr, desc, err){
@@ -163,15 +164,18 @@ function update_shipment_payment_information(shipment_payment_id)
         return 0;
     }
 */    
-    //var cash_payment = [];
-    formData['cash_payment'] = [formData['cash_payment']] //cash_payment;
-
+    /*var cash_payment = {};
+    cash_payment['paid_amount'] = formData['cash_payment'];
+    formData['cash_payment'] = cash_payment; */
+    formData['cash_amount'] = formData['cash_payment'];
     //submit_update_data(shipment_payment_id);
 }
 
 function CallAPI(){
     GetResultByTripID();
 }
+
+
 
 //$('.shipment-payments-submit').on('click',  function(event) { 
 
