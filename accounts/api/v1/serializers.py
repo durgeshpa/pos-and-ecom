@@ -2,6 +2,7 @@ from rest_framework import serializers
 from products.models import Product
 from django.contrib.auth import get_user_model
 from accounts.models import UserDocument, AppVersion
+from django.contrib.auth.models import Group
 
 User =  get_user_model()
 
@@ -29,3 +30,8 @@ class AppVersionSerializer(serializers.ModelSerializer):
     class Meta:
         model = AppVersion
         fields = ('app_version', 'update_recommended','force_update_required')
+
+class GroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Group
+        fields = ('name',)

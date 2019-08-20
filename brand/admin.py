@@ -86,6 +86,7 @@ class BrandAdmin( admin.ModelAdmin, ExportCsvMixin):
     list_display = ('id','brand_name','brand_logo','brand_code','active_status')
     list_filter = (BrandSearch,BrandCodeSearch,'active_status', )
     search_fields= ('brand_name','brand_code')
+    filter_horizontal = ('categories',)
     prepopulated_fields = {'brand_slug': ('brand_name',)}
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
