@@ -1,0 +1,60 @@
+{% extends 'admin/retailer_to_sp/trip/base.html' %}
+
+{% block title %}Shop | Admin{% endblock %}
+{% block breadcrumb1 %}<a href="/admin/shops/">Shops</a>{% endblock %}
+{% block breadcrumb2 %}<a href="/admin/shops/shopusermapping/">Shop user mappings<a>{% endblock %}
+{% block breadcrumb3 %}<a href="#">Upload CSV</a>{% endblock %}
+
+{% block content %}
+          <!-- Content -->
+         <div id="content" class="colM">
+            <h1>{% block content_header %}{% endblock %}</h1>
+            <div id="content-main">
+               <ul class="object-tools">
+                  <!--<li>-->
+                  <!--<a href="/admin/retailer_to_sp/orderedproduct/119/history/" class="historylink">History</a>-->
+                  <!--</li>-->
+               </ul>
+               <form method="post" enctype="multipart/form-data">
+
+                  <div>
+                     <fieldset class="module aligned ">
+                        {% csrf_token %}
+<hr>
+      <br>
+
+      {% if ordered_form.errors %}
+            {% for field in ordered_form %}
+                {% for error in field.errors %}
+                <p class="errornote">{{ error|escape }}</p>
+            {% endfor %}
+                {% endfor %}
+          {% for error in ordered_form.non_field_errors %}
+            <p class="errornote">{{ error|escape }}</p>
+          {% endfor %}
+      {% endif %}
+
+                  {% if messages %}
+                {% for message in messages %}
+                <p class="errornote">{{ message|escape }}</p>
+                {% endfor %}
+            {% endif %}
+                        {{form.as_p}}
+                     </fieldset>
+                     <div class="submit-row">
+                        <input type="submit" value="Save" class="default" name="_save">
+                     </div>
+                  </div>
+               </form>
+            </div>
+            <br class="clear">
+         </div>
+         <!-- END Content -->
+{% endblock %}
+
+{% block javascript %}
+<script >
+
+</script>
+{% endblock %}
+

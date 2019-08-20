@@ -149,12 +149,21 @@ class OrderedProductForm(forms.ModelForm):
         super(OrderedProductForm, self).__init__(*args, **kwargs)
         self.fields['shipment_status'].choices = OrderedProduct.SHIPMENT_STATUS[:2]
         ordered_product = getattr(self, 'instance', None)
-        
         # if ordered_product is None:
         qc_pending_orders = OrderedProduct.objects.filter(shipment_status="SHIPMENT_CREATED").values('order')
         self.fields['order'].queryset = Order.objects.filter(order_status__in=[Order.OPDP, 'ordered',
                       'PARTIALLY_SHIPPED', 'DISPATCH_PENDING'],
                         order_closed=False).exclude(id__in=qc_pending_orders)
+
+    def clean(self):
+        data = self.cleaned_data
+        if not self.cleaned_data['order'].picker_order.all().exists():
+            raise forms.ValidationError(_("Please assign picklist to the order"),)            
+        if self.cleaned_data['shipment_status']=='SHIPMENT_CREATED' and \
+            self.cleaned_data['order'].picker_order.last().picking_status != "picking_assigned":
+            raise forms.ValidationError(_("Please set the picking status in picker dashboard"),)
+
+        return data
 
 
 class OrderedProductMappingForm(forms.ModelForm):
@@ -564,9 +573,10 @@ class ShipmentForm(forms.ModelForm):
 
     def clean(self):
         data = self.cleaned_data
-        if self.instance and self.cleaned_data['shipment_status']=='READY_TO_SHIP' and \
-            self.instance.order.picker_order.last().picking_status == "picking_pending":
-            raise forms.ValidationError(_("Please set the picking status in picker dashboard"),)
+        # if self.instance and self.cleaned_data['shipment_status']=='SHIPMENT_CREATED' and \
+        #     self.instance.order.picker_order.last().picking_status != "picking_assigned":
+        #     raise forms.ValidationError(_("Please set the picking status in picker dashboard"),)
+
         if (data['close_order'] and
                 not data['shipment_status'] == OrderedProduct.READY_TO_SHIP):
                 raise forms.ValidationError(
@@ -789,10 +799,21 @@ class OrderForm(forms.ModelForm):
         model = Order
         fields = ('seller_shop', 'buyer_shop', 'ordered_cart', 'order_no', 'billing_address', 'shipping_address',
                   'total_discount_amount', 'total_tax_amount', 'order_status',
-                  'ordered_by', 'last_modified_by')
+                  'cancellation_reason', 'ordered_by', 'last_modified_by')
 
     class Media:
         js = ('/static/admin/js/retailer_cart.js',)
+
+    def clean_cancellation_reason(self):
+        data = self.cleaned_data
+        if (data['order_status'] == 'CANCELLED' and
+                not data['cancellation_reason']):
+            raise forms.ValidationError(_('Please select cancellation reason!'),)
+        if (data['cancellation_reason'] and
+                not data['order_status'] == 'CANCELLED'):
+            raise forms.ValidationError(
+                _('The reason does not match with the action'),)
+        return data['cancellation_reason']
 
     def clean(self):
         if self.instance.order_status == 'CANCELLED':
@@ -825,3 +846,5 @@ class OrderForm(forms.ModelForm):
         if instance and instance.pk:
             if instance.order_status == 'CANCELLED':
                 self.fields['order_status'].disabled = True
+                self.fields['cancellation_reason'].disabled = True
+

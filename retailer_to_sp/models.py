@@ -160,6 +160,17 @@ class Cart(models.Model):
     def qty_sum(self):
         return self.rt_cart_list.aggregate(qty_sum=Sum('qty'))['qty_sum']
 
+    def total_no_of_sku_pieces(self):
+        return self.rt_cart_list.aggregate(no_of_pieces_sum=Sum('no_of_pieces'))['no_of_pieces_sum']
+
+    def total_sku(self):
+        return self.rt_cart_list.count()
+
+
+    @property
+    def no_of_pieces_sum(self):
+        return self.rt_cart_list.aggregate(qty_sum=Sum('no_of_pieces'))['no_of_pieces_sum']
+
     def save(self, *args, **kwargs):
         if self.cart_status == self.ORDERED:
             for cart_product in self.rt_cart_list.all():
@@ -263,6 +274,47 @@ class Order(models.Model):
         (PARTIALLY_SHIPPED_AND_CLOSED, "Partially shipped and closed"),
         (DENIED_AND_CLOSED, 'Denied and Closed')
     )
+
+    CASH_NOT_AVAILABLE = 'cna'
+    SHOP_CLOSED = 'sc'
+    RESCHEDULED_BY_SELLER = 'rbs'
+    UNABLE_TO_ATTEMPT = 'uta'
+    WRONG_ORDER = 'wo'
+    ITEM_MISS_MATCH = 'imm'
+    DAMAGED_ITEM = 'di'
+    LEFT_AT_WAREHOUSE = 'law'
+    BEFORE_DELIVERY_CANCELLED = 'bdc'
+    NEAR_EXPIRY = 'ne'
+    RATE_ISSUE = 'ri'
+    ALREADY_PURCHASED = 'ap'
+    GST_ISSUE = 'gi'
+    CLEANLINESS = 'cl'
+    CUSTOMER_CANCEL = 'cc'
+    CUSTOMER_UNAVAILABLE = 'cu'
+    MANUFACTURING_DEFECT = 'md'
+    SHORT = 's'
+
+    CANCELLATION_REASON = (
+        (CASH_NOT_AVAILABLE, 'Cash not available'),
+        (SHOP_CLOSED, 'Shop Closed'),
+        (RESCHEDULED_BY_SELLER, 'Rescheduled by seller'),
+        (UNABLE_TO_ATTEMPT, 'Unable to attempt'),
+        (WRONG_ORDER, 'Wrong Order'),
+        (ITEM_MISS_MATCH, 'Item miss match'),
+        (DAMAGED_ITEM, 'Damaged item'),
+        (LEFT_AT_WAREHOUSE, 'Left at Warehouse'),
+        (BEFORE_DELIVERY_CANCELLED, 'Before Delivery Cancelled'),
+        (NEAR_EXPIRY, 'Near Expiry'),
+        (RATE_ISSUE, 'Rate issue'),
+        (ALREADY_PURCHASED, 'Already Purchased'),
+        (GST_ISSUE, 'GST Issue'),
+        (CLEANLINESS, 'Item not clean'),
+        (CUSTOMER_CANCEL, 'Cancelled by customer'),
+        (CUSTOMER_UNAVAILABLE, 'Customer not available'),
+        (MANUFACTURING_DEFECT, 'Manufacturing Defect'),
+        (SHORT, 'Item short')
+    )
+
     #Todo Remove
     seller_shop = models.ForeignKey(
         Shop, related_name='rt_seller_shop_order',
@@ -290,6 +342,10 @@ class Order(models.Model):
     total_discount_amount = models.FloatField(default=0)
     total_tax_amount = models.FloatField(default=0)
     order_status = models.CharField(max_length=50,choices=ORDER_STATUS)
+    cancellation_reason = models.CharField(
+        max_length=50, choices=CANCELLATION_REASON,
+        null=True, blank=True, verbose_name='Reason for Cancellation',
+    )
     order_closed = models.BooleanField(default=False, null=True, blank=True)
     ordered_by = models.ForeignKey(
         get_user_model(), related_name='rt_ordered_by_user',
@@ -437,6 +493,13 @@ class Order(models.Model):
     # def delivered_value(self):
     #     return order_delivered_value(self.shipments())
 
+    def ordered_amount(self):
+        invoice_amount = 0
+        for s in self.shipments():
+            invoice_amount += s.invoice_amount
+        return invoice_amount
+
+
 class Trip(models.Model):
     seller_shop = models.ForeignKey(
         Shop, related_name='trip_seller_shop',
@@ -540,6 +603,18 @@ class Trip(models.Model):
             return str(self.get_trip_status_display())
         return str("-------")
 
+    @property
+    def no_of_shipments(self):
+        return self.rt_invoice_trip.all().count()
+
+    @property
+    def trip_id(self):
+        return self.id
+
+    @property
+    def total_return_amount(self):
+        return self.rt_invoice_trip.all().count()
+
 
 class OrderedProduct(models.Model): #Shipment
     CLOSED = "closed"
@@ -640,6 +715,7 @@ class OrderedProduct(models.Model): #Shipment
             self._invoice_amount = 0
             self._cn_amount = 0
             self._damaged_amount = 0
+            self._delivered_amount = 0
             shipment_products = self.rt_order_product_order_product_mapping.values('product','shipped_qty','returned_qty','damaged_qty').all()
             shipment_map = {i['product']:(i['shipped_qty'], i['returned_qty'], i['damaged_qty']) for i in shipment_products}
             cart_product_map = self.order.ordered_cart.rt_cart_list.values('cart_product_price__price_to_retailer', 'cart_product', 'qty').filter(cart_product_id__in=shipment_map.keys())
@@ -651,6 +727,7 @@ class OrderedProduct(models.Model): #Shipment
                     self._invoice_amount += product_price * shipped_qty
                     self._cn_amount += (returned_qty+damaged_qty) * product_price
                     self._damaged_amount += damaged_qty * product_price
+                    self._delivered_amount += self._invoice_amount - self._cn_amount
                 except Exception as e:
                     logger.exception("Exception occurred {}".format(e))
 
@@ -700,6 +777,10 @@ class OrderedProduct(models.Model): #Shipment
         if self.order:
             return round(self._invoice_amount, 2)
         return str("-")
+
+    @property
+    def shipment_id(self):
+        return self.id
 
     def cn_amount(self):
         return round(self._cn_amount, 2)
@@ -751,6 +832,8 @@ class PickerDashboard(models.Model):
     def __str__(self):
         return self.picklist_id if self.picklist_id is not None else str(self.id)
 
+    # class Meta:
+    #     unique_together = (('shipment'),('order', 'picking_status'),)
 
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(
@@ -864,6 +947,35 @@ class OrderedProductMapping(models.Model):
             gf_code = self.product.product_gf_code
             return str(gf_code)
         return str("-")
+
+
+    @property
+    def mrp(self):
+        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.mrp
+
+    @property
+    def price_to_retailer(self):
+        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.price_to_retailer
+
+    @property
+    def cash_discount(self):
+        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.cash_discount
+
+    @property
+    def loyalty_incentive(self):
+        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.loyalty_incentive
+
+    @property
+    def margin(self):
+        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.margin
+
+    @property
+    def ordered_product_status(self):
+        return self.ordered_product.shipment_status
+
+    @property
+    def product_short_description(self):
+        return self.product.product_short_description
 
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
@@ -1127,10 +1239,10 @@ def order_notification(sender, instance=None, created=False, **kwargs):
         # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
 
 
-        if instance.order_id.ordered_by.first_name:
-            username = instance.order_id.ordered_by.first_name
+        if instance.order_id.buyer_shop.shop_owner.first_name:
+            username = instance.order_id.buyer_shop.shop_owner.first_name
         else:
-            username = instance.order_id.ordered_by.phone_number
+            username = instance.order_id.buyer_shop.shop_owner.phone_number
         order_no = str(instance.order_id)
         total_amount = str(instance.order_id.total_final_amount)
         shop_name = str(instance.order_id.ordered_cart.buyer_shop.shop_name)
@@ -1153,7 +1265,7 @@ def order_notification(sender, instance=None, created=False, **kwargs):
         # from notification_center.utils import SendNotification
         # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
 
-        message = SendSms(phone=instance.order_id.ordered_by,
+        message = SendSms(phone=instance.order_id.buyer_shop.shop_owner,
                           body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
                               " Thanks," \
                               " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))

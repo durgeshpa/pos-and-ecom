@@ -613,11 +613,11 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         qs = super(PickerDashboardAdmin, self).get_queryset(request)
         if request.user.is_superuser:
-            return qs
+            return qs.order_by('-order__created_at')
         return qs.filter(
             Q(order__seller_shop__related_users=request.user) |
             Q(order__seller_shop__shop_owner=request.user)
-                )
+                ).order_by('-order__created_at')
 
     # def _picklist(self, obj, request):
     #     return obj.picklist(request.user)
@@ -668,7 +668,8 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                        'billing_address', 'shipping_address')}),
         (_('Order Details'), {
             'fields': ('order_no', 'ordered_cart', 'order_status',
-                       'ordered_by', 'last_modified_by')}),
+                       'cancellation_reason', 'ordered_by',
+                       'last_modified_by')}),
         (_('Amount Details'), {
             'fields': ('total_mrp_amount', 'total_discount_amount',
                        'total_tax_amount', 'total_final_amount')}),

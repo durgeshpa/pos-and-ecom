@@ -3,22 +3,22 @@ import xlsxwriter
 
 from django.http import HttpResponse
 
-from addresses.models import Address, City, State
+from addresses.models import Address, City, State, Shop
 
 
 def create_shops_excel(queryset):
     cities_list = City.objects.values_list('city_name', flat=True)
     states_list = State.objects.values_list('state_name', flat=True)
     output = io.BytesIO()
-    # data = Address.objects.values_list(
-    #     'shop_name_id', 'shop_name__shop_name',
-    #     'shop_name__shop_type__shop_type',
-    #     'shop_name__shop_owner__phone_number',
-    #     'shop_name__status', 'id', 'nick_name', 'address_line1',
-    #     'address_contact_name', 'address_contact_number', 'pincode',
-    #     'state__state_name', 'city__city_name', 'address_type',
-    #     'shop_name__imei_no', 'shop_name__parent_shop'
-    # ).filter(shop_name__in=queryset)
+    data = Shop.objects.values_list(
+        'id', 'shop_name', 'shop_type__shop_type',
+        'shop_owner__phone_number', 'status', 'shop_name_address_mapping__id',
+        'shop_name_address_mapping__nick_name', 'shop_name_address_mapping__address_line1',
+        'shop_name_address_mapping__address_contact_name', 'shop_name_address_mapping__address_contact_number',
+        'shop_name_address_mapping__pincode', 'shop_name_address_mapping__state__state_name',
+        'shop_name_address_mapping__city__city_name', 'shop_name_address_mapping__address_type'
+    ).filter(id__in=queryset)
+
     items = Address.objects.filter(shop_name__in=queryset)
     data = []
     for item in items:
