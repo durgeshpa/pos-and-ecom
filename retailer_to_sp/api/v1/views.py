@@ -1384,6 +1384,7 @@ class RescheduleReason(generics.ListCreateAPIView):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             self.perform_create(serializer)
+            self.update_shipment(request.data.get('shipment'))
             msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
         else:
             msg = {'is_success': False, 'message': ['have some issue'], 'response_data': None}
@@ -1391,4 +1392,7 @@ class RescheduleReason(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         return serializer.save(created_by=self.request.user)
+
+    def update_shipment(self, id):
+        OrderedProduct.objects.filter(pk=id).update(shipment_status=OrderedProduct.RESCHEDULED, trip=None)
 

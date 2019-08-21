@@ -583,7 +583,6 @@ class StatusChangedAfterAmountCollected(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-
     def post(self, *args, **kwargs):
         shipment_id = kwargs.get('shipment')
         cash_collected = self.request.POST.get('cash_collected')
