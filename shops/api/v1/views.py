@@ -563,6 +563,7 @@ class CheckUser(generics.ListAPIView):
             msg = {'is_success': True, 'message': [""], 'response_data': None,'is_sales':is_sales, 'is_sales_manager':is_sales_manager, 'is_delivery_boy': is_delivery_boy}
         return Response(msg, status=status.HTTP_200_OK)
 
+
 class CheckAppVersion(APIView):
     permission_classes = (AllowAny,)
 
