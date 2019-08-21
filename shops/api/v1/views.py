@@ -590,7 +590,7 @@ class StatusChangedAfterAmountCollected(APIView):
         shipment = OrderedProduct.objects.get(id=shipment_id)
         if float(cash_collected) == float(shipment.cash_to_be_collected()):
             update_shipment_status_with_id(
-                shipment_id=shipment_id
+                shipment=shipment
             )
             msg = {'is_success': True, 'message': ['Status Changed'], 'response_data': None}
         else:
