@@ -119,6 +119,7 @@ class ShipmentPayment(AbstractDateTime):
     #collected_payment = models.DecimalField()
     due_date = models.DateTimeField(null=True, blank=True)
     #received_by = models.ForeignKey(User, related_name='payment_boy', on_delete=models.CASCADE)
+    is_payment_approved = models.BooleanField(default=False)
     created_by = models.ForeignKey(User, related_name='payment_created_by', null=True, blank=True, on_delete=models.SET_NULL)
     updated_by = models.ForeignKey(User, related_name='payment_updated_by', null=True, blank=True, on_delete=models.SET_NULL)
 
@@ -203,3 +204,8 @@ class Offer(AbstractDateTime):
     class Meta:
         verbose_name = _("Offer")
         verbose_name_plural = _("Offers")
+
+
+class ShipmentPaymentApproval(ShipmentPayment):
+    class Meta:
+        proxy = True
