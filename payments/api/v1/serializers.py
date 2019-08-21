@@ -41,14 +41,14 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
                 _cash_payment.paid_amount = float(cash_payment) #.paid_amount
                 _cash_payment.save()
 
-                online_payment_mode = validated_data.pop('payment_mode')
-                if online_payment_mode:
-                    reference_no = validated_data.pop('reference_no')
-                    online_payment = validated_data.pop('online_amount')
-                    # _online_payment, created = OnlinePayment.objects.get_or_create(payment=instance)
-                    # _online_payment.paid_amount = float(online_payment) 
-                    # _online_payment.reference_no = reference_no
-                    # _online_payment.save()
+                # online_payment_mode = validated_data.pop('payment_mode')
+                # if online_payment_mode:
+                #     reference_no = validated_data.pop('reference_no')
+                #     online_payment = validated_data.pop('online_amount')
+                #     _online_payment, created = OnlinePayment.objects.get_or_create(payment=instance)
+                #     _online_payment.paid_amount = float(online_payment) 
+                #     _online_payment.reference_no = reference_no
+                #     _online_payment.save()
 
                 return instance
         except Exception as e:

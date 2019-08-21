@@ -91,7 +91,7 @@ function CreateResponseTable(data){
       var invoice_amount = "<td>" + data['response_data'][i]['invoice_amount'] + "</td>";
       var cash_to_be_collected = "<td>" + data['response_data'][i]['cash_to_be_collected'] + "</td>";
       var cash_payment = "<td><form class='shipment_payment_info' action=''><input type='text' name='cash_payment' value='"+ data1['shipment_payment']['cash_payment_amount'] +"'></form></td>";
-      var online_payment_mode = "<td><select name='payment_mode'><option value='neft'>NEFT</option></select></td>";
+      var online_payment_mode = "<td><select name='payment_mode'><option value='neft' selected>NEFT</option></select></td>";
       var online_payment = "<td><input type='text' name='online_payment' value='"+ data1['shipment_payment']['online_payment_amount'] +"'></td>";
       var reference_no = "<td><input type='text' name='reference_no' value='"+ data1['shipment_payment']['reference_no'] +"'></form></td>";
 

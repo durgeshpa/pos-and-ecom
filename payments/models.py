@@ -87,6 +87,8 @@ class AbstractDateTime(models.Model):
     class Meta:
         abstract = True
 
+
+
 # merge and create payment table : tbd: let it be same for now       
 # field name : order_payment_or_shipment_payment
 
@@ -126,6 +128,15 @@ class ShipmentPayment(AbstractDateTime):
     def get_parent_or_self(self,obj):
         pass
         #return brand.id
+
+
+class PaymentMode(models.Model):
+    payment_mode_name = models.CharField(max_length=50, null=True, blank=True)
+    status = models.BooleanField(default=True)
+    payment = models.ForeignKey(ShipmentPayment, related_name='payment_mode', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return str(self.shipment.id), payment_mode_name
 
 
 
@@ -171,7 +182,7 @@ class OnlinePayment(AbstractDateTime):
     payment_status = models.CharField(max_length=255, choices=PAYMENT_STATUS_CHOICES, null=True, blank=True)
     initiated_time = models.DateTimeField(null=True, blank=True)
     timeout_time = models.DateTimeField(null=True, blank=True)
-    processed_by = models.ForeignKey(User, related_name='online_payment_boy', on_delete=models.CASCADE)
+    processed_by = models.ForeignKey(User, related_name='online_payment_boy', null=True, blank=True, on_delete=models.SET_NULL)
 
 
 
