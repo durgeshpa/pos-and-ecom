@@ -11,7 +11,7 @@ from django.contrib import admin
 from django.contrib.admin import SimpleListFilter
 from django.core.exceptions import ValidationError
 from django.contrib.admin import SimpleListFilter, helpers
-from django.utils.html import format_html
+from django.utils.html import format_html, format_html_join
 from django.urls import reverse
 from django.db.models import Q
 from django.forms.models import BaseInlineFormSet
@@ -976,14 +976,14 @@ class NoteAdmin(admin.ModelAdmin):
 class ExportCsvMixin:
     def export_as_csv_customercare(self, request, queryset):
         meta = self.model._meta
-        list_display = ('complaint_id', 'complaint_detail', 'retailer_shop', 'retailer_name', 'seller_shop', 'order_id', 'issue_status', 'select_issue', 'issue_date')
+        list_display = ('complaint_id', 'complaint_detail', 'retailer_shop', 'retailer_name', 'seller_shop', 'order_id', 'issue_status', 'select_issue', 'issue_date', 'comment_display', 'comment_date_display')
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
         writer = csv.writer(response)
         writer.writerow(list_display)
         for obj in queryset:
-            row = writer.writerow([getattr(obj, field) for field in list_display])
+            row = writer.writerow([getattr(obj, field).replace('<br>', '\n') if field in ['comment_display','comment_date_display'] else getattr(obj, field) for field in list_display])
         return response
     export_as_csv_customercare.short_description = "Download CSV of Selected CustomeCare"
 
@@ -1024,13 +1024,12 @@ class CustomerCareAdmin(ExportCsvMixin, admin.ModelAdmin):
         'select_issue', 'complaint_detail', 'issue_date', 'seller_shop', 'retailer_shop', 'retailer_name'
     )
     exclude = ('complaint_id',)
-    list_display = ('complaint_id', 'retailer_shop', 'retailer_name', 'seller_shop', 'contact_number', 'order_id', 'issue_status', 'select_issue', 'issue_date')
+    list_display = ('complaint_id', 'retailer_shop', 'retailer_name', 'seller_shop', 'contact_number', 'order_id', 'issue_status', 'select_issue', 'issue_date', 'comment_display','comment_date_display')
     autocomplete_fields = ('order_id',)
     search_fields = ('complaint_id',)
     readonly_fields = ('issue_date', 'seller_shop', 'retailer_shop', 'retailer_name')
     list_filter = [ComplaintIDSearch, OrderIdSearch, IssueStatusSearch, IssueSearch]
     #change_form_template = 'admin/retailer_to_sp/customer_care/change_form.html'
-
 
 class PaymentAdmin(NumericFilterModelAdmin,admin.ModelAdmin):
     model = Payment

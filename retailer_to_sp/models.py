@@ -10,6 +10,7 @@ from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
+from django.utils.html import format_html, format_html_join
 
 from accounts.middlewares import get_current_user
 from addresses.models import Address
@@ -937,6 +938,23 @@ class CustomerCare(models.Model):
                 username = User.objects.get(phone_number = self.phone_number).first_name
                 return username
 
+    @property
+    def comment_display(self):
+        return format_html_join(
+        "","{}<br><br>",
+                ((c.comment,
+                ) for c in self.customer_care_comments.all())
+        )
+    comment_display.fget.short_description = 'Comments'
+
+    @property
+    def comment_date_display(self):
+        return format_html_join(
+        "","{}<br><br>",
+                ((c.created_at,
+                ) for c in self.customer_care_comments.all())
+        )
+    comment_date_display.fget.short_description = 'Comment Date'
 
     def save(self, *args, **kwargs):
         super(CustomerCare, self).save()
