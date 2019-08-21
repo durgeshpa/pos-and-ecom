@@ -27,7 +27,8 @@ from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializ
     OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
     RetailerShopSerializer, SellerOrderListSerializer,OrderListSerializer,
     ReadOrderedProductSerializer,FeedBackSerializer, CancelOrderSerializer,
-    ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer
+    ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
+    ShipmentReschedulingSerializer
 )
 
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
@@ -40,7 +41,8 @@ from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as 
     OrderedProductReserved as GramOrderedProductReserved, PickList, PickListItems
 )
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
-    OrderedProduct, Payment, CustomerCare, Return, Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard
+    OrderedProduct, Payment, CustomerCare, Return, Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
+    ShipmentRescheduling
 )
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,
     Order as GramMappedOrder, OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment,
@@ -1367,3 +1369,26 @@ class SellerOrderList(generics.ListAPIView):
         if serializer.data:
             msg = {'is_success': True,'message': None,'response_data': serializer.data}
         return Response(msg,status=status.HTTP_200_OK)
+
+class RescheduleReason(generics.ListCreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = ShipmentReschedulingSerializer
+
+    def list(self, request, *args, **kwargs):
+        data =[{'name': reason[0], 'display_name': reason[1]} for reason in ShipmentRescheduling.RESCHEDULING_REASON]
+        msg = {'is_success': True, 'message': None, 'response_data': data}
+        return Response(msg, status=status.HTTP_200_OK)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
+        else:
+            msg = {'is_success': False, 'message': ['have some issue'], 'response_data': None}
+        return Response(msg, status=status.HTTP_200_OK)
+
+    def perform_create(self, serializer):
+        return serializer.save(created_by=self.request.user)
+

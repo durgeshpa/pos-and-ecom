@@ -6,7 +6,7 @@ from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMap
                              Size,Color,Fragrance,Flavor,Weight,PackageSize)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order,
                                    OrderedProduct, Note, CustomerCare,
-                                   Payment, Dispatch, Feedback, OrderedProductMapping, Trip, PickerDashboard)
+                                   Payment, Dispatch, Feedback, OrderedProductMapping, Trip, PickerDashboard, ShipmentRescheduling)
 
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
     OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment
@@ -884,3 +884,8 @@ class SellerOrderListSerializer(serializers.ModelSerializer):
         model= Order
         fields = ('id', 'ordered_cart', 'order_no', 'total_final_amount', 'order_status',
                   'created_at', 'modified_at', 'rt_order_order_product', 'is_ordered_by_sales', 'shop_name','shop_id')
+
+class ShipmentReschedulingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ShipmentRescheduling
+        fields = ('shipment', 'rescheduling_reason', 'rescheduling_date')
