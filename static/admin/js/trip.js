@@ -193,6 +193,9 @@ function GetResultOnChangeSellerShop() {
 
 function GetResultByTripID() {
   var trip_id = $('#id_trip_id').val();
+  if(!trip_id){
+    return false;
+  }
   EmptyElement('tbody#data');
   HideField('tr#heading');
   ShowField('tr#loading');
