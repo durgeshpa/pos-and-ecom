@@ -26,6 +26,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.core.exceptions import ObjectDoesNotExist
 from retailer_to_sp.models import OrderedProduct
 from retailer_to_sp.views import update_order_status, update_shipment_status_with_id
+from retailer_to_sp.api.v1.views import update_trip_status
 
 class RetailerTypeView(generics.ListAPIView):
     queryset = RetailerType.objects.all()
@@ -586,9 +587,11 @@ class StatusChangedAfterAmountCollected(APIView):
     def post(self, *args, **kwargs):
         shipment_id = kwargs.get('shipment')
         cash_collected = self.request.POST.get('cash_collected')
+        trip = self.request.POST.get('trip')
         shipment = OrderedProduct.objects.get(id=shipment_id)
         if float(cash_collected) == float(shipment.cash_to_be_collected()):
             update_shipment_status_with_id(shipment)
+            update_trip_status(trip)
             msg = {'is_success': True, 'message': ['Status Changed'], 'response_data': None}
         else:
             msg = {'is_success': False, 'message': ['Amount is different'], 'response_data': None}

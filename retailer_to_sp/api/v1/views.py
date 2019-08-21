@@ -1385,6 +1385,7 @@ class RescheduleReason(generics.ListCreateAPIView):
         if serializer.is_valid():
             self.perform_create(serializer)
             self.update_shipment(request.data.get('shipment'))
+            update_trip_status(request.data.get('trip'))
             msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
         else:
             msg = {'is_success': False, 'message': ['have some issue'], 'response_data': None}
@@ -1396,3 +1397,8 @@ class RescheduleReason(generics.ListCreateAPIView):
     def update_shipment(self, id):
         OrderedProduct.objects.filter(pk=id).update(shipment_status=OrderedProduct.RESCHEDULED, trip=None)
 
+def update_trip_status(trip_id):
+    shipment_status_list = ['FULLY_DELIVERED_AND_COMPLETED', 'PARTIALLY_DELIVERED_AND_COMPLETED', 'FULLY_RETURNED_AND_COMPLETED', 'RESCHEDULED']
+    order_product = OrderedProduct.objects.filter(trip_id=trip_id)
+    if order_product.exclude(shipment_status__in=shipment_status_list).count()==0:
+        Trip.objects.filter(pk=trip_id).update(trip_status='COMPLETED')

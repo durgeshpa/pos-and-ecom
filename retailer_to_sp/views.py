@@ -1286,34 +1286,8 @@ class StatusChangedAfterAmountCollected(APIView):
 
 
 def update_shipment_status_with_id(shipment_obj):
-    # shipment = OrderedProduct.objects.get(pk=shipment_id)
-    # current_order_shipments = shipment.order.rt_order_order_product \
-    #     .values_list('id', flat=True)
-    #import ipdb
-    #ipdb.set_trace()
-
     shipment_products_dict = OrderedProductMapping.objects.values('product').filter(ordered_product=shipment_obj). \
         aggregate(delivered_qty_sum=Sum('delivered_qty'),shipped_qty_sum=Sum('shipped_qty'),returned_qty_sum=Sum('returned_qty'), damaged_qty_sum = Sum('damaged_qty'))
-
-    #print(shipment_products_dict.query)
-
-    # cart_products_dict = CartProductMapping.objects \
-    #     .values('cart_product', 'no_of_pieces') \
-    #     .filter(cart_product_id__in=[i.get('product')
-    #                                  for i in shipment_products_dict],
-    #             cart_id=shipment_products_dict[0].get(
-    #                 'ordered_product__order__ordered_cart'
-    #             ))
-
-    # total_delivered_qty = ('delivered_qty__sum')
-    #                            for i in shipment_products_dict])
-    # total_shipped_qty = sum([i.get('shipped_qty__sum')
-    #                          for i in shipment_products_dict])
-    # total_returned_qty = sum([i.get('returned_qty__sum')
-    #                           for i in shipment_products_dict])
-    # total_damaged_qty = sum([i.get('damaged_qty__sum')
-    #                          for i in shipment_products_dict])
-    # #ordered_qty = sum([i.get('no_of_pieces') for i in cart_products_dict])
 
     total_delivered_qty = shipment_products_dict['delivered_qty_sum']
     total_shipped_qty = shipment_products_dict['shipped_qty_sum']
