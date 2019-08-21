@@ -803,10 +803,21 @@ class OrderForm(forms.ModelForm):
         model = Order
         fields = ('seller_shop', 'buyer_shop', 'ordered_cart', 'order_no', 'billing_address', 'shipping_address',
                   'total_discount_amount', 'total_tax_amount', 'order_status',
-                  'ordered_by', 'last_modified_by')
+                  'cancellation_reason', 'ordered_by', 'last_modified_by')
 
     class Media:
         js = ('/static/admin/js/retailer_cart.js',)
+
+    def clean_cancellation_reason(self):
+        data = self.cleaned_data
+        if (data['order_status'] == 'CANCELLED' and
+                not data['cancellation_reason']):
+            raise forms.ValidationError(_('Please select cancellation reason!'),)
+        if (data['cancellation_reason'] and
+                not data['order_status'] == 'CANCELLED'):
+            raise forms.ValidationError(
+                _('The reason does not match with the action'),)
+        return data['cancellation_reason']
 
     def clean(self):
         if self.instance.order_status == 'CANCELLED':
@@ -839,3 +850,5 @@ class OrderForm(forms.ModelForm):
         if instance and instance.pk:
             if instance.order_status == 'CANCELLED':
                 self.fields['order_status'].disabled = True
+                self.fields['cancellation_reason'].disabled = True
+

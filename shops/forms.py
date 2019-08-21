@@ -1,5 +1,5 @@
 from django import forms
-from .models import ParentRetailerMapping, Shop, ShopType
+from .models import ParentRetailerMapping, Shop, ShopType, ShopUserMapping
 from addresses.models import Address
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -11,6 +11,9 @@ from products.models import Product, ProductPrice
 import re
 from .models import Shop
 from addresses.models import State
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group, Permission
+from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 
 class ParentRetailerMappingForm(forms.ModelForm):
     parent = forms.ModelChoiceField(
@@ -67,13 +70,23 @@ class StockAdjustmentUploadForm(forms.Form):
                 except:
                     raise ValidationError(_('INVALID_PRODUCT_ID at Row[%(value)s]'), params={'value': id+1},)
 
-            if not row[1] or not re.match("^[\d]*$", row[1]):
-                raise ValidationError(_('INVALID_AVAILABLE_QTY at Row[%(value)s]. It should be numeric'),params={'value': id + 1}, )
+            if not row[2]:
+                raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[2] + ":" + row[1] + " | Product SKU required")
+            else:
+                try:
+                    Product.objects.get(product_sku=row[2])
+                except:
+                    raise ValidationError(_('INVALID_PRODUCT_SKU at Row[%(value)s]'), params={'value': id+1},)
 
-            if not row[2] or not re.match("^[\d]*$", row[2]):
-                raise ValidationError(_('INVALID_DAMAGED_QTY at Row[%(value)s]. It should be numeric'),params={'value': id + 1}, )
+
 
             if not row[3] or not re.match("^[\d]*$", row[3]):
+                raise ValidationError(_('INVALID_AVAILABLE_QTY at Row[%(value)s]. It should be numeric'),params={'value': id + 1}, )
+
+            if not row[4] or not re.match("^[\d]*$", row[4]):
+                raise ValidationError(_('INVALID_DAMAGED_QTY at Row[%(value)s]. It should be numeric'),params={'value': id + 1}, )
+
+            if not row[5] or not re.match("^[\d]*$", row[5]):
                 raise ValidationError(_('INVALID_EXPIRED_QTY at Row[%(value)s]. It should be numeric'),params={'value': id + 1}, )
 
         return self.cleaned_data['upload_file']
@@ -103,7 +116,7 @@ class ShopForm(forms.ModelForm):
         Model = Shop
         fields = (
             'shop_name', 'shop_owner', 'shop_type', 'related_users',
-            'shop_code', 'warehouse_code', 'status')
+            'shop_code', 'warehouse_code','created_by', 'status')
 
     @classmethod
     def get_shop_type(cls, data):
@@ -175,3 +188,58 @@ class BulkShopUpdation(forms.Form):
         if not file.name[-5:] == '.xlsx':
             raise forms.ValidationError("Sorry! Only Excel file accepted")
         return file
+
+class ShopUserMappingForm(forms.ModelForm):
+    shop = forms.ModelChoiceField(
+        queryset=Shop.objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:shop-autocomplete',)
+    )
+    manager = forms.ModelChoiceField(required=False,
+        queryset=get_user_model().objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:user-autocomplete', )
+    )
+    employee = forms.ModelChoiceField(
+        queryset=get_user_model().objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:user-autocomplete', )
+    )
+
+    class Meta:
+        model = ShopUserMapping
+        fields = ('shop', 'manager', 'employee','employee_group','status')
+
+    # def clean(self):
+    #     cleaned_data = super().clean()
+    #     if self.cleaned_data.get('shop') and self.cleaned_data.get('employee') and self.cleaned_data.get('employee_group'):
+    #         group = Permission.objects.get(codename='can_sales_person_add_shop').group_set.last()
+    #         shop_user_obj =ShopUserMapping.objects.filter(shop=self.cleaned_data.get('shop'), employee_group=group)
+    #         if shop_user_obj.exists() and shop_user_obj.last().employee != self.cleaned_data.get('employee'):
+    #             raise ValidationError(_(VALIDATION_ERROR_MESSAGES['ALREADY_ADDED_SHOP']))
+    #     return cleaned_data
+
+class ShopUserMappingCsvViewForm(forms.Form):
+    file = forms.FileField()
+
+    def clean_file(self):
+        if not self.cleaned_data['file'].name[-4:] in ('.csv'):
+            raise forms.ValidationError("Sorry! Only csv file accepted")
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        first_row = next(reader)
+        for id, row in enumerate(reader):
+            if not row[0] or not re.match("^[\d]*$", row[0]) or not Shop.objects.filter(pk=row[0]).exists():
+                raise ValidationError(_('INVALID_SHOP_ID at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
+            
+            if not row[1] or not re.match("^[\d]*$", row[1]) or not get_user_model().objects.filter(phone_number=row[1]).exists():
+                raise ValidationError(_('INVALID_MANAGER_NO at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
+
+            if not row[2] or not re.match("^[\d]*$", row[2]) or not get_user_model().objects.filter(phone_number=row[2]).exists():
+                raise ValidationError(_('INVALID_EMPLOYEE_NO at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
+
+            if not row[3] or not re.match("^[\d]*$", row[3]) or not Group.objects.filter(pk=row[3]):
+                raise ValidationError(_('INVALID_GROUP_ID at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
+
+            if ShopUserMapping.objects.filter(shop_id=row[0],employee=get_user_model().objects.get(phone_number=row[2])).exists():
+                raise ValidationError(_('This shop_user_mapping already exists at Row[%(value)s]'),
+                                      params={'value': id + 1}, )
+
+
+

@@ -13,6 +13,7 @@
     SubmitFormConfirmDialog();
     AddCheckedIDToList();
     GetResultOnTypingArea();
+    GetResultOnChangeSellerShop();
     CallAPI();
   });
 
@@ -159,6 +160,32 @@ function GetResultOnTypingPincode(){
               }
           });
       }
+  });
+}
+
+function GetResultOnChangeSellerShop() {
+  $("#id_seller_shop").on('change',function() {
+      $('option:selected', $(this)).each(function() {
+          EmptyElement('tbody#data');
+          HideField('tr#heading');
+          ShowField('tr#loading');
+          var seller_shop_id = $("option:selected").val();
+          $.ajax({
+              url: GetURL(),
+              data: {
+                  'seller_shop_id': seller_shop_id
+              },
+              success: function(data) {
+              if(data.is_success){
+                initPageData(data);
+                CheckResponse(data);
+                }
+                
+
+              }
+          });
+      });
+
   });
 }
 
