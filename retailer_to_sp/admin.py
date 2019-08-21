@@ -1009,7 +1009,7 @@ class CustomerCareAdmin(ExportCsvMixin, admin.ModelAdmin):
     search_fields = ('complaint_id',)
     readonly_fields = ('issue_date', 'seller_shop', 'retailer_shop', 'retailer_name')
     list_filter = [ComplaintIDSearch, OrderIdSearch, IssueStatusSearch, IssueSearch]
-    change_form_template = 'admin/retailer_to_sp/customer_care/change_form.html'
+    #change_form_template = 'admin/retailer_to_sp/customer_care/change_form.html'
 
 
 class PaymentAdmin(NumericFilterModelAdmin,admin.ModelAdmin):
