@@ -1289,8 +1289,8 @@ def update_shipment_status_with_id(shipment_obj):
     # shipment = OrderedProduct.objects.get(pk=shipment_id)
     # current_order_shipments = shipment.order.rt_order_order_product \
     #     .values_list('id', flat=True)
-    import ipdb
-    ipdb.set_trace()
+    #import ipdb
+    #ipdb.set_trace()
 
     shipment_products_dict = OrderedProductMapping.objects.values('product').filter(ordered_product=shipment_obj). \
         aggregate(delivered_qty_sum=Sum('delivered_qty'),shipped_qty_sum=Sum('shipped_qty'),returned_qty_sum=Sum('returned_qty'), damaged_qty_sum = Sum('damaged_qty'))
