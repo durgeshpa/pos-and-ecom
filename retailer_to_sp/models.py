@@ -949,6 +949,9 @@ class ResponseComment(models.Model):
     created_at = models.DateTimeField(
         auto_now_add=True, verbose_name="Comment Date")
 
+    def __str__(self):
+        return ''
+
 class Payment(models.Model):
     PAYMENT_DONE_APPROVAL_PENDING = "payment_done_approval_pending"
     CASH_COLLECTED = "cash_collected"
