@@ -993,9 +993,28 @@ class ResponseCommentAdmin(admin.StackedInline):
     fields = ('comment',)
     extra = 0
 
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+class AddResponseCommentAdmin(admin.StackedInline):
+    model = ResponseComment
+    form = ResponseCommentForm
+    fields = ('comment',)
+    extra = 0
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    # For Django Version > 2.1 there is a "view permission" that needs to be disabled too (https://docs.djangoproject.com/en/2.2/releases/2.1/#what-s-new-in-django-2-1)
+    def has_view_permission(self, request, obj=None):
+        return False
 
 class CustomerCareAdmin(ExportCsvMixin, admin.ModelAdmin):
-    inlines = [ResponseCommentAdmin,]
+    inlines = [ResponseCommentAdmin, AddResponseCommentAdmin]
     model = CustomerCare
     actions = ["export_as_csv_customercare"]
     form = CustomerCareForm
