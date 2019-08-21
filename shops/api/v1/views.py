@@ -557,11 +557,11 @@ class CheckUser(generics.ListAPIView):
         if not all_user.exists():
             msg = {'is_success': False, 'message': ["Sorry you are not authorised"], 'response_data': None, 'is_sales': False,'is_sales_manager': False}
         else:
-            is_sales = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop',status=True).exists() else False
-            is_sales_manager = True if ShopUserMapping.objects.filter(manager=self.request.user,status=True).exists() else False
-            msg = {'is_success': True, 'message': [""], 'response_data': None,'is_sales':is_sales, 'is_sales_manager':is_sales_manager}
+            is_sales = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop',shop__shop_type__shop_type='sp', status=True).exists() else False
+            is_sales_manager = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_manager_add_shop',shop__shop_type__shop_type='sp', status=True).exists() else False
+            is_delivery_boy = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='is_delivery_boy',shop__shop_type__shop_type='sp', status=True).exists() else False
+            msg = {'is_success': True, 'message': [""], 'response_data': None,'is_sales':is_sales, 'is_sales_manager':is_sales_manager, 'is_delivery_boy': is_delivery_boy}
         return Response(msg, status=status.HTTP_200_OK)
-
 
 class CheckAppVersion(APIView):
     permission_classes = (AllowAny,)
