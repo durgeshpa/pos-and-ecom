@@ -24,7 +24,6 @@ VALIDATION_ERROR_MESSAGES = {
     'INVALID_GSTIN_Number': 'Invalid Gstin number',
     'INVALID_MARGIN': '%s has not valid format( eg: 0, 201, 17.11)',
     'ALREADY_ADDED_SHOP':'Already added Sales Executive with this shop',
-
 }
 
 SUCCESS_MESSAGES = {
@@ -32,7 +31,8 @@ SUCCESS_MESSAGES = {
     'MOBILE_NUMBER_VERIFIED': 'Your mobile number verified successfully',
     'USER_ALREADY_EXISTS': 'User already exists! Please login',
     'USER_SHOP_ADDED': 'Shop added successfully',
-    'CHANGED_STATUS': 'Po_Status changed to %s'
+    'CHANGED_STATUS': 'Po_Status changed to %s',
+    'CSV_UPLOADED': 'CSV file has been successfully uploaded',
 }
 
 ERROR_MESSAGES = {
