@@ -946,6 +946,8 @@ class CustomerCare(models.Model):
 class ResponseComment(models.Model):
     customer_care = models.ForeignKey(CustomerCare,related_name='customer_care_comments',null=True,blank=True,on_delete=models.CASCADE)
     comment = models.CharField(max_length=255, null=True, blank=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True, verbose_name="Comment Date")
 
 class Payment(models.Model):
     PAYMENT_DONE_APPROVAL_PENDING = "payment_done_approval_pending"

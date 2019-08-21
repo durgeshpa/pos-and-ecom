@@ -987,10 +987,11 @@ class ExportCsvMixin:
         return response
     export_as_csv_customercare.short_description = "Download CSV of Selected CustomeCare"
 
-class ResponseCommentAdmin(admin.StackedInline):
+class ResponseCommentAdmin(admin.TabularInline):
     model = ResponseComment
     form = ResponseCommentForm
-    fields = ('comment',)
+    fields = ('comment', 'created_at')
+    readonly_fields = ('created_at',)
     extra = 0
 
     def has_add_permission(self, request, obj=None):
@@ -1000,10 +1001,10 @@ class ResponseCommentAdmin(admin.StackedInline):
         return False
 
 
-class AddResponseCommentAdmin(admin.StackedInline):
+class AddResponseCommentAdmin(admin.TabularInline):
     model = ResponseComment
     form = ResponseCommentForm
-    fields = ('comment',)
+    fields = ('comment', )
     extra = 0
 
     def has_change_permission(self, request, obj=None):
