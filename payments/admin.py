@@ -1,5 +1,6 @@
 from django.contrib import admin
 from .models import *
+from .forms import ShipmentPaymentApprovalForm
 from django.utils.safestring import mark_safe
 
 from retailer_to_sp.models import Shipment
@@ -9,30 +10,39 @@ class OrderPaymentAdmin(admin.ModelAdmin):
     model = OrderPayment
 
 
-
 class ShipmentPaymentAdmin(admin.ModelAdmin):
     model = ShipmentPayment
     fields = ("shipment",) #, "is_payment_approved")
     raw_id_fields = ("shipment",)
-    
+
+
+class OnlinePaymentAdmin(admin.TabularInline):
+    model = OnlinePayment   
+    fields = (
+        "paid_amount", "payment_received", "online_payment_type",
+        "reference_no", "is_payment_approved", "payment_approval_status",
+    )
+    readonly_fields = (
+        "paid_amount", "online_payment_type", "reference_no", "payment_approval_status",
+    )
 
 class ShipmentPaymentApprovalAdmin(admin.ModelAdmin):
+    inlines = [OnlinePaymentAdmin]
     model = ShipmentPaymentApproval
+    #form = ShipmentPaymentApprovalForm
     list_display = (
         "id", "shipment", "order", "cash_payment_amount", "online_payment_amount", "online_payment_mode",
         "reference_no", "amount_to_be_collected", "trip_id", 
-        "trip_created_date", "is_payment_approved"
+        "trip_created_date", #"is_payment_approved"
     )
 
     fields = (
-        "shipment", "cash_payment_amount", "online_payment_amount", "online_payment_mode",
-        "reference_no", "amount_to_be_collected", "trip_id", 
-        "trip_created_date", "is_payment_approved"
+        "shipment", "cash_payment_amount", "amount_to_be_collected", "trip_id", 
+        "trip_created_date", #"is_payment_approved"
     )
     
     readonly_fields = (
-        "cash_payment_amount", "online_payment_amount", "online_payment_mode",
-        "reference_no", "shipment", 
+        "cash_payment_amount", "shipment", 
         "amount_to_be_collected", "trip_id", "trip_created_date"
     )
     # raw_id_fields = ("shipment",)
@@ -84,12 +94,7 @@ class CreditPaymentAdmin(admin.ModelAdmin):
 
 
 class WalletPaymentAdmin(admin.ModelAdmin):
-    model = WalletPayment        
-
-
-
-class OnlinePaymentAdmin(admin.ModelAdmin):
-    model = OnlinePayment            
+    model = WalletPayment                 
 
 
 admin.site.register(OrderPayment,OrderPaymentAdmin)
@@ -97,5 +102,5 @@ admin.site.register(ShipmentPayment,ShipmentPaymentAdmin)
 admin.site.register(CashPayment,CashPaymentAdmin)
 admin.site.register(CreditPayment,CreditPaymentAdmin)
 admin.site.register(WalletPayment,WalletPaymentAdmin)
-admin.site.register(OnlinePayment,OnlinePaymentAdmin)
+#admin.site.register(OnlinePayment,OnlinePaymentAdmin)
 admin.site.register(ShipmentPaymentApproval,ShipmentPaymentApprovalAdmin)

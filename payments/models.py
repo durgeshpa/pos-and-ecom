@@ -124,7 +124,7 @@ class ShipmentPayment(AbstractDateTime):
     #collected_payment = models.DecimalField()
     due_date = models.DateTimeField(null=True, blank=True)
     #received_by = models.ForeignKey(User, related_name='payment_boy', on_delete=models.CASCADE)
-    is_payment_approved = models.BooleanField(default=False)
+    #is_payment_approved = models.BooleanField(default=False)
     created_by = models.ForeignKey(User, related_name='payment_created_by', null=True, blank=True, on_delete=models.SET_NULL)
     updated_by = models.ForeignKey(User, related_name='payment_updated_by', null=True, blank=True, on_delete=models.SET_NULL)
 
@@ -186,12 +186,23 @@ class OnlinePayment(AbstractDateTime):
     online_payment_type = models.CharField(max_length=50, choices=ONLINE_PAYMENT_TYPE_CHOICES, null=True, blank=True)
     paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')    
     payment_status = models.CharField(max_length=50, choices=PAYMENT_STATUS_CHOICES, null=True, blank=True)
-    payment_approval_status = models.CharField(max_length=50, choices=PAYMENT_APPROVAL_STATUS_CHOICES, null=True, blank=True)
+    payment_approval_status = models.CharField(max_length=50, choices=PAYMENT_APPROVAL_STATUS_CHOICES, default="pending_approval",null=True, blank=True)
+    payment_received = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
+    is_payment_approved = models.BooleanField(default=False)
     initiated_time = models.DateTimeField(null=True, blank=True)
     timeout_time = models.DateTimeField(null=True, blank=True)
     processed_by = models.ForeignKey(User, related_name='online_payment_boy', null=True, blank=True, on_delete=models.SET_NULL)
 
+    def save(self, *args, **kwargs):
+        if self.is_payment_approved:
+            if self.payment_received == self.paid_amount:
+                self.payment_approval_status = "approved_and_verified"
+            elif self.payment_received == 0.0000:
+                self.payment_approval_status = "rejected"
+            elif self.payment_received < self.paid_amount:
+                self.payment_approval_status = "disputed"            
 
+        super().save(*args, **kwargs)
 
 class Offer(AbstractDateTime):
     # This method stores the discount description for a payment
