@@ -297,7 +297,7 @@ class ShopUserMappingCsvView(FormView):
                 if row[2]:
                     employee = get_user_model().objects.get(phone_number=row[2])
                 if row[1]:
-                    manager = get_user_model().objects.get(phone_number=row[1])
+                    manager = ShopUserMapping.objects.get(employee__phone_number=row[1])
                     ShopUserMapping.objects.create(shop_id=row[0], manager=manager, employee=employee, employee_group_id=row[3])
                 else:
                     ShopUserMapping.objects.create(shop_id=row[0], employee=employee, employee_group_id=row[3])
