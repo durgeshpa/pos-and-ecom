@@ -946,13 +946,8 @@ class DownloadInvoiceSP(APIView):
                 "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram,
                 "payment_type":payment_type,"total_amount_int":total_amount_int,"product_listing":product_listing,
                 "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
-<<<<<<< HEAD
-                "address_contact_number":address_contact_number,"sum_amount_tax":total_tax_sum, "no_of_crates":no_of_crates,
+                "address_contact_number":address_contact_number,"sum_amount_tax":round(total_tax_sum, 2), "no_of_crates":no_of_crates,
                 "no_of_packets":no_of_packets, "no_of_sacks":no_of_sacks}
-=======
-                "address_contact_number":address_contact_number,"sum_amount_tax":round(total_tax_sum, 2)}
->>>>>>> dev
-
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
