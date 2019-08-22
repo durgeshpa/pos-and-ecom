@@ -224,7 +224,7 @@ class ShopUserMappingCsvViewForm(forms.Form):
             if not row[0] or not re.match("^[\d]*$", row[0]) or not Shop.objects.filter(pk=row[0]).exists():
                 raise ValidationError(_('INVALID_SHOP_ID at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
             
-            if not row[1] or not re.match("^[\d]*$", row[1]) or not get_user_model().objects.filter(phone_number=row[1]).exists():
+            if row[1] and not re.match("^[\d]*$", row[1]) and not get_user_model().objects.filter(phone_number=row[1]).exists():
                 raise ValidationError(_('INVALID_MANAGER_NO at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
 
             if not row[2] or not re.match("^[\d]*$", row[2]) or not get_user_model().objects.filter(phone_number=row[2]).exists():

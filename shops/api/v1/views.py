@@ -528,10 +528,10 @@ class SalesPerformanceUserView(generics.ListAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        return ShopUserMapping.objects.filter(manager=self.request.user,status=True).order_by('employee').distinct('employee')
+        return ShopUserMapping.objects.filter(manager=self.request.user, shop__shop_type__shop_type='r', status=True).order_by('employee').distinct('employee')
 
     def list(self, request, *args, **kwargs):
-        shop_emp = ShopUserMapping.objects.filter(employee=self.request.user,employee_group__permissions__codename='can_sales_person_add_shop', status=True)
+        shop_emp = ShopUserMapping.objects.filter(employee=self.request.user, shop__shop_type__shop_type='r' ,employee_group__permissions__codename='can_sales_person_add_shop', status=True)
         if not shop_emp:
             shop_mangr = self.get_queryset()
             msg = {'is_success': True, 'message': [""], 'response_data': self.get_serializer(shop_mangr, many=True).data, 'user_list': shop_mangr.values('employee')}
@@ -547,7 +547,7 @@ class SellerShopListView(generics.ListAPIView):
     serializer_class = AddressSerializer
 
     def get_queryset(self):
-        shop_mapped = ShopUserMapping.objects.filter(employee=self.request.user,status=True).values('shop')
+        shop_mapped = ShopUserMapping.objects.filter(employee=self.request.user, shop__shop_type__shop_type='r', status=True).values('shop')
         shop_list = Address.objects.filter(shop_name__in=shop_mapped,address_type='shipping').order_by('created_at')
         if self.request.query_params.get('mobile_no'):
             shop_list = shop_list.filter(shop_name__shop_owner__phone_number__icontains=self.request.query_params.get('mobile_no'))
