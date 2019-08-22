@@ -1349,8 +1349,8 @@ class SellerOrderList(generics.ListAPIView):
     pagination_class = SmallOffsetPagination
 
     def get_queryset(self):
-        shop_emp = ShopUserMapping.objects.filter(employee=self.request.user,shop__shop_type__shop_type='r', status=True)
-        shop_mangr = ShopUserMapping.objects.filter(manager=self.request.user, shop__shop_type__shop_type='r', status=True)
+        shop_emp = ShopUserMapping.objects.filter(employee=self.request.user, status=True)
+        shop_mangr = ShopUserMapping.objects.filter(manager=self.request.user, status=True)
         if shop_emp.exists() and shop_emp.last().employee_group.permissions.filter(
                 codename='can_sales_person_add_shop').exists():
             return shop_emp.values('shop')
