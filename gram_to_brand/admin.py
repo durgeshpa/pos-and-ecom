@@ -25,7 +25,9 @@ from django.db.models import Q
 from .views import DownloadPurchaseOrder, GetMessage
 from django.db import models
 from django.forms import Textarea
-
+from django.contrib.admin.models import LogEntry, ADDITION
+from django.contrib.contenttypes.models import ContentType
+from retailer_backend.messages import SUCCESS_MESSAGES
 
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
@@ -42,7 +44,6 @@ class CartProductMappingAdmin(admin.TabularInline):
             return 'tax_percentage', 'mrp','sku','case_sizes','sub_total'
         elif request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
             return 'tax_percentage', 'mrp','sku','case_sizes','sub_total'
-            #return 'tax_percentage','case_sizes', 'no_of_cases', 'no_of_pieces', 'price', 'sub_total'
         return 'tax_percentage', 'mrp','sku','case_sizes','sub_total'
 
 class CartAdmin(admin.ModelAdmin):
@@ -107,6 +108,14 @@ class CartAdmin(admin.ModelAdmin):
         obj.save()
         formset.save()
         if flag:
+            LogEntry.objects.log_action(
+                user_id=request.user.pk,
+                content_type_id=ContentType.objects.get_for_model(obj).pk,
+                object_id=obj.pk,
+                action_flag=ADDITION,
+                object_repr='',
+                change_message=SUCCESS_MESSAGES['CHANGED_STATUS'] % obj.get_po_status_display(),
+            )
             return HttpResponseRedirect("/admin/gram_to_brand/cart/")
 
     class Media:
@@ -135,10 +144,10 @@ class CartAdmin(admin.ModelAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         if request.user.is_superuser:
-            return ''
+            return 'po_status',
         elif request.user.has_perm('gram_to_brand.can_approve_and_disapprove'):
-            return 'brand', 'supplier_state','supplier_name', 'gf_shipping_address','gf_billing_address', 'po_validity_date', 'payment_term','delivery_term',
-        return ''
+            return 'brand', 'supplier_state','supplier_name', 'gf_shipping_address','gf_billing_address', 'po_validity_date', 'payment_term','delivery_term','po_status',
+        return 'po_status',
 
     def get_form(self, request, obj=None, **kwargs):
         defaults = {}
