@@ -300,7 +300,8 @@ class ShopAdjustmentFile(models.Model):
 
 class ShopUserMapping(models.Model):
     shop = models.ForeignKey(Shop, related_name='shop_user', on_delete=models.CASCADE)
-    manager = models.ForeignKey(get_user_model(), null=True, blank=True, related_name='shop_user_manager', on_delete=models.SET_NULL)
+    manager = models.ForeignKey('self', null=True, blank=True, related_name='employee_list', on_delete=models.SET_NULL,
+                                limit_choices_to={'manager': None},)
     employee = models.ForeignKey(get_user_model(), related_name='shop_employee', on_delete=models.CASCADE)
     employee_group = models.ForeignKey(Group, related_name='shop_user_group',default='1', on_delete=models.SET_DEFAULT)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -308,12 +309,18 @@ class ShopUserMapping(models.Model):
     status = models.BooleanField(default=True)
 
     class Meta:
-        unique_together = ('shop', 'employee','status')
+        unique_together = ('shop', 'employee', 'status')
 
     def save(self, *args, **kwargs):
-        ShopUserMapping.objects.filter(shop=self.shop, employee_group=self.employee_group, status=True).update(status=False)
-        self.status = True
+        if self.manager == self:
+            raise ValidationError(_('Manager and Employee cannot be same'))
+        else:
+            ShopUserMapping.objects.filter(shop=self.shop, employee_group=self.employee_group, status=True).update(status=False)
+            self.status = True
         super().save(*args, **kwargs)
+
+    def __str__(self):
+        return "%s"%(self.employee)
 
 class SalesAppVersion(models.Model):
     app_version = models.CharField(max_length=200)
