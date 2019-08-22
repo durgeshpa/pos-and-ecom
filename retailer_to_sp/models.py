@@ -491,6 +491,15 @@ class Trip(models.Model):
                 shipment.cash_to_be_collected())
         return round(sum(cash_to_be_collected), 2)
 
+    @property    
+    def received_cash_amount(self):
+        cash_collected = []
+        trip_shipments = self.rt_invoice_trip.all()
+        for shipment in trip_shipments:
+            cash_collected.append(
+                shipment.shipment_payment.cash_payment.paid_amount)
+        return round(sum(cash_collected), 2)
+
     @property
     def cash_to_be_collected_value(self):
         return self.cash_to_be_collected()
@@ -1023,13 +1032,13 @@ class Commercial(Trip):
                     (int(self.received_amount) !=
                         int(self.cash_to_be_collected()))):
                     raise ValidationError(_("Received amount should be equal"
-                                            " to Cash to be Collected"
+                                            " to Amount to be Collected"
                                             ),)
             if (self.trip_status == 'COMPLETED' and
                     (int(self.received_amount) >
                         int(self.cash_to_be_collected()))):
                     raise ValidationError(_("Received amount should be less"
-                                            " than Cash to be Collected"
+                                            " than Amount to be Collected"
                                             ),)
 
 class CustomerCare(models.Model):

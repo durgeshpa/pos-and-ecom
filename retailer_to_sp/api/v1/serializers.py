@@ -685,20 +685,28 @@ class DispatchSerializer(serializers.ModelSerializer):
     shipment_payment = serializers.SerializerMethodField()
 
     def get_shipment_payment(self, obj):
-        #import pdb; pdb.set_trace()
-        #return ""
-        
+
         payment_data = {}            
+        #payment = ShipmentPayment.objects.get(shipment=obj)
         payment, created = ShipmentPayment.objects.get_or_create(shipment=obj)
         payment_data['shipment_payment_id'] =  payment.id
-        cash_payment = CashPayment.objects.get(payment=payment)
-        # cash_payment, created = CashPayment.objects.get_or_create(payment=payment, 
-        #                             paid_amount=obj.cash_to_be_collected())
-        payment_data['cash_payment'] = cash_payment.paid_amount
 
-        # online_payment, created = OnlinePayment.objects.get_or_create(payment=payment)
-        # payment_data['online_payment_amount'] = online_payment.paid_amount
-        # payment_data['online_payment_type'] = online_payment.online_payment_type
+        #cash_payment = CashPayment.objects.get(payment=payment)
+        cash_payment, created = CashPayment.objects.get_or_create(payment=payment)#, 
+        #                             paid_amount=obj.cash_to_be_collected())
+        payment_data['cash_payment_amount'] = cash_payment.paid_amount
+
+        online_payment = OnlinePayment.objects.filter(payment=payment)
+        if online_payment.exists():
+            online_payment = OnlinePayment.objects.get(payment=payment)#, 
+         
+            payment_data['online_payment_amount'] = online_payment.paid_amount
+            payment_data['reference_no'] = online_payment.reference_no
+            payment_data['payment_mode'] = online_payment.online_payment_type
+        else:
+            payment_data['online_payment_amount'] = ""
+            payment_data['reference_no'] = ""
+            payment_data['payment_mode'] = ""
 
         return payment_data
 
@@ -720,8 +728,7 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
     shipment_payment = serializers.SerializerMethodField()
 
     def get_shipment_payment(self, obj):
-        # return ""
-        #import pdb; pdb.set_trace()
+
         payment_data = {}            
         #payment = ShipmentPayment.objects.get(shipment=obj)
         payment, created = ShipmentPayment.objects.get_or_create(shipment=obj)

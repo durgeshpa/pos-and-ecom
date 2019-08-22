@@ -32,6 +32,13 @@ PAYMENT_STATUS_CHOICES = (
     ('completed', 'completed'), #successful
   )
 
+PAYMENT_APPROVAL_STATUS_CHOICES = (
+    ('pending_approval', 'pending_approval'),
+    ('approved_and_verified', 'approved_and_verified'),
+    ('disputed', 'disputed'),
+    ('rejected', 'rejected'),
+  )
+
 ONLINE_PAYMENT_TYPE_CHOICES = (
     #('paytm', 'paytm'),
     ('upi', 'upi'),
@@ -94,11 +101,10 @@ class AbstractDateTime(models.Model):
 
 class OrderPayment(AbstractDateTime):
     # This class stores the payment information for the shipment
-    name = models.CharField(max_length=255, null=True, blank=True)
-    description = models.CharField(max_length=255, null=True, blank=True)
-    payment_type = models.CharField(max_length=255, choices=ORDER_PAYMENT_TYPE_CHOICES,null=True, blank=True)
+    description = models.CharField(max_length=50, null=True, blank=True)
+    payment_type = models.CharField(max_length=50, choices=ORDER_PAYMENT_TYPE_CHOICES,null=True, blank=True)
     order = models.ForeignKey(Order, related_name='order_payment', on_delete=models.CASCADE) #order_id
-    payment_status = models.CharField(max_length=255, choices=ORDER_PAYMENT_STATUS_CHOICES, null=True, blank=True)
+    payment_status = models.CharField(max_length=50, choices=ORDER_PAYMENT_STATUS_CHOICES, null=True, blank=True)
     due_date = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(User, related_name='payment_created', null=True, blank=True, on_delete=models.SET_NULL)
     updated_by = models.ForeignKey(User, related_name='payment_updated', null=True, blank=True, on_delete=models.SET_NULL)
@@ -106,16 +112,15 @@ class OrderPayment(AbstractDateTime):
 # create payment mode table
 class ShipmentPayment(AbstractDateTime):
     # This class stores the payment information for the shipment
-    name = models.CharField(max_length=255, null=True, blank=True)
-    description = models.CharField(max_length=255, null=True, blank=True)
-    payment_type = models.CharField(max_length=255, choices=PAYMENT_TYPE_CHOICES,null=True, blank=True)
+    description = models.CharField(max_length=50, null=True, blank=True)
+    payment_type = models.CharField(max_length=50, choices=PAYMENT_TYPE_CHOICES,null=True, blank=True)
     shipment = models.OneToOneField(Shipment, related_name='shipment_payment', on_delete=models.CASCADE) #shipment_id
     is_cash_payment = models.BooleanField(default=False)
     is_wallet_payment = models.BooleanField(default=False)
     is_credit_payment = models.BooleanField(default=False)
     is_credit_note = models.BooleanField(default=False)
     is_discount = models.BooleanField(default=False)
-    payment_status = models.CharField(max_length=255, null=True, blank=True)
+    payment_status = models.CharField(max_length=50, null=True, blank=True)
     #collected_payment = models.DecimalField()
     due_date = models.DateTimeField(null=True, blank=True)
     #received_by = models.ForeignKey(User, related_name='payment_boy', on_delete=models.CASCADE)
@@ -145,17 +150,17 @@ class CashPayment(AbstractDateTime):
     # This method stores the info about the cash payment
     payment = models.OneToOneField(ShipmentPayment, related_name='cash_payment', on_delete=models.CASCADE)
     paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
-    description = models.CharField(max_length=255, null=True, blank=True)
+    description = models.CharField(max_length=50, null=True, blank=True)
 
 
 class CreditPayment(AbstractDateTime):
     # This method stores the credit payment: third party details, payment status
     payment = models.ForeignKey(ShipmentPayment, related_name='credit_payment', on_delete=models.CASCADE)
-    reference_no = models.CharField(max_length=255, unique=True)
-    description = models.CharField(max_length=255, null=True, blank=True)
-    payment_party_name = models.CharField(max_length=255, choices=PAYMENT_PARTY_CHOICES, null=True, blank=True)
+    reference_no = models.CharField(max_length=50, unique=True)
+    description = models.CharField(max_length=50, null=True, blank=True)
+    payment_party_name = models.CharField(max_length=50, choices=PAYMENT_PARTY_CHOICES, null=True, blank=True)
     paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')    
-    payment_status = models.CharField(max_length=255, choices=PAYMENT_STATUS_CHOICES, null=True, blank=True)
+    payment_status = models.CharField(max_length=50, choices=PAYMENT_STATUS_CHOICES, null=True, blank=True)
     initiated_time = models.DateTimeField(null=True, blank=True)
     timeout_time = models.DateTimeField(null=True, blank=True)
     processed_by = models.ForeignKey(User, related_name='credit_payment_boy', on_delete=models.CASCADE)
@@ -164,10 +169,10 @@ class CreditPayment(AbstractDateTime):
 class WalletPayment(AbstractDateTime):
     # This method stores the wallet payment: third party details, payment status
     payment = models.ForeignKey(ShipmentPayment, related_name='wallet_payment', on_delete=models.CASCADE)
-    reference_no = models.CharField(max_length=255, unique=True)
-    description = models.CharField(max_length=255, null=True, blank=True)
+    reference_no = models.CharField(max_length=50, unique=True)
+    description = models.CharField(max_length=50, null=True, blank=True)
     paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')    
-    payment_status = models.CharField(max_length=255, choices=PAYMENT_STATUS_CHOICES, null=True, blank=True)
+    payment_status = models.CharField(max_length=50, choices=PAYMENT_STATUS_CHOICES, null=True, blank=True)
     initiated_time = models.DateTimeField(null=True, blank=True)
     timeout_time = models.DateTimeField(null=True, blank=True)
     processed_by = models.ForeignKey(User, related_name='wallet_payment_boy', on_delete=models.CASCADE)
@@ -176,11 +181,12 @@ class WalletPayment(AbstractDateTime):
 class OnlinePayment(AbstractDateTime):
     # This method stores the credit payment: third party details, payment status
     payment = models.OneToOneField(ShipmentPayment, related_name='online_payment', on_delete=models.CASCADE)
-    reference_no = models.CharField(max_length=255, unique=True)
-    description = models.CharField(max_length=255, null=True, blank=True)
-    online_payment_type = models.CharField(max_length=255, choices=ONLINE_PAYMENT_TYPE_CHOICES, null=True, blank=True)
+    reference_no = models.CharField(max_length=50, unique=True)
+    description = models.CharField(max_length=50, null=True, blank=True)
+    online_payment_type = models.CharField(max_length=50, choices=ONLINE_PAYMENT_TYPE_CHOICES, null=True, blank=True)
     paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')    
-    payment_status = models.CharField(max_length=255, choices=PAYMENT_STATUS_CHOICES, null=True, blank=True)
+    payment_status = models.CharField(max_length=50, choices=PAYMENT_STATUS_CHOICES, null=True, blank=True)
+    payment_approval_status = models.CharField(max_length=50, choices=PAYMENT_APPROVAL_STATUS_CHOICES, null=True, blank=True)
     initiated_time = models.DateTimeField(null=True, blank=True)
     timeout_time = models.DateTimeField(null=True, blank=True)
     processed_by = models.ForeignKey(User, related_name='online_payment_boy', null=True, blank=True, on_delete=models.SET_NULL)
@@ -189,14 +195,14 @@ class OnlinePayment(AbstractDateTime):
 
 class Offer(AbstractDateTime):
     # This method stores the discount description for a payment
-    offer_id = models.CharField(max_length=255, unique=True)
-    offer_type = models.CharField(max_length=255, choices=DISCOUNT_TYPE_CHOICES, null=True, blank=True)
+    offer_id = models.CharField(max_length=50, unique=True)
+    offer_type = models.CharField(max_length=50, choices=DISCOUNT_TYPE_CHOICES, null=True, blank=True)
     offer_amount = models.DecimalField(max_digits=6, decimal_places=4, default='0.0000')
     offer_percentage = models.FloatField(default=0.0)
     offer_start_at = models.DateTimeField(null=True,blank=True)
     offer_end_at = models.DateTimeField(null=True,blank=True)
     status = models.BooleanField(default=True)
-    offer_limitation = models.CharField(max_length=255, choices=OFFER_LIMITATION_CHOICES, default='per_shop')
+    offer_limitation = models.CharField(max_length=50, choices=OFFER_LIMITATION_CHOICES, default='per_shop')
 
     def __str__(self):
         return self.offer_id
