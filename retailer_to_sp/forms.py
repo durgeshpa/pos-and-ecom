@@ -14,6 +14,7 @@ from django.utils.safestring import mark_safe
 from django.urls import reverse
 from django.conf import settings
 from django.forms import widgets
+from django.utils.html import format_html
 
 from .signals import ReservedOrder
 from sp_to_gram.models import (
@@ -24,13 +25,15 @@ from retailer_to_sp.models import (
     CustomerCare, ReturnProductMapping, OrderedProduct,
     OrderedProductMapping, Order, Dispatch, Trip, TRIP_STATUS,
     Shipment, ShipmentProductMapping, CartProductMapping, Cart,
-    ShipmentRescheduling
+    ShipmentRescheduling, PickerDashboard, generate_picklist_id
 )
 from products.models import Product
 from shops.models import Shop
 from accounts.models import UserWithName
 from accounts.middlewares import get_current_user
 from addresses.models import Address
+
+User = get_user_model()
 
 
 class PlainTextWidget(forms.Widget):
@@ -59,6 +62,30 @@ class RelatedFieldWidgetCanAdd(widgets.Select):
             (self.related_url, name))
         output.append('<img src="/static/admin/img/icon-addlink.svg" width="10" height="10" \
             alt="Add"/>Add Delivery Boy</a>')
+        return mark_safe(''.join(output))
+
+
+class RelatedFieldWidgetCanAddPicker(widgets.Select):
+
+    def __init__(self, related_model, related_url=None, *args, **kw):
+
+        super(RelatedFieldWidgetCanAddPicker, self).__init__(*args, **kw)
+        if not related_url:
+            rel_to = related_model
+            info = (rel_to._meta.app_label, rel_to._meta.object_name.lower())
+            related_url = 'admin:%s_%s_add' % info
+
+        # Be careful that here "reverse" is not allowed
+        self.related_url = related_url
+
+    def render(self, name, value, *args, **kwargs):
+        self.related_url = reverse(self.related_url)
+        output = [super(RelatedFieldWidgetCanAddPicker, self).render(name, value, *args, **kwargs)]
+        output.append('<a href="%s" class="related-widget-wrapper-link add-related" id="add_id_%s" \
+            onclick="return showAddAnotherPopup(this);"> ' %
+            (self.related_url, name))
+        output.append('<img src="/static/admin/img/icon-addlink.svg" width="10" height="10" \
+            alt="Add"/>Add Picker Boy</a>')
         return mark_safe(''.join(output))
 
 
@@ -93,11 +120,13 @@ class ReturnProductMappingForm(forms.ModelForm):
 
 
 class OrderedProductForm(forms.ModelForm):
-    order = forms.ModelChoiceField(queryset=Order.objects.filter(
-        order_status__in=[Order.OPDP, 'ordered',
-                          'PARTIALLY_SHIPPED', 'DISPATCH_PENDING'],
-        order_closed=False),
+    order = forms.ModelChoiceField(queryset=Order.objects.all(),
         required=True)
+    # order = forms.ModelChoiceField(queryset=Order.objects.filter(
+    #     order_status__in=[Order.OPDP, 'ordered',
+    #                       'PARTIALLY_SHIPPED', 'DISPATCH_PENDING'],
+    #     order_closed=False),
+    #     required=True)
 
     class Meta:
         model = OrderedProduct
@@ -119,7 +148,22 @@ class OrderedProductForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(OrderedProductForm, self).__init__(*args, **kwargs)
         self.fields['shipment_status'].choices = OrderedProduct.SHIPMENT_STATUS[:2]
+        ordered_product = getattr(self, 'instance', None)
+        # if ordered_product is None:
+        qc_pending_orders = OrderedProduct.objects.filter(shipment_status="SHIPMENT_CREATED").values('order')
+        self.fields['order'].queryset = Order.objects.filter(order_status__in=[Order.OPDP, 'ordered',
+                      'PARTIALLY_SHIPPED', 'DISPATCH_PENDING'],
+                        order_closed=False).exclude(id__in=qc_pending_orders)
 
+    def clean(self):
+        data = self.cleaned_data
+        if not self.cleaned_data['order'].picker_order.all().exists():
+            raise forms.ValidationError(_("Please assign picklist to the order"),)            
+        if self.cleaned_data['shipment_status']=='SHIPMENT_CREATED' and \
+            self.cleaned_data['order'].picker_order.last().picking_status != "picking_assigned":
+            raise forms.ValidationError(_("Please set the picking status in picker dashboard"),)
+
+        return data
 
 
 class OrderedProductMappingForm(forms.ModelForm):
@@ -250,6 +294,102 @@ class OrderedProductDispatchForm(forms.ModelForm):
         #self.fields['order'].required = True
 
 
+class EditAssignPickerForm(forms.ModelForm):
+    # form to edit assgined picker 
+    picker_boy = forms.ModelChoiceField(
+                        queryset=UserWithName.objects.all(),
+                        widget=RelatedFieldWidgetCanAddPicker(
+                                UserWithName,
+                                related_url="admin:accounts_user_add"))
+    
+    class Meta:
+        model = PickerDashboard
+        fields = ['order', 'shipment', 'picking_status', 'picklist_id', 'picker_boy']
+
+    class Media:
+        js = ('admin/js/select2.min.js', )
+        css = {
+            'all': (
+                'admin/css/select2.min.css',
+            )
+        }
+
+    def get_my_choices(self):
+        # you place some logic here
+        picking_status = self.instance.picking_status
+        if picking_status == "picking_pending":
+            choices_list = "picking_assigned"
+        elif picking_status == "picking_assigned":
+            choices_list = "picking_in_progress"
+        elif picking_status == "picking_in_progress":
+            choices_list = "picking_complete"
+        else:
+            choices_list = ""
+        return choices_list
+
+    def __init__(self, *args, **kwargs):
+        super(EditAssignPickerForm, self).__init__(*args, **kwargs)
+        #import pdb; pdb.set_trace()
+        instance = getattr(self, 'instance', None)
+        shop = instance.order.seller_shop#Shop.objects.get(related_users=user)      
+        #shop = Shop.objects.get(shop_name="TEST SP 1") 
+        # find all picker for the shop
+        self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
+        if instance.picking_status == "picking_pending":
+            self.fields['picker_boy'].required = False
+        else:
+            self.fields['picker_boy'].required = True
+        # self.fields['picking_status'] = forms.ChoiceField(
+        #     choices=self.get_my_choices() )
+        #self.fields['picking_status'].choices = self.get_my_choices()
+
+
+# tbd: test for warehouse manager, superuser, other users
+class AssignPickerForm(forms.ModelForm):
+    # selecting shop related to user
+    shop = forms.ModelChoiceField(
+                        queryset=Shop.objects.all(),
+                        )
+    picker_boy = forms.ModelChoiceField(
+                        queryset=UserWithName.objects.all(),
+                        widget=RelatedFieldWidgetCanAddPicker(
+                                UserWithName,
+                                related_url="admin:accounts_user_add"))
+
+    # for receiving selected orders
+    selected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
+    unselected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
+
+    class Meta:
+        model = PickerDashboard
+        fields = ['shop', 'picker_boy','selected_id', 'unselected_id', ]
+
+    class Media:
+        js = ('admin/js/select2.min.js', )
+        css = {
+            'all': (
+                'admin/css/select2.min.css',
+            )
+        }
+
+    def __init__(self, user, shop_id, *args, **kwargs):
+        super(AssignPickerForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+        #import pdb; pdb.set_trace()
+        # assign shop name as readonly with value for shop name for user
+        self.fields['picker_boy'].queryset = User.objects.none()            
+        if user.is_superuser:
+            # load all parent shops
+            self.fields['shop'].queryset = Shop.objects.filter(shop_type__shop_type__in=["sp"])
+        else:   
+            # set shop field as read only
+            self.fields['shop'].queryset = Shop.objects.filter(related_users=user)
+
+        if shop_id:
+            shop = Shop.objects.get(id=shop_id)
+            self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
+        
+        
 class TripForm(forms.ModelForm):
     delivery_boy = forms.ModelChoiceField(
                         queryset=UserWithName.objects.all(),
@@ -349,6 +489,27 @@ class TripForm(forms.ModelForm):
                 self.fields[field].required = False
                 self.fields[field].widget = forms.HiddenInput()
 
+    def clean(self):
+        data = self.cleaned_data
+        if self.instance and self.instance.trip_status == 'READY':
+            shipment_ids = data.get('selected_id').split(',')
+            cancelled_shipments = Shipment.objects.values('id', 'invoice_no'
+                ).filter(id__in=shipment_ids, shipment_status='CANCELLED')
+
+            if cancelled_shipments.exists():
+                shipment_ids_upd = [i for i in shipment_ids if int(i) not in [j['id'] for j in cancelled_shipments]]
+                data['selected_id'] = ", ".join(shipment_ids_upd)
+                raise forms.ValidationError(
+                    ['Following invoices are removed from the trip because'
+                     ' the retailer has cancelled the Order'] +
+                    [format_html(i) for i in
+                        ["<a href=%s target='blank'>%s</a>" %
+                            (reverse("admin:retailer_to_sp_shipment_change",
+                                     args=[i.get('id')]), i.get('invoice_no'))
+                            for i in cancelled_shipments]])
+
+        return data
+
 
 
 class DispatchForm(forms.ModelForm):
@@ -403,7 +564,6 @@ class DispatchDisabledForm(DispatchForm):
 
 class ShipmentForm(forms.ModelForm):
     close_order = forms.BooleanField(required=False)
-
     class Meta:
         model = Shipment
         fields = ['order', 'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
@@ -424,24 +584,41 @@ class ShipmentForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(ShipmentForm, self).__init__(*args, **kwargs)
-        ordered_product = getattr(self, 'instance', None)
-        SHIPMENT_STATUS = OrderedProduct.SHIPMENT_STATUS
-        if ordered_product:
-            shipment_status = ordered_product.shipment_status
-            if shipment_status == 'SHIPMENT_CREATED':
-                self.fields['shipment_status'].choices = SHIPMENT_STATUS[:2]
-            elif shipment_status == 'READY_TO_SHIP':
-                setattr(self.fields['close_order'], 'disabled', True)
-                self.fields['shipment_status'].disabled = True
-            elif shipment_status == 'CANCELLED':
-                setattr(self.fields['close_order'], 'disabled', True)
-                self.fields['shipment_status'].disabled = True
-            if ordered_product.order.order_closed:
-                setattr(self.fields['close_order'], 'initial', True)
-                setattr(self.fields['close_order'], 'disabled', True)
+        # order with status picking pending
 
-        else:
-            self.fields['shipment_status'].choices = SHIPMENT_STATUS[:1]
+        if not get_current_user().is_superuser:
+            ordered_product = getattr(self, 'instance', None)
+            SHIPMENT_STATUS = OrderedProduct.SHIPMENT_STATUS
+            if ordered_product:
+                shipment_status = ordered_product.shipment_status
+                if shipment_status == 'SHIPMENT_CREATED':
+                    self.fields['shipment_status'].choices = SHIPMENT_STATUS[:2]
+                elif shipment_status == 'READY_TO_SHIP':
+                    setattr(self.fields['close_order'], 'disabled', True)
+                    self.fields['shipment_status'].disabled = True
+                elif shipment_status == 'CANCELLED':
+                    setattr(self.fields['close_order'], 'disabled', True)
+                    self.fields['shipment_status'].disabled = True
+                if ordered_product.order.order_closed:
+                    setattr(self.fields['close_order'], 'initial', True)
+                    setattr(self.fields['close_order'], 'disabled', True)
+            else:
+                self.fields['shipment_status'].choices = SHIPMENT_STATUS[:1]
+
+    def clean(self):
+        data = self.cleaned_data
+        # if self.instance and self.cleaned_data['shipment_status']=='SHIPMENT_CREATED' and \
+        #     self.instance.order.picker_order.last().picking_status != "picking_assigned":
+        #     raise forms.ValidationError(_("Please set the picking status in picker dashboard"),)
+
+        if (data['close_order'] and
+                not data['shipment_status'] == OrderedProduct.READY_TO_SHIP):
+                raise forms.ValidationError(
+                    _('You can only close the order in QC Passed state'),)
+        
+        order_closed_status = ['denied_and_closed', 'partially_shipped_and_closed',
+            'DENIED', 'CANCELLED', 'CLOSED', 'deleted']
+        return data
 
 
 class ShipmentProductMappingForm(forms.ModelForm):
@@ -457,12 +634,13 @@ class ShipmentProductMappingForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(ShipmentProductMappingForm, self).__init__(*args, **kwargs)
-        instance = getattr(self, 'instance', None)
-        if instance.pk:
-            shipment_status = instance.ordered_product.shipment_status
-            if shipment_status == 'READY_TO_SHIP' or shipment_status == 'CANCELLED':
-                for field_name in self.fields:
-                    self.fields[field_name].disabled = True
+        if not get_current_user().is_superuser:
+            instance = getattr(self, 'instance', None)
+            if instance.pk:
+                shipment_status = instance.ordered_product.shipment_status
+                if shipment_status == 'READY_TO_SHIP' or shipment_status == 'CANCELLED':
+                    for field_name in self.fields:
+                        self.fields[field_name].disabled = True
 
 
 class CartProductMappingForm(forms.ModelForm):
@@ -554,9 +732,10 @@ class OrderedProductReschedule(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        instance = getattr(self, 'instance', None)
-        if instance.shipment_status == OrderedProduct.RESCHEDULED or instance.return_reason:
-            self.fields['return_reason'].disabled = True
+        if not get_current_user().is_superuser:
+            instance = getattr(self, 'instance', None)
+            if instance.shipment_status == OrderedProduct.RESCHEDULED or instance.return_reason:
+                self.fields['return_reason'].disabled = True
 
     def clean_return_reason(self):
         return_reason = self.cleaned_data.get('return_reason')
@@ -617,10 +796,11 @@ class ShipmentReschedulingForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(ShipmentReschedulingForm, self).__init__(*args, **kwargs)
-        instance = getattr(self, 'instance', None)
-        if instance and instance.pk:
-            self.fields['rescheduling_reason'].disabled = True
-            self.fields['rescheduling_date'].disabled = True
+        if not get_current_user().is_superuser:
+            instance = getattr(self, 'instance', None)
+            if instance and instance.pk:
+                self.fields['rescheduling_reason'].disabled = True
+                self.fields['rescheduling_date'].disabled = True
 
 
 class OrderedProductMappingRescheduleForm(forms.ModelForm):
@@ -632,11 +812,12 @@ class OrderedProductMappingRescheduleForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        instance = getattr(self, 'instance', None)
-        if instance and instance.pk:
-            if instance.ordered_product.shipment_status == OrderedProduct.RESCHEDULED or instance.ordered_product.return_reason:
-                self.fields['returned_qty'].disabled = True
-                self.fields['damaged_qty'].disabled = True
+        if not get_current_user().is_superuser:
+            instance = getattr(self, 'instance', None)
+            if instance and instance.pk:
+                if instance.ordered_product.shipment_status == OrderedProduct.RESCHEDULED or instance.ordered_product.return_reason:
+                    self.fields['returned_qty'].disabled = True
+                    self.fields['damaged_qty'].disabled = True
 
 
 class OrderForm(forms.ModelForm):
@@ -647,25 +828,57 @@ class OrderForm(forms.ModelForm):
     shipping_address = forms.ChoiceField(required=False,choices=Address.objects.values_list('id', 'address_line1'))
     ordered_by = forms.ChoiceField(required=False,choices=UserWithName.objects.values_list('id', 'phone_number'))
     last_modified_by = forms.ChoiceField(required=False,choices=UserWithName.objects.values_list('id', 'phone_number'))
-    total_final_amount = forms.CharField()
-    total_mrp_amount = forms.CharField()
 
     class Meta:
         model = Order
-        # fields = '__all__'
         fields = ('seller_shop', 'buyer_shop', 'ordered_cart', 'order_no', 'billing_address', 'shipping_address',
-                  'total_mrp_amount', 'total_discount_amount', 'total_tax_amount', 'total_final_amount', 'order_status',
-                  'ordered_by', 'last_modified_by')
+                  'total_discount_amount', 'total_tax_amount', 'order_status',
+                  'cancellation_reason', 'ordered_by', 'last_modified_by')
 
     class Media:
         js = ('/static/admin/js/retailer_cart.js',)
+
+    def clean_cancellation_reason(self):
+        data = self.cleaned_data
+        if (data['order_status'] == 'CANCELLED' and
+                not data['cancellation_reason']):
+            raise forms.ValidationError(_('Please select cancellation reason!'),)
+        if (data['cancellation_reason'] and
+                not data['order_status'] == 'CANCELLED'):
+            raise forms.ValidationError(
+                _('The reason does not match with the action'),)
+        return data['cancellation_reason']
+
+    def clean(self):
+        if self.instance.order_status == 'CANCELLED':
+            raise forms.ValidationError(_('This order is already cancelled!'),)
+        data = self.cleaned_data
+        if self.cleaned_data.get('order_status') == 'CANCELLED':
+            shipments_data = list(self.instance.rt_order_order_product.values(
+                'id', 'shipment_status', 'trip__trip_status'))
+            if len(shipments_data) == 1:
+                # last shipment
+                s = shipments_data[-1]
+                if (s['shipment_status'] not in [i[0] for i in OrderedProduct.SHIPMENT_STATUS[:3]]):
+                    raise forms.ValidationError(
+                        _('Sorry! This order cannot be cancelled'),)
+                elif (s['trip__trip_status'] and s['trip__trip_status'] != 'READY'):
+                    raise forms.ValidationError(
+                        _('Sorry! This order cannot be cancelled'),)
+            elif len(shipments_data) > 1:
+                status = [x[0] for x in OrderedProduct.SHIPMENT_STATUS[1:]
+                          if x[0] in [x['shipment_status'] for x in shipments_data]]
+                if status:
+                    raise forms.ValidationError(
+                        _('Sorry! This order cannot be cancelled'),)
+            else:
+                return data
 
     def __init__(self, *args, **kwargs):
         super(OrderForm, self).__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
         if instance and instance.pk:
-            self.fields['total_final_amount'].widget.attrs['readonly'] = True
-            self.fields['total_final_amount'].initial = instance.total_final_amount
+            if instance.order_status == 'CANCELLED':
+                self.fields['order_status'].disabled = True
+                self.fields['cancellation_reason'].disabled = True
 
-            self.fields['total_mrp_amount'].widget.attrs['readonly'] = True
-            self.fields['total_mrp_amount'].initial = instance.total_mrp_amount
