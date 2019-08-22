@@ -500,6 +500,16 @@ class Trip(models.Model):
                 shipment.shipment_payment.cash_payment.paid_amount)
         return round(sum(cash_collected), 2)
 
+    @property    
+    def approved_online_amount(self):
+        online_collected = []
+        trip_shipments = self.rt_invoice_trip.all()
+        for shipment in trip_shipments:
+            if shipment.shipment_payment.online_payment:
+                online_collected.append(
+                    shipment.shipment_payment.online_payment.payment_received)
+        return round(sum(online_collected), 2)      
+
     @property
     def cash_to_be_collected_value(self):
         return self.cash_to_be_collected()

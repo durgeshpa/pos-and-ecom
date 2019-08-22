@@ -226,3 +226,29 @@ class Offer(AbstractDateTime):
 class ShipmentPaymentApproval(ShipmentPayment):
     class Meta:
         proxy = True
+
+
+@receiver(post_save, sender=CashPayment)
+def change_trip_status_cash(sender, instance=None, created=False, **kwargs):
+    '''
+    Method to update trip status 
+    '''
+    # amount to he collected == cash collected+online amount collected
+    trip = instance.payment.shipment.trip
+    if trip.cash_to_be_collected_value == trip.received_cash_amount + trip.approved_online_amount:
+        trip.trip_status = "TRANSFERRED"
+        trip.save()    
+
+
+
+@receiver(post_save, sender=OnlinePayment)
+def change_trip_status_online(sender, instance=None, created=False, **kwargs):
+    '''
+    Method to update trip status 
+    '''
+    # amount to he collected == cash collected+online amount collected
+    #import pdb; pdb.set_trace()
+    trip = instance.payment.shipment.trip
+    if trip.cash_to_be_collected_value == trip.received_cash_amount + trip.approved_online_amount:
+        trip.trip_status = "TRANSFERRED"
+        trip.save()    
