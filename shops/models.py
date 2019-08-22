@@ -158,6 +158,10 @@ class Shop(models.Model):
             ("can_do_reconciliation", "Can Do Reconciliation"),
             ("can_sales_person_add_shop", "Can Sales Person Add Shop"),
             ("can_sales_manager_add_shop", "Can Sales Manager Add Shop"),
+            ("can_see_all_related_users", "Can See All Related User"),
+            ("can_see_all_shop_code", "Can See All Shop Code"),
+            ("can_see_all_warehouse_code", "Can See All Warehouse Code"),
+            ("can_be_created_by", "Can Be Created By"),
         )
 
 class ShopNameDisplay(Shop):

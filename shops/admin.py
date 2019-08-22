@@ -203,6 +203,15 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
             return qs
         if request.user.has_perm('shops.can_see_all_shops'):
             return qs
+        if request.user.has_perm('shops.can_see_all_related_users'):
+            return qs
+        if request.user.has_perm('shops.can_see_all_shop_code'):
+            return qs
+        if request.user.has_perm('shops.can_see_all_warehouse_code'):
+            return qs
+        if request.user.has_perm('shops.can_be_created_by'):
+            return qs
+
         return qs.filter(
             Q(related_users=request.user) |
             Q(shop_owner=request.user)
