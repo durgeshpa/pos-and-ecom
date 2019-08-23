@@ -104,33 +104,6 @@ class GRNSearch(InputFilter):
             )
 
 
-class SupplierNameSearch(InputFilter):
-    parameter_name = 'supp_name'
-    title = 'Supplier_Name'
-
-    def queryset(self, request, queryset):
-        if self.value() is not None:
-            supp_name = self.value()
-            if supp_name is None:
-                return
-            return queryset.filter(
-                Q(grn_id__icontains=supp_name)
-            )
-
-class POCreatedBySearch(InputFilter):
-    parameter_name = 'created_by'
-    title = 'Created_BY'
-
-    def queryset(self, request, queryset):
-        if self.value() is not None:
-            created_by = self.value()
-            if created_by is None:
-                return
-            return queryset.filter(
-                Q(grn_id__icontains=created_by)
-            )
-
-
 
 class POAmountSearch(InputFilter):
     parameter_name = 'po_amount'

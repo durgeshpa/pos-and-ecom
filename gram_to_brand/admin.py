@@ -2,6 +2,7 @@ from django.contrib import admin
 from .models import (Order,Cart,CartProductMapping,GRNOrder,GRNOrderProductMapping,BrandNote,PickList,PickListItems,
                      OrderedProductReserved,Po_Message, Document)
 from products.models import Product
+from retailer_backend.admin import InputFilter
 from django import forms
 from django.db.models import Sum, F
 from django.utils.html import format_html
@@ -19,8 +20,7 @@ from gram_to_brand.forms import (OrderForm, CartProductMappingForm, GRNOrderForm
 from .forms import POGenerationForm
 from django.http import HttpResponse, HttpResponseRedirect
 from retailer_backend.filters import ( BrandFilter, SupplierStateFilter,SupplierFilter, OrderSearch, QuantitySearch, InvoiceNoSearch,
-                                       GRNSearch, POAmountSearch, PORaisedBy,ProductNameSearch, ProductSKUSearch, SupplierNameSearch,
-                                       POCreatedBySearch, PONumberSearch)
+                                       GRNSearch, POAmountSearch, PORaisedBy,ProductNameSearch, ProductSKUSearch,PONumberSearch)
 
 from django.db.models import Q
 from .views import DownloadPurchaseOrder, GetMessage
@@ -47,6 +47,33 @@ class CartProductMappingAdmin(admin.TabularInline):
             return 'tax_percentage', 'mrp','sku','case_sizes','sub_total'
             #return 'tax_percentage','case_sizes', 'no_of_cases', 'no_of_pieces', 'price', 'sub_total'
         return 'tax_percentage', 'mrp','sku','case_sizes','sub_total'
+
+
+class SupplierNameSearch(InputFilter):
+    parameter_name = 'supp_name'
+    title = 'Supplier_Name'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            supp_name = self.value()
+            if supp_name is None:
+                return
+            return queryset.filter(
+                Q(order__ordered_cart__supplier_name__vendor_name__icontains=supp_name)
+            )
+
+class POCreatedBySearch(InputFilter):
+    parameter_name = 'created_by'
+    title = 'Created_BY'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            created_by = self.value()
+            if created_by is None:
+                return
+            return queryset.filter(
+                Q(order__ordered_cart__po_message__created_by__phone_number__icontains=created_by)
+            )
 
 class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
