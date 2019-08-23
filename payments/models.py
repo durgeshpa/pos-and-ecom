@@ -235,10 +235,11 @@ def change_trip_status_cash(sender, instance=None, created=False, **kwargs):
     '''
     # amount to he collected == cash collected+online amount collected
     trip = instance.payment.shipment.trip
-    if trip.cash_to_be_collected_value == trip.received_cash_amount + trip.approved_online_amount:
+    # check if all the online payments are approved
+    if trip.check_online_amount_approved and \
+        (trip.cash_to_be_collected_value == trip.received_cash_amount + trip.approved_online_amount):
         trip.trip_status = "TRANSFERRED"
-        trip.save()    
-
+        trip.save()   
 
 
 @receiver(post_save, sender=OnlinePayment)
@@ -247,8 +248,8 @@ def change_trip_status_online(sender, instance=None, created=False, **kwargs):
     Method to update trip status 
     '''
     # amount to he collected == cash collected+online amount collected
-    #import pdb; pdb.set_trace()
     trip = instance.payment.shipment.trip
-    if trip.cash_to_be_collected_value == trip.received_cash_amount + trip.approved_online_amount:
+    if trip.check_online_amount_approved and \
+        (trip.cash_to_be_collected_value == trip.received_cash_amount + trip.approved_online_amount):
         trip.trip_status = "TRANSFERRED"
-        trip.save()    
+        trip.save()

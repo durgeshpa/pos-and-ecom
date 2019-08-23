@@ -510,6 +510,16 @@ class Trip(models.Model):
                     shipment.shipment_payment.online_payment.payment_received)
         return round(sum(online_collected), 2)      
 
+    @property    
+    def check_online_amount_approved(self):
+        trip_shipments = self.rt_invoice_trip.all()
+        # check if all online payments are approved
+        for shipment in trip_shipments:
+            if shipment.shipment_payment.online_payment and \
+                shipment.shipment_payment.online_payment.payment_approval_status!="approved_and_verified":
+                return False
+        return True 
+               
     @property
     def cash_to_be_collected_value(self):
         return self.cash_to_be_collected()
