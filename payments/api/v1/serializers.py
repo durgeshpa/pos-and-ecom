@@ -35,7 +35,6 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
         
         try:
             with transaction.atomic():
-                #import pdb; pdb.set_trace()
                 cash_payment = validated_data.pop('cash_amount')
                 _cash_payment = CashPayment.objects.get(payment=instance)
                 _cash_payment.paid_amount = float(cash_payment) #.paid_amount
@@ -47,7 +46,7 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
                     online_payment = validated_data.pop('online_amount')
                     _online_payment, created = OnlinePayment.objects.get_or_create(payment=instance)
                     _online_payment.paid_amount = float(online_payment) 
-                    _online_payment.paid_amount = float(online_payment) 
+                    _online_payment.reference_no = reference_no 
                     _online_payment.online_payment_type = online_payment_mode
                     _online_payment.save()
 

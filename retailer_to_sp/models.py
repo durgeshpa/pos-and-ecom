@@ -514,9 +514,11 @@ class Trip(models.Model):
     def check_online_amount_approved(self):
         trip_shipments = self.rt_invoice_trip.all()
         # check if all online payments are approved
+        from payments.models import OnlinePayment
         for shipment in trip_shipments:
-            if shipment.shipment_payment.online_payment and \
-                shipment.shipment_payment.online_payment.payment_approval_status!="approved_and_verified":
+            online_pay = OnlinePayment.objects.filter(payment=shipment.shipment_payment)
+            if online_pay.exists() and \
+                online_pay[0].payment_approval_status!="approved_and_verified":
                 return False
         return True 
                

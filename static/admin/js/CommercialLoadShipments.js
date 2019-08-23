@@ -110,6 +110,7 @@ function CreateResponseTable(data){
       $("tbody#data").append(append_data);
       var mode = "mode_"+ shipment_payment_id;
       var mode_value = data1['shipment_payment']['payment_mode'];
+      if (mode_value != "")
       $('#'+ mode +' option[value='+ mode_value +']').attr("selected", "selected");
   }
 /*      var submit_payment_button = "<button class='shipment-payments-submit' type='button'>Submit!</button>"*/
