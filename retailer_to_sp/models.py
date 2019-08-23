@@ -792,16 +792,9 @@ class OrderedProduct(models.Model): #Shipment
     def clean(self):
         super(OrderedProduct, self).clean()
 
-    def save(self, *args, **kwargs):
-        if not self.invoice_no and self.shipment_status == self.READY_TO_SHIP:
-            self.invoice_no = retailer_sp_invoice(
-                                    self.__class__, 'invoice_no',
-                                    self.pk, self.order.seller_shop.
-                                    shop_name_address_mapping.filter(
-                                                    address_type='billing'
-                                                    ).last().pk)
-        super().save(*args, **kwargs)
-                # Update Product Tax Mapping End
+    # def save(self, *args, **kwargs):
+    #     super().save(*args, **kwargs)
+    #             # Update Product Tax Mapping End
 
 class PickerDashboard(models.Model):
 
@@ -1423,11 +1416,20 @@ def assign_update_picker_to_shipment(shipment_id):
        shipment.picker_shipment.all().update(picking_status="picking_complete")
 
 
+
 @receiver(post_save, sender=OrderedProduct)
 def update_picking_status(sender, instance=None, created=False, **kwargs):
     '''
     Method to update picking status 
     '''
+    if not instance.invoice_no and instance.shipment_status == instance.READY_TO_SHIP:
+        instance.invoice_no = retailer_sp_invoice(
+                                sender, 'invoice_no',
+                                instance.pk, instance.order.seller_shop.
+                                shop_name_address_mapping.filter(
+                                                address_type='billing'
+                                                ).last().pk)
+
     assign_update_picker_to_shipment.delay(instance.id)
     #assign shipment to picklist once SHIPMENT_CREATED
     # if instance.shipment_status == "SHIPMENT_CREATED":
