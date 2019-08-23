@@ -304,6 +304,11 @@ class SellerShopView(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop', shop__shop_type__shop_type='r', status=True).exists():
+            if not get_user_model().objects.filter(phone_number=self.request.data.get('shop_owner')).exists():
+                msg = {'is_success': False,
+                       'message': ["No user is registered with this number"],
+                       'response_data': None}
+                return Response(msg, status=status.HTTP_200_OK)
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             shop = self.perform_create(serializer)

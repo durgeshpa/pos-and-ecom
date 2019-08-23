@@ -1287,53 +1287,7 @@ class RetailerShopsList(APIView):
     def get(self, request, *args, **kwargs):
         mobile_number = self.request.GET.get('mobile_number')
         msg = {'is_success': False, 'message': [''], 'response_data': None}
-        # User = get_user_model()
-        # try:
-        #     user = User.objects.get(phone_number=mobile_number)
-        # except ObjectDoesNotExist:
-        #     msg['message'] = ["No retailer exists with this number"]
-        #     return Response(msg, status=status.HTTP_200_OK)
-        # shop_owner = User.objects.get(phone_number = mobile_number)
-        # sales_person_sp = Shop.objects.filter(related_users = self.request.user)
-        # shops = Shop.objects.filter(shop_owner = shop_owner, shop_type = 1)
-        # shops_list =[]
-        # for shop in shops:
-        #     for parent in shop.retiler_mapping.all():
-        #         if (parent.parent in sales_person_sp):
-        #             shops_list.append(shop)
-        #         else:
-        #             return Response({"message":["The user is not mapped with the same service partner as the sales person"], "response_data": None ,"is_success": True, "is_user_mapped_with_same_sp": False})
-
-        # mobile_number = self.request.GET.get('mobile_number')
-        # msg = {'is_success': False, 'message': [''], 'response_data': None}
-        # User = get_user_model()
-        # try:
-        #     user = User.objects.get(phone_number=mobile_number)
-        # except ObjectDoesNotExist:
-        #     msg['message'] = ["No retailer exists with this number"]
-        #     return Response(msg, status=status.HTTP_200_OK)
-        # shop_owner = User.objects.get(phone_number=mobile_number)
-        # sales_person_sp = Shop.objects.filter(related_users=self.request.user)
-        # shops = Shop.objects.filter(shop_owner=shop_owner, shop_type=1)
-        # shops_list = []
-        # for shop in shops:
-        #     for parent in shop.retiler_mapping.all():
-        #         if (parent.parent in sales_person_sp):
-        #             shops_list.append(shop)
-        #         else:
-        #             return Response(
-        #                 {"message": ["The user is not mapped with the same service partner as the sales person"],
-        #                  "response_data": None, "is_success": True, "is_user_mapped_with_same_sp": False})
-        # shops_serializer = RetailerShopSerializer(shops_list, many=True)
-        # if shops_list:
-        #     return Response({"message": [""], "response_data": shops_serializer.data, "is_success": True,
-        #                      "is_user_mapped_with_same_sp": True})
-        # else:
-        #     return Response({"message": ["The User is registered but does not have any shop"], "response_data": None,
-        #                      "is_success": True, "is_user_mapped_with_same_sp": False})
-
-        #New code
-        if Shop.objects.filter(shop_owner__phone_number=mobile_number).exclude(~Q(shop_name_address_mapping__gt=1)).exists():
+        if Shop.objects.filter(Q(shop_owner__phone_number=mobile_number), Q(retiler_mapping__status=True)).exclude(~Q(shop_name_address_mapping__gt=1)).exists():
             shops_list = Shop.objects.filter(shop_owner__phone_number=mobile_number, shop_type=1).exclude(~Q(shop_name_address_mapping__gt=1))
             shops_serializer = RetailerShopSerializer(shops_list, many=True)
             return Response({"message":[""], "response_data": shops_serializer.data, "is_success": True, "is_user_mapped_with_same_sp": True})
