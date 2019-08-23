@@ -33,7 +33,7 @@ SUCCESS_MESSAGES = {
     'USER_SHOP_ADDED': 'Shop added successfully',
     'CHANGED_STATUS': 'Po_Status changed to %s',
     'CSV_UPLOADED': 'CSV file has been successfully uploaded',
-    'CSV_UPLOADED_ELSE': 'CSV file has been successfully uploaded, else these ids:-%s',
+    'CSV_UPLOADED_EXCEPT': 'CSV file has been successfully uploaded, except these ids:-%s',
 }
 
 ERROR_MESSAGES = {

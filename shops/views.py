@@ -309,7 +309,7 @@ class ShopUserMappingCsvView(FormView):
             if not not_uploaded_list:
                 messages.success(request, SUCCESS_MESSAGES['CSV_UPLOADED'])
             else:
-                messages.success(request, SUCCESS_MESSAGES['CSV_UPLOADED_ELSE']%(not_uploaded_list))
+                messages.success(request, SUCCESS_MESSAGES['CSV_UPLOADED_EXCEPT']%(not_uploaded_list))
             return self.form_valid(form)
         else:
             return self.form_invalid(form)
