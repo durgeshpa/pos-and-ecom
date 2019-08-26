@@ -1,10 +1,11 @@
 import traceback
 import sys
+import re
 
 from django.db import transaction
 from rest_framework import serializers
 
-from payments.models import ShipmentPayment, CashPayment, OnlinePayment
+from payments.models import ShipmentPayment, CashPayment, OnlinePayment, PaymentMode
 
 
 class CashPaymentSerializer(serializers.ModelSerializer):
@@ -31,6 +32,13 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
         model = ShipmentPayment
         fields = ['cash_amount', 'payment_mode', 'reference_no', 'online_amount']  #"__all__"
 
+    # def validate(self, data):
+    #     initial_data = self.initial_data
+    #     reference_no = initial_data['reference_no']
+    #     if not re.match("^[a-zA-Z0-9_]*$", reference_no):
+    #         raise serializers.ValidationError('Referece number can not have special character!')
+    #     return initial_data     
+
     def update(self, instance, validated_data):
         
         try:
@@ -40,17 +48,24 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
                 if cash_payment:
                     _cash_payment = CashPayment.objects.get(payment=instance)
                     _cash_payment.paid_amount = float(cash_payment) #.paid_amount
-                    _cash_payment.save()
+                    #_cash_payment.save()
 
                 online_payment_mode = validated_data.pop('payment_mode')
                 if online_payment_mode:
                     reference_no = validated_data.pop('reference_no')
                     online_payment = validated_data.pop('online_amount')
+                    _payment_mode, created = PaymentMode.objects.get_or_create(
+                        payment=instance, payment_mode_name="online_payment")
+
                     _online_payment, created = OnlinePayment.objects.get_or_create(payment=instance)
                     _online_payment.paid_amount = float(online_payment) 
                     _online_payment.reference_no = reference_no 
                     _online_payment.online_payment_type = online_payment_mode
                     _online_payment.save()
+                else:
+                    online_pay = OnlinePayment.objects.filter(payment=instance)
+                    if online_pay.exists():
+                        online_pay.delete()
 
                 return instance
         except Exception as e:

@@ -2,6 +2,7 @@ import datetime, csv, codecs, re
 
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator 
 from django.dispatch import receiver
 from django.db.models.signals import post_save
 from django.urls import reverse
@@ -122,11 +123,11 @@ class ShipmentPayment(AbstractDateTime):
     description = models.CharField(max_length=50, null=True, blank=True)
     payment_type = models.CharField(max_length=50, choices=PAYMENT_TYPE_CHOICES,null=True, blank=True)
     shipment = models.OneToOneField(Shipment, related_name='shipment_payment', on_delete=models.CASCADE) #shipment_id
-    is_cash_payment = models.BooleanField(default=False)
-    is_wallet_payment = models.BooleanField(default=False)
-    is_credit_payment = models.BooleanField(default=False)
-    is_credit_note = models.BooleanField(default=False)
-    is_discount = models.BooleanField(default=False)
+    # is_cash_payment = models.BooleanField(default=False)
+    # is_wallet_payment = models.BooleanField(default=False)
+    # is_credit_payment = models.BooleanField(default=False)
+    # is_credit_note = models.BooleanField(default=False)
+    # is_discount = models.BooleanField(default=False)
     payment_status = models.CharField(max_length=50, null=True, blank=True)
     #collected_payment = models.DecimalField()
     due_date = models.DateTimeField(null=True, blank=True)
@@ -149,13 +150,16 @@ class PaymentMode(models.Model):
     payment = models.ForeignKey(ShipmentPayment, related_name='payment_mode', on_delete=models.CASCADE)
 
     def __str__(self):
-        return str(self.shipment.id), payment_mode_name
+        return self.payment_mode_name #,str(self.payment.id), self.payment_mode_name
+
+    class Meta:
+        unique_together = (('payment', 'payment_mode_name'),)
 
 
 class CashPayment(AbstractDateTime):
     # This method stores the info about the cash payment
     payment = models.OneToOneField(ShipmentPayment, related_name='cash_payment', on_delete=models.CASCADE)
-    paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
+    paid_amount = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')
     description = models.CharField(max_length=50, null=True, blank=True)
 
 
@@ -190,18 +194,23 @@ class OnlinePayment(AbstractDateTime):
     reference_no = models.CharField(max_length=50, unique=True)
     description = models.CharField(max_length=50, null=True, blank=True)
     online_payment_type = models.CharField(max_length=50, choices=ONLINE_PAYMENT_TYPE_CHOICES, null=True, blank=True)
-    paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')    
+    paid_amount = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')    
     payment_status = models.CharField(max_length=50, choices=PAYMENT_STATUS_CHOICES, null=True, blank=True)
     payment_approval_status = models.CharField(max_length=50, choices=PAYMENT_APPROVAL_STATUS_CHOICES, default="pending_approval",null=True, blank=True)
-    payment_received = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
+    payment_received = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')
     is_payment_approved = models.BooleanField(default=False)
     initiated_time = models.DateTimeField(null=True, blank=True)
     timeout_time = models.DateTimeField(null=True, blank=True)
     processed_by = models.ForeignKey(User, related_name='online_payment_boy', null=True, blank=True, on_delete=models.SET_NULL)
 
+    def clean(self):
+        if not re.match("^[a-zA-Z0-9_]*$", self.reference_no):
+            raise ValidationError('Referece number can not have special character.')
+        super(OnlinePayment, self).clean()
+
     def save(self, *args, **kwargs):
         if self.is_payment_approved:
-            if self.payment_received == self.paid_amount:
+            if self.payment_received >= self.paid_amount:
                 self.payment_approval_status = "approved_and_verified"
             elif self.payment_received == 0.0000:
                 self.payment_approval_status = "rejected"

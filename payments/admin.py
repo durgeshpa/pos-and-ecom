@@ -10,13 +10,22 @@ class OrderPaymentAdmin(admin.ModelAdmin):
     model = OrderPayment
 
 
+class PaymentModeAdmin(admin.ModelAdmin):
+    model = PaymentMode
+
+
 class ShipmentPaymentAdmin(admin.ModelAdmin):
     model = ShipmentPayment
     fields = ("shipment",) #, "is_payment_approved")
     raw_id_fields = ("shipment",)
 
 
-class OnlinePaymentAdmin(admin.TabularInline):
+class NoDeleteAdminMixin:
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+class OnlinePaymentAdmin(NoDeleteAdminMixin, admin.TabularInline):
     model = OnlinePayment   
     fields = (
         "paid_amount", "payment_received", "online_payment_type",
@@ -25,6 +34,7 @@ class OnlinePaymentAdmin(admin.TabularInline):
     readonly_fields = (
         "paid_amount", "online_payment_type", "reference_no", "payment_approval_status",
     )
+
 
 class ShipmentPaymentApprovalAdmin(admin.ModelAdmin):
     inlines = [OnlinePaymentAdmin]
@@ -104,3 +114,4 @@ admin.site.register(CreditPayment,CreditPaymentAdmin)
 admin.site.register(WalletPayment,WalletPaymentAdmin)
 #admin.site.register(OnlinePayment,OnlinePaymentAdmin)
 admin.site.register(ShipmentPaymentApproval,ShipmentPaymentApprovalAdmin)
+admin.site.register(PaymentMode,PaymentModeAdmin)

@@ -129,11 +129,11 @@ function CreateResponseTable(data){
 
       });
 
-      if (trip_status=="CLOSED" || trip_status=="TRANSFERRED"){
+/*      if (trip_status=="CLOSED" || trip_status=="TRANSFERRED"){
         $("input").prop('disabled', true);
         $("button.shipment-payments-submit").prop('disabled', true);
         $("select").prop('disabled', true);
-      }
+      }*/
 }
 
 function submit_update_data(shipment_payment_id)
@@ -150,7 +150,7 @@ function submit_update_data(shipment_payment_id)
             console.log(data);
             alert('Successfully Updated');
             formData = {};
-            //location.reload();
+            location.reload();
 
         },
         error: function(xhr, desc, err){

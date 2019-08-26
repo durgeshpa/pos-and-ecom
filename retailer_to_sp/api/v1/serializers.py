@@ -10,7 +10,7 @@ from retailer_to_sp.models import (CartProductMapping, Cart, Order,
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
                                       OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment)
 from addresses.models import Address,City,State,Country
-from payments.models import CashPayment, ShipmentPayment, OnlinePayment
+from payments.models import CashPayment, ShipmentPayment, OnlinePayment, PaymentMode
 
 from gram_to_brand.models import GRNOrderProductMapping
 
@@ -696,6 +696,9 @@ class DispatchSerializer(serializers.ModelSerializer):
         payment_data['shipment_payment_id'] =  payment.id
 
         #cash_payment = CashPayment.objects.get(payment=payment)
+        _payment_mode, created = PaymentMode.objects.get_or_create(
+            payment=payment, payment_mode_name="cash_payment")
+
         cash_payment, created = CashPayment.objects.get_or_create(payment=payment)#, 
         #                             paid_amount=obj.cash_to_be_collected())
         payment_data['cash_payment_amount'] = cash_payment.paid_amount
@@ -744,6 +747,9 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
         payment_data['shipment_payment_id'] =  payment.id
 
         #cash_payment = CashPayment.objects.get(payment=payment)
+        _payment_mode, created = PaymentMode.objects.get_or_create(
+            payment=payment, payment_mode_name="cash_payment")
+
         cash_payment, created = CashPayment.objects.get_or_create(payment=payment)#, 
         #                             paid_amount=obj.cash_to_be_collected())
         payment_data['cash_payment_amount'] = cash_payment.paid_amount
