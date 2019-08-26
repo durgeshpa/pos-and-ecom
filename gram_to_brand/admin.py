@@ -72,7 +72,7 @@ class POCreatedBySearch(InputFilter):
             if created_by is None:
                 return
             return queryset.filter(
-                Q(order__ordered_cart__po_message__created_by__phone_number__icontains=created_by)
+                Q(order__ordered_cart__po_raised_by__phone_number__icontains=created_by)
             )
 
 class CartAdmin(admin.ModelAdmin):
