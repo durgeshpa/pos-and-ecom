@@ -83,6 +83,7 @@ function CreateResponseTable(data){
       }
      
       var data1 = data['response_data'][i];
+      var total_amount = data['response_data'][i]['cash_to_be_collected'];
       var shipment_payment_id = data1['shipment_payment']['shipment_payment_id'];
       var shipment_payment = "shipment_payment" + shipment_payment_id;
       var pk = data['response_data'][i]['pk'];
@@ -103,7 +104,7 @@ function CreateResponseTable(data){
       var invoice_city = "<td>" + data['response_data'][i]['invoice_city'] + "</td>";
       var shipment_address = "<td>" + data['response_data'][i]['shipment_address'] + "</td>";
       var created_at = "<td>" + data['response_data'][i]['created_at'] + "</td>";
-      var submit_payment_button = "<td><form class='"+ shipment_payment +"' action=''><button class='shipment-payments-submit' type='button' data-id='"+ shipment_payment_id +"'>Submit!</button></form></td>";    
+      var submit_payment_button = "<td><form class='"+ shipment_payment +"' action=''><button class='shipment-payments-submit' type='button' data-id='"+ shipment_payment_id +"' data-total='"+ total_amount +"'>Submit!</button></form></td>";    
   
       var append_data = "<tr class="+ row +"><td class='original'></td>" + invoice_no + invoice_amount + cash_to_be_collected + cash_payment 
       + online_payment_mode + online_payment + reference_no + shipment_status + 
@@ -123,10 +124,10 @@ function CreateResponseTable(data){
       $('.shipment-payments-submit').on('click',  function(event) { 
           //event.preventDefault();
           var id = $(this).attr('data-id');
-          update_shipment_payment_information(id);//('{{ shipment_payment.id | escapejs }}');
+          var total = $(this).attr('data-total');
+          update_shipment_payment_information(id, total);//('{{ shipment_payment.id | escapejs }}');
 
       });
-
 
       if (trip_status=="CLOSED" || trip_status=="TRANSFERRED"){
         $("input").prop('disabled', true);
@@ -149,7 +150,7 @@ function submit_update_data(shipment_payment_id)
             console.log(data);
             alert('Successfully Updated');
             formData = {};
-            location.reload();
+            //location.reload();
 
         },
         error: function(xhr, desc, err){
@@ -195,7 +196,7 @@ function validate_form_js(this_form)
 formData = {};
 error_counter = 0;
 
-function update_shipment_payment_information(shipment_payment_id)
+function update_shipment_payment_information(shipment_payment_id, total)
 {
     /* Function to update shipment payment */
     var _class = "shipment_payment"+shipment_payment_id;
@@ -224,6 +225,11 @@ function update_shipment_payment_information(shipment_payment_id)
      }
     }
 
+    if (parseFloat(formData["cash_amount"]) + parseFloat(formData["online_amount"])< parseFloat(total)){
+      alert("Sum of cash amount, online amount should not be less than amount to be collected!");
+      return false;
+    }
+      
     if (formData["payment_mode"]==""){
       //formData["payment_mode"]="none";
       formData["online_amount"]=0.0;
