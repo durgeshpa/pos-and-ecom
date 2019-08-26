@@ -683,6 +683,10 @@ class DispatchSerializer(serializers.ModelSerializer):
     order = serializers.SlugRelatedField(read_only=True, slug_field='order_no')
     created_at = serializers.DateTimeField()
     shipment_payment = serializers.SerializerMethodField()
+    trip_status = serializers.SerializerMethodField()
+
+    def get_trip_status(self, obj):
+        return obj.trip.trip_status
 
     def get_shipment_payment(self, obj):
 
@@ -714,9 +718,9 @@ class DispatchSerializer(serializers.ModelSerializer):
         model = Dispatch
         fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
                   'shipment_address', 'invoice_city', 'invoice_amount',
-                  'created_at', 'shipment_payment')
+                  'created_at', 'shipment_payment', 'trip_status')
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount',
-                 'shipment_payment')
+                 'shipment_payment', 'trip_status')
 
 
 class CommercialShipmentSerializer(serializers.ModelSerializer):
@@ -726,6 +730,11 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
     cash_to_be_collected = serializers.SerializerMethodField()
     created_at = serializers.DateTimeField()
     shipment_payment = serializers.SerializerMethodField()
+    trip_status = serializers.SerializerMethodField()
+
+    def get_trip_status(self, obj):
+        return obj.trip.trip_status
+
 
     def get_shipment_payment(self, obj):
 
@@ -760,9 +769,9 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
         model = OrderedProduct
         fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
                   'shipment_address', 'invoice_city', 'invoice_amount',
-                  'created_at', 'cash_to_be_collected', 'shipment_payment')
+                  'created_at', 'cash_to_be_collected', 'shipment_payment', 'trip_status')
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 
-                    'cash_to_be_collected', 'shipment_payment')
+                    'cash_to_be_collected', 'shipment_payment', 'trip_status')
 
 
 class FeedBackSerializer(serializers.ModelSerializer):

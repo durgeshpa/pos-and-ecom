@@ -74,6 +74,8 @@ function ShowMessage(msg){
 //var shipment_payment_id;
 function CreateResponseTable(data){
   var trip_id = $('#id_trip_id').val();
+  var trip_status = data['response_data'][0]['trip_status'];
+
   for (var i = 0; i < data['response_data'].length; i++) {
       var row = "row2";
       if (i % 2 === 0) {
@@ -125,6 +127,12 @@ function CreateResponseTable(data){
 
       });
 
+
+      if (trip_status=="CLOSED" || trip_status=="TRANSFERRED"){
+        $("input").prop('disabled', true);
+        $("button.shipment-payments-submit").prop('disabled', true);
+        $("select").prop('disabled', true);
+      }
 }
 
 function submit_update_data(shipment_payment_id)
