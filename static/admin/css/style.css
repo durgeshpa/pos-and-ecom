@@ -38,6 +38,11 @@ width: 100%;
 	
 }
 
+.validate_highlight {
+    border-color: #f70000 !important;
+ }
+
+
 .invoice-title.order_id{	
 	
 }

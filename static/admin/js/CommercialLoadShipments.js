@@ -91,11 +91,11 @@ function CreateResponseTable(data){
       var invoice_no = "<td><a href='/admin/retailer_to_sp/cart/commercial/"+pk+"/shipment-details/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
       var invoice_amount = "<td>" + data['response_data'][i]['invoice_amount'] + "</td>";
       var cash_to_be_collected = "<td>" + data['response_data'][i]['cash_to_be_collected'] + "</td>";
-      var cash_payment = "<td><form class='"+ shipment_payment +"' action=''><input type='text' name='cash_amount' value='"+ data1['shipment_payment']['cash_payment_amount'] +"'></form></td>";
+      var cash_payment = "<td><form class='"+ shipment_payment +"' action=''><input type='number' placeholder='0.0' step='0.01' min='0' name='cash_amount' value='"+ data1['shipment_payment']['cash_payment_amount'] +"'></form></td>";
       var online_payment_mode = "<td><form class='"+ shipment_payment +"' action=''><select name='payment_mode' id='mode_"+ shipment_payment_id +"'><option value=''>Select</option>"+
       "<option value='neft'>NEFT</option><option value='upi'>UPI</option><option value='rtgs'>RTGS</option><option value='imps'>IMPS</option>"+
       "</select></form></td>";
-      var online_payment = "<td><form class='"+ shipment_payment +"' action=''><input type='text' name='online_amount' value='"+ data1['shipment_payment']['online_payment_amount'] +"'></form></td>";
+      var online_payment = "<td><form class='"+ shipment_payment +"' action=''><input type='number' placeholder='0.0' step='0.01' min='0' name='online_amount' value='"+ data1['shipment_payment']['online_payment_amount'] +"'></form></td>";
       var reference_no = "<td><form class='"+ shipment_payment +"' action=''><input type='text' name='reference_no' value='"+ data1['shipment_payment']['reference_no'] +"'></form></td>";
 
       var invoice_city = "<td>" + data['response_data'][i]['invoice_city'] + "</td>";
@@ -116,22 +116,12 @@ function CreateResponseTable(data){
 /*      var submit_payment_button = "<button class='shipment-payments-submit' type='button'>Submit!</button>"*/
       //$("tbody#data").append(submit_payment_button);
 
-/*      $('form.shipment_payment').submit(function(e){
-           e.preventDefault(); //Prevent the normal submission action
-           var form = this;
-           // ... Handle form submission
-          var id = $("input[name='shipment_payment_id']",form).val(); 
-          update_shipment_payment_information(id);//('{{ shipment_payment.id | escapejs }}');
-          if (count == 0)
-          submit_update_data(id);//('{{ shipment_payment.id | escapejs }}');
-      });*/
+
 
       $('.shipment-payments-submit').on('click',  function(event) { 
           //event.preventDefault();
           var id = $(this).attr('data-id');
           update_shipment_payment_information(id);//('{{ shipment_payment.id | escapejs }}');
-          if (count == 0)
-          submit_update_data(id);//('{{ shipment_payment.id | escapejs }}');
 
       });
 
@@ -163,8 +153,39 @@ function submit_update_data(shipment_payment_id)
     });
 }
 
+
+function validate_form_js(this_form)
+{
+    /* Function to validate form and highlight error field */
+
+    var serialize_array = $(this_form).serializeArray();
+
+    var error_count = 0;
+
+    var form_data = {};
+
+    $.map(serialize_array, function(n, i){
+        if(n['value'].trim())
+        {
+            form_data[n['name']] = n['value'];
+        }
+        else
+        {
+            error_count+=1;
+            this_form[n['name']].classList.add("validate_highlight");
+        }
+    });
+
+    response = {
+        'error_count':error_count,
+        'form_data':form_data
+    }
+
+    return response;
+}
+
 formData = {};
-count = 0;
+error_counter = 0;
 
 function update_shipment_payment_information(shipment_payment_id)
 {
@@ -177,16 +198,32 @@ function update_shipment_payment_information(shipment_payment_id)
     {
         formData[formarray[i].name]=formarray[i].value;
     }    
-    
-/*    var shipment_payment_forms = $('.shipment_payment');
-    //console.log("shipment information form validation");
-    var form_validation = validate_form_js(shipment_payment_forms[0]);
-    if(form_validation['error_count'] >0){
-        alert('Please fill all fields of shipment information form');
-        formData = {};
-        return 0;
+
+    if (formData["cash_amount"] == "")
+    {
+      alert("Please fill cash amount!");
+      return False;
     }
-*/    
+
+    if (formData["payment_mode"]!=""){
+     if (formData["online_amount"]==""){
+      alert("Please fill online amount!");
+      return False;
+     }
+     if (formData["reference_no"]==""){
+      alert("Please fill reference number for online payment!");
+      return False;
+     }
+    }
+
+    if (formData["payment_mode"]==""){
+      //formData["payment_mode"]="none";
+      formData["online_amount"]=0.0;
+      formData["reference_no"]="null";
+    }
+    // submit update data
+    submit_update_data(shipment_payment_id);
+
     /*var cash_payment = {};
     cash_payment['paid_amount'] = formData['cash_payment'];
     formData['cash_payment'] = cash_payment; */
@@ -198,16 +235,4 @@ function CallAPI(){
 }
 
 
-
-//$('.shipment-payments-submit').on('click',  function(event) { 
-
-/*$('.shipment-payments-submit').click(function(){
-    alert("test");
-    //event.preventDefault();
-    update_shipment_payment_information('{{ shipment_payment.id | escapejs }}');
-    if (count == 0)
-    submit_update_data('{{ shipment_payment.id | escapejs }}');
-
-});
-*/
 })(django.jQuery);

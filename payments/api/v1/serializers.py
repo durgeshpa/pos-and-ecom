@@ -20,10 +20,10 @@ class OnlinePaymentSerializer(serializers.ModelSerializer):
         
 
 class ShipmentPaymentSerializer(serializers.ModelSerializer):
-    cash_amount = serializers.CharField(write_only=True)
-    payment_mode = serializers.CharField(write_only=True)
-    reference_no = serializers.CharField(write_only=True)
-    online_amount = serializers.CharField(write_only=True)
+    cash_amount = serializers.DecimalField(default=0.0000, max_digits=20, decimal_places=4)
+    payment_mode = serializers.CharField(allow_blank=True)
+    reference_no = serializers.CharField(default="")
+    online_amount = serializers.DecimalField(default=0.0000, max_digits=20, decimal_places=4)
 
     #cash_payment = CashPaymentSerializer(fields=['paid_amount'])
     #online_payment = OnlinePaymentSerializer()
@@ -35,10 +35,12 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
         
         try:
             with transaction.atomic():
-                cash_payment = validated_data.pop('cash_amount')
-                _cash_payment = CashPayment.objects.get(payment=instance)
-                _cash_payment.paid_amount = float(cash_payment) #.paid_amount
-                _cash_payment.save()
+                #import pdb; pdb.set_trace()
+                cash_payment = validated_data.pop('cash_amount', None)
+                if cash_payment:
+                    _cash_payment = CashPayment.objects.get(payment=instance)
+                    _cash_payment.paid_amount = float(cash_payment) #.paid_amount
+                    _cash_payment.save()
 
                 online_payment_mode = validated_data.pop('payment_mode')
                 if online_payment_mode:

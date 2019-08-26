@@ -23,6 +23,13 @@ CHOICES = (
     ('inactive', 'Inactive'),
   )
 
+PAYMENT_MODE_NAME = (
+    ('cash_payment', 'cash_payment'),
+    ('online_payment', 'online_payment'),
+    ('credit_payment', 'credit_payment'),
+    ('wallet_payment', 'wallet_payment')
+  )
+
 PAYMENT_STATUS_CHOICES = (
     ('not_initiated', 'not_initiated'),
     ('initiated', 'initiated'),
@@ -137,13 +144,12 @@ class ShipmentPayment(AbstractDateTime):
 
 
 class PaymentMode(models.Model):
-    payment_mode_name = models.CharField(max_length=50, null=True, blank=True)
+    payment_mode_name = models.CharField(max_length=50, choices=PAYMENT_MODE_NAME, null=True, blank=True)
     status = models.BooleanField(default=True)
     payment = models.ForeignKey(ShipmentPayment, related_name='payment_mode', on_delete=models.CASCADE)
 
     def __str__(self):
         return str(self.shipment.id), payment_mode_name
-
 
 
 class CashPayment(AbstractDateTime):
