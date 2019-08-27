@@ -200,7 +200,8 @@ class SpSrProductPrice(View):
                                 price_to_super_retailer=float(row[6]),
                                 cash_discount=float(row[8]) if row[8] else 0,
                                 loyalty_incentive=float(row[9]) if row[9] else 0,
-                                start_date=start_date, end_date=end_date)
+                                start_date=start_date, end_date=end_date,
+                                approval_status=ProductPrice.APPROVAL_PENDING)
 
                     elif (row[4] or row[5] or row[6] or row[7]):
                         raise Exception("Please enter all the prices")

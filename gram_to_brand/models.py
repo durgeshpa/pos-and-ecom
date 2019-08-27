@@ -346,7 +346,7 @@ class Order(BaseOrder):
 class GRNOrder(BaseShipment): #Order Shipment
     order = models.ForeignKey(Order,verbose_name='PO Number',related_name='order_grn_order',on_delete=models.CASCADE,null=True,blank=True )
     invoice_no = models.CharField(max_length=255)
-    invoice_date = models.DateField()
+    invoice_date = models.DateField(null=True)
     invoice_amount = models.DecimalField(max_digits=20,decimal_places=4,default=('0.0000'))
     #e_way_bill_no = models.CharField(max_length=255, blank=True, null=True)
     #e_way_bill_document = models.FileField(null=True,blank=True)
@@ -391,18 +391,18 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
                     shop=shop.retailer,
                     po_validity_date=datetime.date.today() + timedelta(days=15)
                 )
-        data = {}
-        data['username'] = username
-        data['phone_number'] = instance.order_id.ordered_by
-        data['order_no'] = order_no
-        data['items_count'] = items_count
-        data['total_amount'] = total_amount
-        data['shop_name'] = shop_name
+        # data = {}
+        # data['username'] = username
+        # data['phone_number'] = instance.order_id.ordered_by
+        # data['order_no'] = order_no
+        # data['items_count'] = items_count
+        # data['total_amount'] = total_amount
+        # data['shop_name'] = shop_name
 
-        user_id = instance.order_id.ordered_by.id
+        # user_id = instance.order_id.ordered_by.id
         activity_type = "STOCK_IN"
-        from notification_center.utils import SendNotification
-        SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
+        # from notification_center.utils import SendNotification
+        # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
 
 
 

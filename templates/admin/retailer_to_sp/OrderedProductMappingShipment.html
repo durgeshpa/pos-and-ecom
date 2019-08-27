@@ -173,7 +173,16 @@
                 {% endfor %}
             {% endif %}
 {{ordered_form.management_form}}
-  {{ordered_form.as_p}}
+
+    {% for field in ordered_form.visible_fields %}
+     <p>
+
+{{ field.label_tag }}
+          {{ field }}
+          {{ field.help_text }}
+  </p>
+    {% endfor %}
+
 
 
 

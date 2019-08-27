@@ -6,7 +6,6 @@ from django.utils.html import format_html_join, format_html
 from django.utils.safestring import mark_safe
 from django.urls import reverse
 
-
 from products.models import Product
 
 
@@ -239,4 +238,3 @@ def reschedule_shipment_button(obj):
         (reverse('admin:retailer_to_sp_shipmentrescheduling_add'),
          obj.id)
     )
-

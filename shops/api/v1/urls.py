@@ -1,8 +1,14 @@
 from rest_framework import routers
 from django.conf.urls import url
 from django.urls import path
+from shops.api.v1.views import (RetailerTypeView, ShopTypeView,ShopView, ShopPhotoView, ShopDocumentView,
+        TeamListView, SellerShopView, SellerShopOrder, SellerShopProfile, SalesPerformanceView,
+        SellerShopListView, CheckUser, CheckAppVersion, StatusChangedAfterAmountCollected, SalesPerformanceUserView
+)
+from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetail, SellerShopAddress
 from shops.api.v1.views import (RetailerTypeView, ShopTypeView,
-        ShopView, ShopPhotoView, ShopDocumentView, ShopRequestBrandViewSet)
+        ShopView, ShopPhotoView, ShopDocumentView, StatusChangedAfterAmountCollected,
+        ShopRequestBrandViewSet)
 from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetail
 
 router = routers.DefaultRouter()
@@ -17,6 +23,19 @@ urlpatterns = [
     path('shop-type/', ShopTypeView.as_view(), name='shop-type', ),
     path('shop-photo/', ShopPhotoView.as_view(), name='shop-photo', ),
     path('shop-document/', ShopDocumentView.as_view(), name='shop-document', ),
+
+    path('seller-team-list/', TeamListView.as_view(), name='seller-team-list', ),
+    path('seller-shops/', SellerShopView.as_view(), name='seller-shops', ),
+    path('seller-shop-profile/', SellerShopProfile.as_view(), name='seller-shop-profile', ),
+    path('seller-shop-order/', SellerShopOrder.as_view(), name='seller-shops', ),
+    path('seller-performance/', SalesPerformanceView.as_view(), name='seller-performance', ),
+    path('seller-performance-user-list/', SalesPerformanceUserView.as_view(), name='seller-performance-user-list', ),
+    path('seller-shop-list/', SellerShopListView.as_view(), name='seller-shop-list', ),
+    path('seller-check-user/', CheckUser.as_view(), name='seller-check-user', ),
+    path('seller-shop-address/', SellerShopAddress.as_view(), name='seller-shop-address', ),
+    path('check-app-version/', CheckAppVersion.as_view(), name='check-app-version', ),
+
+    url('^amount-collected/(?P<shipment>\d+)/$', StatusChangedAfterAmountCollected.as_view(), name='amount-collected'),
 
 ]
 
