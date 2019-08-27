@@ -290,6 +290,9 @@ class ShopRequestBrandAdmin(admin.ModelAdmin):
     list_filter = (ShopFilter, ProductSKUFilter, BrandNameFilter, ('created_at', DateTimeRangeFilter))
     raw_id_fields = ('shop',)
 
+    class Media:
+        pass
+
 class ShopUserMappingAdmin(admin.ModelAdmin):
     form = ShopUserMappingForm
     list_display = ('shop','manager','employee','employee_group','created_at','status')
