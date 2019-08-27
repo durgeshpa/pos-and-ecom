@@ -1,4 +1,5 @@
 import threading
+from django.utils.timezone import now
 
 
 class RequestMiddleware:
@@ -20,7 +21,17 @@ class RequestMiddleware:
 
     return response
 
+    def process_response(self, request, response):
+        if request.user.is_authenticated():
+            User.objects.filter(pk=request.user.pk).update(last_login=now())
+        return response
+
 def get_current_user():
     request = RequestMiddleware(get_response=None)
     request = request.thread_local.current_request
     return request.user
+
+
+
+
+

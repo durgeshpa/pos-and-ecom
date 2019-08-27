@@ -2,6 +2,7 @@ import datetime
 import logging
 from decimal import Decimal
 
+from celery.task import task
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -10,6 +11,7 @@ from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
+from django.utils.crypto import get_random_string
 
 from accounts.middlewares import get_current_user
 from addresses.models import Address
@@ -19,7 +21,8 @@ from retailer_backend.common_function import (
 )
 from .utils import (order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util,
                     order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
-                    order_damaged_amount, order_delivered_value, order_shipment_status_reason)
+                    order_damaged_amount, order_delivered_value, order_shipment_status_reason,
+                    picking_statuses, picker_boys, picklist_ids)
 from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
@@ -37,6 +40,7 @@ from .utils import (order_invoices, order_shipment_amount,
 
 from accounts.models import UserWithName, User
 from django.core.validators import RegexValidator
+from django.contrib.postgres.fields import JSONField
 
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
 
@@ -76,6 +80,20 @@ TRIP_STATUS = (
     ('CLOSED', 'Closed'),
     ('TRANSFERRED', 'Transferred')
 )
+
+
+def generate_picklist_id(pincode):
+
+    if PickerDashboard.objects.exists():
+        last_picking = PickerDashboard.objects.last()
+        picklist_id = last_picking.picklist_id
+
+        new_picklist_id = "PIK/" + str(pincode)[-2:] +"/" +str(int(picklist_id.split('/')[2])+1)
+
+    else:
+        new_picklist_id = "PIK/" + str(pincode)[-2:] +"/" +str(1)        
+
+    return new_picklist_id
 
 
 class Cart(models.Model):
@@ -142,6 +160,17 @@ class Cart(models.Model):
     @property
     def qty_sum(self):
         return self.rt_cart_list.aggregate(qty_sum=Sum('qty'))['qty_sum']
+
+    def total_no_of_sku_pieces(self):
+        return self.rt_cart_list.aggregate(no_of_pieces_sum=Sum('no_of_pieces'))['no_of_pieces_sum']
+
+    def total_sku(self):
+        return self.rt_cart_list.count()
+
+
+    @property
+    def no_of_pieces_sum(self):
+        return self.rt_cart_list.aggregate(qty_sum=Sum('no_of_pieces'))['no_of_pieces_sum']
 
     def save(self, *args, **kwargs):
         if self.cart_status == self.ORDERED:
@@ -246,6 +275,47 @@ class Order(models.Model):
         (PARTIALLY_SHIPPED_AND_CLOSED, "Partially shipped and closed"),
         (DENIED_AND_CLOSED, 'Denied and Closed')
     )
+
+    CASH_NOT_AVAILABLE = 'cna'
+    SHOP_CLOSED = 'sc'
+    RESCHEDULED_BY_SELLER = 'rbs'
+    UNABLE_TO_ATTEMPT = 'uta'
+    WRONG_ORDER = 'wo'
+    ITEM_MISS_MATCH = 'imm'
+    DAMAGED_ITEM = 'di'
+    LEFT_AT_WAREHOUSE = 'law'
+    BEFORE_DELIVERY_CANCELLED = 'bdc'
+    NEAR_EXPIRY = 'ne'
+    RATE_ISSUE = 'ri'
+    ALREADY_PURCHASED = 'ap'
+    GST_ISSUE = 'gi'
+    CLEANLINESS = 'cl'
+    CUSTOMER_CANCEL = 'cc'
+    CUSTOMER_UNAVAILABLE = 'cu'
+    MANUFACTURING_DEFECT = 'md'
+    SHORT = 's'
+
+    CANCELLATION_REASON = (
+        (CASH_NOT_AVAILABLE, 'Cash not available'),
+        (SHOP_CLOSED, 'Shop Closed'),
+        (RESCHEDULED_BY_SELLER, 'Rescheduled by seller'),
+        (UNABLE_TO_ATTEMPT, 'Unable to attempt'),
+        (WRONG_ORDER, 'Wrong Order'),
+        (ITEM_MISS_MATCH, 'Item miss match'),
+        (DAMAGED_ITEM, 'Damaged item'),
+        (LEFT_AT_WAREHOUSE, 'Left at Warehouse'),
+        (BEFORE_DELIVERY_CANCELLED, 'Before Delivery Cancelled'),
+        (NEAR_EXPIRY, 'Near Expiry'),
+        (RATE_ISSUE, 'Rate issue'),
+        (ALREADY_PURCHASED, 'Already Purchased'),
+        (GST_ISSUE, 'GST Issue'),
+        (CLEANLINESS, 'Item not clean'),
+        (CUSTOMER_CANCEL, 'Cancelled by customer'),
+        (CUSTOMER_UNAVAILABLE, 'Customer not available'),
+        (MANUFACTURING_DEFECT, 'Manufacturing Defect'),
+        (SHORT, 'Item short')
+    )
+
     #Todo Remove
     seller_shop = models.ForeignKey(
         Shop, related_name='rt_seller_shop_order',
@@ -272,9 +342,11 @@ class Order(models.Model):
     total_mrp = models.FloatField(default=0)
     total_discount_amount = models.FloatField(default=0)
     total_tax_amount = models.FloatField(default=0)
-    # total_final_amount = models.FloatField(
-    #     default=0, verbose_name='Ordered Amount')
     order_status = models.CharField(max_length=50,choices=ORDER_STATUS)
+    cancellation_reason = models.CharField(
+        max_length=50, choices=CANCELLATION_REASON,
+        null=True, blank=True, verbose_name='Reason for Cancellation',
+    )
     order_closed = models.BooleanField(default=False, null=True, blank=True)
     ordered_by = models.ForeignKey(
         get_user_model(), related_name='rt_ordered_by_user',
@@ -340,6 +412,24 @@ class Order(models.Model):
         self.shipment_objects = self.rt_order_order_product.select_related('trip').all()
         return self.shipment_objects
 
+    def picker_dashboards(self):
+        if hasattr(self, 'picker_dashboard_objects'):
+            return self.picker_dashboard_objects
+        self.picker_dashboard_objects = self.picker_order.all()
+        return self.picker_dashboard_objects    
+
+    @property
+    def picking_status(self):
+        return picking_statuses(self.picker_dashboards())
+
+    @property
+    def picker_boy(self):
+        return picker_boys(self.picker_dashboards())    
+
+    @property
+    def picklist_id(self):
+        return picklist_ids(self.picker_dashboards())    
+
     @property
     def invoice_no(self):
         return order_invoices(self.shipments())
@@ -364,9 +454,9 @@ class Order(models.Model):
     # def shipment_returns(self):
     #     return self._shipment_returns
 
-    @property
-    def picking_status(self):
-        return "-"
+    # @property
+    # def picking_status(self):
+    #     return "-"
 
     @property
     def picker_name(self):
@@ -403,6 +493,13 @@ class Order(models.Model):
     # @property
     # def delivered_value(self):
     #     return order_delivered_value(self.shipments())
+
+    def ordered_amount(self):
+        invoice_amount = 0
+        for s in self.shipments():
+            invoice_amount += s.invoice_amount
+        return invoice_amount
+
 
 class Trip(models.Model):
     seller_shop = models.ForeignKey(
@@ -499,14 +596,28 @@ class Trip(models.Model):
                 shipment.cash_to_be_collected())
         return round(sum(cash_to_be_collected), 2)
 
+    @property
+    def cash_to_be_collected_value(self):
+        return self.cash_to_be_collected()
+
+    @property
+    def total_trip_shipments(self):
+        trip_shipments = self.rt_invoice_trip.count()
+        return trip_shipments
+
     def total_trip_amount(self):
         trip_shipments = self.rt_invoice_trip.all()
         trip_amount = []
         for shipment in trip_shipments:
             invoice_amount = float(shipment.invoice_amount)
             trip_amount.append(invoice_amount)
-        return sum(trip_amount)
+        amount = round(sum(trip_amount),2)
+        return amount
 
+    @property
+    def total_trip_amount_value(self):
+        return self.total_trip_amount()
+        
     __trip_status = None
 
     def __init__(self, *args, **kwargs):
@@ -534,6 +645,18 @@ class Trip(models.Model):
         if trip_status:
             return str(self.get_trip_status_display())
         return str("-------")
+
+    @property
+    def no_of_shipments(self):
+        return self.rt_invoice_trip.all().count()
+
+    @property
+    def trip_id(self):
+        return self.id
+
+    @property
+    def total_return_amount(self):
+        return self.rt_invoice_trip.all().count()
 
 
 class OrderedProduct(models.Model): #Shipment
@@ -569,7 +692,11 @@ class OrderedProduct(models.Model): #Shipment
     RATE_ISSUE = 'rate_issue'
     ALREADY_PURCHASED = 'already_purchased'
     GST_ISSUE = 'gst_issue'
-
+    CLEANLINESS = 'CLEAN'
+    CUSOTMER_CANCEL = 'CUS_CAN'
+    CUSTOMER_UNAVAILABLE = 'CUS_AVL'
+    MANUFACTURING_DEFECT = "DEFECT"
+    SHORT = 'SHORT'
 
     RETURN_REASON = (
         (CASH_NOT_AVAILABLE, 'Cash not available'),
@@ -585,6 +712,11 @@ class OrderedProduct(models.Model): #Shipment
         (RATE_ISSUE, 'Rate issue'),
         (ALREADY_PURCHASED, 'Already Purchased'),
         (GST_ISSUE, 'GST Issue'),
+        (CLEANLINESS, 'Item not clean'),
+        (CUSOTMER_CANCEL, 'Cancelled by customer'),
+        (CUSTOMER_UNAVAILABLE, 'Customer not available'),
+        (MANUFACTURING_DEFECT,'Manufacturing Defect'),
+        (SHORT, 'Item short')
     )
 
     order = models.ForeignKey(
@@ -632,6 +764,7 @@ class OrderedProduct(models.Model): #Shipment
             self._invoice_amount = 0
             self._cn_amount = 0
             self._damaged_amount = 0
+            self._delivered_amount = 0
             shipment_products = self.rt_order_product_order_product_mapping.values('product','shipped_qty','returned_qty','damaged_qty').all()
             shipment_map = {i['product']:(i['shipped_qty'], i['returned_qty'], i['damaged_qty']) for i in shipment_products}
             cart_product_map = self.order.ordered_cart.rt_cart_list.values('cart_product_price__price_to_retailer', 'cart_product', 'qty').filter(cart_product_id__in=shipment_map.keys())
@@ -643,6 +776,7 @@ class OrderedProduct(models.Model): #Shipment
                     self._invoice_amount += product_price * shipped_qty
                     self._cn_amount += (returned_qty+damaged_qty) * product_price
                     self._damaged_amount += damaged_qty * product_price
+                    self._delivered_amount += self._invoice_amount - self._cn_amount
                 except Exception as e:
                     logger.exception("Exception occurred {}".format(e))
 
@@ -699,27 +833,62 @@ class OrderedProduct(models.Model): #Shipment
             return round(self._invoice_amount, 2)
         return str("-")
 
+    @property
+    def shipment_id(self):
+        return self.id
+
     def cn_amount(self):
         return round(self._cn_amount, 2)
 
     def damaged_amount(self):
         return round(self._damaged_amount, 2)
 
+    def clean(self):
+        super(OrderedProduct, self).clean()
 
     def save(self, *args, **kwargs):
-        if not self.invoice_no:
-            if self.shipment_status == self.READY_TO_SHIP:
-                self.invoice_no = retailer_sp_invoice(
-                                        self.__class__, 'invoice_no',
-                                        self.pk, self.order.seller_shop.
-                                        shop_name_address_mapping.filter(
-                                                        address_type='billing'
-                                                        ).last().pk)
+        if not self.invoice_no and self.shipment_status == self.READY_TO_SHIP:
+            self.invoice_no = retailer_sp_invoice(
+                                    self.__class__, 'invoice_no',
+                                    self.pk, self.order.seller_shop.
+                                    shop_name_address_mapping.filter(
+                                                    address_type='billing'
+                                                    ).last().pk)
         super().save(*args, **kwargs)
+                # Update Product Tax Mapping End
 
+class PickerDashboard(models.Model):
 
+    PICKING_STATUS = (
+        ('picking_pending', 'Picking Pending'),
+        ('picking_assigned', 'Picking Assigned'),
+        ('picking_in_progress', 'Picking In Progress'),
+        ('picking_complete', 'Picking Complete'),
+    )
 
+    order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE)    
+    shipment = models.ForeignKey(
+        OrderedProduct, related_name="picker_shipment", 
+        on_delete=models.CASCADE, null=True, blank=True)
+    picking_status = models.CharField(max_length=50,choices=PICKING_STATUS, default='picking_pending')
+    #make unique to picklist id
+    picklist_id = models.CharField(max_length=255, null=True, blank=True)#unique=True)
+    picker_boy = models.ForeignKey(
+        UserWithName, related_name='picker_user',
+        on_delete=models.CASCADE, verbose_name='Picker Boy',
+        null=True, blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
+    def save(self, *args, **kwargs):
+        super(PickerDashboard, self).save(*args, **kwargs)
+
+    def __str__(self):
+        return self.picklist_id if self.picklist_id is not None else str(self.id)
+
+    # class Meta:
+    #     unique_together = (('shipment'),('order', 'picking_status'),)
 
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(
@@ -738,6 +907,7 @@ class OrderedProductMapping(models.Model):
         get_user_model(), related_name='rt_last_modified_user_order_product',
         null=True, blank=True, on_delete=models.CASCADE
     )
+    product_tax_json = JSONField(null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -773,6 +943,19 @@ class OrderedProductMapping(models.Model):
     already_shipped_qty.fget.short_description = "Delivered Qty"
 
     @property
+    def shipped_quantity_including_current(self):
+        all_ordered_product = self.ordered_product.order.rt_order_order_product.filter(created_at__lte=self.ordered_product.created_at)#all()
+        #all_ordered_product_exclude_current = all_ordered_product.exclude(id=self.ordered_product_id)
+        qty = OrderedProductMapping.objects.filter(
+            ordered_product__in=all_ordered_product,
+            product=self.product)
+        shipped_qty = qty.aggregate(
+            Sum('shipped_qty')).get('shipped_qty__sum', 0)
+        
+        shipped_qty = shipped_qty if shipped_qty else 0
+        return shipped_qty
+
+    @property
     def to_be_shipped_qty(self):
         all_ordered_product = self.ordered_product.order.rt_order_order_product.all()
         #all_ordered_product_exclude_current = all_ordered_product.exclude(id=self.ordered_product_id)
@@ -787,6 +970,20 @@ class OrderedProductMapping(models.Model):
         to_be_shipped_qty = to_be_shipped_qty - returned_qty
         return to_be_shipped_qty
     to_be_shipped_qty.fget.short_description = "Already Shipped Qty"
+
+
+    @property
+    def shipped_qty_exclude_current1(self):
+        all_ordered_product = self.ordered_product.order.rt_order_order_product.filter(created_at__lt=self.created_at)#all()
+        all_ordered_product_exclude_current = all_ordered_product.exclude(id=self.ordered_product_id)
+        to_be_shipped_qty = OrderedProductMapping.objects.filter(
+            ordered_product__in=all_ordered_product_exclude_current,
+            product=self.product).aggregate(
+            Sum('shipped_qty')).get('shipped_qty__sum', 0)
+        to_be_shipped_qty = to_be_shipped_qty if to_be_shipped_qty else 0
+        return to_be_shipped_qty
+
+
 
     @property
     def shipped_qty_exclude_current(self):
@@ -806,6 +1003,35 @@ class OrderedProductMapping(models.Model):
             return str(gf_code)
         return str("-")
 
+
+    @property
+    def mrp(self):
+        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.mrp
+
+    @property
+    def price_to_retailer(self):
+        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.price_to_retailer
+
+    @property
+    def cash_discount(self):
+        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.cash_discount
+
+    @property
+    def loyalty_incentive(self):
+        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.loyalty_incentive
+
+    @property
+    def margin(self):
+        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.margin
+
+    @property
+    def ordered_product_status(self):
+        return self.ordered_product.shipment_status
+
+    @property
+    def product_short_description(self):
+        return self.product.product_short_description
+
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
             shop__shop_type__shop_type='sp', status=True
@@ -817,6 +1043,34 @@ class OrderedProductMapping(models.Model):
     def get_products_gst_cess(self):
         return self.product.product_pro_tax.filter(tax__tax_type='cess')
 
+    def set_product_tax_json(self):
+        product_tax_query = self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
+                                                                    'tax__tax_percentage')
+        product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
+        product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
+        self.product_tax_json = product_tax
+        self.save()
+
+
+    def get_product_tax_json(self):
+        if not self.product_tax_json:
+            self.set_product_tax_json()
+        return self.product_tax_json.get('tax_sum')
+
+    def save(self, *args, **kwargs):
+        # super().save(*args, **kwargs)
+        if self.product_tax_json:
+            super().save(*args, **kwargs)
+        else:
+            try:
+                product_tax_query = self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
+                                                                        'tax__tax_percentage')
+                product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
+                product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
+                shipment.product_tax_json = product_tax
+            except Exception as e:
+                logger.exception("Exception occurred while saving product {}".format(e))
+            super().save(*args, **kwargs)
 
 class Dispatch(OrderedProduct):
     class Meta:
@@ -1030,15 +1284,43 @@ class Payment(models.Model):
 def order_notification(sender, instance=None, created=False, **kwargs):
 
     if created:
-        if instance.order_id.ordered_by.first_name:
-            username = instance.order_id.ordered_by.first_name
+        # data = {}
+        # data['username'] = "test"
+        # data['phone_number'] = "9643112048" #instance.order_id.ordered_by.phone_number
+
+        # user_id = instance.order_id.ordered_by.id
+        # activity_type = "ORDER_RECEIVED"
+        # from notification_center.utils import SendNotification
+        # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
+
+
+        if instance.order_id.buyer_shop.shop_owner.first_name:
+            username = instance.order_id.buyer_shop.shop_owner.first_name
         else:
-            username = instance.order_id.ordered_by.phone_number
+            username = instance.order_id.buyer_shop.shop_owner.phone_number
         order_no = str(instance.order_id)
         total_amount = str(instance.order_id.total_final_amount)
         shop_name = str(instance.order_id.ordered_cart.buyer_shop.shop_name)
         items_count = instance.order_id.ordered_cart.rt_cart_list.count()
-        message = SendSms(phone=instance.order_id.ordered_by,
+        data = {}
+        data['username'] = username
+        data['phone_number'] = instance.order_id.ordered_by
+        data['order_no'] = order_no
+        data['items_count'] = items_count
+        data['total_amount'] = total_amount
+        data['shop_name'] = shop_name
+
+        user_id = instance.order_id.ordered_by.id
+        activity_type = "ORDER_RECEIVED"
+        
+        from notification_center.tasks import send_notification
+        send_notification(user_id=user_id, activity_type=activity_type, data=data)
+        # send_notification.delay(json.dumps({'user_id':user_id, 'activity_type':activity_type, 'data':data}))
+
+        # from notification_center.utils import SendNotification
+        # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
+
+        message = SendSms(phone=instance.order_id.buyer_shop.shop_owner,
                           body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
                               " Thanks," \
                               " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
@@ -1155,6 +1437,7 @@ class Note(models.Model):
         if self.shipment:
             return self.shipment.invoice_no
 
+
 class Feedback(models.Model):
     STAR1 = '1'
     STAR2 = '2'
@@ -1169,10 +1452,62 @@ class Feedback(models.Model):
         (STAR4, '4 Star'),
         (STAR5, '5 Star'),
     )
-    user = models.ForeignKey(get_user_model(), related_name='user_feedback', on_delete=models.CASCADE)
-    shipment = models.OneToOneField(OrderedProduct, related_name='shipment_feedback',on_delete=models.CASCADE)
-    delivery_experience = models.CharField(max_length=2, choices=STAR_CHOICE, null=True, blank=True)
-    overall_product_packaging = models.CharField(max_length=2, choices=STAR_CHOICE, null=True, blank=True)
-    comment = models.TextField(null=True,blank=True)
+    user = models.ForeignKey(get_user_model(), related_name='user_feedback',
+                             on_delete=models.CASCADE)
+    shipment = models.OneToOneField(OrderedProduct,
+                                    related_name='shipment_feedback',
+                                    on_delete=models.CASCADE)
+    delivery_experience = models.CharField(max_length=2, choices=STAR_CHOICE,
+                                           null=True, blank=True)
+    overall_product_packaging = models.CharField(max_length=2,
+                                                 choices=STAR_CHOICE,
+                                                 null=True, blank=True)
+    comment = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     status = models.BooleanField(default=False)
+
+@task
+def assign_update_picker_to_shipment(shipment_id):
+   shipment = OrderedProduct.objects.get(pk=shipment_id)
+   if shipment.shipment_status == "SHIPMENT_CREATED":
+       # assign shipment to picklist
+       # tbd : if manual(by searching relevant picklist id) or automated
+       picker_lists = shipment.order.picker_order.filter(picking_status="picking_assigned").update(shipment=shipment)
+   elif shipment.shipment_status == OrderedProduct.READY_TO_SHIP:
+       shipment.picker_shipment.all().update(picking_status="picking_complete")
+
+
+@receiver(post_save, sender=OrderedProduct)
+def update_picking_status(sender, instance=None, created=False, **kwargs):
+    '''
+    Method to update picking status 
+    '''
+    assign_update_picker_to_shipment.delay(instance.id)
+    #assign shipment to picklist once SHIPMENT_CREATED
+    # if instance.shipment_status == "SHIPMENT_CREATED":
+    #     # assign shipment to picklist
+    #     # tbd : if manual(by searching relevant picklist id) or automated 
+    #     picker_lists = PickerDashboard.objects.filter(order=instance.order, picking_status="picking_assigned")
+    #     if picker_lists.exists():
+    #         picker_lists.update(shipment=instance)
+    # elif instance.shipment_status == OrderedProduct.READY_TO_SHIP:
+    #     PickerDashboard.objects.filter(shipment=instance).update(picking_status="picking_complete")
+
+
+@receiver(post_save, sender=Order)
+def assign_picklist(sender, instance=None, created=False, **kwargs):
+    '''
+    Method to update picking status 
+    '''
+    #assign shipment to picklist once SHIPMENT_CREATED
+    if created:
+        # assign piclist to order
+        try:
+            pincode = "00" #instance.shipping_address.pincode
+        except:
+            pincode = "00"
+        PickerDashboard.objects.create(
+            order=instance,
+            picking_status="picking_pending",
+            picklist_id= generate_picklist_id(pincode), #get_random_string(12).lower(), ##generate random string of 12 digits
+            )
