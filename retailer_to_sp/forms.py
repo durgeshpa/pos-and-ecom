@@ -311,17 +311,10 @@ class OrderedProductDispatchForm(forms.ModelForm):
 class EditAssignPickerForm(forms.ModelForm):
     # form to edit assgined picker
     picker_boy = forms.ModelChoiceField(
-<<<<<<< HEAD
         queryset=UserWithName.objects.all(),
         widget=RelatedFieldWidgetCanAddPicker(
             UserWithName,
             related_url="admin:accounts_user_add"))
-=======
-                        queryset=UserWithName.objects.all(),
-                        widget=RelatedFieldWidgetCanAddPicker(
-                                UserWithName,
-                                related_url="admin:accounts_user_add"))
->>>>>>> a2656d3402df4269dde0919d37c4ea51abdf204d
 
     class Meta:
         model = PickerDashboard
@@ -352,13 +345,8 @@ class EditAssignPickerForm(forms.ModelForm):
         super(EditAssignPickerForm, self).__init__(*args, **kwargs)
         # import pdb; pdb.set_trace()
         instance = getattr(self, 'instance', None)
-<<<<<<< HEAD
         shop = instance.order.seller_shop  # Shop.objects.get(related_users=user)
         # shop = Shop.objects.get(shop_name="TEST SP 1")
-=======
-        shop = instance.order.seller_shop#Shop.objects.get(related_users=user)
-        #shop = Shop.objects.get(shop_name="TEST SP 1")
->>>>>>> a2656d3402df4269dde0919d37c4ea51abdf204d
         # find all picker for the shop
         self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
         if instance.picking_status == "picking_pending":
@@ -648,13 +636,8 @@ class ShipmentForm(forms.ModelForm):
 
         if (data['close_order'] and
                 not data['shipment_status'] == OrderedProduct.READY_TO_SHIP):
-<<<<<<< HEAD
-            raise forms.ValidationError(
-                _('You can only close the order in QC Passed state'), )
-=======
                 raise forms.ValidationError(
                     _('You can only close the order in QC Passed state'),)
->>>>>>> a2656d3402df4269dde0919d37c4ea51abdf204d
 
         order_closed_status = ['denied_and_closed', 'partially_shipped_and_closed',
                                'DENIED', 'CANCELLED', 'CLOSED', 'deleted']
