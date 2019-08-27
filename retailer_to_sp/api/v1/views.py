@@ -1204,19 +1204,28 @@ class ShipmentDetail(APIView):
 
     def post(self, *args, **kwargs):
         shipment_id = kwargs.get('shipment')
-        shipment = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
+        msg = {'is_success': False, 'message': ['shipment id is invalid'], 'response_data': None}
+        try:
+            shipment = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
+        except ObjectDoesNotExist:
+            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+
         product = self.request.POST.get('product')
         returned_qty = self.request.POST.get('returned_qty')
         damaged_qty = self.request.POST.get('damaged_qty')
-        msg = {'is_success': False,'message': [''],'response_data': None}
 
-        datas = ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(returned_qty=returned_qty, damaged_qty=damaged_qty)
-        serializer = ShipmentDetailSerializer(shipment, many=True)
-        if serializer.data:
-            cash_to_be_collected = shipment.last().ordered_product.cash_to_be_collected()
-            msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': serializer.data, 'cash_to_be_collected': cash_to_be_collected}
-            return Response( msg, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        if int(ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product).shipped_qty) >= int(returned_qty) + int(damaged_qty):
+            ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(returned_qty=returned_qty, damaged_qty=damaged_qty)
+            serializer = ShipmentDetailSerializer(shipment, many=True)
+            if serializer.data:
+                cash_to_be_collected = shipment.last().ordered_product.cash_to_be_collected()
+                msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': serializer.data,
+                       'cash_to_be_collected': cash_to_be_collected}
+                return Response(msg, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            msg = {'is_success': False, 'message': ['Returned qty and damaged qty is greater than shipped qty'], 'response_data': None}
+            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
         # else:
         #     msg = {'is_success': False, 'message': ['Phone Number is not Valid'], 'response_data': None}
         #     return Response( msg, status=status.HTTP_400_BAD_REQUEST)
