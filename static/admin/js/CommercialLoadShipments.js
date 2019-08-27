@@ -157,15 +157,7 @@ function submit_update_data(shipment_payment_id)
             console.log("error===");
             console.log(xhr.responseText);
             alert(xhr.responseText);
-/*            var err = JSON.parse(xhr.responseText)['response_data'];
-            var err_message = "";
-            if ('non_field_errors' in err)
-              err_message += err['non_field_errors'];
-              alert(err_message);*/
 
-/*            if ('field_errors' in err)
-              err_message+= str(err['field_errors']);
-            alert(err_message);*/
             formData = {};
         }
     });
