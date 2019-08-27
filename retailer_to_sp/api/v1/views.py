@@ -1,7 +1,7 @@
 import logging
 import json
 from datetime import datetime, timedelta
-
+from barCodeGenerator import barcodeGen
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F,Sum, Q
 from wkhtmltopdf.views import PDFTemplateResponse
@@ -821,6 +821,7 @@ class DownloadInvoiceSP(APIView):
         pk=self.kwargs.get('pk')
         a = OrderedProduct.objects.get(pk=pk)
         shop=a
+        barcode = barcodeGen(a.invoice_no)
         payment_type=''
         products = a.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0)
         if a.order.rt_payment.filter(order_id=a.order).exists():

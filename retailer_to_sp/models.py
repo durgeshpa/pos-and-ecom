@@ -848,7 +848,8 @@ class OrderedProduct(models.Model): #Shipment
         super(OrderedProduct, self).clean()
 
     def save(self, *args, **kwargs):
-        if not self.invoice_no and self.shipment_status == self.READY_TO_SHIP:
+        super().save(*args, **kwargs)
+        if not self.invoice_no and self.shipment_status == OrderedProduct.READY_TO_SHIP:
             self.invoice_no = retailer_sp_invoice(
                                     self.__class__, 'invoice_no',
                                     self.pk, self.order.seller_shop.
@@ -1058,20 +1059,20 @@ class OrderedProductMapping(models.Model):
             self.set_product_tax_json()
         return self.product_tax_json.get('tax_sum')
 
-    def save(self, *args, **kwargs):
-        # super().save(*args, **kwargs)
-        if self.product_tax_json:
-            super().save(*args, **kwargs)
-        else:
-            try:
-                product_tax_query = self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',
-                                                                        'tax__tax_percentage')
-                product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
-                product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
-                shipment.product_tax_json = product_tax
-            except Exception as e:
-                logger.exception("Exception occurred while saving product {}".format(e))
-            super().save(*args, **kwargs)
+    # def save(self, *args, **kwargs):
+    #     # super().save(*args, **kwargs)
+    #     if self.product_tax_json:
+    #         super().save(*args, **kwargs)
+    #     else:
+    #         try:
+    #             product_tax_query = self.product.product_pro_tax.filter(status=True).values('product', 'tax', 'tax__tax_name',
+    #                                                                     'tax__tax_percentage')
+    #             product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
+    #             product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
+    #             self.product_tax_json = product_tax
+    #         except Exception as e:
+    #             logger.exception("Exception occurred while saving product {}".format(e))
+    #         super().save(*args, **kwargs)
 
 class Dispatch(OrderedProduct):
     class Meta:
