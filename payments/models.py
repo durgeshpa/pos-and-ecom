@@ -243,6 +243,11 @@ class ShipmentPaymentApproval(ShipmentPayment):
         proxy = True
 
 
+class OrderPaymentApproval(OrderPayment):
+    class Meta:
+        proxy = True        
+
+
 @receiver(post_save, sender=CashPayment)
 def change_trip_status_cash(sender, instance=None, created=False, **kwargs):
     '''

@@ -56,6 +56,11 @@ class ShipmentPaymentApprovalAdmin(admin.ModelAdmin):
         "amount_to_be_collected", "trip_id", "trip_created_date"
     )
     # raw_id_fields = ("shipment",)
+    def has_change_permission(self, request, obj=None):
+        if request.user.has_perm("payments.change_shipmentpayment"):
+            return True
+        else:
+            return False
 
     def cash_payment_amount(self, obj):
         return obj.cash_payment.paid_amount
@@ -92,6 +97,45 @@ class ShipmentPaymentApprovalAdmin(admin.ModelAdmin):
     def order(self, obj):
         return mark_safe("<a href='/admin/retailer_to_sp/order/%s/change/'>%s<a/>" % (obj.shipment.order.id,
                   obj.shipment.order.order_no)
+                         )
+
+class OrderPaymentApprovalAdmin(admin.ModelAdmin):
+    inlines = [OnlinePaymentAdmin]
+    model = OrderPaymentApproval
+    #form = ShipmentPaymentApprovalForm
+    list_display = (
+        "id", "order", "cash_payment_amount", "online_payment_amount", "online_payment_mode",
+        "reference_no"
+    )
+
+    fields = (
+        "order", "cash_payment_amount", 
+    )
+    
+    readonly_fields = (
+        "cash_payment_amount", "order", 
+    )
+    # raw_id_fields = ("shipment",)
+
+    def cash_payment_amount(self, obj):
+        return obj.cash_payment.paid_amount
+    cash_payment_amount.short_description = "Cash Payment Amount"
+
+    def online_payment_amount(self, obj):
+        return obj.online_payment.paid_amount
+    online_payment_amount.short_description = "Online Payment Amount"
+
+    def online_payment_mode(self, obj):
+        return obj.online_payment.online_payment_type
+    online_payment_mode.short_description = "Online Payment Mode"
+
+    def reference_no(self, obj):
+        return obj.online_payment.reference_no
+    reference_no.short_description = "Online Payment Reference No"
+
+    def order(self, obj):
+        return mark_safe("<a href='/admin/retailer_to_sp/order/%s/change/'>%s<a/>" % (obj.shipment.order.id,
+                  obj.order.order_no)
                          )
 
 

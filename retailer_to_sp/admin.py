@@ -1165,7 +1165,8 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
     list_select_related = ('delivery_boy', 'seller_shop')
     readonly_fields = ('dispatch_no', 'delivery_boy', 'seller_shop',
                        'vehicle_no', 'starts_at', 'trip_amount', 'received_cash_amount',
-                       'completed_at', 'e_way_bill_no', 'cash_to_be_collected')
+                       'received_online_amount', 'completed_at', 'e_way_bill_no', 
+                       'cash_to_be_collected')
     autocomplete_fields = ('seller_shop',)
     search_fields = [
         'delivery_boy__first_name', 'delivery_boy__last_name',
@@ -1173,8 +1174,9 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
         'seller_shop__shop_name'
     ]
     fields = ['trip_status', 'trip_amount', 'cash_to_be_collected',
-              'received_cash_amount', 'dispatch_no', 'delivery_boy', 'seller_shop',
-              'starts_at', 'completed_at', 'e_way_bill_no', 'vehicle_no']
+              'received_cash_amount', 'received_online_amount','dispatch_no', 
+              'delivery_boy', 'seller_shop', 'starts_at', 'completed_at', 
+              'e_way_bill_no', 'vehicle_no']
     list_filter = ['trip_status', ('created_at', DateTimeRangeFilter),
                    ('starts_at', DateTimeRangeFilter), DeliveryBoySearch,
                    ('completed_at', DateTimeRangeFilter), VehicleNoSearch,
@@ -1192,6 +1194,10 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
     def received_cash_amount(self, obj):
         return obj.received_cash_amount
     received_cash_amount.short_description = 'Received Cash Amount'
+
+    def received_online_amount(self, obj):
+        return obj.received_online_amount
+    received_online_amount.short_description = 'Received Online Amount'
 
     def has_add_permission(self, request, obj=None):
         return False

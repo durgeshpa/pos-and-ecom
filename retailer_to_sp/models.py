@@ -501,6 +501,7 @@ class Trip(models.Model):
         return round(sum(cash_collected), 2)
 
     def online_payments(self):
+        #import pdb; pdb.set_trace()
         online_collected = []
         approved_online = []
         trip_shipments = self.rt_invoice_trip.all()
@@ -509,9 +510,9 @@ class Trip(models.Model):
             online_pay = OnlinePayment.objects.filter(payment=shipment.shipment_payment)
             if online_pay.exists():
                 online_collected.append(
-                    online_pay.paid_amount)
+                    online_pay[0].paid_amount)
                 approved_online.append(
-                    online_pay.payment_received)
+                    online_pay[0].payment_received)
         return round(sum(online_collected), 2), round(sum(approved_online), 2)  
 
     @property    
