@@ -510,15 +510,17 @@ class Trip(models.Model):
                     shipment.shipment_payment.online_payment.paid_amount)
         return round(sum(online_collected), 2)  
 
-
     @property    
     def approved_online_amount(self):
         online_collected = []
         trip_shipments = self.rt_invoice_trip.all()
+        from payments.models import OnlinePayment
         for shipment in trip_shipments:
-            if shipment.shipment_payment.online_payment:
+            online_pay = OnlinePayment.objects.filter(payment=shipment.shipment_payment)
+            if online_pay.exists():
                 online_collected.append(
-                    shipment.shipment_payment.online_payment.payment_received)
+                    online_pay.payment_received)
+                    #shipment.shipment_payment.online_payment.payment_received)
         return round(sum(online_collected), 2)      
 
     @property    
