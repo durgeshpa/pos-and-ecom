@@ -272,7 +272,7 @@ function CreateResponseTable(data){
   displaySelectedCount();
   if (GetTripStatus() == 'COMPLETED'|| GetTripStatus() == 'STARTED'){
     $(".shipment_checkbox").prop("checked", true);
-    $(".shipment_checkbox").prop("readonly", true);
+    $(".shipment_checkbox").attr("disabled", true);
     $(".selected_invoice_count").hide();
   }
   initialload = false;
