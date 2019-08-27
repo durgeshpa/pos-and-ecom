@@ -11,6 +11,7 @@ from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
+from django.utils.html import format_html, format_html_join
 from django.utils.crypto import get_random_string
 
 from accounts.middlewares import get_current_user
@@ -1241,12 +1242,37 @@ class CustomerCare(models.Model):
                 username = User.objects.get(phone_number = self.phone_number).first_name
                 return username
 
+    @property
+    def comment_display(self):
+        return format_html_join(
+        "","{}<br><br>",
+                ((c.comment,
+                ) for c in self.customer_care_comments.all())
+        )
+    comment_display.fget.short_description = 'Comments'
+
+    @property
+    def comment_date_display(self):
+        return format_html_join(
+        "","{}<br><br>",
+                ((c.created_at,
+                ) for c in self.customer_care_comments.all())
+        )
+    comment_date_display.fget.short_description = 'Comment Date'
 
     def save(self, *args, **kwargs):
         super(CustomerCare, self).save()
         self.complaint_id = "CustomerCare/Message/%s" % self.pk
         super(CustomerCare, self).save()
 
+class ResponseComment(models.Model):
+    customer_care = models.ForeignKey(CustomerCare,related_name='customer_care_comments',null=True,blank=True,on_delete=models.CASCADE)
+    comment = models.CharField(max_length=255, null=True, blank=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True, verbose_name="Comment Date")
+
+    def __str__(self):
+        return ''
 
 class Payment(models.Model):
     PAYMENT_DONE_APPROVAL_PENDING = "payment_done_approval_pending"

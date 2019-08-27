@@ -25,7 +25,7 @@ from retailer_to_sp.models import (
     CustomerCare, ReturnProductMapping, OrderedProduct,
     OrderedProductMapping, Order, Dispatch, Trip, TRIP_STATUS,
     Shipment, ShipmentProductMapping, CartProductMapping, Cart,
-    ShipmentRescheduling, PickerDashboard, generate_picklist_id
+    ShipmentRescheduling, PickerDashboard, generate_picklist_id, ResponseComment
 )
 from products.models import Product
 from shops.models import Shop
@@ -100,6 +100,16 @@ class CustomerCareForm(forms.ModelForm):
         model = CustomerCare
         fields = '__all__'
 
+class ResponseCommentForm(forms.ModelForm):
+    comment = forms.CharField(
+        widget=forms.Textarea(attrs={
+            'placeholder': 'Enter your Message',
+            'cols': 50, 'rows': 8})
+    )
+
+    class Meta:
+        model = ResponseComment
+        fields = '__all__'
 
 class ReturnProductMappingForm(forms.ModelForm):
     returned_product = forms.ModelChoiceField(
@@ -158,7 +168,7 @@ class OrderedProductForm(forms.ModelForm):
     def clean(self):
         data = self.cleaned_data
         if not self.cleaned_data['order'].picker_order.all().exists():
-            raise forms.ValidationError(_("Please assign picklist to the order"),)            
+            raise forms.ValidationError(_("Please assign picklist to the order"),)
         if self.cleaned_data['shipment_status']=='SHIPMENT_CREATED' and \
             self.cleaned_data['order'].picker_order.last().picking_status != "picking_assigned":
             raise forms.ValidationError(_("Please set the picking status in picker dashboard"),)
@@ -295,13 +305,13 @@ class OrderedProductDispatchForm(forms.ModelForm):
 
 
 class EditAssignPickerForm(forms.ModelForm):
-    # form to edit assgined picker 
+    # form to edit assgined picker
     picker_boy = forms.ModelChoiceField(
                         queryset=UserWithName.objects.all(),
                         widget=RelatedFieldWidgetCanAddPicker(
                                 UserWithName,
                                 related_url="admin:accounts_user_add"))
-    
+
     class Meta:
         model = PickerDashboard
         fields = ['order', 'shipment', 'picking_status', 'picklist_id', 'picker_boy']
@@ -331,8 +341,8 @@ class EditAssignPickerForm(forms.ModelForm):
         super(EditAssignPickerForm, self).__init__(*args, **kwargs)
         #import pdb; pdb.set_trace()
         instance = getattr(self, 'instance', None)
-        shop = instance.order.seller_shop#Shop.objects.get(related_users=user)      
-        #shop = Shop.objects.get(shop_name="TEST SP 1") 
+        shop = instance.order.seller_shop#Shop.objects.get(related_users=user)
+        #shop = Shop.objects.get(shop_name="TEST SP 1")
         # find all picker for the shop
         self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
         if instance.picking_status == "picking_pending":
@@ -377,19 +387,19 @@ class AssignPickerForm(forms.ModelForm):
         instance = getattr(self, 'instance', None)
         #import pdb; pdb.set_trace()
         # assign shop name as readonly with value for shop name for user
-        self.fields['picker_boy'].queryset = User.objects.none()            
+        self.fields['picker_boy'].queryset = User.objects.none()
         if user.is_superuser:
             # load all parent shops
             self.fields['shop'].queryset = Shop.objects.filter(shop_type__shop_type__in=["sp"])
-        else:   
+        else:
             # set shop field as read only
             self.fields['shop'].queryset = Shop.objects.filter(related_users=user)
 
         if shop_id:
             shop = Shop.objects.get(id=shop_id)
             self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
-        
-        
+
+
 class TripForm(forms.ModelForm):
     delivery_boy = forms.ModelChoiceField(
                         queryset=UserWithName.objects.all(),
@@ -615,7 +625,7 @@ class ShipmentForm(forms.ModelForm):
                 not data['shipment_status'] == OrderedProduct.READY_TO_SHIP):
                 raise forms.ValidationError(
                     _('You can only close the order in QC Passed state'),)
-        
+
         order_closed_status = ['denied_and_closed', 'partially_shipped_and_closed',
             'DENIED', 'CANCELLED', 'CLOSED', 'deleted']
         return data
@@ -881,4 +891,3 @@ class OrderForm(forms.ModelForm):
             if instance.order_status == 'CANCELLED':
                 self.fields['order_status'].disabled = True
                 self.fields['cancellation_reason'].disabled = True
-
