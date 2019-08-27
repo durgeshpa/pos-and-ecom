@@ -166,17 +166,10 @@ class OrderedProductForm(forms.ModelForm):
     def clean(self):
         data = self.cleaned_data
         if not self.cleaned_data['order'].picker_order.all().exists():
-<<<<<<< HEAD
             raise forms.ValidationError(_("Please assign picklist to the order"), )
         if self.cleaned_data['shipment_status'] == 'SHIPMENT_CREATED' and \
                 self.cleaned_data['order'].picker_order.last().picking_status != "picking_assigned":
             raise forms.ValidationError(_("Please set the picking status in picker dashboard"), )
-=======
-            raise forms.ValidationError(_("Please assign picklist to the order"),)
-        if self.cleaned_data['shipment_status']=='SHIPMENT_CREATED' and \
-            self.cleaned_data['order'].picker_order.last().picking_status != "picking_assigned":
-            raise forms.ValidationError(_("Please set the picking status in picker dashboard"),)
->>>>>>> a2656d3402df4269dde0919d37c4ea51abdf204d
 
         return data
 
