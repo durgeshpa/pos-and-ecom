@@ -32,12 +32,12 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
         model = ShipmentPayment
         fields = ['cash_amount', 'payment_mode', 'reference_no', 'online_amount']  #"__all__"
 
-    # def validate(self, data):
-    #     initial_data = self.initial_data
-    #     reference_no = initial_data['reference_no']
-    #     if not re.match("^[a-zA-Z0-9_]*$", reference_no):
-    #         raise serializers.ValidationError('Referece number can not have special character!')
-    #     return initial_data     
+    def validate(self, data):
+        initial_data = self.initial_data
+        reference_no = initial_data['reference_no']
+        if not re.match("^[a-zA-Z0-9_]*$", reference_no):
+            raise serializers.ValidationError('Referece number can not have special character!')
+        return initial_data     
 
     def update(self, instance, validated_data):
         
@@ -45,15 +45,16 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
             with transaction.atomic():
                 #import pdb; pdb.set_trace()
                 cash_payment = validated_data.pop('cash_amount', None)
+
+                online_payment_mode = validated_data.pop('payment_mode', None)
+                reference_no = validated_data.pop('reference_no', None)
+                online_payment = validated_data.pop('online_amount', None)
                 if cash_payment:
                     _cash_payment = CashPayment.objects.get(payment=instance)
                     _cash_payment.paid_amount = float(cash_payment) #.paid_amount
-                    #_cash_payment.save()
+                    _cash_payment.save()
 
-                online_payment_mode = validated_data.pop('payment_mode')
                 if online_payment_mode:
-                    reference_no = validated_data.pop('reference_no')
-                    online_payment = validated_data.pop('online_amount')
                     _payment_mode, created = PaymentMode.objects.get_or_create(
                         payment=instance, payment_mode_name="online_payment")
 
