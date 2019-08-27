@@ -1288,53 +1288,7 @@ class RetailerShopsList(APIView):
     def get(self, request, *args, **kwargs):
         mobile_number = self.request.GET.get('mobile_number')
         msg = {'is_success': False, 'message': [''], 'response_data': None}
-        # User = get_user_model()
-        # try:
-        #     user = User.objects.get(phone_number=mobile_number)
-        # except ObjectDoesNotExist:
-        #     msg['message'] = ["No retailer exists with this number"]
-        #     return Response(msg, status=status.HTTP_200_OK)
-        # shop_owner = User.objects.get(phone_number = mobile_number)
-        # sales_person_sp = Shop.objects.filter(related_users = self.request.user)
-        # shops = Shop.objects.filter(shop_owner = shop_owner, shop_type = 1)
-        # shops_list =[]
-        # for shop in shops:
-        #     for parent in shop.retiler_mapping.all():
-        #         if (parent.parent in sales_person_sp):
-        #             shops_list.append(shop)
-        #         else:
-        #             return Response({"message":["The user is not mapped with the same service partner as the sales person"], "response_data": None ,"is_success": True, "is_user_mapped_with_same_sp": False})
-
-        # mobile_number = self.request.GET.get('mobile_number')
-        # msg = {'is_success': False, 'message': [''], 'response_data': None}
-        # User = get_user_model()
-        # try:
-        #     user = User.objects.get(phone_number=mobile_number)
-        # except ObjectDoesNotExist:
-        #     msg['message'] = ["No retailer exists with this number"]
-        #     return Response(msg, status=status.HTTP_200_OK)
-        # shop_owner = User.objects.get(phone_number=mobile_number)
-        # sales_person_sp = Shop.objects.filter(related_users=self.request.user)
-        # shops = Shop.objects.filter(shop_owner=shop_owner, shop_type=1)
-        # shops_list = []
-        # for shop in shops:
-        #     for parent in shop.retiler_mapping.all():
-        #         if (parent.parent in sales_person_sp):
-        #             shops_list.append(shop)
-        #         else:
-        #             return Response(
-        #                 {"message": ["The user is not mapped with the same service partner as the sales person"],
-        #                  "response_data": None, "is_success": True, "is_user_mapped_with_same_sp": False})
-        # shops_serializer = RetailerShopSerializer(shops_list, many=True)
-        # if shops_list:
-        #     return Response({"message": [""], "response_data": shops_serializer.data, "is_success": True,
-        #                      "is_user_mapped_with_same_sp": True})
-        # else:
-        #     return Response({"message": ["The User is registered but does not have any shop"], "response_data": None,
-        #                      "is_success": True, "is_user_mapped_with_same_sp": False})
-
-        #New code
-        if Shop.objects.filter(shop_owner__phone_number=mobile_number).exclude(~Q(shop_name_address_mapping__gt=1)).exists():
+        if Shop.objects.filter(Q(shop_owner__phone_number=mobile_number), Q(retiler_mapping__status=True)).exclude(~Q(shop_name_address_mapping__gt=1)).exists():
             shops_list = Shop.objects.filter(shop_owner__phone_number=mobile_number, shop_type=1).exclude(~Q(shop_name_address_mapping__gt=1))
             shops_serializer = RetailerShopSerializer(shops_list, many=True)
             return Response({"message":[""], "response_data": shops_serializer.data, "is_success": True, "is_user_mapped_with_same_sp": True})
@@ -1349,22 +1303,36 @@ class SellerOrderList(generics.ListAPIView):
     permission_classes = (permissions.IsAuthenticated,)
     pagination_class = SmallOffsetPagination
 
+    def get_manager(self):
+        return ShopUserMapping.objects.filter(employee=self.request.user, status=True)
+
+    def get_child_employee(self):
+        return ShopUserMapping.objects.filter(manager__in=self.get_manager(), shop__shop_type__shop_type='sp', status=True)
+
+    def get_shops(self):
+        return ShopUserMapping.objects.filter(employee__in=self.get_child_employee().values('employee'), shop__shop_type__shop_type='r', status=True)
+
+    def get_employee(self):
+        return ShopUserMapping.objects.filter(employee=self.request.user,
+                                                       employee_group__permissions__codename='can_sales_person_add_shop',
+                                                       shop__shop_type__shop_type='r', status=True)
+
     def get_queryset(self):
-        shop_emp = ShopUserMapping.objects.filter(employee=self.request.user, status=True)
-        shop_mangr = ShopUserMapping.objects.filter(manager=self.request.user, status=True)
-        if shop_emp.exists() and shop_emp.last().employee_group.permissions.filter(
-                codename='can_sales_person_add_shop').exists():
-            return shop_emp.values('shop')
-        elif shop_mangr.exists():
-            return shop_mangr.values('shop')
+        shop_emp = self.get_employee()
+        if not shop_emp.exists():
+            shop_emp = self.get_shops()
+        return shop_emp.values('shop')
 
     def list(self, request, *args, **kwargs):
         msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
         current_url = request.get_host()
         queryset = Order.objects.filter(buyer_shop__in=self.get_queryset()).order_by('-created_at')
-        objects = self.pagination_class().paginate_queryset(queryset, request)
-        users_list = [v['employee_id'] for v in self.get_queryset().values('employee_id')]
-        serializer = self.serializer_class(objects, many=True, context={'current_url':current_url, 'sales_person_list':users_list})
-        if serializer.data:
-            msg = {'is_success': True,'message': None,'response_data': serializer.data}
+        if not queryset.exists():
+            msg = {'is_success': False, 'message': ['Order not found'], 'response_data': None}
+        else:
+            objects = self.pagination_class().paginate_queryset(queryset, request)
+            users_list = [v['employee_id'] for v in self.get_queryset().values('employee_id')]
+            serializer = self.serializer_class(objects, many=True, context={'current_url':current_url, 'sales_person_list':users_list})
+            if serializer.data:
+                msg = {'is_success': True,'message': None,'response_data': serializer.data}
         return Response(msg,status=status.HTTP_200_OK)
