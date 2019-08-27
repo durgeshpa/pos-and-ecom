@@ -181,7 +181,7 @@ class OrderNumberSearch(InputFilter):
     def queryset(self, request, queryset):
         if self.value() is not None:
             order_no = self.value()
-            order_nos = order_no.replace(" ", "").replace("\t","").split(',')    
+            order_nos = order_no.replace(" ", "").replace("\t","").split(',')
             return queryset.filter(
                 Q(order__order_no__in=order_nos)
             )
@@ -443,7 +443,7 @@ class BuyerShopFilter(AutocompleteFilter):
 # class PickerBoyFilter(AutocompleteFilter):
 #     title = 'Picker Boy'
 #     field_name = 'picker_boy'
-#     autocomplete_url = 'picker-name-autocomplete'    
+#     autocomplete_url = 'picker-name-autocomplete'
 
 class PickerBoyFilter(InputFilter):
     title = 'Picker Boy'
@@ -470,7 +470,7 @@ class OrderDateFilter(InputFilter):
                 Q(picker_boy__first_name__icontains=value) |
                   Q(picker_boy__phone_number=value)
                 )
-        return queryset        
+        return queryset
 
 
 class PicklistIdFilter(InputFilter):
@@ -548,7 +548,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     #     'id', 'picklist_id', 'picker_boy', 'order_date', 'download_pick_list'
     #     )
     list_display = (
-        'picklist', 'picking_status', 'picker_boy', 
+        'picklist', 'picking_status', 'picker_boy',
         'created_at', 'download_pick_list', 'order_number', 'order_date'
         )
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
@@ -562,7 +562,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         if obj: # editing an existing object
             return self.readonly_fields + ('order', 'shipment', 'picklist_id')
-        return self.readonly_fields    
+        return self.readonly_fields
 
     def get_urls(self):
         from django.conf.urls import url
@@ -586,7 +586,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
 
         ] + urls
         return urls
-    
+
     def has_change_permission(self, request, obj=None):
         if request.user.has_perm("retailer_to_sp.change_pickerdashboard"):
             return True
@@ -635,7 +635,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
                                                                                                    obj.picklist_id)
                          )
         # if user.has_perm("can_change_picker_dashboard"):
-            
+
         # else:
         #     return self.picklist_id
     picklist.short_description = 'Picklist'
@@ -772,12 +772,12 @@ class OrderedProductAdmin(admin.ModelAdmin):
     exclude = ('received_by', 'last_modified_by')
     fields = (
         'order', 'invoice_no', 'shipment_status', 'trip',
-        'return_reason',
+        'return_reason', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check'
     )
     autocomplete_fields = ('order',)
     search_fields = ('invoice_no', 'order__order_no')
     readonly_fields = (
-        'order', 'invoice_no', 'trip', 'shipment_status',
+        'order', 'invoice_no', 'trip', 'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks'
     )
     form = OrderedProductReschedule
 
@@ -934,12 +934,12 @@ class ShipmentAdmin(admin.ModelAdmin):
 
     ]
     fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
-        'shipment_status', 'close_order']
+        'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'close_order']
     search_fields = [
         'order__order_no', 'invoice_no', 'order__seller_shop__shop_name',
         'order__buyer_shop__shop_name', 'trip__dispatch_no',
         'trip__vehicle_no', 'trip__delivery_boy__phone_number']
-    readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city']
+    readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
     list_per_page = 50
 
 
@@ -984,7 +984,7 @@ class ShipmentAdmin(admin.ModelAdmin):
         update_order_status(
             close_order_checked=form.cleaned_data.get('close_order'),
             shipment_id=form.instance.id
-        )        
+        )
 
         no_of_pieces = form.instance.order.ordered_cart.rt_cart_list.all().values('no_of_pieces')
         # no_of_pieces = no_of_pieces.first().get('no_of_pieces')
@@ -997,7 +997,7 @@ class ShipmentAdmin(admin.ModelAdmin):
             )
         shipped_qty = qty.aggregate(
             Sum('shipped_qty')).get('shipped_qty__sum', 0)
-        
+
         shipped_qty = shipped_qty if shipped_qty else 0
         #when more shipments needed and status == qc_pass
         close_order = form.cleaned_data.get('close_order')

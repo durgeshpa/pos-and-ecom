@@ -91,7 +91,7 @@ def generate_picklist_id(pincode):
         new_picklist_id = "PIK/" + str(pincode)[-2:] +"/" +str(int(picklist_id.split('/')[2])+1)
 
     else:
-        new_picklist_id = "PIK/" + str(pincode)[-2:] +"/" +str(1)        
+        new_picklist_id = "PIK/" + str(pincode)[-2:] +"/" +str(1)
 
     return new_picklist_id
 
@@ -416,7 +416,7 @@ class Order(models.Model):
         if hasattr(self, 'picker_dashboard_objects'):
             return self.picker_dashboard_objects
         self.picker_dashboard_objects = self.picker_order.all()
-        return self.picker_dashboard_objects    
+        return self.picker_dashboard_objects
 
     @property
     def picking_status(self):
@@ -424,11 +424,11 @@ class Order(models.Model):
 
     @property
     def picker_boy(self):
-        return picker_boys(self.picker_dashboards())    
+        return picker_boys(self.picker_dashboards())
 
     @property
     def picklist_id(self):
-        return picklist_ids(self.picker_dashboards())    
+        return picklist_ids(self.picker_dashboards())
 
     @property
     def invoice_no(self):
@@ -529,6 +529,48 @@ class Trip(models.Model):
             self.delivery_boy.first_name if self.delivery_boy.first_name else self.delivery_boy.phone_number
         )
 
+    @property
+    def total_crates_shipped(self):
+        sum_crates_shipped = 0
+        for m in self.rt_invoice_trip.all():
+            sum_crates_shipped+=m.no_of_crates
+        return sum_crates_shipped
+
+    @property
+    def total_packets_shipped(self):
+        sum_packets_shipped = 0
+        for m in self.rt_invoice_trip.all():
+            sum_packets_shipped+=m.no_of_packets
+        return sum_packets_shipped
+
+    @property
+    def total_sacks_shipped(self):
+        sum_sacks_shipped = 0
+        for m in self.rt_invoice_trip.all():
+            sum_sacks_shipped+=m.no_of_sacks
+        return sum_sacks_shipped
+
+    @property
+    def total_crates_collected(self):
+        sum_crates_collected = 0
+        for m in self.rt_invoice_trip.all():
+            sum_crates_collected+=m.no_of_crates_check
+        return sum_crates_collected
+
+    @property
+    def total_packets_collected(self):
+        sum_packets_collected = 0
+        for m in self.rt_invoice_trip.all():
+            sum_packets_collected+=m.no_of_packets_check
+        return sum_packets_collected
+
+    @property
+    def total_sacks_collected(self):
+        sum_sacks_collected = 0
+        for m in self.rt_invoice_trip.all():
+            sum_sacks_collected+=m.no_of_sacks_check
+        return sum_sacks_collected
+
     def create_dispatch_no(self):
         date = datetime.date.today().strftime('%d%m%y')
         shop = self.seller_shop_id
@@ -575,7 +617,7 @@ class Trip(models.Model):
     @property
     def total_trip_amount_value(self):
         return self.total_trip_amount()
-        
+
     __trip_status = None
 
     def __init__(self, *args, **kwargs):
@@ -703,6 +745,12 @@ class OrderedProduct(models.Model): #Shipment
         get_user_model(), related_name='rt_last_modified_user_order',
         null=True, blank=True, on_delete=models.CASCADE
     )
+    no_of_crates = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Crates Shipped")
+    no_of_packets = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Packets Shipped")
+    no_of_sacks = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Sacks Shipped")
+    no_of_crates_check = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Crates Collected")
+    no_of_packets_check = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Packets Collected")
+    no_of_sacks_check = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Sacks Collected")
     created_at = models.DateTimeField(
         auto_now_add=True, verbose_name="Invoice Date")
     modified_at = models.DateTimeField(auto_now=True)
@@ -734,6 +782,12 @@ class OrderedProduct(models.Model): #Shipment
 
     def __str__(self):
         return self.invoice_no or str(self.id)
+
+    def clean(self):
+        super(OrderedProduct, self).clean()
+        if self.no_of_crates_check:
+            if self.no_of_crates_check != self.no_of_crates:
+                raise ValidationError(_("The number of crates must be equal to the number of crates shipped during shipment"))
 
     @property
     def shipment_address(self):
@@ -812,9 +866,9 @@ class PickerDashboard(models.Model):
         ('picking_complete', 'Picking Complete'),
     )
 
-    order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE)    
+    order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE)
     shipment = models.ForeignKey(
-        OrderedProduct, related_name="picker_shipment", 
+        OrderedProduct, related_name="picker_shipment",
         on_delete=models.CASCADE, null=True, blank=True)
     picking_status = models.CharField(max_length=50,choices=PICKING_STATUS, default='picking_pending')
     #make unique to picklist id
@@ -897,7 +951,7 @@ class OrderedProductMapping(models.Model):
             product=self.product)
         shipped_qty = qty.aggregate(
             Sum('shipped_qty')).get('shipped_qty__sum', 0)
-        
+
         shipped_qty = shipped_qty if shipped_qty else 0
         return shipped_qty
 
@@ -1237,7 +1291,7 @@ def order_notification(sender, instance=None, created=False, **kwargs):
         # user_id = instance.order_id.ordered_by.id
         # activity_type = "ORDER_RECEIVED"
         # from notification_center.utils import SendNotification
-        # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
+        # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()
 
 
         if instance.order_id.buyer_shop.shop_owner.first_name:
@@ -1258,13 +1312,13 @@ def order_notification(sender, instance=None, created=False, **kwargs):
 
         user_id = instance.order_id.ordered_by.id
         activity_type = "ORDER_RECEIVED"
-        
+
         from notification_center.tasks import send_notification
         send_notification(user_id=user_id, activity_type=activity_type, data=data)
         # send_notification.delay(json.dumps({'user_id':user_id, 'activity_type':activity_type, 'data':data}))
 
         # from notification_center.utils import SendNotification
-        # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
+        # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()
 
         message = SendSms(phone=instance.order_id.buyer_shop.shop_owner,
                           body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
@@ -1426,13 +1480,13 @@ def assign_update_picker_to_shipment(shipment_id):
 @receiver(post_save, sender=OrderedProduct)
 def update_picking_status(sender, instance=None, created=False, **kwargs):
     '''
-    Method to update picking status 
+    Method to update picking status
     '''
     assign_update_picker_to_shipment.delay(instance.id)
     #assign shipment to picklist once SHIPMENT_CREATED
     # if instance.shipment_status == "SHIPMENT_CREATED":
     #     # assign shipment to picklist
-    #     # tbd : if manual(by searching relevant picklist id) or automated 
+    #     # tbd : if manual(by searching relevant picklist id) or automated
     #     picker_lists = PickerDashboard.objects.filter(order=instance.order, picking_status="picking_assigned")
     #     if picker_lists.exists():
     #         picker_lists.update(shipment=instance)
@@ -1443,7 +1497,7 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
 @receiver(post_save, sender=Order)
 def assign_picklist(sender, instance=None, created=False, **kwargs):
     '''
-    Method to update picking status 
+    Method to update picking status
     '''
     #assign shipment to picklist once SHIPMENT_CREATED
     if created:
