@@ -24,7 +24,7 @@ from retailer_to_sp.models import (
     CustomerCare, ReturnProductMapping, OrderedProduct,
     OrderedProductMapping, Order, Dispatch, Trip, TRIP_STATUS,
     Shipment, ShipmentProductMapping, CartProductMapping, Cart,
-    ShipmentRescheduling, PickerDashboard, generate_picklist_id
+    ShipmentRescheduling, PickerDashboard, generate_picklist_id, ResponseComment
 )
 from products.models import Product
 from shops.models import Shop
@@ -97,6 +97,16 @@ class CustomerCareForm(forms.ModelForm):
         model = CustomerCare
         fields = '__all__'
 
+class ResponseCommentForm(forms.ModelForm):
+    comment = forms.CharField(
+        widget=forms.Textarea(attrs={
+            'placeholder': 'Enter your Message',
+            'cols': 50, 'rows': 8})
+    )
+
+    class Meta:
+        model = ResponseComment
+        fields = '__all__'
 
 class ReturnProductMappingForm(forms.ModelForm):
     returned_product = forms.ModelChoiceField(
@@ -128,7 +138,7 @@ class OrderedProductForm(forms.ModelForm):
 
     class Meta:
         model = OrderedProduct
-        fields = ['order', 'shipment_status']
+        fields = ['order', 'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
 
     class Media:
         js = (
@@ -156,10 +166,17 @@ class OrderedProductForm(forms.ModelForm):
     def clean(self):
         data = self.cleaned_data
         if not self.cleaned_data['order'].picker_order.all().exists():
+<<<<<<< HEAD
             raise forms.ValidationError(_("Please assign picklist to the order"), )
         if self.cleaned_data['shipment_status'] == 'SHIPMENT_CREATED' and \
                 self.cleaned_data['order'].picker_order.last().picking_status != "picking_assigned":
             raise forms.ValidationError(_("Please set the picking status in picker dashboard"), )
+=======
+            raise forms.ValidationError(_("Please assign picklist to the order"),)
+        if self.cleaned_data['shipment_status']=='SHIPMENT_CREATED' and \
+            self.cleaned_data['order'].picker_order.last().picking_status != "picking_assigned":
+            raise forms.ValidationError(_("Please set the picking status in picker dashboard"),)
+>>>>>>> a2656d3402df4269dde0919d37c4ea51abdf204d
 
         return data
 
@@ -292,12 +309,19 @@ class OrderedProductDispatchForm(forms.ModelForm):
 
 
 class EditAssignPickerForm(forms.ModelForm):
-    # form to edit assgined picker 
+    # form to edit assgined picker
     picker_boy = forms.ModelChoiceField(
+<<<<<<< HEAD
         queryset=UserWithName.objects.all(),
         widget=RelatedFieldWidgetCanAddPicker(
             UserWithName,
             related_url="admin:accounts_user_add"))
+=======
+                        queryset=UserWithName.objects.all(),
+                        widget=RelatedFieldWidgetCanAddPicker(
+                                UserWithName,
+                                related_url="admin:accounts_user_add"))
+>>>>>>> a2656d3402df4269dde0919d37c4ea51abdf204d
 
     class Meta:
         model = PickerDashboard
@@ -328,8 +352,13 @@ class EditAssignPickerForm(forms.ModelForm):
         super(EditAssignPickerForm, self).__init__(*args, **kwargs)
         # import pdb; pdb.set_trace()
         instance = getattr(self, 'instance', None)
+<<<<<<< HEAD
         shop = instance.order.seller_shop  # Shop.objects.get(related_users=user)
         # shop = Shop.objects.get(shop_name="TEST SP 1")
+=======
+        shop = instance.order.seller_shop#Shop.objects.get(related_users=user)
+        #shop = Shop.objects.get(shop_name="TEST SP 1")
+>>>>>>> a2656d3402df4269dde0919d37c4ea51abdf204d
         # find all picker for the shop
         self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
         if instance.picking_status == "picking_pending":
@@ -398,6 +427,12 @@ class TripForm(forms.ModelForm):
     search_by_pincode = forms.CharField(required=False)
     Invoice_No = forms.CharField(required=False)
     trip_id = forms.CharField(required=False)
+    total_crates_shipped = forms.IntegerField(required=False)
+    total_packets_shipped = forms.IntegerField(required=False)
+    total_sacks_shipped = forms.IntegerField(required=False)
+    total_crates_collected = forms.IntegerField(required=False)
+    total_packets_collected = forms.IntegerField(required=False)
+    total_sacks_collected = forms.IntegerField(required=False)
     selected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
     unselected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
 
@@ -424,6 +459,10 @@ class TripForm(forms.ModelForm):
             self.fields['seller_shop'].queryset = Shop.objects.filter(shop_type__shop_type__in=['sp', 'gf'])
         else:
             self.fields['seller_shop'].queryset = Shop.objects.filter(related_users=user)
+        self.fields['total_crates_shipped'].initial = instance.total_crates_shipped
+        self.fields['total_packets_shipped'].initial = instance.total_packets_shipped
+        self.fields['total_sacks_shipped'].initial = instance.total_sacks_shipped
+
 
         trip = instance.pk
         if trip:
@@ -432,20 +471,43 @@ class TripForm(forms.ModelForm):
             if trip_status == 'READY':
                 self.fields['seller_shop'].disabled = True
                 self.fields['trip_status'].choices = TRIP_STATUS[0], TRIP_STATUS[2], TRIP_STATUS[1]
+                self.fields['total_crates_shipped'].disabled = True
+                self.fields['total_packets_shipped'].disabled = True
+                self.fields['total_sacks_shipped'].disabled = True
+                self.fields['total_crates_collected'].disabled = True
+                self.fields['total_packets_collected'].disabled = True
+                self.fields['total_sacks_collected'].disabled = True
 
             elif trip_status == 'STARTED':
                 self.fields['delivery_boy'].disabled = True
                 self.fields['seller_shop'].disabled = True
                 self.fields['vehicle_no'].disabled = True
                 self.fields['trip_status'].choices = TRIP_STATUS[2:4]
+                self.fields['total_crates_shipped'].disabled = True
+                self.fields['total_packets_shipped'].disabled = True
+                self.fields['total_sacks_shipped'].disabled = True
+                self.fields['total_crates_collected'].disabled = True
+                self.fields['total_packets_collected'].disabled = True
+                self.fields['total_sacks_collected'].disabled = True
                 self.fields['search_by_area'].widget = forms.HiddenInput()
                 self.fields['search_by_pincode'].widget = forms.HiddenInput()
                 self.fields['Invoice_No'].widget = forms.HiddenInput()
 
 
             elif trip_status == 'COMPLETED':
-                for field_name in self.fields:
-                    self.fields[field_name].disabled = True
+                self.fields['delivery_boy'].disabled = True
+                self.fields['seller_shop'].disabled = True
+                self.fields['vehicle_no'].disabled = True
+                self.fields['trip_status'].disabled = True
+                self.fields['total_crates_shipped'].disabled = True
+                self.fields['total_packets_shipped'].disabled = True
+                self.fields['total_sacks_shipped'].disabled = True
+                self.fields['total_crates_collected'].initial = instance.total_crates_collected
+                self.fields['total_crates_collected'].disabled = True
+                self.fields['total_packets_collected'].initial = instance.total_packets_collected
+                self.fields['total_packets_collected'].disabled = True
+                self.fields['total_sacks_collected'].initial = instance.total_sacks_collected
+                self.fields['total_sacks_collected'].disabled = True
                 self.fields['search_by_area'].widget = forms.HiddenInput()
                 self.fields['search_by_pincode'].widget = forms.HiddenInput()
                 self.fields['Invoice_No'].widget = forms.HiddenInput()
@@ -481,6 +543,7 @@ class TripForm(forms.ModelForm):
                       for i in cancelled_shipments]])
 
         return data
+
 
 
 class DispatchForm(forms.ModelForm):
@@ -538,7 +601,7 @@ class ShipmentForm(forms.ModelForm):
 
     class Meta:
         model = Shipment
-        fields = ['order', 'shipment_status']
+        fields = ['order', 'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
 
     class Media:
         js = (
@@ -585,8 +648,13 @@ class ShipmentForm(forms.ModelForm):
 
         if (data['close_order'] and
                 not data['shipment_status'] == OrderedProduct.READY_TO_SHIP):
+<<<<<<< HEAD
             raise forms.ValidationError(
                 _('You can only close the order in QC Passed state'), )
+=======
+                raise forms.ValidationError(
+                    _('You can only close the order in QC Passed state'),)
+>>>>>>> a2656d3402df4269dde0919d37c4ea51abdf204d
 
         order_closed_status = ['denied_and_closed', 'partially_shipped_and_closed',
                                'DENIED', 'CANCELLED', 'CLOSED', 'deleted']
@@ -851,4 +919,3 @@ class OrderForm(forms.ModelForm):
             if instance.order_status == 'CANCELLED':
                 self.fields['order_status'].disabled = True
                 self.fields['cancellation_reason'].disabled = True
-
