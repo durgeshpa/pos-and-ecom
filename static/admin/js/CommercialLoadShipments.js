@@ -129,11 +129,11 @@ function CreateResponseTable(data){
 
       });
 
-      if (trip_status=="CLOSED" || trip_status=="TRANSFERRED"){
+/*      if (trip_status=="CLOSED" || trip_status=="TRANSFERRED"){
         $("input").prop('disabled', true);
         $("button.shipment-payments-submit").prop('disabled', true);
         $("select").prop('disabled', true);
-      }
+      }*/
 }
 
 function submit_update_data(shipment_payment_id)
@@ -157,6 +157,15 @@ function submit_update_data(shipment_payment_id)
             console.log("error===");
             console.log(xhr.responseText);
             alert(xhr.responseText);
+/*            var err = JSON.parse(xhr.responseText)['response_data'];
+            var err_message = "";
+            if ('non_field_errors' in err)
+              err_message += err['non_field_errors'];
+              alert(err_message);*/
+
+/*            if ('field_errors' in err)
+              err_message+= str(err['field_errors']);
+            alert(err_message);*/
             formData = {};
         }
     });
@@ -225,10 +234,10 @@ function update_shipment_payment_information(shipment_payment_id, total)
      }
     }
 
-    if (parseFloat(formData["cash_amount"]) + parseFloat(formData["online_amount"])< parseFloat(total)){
+/*    if (parseFloat(formData["cash_amount"]) + parseFloat(formData["online_amount"])< parseFloat(total)){
       alert("Sum of cash amount, online amount should not be less than amount to be collected!");
       return false;
-    }
+    }*/
       
     if (formData["payment_mode"]==""){
       //formData["payment_mode"]="none";

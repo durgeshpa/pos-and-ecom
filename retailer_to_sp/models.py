@@ -501,6 +501,17 @@ class Trip(models.Model):
         return round(sum(cash_collected), 2)
 
     @property    
+    def received_online_amount(self):
+        online_collected = []
+        trip_shipments = self.rt_invoice_trip.all()
+        for shipment in trip_shipments:
+            if shipment.shipment_payment.online_payment:
+                online_collected.append(
+                    shipment.shipment_payment.online_payment.paid_amount)
+        return round(sum(online_collected), 2)  
+
+
+    @property    
     def approved_online_amount(self):
         online_collected = []
         trip_shipments = self.rt_invoice_trip.all()
@@ -558,6 +569,7 @@ class Trip(models.Model):
             self.starts_at = datetime.datetime.now()
         elif self.trip_status == 'COMPLETED':
             self.completed_at = datetime.datetime.now()
+
         super().save(*args, **kwargs)
 
     def dispathces(self):
