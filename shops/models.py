@@ -13,6 +13,7 @@ from django.utils.translation import gettext_lazy as _
 from retailer_backend.validators import *
 import datetime
 from django.core.validators import MinLengthValidator
+from django.contrib.auth.models import Group
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,7 @@ class Shop(models.Model):
     shop_owner = models.ForeignKey(get_user_model(), related_name='shop_owner_shop',on_delete=models.CASCADE)
     shop_type = models.ForeignKey(ShopType,related_name='shop_type_shop',on_delete=models.CASCADE)
     related_users = models.ManyToManyField(get_user_model(),blank=True, related_name='related_shop_user')
+    created_by = models.ForeignKey(get_user_model(), related_name='shop_created_by',null=True,blank=True, on_delete=models.SET_NULL)
     shop_code = models.CharField(max_length=1, blank=True, null=True)
     warehouse_code = models.CharField(max_length=2, blank=True, null=True)
     imei_no = models.CharField(max_length=20, null=True, blank=True)
@@ -107,6 +109,13 @@ class Shop(models.Model):
     get_shop_parent.fget.short_description = 'Parent Shop'
 
     @property
+    def shop_approved(self):
+        return True if self.status==True and self.retiler_mapping.exists() else False
+
+    @property
+    def shipping_address(self):
+       return self.shop_name_address_mapping.filter(address_type='shipping').last()
+    @property
     def get_shop_parent_name(self):
         if self.retiler_mapping.exists():
             return self.retiler_mapping.last().parent.shop_name
@@ -124,10 +133,9 @@ class Shop(models.Model):
             data['username'] = username
             data['phone_number'] = self.shop_owner.phone_number
             data['shop_title'] = shop_title
-    
-            # from notification_center.utils import SendNotification
-            # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
 
+            # from notification_center.utils import SendNotification
+            # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()
 
             message = SendSms(phone=self.shop_owner,
                               body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App." \
@@ -148,6 +156,8 @@ class Shop(models.Model):
         permissions = (
             ("can_see_all_shops", "Can See All Shops"),
             ("can_do_reconciliation", "Can Do Reconciliation"),
+            ("can_sales_person_add_shop", "Can Sales Person Add Shop"),
+            ("can_sales_manager_add_shop", "Can Sales Manager Add Shop"),
         )
 
 class ShopNameDisplay(Shop):
@@ -260,7 +270,7 @@ def shop_verification_notification1(sender, instance=None, created=False, **kwar
                 activity_type = "SHOP_VERIFIED"
 
                 from notification_center.utils import SendNotification
-                SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()    
+                SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()
 
                 # message = SendSms(phone=shop.shop_owner,
                 #                   body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App."\
@@ -278,7 +288,7 @@ def shop_verification_notification1(sender, instance=None, created=False, **kwar
             # SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()
     except Exception as e:
         logging.error("error in post_save: shop verification")
-        logging.error(str(e))            
+        logging.error(str(e))
 
 
 class ShopAdjustmentFile(models.Model):
@@ -287,3 +297,37 @@ class ShopAdjustmentFile(models.Model):
     created_by = models.ForeignKey(get_user_model(),null=True,blank=True, related_name='stock_adjust_by',on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+class ShopUserMapping(models.Model):
+    shop = models.ForeignKey(Shop, related_name='shop_user', on_delete=models.CASCADE)
+    manager = models.ForeignKey('self', null=True, blank=True, related_name='employee_list', on_delete=models.SET_NULL,
+                                limit_choices_to={'manager': None},)
+    employee = models.ForeignKey(get_user_model(), related_name='shop_employee', on_delete=models.CASCADE)
+    employee_group = models.ForeignKey(Group, related_name='shop_user_group',default='1', on_delete=models.SET_DEFAULT)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ('shop', 'employee', 'status')
+
+    def save(self, *args, **kwargs):
+        if self.manager == self:
+            raise ValidationError(_('Manager and Employee cannot be same'))
+        else:
+            ShopUserMapping.objects.filter(shop=self.shop, shop__shop_type__shop_type='r', employee_group=self.employee_group, status=True).update(status=False)
+            self.status = True
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return "%s"%(self.employee)
+
+class SalesAppVersion(models.Model):
+    app_version = models.CharField(max_length=200)
+    update_recommended = models.BooleanField(default=False)
+    force_update_required = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.app_version
