@@ -21,58 +21,40 @@ table tr td,th,h4,span,address{
 		}
 	</style>
 </head>
+
+
+
 <body>
     <div style="display:none" class="container-fluid">
-		<div class="row">
+			<div class="row">
 			<div class="col-sm-6">
-				<img src="{{scheme}}://{{url}}/static/admin/img/logo.png" style="width: 150px; padding: 10px 0px 10px">
+			<img src="{{scheme}}://{{url}}/static/admin/img/logo.png" style="width: 150px; padding: 10px 0px 10px">
 			</div>
-		</div>
-	</div>
 
-	<div class="row">
-		<div class="col-xs-12" style="width:33.3%; float:left;">
-			<div class="row">
-				<div class="col-xs-12">
-					<strong>TAX INVOICE</strong>
-				</div>
-			</div>
-			<div class="row">
-				<div class="col-xs-12">
-					{% if payment_type == 'neft' %}
-	                <h5 style="font-size:20px;">Prepaid Order</h5>
-	            	{% elif payment_type == 'cash_on_delivery' %}
-	                <h5 style="font-size:20px;">Cash On Delivery</h5>
-	            	{% endif %}
-				</div>
-	        </div>
 		</div>
-		<div class="col-xs-12" style="width:33.3%; float:left;">
-			
-		</div>
-		<div class="col-xs-12" style="width:33.3%; float:left;">
-			<div class="row">
-				<div class="col-xs-12">
-					<span class="text-left">
-						<strong>Invoice No:</strong>
-					</span>
-				</div>
-			</div>
-			<div class="row">
-				<img src="data:image/png;base64,{{barcode}}" height="140px" style="margin-top:100">
-			</div>
-			<div class="row">
-				<div class="col-xs-12">
-					<h4>Order Id: <span style="font-size:15px"class=" order_id_no "><strong>{{ order_id }}</strong></span></h4>
-				</div>
-			</div>
-		</div>
-		<div style="clear:both"></div>
-	</div>
 
-
+		</div>
     <div class="row">
-    	<div class="col-md-12">
+        <div class="col-lg-12">
+          <div class="invoice-title col-md-12">
+<!--						<div class="invoice col-sm-4 "><h4> Shop ID <span style="font-size:15px"class="invoice_no"><strong>{{shop_id}}</strong></span></h4></div>-->
+			  <div class="col-sm-4 "><h4 class="text-right"><span style="font-size:15px"class="invoice_no"><img src="data:image/png;base64,{{barcode}}" height="140px" style="margin-top:100"></span></h4></div>
+<!--			  <div class="col-sm-4 "><h4 class="text-right"><span style="font-size:15px"class="invoice_no"><img src="data:image/png;base64,{{barcode}}" height="80px" style="margin-top:100"></span></h4></div>-->
+
+			  			  <div style="position:absolute; top:220px;width:400px;right:50px"><h4 class="text-center">Invoice No:</h4></div>
+  				<div class="col-sm-4 order_id "><br><br>
+					<div class="pull-right col-sm-4 "><h4>Order Id: <span style="font-size:15px"class=" order_id_no "><strong>{{ order_id }}</strong></span></h4></div>
+		  </div>
+					<h4 style="font-size:30px;position:absolute;top:120px"><strong>TAX INVOICE</strong></h4><br><br>
+            {% if payment_type == 'neft' %}
+                <h5 style="font-size:20px;position:absolute;top:200px">Prepaid Order</h5>
+            {% elif payment_type == 'cash_on_delivery' %}
+                <h5 style="font-size:20px;position:absolute;top:200px">Cash On Delivery</h5>
+            {% endif %}
+            </div>
+<!--			<div class="pull-right col-sm-4 "><h4>Order Id: <span style="font-size:15px"class=" order_id_no "><strong>{{ order_id }}</strong></span></h4></div>-->
+<!--		  </div>-->
+
     		<div class="row">
     			<div class="col-xs-6">
     				<address>
