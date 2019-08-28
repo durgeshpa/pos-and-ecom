@@ -944,7 +944,7 @@ class DownloadInvoiceSP(APIView):
                 "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" ,
                 "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,
                 "order_id":order_id,"shop_name_gram":shop_name_gram,"nick_name_gram":nick_name_gram, "city_gram":city_gram,
-                "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram,
+                "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram,"barcode":barcode,
                 "payment_type":payment_type,"total_amount_int":total_amount_int,"product_listing":product_listing,
                 "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
                 "address_contact_number":address_contact_number,"sum_amount_tax":round(total_tax_sum, 2), "no_of_crates":no_of_crates,
