@@ -1216,8 +1216,9 @@ class ShipmentDetail(APIView):
 
         if int(ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product).shipped_qty) >= int(returned_qty) + int(damaged_qty):
             ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(returned_qty=returned_qty, damaged_qty=damaged_qty)
+            shipment_product_details = ShipmentDetailSerializer(shipment, many=True)
             cash_to_be_collected = shipment.last().ordered_product.cash_to_be_collected()
-            msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': None,
+            msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': shipment_product_details.data,
                        'cash_to_be_collected': cash_to_be_collected}
             return Response(msg, status=status.HTTP_201_CREATED)
         else:
