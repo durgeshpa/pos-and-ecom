@@ -1216,13 +1216,10 @@ class ShipmentDetail(APIView):
 
         if int(ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product).shipped_qty) >= int(returned_qty) + int(damaged_qty):
             ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(returned_qty=returned_qty, damaged_qty=damaged_qty)
-            serializer = ShipmentDetailSerializer(shipment, many=True)
-            if serializer.data:
-                cash_to_be_collected = shipment.last().ordered_product.cash_to_be_collected()
-                msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': serializer.data,
+            cash_to_be_collected = shipment.last().ordered_product.cash_to_be_collected()
+            msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': None,
                        'cash_to_be_collected': cash_to_be_collected}
-                return Response(msg, status=status.HTTP_201_CREATED)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(msg, status=status.HTTP_201_CREATED)
         else:
             msg = {'is_success': False, 'message': ['Returned qty and damaged qty is greater than shipped qty'], 'response_data': None}
             return Response(msg, status=status.HTTP_400_BAD_REQUEST)
@@ -1379,3 +1376,4 @@ def update_trip_status(trip_id):
     order_product = OrderedProduct.objects.filter(trip_id=trip_id)
     if order_product.exclude(shipment_status__in=shipment_status_list).count()==0:
         Trip.objects.filter(pk=trip_id).update(trip_status='COMPLETED')
+
