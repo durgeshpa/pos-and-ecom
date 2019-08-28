@@ -4,14 +4,9 @@ from rest_framework import permissions, authentication
 from rest_framework.response import Response
 from .serializers import (RetailerTypeSerializer, ShopTypeSerializer,
         ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer, ShopTimingSerializer, ShopUserMappingSerializer,
-        SellerShopSerializer, AppVersionSerializer, ShopUserMappingUserSerializer)
-from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopTiming, ShopUserMapping, SalesAppVersion)
-    ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer,
-    ShopRequestBrandSerializer, ShopUserMappingSerializer, SellerShopSerializer,
-    AppVersionSerializer, ShopUserMappingUserSerializer
+        SellerShopSerializer, AppVersionSerializer, ShopUserMappingUserSerializer, ShopRequestBrandSerializer
 )
-from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument,
- ShopUserMapping, SalesAppVersion, ShopRequestBrand)
+from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping, SalesAppVersion, ShopRequestBrand, ShopTiming)
 from rest_framework import generics
 from addresses.models import City, Area, Address
 from rest_framework import status
