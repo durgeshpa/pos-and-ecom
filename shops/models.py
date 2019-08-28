@@ -331,3 +331,30 @@ class SalesAppVersion(models.Model):
 
     def __str__(self):
         return self.app_version
+
+from django.contrib.postgres.fields import ArrayField
+
+class ShopTiming(models.Model):
+    SUN = 'SUN'
+    MON = 'MON'
+    TUE = 'TUE'
+    WED = 'WED'
+    THU = 'THU'
+    FRI = 'FRI'
+    SAT = 'SAT'
+
+    off_day_choices = (
+        (SUN, 'SUN'),
+        (MON, 'MON'),
+        (TUE, 'TUE'),
+        (WED, 'WED'),
+        (THU, 'THU'),
+        (FRI, 'FRI'),
+        (SAT, 'FRI'),
+    )
+    shop = models.OneToOneField(Shop, related_name='shop_timing',null=True,blank=True, on_delete=models.SET_NULL)
+    open_timing = models.TimeField()
+    closing_timing = models.TimeField()
+    break_start_time = models.TimeField(null=True, blank=True)
+    break_end_time = models.TimeField(null=True, blank=True)
+    off_day = ArrayField(models.CharField(max_length=25,choices=off_day_choices, null=True, blank=True), null=True, blank=True)

@@ -1,16 +1,16 @@
 import csv
-
 from django.contrib import admin
 from .models import (
     Shop, ShopType, RetailerType, ParentRetailerMapping,
-    ShopPhoto, ShopDocument, ShopInvoicePattern, ShopUserMapping, SalesAppVersion
+    ShopPhoto, ShopDocument, ShopInvoicePattern, ShopTiming, ShopUserMapping, SalesAppVersion
 )
 from addresses.models import Address
 from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
                     ShopForm, AddressForm, RequiredInlineFormSet,
-                    AddressInlineFormSet, ShopUserMappingForm)
+                    AddressInlineFormSet, ShopTimingForm, ShopUserMappingForm)
 from .views import (StockAdjustmentView, stock_adjust_sample,
-                    bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView, ShopUserMappingCsvSample)
+                    bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete
+)
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
 from django.utils.html import format_html
@@ -178,6 +178,11 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                 name="shop-sales-form"
             ),
             url(
+                r'^shop-timing-autocomplete/$',
+                self.admin_site.admin_view(ShopTimingAutocomplete.as_view()),
+                name="shop-timing-autocomplete"
+            ),
+            url(
                 r'^bulk-shop-updation/$',
                 self.admin_site.admin_view(bulk_shop_updation),
                 name="bulk-shop-updation"
@@ -257,6 +262,9 @@ class ParentRetailerMappingAdmin(admin.ModelAdmin):
 
     class Media:
         pass
+class ShopTimingAdmin(admin.ModelAdmin):
+    list_display = ('shop','open_timing','closing_timing','break_start_time','break_end_time','off_day')
+    form = ShopTimingForm
 
 
 class ShopUserMappingAdmin(admin.ModelAdmin):
@@ -288,12 +296,10 @@ class ShopUserMappingAdmin(admin.ModelAdmin):
 class SalesAppVersionAdmin(admin.ModelAdmin):
     list_display = ('app_version','update_recommended','force_update_required','created_at','modified_at')
 
-
 admin.site.register(ParentRetailerMapping,ParentRetailerMappingAdmin)
 admin.site.register(ShopType)
 admin.site.register(RetailerType)
 admin.site.register(Shop,ShopAdmin)
 admin.site.register(ShopUserMapping,ShopUserMappingAdmin)
 admin.site.register(SalesAppVersion, SalesAppVersionAdmin)
-
-
+admin.site.register(ShopTiming, ShopTimingAdmin)

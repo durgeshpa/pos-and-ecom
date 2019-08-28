@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping, SalesAppVersion)
+from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopTiming)
 from django.contrib.auth import get_user_model
 from accounts.api.v1.serializers import UserSerializer,GroupSerializer
 from retailer_backend.validators import MobileNumberValidator
@@ -102,3 +103,27 @@ class ShopUserMappingUserSerializer(serializers.ModelSerializer):
         fields = ('shop','manager','employee','employee_group','created_at','status')
 
 
+
+class ShopTimingSerializer(serializers.ModelSerializer):
+    SUN = 'SUN'
+    MON = 'MON'
+    TUE = 'TUE'
+    WED = 'WED'
+    THU = 'THU'
+    FRI = 'FRI'
+    SAT = 'SAT'
+
+    off_day_choices = (
+        (SUN, 'Sunday'),
+        (MON, 'Monday'),
+        (TUE, 'Tuesday'),
+        (WED, 'Wednesday'),
+        (THU, 'Thuresday'),
+        (FRI, 'Friday'),
+        (SAT, 'Saturday'),
+    )
+
+    class Meta:
+        model = ShopTiming
+        fields = ('shop','open_timing','closing_timing','break_start_time','break_end_time','off_day')
+        read_only_fields = ('shop',)

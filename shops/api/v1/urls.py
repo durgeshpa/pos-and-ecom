@@ -1,13 +1,10 @@
 from django.conf.urls import url
 from django.urls import path
-from shops.api.v1.views import (RetailerTypeView, ShopTypeView,ShopView, ShopPhotoView, ShopDocumentView,
+from shops.api.v1.views import (RetailerTypeView, ShopTypeView,ShopView, ShopPhotoView, ShopDocumentView, ShopTimingView,
         TeamListView, SellerShopView, SellerShopOrder, SellerShopProfile, SalesPerformanceView,
         SellerShopListView, CheckUser, CheckAppVersion, StatusChangedAfterAmountCollected, SalesPerformanceUserView
 )
 from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetail, SellerShopAddress
-from shops.api.v1.views import (RetailerTypeView, ShopTypeView,
-        ShopView, ShopPhotoView, ShopDocumentView, StatusChangedAfterAmountCollected)
-from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetail
 
 urlpatterns = [
     path('user-shops/', ShopView.as_view(), name='user-shops', ),
@@ -18,6 +15,8 @@ urlpatterns = [
     path('shop-type/', ShopTypeView.as_view(), name='shop-type', ),
     path('shop-photo/', ShopPhotoView.as_view(), name='shop-photo', ),
     path('shop-document/', ShopDocumentView.as_view(), name='shop-document', ),
+    path('shop-timing/', ShopTimingView.as_view(), name='shop-timing', ),
+    url('shop-timing/(?P<shop_id>\d+)/shop/', ShopTimingView.as_view(), name='shop-timing-list', ),
 
     path('seller-team-list/', TeamListView.as_view(), name='seller-team-list', ),
     path('seller-shops/', SellerShopView.as_view(), name='seller-shops', ),
