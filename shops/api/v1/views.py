@@ -6,12 +6,22 @@ from .serializers import (RetailerTypeSerializer, ShopTypeSerializer,
         ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer, ShopTimingSerializer, ShopUserMappingSerializer,
         SellerShopSerializer, AppVersionSerializer, ShopUserMappingUserSerializer)
 from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopTiming, ShopUserMapping, SalesAppVersion)
+    ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer,
+    ShopRequestBrandSerializer, ShopUserMappingSerializer, SellerShopSerializer,
+    AppVersionSerializer, ShopUserMappingUserSerializer
+)
+from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument,
+ ShopUserMapping, SalesAppVersion, ShopRequestBrand)
 from rest_framework import generics
 from addresses.models import City, Area, Address
 from rest_framework import status
 from django.contrib.auth import get_user_model
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES
 from rest_framework.parsers import FormParser, MultiPartParser
+
+from common.data_wrapper_view import DataWrapperViewSet
+from retailer_to_sp.models import OrderedProduct
+from retailer_to_sp.views import update_order_status
 
 from datetime import datetime,timedelta, date
 from django.db.models import Q,Sum,Count,F, FloatField, Avg
@@ -23,6 +33,36 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.core.exceptions import ObjectDoesNotExist
 from retailer_to_sp.models import OrderedProduct
 from retailer_to_sp.views import update_order_status, update_shipment_status_with_id
+
+
+class ShopRequestBrandViewSet(DataWrapperViewSet):
+    '''
+    This class handles all operation of ordered product
+    '''
+    #permission_classes = (AllowAny,)
+    model = ShopRequestBrand
+    queryset = ShopRequestBrand.objects.all()
+    serializer_class = ShopRequestBrandSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    # filter_backends = (filters.DjangoFilterBackend,)
+    # filter_class = ShopRequestBrandFilter
+
+    def get_serializer_class(self):
+        '''
+        Returns the serializer according to action of viewset
+        '''
+        serializer_action_classes = {
+            'retrieve': ShopRequestBrandSerializer,
+            'list':ShopRequestBrandSerializer,
+            'create':ShopRequestBrandSerializer,
+            'update':ShopRequestBrandSerializer
+        }
+        if hasattr(self, 'action'):
+            return serializer_action_classes.get(self.action, self.serializer_class)
+        return self.serializer_class
+
 
 class RetailerTypeView(generics.ListAPIView):
     queryset = RetailerType.objects.all()

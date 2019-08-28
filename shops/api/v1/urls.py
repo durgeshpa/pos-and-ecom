@@ -1,10 +1,14 @@
+from rest_framework import routers
 from django.conf.urls import url
 from django.urls import path
 from shops.api.v1.views import (RetailerTypeView, ShopTypeView,ShopView, ShopPhotoView, ShopDocumentView, ShopTimingView,
         TeamListView, SellerShopView, SellerShopOrder, SellerShopProfile, SalesPerformanceView,
-        SellerShopListView, CheckUser, CheckAppVersion, StatusChangedAfterAmountCollected, SalesPerformanceUserView
+        SellerShopListView, CheckUser, CheckAppVersion, StatusChangedAfterAmountCollected, SalesPerformanceUserView, ShopRequestBrandViewSet
 )
 from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetail, SellerShopAddress
+
+router = routers.DefaultRouter()
+router.register(r'request-brand', ShopRequestBrandViewSet)
 
 urlpatterns = [
     path('user-shops/', ShopView.as_view(), name='user-shops', ),
@@ -32,3 +36,5 @@ urlpatterns = [
     url('^amount-collected/(?P<shipment>\d+)/$', StatusChangedAfterAmountCollected.as_view(), name='amount-collected'),
 
 ]
+
+urlpatterns += router.urls

@@ -629,6 +629,7 @@ class ShipmentForm(forms.ModelForm):
 
         if (data['close_order'] and
                 not data['shipment_status'] == OrderedProduct.READY_TO_SHIP):
+
                 raise forms.ValidationError(
                     _('You can only close the order in QC Passed state'),)
 
