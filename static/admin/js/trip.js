@@ -258,7 +258,6 @@ function CreateResponseTable(data){
       var invoice_amount = "<td>" + elem.invoice_amount + "</td>";
       var invoice_city = "<td>" + elem.invoice_city + "</td>";
       var shipment_address = "<td>" + elem.shipment_address + "</td>";
-      var pincode = "<td>" + elem.pincode + "</td>";
       var created_at = "<td>" + elem.created_at + "</td>";
       if(elem.selected){
         var select = "<td><input type='checkbox' class='shipment_checkbox' value='"+elem.invoice_no+"' checked></td>";
