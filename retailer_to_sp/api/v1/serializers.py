@@ -767,15 +767,15 @@ class ShipmentStatusSerializer(serializers.ModelSerializer):
 class ShipmentDetailSerializer(serializers.ModelSerializer):
     ordered_product_status = serializers.ReadOnlyField()
     product_short_description = serializers.ReadOnlyField()
-    mrp = serializers.ReadOnlyField()
-    price_to_retailer = serializers.ReadOnlyField()
+    mrp = serializers.DecimalField(default=0.00, max_digits=20, decimal_places=2, read_only=True)
+    price_to_retailer = serializers.DecimalField(default=0.00, max_digits=20, decimal_places=2, read_only=True)
     cash_discount = serializers.ReadOnlyField()
     loyalty_incentive = serializers.ReadOnlyField()
     margin = serializers.ReadOnlyField()
 
     class Meta:
         model = OrderedProductMapping
-        fields = ( 'ordered_product', 'ordered_product_status', 'product', 'product_short_description', 'mrp',
+        fields = ('ordered_product', 'ordered_product_status', 'product', 'product_short_description', 'mrp',
                    'price_to_retailer', 'cash_discount', 'loyalty_incentive', 'margin', 'shipped_qty',  'returned_qty',
                    'damaged_qty')
 
