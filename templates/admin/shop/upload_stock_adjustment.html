@@ -20,7 +20,6 @@
 {{ block.super }}
 {{ media.js }}
 {% endblock %}
-
 {% block breadcrumbs %}
     <div class="breadcrumbs">
         <a href="/admin/">{% trans "Home" %}</a> >
@@ -51,7 +50,7 @@
                   <p class="errornote">{{ error|escape }}</p>
                 {% endfor %}
             {% endif %}
-            
+
             {{form.management_form}}
             {{form.as_p}}
             <div><a href="{% url 'admin:ShopStocks' shop_id=shop.id %}">Download</a> sample file here </div>

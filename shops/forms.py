@@ -53,7 +53,7 @@ class ShopParentRetailerMappingForm(forms.ModelForm):
 
 class StockAdjustmentUploadForm(forms.Form):
     shop = forms.ModelChoiceField(
-            queryset=Shop.objects.filter(shop_type__shop_type__in=['sp']),
+            queryset=Shop.objects.filter(shop_type__shop_type__in=['sp', 'gfdn']),
         )
     upload_file = forms.FileField()
 

@@ -2,6 +2,7 @@ from dal import autocomplete
 from products.models import Product
 from brand.models import Brand
 from categories.models import Category
+from banner.models import BannerData
 
 class BrandAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
@@ -57,6 +58,7 @@ class ProductAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(product_name__istartswith=self.q)
         return qs
+
 
 from shops.models import Shop
 from django.db.models import Q

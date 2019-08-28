@@ -47,6 +47,7 @@ class Banner(models.Model):
     def __str__(self):
         return '{}'.format(self.image)
 
+
     def clean(self):
         super(Banner, self).clean()
         if (self.banner_type == 'brand' and self.brand is None ):

@@ -122,7 +122,7 @@ class ServicePartnerFilter(InputFilter):
     def queryset(self, request, queryset):
         value = self.value()
         if value :
-            return queryset.filter(retiler_mapping__parent__shop_name__icontains=value )
+            return queryset.filter(retailer_mapping__parent__shop_name__icontains=value )
         return queryset
 
 class ShopCityFilter(InputFilter):
