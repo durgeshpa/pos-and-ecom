@@ -391,27 +391,25 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductPriceResource
     form = ProductPriceNewForm
     actions = ['export_as_csv_productprice', 'approve_product_price']
-    list_select_related = ('product', 'shop')
+    list_select_related = ('product', 'seller_shop', 'buyer_shop')
     list_display = [
         'product', 'product_sku', 'product_gf_code', 'mrp',
-        'price_to_service_partner', 'price_to_retailer',
-        'price_to_super_retailer', 'shop', 'cash_discount',
-        'loyalty_incentive', 'margin', 'start_date', 'end_date', 'status',
-        'approval_status'
+        'selling_price', 'seller_shop', 'buyer_shop',
+        'start_date', 'end_date', 'approval_status'
     ]
+
     autocomplete_fields = ['product']
     search_fields = [
         'product__product_name', 'product__product_gf_code',
         'product__product_brand__brand_name', 'shop__shop_name'
     ]
-    list_filter = [
-        ProductSKUSearch, ProductFilter, ShopFilter, MRPSearch,
-        ('start_date', DateRangeFilter), ('end_date', DateRangeFilter),
-        'approval_status']
-    fields = ('product', 'city', 'area', 'mrp', 'shop', 'price_to_retailer',
-              'price_to_super_retailer', 'price_to_service_partner',
-              'cash_discount', 'loyalty_incentive', 'start_date', 'end_date',
-              'approval_status', 'status')
+    # list_filter = [
+    #     ProductSKUSearch, ProductFilter, ShopFilter, MRPSearch,
+    #     ('start_date', DateRangeFilter), ('end_date', DateRangeFilter),
+    #     'approval_status']
+    fields = ('product', 'mrp', 'selling_price', 'seller_shop',
+              'buyer_shop', 'city', 'pincode',
+              'start_date', 'end_date', 'approval_status')
 
     class Media:
         js = ('admin/js/sweetalert.min.js',
@@ -421,10 +419,9 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
         if not request.user.is_superuser:
             if obj and obj.approval_status == ProductPrice.APPROVED:
                 return self.readonly_fields + (
-                    'mrp', 'price_to_retailer', 'price_to_super_retailer',
-                    'price_to_service_partner', 'approval_status', 'status',
-                    'product', 'city', 'area', 'shop', 'cash_discount',
-                    'loyalty_incentive', 'start_date', 'end_date')
+                    'product', 'mrp', 'selling_price', 'seller_shop',
+                    'buyer_shop', 'city', 'pincode',
+                    'start_date', 'end_date', 'approval_status')
         return self.readonly_fields
 
     def product_sku(self, obj):
@@ -465,9 +462,9 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
         if request.user.is_superuser:
             return qs
         return qs.filter(
-            Q(shop__related_users=request.user) |
-            Q(shop__shop_owner=request.user),
-            Q(status=True) | Q(approval_status=ProductPrice.APPROVAL_PENDING)
+            Q(seller_shop__related_users=request.user) |
+            Q(seller_shop__shop_owner=request.user),
+            approval_status=ProductPrice.APPROVAL_PENDING
         ).distinct()
 
 

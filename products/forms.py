@@ -248,16 +248,15 @@ class ProductPriceNewForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(
             url='admin:product-price-autocomplete',)
     )
-    shop = forms.ModelChoiceField(
+    seller_shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type__in=['gf', 'sp']),
     )
 
     class Meta:
         model = ProductPrice
-        fields = ('product', 'city', 'area', 'shop',
-                  'price_to_service_partner', 'price_to_retailer',
-                  'price_to_super_retailer', 'start_date', 'end_date',
-                  'approval_status')
+        fields = ('product', 'mrp', 'selling_price', 'seller_shop',
+                  'buyer_shop', 'city', 'pincode',
+                  'start_date', 'end_date', 'approval_status')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -415,23 +414,21 @@ class ProductPriceAddPerm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(
             url='admin:product-price-autocomplete',)
     )
-    shop = forms.ModelChoiceField(
+    seller_shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type__in=['gf', 'sp']),
     )
 
     class Meta:
         model = ProductPrice
-        fields = ('product', 'city', 'area', 'shop',
-                  'price_to_service_partner', 'price_to_retailer',
-                  'price_to_super_retailer', 'start_date', 'end_date',
-                  'approval_status', 'status',)
+        fields = ('product', 'mrp', 'selling_price', 'seller_shop',
+                  'buyer_shop', 'city', 'pincode',
+                  'start_date', 'end_date', 'approval_status')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if 'approval_status' and 'status' in self.fields:
+        if 'approval_status' in self.fields:
             self.fields['approval_status'].initial = ProductPrice.APPROVAL_PENDING
             self.fields['approval_status'].widget = forms.HiddenInput()
-            self.fields['status'].widget = forms.HiddenInput()
 
 
 class ProductPriceChangePerm(forms.ModelForm):
@@ -440,21 +437,15 @@ class ProductPriceChangePerm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(
             url='admin:product-price-autocomplete',)
     )
-    shop = forms.ModelChoiceField(
+    seller_shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type__in=['gf', 'sp']),
     )
 
     class Meta:
         model = ProductPrice
-        fields = ('product', 'city', 'area', 'shop',
-                  'price_to_service_partner', 'price_to_retailer',
-                  'price_to_super_retailer', 'start_date', 'end_date',
-                  'approval_status', 'status',)
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if 'status' in self.fields:
-            self.fields['status'].widget = forms.HiddenInput()
+        fields = ('product', 'mrp', 'selling_price', 'seller_shop',
+                  'buyer_shop', 'city', 'pincode',
+                  'start_date', 'end_date', 'approval_status')
 
 
 class ProductCategoryMappingForm(forms.Form):
