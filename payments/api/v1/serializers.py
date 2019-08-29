@@ -30,7 +30,7 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
     #online_payment = OnlinePaymentSerializer()
     class Meta:
         model = ShipmentPayment
-        fields = ['cash_amount', 'payment_mode', 'reference_no', 'online_amount']  #"__all__"
+        fields = ['description', 'cash_amount', 'payment_mode', 'reference_no', 'online_amount']  #"__all__"
 
     def validate(self, data):
         initial_data = self.initial_data
@@ -49,6 +49,8 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
                 online_payment_mode = validated_data.pop('payment_mode', None)
                 reference_no = validated_data.pop('reference_no', None)
                 online_payment = validated_data.pop('online_amount', None)
+                description = validated_data.pop('description', None)
+
                 if cash_payment:
                     _cash_payment = CashPayment.objects.get(payment=instance)
                     _cash_payment.paid_amount = float(cash_payment) #.paid_amount
@@ -67,7 +69,8 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
                     online_pay = OnlinePayment.objects.filter(payment=instance)
                     if online_pay.exists():
                         online_pay.delete()
-
+                instance.description = description
+                instance.save()
                 return instance
         except Exception as e:
             print (traceback.format_exc(sys.exc_info()))

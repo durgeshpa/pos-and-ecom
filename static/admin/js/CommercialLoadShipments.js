@@ -100,14 +100,14 @@ function CreateResponseTable(data){
       "</select></form></td>";
       var online_payment = "<td><form class='"+ shipment_payment +"' action=''><input type='number' placeholder='0.0' step='0.01' min='0' name='online_amount' value='"+ data1['shipment_payment']['online_payment_amount'] +"'></form></td>";
       var reference_no = "<td><form class='"+ shipment_payment +"' action=''><input type='text' name='reference_no' value='"+ data1['shipment_payment']['reference_no'] +"'></form></td>";
-
+      var description = "<td><form class='"+ shipment_payment +"' action=''><input type='text' name='description' value='"+ data1['shipment_payment']['description'] +"'></form></td>";
       var invoice_city = "<td>" + data['response_data'][i]['invoice_city'] + "</td>";
       var shipment_address = "<td>" + data['response_data'][i]['shipment_address'] + "</td>";
       var created_at = "<td>" + data['response_data'][i]['created_at'] + "</td>";
       var submit_payment_button = "<td><form class='"+ shipment_payment +"' action=''><button class='shipment-payments-submit' type='button' data-id='"+ shipment_payment_id +"' data-total='"+ total_amount +"'>Submit!</button></form></td>";    
   
       var append_data = "<tr class="+ row +"><td class='original'></td>" + invoice_no + invoice_amount + cash_to_be_collected + cash_payment 
-      + online_payment_mode + online_payment + reference_no + shipment_status + 
+      + online_payment_mode + online_payment + reference_no + description +shipment_status + 
       invoice_city + created_at + order + shipment_address + submit_payment_button +"</tr>"
 
       $("tbody#data").append(append_data);
@@ -129,11 +129,11 @@ function CreateResponseTable(data){
 
       });
 
-      if (trip_status=="CLOSED" || trip_status=="TRANSFERRED"){
+/*      if (trip_status=="CLOSED" || trip_status=="TRANSFERRED"){
         $("input").prop('disabled', true);
         $("button.shipment-payments-submit").prop('disabled', true);
         $("select").prop('disabled', true);
-      }
+      }*/
 }
 
 function submit_update_data(shipment_payment_id)

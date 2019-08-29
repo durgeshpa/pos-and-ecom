@@ -102,7 +102,13 @@ class AbstractDateTime(models.Model):
     class Meta:
         abstract = True
 
-
+#if prepaid then its against order, else shipment
+class Payment(AbstractDateTime):
+    order = models.OneToOneField(Order, related_name='order_payment_data', on_delete=models.CASCADE)
+    shipment = models.OneToOneField(Shipment, related_name='shipment_payment_data', on_delete=models.CASCADE)
+    prepaid_or_postpaid = models.CharField(max_length=50, choices=PAYMENT_TYPE_CHOICES,null=True, blank=True)
+    paid_amount = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')
+    payment_mode_name = models.CharField(max_length=50, choices=PAYMENT_MODE_NAME, null=True, blank=True)
 
 # merge and create payment table : tbd: let it be same for now       
 # field name : order_payment_or_shipment_payment
@@ -159,6 +165,7 @@ class PaymentMode(models.Model):
 class CashPayment(AbstractDateTime):
     # This method stores the info about the cash payment
     payment = models.OneToOneField(ShipmentPayment, related_name='cash_payment', on_delete=models.CASCADE)
+    #payment_reference_number = models.CharField(max_length=50, unique=True)
     paid_amount = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')
     description = models.CharField(max_length=50, null=True, blank=True)
 
@@ -166,6 +173,7 @@ class CashPayment(AbstractDateTime):
 class CreditPayment(AbstractDateTime):
     # This method stores the credit payment: third party details, payment status
     payment = models.ForeignKey(ShipmentPayment, related_name='credit_payment', on_delete=models.CASCADE)
+    #payment_reference_number = models.CharField(max_length=50, unique=True)    
     reference_no = models.CharField(max_length=50, unique=True)
     description = models.CharField(max_length=50, null=True, blank=True)
     payment_party_name = models.CharField(max_length=50, choices=PAYMENT_PARTY_CHOICES, null=True, blank=True)
@@ -179,6 +187,7 @@ class CreditPayment(AbstractDateTime):
 class WalletPayment(AbstractDateTime):
     # This method stores the wallet payment: third party details, payment status
     payment = models.ForeignKey(ShipmentPayment, related_name='wallet_payment', on_delete=models.CASCADE)
+    #payment_reference_number = models.CharField(max_length=50, unique=True)    
     reference_no = models.CharField(max_length=50, unique=True)
     description = models.CharField(max_length=50, null=True, blank=True)
     paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')    
@@ -191,6 +200,7 @@ class WalletPayment(AbstractDateTime):
 class OnlinePayment(AbstractDateTime):
     # This method stores the credit payment: third party details, payment status
     payment = models.OneToOneField(ShipmentPayment, related_name='online_payment', on_delete=models.CASCADE)
+    #payment_reference_number = models.CharField(max_length=50, unique=True)    
     reference_no = models.CharField(max_length=50, unique=True)
     description = models.CharField(max_length=50, null=True, blank=True)
     online_payment_type = models.CharField(max_length=50, choices=ONLINE_PAYMENT_TYPE_CHOICES, null=True, blank=True)

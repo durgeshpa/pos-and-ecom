@@ -695,6 +695,7 @@ class DispatchSerializer(serializers.ModelSerializer):
         #payment = ShipmentPayment.objects.get(shipment=obj)
         payment, created = ShipmentPayment.objects.get_or_create(shipment=obj)
         payment_data['shipment_payment_id'] =  payment.id
+        payment_data['description'] =  payment.description
 
         #cash_payment = CashPayment.objects.get(payment=payment)
         _payment_mode, created = PaymentMode.objects.get_or_create(
@@ -746,7 +747,7 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
         #payment = ShipmentPayment.objects.get(shipment=obj)
         payment, created = ShipmentPayment.objects.get_or_create(shipment=obj)
         payment_data['shipment_payment_id'] =  payment.id
-
+        payment_data['description'] =  payment.description
         #cash_payment = CashPayment.objects.get(payment=payment)
         _payment_mode, created = PaymentMode.objects.get_or_create(
             payment=payment, payment_mode_name="cash_payment")

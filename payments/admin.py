@@ -30,6 +30,7 @@ class OnlinePaymentAdmin(NoDeleteAdminMixin, admin.TabularInline):
     fields = (
         "paid_amount", "payment_received", "online_payment_type",
         "reference_no", "is_payment_approved", "payment_approval_status",
+        "description",
     )
     readonly_fields = (
         "paid_amount", "online_payment_type", "reference_no", "payment_approval_status",
