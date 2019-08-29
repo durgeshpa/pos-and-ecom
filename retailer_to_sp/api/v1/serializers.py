@@ -782,6 +782,7 @@ class ShipmentDetailSerializer(serializers.ModelSerializer):
 class TripSerializer(serializers.ModelSerializer):
     trip_id = serializers.ReadOnlyField()
     total_trip_amount = serializers.SerializerMethodField()
+    trip_return_amount = serializers.SerializerMethodField()
     #trip_return_amount = serializers.ReadOnlyField()
     cash_to_be_collected = serializers.SerializerMethodField()
     no_of_shipments = serializers.ReadOnlyField()
@@ -794,9 +795,12 @@ class TripSerializer(serializers.ModelSerializer):
     def get_cash_to_be_collected(self, obj):
         return obj.cash_to_be_collected()
 
+    def get_trip_return_amount(self, obj):
+        return float(obj.total_trip_amount()) - float(obj.cash_to_be_collected())
+
     class Meta:
         model = Trip
-        fields = ('trip_id','dispatch_no', 'trip_status', 'no_of_shipments', 'total_trip_amount', 'cash_to_be_collected')
+        fields = ('trip_id','dispatch_no', 'trip_status', 'no_of_shipments', 'total_trip_amount', 'cash_to_be_collected','trip_return_amount')
 
 
 class RetailerShopSerializer(serializers.ModelSerializer):
