@@ -796,7 +796,7 @@ class TripSerializer(serializers.ModelSerializer):
         return obj.cash_to_be_collected()
 
     def get_trip_return_amount(self, obj):
-        return float(obj.total_trip_amount()) - float(obj.cash_to_be_collected())
+        return round(float(obj.total_trip_amount()) - float(obj.cash_to_be_collected()),2)
 
     class Meta:
         model = Trip
