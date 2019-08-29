@@ -886,8 +886,7 @@ class OrderForm(forms.ModelForm):
                 if status:
                     raise forms.ValidationError(
                         _('Sorry! This order cannot be cancelled'), )
-            else:
-                return data
+        return data
 
     def __init__(self, *args, **kwargs):
         super(OrderForm, self).__init__(*args, **kwargs)
