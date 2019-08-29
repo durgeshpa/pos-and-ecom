@@ -1215,7 +1215,7 @@ class CustomerCare(models.Model):
     complaint_detail = models.CharField(max_length=2000, null=True)
 
     def __str__(self):
-        return self.complaint_id
+        return self.complaint_id or "--"
 
     @property
     def contact_number(self):
