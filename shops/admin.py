@@ -258,14 +258,6 @@ class ParentRetailerMappingAdmin(admin.ModelAdmin):
     class Media:
         pass
 
-from import_export.admin import ImportExportModelAdmin
-class ShopUserMappingResource(resources.ModelResource):
-
-    class Meta:
-        model = ShopUserMapping
-        fields = ('id','shop', 'manager__phone_number', 'employee__phone_number', 'employee_group', 'status',)
-        export_order = ('shop', 'manager__phone_number', 'employee__phone_number', 'employee_group', 'status',)
-        #exclude = ('id',)
 
 class ShopUserMappingAdmin(admin.ModelAdmin):
     form = ShopUserMappingForm
