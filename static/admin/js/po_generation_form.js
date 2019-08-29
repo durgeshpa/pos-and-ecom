@@ -79,8 +79,10 @@
          $('#id_cart_list-'+row_no+'-total_price').val(parseFloat($('#id_cart_list-'+row_no+'-price').val()) * parseFloat($('#id_cart_list-'+row_no+'-inner_case_size').val()) * parseFloat($('#id_cart_list-'+row_no+'-case_size').val()) * parseFloat($(this).val()))
      });
 
+
+
     $(document).ready(function() {
-        console.log( "document loaded" );
+        console.log('hello');
         $('.field-no_of_pieces input[type="text"]').prop('readonly', true);
 
 
@@ -134,7 +136,7 @@
             var c = confirm("Are you sure?");
             return c;
         });
-        
+
         $('.submit-row').on('click','input[name="_disapprove"]', function(e){
             console.log("inside disapprove")
             if ($('textarea[name="message"]').val().trim()=='') {
@@ -145,6 +147,10 @@
 
     });
 
+
+$(document).ready(function(){
+        $('#mrp').val=$(this).val();
+    });
    // function calculate() {
   	// 	var case_size = document.getElementById('id_cart_list-0-case_size').value;
   	// 	var number_of_cases = document.getElementById('id_cart_list-0-number_of_cases').value;
@@ -155,3 +161,6 @@
   	//}
 
 })(django.jQuery);
+
+
+

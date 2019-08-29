@@ -34,6 +34,7 @@ class CartProductMappingAdmin(admin.TabularInline):
     autocomplete_fields = ('cart_product',)
     search_fields =('cart_product',)
     form = CartProductMappingForm
+    template = "admin/gram_to_brand/cart/tabular.html"
 
     fields = ('cart_product','mrp','sku', 'tax_percentage','case_sizes', 'no_of_cases', 'no_of_pieces', 'price', 'sub_total')
     readonly_fields = ('tax_percentage','mrp','sku', 'case_sizes','sub_total')
@@ -50,7 +51,7 @@ class CartAdmin(admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     exclude = ('po_no', 'po_status','last_modified_by')
     autocomplete_fields = ('brand',)
-    #list_display = ('po_no','po_edit_link','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_raised_by','po_status', 'download_purchase_order')
+    # list_display = ('po_no','po_edit_link','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_raised_by','po_status', 'download_purchase_order')
     list_filter = [BrandFilter,SupplierStateFilter ,SupplierFilter,('po_creation_date', DateRangeFilter),('po_validity_date', DateRangeFilter),POAmountSearch,PORaisedBy]
     form = POGenerationForm
     list_display_links = None
