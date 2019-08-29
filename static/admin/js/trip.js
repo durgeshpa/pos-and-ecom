@@ -261,11 +261,11 @@ function CreateResponseTable(data){
       var created_at = "<td>" + elem.created_at + "</td>";
       if(elem.selected){
         var select = "<td><input type='checkbox' class='shipment_checkbox' value='"+elem.invoice_no+"' checked></td>";
-      $("tbody#data").prepend("<tr class=" + row + ">" + select + invoice_no + invoice_amount + shipment_status + invoice_city + created_at + order + shipment_address + pincode +"</tr>");
+      $("tbody#data").prepend("<tr class=" + row + ">" + select + invoice_no + invoice_amount + shipment_status + invoice_city + created_at + order + shipment_address  +"</tr>");
       }
       else{
         select = "<td><input type='checkbox' class='shipment_checkbox' value='"+elem.invoice_no+"'></td>";
-      $("tbody#data").append("<tr class=" + row + ">" + select + invoice_no + invoice_amount + shipment_status + invoice_city + created_at + order + shipment_address + pincode +"</tr>");
+      $("tbody#data").append("<tr class=" + row + ">" + select + invoice_no + invoice_amount + shipment_status + invoice_city + created_at + order + shipment_address  +"</tr>");
       }
   });
   displaySelectedCount();
