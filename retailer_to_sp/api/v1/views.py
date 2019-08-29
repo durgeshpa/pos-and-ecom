@@ -1391,7 +1391,7 @@ class ReturnReason(generics.UpdateAPIView):
     def get_queryset(self):
         return OrderedProduct.objects.get(pk=self.request.data.get('id'))
 
-    def update(self, request, *args, **kwargs):
+    def patch(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_queryset()
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
