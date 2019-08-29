@@ -105,10 +105,11 @@ class AbstractDateTime(models.Model):
 #if prepaid then its against order, else shipment
 class Payment(AbstractDateTime):
     order = models.OneToOneField(Order, related_name='order_payment_data', on_delete=models.CASCADE)
-    shipment = models.OneToOneField(Shipment, related_name='shipment_payment_data', on_delete=models.CASCADE)
-    prepaid_or_postpaid = models.CharField(max_length=50, choices=PAYMENT_TYPE_CHOICES,null=True, blank=True)
+    reference_no = models.CharField(max_length=50, unique=True)
     paid_amount = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')
     payment_mode_name = models.CharField(max_length=50, choices=PAYMENT_MODE_NAME, null=True, blank=True)
+    payment_status = models.CharField(max_length=50, choices=ORDER_PAYMENT_STATUS_CHOICES, null=True, blank=True)
+    prepaid_or_postpaid = models.CharField(max_length=50, choices=PAYMENT_TYPE_CHOICES,null=True, blank=True)
 
 # merge and create payment table : tbd: let it be same for now       
 # field name : order_payment_or_shipment_payment
