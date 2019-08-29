@@ -28,7 +28,7 @@ from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializ
     RetailerShopSerializer, SellerOrderListSerializer,OrderListSerializer,
     ReadOrderedProductSerializer,FeedBackSerializer, CancelOrderSerializer,
     ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
-    ShipmentReschedulingSerializer
+    ShipmentReschedulingSerializer, ShipmentReturnSerializer
 )
 
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
@@ -1378,3 +1378,26 @@ def update_trip_status(trip_id):
     if order_product.exclude(shipment_status__in=shipment_status_list).count()==0:
         Trip.objects.filter(pk=trip_id).update(trip_status='COMPLETED')
 
+class ReturnReason(generics.UpdateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = ShipmentReturnSerializer
+
+    def get(self, request, *args, **kwargs):
+        data =[{'name': reason[0], 'display_name': reason[1]} for reason in OrderedProduct.RETURN_REASON]
+        msg = {'is_success': True, 'message': None, 'response_data': data}
+        return Response(msg, status=status.HTTP_200_OK)
+
+    def get_queryset(self):
+        return OrderedProduct.objects.get(pk=self.request.data.get('id'))
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_queryset()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        if serializer.is_valid():
+            serializer.save()
+            msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
+        else:
+            msg = {'is_success': False, 'message': ['have some issue'], 'response_data': None}
+        return Response(msg, status=status.HTTP_200_OK)

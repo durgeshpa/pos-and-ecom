@@ -14,7 +14,7 @@ from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping 
 from addresses.models import Address,City,State,Country
 from gram_to_brand.models import GRNOrderProductMapping
 
-from sp_to_gram.models import OrderedProductMapping
+from sp_to_gram.models import OrderedProductMapping as SpOrderedProductMapping
 from accounts.api.v1.serializers import UserSerializer
 from django.urls import reverse
 from django.db.models import F,Sum
@@ -877,7 +877,6 @@ class SellerOrderListSerializer(serializers.ModelSerializer):
     def shop_id_dt(self, obj):
         return obj.buyer_shop.id
 
-
     class Meta:
         model= Order
         fields = ('id', 'ordered_cart', 'order_no', 'total_final_amount', 'order_status',
@@ -887,3 +886,8 @@ class ShipmentReschedulingSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShipmentRescheduling
         fields = ('shipment', 'rescheduling_reason', 'rescheduling_date')
+
+class ShipmentReturnSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderedProduct
+        fields = ('id', 'return_reason')
