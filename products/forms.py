@@ -461,3 +461,10 @@ class ProductCategoryMappingForm(forms.Form):
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only csv file accepted")
         return self.cleaned_data['file']
+
+
+class NewProductPriceUpload(forms.Form):
+    city = forms.ModelChoiceField(
+        queryset=City.objects.all(),
+        widget=autocomplete.ModelSelect2(url='city-autocomplete')
+    )
