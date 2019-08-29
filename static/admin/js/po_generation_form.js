@@ -79,10 +79,23 @@
          $('#id_cart_list-'+row_no+'-total_price').val(parseFloat($('#id_cart_list-'+row_no+'-price').val()) * parseFloat($('#id_cart_list-'+row_no+'-inner_case_size').val()) * parseFloat($('#id_cart_list-'+row_no+'-case_size').val()) * parseFloat($(this).val()))
      });
 
+function calculateColumn(index) {
+            var total = 0;
+            $('table tr').each(function() {
+                var value = parseFloat($('.field-sub_total', this).eq(index).text());
+                if (!isNaN(value)) {
+                    total += value;
+                }
+            });
+            $('#tot').eq(index).html('<h1 align="right"><b>Total:' + total.toFixed(2)  + ' </b></h1>');
+        }
 
 
     $(document).ready(function() {
-        console.log('hello');
+            $('table thead th').each(function(i) {
+                calculateColumn(i);
+            });
+
         $('.field-no_of_pieces input[type="text"]').prop('readonly', true);
 
 

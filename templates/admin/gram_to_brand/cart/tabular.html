@@ -66,16 +66,14 @@
           {% endfor %}
         {% endfor %}
         {% if inline_admin_formset.formset.can_delete %}
+
           <td class="delete">{% if inline_admin_form.original %}{{ inline_admin_form.deletion_field.field }}{% endif %}</td>
+
         {% endif %}
         </tr>
      {% endfor %}
-
      </tbody>
    </table>
 </fieldset>
   </div>
-    <tr>
-         <td id="tot">Total</td>
-     </tr>
 </div>
