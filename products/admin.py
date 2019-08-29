@@ -16,7 +16,8 @@ from .views import (
     load_gf, products_export_for_vendor, products_vendor_mapping,
     MultiPhotoUploadView, ProductPriceAutocomplete,
     ProductCategoryAutocomplete, download_all_products,
-    ProductCategoryMapping, product_category_mapping_sample)
+    ProductCategoryMapping, product_category_mapping_sample,
+    ProductPriceUpload)
 from .resources import (
     SizeResource, ColorResource, FragranceResource,
     FlavorResource, WeightResource, PackageSizeResource,
@@ -330,6 +331,11 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 r'^product-category-mapping-sample/$',
                 self.admin_site.admin_view(product_category_mapping_sample),
                 name="product-category-mapping-sample"
+            ),
+            url(
+                r'^product-price-upload/$',
+                self.admin_site.admin_view(ProductPriceUpload.as_view()),
+                name="product_price_upload"
             ),
         ] + urls
         return urls

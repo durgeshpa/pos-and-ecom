@@ -789,3 +789,20 @@ def product_category_mapping_sample(self):
     writer = csv.writer(response)
     writer.writerows([['gf_code', 'category_id'], ['GF01641', '161']])
     return response
+
+
+class ProductPriceUpload(View):
+    form_class = ProductPriceForm
+    template_name = 'admin/products/NewProductPriceUpload.html'
+
+    def get(self, request, *args, **kwargs):
+        form = self.form_class()
+        return render(request, self.template_name, {'form': form})
+
+    def post(self, request, *args, **kwargs):
+        form = self.form_class(request.POST)
+        if form.is_valid():
+            # <process form cleaned data>
+            return HttpResponseRedirect('/success/')
+
+        return render(request, self.template_name, {'form': form})
