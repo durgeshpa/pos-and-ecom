@@ -184,6 +184,9 @@ class ShopDocument(models.Model):
     ELE_BILL = 'bill'
     PAN = 'pan'
     FSSAI = 'fssai'
+    DL = 'driving license'
+    EL = 'election card'
+    WSVD = 'weighing scale'
 
     SHOP_DOCUMENTS_TYPE_CHOICES = (
         (GSTIN, "GSTIN"),
@@ -192,6 +195,9 @@ class ShopDocument(models.Model):
         (ELE_BILL, "Shop Electricity Bill"),
         (PAN, "Pan Card No"),
         (FSSAI, "Fssai License No"),
+        (DL, "Driving Licence"),
+        (EL, "Election card"),
+        (WSVD, "Weighing Scale verification document"),
     )
     shop_name = models.ForeignKey(Shop, related_name='shop_name_documents', on_delete=models.CASCADE)
     shop_document_type = models.CharField(max_length=100, choices=SHOP_DOCUMENTS_TYPE_CHOICES, default='gstin')
