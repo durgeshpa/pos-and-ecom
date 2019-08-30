@@ -58,6 +58,7 @@ class Banner(models.Model):
             raise ValidationError('Please select the SubBrand')
         if (self.banner_type == 'subcategory' and self.sub_category is None ):
             raise ValidationError('Please select the SubCategory')
+
             
 class Page(models.Model):
     name = models.CharField(max_length=255)
