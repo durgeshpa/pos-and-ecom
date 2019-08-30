@@ -91,11 +91,15 @@ function calculateColumn(index) {
         }
 
 
-    $(document).ready(function() {
             $('table thead th').each(function(i) {
                 calculateColumn(i);
             });
 
+    $(document).ready(function() {
+            var regname = /$
+            $('#id_cart_list--  no_of_cases').on('keyup', function(){
+                alert('hello');
+                });
         $('.field-no_of_pieces input[type="text"]').prop('readonly', true);
 
 
