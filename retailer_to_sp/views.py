@@ -992,8 +992,6 @@ class DownloadTripPdf(APIView):
     template_name = 'admin/trip/trip.html'
 
     def get(self, request, *args, **kwargs):
-        import pdb;
-        pdb.set_trace()
         trip_obj = get_object_or_404(Trip, pk=self.kwargs.get('pk'))
         pk = self.kwargs.get('pk')
         trip = Trip.objects.get(pk=pk)
