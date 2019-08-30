@@ -6,7 +6,7 @@ from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMap
                              Size,Color,Fragrance,Flavor,Weight,PackageSize)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order,
                                    OrderedProduct, Note, CustomerCare,
-                                   Payment, Dispatch, Feedback, OrderedProductMapping, Trip, PickerDashboard, ShipmentRescheduling)
+                                   Payment, Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping, Trip, PickerDashboard, ShipmentRescheduling)
 
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
     OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment
@@ -14,7 +14,7 @@ from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping 
 from addresses.models import Address,City,State,Country
 from gram_to_brand.models import GRNOrderProductMapping
 
-from sp_to_gram.models import OrderedProductMapping as SpOrderedProductMapping
+from sp_to_gram.models import OrderedProductMapping
 from accounts.api.v1.serializers import UserSerializer
 from django.urls import reverse
 from django.db.models import F,Sum
@@ -774,7 +774,7 @@ class ShipmentDetailSerializer(serializers.ModelSerializer):
     margin = serializers.ReadOnlyField()
 
     class Meta:
-        model = OrderedProductMapping
+        model = RetailerOrderedProductMapping
         fields = ('ordered_product', 'ordered_product_status', 'product', 'product_short_description', 'mrp',
                    'price_to_retailer', 'cash_discount', 'loyalty_incentive', 'margin', 'shipped_qty',  'returned_qty',
                    'damaged_qty')
