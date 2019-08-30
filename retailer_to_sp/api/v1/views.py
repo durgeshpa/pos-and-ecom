@@ -1221,7 +1221,7 @@ class ShipmentDetail(APIView):
             ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(returned_qty=returned_qty, damaged_qty=damaged_qty)
             shipment_product_details = ShipmentDetailSerializer(shipment, many=True)
             cash_to_be_collected = shipment.last().ordered_product.cash_to_be_collected()
-            create_credit_note(shipment.ordered_product)
+            create_credit_note(shipment.last().ordered_product)
             msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': shipment_product_details.data,
                        'cash_to_be_collected': cash_to_be_collected}
             return Response(msg, status=status.HTTP_201_CREATED)
