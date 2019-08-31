@@ -9,7 +9,7 @@
     HideField('tr#heading');
     HideField('tr#loading');
     Select2Field('#id_seller_shop');
-    Select2Field('#id_delivery_boy');
+    //Select2Field('#id_delivery_boy');
     SubmitFormConfirmDialog();
     AddCheckedIDToList();
     GetResultOnTypingArea();
