@@ -17,7 +17,8 @@ from .views import (
     MultiPhotoUploadView, ProductPriceAutocomplete,
     ProductCategoryAutocomplete, download_all_products,
     ProductCategoryMapping, product_category_mapping_sample,
-    ProductPriceUpload)
+    ProductPriceUpload, CityAutocomplete, RetailerAutocomplete,
+    SellerShopAutocomplete, ProductAutocomplete)
 from .resources import (
     SizeResource, ColorResource, FragranceResource,
     FlavorResource, WeightResource, PackageSizeResource,
@@ -336,6 +337,26 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 r'^product-price-upload/$',
                 self.admin_site.admin_view(ProductPriceUpload.as_view()),
                 name="product_price_upload"
+            ),
+            url(
+                r'^city-autocomplete/$',
+                self.admin_site.admin_view(CityAutocomplete.as_view()),
+                name="city_autocomplete"
+            ),
+            url(
+                r'^retailer-autocomplete/$',
+                self.admin_site.admin_view(RetailerAutocomplete.as_view()),
+                name="retailer_autocomplete"
+            ),
+            url(
+                r'^seller-shop-autocomplete/$',
+                self.admin_site.admin_view(SellerShopAutocomplete.as_view()),
+                name="seller_shop_autocomplete"
+            ),
+            url(
+                r'^product-autocomplete/$',
+                self.admin_site.admin_view(ProductAutocomplete.as_view()),
+                name="product_autocomplete"
             ),
         ] + urls
         return urls

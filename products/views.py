@@ -20,7 +20,7 @@ from brand.models import Brand
 from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
     ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
-    ProductCategoryMappingForm
+    ProductCategoryMappingForm, NewProductPriceUpload
     )
 from products.models import (
     Product, ProductCategory, ProductOption,
@@ -791,8 +791,42 @@ def product_category_mapping_sample(self):
     return response
 
 
+class CityAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = City.objects.all()
+        if self.q:
+            qs = qs.filter(city_name__icontains=self.q)
+        return qs
+
+
+class RetailerAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = Shop.objects.filter(shop_type__shop_type='r')
+        if self.q:
+            qs = qs.filter(shop_name__icontains=self.q)
+        return qs
+
+
+class SellerShopAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = Shop.objects.filter(shop_type__shop_type='sp')
+        if self.q:
+            qs = qs.filter(shop_name__icontains=self.q)
+        return qs
+
+
+class ProductAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = Product.objects.all()
+        if self.q:
+            qs = qs.filter(Q(product_name=self.q) |
+                           Q(product_gf_code=self.q) |
+                           Q(product_sku=self.q))
+        return qs
+
+
 class ProductPriceUpload(View):
-    form_class = ProductPriceForm
+    form_class = NewProductPriceUpload
     template_name = 'admin/products/NewProductPriceUpload.html'
 
     def get(self, request, *args, **kwargs):
@@ -800,8 +834,21 @@ class ProductPriceUpload(View):
         return render(request, self.template_name, {'form': form})
 
     def post(self, request, *args, **kwargs):
-        form = self.form_class(request.POST)
+        form = self.form_class(request.POST, request.FILES)
         if form.is_valid():
+            import pdb; pdb.set_trace()
+            data = form.cleaned_data
+            # if action is upload
+            if data['action'] == 1:
+                if data.get('city'):
+                    qs = ProductPrice.objects\
+                        .filter(seller_shop=data.get('seller_shop'),
+                                city=data.get('city'))
+                if data.get('')
+                pass
+            # if action is download
+            elif data['action'] == 2:
+                pass
             # <process form cleaned data>
             return HttpResponseRedirect('/success/')
 

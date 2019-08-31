@@ -464,7 +464,54 @@ class ProductCategoryMappingForm(forms.Form):
 
 
 class NewProductPriceUpload(forms.Form):
+
+    seller_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
+        widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete')
+    )
     city = forms.ModelChoiceField(
         queryset=City.objects.all(),
-        widget=autocomplete.ModelSelect2(url='city-autocomplete')
+        widget=autocomplete.ModelSelect2(url='admin:city_autocomplete'),
+        required=False
     )
+    buyer_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='r'),
+        widget=autocomplete.ModelSelect2(url='admin:retailer_autocomplete'),
+        required=False
+    )
+    pincode_from = forms.CharField(max_length=6, min_length=6, required=False,
+                                   validators=[PinCodeValidator])
+    pincode_to = forms.CharField(max_length=6, min_length=6, required=False,
+                                 validators=[PinCodeValidator])
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(), required=False,
+        widget=autocomplete.ModelSelect2(url='admin:product_autocomplete')
+    )
+    action = forms.ChoiceField(widget=forms.RadioSelect,
+                               choices=[('1', 'Upload'), ('2', 'Download')])
+    csv_file = forms.FileField(required=False)
+
+    class Meta:
+        fields = ('seller_shop', 'city', 'pincode_from', 'pincode_to',
+                  'buyer_shop', 'product', 'action', 'csv_file')
+
+    def clean_pincode_from(self):
+        cleaned_data = self.cleaned_data
+        data = self.data
+        if (data.get('pincode_to', None) and not
+                cleaned_data.get('pincode_from', None)):
+            raise forms.ValidationError('This field is required')
+        return cleaned_data['pincode_from']
+
+    def clean_pincode_to(self):
+        cleaned_data = self.cleaned_data
+        if (cleaned_data.get('pincode_from', None) and not
+                cleaned_data.get('pincode_to', None)):
+            raise forms.ValidationError('This field is required')
+        return cleaned_data['pincode_to']
+
+    def clean_csv_file(self):
+        file = self.cleaned_data['csv_file']
+        if file and not file.name[-5:] in ('.xlsx'):
+            raise forms.ValidationError('Only Excel(.xlsx) file accepted')
+        return file
