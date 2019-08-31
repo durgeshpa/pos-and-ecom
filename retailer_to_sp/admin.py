@@ -962,7 +962,6 @@ class ShipmentAdmin(admin.ModelAdmin):
         return obj.order.seller_shop.shop_name
 
     def shipment_address(self, obj):
-        return ""
         address = obj.order.shipping_address
         address_line = address.address_line1
         contact = address.address_contact_number
@@ -970,7 +969,6 @@ class ShipmentAdmin(admin.ModelAdmin):
         return str("%s, %s(%s)") % (shop_name, address_line, contact)
 
     def invoice_city(self, obj):
-        return ""
         city = obj.order.shipping_address.city
         return str(city)
 
