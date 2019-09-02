@@ -10,10 +10,6 @@ class PaymentAdmin(admin.ModelAdmin):
     model = Payment
 
 
-class OrderPaymentAdmin(admin.ModelAdmin):
-    model = OrderPayment
-
-
 class PaymentModeAdmin(admin.ModelAdmin):
     model = PaymentMode
 
@@ -204,12 +200,11 @@ class WalletPaymentAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Payment,PaymentAdmin)
-admin.site.register(OrderPayment,OrderPaymentAdmin)
 #admin.site.register(ShipmentPayment,ShipmentPaymentAdmin)
 admin.site.register(CashPayment,CashPaymentAdmin)
 admin.site.register(OnlinePayment,OnlinePaymentAdmin1)
 admin.site.register(CreditPayment,CreditPaymentAdmin)
 admin.site.register(WalletPayment,WalletPaymentAdmin)
-admin.site.register(ShipmentPaymentApproval,ShipmentPaymentApprovalAdmin)
-admin.site.register(ShipmentPaymentEdit,ShipmentPaymentEditAdmin)
+# admin.site.register(ShipmentPaymentApproval,ShipmentPaymentApprovalAdmin)
+# admin.site.register(ShipmentPaymentEdit,ShipmentPaymentEditAdmin)
 admin.site.register(PaymentMode,PaymentModeAdmin)
