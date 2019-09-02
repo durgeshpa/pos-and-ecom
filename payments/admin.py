@@ -26,13 +26,14 @@ class PaymentModeAdmin(admin.ModelAdmin):
 
 class NoDeleteAdminMixin:
     def has_delete_permission(self, request, obj=None):
+        
         return False
 
 class OnlinePaymentAdmin1(admin.ModelAdmin):
     model = OnlinePayment
 
 
-class PaymentApprovalAdmin(NoDeleteAdminMixin, admin.TabularInline):
+class PaymentApprovalAdmin(admin.TabularInline):# NoDeleteAdminMixin, 
     model = Payment   
     fields = (
         "paid_amount", "payment_received", "payment_mode_name",

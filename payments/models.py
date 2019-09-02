@@ -109,7 +109,7 @@ class Payment(AbstractDateTime):
     null=True, blank=True) #shipment_id
     # payment description
     description = models.CharField(max_length=100, null=True, blank=True)
-    reference_no = models.CharField(max_length=50, unique=True)
+    reference_no = models.CharField(max_length=50, null=True, blank=True)
     paid_amount = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')
     payment_mode_name = models.CharField(max_length=50, choices=PAYMENT_MODE_NAME, null=True, blank=True)
     prepaid_or_postpaid = models.CharField(max_length=50, choices=PAYMENT_TYPE_CHOICES,null=True, blank=True)
@@ -121,14 +121,17 @@ class Payment(AbstractDateTime):
     payment_status = models.CharField(max_length=50, choices=PAYMENT_STATUS_CHOICES, null=True, blank=True)
     initiated_time = models.DateTimeField(null=True, blank=True)
     timeout_time = models.DateTimeField(null=True, blank=True)
-    processed_by = models.ForeignKey(User, related_name='wallet_payment_boy', on_delete=models.CASCADE)
+    processed_by = models.ForeignKey(User, related_name='payment_boy',
+        null=True, blank=True, on_delete=models.SET_NULL)
 
-    def clean(self):
-        if not re.match("^[a-zA-Z0-9_]*$", self.reference_no):
-            raise ValidationError('Referece number can not have special character.')
-        super(OnlinePayment, self).clean()
+    # def clean(self):
+    #     if not re.match("^[a-zA-Z0-9_]*$", self.reference_no):
+    #         raise ValidationError('Referece number can not have special character.')
+    #     super(Payment, self).clean()
 
     def save(self, *args, **kwargs):
+        #import pdb; pdb.set_trace()
+        self.order = self.shipment.order
         if self.is_payment_approved:
             if self.payment_received >= self.paid_amount:
                 self.payment_approval_status = "approved_and_verified"

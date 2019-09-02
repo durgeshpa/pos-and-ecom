@@ -690,11 +690,11 @@ class DispatchSerializer(serializers.ModelSerializer):
         return obj.trip.trip_status
 
     def get_shipment_payment(self, obj):
+        from payments.models import Payment as InvoicePayment
         payment_data = {}
-        payment = Payment.objects.filter(shipment=obj)
-
-        payment_data = Payment.objects.filter(shipment=obj)\
-            .values('paid_amount', 'reference_no', 'description', 'payment_mode_name')
+        payment = InvoicePayment.objects.filter(shipment=obj)
+        if payment.exists():
+            payment_data = payment.values('paid_amount', 'reference_no', 'description', 'payment_mode_name')
 
         return payment_data
 
@@ -720,14 +720,13 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
         return obj.trip.trip_status
 
     def get_shipment_payment(self, obj):
+        from payments.models import Payment as InvoicePayment
         payment_data = {}
-        payment = Payment.objects.filter(shipment=obj)
-
-        payment_data = Payment.objects.filter(shipment=obj)\
-            .values('paid_amount', 'reference_no', 'description', 'payment_mode_name')
+        payment = InvoicePayment.objects.filter(shipment=obj)
+        if payment.exists():
+            payment_data = payment.values('paid_amount', 'reference_no', 'description', 'payment_mode_name')
 
         return payment_data
-
 
     # def get_shipment_payment(self, obj):
 

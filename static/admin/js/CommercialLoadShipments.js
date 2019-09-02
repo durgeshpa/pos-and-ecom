@@ -91,30 +91,35 @@ function CreateResponseTable(data){
       var trip = data['response_data'][i]['trip'];
       var order = "<td>" + data['response_data'][i]['order'] + "</td>";
       var shipment_status = "<td>" + data['response_data'][i]['shipment_status'] + "</td>";
-      var invoice_no = "<td><a href='/admin/retailer_to_sp/cart/commercial/"+pk+"/shipment-details/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
+      //var invoice_no = "<td><a href='/admin/retailer_to_sp/cart/commercial/"+pk+"/shipment-details/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
+      var invoice_no = "<td><a href='/admin/payments/shipmentpaymentapproval/"+pk+"/change/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
+     
       var invoice_amount = "<td>" + data['response_data'][i]['invoice_amount'] + "</td>";
       var cash_to_be_collected = "<td>" + data['response_data'][i]['cash_to_be_collected'] + "</td>";
-      var cash_payment = "<td><form class='"+ shipment_payment +"' action=''><input type='number' placeholder='0.0' step='0.01' min='0' name='cash_amount' value='"+ data1['shipment_payment']['cash_payment_amount'] +"'></form></td>";
+/*      var cash_payment = "<td><form class='"+ shipment_payment +"' action=''><input type='number' placeholder='0.0' step='0.01' min='0' name='cash_amount' value='"+ data1['shipment_payment']['cash_payment_amount'] +"'></form></td>";
       var online_payment_mode = "<td><form class='"+ shipment_payment +"' action=''><select name='payment_mode' id='mode_"+ shipment_payment_id +"'><option value=''>Select</option>"+
       "<option value='neft'>NEFT</option><option value='upi'>UPI</option><option value='rtgs'>RTGS</option><option value='imps'>IMPS</option>"+
       "</select></form></td>";
       var online_payment = "<td><form class='"+ shipment_payment +"' action=''><input type='number' placeholder='0.0' step='0.01' min='0' name='online_amount' value='"+ data1['shipment_payment']['online_payment_amount'] +"'></form></td>";
       var reference_no = "<td><form class='"+ shipment_payment +"' action=''><input type='text' name='reference_no' value='"+ data1['shipment_payment']['reference_no'] +"'></form></td>";
-      var description = "<td><form class='"+ shipment_payment +"' action=''><input type='text' name='description' value='"+ data1['shipment_payment']['description'] +"'></form></td>";
+      var description = "<td><form class='"+ shipment_payment +"' action=''><input type='text' name='description' value='"+ data1['shipment_payment']['description'] +"'></form></td>";*/
       var invoice_city = "<td>" + data['response_data'][i]['invoice_city'] + "</td>";
       var shipment_address = "<td>" + data['response_data'][i]['shipment_address'] + "</td>";
       var created_at = "<td>" + data['response_data'][i]['created_at'] + "</td>";
-      var submit_payment_button = "<td><form class='"+ shipment_payment +"' action=''><button class='shipment-payments-submit' type='button' data-id='"+ shipment_payment_id +"' data-total='"+ total_amount +"'>Submit!</button></form></td>";    
+      //var submit_payment_button = "<td><form class='"+ shipment_payment +"' action=''><button class='shipment-payments-submit' type='button' data-id='"+ shipment_payment_id +"' data-total='"+ total_amount +"'>Submit!</button></form></td>";    
+
+      var append_data = "<tr class="+ row +"><td class='original'></td>" + invoice_no + invoice_amount + cash_to_be_collected + shipment_status + 
+      invoice_city + created_at + order + shipment_address + "</tr>";
   
-      var append_data = "<tr class="+ row +"><td class='original'></td>" + invoice_no + invoice_amount + cash_to_be_collected + cash_payment 
+      /*var append_data = "<tr class="+ row +"><td class='original'></td>" + invoice_no + invoice_amount + cash_to_be_collected + cash_payment 
       + online_payment_mode + online_payment + reference_no + description +shipment_status + 
-      invoice_city + created_at + order + shipment_address + submit_payment_button +"</tr>"
+      invoice_city + created_at + order + shipment_address + submit_payment_button +"</tr>"*/
 
       $("tbody#data").append(append_data);
-      var mode = "mode_"+ shipment_payment_id;
+      /*var mode = "mode_"+ shipment_payment_id;
       var mode_value = data1['shipment_payment']['payment_mode'];
       if (mode_value != "")
-      $('#'+ mode +' option[value='+ mode_value +']').attr("selected", "selected");
+      $('#'+ mode +' option[value='+ mode_value +']').attr("selected", "selected");*/
   }
 /*      var submit_payment_button = "<button class='shipment-payments-submit' type='button'>Submit!</button>"*/
       //$("tbody#data").append(submit_payment_button);
