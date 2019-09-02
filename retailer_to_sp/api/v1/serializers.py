@@ -690,32 +690,11 @@ class DispatchSerializer(serializers.ModelSerializer):
         return obj.trip.trip_status
 
     def get_shipment_payment(self, obj):
+        payment_data = {}
+        payment = Payment.objects.filter(shipment=obj)
 
-        payment_data = {}            
-        #payment = ShipmentPayment.objects.get(shipment=obj)
-        payment, created = ShipmentPayment.objects.get_or_create(shipment=obj)
-        payment_data['shipment_payment_id'] =  payment.id
-        payment_data['description'] =  payment.description
-
-        #cash_payment = CashPayment.objects.get(payment=payment)
-        _payment_mode, created = PaymentMode.objects.get_or_create(
-            payment=payment, payment_mode_name="cash_payment")
-
-        cash_payment, created = CashPayment.objects.get_or_create(payment=payment)#, 
-        #                             paid_amount=obj.cash_to_be_collected())
-        payment_data['cash_payment_amount'] = cash_payment.paid_amount
-
-        online_payment = OnlinePayment.objects.filter(payment=payment)
-        if online_payment.exists():
-            online_payment = OnlinePayment.objects.get(payment=payment)#, 
-         
-            payment_data['online_payment_amount'] = online_payment.paid_amount
-            payment_data['reference_no'] = online_payment.reference_no
-            payment_data['payment_mode'] = online_payment.online_payment_type
-        else:
-            payment_data['online_payment_amount'] = ""
-            payment_data['reference_no'] = ""
-            payment_data['payment_mode'] = ""
+        payment_data = Payment.objects.filter(shipment=obj)\
+            .values('paid_amount', 'reference_no', 'description', 'payment_mode_name')
 
         return payment_data
 
@@ -740,35 +719,44 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
     def get_trip_status(self, obj):
         return obj.trip.trip_status
 
-
     def get_shipment_payment(self, obj):
+        payment_data = {}
+        payment = Payment.objects.filter(shipment=obj)
 
-        payment_data = {}            
-        #payment = ShipmentPayment.objects.get(shipment=obj)
-        payment, created = ShipmentPayment.objects.get_or_create(shipment=obj)
-        payment_data['shipment_payment_id'] =  payment.id
-        payment_data['description'] =  payment.description
-        #cash_payment = CashPayment.objects.get(payment=payment)
-        _payment_mode, created = PaymentMode.objects.get_or_create(
-            payment=payment, payment_mode_name="cash_payment")
-
-        cash_payment, created = CashPayment.objects.get_or_create(payment=payment)#, 
-        #                             paid_amount=obj.cash_to_be_collected())
-        payment_data['cash_payment_amount'] = cash_payment.paid_amount
-
-        online_payment = OnlinePayment.objects.filter(payment=payment)
-        if online_payment.exists():
-            online_payment = OnlinePayment.objects.get(payment=payment)#, 
-         
-            payment_data['online_payment_amount'] = online_payment.paid_amount
-            payment_data['reference_no'] = online_payment.reference_no
-            payment_data['payment_mode'] = online_payment.online_payment_type
-        else:
-            payment_data['online_payment_amount'] = ""
-            payment_data['reference_no'] = ""
-            payment_data['payment_mode'] = ""
+        payment_data = Payment.objects.filter(shipment=obj)\
+            .values('paid_amount', 'reference_no', 'description', 'payment_mode_name')
 
         return payment_data
+
+
+    # def get_shipment_payment(self, obj):
+
+    #     payment_data = {}            
+    #     #payment = ShipmentPayment.objects.get(shipment=obj)
+    #     payment, created = ShipmentPayment.objects.get_or_create(shipment=obj)
+    #     payment_data['shipment_payment_id'] =  payment.id
+    #     payment_data['description'] =  payment.description
+    #     #cash_payment = CashPayment.objects.get(payment=payment)
+    #     _payment_mode, created = PaymentMode.objects.get_or_create(
+    #         payment=payment, payment_mode_name="cash_payment")
+
+    #     cash_payment, created = CashPayment.objects.get_or_create(payment=payment)#, 
+    #     #                             paid_amount=obj.cash_to_be_collected())
+    #     payment_data['cash_payment_amount'] = cash_payment.paid_amount
+
+    #     online_payment = OnlinePayment.objects.filter(payment=payment)
+    #     if online_payment.exists():
+    #         online_payment = OnlinePayment.objects.get(payment=payment)#, 
+         
+    #         payment_data['online_payment_amount'] = online_payment.paid_amount
+    #         payment_data['reference_no'] = online_payment.reference_no
+    #         payment_data['payment_mode'] = online_payment.online_payment_type
+    #     else:
+    #         payment_data['online_payment_amount'] = ""
+    #         payment_data['reference_no'] = ""
+    #         payment_data['payment_mode'] = ""
+
+    #     return payment_data
 
     def get_cash_to_be_collected(self, obj):
         return obj.cash_to_be_collected()

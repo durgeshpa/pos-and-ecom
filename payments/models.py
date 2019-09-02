@@ -107,7 +107,7 @@ class Payment(AbstractDateTime):
     order = models.ForeignKey(Order, related_name='order_payment_data', on_delete=models.CASCADE)
     shipment = models.ForeignKey(OrderedProduct, related_name='shipment_payment', on_delete=models.SET_NULL,
     null=True, blank=True) #shipment_id
-
+    # payment description
     description = models.CharField(max_length=100, null=True, blank=True)
     reference_no = models.CharField(max_length=50, unique=True)
     paid_amount = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')

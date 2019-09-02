@@ -610,51 +610,51 @@ class Trip(models.Model):
                 shipment.cash_to_be_collected())
         return round(sum(cash_to_be_collected), 2)
 
-    @property    
-    def received_cash_amount(self):
-        cash_collected = []
-        trip_shipments = self.rt_invoice_trip.all()
-        for shipment in trip_shipments:
-            cash_collected.append(
-                shipment.shipment_payment.cash_payment.paid_amount)
-        return round(sum(cash_collected), 2)
+    # @property    
+    # def received_cash_amount(self):
+    #     cash_collected = []
+    #     trip_shipments = self.rt_invoice_trip.all()
+    #     for shipment in trip_shipments:
+    #         cash_collected.append(
+    #             shipment.shipment_payment.cash_payment.paid_amount)
+    #     return round(sum(cash_collected), 2)
 
-    def online_payments(self):
-        #import pdb; pdb.set_trace()
-        online_collected = []
-        approved_online = []
-        trip_shipments = self.rt_invoice_trip.all()
-        from payments.models import OnlinePayment
-        for shipment in trip_shipments:
-            online_pay = OnlinePayment.objects.filter(payment=shipment.shipment_payment)
-            if online_pay.exists():
-                online_collected.append(
-                    online_pay[0].paid_amount)
-                approved_online.append(
-                    online_pay[0].payment_received)
-        return round(sum(online_collected), 2), round(sum(approved_online), 2)  
+    # def online_payments(self):
+    #     #import pdb; pdb.set_trace()
+    #     online_collected = []
+    #     approved_online = []
+    #     trip_shipments = self.rt_invoice_trip.all()
+    #     from payments.models import OnlinePayment
+    #     for shipment in trip_shipments:
+    #         online_pay = OnlinePayment.objects.filter(payment=shipment.shipment_payment)
+    #         if online_pay.exists():
+    #             online_collected.append(
+    #                 online_pay[0].paid_amount)
+    #             approved_online.append(
+    #                 online_pay[0].payment_received)
+    #     return round(sum(online_collected), 2), round(sum(approved_online), 2)  
 
-    @property    
-    def received_online_amount(self):
-        payment_amount, _ = self.online_payments()
-        return payment_amount
+    # @property    
+    # def received_online_amount(self):
+    #     payment_amount, _ = self.online_payments()
+    #     return payment_amount
 
-    @property    
-    def approved_online_amount(self):
-        _, payment_amount = self.online_payments()
-        return payment_amount   
+    # @property    
+    # def approved_online_amount(self):
+    #     _, payment_amount = self.online_payments()
+    #     return payment_amount   
 
-    @property    
-    def check_online_amount_approved(self):
-        trip_shipments = self.rt_invoice_trip.all()
-        # check if all online payments are approved
-        from payments.models import OnlinePayment
-        for shipment in trip_shipments:
-            online_pay = OnlinePayment.objects.filter(payment=shipment.shipment_payment)
-            if online_pay.exists() and \
-                online_pay[0].payment_approval_status!="approved_and_verified":
-                return False
-        return True 
+    # @property    
+    # def check_online_amount_approved(self):
+    #     trip_shipments = self.rt_invoice_trip.all()
+    #     # check if all online payments are approved
+    #     from payments.models import OnlinePayment
+    #     for shipment in trip_shipments:
+    #         online_pay = OnlinePayment.objects.filter(payment=shipment.shipment_payment)
+    #         if online_pay.exists() and \
+    #             online_pay[0].payment_approval_status!="approved_and_verified":
+    #             return False
+    #     return True 
                
     @property
     def cash_to_be_collected_value(self):
