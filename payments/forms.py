@@ -17,7 +17,7 @@ from django.utils.html import format_html
 
 
 from accounts.middlewares import get_current_user
-from payments.models import ShipmentPayment, ShipmentPaymentApproval
+from payments.models import ShipmentPayment#, ShipmentPaymentApproval
 
 User = get_user_model()
 
@@ -27,8 +27,8 @@ class ShipmentPaymentForm(forms.ModelForm):
         model = ShipmentPayment
         fields = "__all__"
 
-class ShipmentPaymentApprovalForm(forms.ModelForm):
+# class ShipmentPaymentApprovalForm(forms.ModelForm):
 
-    class Meta:
-        model = ShipmentPaymentApproval
-        fields = "__all__"
+#     class Meta:
+#         model = ShipmentPaymentApproval
+#         fields = "__all__"
