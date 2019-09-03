@@ -6,7 +6,7 @@ from .models import Banner, BannerData,BannerPosition, BannerSlot, Page
 from.forms import BannerForm, BannerPositionForm
 class BannerDataInline(SortableStackedInline):
     model = BannerData
-    # autocomplete_fields =['banner_data']
+    autocomplete_fields =['banner_data']
 
 
 class BannerPositionAdmin(NonSortableParentAdmin):
