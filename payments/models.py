@@ -103,8 +103,6 @@ class AbstractDateTime(models.Model):
         abstract = True
 
 
-
-
 #if prepaid then its against order, else shipment
 class Payment(AbstractDateTime):
     order = models.ForeignKey(Order, related_name='order_payment_data', on_delete=models.CASCADE)

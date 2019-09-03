@@ -29,16 +29,59 @@ class OnlinePaymentAdmin1(admin.ModelAdmin):
     model = OnlinePayment
 
 
-class PaymentApprovalAdmin(admin.TabularInline):# NoDeleteAdminMixin, 
-    model = Payment   
+class PaymentApprovalAdmin(admin.ModelAdmin):# NoDeleteAdminMixin, 
+    model = PaymentApproval
+    list_display = (
+        "id", "invoice_no", "order", "amount_to_be_collected", "trip_id", 
+        "trip_created_date",
+    )
+
     fields = (
-        "paid_amount", "payment_received", "payment_mode_name",
+        "invoice_no", "amount_to_be_collected", "trip_id", 
+        "trip_created_date", "paid_amount", "payment_received", "payment_mode_name",
         "reference_no", "is_payment_approved", "payment_approval_status",
         "description",
     )
+    
     readonly_fields = (
+        "invoice_no", "amount_to_be_collected", "trip_id", "trip_created_date",
         "paid_amount", "payment_mode_name", "reference_no", "payment_approval_status",
     )
+
+    # raw_id_fields = ("shipment",)
+    def has_change_permission(self, request, obj=None):
+        if request.user.has_perm("payments.change_payment"):
+            return True
+        else:
+            return False
+
+    def trip_id(self, obj):
+        shipment = ShipmentPayment.objects.get(parent_payment=obj)
+        return shipment.trip
+    trip_id.short_description = "Trip id"
+
+    def trip_created_date(self, obj):
+        shipment = ShipmentPayment.objects.get(parent_payment=obj)
+        if obj.trip:
+            return obj.trip.created_at
+    trip_created_date.short_description = "Trip Created Date"
+
+    def invoice_no(self, obj):
+        shipment = ShipmentPayment.objects.get(parent_payment=obj)
+        return shipment.invoice_no
+    invoice_no.short_description = "Shipment Invoice No"
+
+    def amount_to_be_collected(self, obj):
+        shipment = ShipmentPayment.objects.get(parent_payment=obj)
+        return obj.cash_to_be_collected()
+    amount_to_be_collected.short_description = "Amount to be Collected"
+
+    def order(self, obj):
+        shipment = ShipmentPayment.objects.get(parent_payment=obj)
+        return mark_safe("<a href='/admin/retailer_to_sp/order/%s/change/'>%s<a/>" % (shipment.order.id,
+                  shipment.order.order_no)
+                         )
+
 
 
 class PaymentEditAdmin(admin.TabularInline):# NoDeleteAdminMixin, 
@@ -46,6 +89,8 @@ class PaymentEditAdmin(admin.TabularInline):# NoDeleteAdminMixin,
     fields = (
         "paid_amount", "payment_mode_name", "reference_no", "description"
     )
+
+
 
 
 class ShipmentPaymentEditAdmin(admin.ModelAdmin):
@@ -98,54 +143,54 @@ class ShipmentPaymentEditAdmin(admin.ModelAdmin):
                          )
 
 
-class ShipmentPaymentApprovalAdmin(admin.ModelAdmin):
-    inlines = [PaymentApprovalAdmin]
-    model = ShipmentPaymentApproval
-    #form = ShipmentPaymentApprovalForm
-    list_display = (
-        "id", "invoice_no", "order", "amount_to_be_collected", "trip_id", 
-        "trip_created_date", #"is_payment_approved"
-        # "cash_payment_amount", "online_payment_amount", "online_payment_mode",
-        #"reference_no",
-    )
+# class ShipmentPaymentApprovalAdmin(admin.ModelAdmin):
+#     inlines = [PaymentApprovalAdmin]
+#     model = ShipmentPaymentApproval
+#     #form = ShipmentPaymentApprovalForm
+#     list_display = (
+#         "id", "invoice_no", "order", "amount_to_be_collected", "trip_id", 
+#         "trip_created_date", #"is_payment_approved"
+#         # "cash_payment_amount", "online_payment_amount", "online_payment_mode",
+#         #"reference_no",
+#     )
 
-    fields = (
-        "invoice_no", "amount_to_be_collected", "trip_id", 
-        "trip_created_date", #"is_payment_approved"
-    )
+#     fields = (
+#         "invoice_no", "amount_to_be_collected", "trip_id", 
+#         "trip_created_date", #"is_payment_approved"
+#     )
     
-    readonly_fields = (
-        "invoice_no", "amount_to_be_collected", "trip_id", "trip_created_date"
-    )
+#     readonly_fields = (
+#         "invoice_no", "amount_to_be_collected", "trip_id", "trip_created_date"
+#     )
 
-    # raw_id_fields = ("shipment",)
-    def has_change_permission(self, request, obj=None):
-        if request.user.has_perm("payments.change_payment"):
-            return True
-        else:
-            return False
+#     # raw_id_fields = ("shipment",)
+#     def has_change_permission(self, request, obj=None):
+#         if request.user.has_perm("payments.change_payment"):
+#             return True
+#         else:
+#             return False
 
-    def trip_id(self, obj):
-        return obj.trip
-    trip_id.short_description = "Trip id"
+#     def trip_id(self, obj):
+#         return obj.trip
+#     trip_id.short_description = "Trip id"
 
-    def trip_created_date(self, obj):
-        if obj.trip:
-            return obj.trip.created_at
-    trip_created_date.short_description = "Trip Created Date"
+#     def trip_created_date(self, obj):
+#         if obj.trip:
+#             return obj.trip.created_at
+#     trip_created_date.short_description = "Trip Created Date"
 
-    # def invoice_no(self, obj):
-    #     return obj.shipment.invoice_no
-    # invoice_no.short_description = "Shipment Invoice No"
+#     # def invoice_no(self, obj):
+#     #     return obj.shipment.invoice_no
+#     # invoice_no.short_description = "Shipment Invoice No"
 
-    def amount_to_be_collected(self, obj):
-        return obj.cash_to_be_collected()
-    amount_to_be_collected.short_description = "Amount to be Collected"
+#     def amount_to_be_collected(self, obj):
+#         return obj.cash_to_be_collected()
+#     amount_to_be_collected.short_description = "Amount to be Collected"
 
-    def order(self, obj):
-        return mark_safe("<a href='/admin/retailer_to_sp/order/%s/change/'>%s<a/>" % (obj.order.id,
-                  obj.order.order_no)
-                         )
+#     def order(self, obj):
+#         return mark_safe("<a href='/admin/retailer_to_sp/order/%s/change/'>%s<a/>" % (obj.order.id,
+#                   obj.order.order_no)
+#                          )
 
 # class OrderPaymentApprovalAdmin(admin.ModelAdmin):
 #     #inlines = [OnlinePaymentAdmin]
@@ -200,6 +245,7 @@ class WalletPaymentAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Payment,PaymentAdmin)
+admin.site.register(PaymentApproval,PaymentApprovalAdmin)
 #admin.site.register(ShipmentPayment,ShipmentPaymentAdmin)
 admin.site.register(CashPayment,CashPaymentAdmin)
 admin.site.register(OnlinePayment,OnlinePaymentAdmin1)
