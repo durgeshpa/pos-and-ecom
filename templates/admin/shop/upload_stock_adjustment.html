@@ -64,10 +64,10 @@
     <script>
     $( document ).ready(function() {
      $('#id_shop').on('change', function(){
-          window.history.pushState($(this).val(), 'newtitle', '/admin/shops/shop/adjust-stock/');
-          window.location=$(this).val();
+          window.history.pushState($(this).val(), 'newtitle', '/admin/shops/shop/');
+          window.location= 'adjust-stock/' + $(this).val();
             });
-        });
+      });
 
     </script>
   <br class="clear">

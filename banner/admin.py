@@ -6,12 +6,14 @@ from .models import Banner, BannerData,BannerPosition, BannerSlot, Page
 from.forms import BannerForm, BannerPositionForm
 class BannerDataInline(SortableStackedInline):
     model = BannerData
-    autocomplete_fields =['banner_data']
+    # autocomplete_fields =['banner_data']
 
 
 class BannerPositionAdmin(NonSortableParentAdmin):
     form=BannerPositionForm
     inlines = [BannerDataInline]
+
+
 
 
 
@@ -25,6 +27,7 @@ class BannerAdmin(admin.ModelAdmin):
     list_filter = ('name','image', 'created_at','updated_at')
     search_fields= ('name', 'created_at','updated_at')
     form = BannerForm
+
 
 
 
