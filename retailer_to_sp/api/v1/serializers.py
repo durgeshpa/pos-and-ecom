@@ -769,15 +769,19 @@ class ShipmentDetailSerializer(serializers.ModelSerializer):
     product_short_description = serializers.ReadOnlyField()
     mrp = serializers.DecimalField(default=0.00, max_digits=20, decimal_places=2, read_only=True)
     price_to_retailer = serializers.DecimalField(default=0.00, max_digits=20, decimal_places=2, read_only=True)
-    cash_discount = serializers.ReadOnlyField()
-    loyalty_incentive = serializers.ReadOnlyField()
-    margin = serializers.ReadOnlyField()
+    #cash_discount = serializers.ReadOnlyField()
+    #loyalty_incentive = serializers.ReadOnlyField()
+    #margin = serializers.ReadOnlyField()
+    product_image = serializers.SerializerMethodField()
+
+    def get_product_image(self, obj):
+        return obj.product.product_pro_image.last().image.url if obj.product.product_pro_image.last() else ''
 
     class Meta:
         model = RetailerOrderedProductMapping
-        fields = ('ordered_product', 'ordered_product_status', 'product', 'product_short_description', 'mrp',
-                   'price_to_retailer', 'cash_discount', 'loyalty_incentive', 'margin', 'shipped_qty',  'returned_qty',
-                   'damaged_qty')
+        fields = ('ordered_product', 'ordered_product_status', 'product', 'product_short_description', 'mrp','price_to_retailer',
+                  #'cash_discount', 'loyalty_incentive', 'margin',
+                  'shipped_qty',  'returned_qty','damaged_qty', 'product_image')
 
 class TripSerializer(serializers.ModelSerializer):
     trip_id = serializers.ReadOnlyField()
