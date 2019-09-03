@@ -1,5 +1,5 @@
 from django import forms
-from .models import ParentRetailerMapping, Shop, ShopType, ShopUserMapping
+from .models import ParentRetailerMapping, Shop, ShopType, ShopUserMapping, ShopTiming
 from addresses.models import Address
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -208,6 +208,7 @@ class ShopTimingForm(forms.ModelForm):
     )
 
     class Meta:
+        model = ShopTiming
         fields = ('shop','open_timing','closing_timing','break_start_time','break_end_time','off_day')
 
 class BulkShopUpdation(forms.Form):

@@ -264,8 +264,21 @@ class ParentRetailerMappingAdmin(admin.ModelAdmin):
     class Media:
         pass
 class ShopTimingAdmin(admin.ModelAdmin):
-    list_display = ('shop','open_timing','closing_timing','break_start_time','break_end_time','off_day')
+    list_display = ('shop','open_timing','closing_timing','break_start_times','break_end_times','off_day')
     form = ShopTimingForm
+
+    def break_start_times(self, obj):
+        if str(obj.break_start_time) == '00:00:00':
+            return "-"
+        return obj.break_start_time
+    break_start_times.short_description = 'break start time'
+
+    def break_end_times(self, obj):
+        if str(obj.break_end_time) == '00:00:00':
+            return "-"
+        return obj.break_end_time
+    break_end_times.short_description = 'break end time'
+
 
 class ShopFilter(AutocompleteFilter):
     title = 'Shop' # display title

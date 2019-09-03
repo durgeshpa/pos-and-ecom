@@ -239,7 +239,7 @@ class ShopTimingView(generics.ListCreateAPIView):
 
         if serializer.is_valid():
             self.perform_create(serializer)
-            msg = {'is_success': True, 'message': '', 'response_data': serializer.data}
+            msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
         else:
             msg = {'is_success': False, 'message':['shop, open_timing or closing_timing Required'], 'response_data': None}
         return Response(msg,status=status.HTTP_200_OK)
