@@ -14,11 +14,11 @@ class DeviceSerializer(serializers.ModelSerializer):
         fields = ('dev_id','reg_id','name','is_active', 'user')
         extra_kwargs = {'user':{'required':False}}
         
-    def get_serializer_context(self):
-        return {"user": self.kwargs['user']}
+    # def get_serializer_context(self):
+    #     return {"user": self.kwargs['user']}
 
     def create(self, validated_data):
-        user = self.context["user"]
+        user = self.context['request'].user
         # if not user.is_anonymous():
         #     name = user.first_name if first_name!="" else user.phone_number
 
