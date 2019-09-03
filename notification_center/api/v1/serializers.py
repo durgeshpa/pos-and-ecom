@@ -14,6 +14,18 @@ class DeviceSerializer(serializers.ModelSerializer):
         fields = ('dev_id','reg_id','name','is_active', 'user')
         extra_kwargs = {'user':{'required':False}}
         
+    def get_serializer_context(self):
+        return {"user": self.kwargs['user']}
+
+    def create(self, validated_data):
+        user = self.context["user"]
+        dev_id = validated_data.get('dev_id', None)
+        reg_id = validated_data.get('reg_id', None)
+
+        device, created = Device.objects.update_or_create(
+            dev_id=dev_id,
+            defaults={'user': user, 'reg_id':reg_id})
+        return device
 
 
 class NotificationSerializer(serializers.ModelSerializer):
