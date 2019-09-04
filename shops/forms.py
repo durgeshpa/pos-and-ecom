@@ -238,14 +238,15 @@ class ShopUserMappingCsvViewForm(forms.Form):
             if row[1] and not re.match("^[\d]*$", row[1]) and not get_user_model().objects.filter(phone_number=row[1]).exists():
                 raise ValidationError(_('INVALID_MANAGER_NO at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
 
-            if row[1] and not any([row[1] in uploaded_employee_list , ShopUserMapping.objects.filter(employee_id=row[1]).exists()]):
-                raise ValidationError(_('INVALID_MANAGER_NO at Row[%(value)s]. Please create employee first, then manager'),params={'value': id + 1}, )
+            if row[1] and not any([row[1] in uploaded_employee_list, ShopUserMapping.objects.filter(employee__phone_number=row[1]).exists()]):
+                raise ValidationError(_('INVALID_MANAGER_NO at Row[%(value)s]. Please create employee first, then manager'),
+                                      params={'value': id + 1}, )
 
             if not row[3] or not re.match("^[\d]*$", row[3]) or not Group.objects.filter(pk=row[3]):
                 raise ValidationError(_('INVALID_GROUP_ID at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
 
             uploaded_employee_list.append(row[2])
-            if ShopUserMapping.objects.filter(shop_id=row[0],employee=get_user_model().objects.get(phone_number=row[2])).exists():
+            if ShopUserMapping.objects.filter(shop_id=row[0], employee__phone_number=row[2]).exists():
                 raise ValidationError(_('This shop_user_mapping already exists at Row[%(value)s]'),
                                       params={'value': id + 1}, )
 

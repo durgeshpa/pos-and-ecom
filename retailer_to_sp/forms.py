@@ -400,9 +400,14 @@ class AssignPickerForm(forms.ModelForm):
 class TripForm(forms.ModelForm):
     delivery_boy = forms.ModelChoiceField(
         queryset=UserWithName.objects.all(),
-        widget=RelatedFieldWidgetCanAdd(
-            UserWithName,
-            related_url="admin:accounts_user_add"))
+        widget=autocomplete.ModelSelect2(
+            url='admin:user_with_name_autocomplete',)
+    )
+    # delivery_boy = forms.ModelChoiceField(
+    #     queryset=UserWithName.objects.all(),
+    #     widget=RelatedFieldWidgetCanAdd(
+    #         UserWithName,
+    #         related_url="admin:accounts_user_add"))
     trip_status = forms.ChoiceField(choices=TRIP_STATUS)
     search_by_area = forms.CharField(required=False)
     search_by_pincode = forms.CharField(required=False)
