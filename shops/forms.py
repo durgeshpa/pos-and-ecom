@@ -203,6 +203,7 @@ class ShopTimingForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='admin:shop-timing-autocomplete', )
     )
     off_day = forms.MultipleChoiceField(
+        required=False,
         choices=off_day_choices,
         widget=forms.SelectMultiple(),
     )
