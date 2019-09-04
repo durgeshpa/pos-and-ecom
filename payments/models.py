@@ -132,7 +132,7 @@ class Payment(AbstractDateTime):
 
     def save(self, *args, **kwargs):
         #import pdb; pdb.set_trace()
-        self.order = self.shipment.order
+        # self.order = self.shipment.order
         if self.is_payment_approved:
             if self.payment_received >= self.paid_amount:
                 self.payment_approval_status = "approved_and_verified"
@@ -141,7 +141,15 @@ class Payment(AbstractDateTime):
             elif self.payment_received < self.paid_amount:
                 self.payment_approval_status = "disputed"            
 
+        # create entry to edit shipment payment
         super().save(*args, **kwargs)
+        # assuming that a postpaid order payment has one shipment payment
+        shipment_payment = ShipmentPayment.objects.filter(parent_payment=self) 
+
+        if self.prepaid_or_postpaid == "postpaid" and shipment_payment.exists():
+            shipment_payment1 = shipment_payment[0]
+            shipment_payment1.paid_amount = self.paid_amount
+            shipment_payment1.save()
 
 
 # create payment mode table shipment payment mapping

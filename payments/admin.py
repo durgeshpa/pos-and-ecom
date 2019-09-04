@@ -91,58 +91,58 @@ class PaymentApprovalAdmin(admin.ModelAdmin):# NoDeleteAdminMixin,
 
 
 
-# class PaymentEditAdmin(admin.ModelAdmin):# NoDeleteAdminMixin, 
-#     model = PaymentEdit
-#     list_display = (
-#         "id", "invoice_no", "order", "amount_to_be_collected", "trip_id", 
-#         "trip_created_date",
-#     )
+class PaymentEditAdmin(admin.ModelAdmin):# NoDeleteAdminMixin, 
+    model = PaymentEdit
+    list_display = (
+        "id", "invoice_no", "order", "amount_to_be_collected", "trip_id", 
+        "trip_created_date",
+    )
 
-#     fields = (
-#         "invoice_no", "amount_to_be_collected", "trip_id", 
-#         "trip_created_date", "paid_amount", "payment_received", "payment_mode_name",
-#         "reference_no", "is_payment_approved", "payment_approval_status",
-#         "description",
-#     )
+    fields = (
+        "invoice_no", "amount_to_be_collected", "trip_id", 
+        "trip_created_date", "paid_amount", "payment_received", "payment_mode_name",
+        "reference_no", "is_payment_approved", "payment_approval_status",
+        "description",
+    )
     
-#     readonly_fields = (
-#         "invoice_no", "amount_to_be_collected", "trip_id", "trip_created_date",
-#         "payment_approval_status", "is_payment_approved", "payment_received",
-#     )
+    readonly_fields = (
+        "invoice_no", "amount_to_be_collected", "trip_id", "trip_created_date",
+        "payment_approval_status", "is_payment_approved", "payment_received",
+    )
 
-#     # raw_id_fields = ("shipment",)
-#     def has_change_permission(self, request, obj=None):
-#         if request.user.has_perm("payments.change_payment"):
-#             return True
-#         else:
-#             return False
+    # raw_id_fields = ("shipment",)
+    def has_change_permission(self, request, obj=None):
+        if request.user.has_perm("payments.change_payment"):
+            return True
+        else:
+            return False
 
-#     def trip_id(self, obj):
-#         shipment = ShipmentPayment.objects.get(parent_payment=obj)
-#         return shipment.trip
-#     trip_id.short_description = "Trip id"
+    def trip_id(self, obj):
+        shipment_payment = ShipmentPayment.objects.get(parent_payment=obj)
+        return shipment_payment.shipment.trip
+    trip_id.short_description = "Trip id"
 
-#     def trip_created_date(self, obj):
-#         shipment = ShipmentPayment.objects.get(parent_payment=obj)
-#         if obj.trip:
-#             return obj.trip.created_at
-#     trip_created_date.short_description = "Trip Created Date"
+    def trip_created_date(self, obj):
+        shipment_payment = ShipmentPayment.objects.get(parent_payment=obj)
+        if shipment_payment.shipment.trip:
+            return shipment_payment.shipment.trip.created_at
+    trip_created_date.short_description = "Trip Created Date"
 
-#     def invoice_no(self, obj):
-#         shipment = ShipmentPayment.objects.get(parent_payment=obj)
-#         return shipment.invoice_no
-#     invoice_no.short_description = "Shipment Invoice No"
+    def invoice_no(self, obj):
+        shipment_payment = ShipmentPayment.objects.get(parent_payment=obj)
+        return shipment_payment.shipment.invoice_no
+    invoice_no.short_description = "Shipment Invoice No"
 
-#     def amount_to_be_collected(self, obj):
-#         shipment = ShipmentPayment.objects.get(parent_payment=obj)
-#         return obj.cash_to_be_collected()
-#     amount_to_be_collected.short_description = "Amount to be Collected"
+    def amount_to_be_collected(self, obj):
+        shipment_payment = ShipmentPayment.objects.get(parent_payment=obj)
+        return shipment_payment.shipment.cash_to_be_collected()
+    amount_to_be_collected.short_description = "Amount to be Collected"
 
-#     def order(self, obj):
-#         shipment = ShipmentPayment.objects.get(parent_payment=obj)
-#         return mark_safe("<a href='/admin/retailer_to_sp/order/%s/change/'>%s<a/>" % (shipment.order.id,
-#                   shipment.order.order_no)
-#                          )
+    def order(self, obj):
+        shipment_payment = ShipmentPayment.objects.get(parent_payment=obj)
+        return mark_safe("<a href='/admin/retailer_to_sp/order/%s/change/'>%s<a/>" % (shipment_payment.shipment.order.id,
+                  shipment_payment.shipment.order.order_no)
+                         )
 
 
 class CashPaymentAdmin(admin.ModelAdmin):
@@ -169,4 +169,4 @@ admin.site.register(ShipmentPayment,ShipmentPaymentAdmin)
 
 # payment edit and approvals
 admin.site.register(PaymentApproval,PaymentApprovalAdmin)
-#admin.site.register(PaymentEdit,PaymentEditAdmin)
+admin.site.register(PaymentEdit,PaymentEditAdmin)
