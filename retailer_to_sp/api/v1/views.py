@@ -1200,7 +1200,7 @@ class ShipmentDetail(APIView):
         shipment_id = kwargs.get('shipment')
         shipment = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
         shipment_product_details = ShipmentDetailSerializer(shipment, many=True)
-        cash_to_be_collected = shipment.last().ordered_product.cash_collected_by_delivery_boy()
+        cash_to_be_collected = shipment.last().ordered_product.cash_to_be_collected()
         msg = {'is_success': True, 'message': ['Shipment Details'],
                'response_data': shipment_product_details.data,'cash_to_be_collected': cash_to_be_collected}
         return Response(msg, status=status.HTTP_201_CREATED)
