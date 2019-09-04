@@ -1273,7 +1273,7 @@ class StatusChangedAfterAmountCollected(APIView):
         shipment_id = kwargs.get('shipment')
         cash_collected = self.request.POST.get('cash_collected')
         shipment = OrderedProduct.objects.get(id=shipment_id)
-        if float(cash_collected) == float(shipment.cash_to_be_collected()):
+        if float(cash_collected) == float(shipment.cash_collected_by_delivery_boy()):
             update_order_status(
                 close_order_checked=False,
                 shipment_id=shipment_id
