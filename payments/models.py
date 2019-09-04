@@ -274,6 +274,12 @@ class ShipmentPaymentEdit(OrderedProduct):
     class Meta:
         proxy = True
 
+
+class PaymentEdit(Payment):
+    class Meta:
+        proxy = True
+
+
 class PaymentApproval(Payment):
     class Meta:
         proxy = True        
