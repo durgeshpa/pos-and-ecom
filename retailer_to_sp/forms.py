@@ -634,6 +634,7 @@ class ShipmentForm(forms.ModelForm):
 
         if (data['close_order'] and
                 not data['shipment_status'] == OrderedProduct.READY_TO_SHIP):
+
                 raise forms.ValidationError(
                     _('You can only close the order in QC Passed state'),)
 
@@ -890,8 +891,7 @@ class OrderForm(forms.ModelForm):
                 if status:
                     raise forms.ValidationError(
                         _('Sorry! This order cannot be cancelled'), )
-            else:
-                return data
+        return data
 
     def __init__(self, *args, **kwargs):
         super(OrderForm, self).__init__(*args, **kwargs)

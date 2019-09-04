@@ -1,5 +1,5 @@
 from django import forms
-from .models import ParentRetailerMapping, Shop, ShopType, ShopUserMapping
+from .models import ParentRetailerMapping, Shop, ShopType, ShopUserMapping, ShopTiming
 from addresses.models import Address
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -180,6 +180,37 @@ class AddressInlineFormSet(BaseInlineFormSet):
         elif flag==0:
             raise forms.ValidationError('Please add at least one shipping address')
 
+class ShopTimingForm(forms.ModelForm):
+    SUN = 'SUN'
+    MON = 'MON'
+    TUE = 'TUE'
+    WED = 'WED'
+    THU = 'THU'
+    FRI = 'FRI'
+    SAT = 'SAT'
+
+    off_day_choices = (
+        (SUN, 'Sunday'),
+        (MON, 'Monday'),
+        (TUE, 'Tuesday'),
+        (WED, 'Wednesday'),
+        (THU, 'Thuresday'),
+        (FRI, 'Friday'),
+        (SAT, 'Saturday'),
+    )
+    shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['r']),
+        widget=autocomplete.ModelSelect2(url='admin:shop-timing-autocomplete', )
+    )
+    off_day = forms.MultipleChoiceField(
+        required=False,
+        choices=off_day_choices,
+        widget=forms.SelectMultiple(),
+    )
+
+    class Meta:
+        model = ShopTiming
+        fields = ('shop','open_timing','closing_timing','break_start_time','break_end_time','off_day')
 
 class BulkShopUpdation(forms.Form):
     file = forms.FileField(label='Select a file')
