@@ -366,15 +366,67 @@ class SellerShopOrder(generics.ListAPIView):
                              created_at__date__gte=last_day).values('buyer_shop').annotate(
             buyer_shop_count=Count('buyer_shop')).order_by('buyer_shop')
 
+    def get_sales_person_shops_data(self, sales_person, start_date, end_date):
+        all_shops = sales_person.shop_employee.filter(
+            shop__shop_type__shop_type='r',
+             status=True).values('shop__id')
+        queryset = sales_person.shop_employee.filter(
+            shop__shop_type__shop_type='r',
+             status=True,
+             shop__rt_buyer_shop_order__created_at__date__gte=start_date,
+             shop__rt_buyer_shop_order__created_at__date__lte=end_date).select_related('shop').annotate(
+                        num_orders=Count('shop__rt_buyer_shop_order'),
+                        num_skus=Count('shop__rt_buyer_shop_order__ordered_cart__rt_cart_list'),
+                        num_sku_pieces=Sum('shop__rt_buyer_shop_order__ordered_cart__rt_cart_list__no_of_pieces'),
+                        ordered_amount=Sum(
+                            F('shop__rt_buyer_shop_order__ordered_cart__rt_cart_list__no_of_pieces')*F(
+                                'shop__rt_buyer_shop_order__ordered_cart__rt_cart_list__cart_product_price__price_to_retailer')
+                            )
+                        )
+        shop_order_details = {q.shop.id:(q.num_orders, q.num_skus, q.num_sku_pieces, q.ordered_amount) for q in queryset}
+        all_shop_performance = []
+        for shop in all_shops:
+            data_tuple = shop_order_details.get(shop.shop.id,(0,0,0,0))
+            shop_performance = {
+                        "name": shop['shop__shop_name'],
+                        "no_of_order": data_tuple[0],
+                        "no_of_ordered_sku": data_tuple[1],
+                        "no_of_ordered_sku_pieces": data_tuple[2],
+                        "ordered_amount": data_tuple[3],
+                    }
+            yield shop_performance
+
     def list(self, request, *args, **kwargs):
+        self.
         data = []
         data_total = []
+        days_diff = int(self.request.query_params.get('day', 1))
+        today = datetime.today()
+        if days_diff == 1:
+            from_date = today
+            to_date = today + timedelta(days=1)
+        else:
+            from_date = today - timedelta(days=days_diff)
+            to_date = today
+        shop_user = ShopUserMapping.objects.filter(employee=self.request.user, shop__shop_type__shop_type='sp', status=True).last()
+        if not shop_user:
+            msg = {'is_success': False, 'message': ["Sorry No matching user found"], 'response_data': data, 'response_data_total': data_total}
+            return Response(msg, status=status.HTTP_200_OK)
+        
+
+        if shop_user.employee_group.has_perm('can_sales_person_add_shop'):
+            shops_data = 
+
+
+
+
         shop_user_obj = ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop', shop__shop_type__shop_type='r', status=True)
         if not shop_user_obj.exists():
             shop_user_obj = self.get_shops()
             if not shop_user_obj.exists():
                 msg = {'is_success': False, 'message': ["Sorry No matching user found"], 'response_data': data, 'response_data_total': data_total}
                 return Response(msg, status=status.HTTP_200_OK)
+
 
         today = datetime.now()
         days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
