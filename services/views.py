@@ -42,6 +42,7 @@ class SalesReport(APIView):
                 ordered_qty = cart_product_mapping.no_of_pieces
                 all_tax_list = cart_product_mapping.cart_product.product_pro_tax
 
+
                 product_shipments = order_shipments.filter(product=product)
                 product_shipments = product_shipments.aggregate(Sum('delivered_qty'))['delivered_qty__sum']
                 if not product_shipments:
@@ -75,6 +76,7 @@ class SalesReport(APIView):
         from django.contrib import messages
 
         shop_id = self.request.GET.get('shop')
+        seller_shop = Shop.objects.get(pk=shop_id)
         start_date = self.request.GET.get('start_date', None)
         end_date = self.request.GET.get('end_date', None)
         if end_date < start_date:
@@ -88,9 +90,9 @@ class SalesReport(APIView):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="sales-report.csv"'
         writer = csv.writer(response)
-        writer.writerow(['GF Code', 'ID', 'SKU', 'Product Name', 'Brand', 'Ordered Qty', 'Delivered Qty', 'Ordered Amount', 'Ordered Tax Amount', 'Delivered Amount', 'Delivered Tax Amount'])
+        writer.writerow(['GF Code', 'ID', 'SKU', 'Product Name', 'Brand', 'Ordered Qty', 'Delivered Qty', 'Ordered Amount', 'Ordered Tax Amount', 'Delivered Amount', 'Delivered Tax Amount', 'Seller_shop'])
         for k,v in data.items():
-            writer.writerow([k, v['product_id'], v['product_sku'], v['product_name'], v['product_brand'], v['ordered_qty'], v['delivered_qty'], v['ordered_amount'], v['ordered_tax_amount'],  v['delivered_amount'], v['delivered_tax_amount']])
+            writer.writerow([k, v['product_id'], v['product_sku'], v['product_name'], v['product_brand'], v['ordered_qty'], v['delivered_qty'], v['ordered_amount'], v['ordered_tax_amount'],  v['delivered_amount'], v['delivered_tax_amount'], seller_shop])
 
         return response
 
