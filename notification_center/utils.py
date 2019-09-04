@@ -188,16 +188,19 @@ class SendNotification:
             if template.gcm_alert:
                 # fetch user registration id
                 #reg_id = Device.objects.last().reg_id
-                reg_id = Device.objects.get(user_id=self.user_id).reg_id
-                message_title = template.gcm_title
-                message_body = self.merge_template_with_data(template.gcm_description)
-                # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
-                notification = SendFCMNotification(
-                    registration_id=reg_id,
-                    message_title=message_title,
-                    message_body=message_body
-                    )            
-                notification.send()
+                devices = Device.objects.filter(user_id=self.user_id)
+                for device in devices:
+                    #reg_id = Device.objects.get(user_id=self.user_id).reg_id
+                    reg_id = device.reg_id
+                    message_title = template.gcm_title
+                    message_body = self.merge_template_with_data(template.gcm_description)
+                    # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
+                    notification = SendFCMNotification(
+                        registration_id=reg_id,
+                        message_title=message_title,
+                        message_body=message_body
+                        )            
+                    notification.send()
 
             if template.text_sms_alert:
                 sms_content = self.merge_template_with_data(template.text_sms_template)

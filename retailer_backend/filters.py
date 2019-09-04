@@ -118,12 +118,8 @@ class ManagerFilter(InputFilter):
 
     def queryset(self, request, queryset):
         value = self.value()
-        if value :
-            return queryset.filter(
-                Q(manager__first_name__icontains=value) |
-                  Q(manager__phone_number=value)
-                )
-        return queryset
+        if value:
+            return queryset.filter(manager__employee__phone_number=value)
 
 class EmployeeFilter(InputFilter):
     title = 'Employee'
@@ -131,12 +127,7 @@ class EmployeeFilter(InputFilter):
 
     def queryset(self, request, queryset):
         value = self.value()
-        if value :
-            return queryset.filter(
-                Q(employee__first_name__icontains=value) |
-                  Q(employee__phone_number=value)
-                )
-        return queryset
-
+        if value:
+            return queryset.filter(employee__phone_number=value)
 
 
