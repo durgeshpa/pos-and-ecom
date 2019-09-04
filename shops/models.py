@@ -315,7 +315,7 @@ class ShopUserMapping(models.Model):
         if self.manager == self:
             raise ValidationError(_('Manager and Employee cannot be same'))
         else:
-            ShopUserMapping.objects.filter(shop=self.shop, shop__shop_type__shop_type='r', employee_group=self.employee_group, status=True).update(status=False)
+            ShopUserMapping.objects.filter(shop=self.shop, employee_group=self.employee_group, status=True).update(status=False)
             self.status = True
         super().save(*args, **kwargs)
 
