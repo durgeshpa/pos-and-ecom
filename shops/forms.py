@@ -143,29 +143,6 @@ class ShopForm(forms.ModelForm):
             raise ValidationError(_("This field is required"))
         return warehouse_code
 
-    @classmethod
-    def get_shop_type(cls, data):
-        shop_type = data.cleaned_data.get('shop_type')
-        return shop_type
-
-    @classmethod
-    def shop_type_retailer(cls, data):
-        shop_type = cls.get_shop_type(data)
-        if shop_type.shop_type != 'r':
-            return False
-        return True
-
-    def clean_shop_code(self):
-        shop_code = self.cleaned_data.get('shop_code', None)
-        if not self.shop_type_retailer(self) and not shop_code:
-            raise ValidationError(_("This field is required"))
-        return shop_code
-
-    def clean_warehouse_code(self):
-        warehouse_code = self.cleaned_data.get('warehouse_code', None)
-        if not self.shop_type_retailer(self) and not warehouse_code:
-            raise ValidationError(_("This field is required"))
-        return warehouse_code
 
 class AddressForm(forms.ModelForm):
     nick_name = forms.CharField(required=True)

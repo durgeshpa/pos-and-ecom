@@ -8,7 +8,7 @@ from .models import (
 from addresses.models import Address
 from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
                     ShopForm, AddressForm, RequiredInlineFormSet,
-                    AddressInlineFormSet, ShopTimingForm, ShopUserMappingForm,NewShopForm)
+                    AddressInlineFormSet, ShopTimingForm, ShopUserMappingForm)
 from .views import (StockAdjustmentView, stock_adjust_sample,
                     bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete
 )
@@ -140,6 +140,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     change_list_template = 'admin/shops/shop/change_list.html'
     resource_class = ShopResource
     form = ShopForm
+    fields = ['shop_name', 'shop_owner', 'shop_type', 'status']
     actions = ["export_as_csv"]
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin,
@@ -216,11 +217,11 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
         )
 
     def get_fields(self, request, obj=None):
-        if request.user.has_perm('shops.hide_related_users'):
-            return self.readonly_fields +('shop_name', 'shop_owner', 'shop_type','status')
-        elif request.user.is_superuser:
-            return self.readonly_fields +('shop_name', 'shop_owner', 'shop_type', 'related_users',
-            'shop_code', 'warehouse_code','created_by', 'status')
+        if request.user.is_superuser:
+            return self.fields + ['related_users','shop_code', 'warehouse_code','created_by']
+        elif request.user.has_perm('shops.hide_related_users'):
+            return self.fields
+        return self.fields + ['related_users','shop_code', 'warehouse_code','created_by']
 
 
     def shop_mapped_product(self, obj):
