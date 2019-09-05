@@ -400,9 +400,14 @@ class AssignPickerForm(forms.ModelForm):
 class TripForm(forms.ModelForm):
     delivery_boy = forms.ModelChoiceField(
         queryset=UserWithName.objects.all(),
-        widget=RelatedFieldWidgetCanAdd(
-            UserWithName,
-            related_url="admin:accounts_user_add"))
+        widget=autocomplete.ModelSelect2(
+            url='admin:user_with_name_autocomplete',)
+    )
+    # delivery_boy = forms.ModelChoiceField(
+    #     queryset=UserWithName.objects.all(),
+    #     widget=RelatedFieldWidgetCanAdd(
+    #         UserWithName,
+    #         related_url="admin:accounts_user_add"))
     trip_status = forms.ChoiceField(choices=TRIP_STATUS)
     search_by_area = forms.CharField(required=False)
     search_by_pincode = forms.CharField(required=False)
@@ -629,6 +634,7 @@ class ShipmentForm(forms.ModelForm):
 
         if (data['close_order'] and
                 not data['shipment_status'] == OrderedProduct.READY_TO_SHIP):
+
                 raise forms.ValidationError(
                     _('You can only close the order in QC Passed state'),)
 
@@ -885,8 +891,7 @@ class OrderForm(forms.ModelForm):
                 if status:
                     raise forms.ValidationError(
                         _('Sorry! This order cannot be cancelled'), )
-            else:
-                return data
+        return data
 
     def __init__(self, *args, **kwargs):
         super(OrderForm, self).__init__(*args, **kwargs)

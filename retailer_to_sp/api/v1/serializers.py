@@ -737,8 +737,7 @@ class CancelOrderSerializer(serializers.ModelSerializer):
             if status:
                 raise serializers.ValidationError(
                     _('Sorry! This order cannot be cancelled'),)
-        else:
-            return data
+        return data
 
 class ShipmentOrderSerializer(serializers.ModelSerializer):
     ordered_by = UserSerializer()
