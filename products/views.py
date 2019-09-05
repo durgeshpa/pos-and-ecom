@@ -703,7 +703,7 @@ class ProductPriceAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = Product.objects.filter(
                 Q(product_name__icontains=self.q) |
-                Q(product_sku__iexact=self.q)
+                Q(product_sku__icontains=self.q)
             )
         return qs
 
