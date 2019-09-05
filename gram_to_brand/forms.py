@@ -146,7 +146,7 @@ class CartProductMappingForm(forms.ModelForm):
         required=True)
     no_of_pieces = forms.CharField(max_length=64,
         widget=forms.TextInput(attrs={'style':'max-width: 8em'}),
-        required=True)
+        required=False)
     sub_total = forms.CharField(disabled=True, required=False)
 
     def __init__(self, *args, **kwargs):
