@@ -1,6 +1,7 @@
 import requests
 from PIL import Image
 import PIL
+from dal import autocomplete
 
 from django.shortcuts import render
 from rest_framework.views import APIView
@@ -10,7 +11,7 @@ from django.http import HttpResponse, Http404
 from django.conf import settings
 from retailer_to_sp.models import Order, OrderedProductMapping
 from shops.models import Shop
-from django.db.models import Sum
+from django.db.models import Sum, Q
 import json
 import csv
 from rest_framework import permissions, authentication
@@ -74,9 +75,8 @@ class SalesReport(APIView):
     def get(self, *args, **kwargs):
         from django.http import HttpResponse
         from django.contrib import messages
-
         shop_id = self.request.GET.get('shop')
-        seller_shop = Shop.objects.get(pk=shop_id)
+        ShopName = Shop.objects.get(pk=shop_id)
         start_date = self.request.GET.get('start_date', None)
         end_date = self.request.GET.get('end_date', None)
         if end_date < start_date:
@@ -90,9 +90,9 @@ class SalesReport(APIView):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="sales-report.csv"'
         writer = csv.writer(response)
-        writer.writerow(['GF Code', 'ID', 'SKU', 'Product Name', 'Brand', 'Ordered Qty', 'Delivered Qty', 'Ordered Amount', 'Ordered Tax Amount', 'Delivered Amount', 'Delivered Tax Amount', 'Seller_shop'])
+        writer.writerow(['GF Code', 'ID', 'SKU', 'Product Name', 'Brand', 'Ordered Qty', 'Delivered Qty', 'Ordered Amount', 'Ordered Tax Amount', 'Delivered Amount', 'Delivered Tax Amount', 'Seller_Name'])
         for k,v in data.items():
-            writer.writerow([k, v['product_id'], v['product_sku'], v['product_name'], v['product_brand'], v['ordered_qty'], v['delivered_qty'], v['ordered_amount'], v['ordered_tax_amount'],  v['delivered_amount'], v['delivered_tax_amount'], seller_shop])
+            writer.writerow([k, v['product_id'], v['product_sku'], v['product_name'], v['product_brand'], v['ordered_qty'], v['delivered_qty'], v['ordered_amount'], v['ordered_tax_amount'],  v['delivered_amount'], v['delivered_tax_amount'], ShopName])
 
         return response
 
@@ -104,7 +104,6 @@ class SalesReportFormView(View):
             'admin/services/sales-report.html',
             {'form': form}
         )
-
 
 class ResizeImage(APIView):
     permission_classes = (AllowAny,)

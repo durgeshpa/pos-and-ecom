@@ -70,7 +70,6 @@ class BannerShopAutocomplete(autocomplete.Select2QuerySetView):
 
 class BannerDataAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        print(self.q)
         qs = BannerData.objects.all()
         if self.q:
             qs = qs.filter(Q(banner_data__name__icontains=self.q))
