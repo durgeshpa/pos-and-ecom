@@ -4,7 +4,7 @@ from dal import autocomplete
 from django_select2.forms import Select2MultipleWidget, ModelSelect2Widget
 from brand.models import Brand
 from categories.models import Category
-from .models import Banner , BannerPosition
+from .models import Banner , BannerPosition, BannerData
 from shops.models import Shop
 from products.models import Product
 
