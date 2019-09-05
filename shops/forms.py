@@ -113,10 +113,15 @@ class ShopForm(forms.ModelForm):
                             ),
                         ])
 
+    shop_owner = forms.ModelChoiceField(
+        queryset=get_user_model().objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:user-autocomplete', )
+    )
+
     class Meta:
         Model = Shop
         fields = (
-            'shop_name', 'shop_owner', 'shop_type', 'related_users',
+            'shop_name', 'shop_owner', 'shop_type',
             'shop_code', 'warehouse_code','created_by', 'status')
 
     @classmethod
