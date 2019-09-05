@@ -17,7 +17,7 @@ from retailer_to_sp.models import OrderedProduct
 from retailer_to_sp.views import update_order_status
 
 from datetime import datetime,timedelta, date
-from django.db.models import Q,Sum,Count,F, FloatField, Avg
+from django.db.models import Q,Sum,Count,F, FloatField, Avg, Value, IntegerField
 from retailer_to_sp.models import Order
 from django.contrib.auth.models import Group
 User =  get_user_model()
@@ -367,14 +367,11 @@ class SellerShopOrder(generics.ListAPIView):
             buyer_shop_count=Count('buyer_shop')).order_by('buyer_shop')
 
     def get_sales_person_shops_data(self, sales_person, start_date, end_date):
-        all_shops = sales_person.shop_employee.filter(
-            shop__shop_type__shop_type='r',
-             status=True).values('shop__id')
         queryset = sales_person.shop_employee.filter(
             shop__shop_type__shop_type='r',
              status=True,
              shop__rt_buyer_shop_order__created_at__date__gte=start_date,
-             shop__rt_buyer_shop_order__created_at__date__lte=end_date).select_related('shop').annotate(
+             shop__rt_buyer_shop_order__created_at__date__lte=end_date).values('shop__id').annotate(
                         num_orders=Count('shop__rt_buyer_shop_order'),
                         num_skus=Count('shop__rt_buyer_shop_order__ordered_cart__rt_cart_list'),
                         num_sku_pieces=Sum('shop__rt_buyer_shop_order__ordered_cart__rt_cart_list__no_of_pieces'),
@@ -383,23 +380,34 @@ class SellerShopOrder(generics.ListAPIView):
                                 'shop__rt_buyer_shop_order__ordered_cart__rt_cart_list__cart_product_price__price_to_retailer')
                             )
                         )
-        shop_order_details = {q.shop.id:(q.num_orders, q.num_skus, q.num_sku_pieces, q.ordered_amount) for q in queryset}
-        all_shop_performance = []
-        for shop in all_shops:
-            data_tuple = shop_order_details.get(shop.shop.id,(0,0,0,0))
-            shop_performance = {
-                        "name": shop['shop__shop_name'],
-                        "no_of_order": data_tuple[0],
-                        "no_of_ordered_sku": data_tuple[1],
-                        "no_of_ordered_sku_pieces": data_tuple[2],
-                        "ordered_amount": data_tuple[3],
-                    }
-            yield shop_performance
+        def_val = Value(0, output_field=IntegerField())
+        inactive_queryset = sales_person.shop_employee.exclude(
+            shop__shop_type__shop_type='r',
+             status=True,
+             shop__rt_buyer_shop_order__created_at__date__gte=start_date,
+             shop__rt_buyer_shop_order__created_at__date__lte=end_date
+             ).values('shop__id').annotate(
+                        num_orders=def_val,
+                        num_skus=def_val,
+                        num_sku_pieces=def_val,
+                        ordered_amount=def_val
+             )
+        sp_performance = {
+            'no_of_order': 0,
+            'no_of_ordered_sku': 0,
+            'no_of_ordered_sku_pieces': 0,
+            'ordered_amount': 0,
+            'calls_made': 0,
+            'delivered_amount': 0,
+        }
+        for shop in queryset:
+            sp_performance["no_of_order"] += perf['no_of_order']
+            sp_performance["no_of_ordered_sku"] += perf['no_of_ordered_sku']
+            sp_performance["no_of_ordered_sku_pieces"] += perf['no_of_ordered_sku_pieces']
+            sp_performance["ordered_amount"] += perf['ordered_amount']
+        return queryset.union(inactive_queryset), sp_performance
 
     def list(self, request, *args, **kwargs):
-        self.
-        data = []
-        data_total = []
         days_diff = int(self.request.query_params.get('day', 1))
         today = datetime.today()
         if days_diff == 1:
@@ -409,63 +417,23 @@ class SellerShopOrder(generics.ListAPIView):
             from_date = today - timedelta(days=days_diff)
             to_date = today
         shop_user = ShopUserMapping.objects.filter(employee=self.request.user, shop__shop_type__shop_type='sp', status=True).last()
+        
         if not shop_user:
             msg = {'is_success': False, 'message': ["Sorry No matching user found"], 'response_data': data, 'response_data_total': data_total}
             return Response(msg, status=status.HTTP_200_OK)
-        
 
         if shop_user.employee_group.has_perm('can_sales_person_add_shop'):
-            shops_data = 
-
-
-
-
-        shop_user_obj = ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop', shop__shop_type__shop_type='r', status=True)
-        if not shop_user_obj.exists():
-            shop_user_obj = self.get_shops()
-            if not shop_user_obj.exists():
-                msg = {'is_success': False, 'message': ["Sorry No matching user found"], 'response_data': data, 'response_data_total': data_total}
-                return Response(msg, status=status.HTTP_200_OK)
-
-
-        today = datetime.now()
-        days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
-        last_day = today - timedelta(days=days_diff)
-        shop_list = shop_user_obj.values('shop', 'shop__id', 'shop__shop_name').order_by('shop').distinct('shop')
-        shops_list = shop_user_obj.values('shop').distinct('shop')
-        order_obj = self.get_order(shops_list,today,last_day)
-
-        buyer_order_obj = self.get_shop_count(shops_list, today,last_day)
-        buyer_order_map = {i['buyer_shop']: (i['buyer_shop_count'],) for i in buyer_order_obj}
-        order_map = {i['buyer_shop']: (i['buyer_shop_count'], i['no_of_ordered_sku'], i['no_of_ordered_sku_pieces'],i['ordered_amount']) for i in order_obj}
-        no_of_order_total, no_of_ordered_sku_total, no_of_ordered_sku_pieces_total, ordered_amount_total = 0, 0, 0, 0
-        for shop in shop_list:
-            rt = {
-                'name': shop['shop__shop_name'],
-                'no_of_order': buyer_order_map[shop['shop']][0] if shop['shop'] in buyer_order_map else 0,
-                'no_of_ordered_sku': order_map[shop['shop']][1] if shop['shop'] in order_map else 0,
-                'no_of_ordered_sku_pieces': order_map[shop['shop']][2] if shop['shop'] in order_map else 0,
-                'ordered_amount': round(order_map[shop['shop']][3],2) if shop['shop'] in order_map else 0,
+            sales_person_performance = {
+                'no_of_order': 0,
+                'no_of_ordered_sku': 0,
+                'no_of_ordered_sku_pieces': 0,
+                'ordered_amount': 0,
                 'calls_made': 0,
                 'delivered_amount': 0,
             }
-            data.append(rt)
-
-            no_of_order_total += buyer_order_map[shop['shop']][0] if shop['shop'] in buyer_order_map else 0
-            no_of_ordered_sku_total += order_map[shop['shop']][1] if shop['shop'] in order_map else 0
-            no_of_ordered_sku_pieces_total += order_map[shop['shop']][2] if shop['shop'] in order_map else 0
-            ordered_amount_total += round(order_map[shop['shop']][3], 2) if shop['shop'] in order_map else 0
-
-        dt = {
-            'no_of_order': no_of_order_total,
-            'no_of_ordered_sku': no_of_ordered_sku_total,
-            'no_of_ordered_sku_pieces': no_of_ordered_sku_pieces_total,
-            'ordered_amount': ordered_amount_total,
-            'calls_made': 0,
-            'delivered_amount': 0,
-        }
-        data_total.append(dt)
-        msg = {'is_success': True, 'message': [""],'response_data': data, 'response_data_total':data_total}
+            shops_performance_list = []
+            shops_performance_list, sales_person_performance = self.get_sales_person_shops_data(self.request.user, from_date, to_date)
+        msg = {'is_success': True, 'message': [""],'response_data': list(shops_performance_list), 'response_data_total':sales_person_performance}
         return Response(msg,status=status.HTTP_200_OK)
 
 class SellerShopProfile(generics.ListAPIView):
