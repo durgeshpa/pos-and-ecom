@@ -94,6 +94,8 @@ function calculateColumn(index) {
 
 
     $(document).ready(function() {
+
+             $('#mrp').val=$(this).val();
             $('table thead th').each(function(i) {
                 calculateColumn(i);
             });
@@ -168,9 +170,9 @@ function calculateColumn(index) {
     });
 
 
-$(document).ready(function(){
-        $('#mrp').val=$(this).val();
-    });
+
+
+
    // function calculate() {
   	// 	var case_size = document.getElementById('id_cart_list-0-case_size').value;
   	// 	var number_of_cases = document.getElementById('id_cart_list-0-number_of_cases').value;

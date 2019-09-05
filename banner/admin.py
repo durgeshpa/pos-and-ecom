@@ -13,13 +13,6 @@ class BannerPositionAdmin(NonSortableParentAdmin):
     form=BannerPositionForm
     inlines = [BannerDataInline]
 
-
-
-
-
-
-
-
 admin.site.register(BannerPosition, BannerPositionAdmin)
 class BannerAdmin(admin.ModelAdmin):
     fields = ('name','image','banner_type','category','sub_category','brand','sub_brand','products','status','banner_start_date','banner_end_date','alt_text','text_below_image')
@@ -27,11 +20,6 @@ class BannerAdmin(admin.ModelAdmin):
     list_filter = ('name','image', 'created_at','updated_at')
     search_fields= ('name', 'created_at','updated_at')
     form = BannerForm
-
-
-
-
-
 
 
 admin.site.register(Banner,BannerAdmin)
