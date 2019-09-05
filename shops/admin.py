@@ -7,8 +7,8 @@ from .models import (
 )
 from addresses.models import Address
 from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
-                    ShopForm, AddressForm, RequiredInlineFormSet,
-                    AddressInlineFormSet, ShopTimingForm, ShopUserMappingForm)
+                    ShopForm, NewShopForm, AddressForm, RequiredInlineFormSet,
+                    AddressInlineFormSet, ShopUserMappingForm,ShopTimingForm)
 from .views import (StockAdjustmentView, stock_adjust_sample,
                     bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete
 )
@@ -209,10 +209,32 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
             return qs
         if request.user.has_perm('shops.can_see_all_shops'):
             return qs
+
         return qs.filter(
             Q(related_users=request.user) |
             Q(shop_owner=request.user)
         )
+
+    # def get_form(self, request, obj=None, **kwargs):
+    #     defaults = {}
+    #     if request.user.is_superuser:
+    #         defaults['form'] = ShopForm
+    #
+    #     print(request.user.has_perm('shops.hide_related_users'))
+    #     if request.user.has_perm('shops.hide_related_users'):
+    #         defaults['form'] = NewShopForm
+    #     # else:
+    #     #     defaults['form'] = ShopForm
+    #     defaults.update(kwargs)
+    #     return super().get_form(request, obj, **defaults)
+
+    def get_form(self, request, obj=None, **kwargs):
+        if request.user.is_superuser:
+            kwargs['form'] = ShopForm
+        elif request.user.has_perm('shops.hide_related_users'):
+            kwargs['form'] = NewShopForm
+        return super().get_form(request, obj, **kwargs)
+
 
     def shop_mapped_product(self, obj):
         if obj.shop_type.shop_type in ['gf','sp']:

@@ -158,6 +158,7 @@ class Shop(models.Model):
             ("can_do_reconciliation", "Can Do Reconciliation"),
             ("can_sales_person_add_shop", "Can Sales Person Add Shop"),
             ("can_sales_manager_add_shop", "Can Sales Manager Add Shop"),
+            ("hide_related_users", "Hide Related User"),
         )
 
 class ShopNameDisplay(Shop):
