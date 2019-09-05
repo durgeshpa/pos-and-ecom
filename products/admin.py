@@ -16,7 +16,7 @@ from .views import (
     load_gf, products_export_for_vendor, products_vendor_mapping,
     MultiPhotoUploadView, ProductPriceAutocomplete,
     ProductCategoryAutocomplete, download_all_products,
-    ProductCategoryMapping, product_category_mapping_sample)
+    ProductCategoryMapping, product_category_mapping_sample, VendorAutocomplete)
 from .resources import (
     SizeResource, ColorResource, FragranceResource,
     FlavorResource, WeightResource, PackageSizeResource,
@@ -24,7 +24,7 @@ from .resources import (
     )
 
 from .forms import (ProductPriceNewForm, ProductPriceChangePerm,
-                    ProductPriceAddPerm)
+                    ProductPriceAddPerm, ProductVendorMappingForm)
 
 class ProductFilter(AutocompleteFilter):
     title = 'Product Name' # display title
@@ -76,6 +76,20 @@ class ProductVendorMappingAdmin(admin.ModelAdmin):
     fields = ('vendor', 'product', 'product_price','product_mrp','case_size')
     list_display = ('vendor', 'product', 'product_price','product_mrp','case_size','created_at','status')
     list_filter = [VendorFilter,ProductFilter,]
+    form = ProductVendorMappingForm
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(ProductVendorMappingAdmin, self).get_urls()
+        urls = [
+            url(
+                r'^vendor-autocomplete/$',
+                self.admin_site.admin_view(VendorAutocomplete.as_view()),
+                name="vendor-autocomplete"
+            ),
+        ] + urls
+        return urls
+
 
     class Media:
         pass
