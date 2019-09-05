@@ -215,25 +215,12 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
             Q(shop_owner=request.user)
         )
 
-    # def get_form(self, request, obj=None, **kwargs):
-    #     defaults = {}
-    #     if request.user.is_superuser:
-    #         defaults['form'] = ShopForm
-    #
-    #     print(request.user.has_perm('shops.hide_related_users'))
-    #     if request.user.has_perm('shops.hide_related_users'):
-    #         defaults['form'] = NewShopForm
-    #     # else:
-    #     #     defaults['form'] = ShopForm
-    #     defaults.update(kwargs)
-    #     return super().get_form(request, obj, **defaults)
-
-    def get_form(self, request, obj=None, **kwargs):
-        if request.user.is_superuser:
-            kwargs['form'] = ShopForm
-        elif request.user.has_perm('shops.hide_related_users'):
-            kwargs['form'] = NewShopForm
-        return super().get_form(request, obj, **kwargs)
+    def get_fields(self, request, obj=None):
+        if request.user.has_perm('shops.hide_related_users'):
+            return self.readonly_fields +('shop_name', 'shop_owner', 'shop_type','status')
+        elif request.user.is_superuser:
+            return self.readonly_fields +('shop_name', 'shop_owner', 'shop_type', 'related_users',
+            'shop_code', 'warehouse_code','created_by', 'status')
 
 
     def shop_mapped_product(self, obj):
@@ -241,35 +228,6 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
             return format_html("<a href = '/admin/shops/shop-mapped/%s/product/' class ='addlink' > Product List</a>"% (obj.id))
 
     shop_mapped_product.short_description = 'Product List with Qty'
-
-
-    # def get_shop_pending_amount(self, obj):
-    #     pending_amount_gf = 0
-    #     pending_amount_sp = 0
-    #     pending_amount_total=0
-    #     if obj.shop_type.shop_type == 'r':
-    #         #if obj.retiler_mapping.filter(status=True).last().parent.shop_type.shop_type=='gf':
-    #         orders_to_gf = obj.rtg_buyer_shop_order.all()
-    #         for order in orders_to_gf:
-    #             if order.rt_payment.last().payment_status == 'payment_done_approval_pending' or order.rt_payment.last().payment_status == 'cash_collected':
-    #                 pending_amount_gf = pending_amount_gf + order.total_final_amount
-    #         #return pending_amount
-    #         #elif obj.retiler_mapping.filter(status=True).last().parent.shop_type.shop_type=='sp':
-    #         orders_to_sp = obj.rt_buyer_shop_order.all()
-    #         for order in orders_to_sp:
-    #             if order.rt_payment.last().payment_status == 'payment_done_approval_pending' or order.rt_payment.last().payment_status == 'cash_collected':
-    #                 pending_amount_sp = pending_amount_sp + order.total_final_amount
-    #         #return pending_amount
-    #         pending_amount_total = pending_amount_gf + pending_amount_sp
-    #         return pending_amount_total
-    #     elif obj.shop_type.shop_type == 'sp':
-    #         carts_to_gf = obj.sp_shop_cart.all()
-    #         total_pending_amount = 0
-    #         for cart in carts_to_gf:
-    #             for order in cart.sp_order_cart_mapping.all():
-    #                 total_pending_amount = total_pending_amount + order.total_final_amount
-    #         return total_pending_amount
-    # get_shop_pending_amount.short_description = 'Shop Pending Amount'
 
 class ParentFilter(AutocompleteFilter):
     title = 'Parent' # display title
