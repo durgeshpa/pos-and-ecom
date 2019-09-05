@@ -143,11 +143,6 @@ class ShopForm(forms.ModelForm):
             raise ValidationError(_("This field is required"))
         return warehouse_code
 
-class NewShopForm(forms.ModelForm):
-    class Meta:
-        Model = Shop
-        fields = ('shop_name', 'shop_owner', 'shop_type', 'status')
-
     @classmethod
     def get_shop_type(cls, data):
         shop_type = data.cleaned_data.get('shop_type')
