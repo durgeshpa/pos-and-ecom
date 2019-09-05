@@ -766,8 +766,8 @@ class ShipmentStatusSerializer(serializers.ModelSerializer):
 class ShipmentDetailSerializer(serializers.ModelSerializer):
     ordered_product_status = serializers.ReadOnlyField()
     product_short_description = serializers.ReadOnlyField()
-    mrp = serializers.DecimalField(default=0.00, max_digits=20, decimal_places=2, read_only=True)
-    price_to_retailer = serializers.DecimalField(default=0.00, max_digits=20, decimal_places=2, read_only=True)
+    mrp = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
+    price_to_retailer = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
     #cash_discount = serializers.ReadOnlyField()
     #loyalty_incentive = serializers.ReadOnlyField()
     #margin = serializers.ReadOnlyField()
