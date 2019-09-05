@@ -34,7 +34,6 @@ class CartProductMappingAdmin(admin.TabularInline):
     autocomplete_fields = ('cart_product',)
     search_fields =('cart_product',)
     form = CartProductMappingForm
-    template = "admin/gram_to_brand/cart/tabular.html"
 
     fields = ('cart_product','mrp','sku', 'tax_percentage','case_sizes', 'no_of_cases', 'no_of_pieces', 'price', 'sub_total')
     readonly_fields = ('tax_percentage','mrp','sku', 'case_sizes','sub_total')
