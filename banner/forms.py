@@ -70,9 +70,3 @@ class BannerPositionForm(forms.ModelForm):
     class Meta:
         Model = BannerPosition
         fields = '__all__'
-
-
-
-
-
-
