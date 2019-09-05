@@ -39,6 +39,7 @@ from retailer_to_sp.views import (
     trip_planning, trip_planning_change, update_delivered_qty,
     update_order_status, update_shipment_status, reshedule_update_shipment,
     RetailerCart, assign_picker, assign_picker_change, assign_picker_data,
+    UserWithNameAutocomplete
 )
 from shops.models import ParentRetailerMapping, Shop
 from sp_to_gram.models import (
@@ -388,6 +389,10 @@ class CartAdmin(admin.ModelAdmin):
             url(r'^commercial/(?P<pk>\d+)/shipment-details/$',
                 self.admin_site.admin_view(commercial_shipment_details),
                 name="CommercialShipmentDetails"
+                ),
+            url(r'^user-with-name-autocomplete/$',
+                self.admin_site.admin_view(UserWithNameAutocomplete.as_view()),
+                name="user_with_name_autocomplete"
                 ),
         ] + urls
         return urls

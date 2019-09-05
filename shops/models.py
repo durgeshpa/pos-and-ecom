@@ -184,6 +184,9 @@ class ShopDocument(models.Model):
     ELE_BILL = 'bill'
     PAN = 'pan'
     FSSAI = 'fssai'
+    DL = 'dl'
+    EC = 'ec'
+    WSVD = 'wsvd'
 
     SHOP_DOCUMENTS_TYPE_CHOICES = (
         (GSTIN, "GSTIN"),
@@ -192,6 +195,9 @@ class ShopDocument(models.Model):
         (ELE_BILL, "Shop Electricity Bill"),
         (PAN, "Pan Card No"),
         (FSSAI, "Fssai License No"),
+        (DL, "Driving Licence"),
+        (EC, "Election Card"),
+        (WSVD, "Weighing Scale Verification Document"),
     )
     shop_name = models.ForeignKey(Shop, related_name='shop_name_documents', on_delete=models.CASCADE)
     shop_document_type = models.CharField(max_length=100, choices=SHOP_DOCUMENTS_TYPE_CHOICES, default='gstin')
@@ -298,6 +304,25 @@ class ShopAdjustmentFile(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+
+class ShopRequestBrand(models.Model):
+    shop = models.ForeignKey(Shop, related_name='shop_request_brand',
+        on_delete=models.CASCADE)
+    brand_name = models.CharField(max_length=100, blank=True, null=True)
+    product_sku = models.CharField(max_length=100, blank=True, null=True)
+    request_count = models.IntegerField(default = 0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        # if self.brand_name:
+        #     return "%s - %s"%(self.shop.shop_name,self.brand_name)
+        # else:
+        return "%s - %s"%(self.shop.shop_name,self.id)
+
+    def __init__(self, *args, **kwargs):
+        super(ShopRequestBrand, self).__init__(*args, **kwargs)
+
 class ShopUserMapping(models.Model):
     shop = models.ForeignKey(Shop, related_name='shop_user', on_delete=models.CASCADE)
     manager = models.ForeignKey('self', null=True, blank=True, related_name='employee_list', on_delete=models.SET_NULL,
@@ -331,3 +356,30 @@ class SalesAppVersion(models.Model):
 
     def __str__(self):
         return self.app_version
+
+from django.contrib.postgres.fields import ArrayField
+
+class ShopTiming(models.Model):
+    SUN = 'SUN'
+    MON = 'MON'
+    TUE = 'TUE'
+    WED = 'WED'
+    THU = 'THU'
+    FRI = 'FRI'
+    SAT = 'SAT'
+
+    off_day_choices = (
+        (SUN, 'SUN'),
+        (MON, 'MON'),
+        (TUE, 'TUE'),
+        (WED, 'WED'),
+        (THU, 'THU'),
+        (FRI, 'FRI'),
+        (SAT, 'FRI'),
+    )
+    shop = models.OneToOneField(Shop, related_name='shop_timing',null=True,blank=True, on_delete=models.SET_NULL)
+    open_timing = models.TimeField()
+    closing_timing = models.TimeField()
+    break_start_time = models.TimeField(null=True, blank=True)
+    break_end_time = models.TimeField(null=True, blank=True)
+    off_day = ArrayField(models.CharField(max_length=25,choices=off_day_choices, null=True, blank=True), null=True, blank=True)

@@ -56,6 +56,7 @@ from django.contrib.sessions.models import Session
 from django.contrib.auth import get_user_model
 from retailer_backend.common_function import brand_credit_note_pattern
 from addresses.models import Address
+from accounts.models import UserWithName
 
 
 class ReturnProductAutocomplete(autocomplete.Select2QuerySetView):
@@ -1323,3 +1324,14 @@ def update_shipment_status_with_id(shipment_id):
         shipment.shipment_status = 'PARTIALLY_DELIVERED_AND_COMPLETED'
     shipment.save()
 
+
+class UserWithNameAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = UserWithName.objects.all()
+        if self.q:
+            qs = qs.filter(
+                Q(phone_number__icontains=self.q) |
+                Q(first_name__icontains=self.q) |
+                Q(last_name__icontains=self.q)
+            )
+        return qs
