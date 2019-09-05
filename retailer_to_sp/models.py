@@ -597,6 +597,16 @@ class Trip(models.Model):
                 shipment.cash_to_be_collected())
         return round(sum(cash_to_be_collected), 2)
 
+    def cash_collected_by_delivery_boy(self):
+        cash_to_be_collected = []
+        shipment_status_list = ['FULLY_DELIVERED_AND_COMPLETED', 'PARTIALLY_DELIVERED_AND_COMPLETED',
+                                'FULLY_RETURNED_AND_COMPLETED', 'RESCHEDULED']
+        trip_shipments = self.rt_invoice_trip.filter(shipment_status__in=shipment_status_list)
+        for shipment in trip_shipments:
+            cash_to_be_collected.append(
+                shipment.cash_to_be_collected())
+        return round(sum(cash_to_be_collected), 2)
+
     @property
     def cash_to_be_collected_value(self):
         return self.cash_to_be_collected()
@@ -1008,11 +1018,11 @@ class OrderedProductMapping(models.Model):
 
     @property
     def mrp(self):
-        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.mrp
+        return round(self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.mrp,2)
 
     @property
     def price_to_retailer(self):
-        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.price_to_retailer
+        return round(self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.price_to_retailer,2)
 
     @property
     def cash_discount(self):

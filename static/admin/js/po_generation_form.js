@@ -79,8 +79,32 @@
          $('#id_cart_list-'+row_no+'-total_price').val(parseFloat($('#id_cart_list-'+row_no+'-price').val()) * parseFloat($('#id_cart_list-'+row_no+'-inner_case_size').val()) * parseFloat($('#id_cart_list-'+row_no+'-case_size').val()) * parseFloat($(this).val()))
      });
 
+function calculateColumn(index) {
+            var total = 0;
+            $('table tr').each(function() {
+                var value = parseFloat($('.field-sub_total', this).eq(index).text());
+                if (!isNaN(value)) {
+                    total += value;
+                }
+            });
+            $('#tot').eq(index).html('<h1 align="right"><b>Total:' + total.toFixed(2)  + ' </b></h1>');
+        }
+
+
+
+
     $(document).ready(function() {
-        console.log( "document loaded" );
+
+             $('#mrp').val=$(this).val();
+            $('table thead th').each(function(i) {
+                calculateColumn(i);
+            });
+            $('[id$=no_of_cases]').on('keyup', function(){
+                $('table thead th').each(function(i) {
+                calculateColumn(i);
+            });
+            });
+
         $('.field-no_of_pieces input[type="text"]').prop('readonly', true);
 
 
@@ -134,7 +158,7 @@
             var c = confirm("Are you sure?");
             return c;
         });
-        
+
         $('.submit-row').on('click','input[name="_disapprove"]', function(e){
             console.log("inside disapprove")
             if ($('textarea[name="message"]').val().trim()=='') {
@@ -144,6 +168,10 @@
         });
 
     });
+
+
+
+
 
    // function calculate() {
   	// 	var case_size = document.getElementById('id_cart_list-0-case_size').value;
@@ -155,3 +183,6 @@
   	//}
 
 })(django.jQuery);
+
+
+

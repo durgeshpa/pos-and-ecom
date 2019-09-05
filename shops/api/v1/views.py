@@ -28,6 +28,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.core.exceptions import ObjectDoesNotExist
 from retailer_to_sp.models import OrderedProduct
 from retailer_to_sp.views import update_order_status, update_shipment_status_with_id
+from retailer_to_sp.api.v1.views import update_trip_status
 
 
 class ShopRequestBrandViewSet(DataWrapperViewSet):
@@ -662,11 +663,12 @@ class CheckUser(generics.ListAPIView):
     def get(self, *args, **kwargs):
         all_user = ShopUserMapping.objects.filter(employee=self.request.user,status=True)
         if not all_user.exists():
-            msg = {'is_success': False, 'message': ["Sorry you are not authorised"], 'response_data': None, 'is_sales': False,'is_sales_manager': False}
+            msg = {'is_success': False, 'message': ["Sorry you are not authorised"], 'response_data': None, 'is_sales': False,'is_sales_manager': False, 'is_delivery_boy': False}
         else:
-            is_sales = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop', shop__shop_type__shop_type='r', status=True).exists() else False
-            is_sales_manager = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_manager_add_shop', shop__shop_type__shop_type='sp', status=True).exists() else False
-            msg = {'is_success': True, 'message': [""], 'response_data': None,'is_sales':is_sales, 'is_sales_manager':is_sales_manager}
+            is_sales = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop',shop__shop_type__shop_type='r', status=True).exists() else False
+            is_sales_manager = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_manager_add_shop',shop__shop_type__shop_type='sp', status=True).exists() else False
+            is_delivery_boy = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='is_delivery_boy', status=True).exists() else False
+            msg = {'is_success': True, 'message': [""], 'response_data': None,'is_sales':is_sales, 'is_sales_manager':is_sales_manager, 'is_delivery_boy': is_delivery_boy}
         return Response(msg, status=status.HTTP_200_OK)
 
 
@@ -692,11 +694,11 @@ class StatusChangedAfterAmountCollected(APIView):
     def post(self, *args, **kwargs):
         shipment_id = kwargs.get('shipment')
         cash_collected = self.request.POST.get('cash_collected')
+        trip = self.request.POST.get('trip')
         shipment = OrderedProduct.objects.get(id=shipment_id)
         if float(cash_collected) == float(shipment.cash_to_be_collected()):
-            update_shipment_status_with_id(
-                shipment_id=shipment_id
-            )
+            update_shipment_status_with_id(shipment)
+            update_trip_status(trip)
             msg = {'is_success': True, 'message': ['Status Changed'], 'response_data': None}
         else:
             msg = {'is_success': False, 'message': ['Amount is different'], 'response_data': None}
