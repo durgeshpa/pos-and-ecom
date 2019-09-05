@@ -1,5 +1,5 @@
 from django import forms
-from .models import ParentRetailerMapping, Shop, ShopType, ShopUserMapping
+from .models import ParentRetailerMapping, Shop, ShopType, ShopUserMapping, ShopTiming
 from addresses.models import Address
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -14,6 +14,7 @@ from addresses.models import State
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
+from django.core.exceptions import ObjectDoesNotExist
 
 class ParentRetailerMappingForm(forms.ModelForm):
     parent = forms.ModelChoiceField(
@@ -143,25 +144,6 @@ class ShopForm(forms.ModelForm):
         return warehouse_code
 
 class NewShopForm(forms.ModelForm):
-    # shop_code = forms.CharField(
-    #                     max_length=1, min_length=1,
-    #                     required=False, validators=[
-    #                         RegexValidator(
-    #                             regex='^[a-zA-Z0-9]*$',
-    #                             message='Shop Code must be Alphanumeric',
-    #                             code='invalid_code_code'
-    #                         ),
-    #                     ])
-    # warehouse_code = forms.CharField(
-    #                     max_length=2, min_length=2,
-    #                     required=False, validators=[
-    #                         RegexValidator(
-    #                             regex='^[a-zA-Z0-9]*$',
-    #                             message='Warehouse Code must be Alphanumeric',
-    #                             code='invalid_warehouse_code'
-    #                         ),
-    #                     ])
-
     class Meta:
         Model = Shop
         fields = ('shop_name', 'shop_owner', 'shop_type', 'status')
@@ -226,6 +208,37 @@ class AddressInlineFormSet(BaseInlineFormSet):
         elif flag==0:
             raise forms.ValidationError('Please add at least one shipping address')
 
+class ShopTimingForm(forms.ModelForm):
+    SUN = 'SUN'
+    MON = 'MON'
+    TUE = 'TUE'
+    WED = 'WED'
+    THU = 'THU'
+    FRI = 'FRI'
+    SAT = 'SAT'
+
+    off_day_choices = (
+        (SUN, 'Sunday'),
+        (MON, 'Monday'),
+        (TUE, 'Tuesday'),
+        (WED, 'Wednesday'),
+        (THU, 'Thuresday'),
+        (FRI, 'Friday'),
+        (SAT, 'Saturday'),
+    )
+    shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['r']),
+        widget=autocomplete.ModelSelect2(url='admin:shop-timing-autocomplete', )
+    )
+    off_day = forms.MultipleChoiceField(
+        required=False,
+        choices=off_day_choices,
+        widget=forms.SelectMultiple(),
+    )
+
+    class Meta:
+        model = ShopTiming
+        fields = ('shop','open_timing','closing_timing','break_start_time','break_end_time','off_day')
 
 class BulkShopUpdation(forms.Form):
     file = forms.FileField(label='Select a file')
@@ -240,10 +253,6 @@ class ShopUserMappingForm(forms.ModelForm):
     shop = forms.ModelChoiceField(
         queryset=Shop.objects.all(),
         widget=autocomplete.ModelSelect2(url='admin:shop-autocomplete',)
-    )
-    manager = forms.ModelChoiceField(required=False,
-        queryset=get_user_model().objects.all(),
-        widget=autocomplete.ModelSelect2(url='admin:user-autocomplete', )
     )
     employee = forms.ModelChoiceField(
         queryset=get_user_model().objects.all(),
@@ -271,20 +280,32 @@ class ShopUserMappingCsvViewForm(forms.Form):
             raise forms.ValidationError("Sorry! Only csv file accepted")
         reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
         first_row = next(reader)
+        uploaded_employee_list = []
         for id, row in enumerate(reader):
-            if not row[0] or not re.match("^[\d]*$", row[0]) or not Shop.objects.filter(pk=row[0]).exists():
+            if not row[0] or not re.match("^[\d]*$", row[0]):
                 raise ValidationError(_('INVALID_SHOP_ID at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
-            
-            if not row[1] or not re.match("^[\d]*$", row[1]) or not get_user_model().objects.filter(phone_number=row[1]).exists():
+
+            if not Shop.objects.filter(pk=row[0]).exists():
+                raise ValidationError(_('INVALID_SHOP_ID at Row[%(value)s]. Shop Id not exists'), params={'value': id+1},)
+
+            if not row[2] or not re.match("^[\d]*$", row[2]):
+                raise ValidationError(_('INVALID_EMPLOYEE_NO at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
+
+            if not get_user_model().objects.filter(phone_number=row[2]).exists():
+                raise ValidationError(_('INVALID_EMPLOYEE_NO at Row[%(value)s]. Employee no not exists'), params={'value': id+1},)
+
+            if row[1] and not re.match("^[\d]*$", row[1]) and not get_user_model().objects.filter(phone_number=row[1]).exists():
                 raise ValidationError(_('INVALID_MANAGER_NO at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
 
-            if not row[2] or not re.match("^[\d]*$", row[2]) or not get_user_model().objects.filter(phone_number=row[2]).exists():
-                raise ValidationError(_('INVALID_EMPLOYEE_NO at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
+            if row[1] and not any([row[1] in uploaded_employee_list, ShopUserMapping.objects.filter(employee__phone_number=row[1]).exists()]):
+                raise ValidationError(_('INVALID_MANAGER_NO at Row[%(value)s]. Please create employee first, then manager'),
+                                      params={'value': id + 1}, )
 
             if not row[3] or not re.match("^[\d]*$", row[3]) or not Group.objects.filter(pk=row[3]):
                 raise ValidationError(_('INVALID_GROUP_ID at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
 
-            if ShopUserMapping.objects.filter(shop_id=row[0],employee=get_user_model().objects.get(phone_number=row[2])).exists():
+            uploaded_employee_list.append(row[2])
+            if ShopUserMapping.objects.filter(shop_id=row[0], employee__phone_number=row[2]).exists():
                 raise ValidationError(_('This shop_user_mapping already exists at Row[%(value)s]'),
                                       params={'value': id + 1}, )
 

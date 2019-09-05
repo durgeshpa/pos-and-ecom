@@ -3,16 +3,18 @@ from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 from rest_framework.response import Response
 from .serializers import (RetailerTypeSerializer, ShopTypeSerializer,
-    ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer, ShopUserMappingSerializer, SellerShopSerializer,
-    AppVersionSerializer, ShopUserMappingUserSerializer
+        ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer, ShopTimingSerializer, ShopUserMappingSerializer,
+        SellerShopSerializer, AppVersionSerializer, ShopUserMappingUserSerializer, ShopRequestBrandSerializer
 )
-from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping, SalesAppVersion)
+from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping, SalesAppVersion, ShopRequestBrand, ShopTiming)
 from rest_framework import generics
 from addresses.models import City, Area, Address
 from rest_framework import status
 from django.contrib.auth import get_user_model
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES
 from rest_framework.parsers import FormParser, MultiPartParser
+
+from common.data_wrapper_view import DataWrapperViewSet
 from retailer_to_sp.models import OrderedProduct
 from retailer_to_sp.views import update_order_status
 
@@ -26,6 +28,36 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.core.exceptions import ObjectDoesNotExist
 from retailer_to_sp.models import OrderedProduct
 from retailer_to_sp.views import update_order_status, update_shipment_status_with_id
+
+
+class ShopRequestBrandViewSet(DataWrapperViewSet):
+    '''
+    This class handles all operation of ordered product
+    '''
+    #permission_classes = (AllowAny,)
+    model = ShopRequestBrand
+    queryset = ShopRequestBrand.objects.all()
+    serializer_class = ShopRequestBrandSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    # filter_backends = (filters.DjangoFilterBackend,)
+    # filter_class = ShopRequestBrandFilter
+
+    def get_serializer_class(self):
+        '''
+        Returns the serializer according to action of viewset
+        '''
+        serializer_action_classes = {
+            'retrieve': ShopRequestBrandSerializer,
+            'list':ShopRequestBrandSerializer,
+            'create':ShopRequestBrandSerializer,
+            'update':ShopRequestBrandSerializer
+        }
+        if hasattr(self, 'action'):
+            return serializer_action_classes.get(self.action, self.serializer_class)
+        return self.serializer_class
+
 
 class RetailerTypeView(generics.ListAPIView):
     queryset = RetailerType.objects.all()
@@ -184,27 +216,60 @@ class ShopView(generics.ListCreateAPIView):
         shop = serializer.save(shop_owner=self.request.user)
         return shop
 
+class ShopTimingView(generics.ListCreateAPIView):
+    serializer_class = ShopTimingSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        shop_id = self.kwargs.get('shop_id')
+        return ShopTiming.objects.filter(shop_id=shop_id)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        msg = {'is_success': True,
+                'message': ["shop timing data"],
+                'response_data': serializer.data }
+        return Response(msg,status=status.HTTP_200_OK)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
+        else:
+            msg = {'is_success': False, 'message':['shop, open_timing or closing_timing Required'], 'response_data': None}
+        return Response(msg,status=status.HTTP_200_OK)
+
+    def perform_create(self, serializer):
+        timing, created = ShopTiming.objects.update_or_create(shop_id=self.request.data['shop'],
+                                                                defaults={
+                                                                    'open_timing' : self.request.data['open_timing'],
+                                                                    'closing_timing' : self.request.data['closing_timing'],
+                                                                     'break_start_time': self.request.data['break_start_time'],
+                                                                     'break_end_time': self.request.data['break_end_time'],
+                                                                     'off_day': self.request.data['off_day'],
+                                                                 })
+
 class TeamListView(generics.ListAPIView):
     serializer_class = ShopUserMappingSerializer
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def get_queryset(self):
-        return ShopUserMapping.objects.filter(manager=self.request.user,status=True).order_by('employee').distinct('employee')
+    def get_manager(self):
+        return ShopUserMapping.objects.filter(employee=self.request.user, status=True)
+
+    def get_employee_list(self):
+        return ShopUserMapping.objects.filter(manager__in=self.get_manager(), shop__shop_type__shop_type='sp', status=True).order_by('employee').distinct('employee')
 
     def get_shops(self):
-        return ShopUserMapping.objects.filter(manager=self.request.user,status=True).values('shop').order_by('shop').distinct('shop')
+        return ShopUserMapping.objects.filter(employee__in=self.get_employee_list().values('employee'), status=True).values('shop').order_by('shop').distinct('shop')
 
-    def list(self, request, *args, **kwargs):
-        days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
-        today = datetime.now()
-        last_day = today - timedelta(days=days_diff)
-        employee_list = self.get_queryset()
-        shops_list = self.get_shops()
-        data = []
-        data_total = []
-
-        order_obj = Order.objects.filter(buyer_shop__id__in=shops_list,
+    def ger_order(self,shops_list,today,last_day):
+        return Order.objects.filter(buyer_shop__id__in=shops_list,
                                          created_at__date__lte=today, created_at__date__gte=last_day).values('ordered_by')\
             .annotate(shops_ordered=Count('ordered_by')) \
             .annotate(no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
@@ -218,14 +283,32 @@ class TeamListView(generics.ListAPIView):
                                          output_field=FloatField())) \
             .order_by('ordered_by')
 
-
-        avg_order_obj = Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today, created_at__date__gte=last_day).values('ordered_by') \
+    def get_avg_order(self,shops_list,today,last_day):
+        return Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today,
+                             created_at__date__gte=last_day).values('ordered_by') \
             .annotate(sum_no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
             .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer') * F(
-            'ordered_cart__rt_cart_list__no_of_pieces'),output_field=FloatField())).order_by('buyer_shop')
+            'ordered_cart__rt_cart_list__no_of_pieces'), output_field=FloatField())).order_by('buyer_shop')
 
-        buyer_order_obj = Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today, created_at__date__gte=last_day).values('ordered_by').annotate(
+    def get_buyer_shop(self,shops_list,today,last_day):
+        return Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today,
+                             created_at__date__gte=last_day).values('ordered_by').annotate(
             buyer_shop_count=Count('ordered_by')).order_by('ordered_by')
+
+    def list(self, request, *args, **kwargs):
+        days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
+        today = datetime.now()
+        last_day = today - timedelta(days=days_diff)
+        employee_list = self.get_employee_list()
+        if not employee_list.exists():
+            msg = {'is_success': False, 'message': ["Sorry No matching user found"], 'response_data': None}
+            return Response(msg, status=status.HTTP_200_OK)
+        shops_list = self.get_shops()
+        data = []
+        data_total = []
+        order_obj = self.ger_order(shops_list,today,last_day)
+        avg_order_obj = self.get_avg_order(shops_list,today,last_day)
+        buyer_order_obj = self.get_buyer_shop(shops_list,today,last_day)
 
         buyer_order_map = {i['ordered_by']: (i['buyer_shop_count'],) for i in buyer_order_obj}
         avg_order_map = {i['ordered_by']: (i['sum_no_of_ordered_sku'], i['ordered_amount']) for i in avg_order_obj}
@@ -265,7 +348,7 @@ class TeamListView(generics.ListAPIView):
                 'avg_order_line_items': avg_order_line_items_total,
                 'unique_calls_made': 0,
                 'no_of_ordered_sku': no_of_ordered_sku_total,
-        }
+            }
         data_total.append(dt)
 
         msg = {'is_success': True, 'message': [""],'response_data': data,'response_data_total':data_total}
@@ -278,8 +361,7 @@ class SellerShopView(generics.ListCreateAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        user = self.request.user
-        return Shop.objects.filter(shop_owner=user)
+        return Shop.objects.filter(shop_owner=self.request.user)
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -291,8 +373,12 @@ class SellerShopView(generics.ListCreateAPIView):
                         status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
-        shop_user = ShopUserMapping.objects.filter(employee=request.user,status=True)
-        if shop_user.exists() and shop_user.last().employee_group.permissions.filter(codename='can_sales_person_add_shop').exists():
+        if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop', status=True).exists():
+            if not get_user_model().objects.filter(phone_number=self.request.data['shop_owner']).exists():
+                msg = {'is_success': False,
+                       'message': ["No user is registered with this number"],
+                       'response_data': None}
+                return Response(msg, status=status.HTTP_200_OK)
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             shop = self.perform_create(serializer)
@@ -325,35 +411,49 @@ class SellerShopOrder(generics.ListAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def get_queryset(self):
-        return ShopUserMapping.objects.filter(manager=self.request.user,status=True)
+    def get_manager(self):
+        return ShopUserMapping.objects.filter(employee=self.request.user, status=True)
+
+    def get_child_employee(self):
+        return ShopUserMapping.objects.filter(manager__in=self.get_manager(), shop__shop_type__shop_type='sp', status=True)
+
+    def get_shops(self):
+        return ShopUserMapping.objects.filter(employee__in=self.get_child_employee().values('employee'), shop__shop_type__shop_type='r', status=True)
+
+    def get_order(self, shops_list, today, last_day):
+        return Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today,
+                             created_at__date__gte=last_day).values('buyer_shop', 'buyer_shop__shop_name'). \
+            annotate(buyer_shop_count=Count('buyer_shop')) \
+            .annotate(no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
+            .annotate(no_of_ordered_sku_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces')) \
+            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer') * F(
+            'ordered_cart__rt_cart_list__no_of_pieces'),
+                                         output_field=FloatField())) \
+            .order_by('buyer_shop')
+
+    def get_shop_count(self,shops_list,today,last_day):
+        return Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today,
+                             created_at__date__gte=last_day).values('buyer_shop').annotate(
+            buyer_shop_count=Count('buyer_shop')).order_by('buyer_shop')
 
     def list(self, request, *args, **kwargs):
         data = []
         data_total = []
-        shop_user_obj = ShopUserMapping.objects.filter(employee=self.request.user,employee_group__permissions__codename='can_sales_person_add_shop',status=True)
-        if not shop_user_obj:
-            shop_user_obj = self.get_queryset()
+        shop_user_obj = ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop', shop__shop_type__shop_type='r', status=True)
         if not shop_user_obj.exists():
-            msg = {'is_success': True, 'message': ["Sorry No matching user found"], 'response_data': data}
-            return Response(msg, status=status.HTTP_200_OK)
+            shop_user_obj = self.get_shops()
+            if not shop_user_obj.exists():
+                msg = {'is_success': False, 'message': ["Sorry No matching user found"], 'response_data': data, 'response_data_total': data_total}
+                return Response(msg, status=status.HTTP_200_OK)
 
         today = datetime.now()
         days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
         last_day = today - timedelta(days=days_diff)
         shop_list = shop_user_obj.values('shop', 'shop__id', 'shop__shop_name').order_by('shop').distinct('shop')
         shops_list = shop_user_obj.values('shop').distinct('shop')
-        order_obj = Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today, created_at__date__gte=last_day).values('buyer_shop','buyer_shop__shop_name').\
-            annotate(buyer_shop_count=Count('buyer_shop'))\
-            .annotate(no_of_ordered_sku=Count('ordered_cart__rt_cart_list'))\
-            .annotate(no_of_ordered_sku_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces'))\
-            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer')* F('ordered_cart__rt_cart_list__no_of_pieces'),
-                                     output_field=FloatField()))\
-            .order_by('buyer_shop')
+        order_obj = self.get_order(shops_list,today,last_day)
 
-        buyer_order_obj = Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today,
-                                         created_at__date__gte=last_day).values('buyer_shop').annotate(buyer_shop_count=Count('buyer_shop')).order_by('buyer_shop')
-
+        buyer_order_obj = self.get_shop_count(shops_list, today,last_day)
         buyer_order_map = {i['buyer_shop']: (i['buyer_shop_count'],) for i in buyer_order_obj}
         order_map = {i['buyer_shop']: (i['buyer_shop_count'], i['no_of_ordered_sku'], i['no_of_ordered_sku_pieces'],i['ordered_amount']) for i in order_obj}
         no_of_order_total, no_of_ordered_sku_total, no_of_ordered_sku_pieces_total, ordered_amount_total = 0, 0, 0, 0
@@ -391,22 +491,17 @@ class SellerShopProfile(generics.ListAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def get_queryset(self):
-        return ShopUserMapping.objects.filter(manager=self.request.user,status=True)
+    def get_manager(self):
+        return ShopUserMapping.objects.filter(employee=self.request.user, status=True)
 
-    def list(self, request, *args, **kwargs):
-        data = []
-        shop_user_obj = ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop', status=True)
-        if not shop_user_obj:
-            shop_user_obj = self.get_queryset()
-        if not shop_user_obj.exists():
-            msg = {'is_success': True, 'message': ["Sorry No matching user found"], 'response_data': data}
-            return Response(msg, status=status.HTTP_200_OK)
+    def get_child_employee(self):
+        return ShopUserMapping.objects.filter(manager__in=self.get_manager(), shop__shop_type__shop_type='sp', status=True)
 
-        shop_list = shop_user_obj.values('shop','shop__id','shop__shop_name').order_by('shop').distinct('shop')
-        shops_list = shop_user_obj.values('shop').distinct('shop')
+    def get_shops(self):
+        return ShopUserMapping.objects.filter(employee__in=self.get_child_employee().values('employee'), shop__shop_type__shop_type='r', status=True)
 
-        order_list = Order.objects.filter(buyer_shop__id__in=shops_list).values('buyer_shop', 'created_at').\
+    def get_order(self, shops_list):
+        return Order.objects.filter(buyer_shop__id__in=shops_list).values('buyer_shop', 'created_at').\
             annotate(buyer_shop_count=Count('buyer_shop'))\
             .annotate(sum_no_of_ordered_sku=Count('ordered_cart__rt_cart_list'))\
             .annotate(avg_ordered_amount=Avg(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer')* F('ordered_cart__rt_cart_list__no_of_pieces'),
@@ -416,14 +511,32 @@ class SellerShopProfile(generics.ListAPIView):
                                          output_field=FloatField())) \
         .order_by('buyer_shop','created_at')
 
-        avg_order_obj = Order.objects.filter(buyer_shop__id__in=shops_list).values('buyer_shop') \
+    def get_avg_order_count(self,shops_list):
+        return Order.objects.filter(buyer_shop__id__in=shops_list).values('buyer_shop') \
             .annotate(buyer_shop_count=Count('buyer_shop')) \
             .annotate(sum_no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
-            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer') * F('ordered_cart__rt_cart_list__no_of_pieces'),
+            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer') * F(
+            'ordered_cart__rt_cart_list__no_of_pieces'),
                                          output_field=FloatField())).order_by('buyer_shop')
 
-        buyer_order_obj = Order.objects.filter(buyer_shop__id__in=shops_list).values('buyer_shop').annotate(
+    def get_buyer_shop_count(self, shops_list):
+        return Order.objects.filter(buyer_shop__id__in=shops_list).values('buyer_shop').annotate(
             buyer_shop_count=Count('buyer_shop')).order_by('buyer_shop')
+
+    def list(self, request, *args, **kwargs):
+        data = []
+        shop_user_obj = ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop', shop__shop_type__shop_type='r', status=True)
+        if not shop_user_obj:
+            shop_user_obj = self.get_shops()
+            if not shop_user_obj.exists():
+                msg = {'is_success': False, 'message': ["Sorry No matching user found"], 'response_data': data}
+                return Response(msg, status=status.HTTP_200_OK)
+
+        shop_list = shop_user_obj.values('shop','shop__id','shop__shop_name').order_by('shop').distinct('shop')
+        shops_list = shop_user_obj.values('shop').distinct('shop')
+        order_list = self.get_order(shops_list)
+        avg_order_obj = self.get_avg_order_count(shops_list)
+        buyer_order_obj = self.get_buyer_shop_count(shops_list)
 
         buyer_order_map = {i['buyer_shop']: (i['buyer_shop_count'],) for i in buyer_order_obj}
         avg_order_map = {i['buyer_shop']: (i['sum_no_of_ordered_sku'], i['ordered_amount']) for i in avg_order_obj}
@@ -443,8 +556,6 @@ class SellerShopProfile(generics.ListAPIView):
                 'last_calls_made': '',
             }
             data.append(rt)
-            print(data)
-
         msg = {'is_success': True, 'message': [""],'response_data': data}
         return Response(msg,status=status.HTTP_200_OK)
 
@@ -454,8 +565,7 @@ class SalesPerformanceView(generics.ListAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        #return ShopUserMapping.objects.filter(employee_id=self.request.query_params.get('user_id', None), status=True).values('shop').order_by('shop').distinct('shop')
-        return ShopUserMapping.objects.filter(employee=self.request.user, status=True).values('shop').order_by('shop').distinct('shop')
+        return ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop', shop__shop_type__shop_type='r', status=True).values('shop').order_by('shop').distinct('shop')
 
     def list(self, request, *args, **kwargs):
         days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
@@ -493,10 +603,10 @@ class SalesPerformanceUserView(generics.ListAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        return ShopUserMapping.objects.filter(manager=self.request.user,status=True).order_by('employee').distinct('employee')
+        return ShopUserMapping.objects.filter(manager=self.request.user, shop__shop_type__shop_type='r', status=True).order_by('employee').distinct('employee')
 
     def list(self, request, *args, **kwargs):
-        shop_emp = ShopUserMapping.objects.filter(employee=self.request.user,employee_group__permissions__codename='can_sales_person_add_shop', status=True)
+        shop_emp = ShopUserMapping.objects.filter(employee=self.request.user, shop__shop_type__shop_type='r' ,employee_group__permissions__codename='can_sales_person_add_shop', status=True)
         if not shop_emp:
             shop_mangr = self.get_queryset()
             msg = {'is_success': True, 'message': [""], 'response_data': self.get_serializer(shop_mangr, many=True).data, 'user_list': shop_mangr.values('employee')}
@@ -512,7 +622,7 @@ class SellerShopListView(generics.ListAPIView):
     serializer_class = AddressSerializer
 
     def get_queryset(self):
-        shop_mapped = ShopUserMapping.objects.filter(employee=self.request.user,status=True).values('shop')
+        shop_mapped = ShopUserMapping.objects.filter(employee=self.request.user, shop__shop_type__shop_type='r', status=True).values('shop')
         shop_list = Address.objects.filter(shop_name__in=shop_mapped,address_type='shipping').order_by('created_at')
         if self.request.query_params.get('mobile_no'):
             shop_list = shop_list.filter(shop_name__shop_owner__phone_number__icontains=self.request.query_params.get('mobile_no'))
@@ -550,15 +660,12 @@ class CheckUser(generics.ListAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, *args, **kwargs):
-        all_user = ShopUserMapping.objects.filter(
-            Q(employee=self.request.user) |
-            Q(manager=self.request.user), status=True
-        )
+        all_user = ShopUserMapping.objects.filter(employee=self.request.user,status=True)
         if not all_user.exists():
             msg = {'is_success': False, 'message': ["Sorry you are not authorised"], 'response_data': None, 'is_sales': False,'is_sales_manager': False}
         else:
-            is_sales = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop',status=True).exists() else False
-            is_sales_manager = True if ShopUserMapping.objects.filter(manager=self.request.user,status=True).exists() else False
+            is_sales = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop', shop__shop_type__shop_type='r', status=True).exists() else False
+            is_sales_manager = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_manager_add_shop', shop__shop_type__shop_type='sp', status=True).exists() else False
             msg = {'is_success': True, 'message': [""], 'response_data': None,'is_sales':is_sales, 'is_sales_manager':is_sales_manager}
         return Response(msg, status=status.HTTP_200_OK)
 
@@ -581,7 +688,6 @@ class CheckAppVersion(APIView):
 class StatusChangedAfterAmountCollected(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
-
 
     def post(self, *args, **kwargs):
         shipment_id = kwargs.get('shipment')

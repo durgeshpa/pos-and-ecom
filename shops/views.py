@@ -23,6 +23,7 @@ from addresses.models import Address, State, City
 from django.contrib.auth import get_user_model
 from shops.models import ShopUserMapping
 from rest_framework.views import APIView
+from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
 
 # Create your views here.
 class ShopMappedProduct(TemplateView):
@@ -203,6 +204,12 @@ class StockAdjustmentView(View):
             )
         return
 
+class ShopTimingAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Shop.objects.filter(shop_type__shop_type__in=['r'])
+        if self.q:
+            qs = qs.filter(Q(shop_owner__phone_number__icontains=self.q) | Q(shop_name__icontains=self.q))
+        return qs
 
 def bulk_shop_updation(request):
     if request.method == 'POST':
@@ -288,18 +295,28 @@ class ShopUserMappingCsvView(FormView):
         form_class = self.get_form_class()
         form = self.get_form(form_class)
         #shop_user_mapping = []
+        not_uploaded_list = []
         if form.is_valid():
             file = request.FILES['file']
             reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
             first_row = next(reader)
             for row in reader:
-                if row[1]:
-                    manager = get_user_model().objects.get(phone_number=row[1])
-                if row[2]:
-                    employee = get_user_model().objects.get(phone_number=row[2])
-                ShopUserMapping.objects.create(shop_id=row[0],manager=manager, employee=employee, employee_group_id=row[3])
+                try:
+                    if row[2]:
+                        employee = get_user_model().objects.get(phone_number=row[2])
+                    if row[1]:
+                        manager = ShopUserMapping.objects.get(employee__phone_number=row[1])
+                        ShopUserMapping.objects.create(shop_id=row[0], manager=manager, employee=employee, employee_group_id=row[3])
+                    else:
+                        ShopUserMapping.objects.create(shop_id=row[0], employee=employee, employee_group_id=row[3])
+                except:
+                    not_uploaded_list.append(ERROR_MESSAGES['INVALID_MAPPING']%(row[0], row[2]))
             #ShopUserMapping.objects.bulk_create(shop_user_mapping)
-                return self.form_valid(form)
+            if not not_uploaded_list:
+                messages.success(request, SUCCESS_MESSAGES['CSV_UPLOADED'])
+            else:
+                messages.success(request, SUCCESS_MESSAGES['CSV_UPLOADED_EXCEPT']%(not_uploaded_list))
+            return self.form_valid(form)
         else:
             return self.form_invalid(form)
 

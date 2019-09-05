@@ -288,11 +288,9 @@ class CartSerializer(serializers.ModelSerializer):
         for cart_pro in obj.rt_cart_list.all():
             self.items_count = self.items_count + int(cart_pro.qty)
             shop_id = self.context.get("parent_mapping_id", None)
-            if ProductPrice.objects.filter(shop__id=shop_id, product=cart_pro.cart_product).exists():
-                pro_price = ProductPrice.objects.filter(shop__id=shop_id, product=cart_pro.cart_product).last()
-                self.total_amount = float(self.total_amount) + (float(pro_price.price_to_retailer) * float(cart_pro.qty) * float(pro_price.product.product_inner_case_size))
-            else:
-                self.total_amount = float(self.total_amount) + 0
+            shop = Shop.objects.get(pk=shop_id)
+            pro_price = cart_pro.cart_product.get_current_shop_price(shop)
+            self.total_amount += float(pro_price.price_to_retailer) * float(cart_pro.qty) * float(pro_price.product.product_inner_case_size)
         return round(self.total_amount,2)
 
     def sub_total_id(self, obj):
@@ -436,11 +434,11 @@ class ProductsSearchListSerializer(serializers.ModelSerializer):
 
     def product_price_dt(self, obj):
         shop_id = self.context.get("parent_mapping_id",None)
-        return 0 if obj.product_pro_price.filter(shop__id=shop_id).last() is None else round(obj.product_pro_price.filter(shop__id=shop_id).last().price_to_retailer,2)
+        return obj.getRetailerPrice(shop_id)
 
     def product_mrp_dt(self, obj):
         shop_id = self.context.get("parent_mapping_id",None)
-        return 0 if obj.product_pro_price.filter(shop__id=shop_id).last() is None else round(obj.product_pro_price.filter(shop__id=shop_id).last().mrp,2)
+        return obj.getMRP(shop_id)
 
     def product_case_size_picies_dt(self,obj):
         return str(int(obj.product_inner_case_size)*int(obj.product_case_size))
@@ -739,8 +737,7 @@ class CancelOrderSerializer(serializers.ModelSerializer):
             if status:
                 raise serializers.ValidationError(
                     _('Sorry! This order cannot be cancelled'),)
-        else:
-            return data
+        return data
 
 class ShipmentOrderSerializer(serializers.ModelSerializer):
     ordered_by = UserSerializer()

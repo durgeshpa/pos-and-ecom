@@ -1,16 +1,17 @@
 import csv
-
 from django.contrib import admin
 from .models import (
     Shop, ShopType, RetailerType, ParentRetailerMapping,
-    ShopPhoto, ShopDocument, ShopInvoicePattern, ShopUserMapping, SalesAppVersion
+    ShopPhoto, ShopDocument, ShopInvoicePattern, ShopUserMapping,
+    ShopRequestBrand, SalesAppVersion, ShopTiming
 )
 from addresses.models import Address
 from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
-                    ShopForm, NewShopForm, AddressForm, RequiredInlineFormSet,
-                    AddressInlineFormSet, ShopUserMappingForm)
+                    ShopForm, AddressForm, RequiredInlineFormSet,
+                    AddressInlineFormSet, ShopTimingForm, ShopUserMappingForm,NewShopForm)
 from .views import (StockAdjustmentView, stock_adjust_sample,
-                    bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView, ShopUserMappingCsvSample)
+                    bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete
+)
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
 from django.utils.html import format_html
@@ -178,6 +179,11 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                 name="shop-sales-form"
             ),
             url(
+                r'^shop-timing-autocomplete/$',
+                self.admin_site.admin_view(ShopTimingAutocomplete.as_view()),
+                name="shop-timing-autocomplete"
+            ),
+            url(
                 r'^bulk-shop-updation/$',
                 self.admin_site.admin_view(bulk_shop_updation),
                 name="bulk-shop-updation"
@@ -279,15 +285,60 @@ class ParentRetailerMappingAdmin(admin.ModelAdmin):
 
     class Media:
         pass
+class ShopTimingAdmin(admin.ModelAdmin):
+    list_display = ('shop','open_timing','closing_timing','break_start_times','break_end_times','off_day')
+    list_filter = (ShopFilter,)
+    form = ShopTimingForm
 
-from import_export.admin import ImportExportModelAdmin
-class ShopUserMappingResource(resources.ModelResource):
+    def break_start_times(self, obj):
+        if str(obj.break_start_time) == '00:00:00':
+            return "-"
+        return obj.break_start_time
+    break_start_times.short_description = 'break start time'
 
-    class Meta:
-        model = ShopUserMapping
-        fields = ('id','shop', 'manager__phone_number', 'employee__phone_number', 'employee_group', 'status',)
-        export_order = ('shop', 'manager__phone_number', 'employee__phone_number', 'employee_group', 'status',)
-        #exclude = ('id',)
+    def break_end_times(self, obj):
+        if str(obj.break_end_time) == '00:00:00':
+            return "-"
+        return obj.break_end_time
+    break_end_times.short_description = 'break end time'
+
+    class Media:
+        pass
+
+
+class ShopFilter(AutocompleteFilter):
+    title = 'Shop' # display title
+    field_name = 'shop' # name of the foreign key field
+
+
+class BrandNameFilter(InputFilter):
+    title = 'Brand Name' # display title
+    parameter_name = 'brand_name' # name of the foreign key field
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            brand_name = self.value()
+            return queryset.filter(brand_name__icontains=brand_name)
+
+
+class ProductSKUFilter(InputFilter):
+    title = 'Product SKU' # display title
+    parameter_name = 'product_sku' # name of the foreign key field
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            product_sku = self.value()
+            return queryset.filter(product_sku__icontains=product_sku)
+
+class ShopRequestBrandAdmin(admin.ModelAdmin):
+    #change_list_template = 'admin/shops/shop/change_list.html'
+    #form = ShopRequestBrandForm
+    list_display = ('shop', 'brand_name', 'product_sku', 'request_count','created_at',)
+    list_filter = (ShopFilter, ProductSKUFilter, BrandNameFilter, ('created_at', DateTimeRangeFilter))
+    raw_id_fields = ('shop',)
+
+    class Media:
+        pass
 
 class ShopUserMappingAdmin(admin.ModelAdmin):
     form = ShopUserMappingForm
@@ -318,12 +369,11 @@ class ShopUserMappingAdmin(admin.ModelAdmin):
 class SalesAppVersionAdmin(admin.ModelAdmin):
     list_display = ('app_version','update_recommended','force_update_required','created_at','modified_at')
 
-
 admin.site.register(ParentRetailerMapping,ParentRetailerMappingAdmin)
 admin.site.register(ShopType)
 admin.site.register(RetailerType)
 admin.site.register(Shop,ShopAdmin)
+admin.site.register(ShopRequestBrand,ShopRequestBrandAdmin)
 admin.site.register(ShopUserMapping,ShopUserMappingAdmin)
 admin.site.register(SalesAppVersion, SalesAppVersionAdmin)
-
-
+admin.site.register(ShopTiming, ShopTimingAdmin)
