@@ -14,7 +14,6 @@ import os
 import logging.config
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
-from django.contrib.staticfiles.storage import ManifestStaticFilesStorage
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Decouple used to get values from .env file
@@ -206,9 +205,6 @@ REST_FRAMEWORK = {
     'DATETIME_FORMAT': "%d-%m-%Y %H:%M:%S",
 }
 
-class ManifestStaticFilesStorageStrict(ManifestStaticFilesStorage):
-    manifest_strict = False
-
 # Internationalization
 # https://docs.djangoproject.com/en/2.1/topics/i18n/
 
@@ -234,9 +230,7 @@ ACCOUNT_EMAIL_VERIFICATION = 'none'
 STATIC_URL = '/static/'
 #STATIC_ROOT = os.path.join(BASE_DIR, "static/")
 STATIC_ROOT = os.path.join(BASE_DIR, "static_root")
-STATICFILES_DIRS = ( os.path.join(BASE_DIR, "static"), os.path.join(BASE_DIR, "static_root"))
-
-# STATICFILES_STORAGE = ManifestStaticFilesStorageStrict
+STATICFILES_DIRS = ( os.path.join(BASE_DIR, "static"),)
 
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 MEDIA_URL = '/media/'
