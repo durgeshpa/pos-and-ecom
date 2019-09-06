@@ -889,15 +889,15 @@ class OrderedProduct(models.Model): #Shipment
 
     @property    
     def total_paid_amount(self):
-        # import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         from payments.models import ShipmentPayment
         shipment_payment = self.shipment_payment.all()
         if shipment_payment.exists():
-            shipment_payment = shipment_payment.annotate(sum_paid_amount=Sum('paid_amount'))                
+            shipment_payment_data = shipment_payment.aggregate(Sum('paid_amount')) #annotate(sum_paid_amount=Sum('paid_amount')) 
         # shipment_payment = ShipmentPayment.objects.filter(shipment__in=trip_shipments).\
         #     annotate(sum_paid_amount=Sum('paid_amount'))
-            if shipment_payment:
-                return shipment_payment.sum_paid_amount
+            if shipment_payment_data:
+                return shipment_payment_data['paid_amount__sum'] #sum_paid_amount
         else:
             return ""
 

@@ -10,7 +10,9 @@ from retailer_to_sp.models import Shipment
 
 class PaymentAdmin(admin.ModelAdmin):
     model = Payment
-
+    fields = (
+        "order", "paid_amount", "payment_mode_name", "reference_no", "description"
+    )
 
 class PaymentModeAdmin(admin.ModelAdmin):
     model = PaymentMode
@@ -108,7 +110,7 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline):
     form = ShipmentPaymentInlineForm
     formset = AtLeastOneFormSet
     fields = ("paid_amount", "parent_payment", "payment_mode_name", "reference_no", "description")
-    readonly_fields = ("paid_amount", "payment_mode_name", "reference_no",)
+    readonly_fields = ("payment_mode_name", "reference_no",)
     #autocomplete_fields = ('cart_product', 'cart_product_price')
     extra = 0
 
