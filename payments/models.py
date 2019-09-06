@@ -156,7 +156,7 @@ class Payment(AbstractDateTime):
 class ShipmentPayment(AbstractDateTime):
     # This class stores the payment information for the shipment
     description = models.CharField(max_length=50, null=True, blank=True)
-    shipment = models.ForeignKey(Shipment, related_name='shipment_payment', on_delete=models.CASCADE) #shipment_id
+    shipment = models.ForeignKey(OrderedProduct, related_name='shipment_payment', on_delete=models.CASCADE) #shipment_id
     parent_payment = models.ForeignKey(Payment, 
        related_name='payment', on_delete=models.CASCADE)
     paid_amount = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')
@@ -281,6 +281,11 @@ class ShipmentPaymentApproval(OrderedProduct):
 class ShipmentPaymentEdit(OrderedProduct):
     class Meta:
         proxy = True
+        
+
+class ShipmentData(OrderedProduct):
+    class Meta:
+        proxy = True        
 
 
 class PaymentEdit(Payment):

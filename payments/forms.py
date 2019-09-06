@@ -35,6 +35,13 @@ class PaymentForm(forms.ModelForm):
         fields = "__all__"
 
     
+class ShipmentPaymentInlineForm(forms.ModelForm):
+
+    class Meta:
+        model = ShipmentPayment
+        fields = "__all__"
+
+
 
 
 # class ShipmentPaymentApprovalForm(forms.ModelForm):

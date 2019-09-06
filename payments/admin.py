@@ -1,7 +1,9 @@
 from django.contrib import admin
 from .models import *
+from .forms import ShipmentPaymentForm, ShipmentPaymentInlineForm
 #from .forms import ShipmentPaymentApprovalForm
 from django.utils.safestring import mark_safe
+from django.forms.models import BaseInlineFormSet
 
 from retailer_to_sp.models import Shipment
 # Register your models here.
@@ -89,6 +91,40 @@ class PaymentApprovalAdmin(admin.ModelAdmin):# NoDeleteAdminMixin,
 #         "paid_amount", "payment_mode_name", "reference_no", "description"
 #     )
 
+class AtLeastOneFormSet(BaseInlineFormSet):
+    def clean(self):
+        super(AtLeastOneFormSet, self).clean()
+        non_empty_forms = 0
+        for form in self:
+            if form.cleaned_data:
+                non_empty_forms += 1
+        if non_empty_forms - len(self.deleted_forms) < 1:
+            raise ValidationError("Please fill at least one form.")
+
+
+
+class ShipmentPaymentInlineAdmin(admin.TabularInline):
+    model = ShipmentPayment
+    form = ShipmentPaymentInlineForm
+    formset = AtLeastOneFormSet
+    #fields = ("paid_amount", "payment_mode_name", "reference_no", "description")
+    #autocomplete_fields = ('cart_product', 'cart_product_price')
+    extra = 0
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+class ShipmentPaymentDataAdmin(admin.ModelAdmin):
+    inlines = [ShipmentPaymentInlineAdmin]
+    model = ShipmentData
+    fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
+        'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
+    readonly_fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
+        'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
+
+
+
 
 
 class PaymentEditAdmin(admin.ModelAdmin):# NoDeleteAdminMixin, 
@@ -170,3 +206,4 @@ admin.site.register(ShipmentPayment,ShipmentPaymentAdmin)
 # payment edit and approvals
 admin.site.register(PaymentApproval,PaymentApprovalAdmin)
 admin.site.register(PaymentEdit,PaymentEditAdmin)
+admin.site.register(ShipmentData,ShipmentPaymentDataAdmin)
