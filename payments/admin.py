@@ -107,9 +107,22 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline):
     model = ShipmentPayment
     form = ShipmentPaymentInlineForm
     formset = AtLeastOneFormSet
-    #fields = ("paid_amount", "payment_mode_name", "reference_no", "description")
+    fields = ("paid_amount", "parent_payment", "payment_mode_name", "reference_no", "description")
+    readonly_fields = ("paid_amount", "payment_mode_name", "reference_no",)
     #autocomplete_fields = ('cart_product', 'cart_product_price')
     extra = 0
+
+    def payment_mode_name(self,obj):
+        return obj.parent_payment.payment_mode_name
+    payment_mode_name.short_description = 'Payment Mode'
+
+    def reference_no(self,obj):
+        return obj.parent_payment.reference_no
+    reference_no.short_description = 'Reference No'
+
+    def description(self,obj):
+        return obj.parent_payment.description
+    description.short_description = 'Description'
 
     def has_delete_permission(self, request, obj=None):
         return False
