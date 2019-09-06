@@ -715,18 +715,23 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
     created_at = serializers.DateTimeField()
     shipment_payment = serializers.SerializerMethodField()
     trip_status = serializers.SerializerMethodField()
+    paid_amount_shipment = serializers.SerializerMethodField()
 
     def get_trip_status(self, obj):
         return obj.trip.trip_status
 
-    def get_shipment_payment(self, obj):
-        from payments.models import Payment as InvoicePayment
-        payment_data = {}
-        payment = InvoicePayment.objects.filter(shipment=obj)
-        if payment.exists():
-            payment_data = payment.values('paid_amount', 'reference_no', 'description', 'payment_mode_name')
+    def get_paid_amount_shipment(self, obj):
+        return obj.total_paid_amount    
 
-        return payment_data
+    def get_shipment_payment(self, obj):
+        return ""
+        # from payments.models import Payment as InvoicePayment
+        # payment_data = {}
+        # payment = InvoicePayment.objects.filter(shipment=obj)
+        # if payment.exists():
+        #     payment_data = payment.values('paid_amount', 'reference_no', 'description', 'payment_mode_name')
+
+        # return payment_data
 
     # def get_shipment_payment(self, obj):
 
@@ -764,9 +769,9 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
         model = OrderedProduct
         fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
                   'shipment_address', 'invoice_city', 'invoice_amount',
-                  'created_at', 'cash_to_be_collected', 'shipment_payment', 'trip_status')
+                  'created_at', 'cash_to_be_collected', 'shipment_payment', 'trip_status', 'paid_amount_shipment')
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 
-                    'cash_to_be_collected', 'shipment_payment', 'trip_status')
+                    'cash_to_be_collected', 'shipment_payment', 'trip_status', 'paid_amount_shipment')
 
 
 class FeedBackSerializer(serializers.ModelSerializer):

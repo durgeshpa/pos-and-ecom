@@ -610,6 +610,18 @@ class Trip(models.Model):
                 shipment.cash_to_be_collected())
         return round(sum(cash_to_be_collected), 2)
 
+    @property    
+    def total_received_amount(self):
+        # import pdb; pdb.set_trace()
+        from payments.models import ShipmentPayment
+        trip_shipments = self.rt_invoice_trip.all()
+        shipment_payment = ShipmentPayment.objects.filter(shipment__in=trip_shipments).\
+            annotate(sum_paid_amount=Sum('paid_amount'))
+        if shipment_payment:
+            return shipment_payment.sum_paid_amount
+        else:
+            return ""
+
     # @property    
     # def received_cash_amount(self):
     #     cash_collected = []
@@ -874,6 +886,21 @@ class OrderedProduct(models.Model): #Shipment
                     self._payment_mode.append(dict(PAYMENT_MODE_CHOICES)[payment['payment_choice']])
                     self._payment_amount.append(float(payment['paid_amount']))
         return self._payment_mode, self._payment_amount
+
+    @property    
+    def total_paid_amount(self):
+        # import pdb; pdb.set_trace()
+        from payments.models import ShipmentPayment
+        shipment_payment = self.shipment_payment.all()
+        if shipment_payment.exists():
+            shipment_payment = shipment_payment.annotate(sum_paid_amount=Sum('paid_amount'))                
+        # shipment_payment = ShipmentPayment.objects.filter(shipment__in=trip_shipments).\
+        #     annotate(sum_paid_amount=Sum('paid_amount'))
+            if shipment_payment:
+                return shipment_payment.sum_paid_amount
+        else:
+            return ""
+
 
     @property
     def payment_mode(self):
