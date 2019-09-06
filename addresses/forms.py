@@ -1,9 +1,11 @@
 from django import forms
-from .models import Address, City, State
+from .models import Address, City, State, Pincode
 from django.urls import reverse
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import RegexValidator
+
+from retailer_backend.validators import PinCodeValidator
 
 
 class AddressForm(forms.ModelForm):
@@ -47,3 +49,12 @@ class StateForm(forms.ModelForm):
     class Meta:
         Model = State
         fields = ('country', 'state_name', 'state_code', 'status',)
+
+
+class PincodeForm(forms.ModelForm):
+    pincode = forms.CharField(max_length=6, min_length=6,
+                              validators=[PinCodeValidator])
+
+    class Meta:
+        Model = Pincode
+        fields = ('city', 'pincode')

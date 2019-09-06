@@ -50,6 +50,22 @@ class City(models.Model):
     class Meta:
         verbose_name_plural = _("Cities")
 
+
+class Pincode(models.Model):
+    city = models.ForeignKey(City, related_name='city_pincode',
+                             on_delete=models.CASCADE)
+    pincode = models.CharField(max_length=6, validators=[PinCodeValidator])
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return '{}-{}'.format(self.pincode, self.city)
+
+    class Meta:
+        unique_together = ['city', 'pincode']
+        verbose_name_plural = _("Pincodes")
+
+
 class Area(models.Model):
     city = models.ForeignKey(City, related_name='city_area', null=True, blank=True, on_delete=models.CASCADE)
     area_name = models.CharField(max_length=255, validators=[NameValidator])
@@ -60,6 +76,7 @@ class Area(models.Model):
     def __str__(self):
         return self.area_name
 
+
 class Address(models.Model):
     nick_name = models.CharField(max_length=255,null=True,blank=True)
     shop_name = models.ForeignKey(Shop, related_name='shop_name_address_mapping', on_delete=models.CASCADE, null=True, blank=True)
@@ -67,6 +84,9 @@ class Address(models.Model):
     address_contact_name = models.CharField(max_length=255,null=True,blank=True)
     address_contact_number = models.CharField(validators=[MobileNumberValidator], max_length=10, blank=True)
     pincode = models.CharField(validators=[PinCodeValidator], max_length=6, blank=True)
+    pincode_link = models.ForeignKey(Pincode, related_name='pincode_address',
+                                     null=True, blank=True,
+                                     on_delete=models.CASCADE)
     state = models.ForeignKey(State, related_name='state_address', on_delete=models.CASCADE, blank=True, null=True)
     city = models.ForeignKey(City, related_name='city_address', on_delete=models.CASCADE)
     address_type = models.CharField(max_length=255,choices=address_type_choices,default='shipping')

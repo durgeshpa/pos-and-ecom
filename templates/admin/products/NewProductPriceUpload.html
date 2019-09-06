@@ -17,6 +17,13 @@
                </ul>
                <form method="post" enctype="multipart/form-data">
                   <div>
+                    {% if messages %}
+<ul class="messages">
+    {% for message in messages %}
+    <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+    {% endfor %}
+</ul>
+{% endif %}
                      <fieldset class="module aligned ">
                         {% csrf_token %}
                         {% if form.errors %}
@@ -39,7 +46,17 @@
                         </p>
                         {{ seller_shop.widget.attrs.id }}
                     </div>
+
+                    <div class="form-row">
+                        <p><label for="{{ form.action.auto_id }}">{{form.action.label}}:    {% if form.action.field.required %}
+                           <span class="required">*</span>
+                           {% endif %}
+                           </label>{{ form.action.errors }}{{ form.action }}
+                        </p>
+                        {{ action.widget.attrs.id }}
+                    </div>                    
                     
+                    <div id="download-actions">
                     <div class="form-row">
                         <p><label for="{{ form.city.auto_id }}">{{form.city.label}}:    {% if form.city.field.required %}
                            <span class="required">*</span>
@@ -94,15 +111,7 @@
                         </p>
                         {{ product.widget.attrs.id }}
                     </div>
-
-                    <div class="form-row">
-                        <p><label for="{{ form.action.auto_id }}">{{form.action.label}}:    {% if form.action.field.required %}
-                           <span class="required">*</span>
-                           {% endif %}
-                           </label>{{ form.action.errors }}{{ form.action }}
-                        </p>
-                        {{ action.widget.attrs.id }}
-                    </div>
+                        </div>
                         
                         <div id="{{ form.csv_file.auto_id }}">
                           {{ form.csv_file.errors }}
@@ -141,16 +150,42 @@
     
   $(document).ready(function() {
 
-   // $('label[for=id_csv_file], input#id_csv_file').hide();
-
-    $('input[type=radio][name=action]').change(function() {
-        if (this.value == 1) {
+    {% if form.errors or messages %}
+              $('input[type=radio][name=action]').change(function() {
+          if (this.value == 1) {
+            $('#download-actions').hide();
+            $('div[id=id_csv_file]').show();
+          }
+          else if (this.value == 2) {
+            $('#download-actions').show();
+            $('div[id=id_csv_file]').hide();
+          }
+      });
+        var action = $("input[type=radio][name=action]:checked");
+        var action_val = action.val();
+        //$("input[type=radio][name=action]").attr('disabled','disabled');
+        if (action_val == 1){
+          $('#download-actions').hide();
           $('div[id=id_csv_file]').show();
         }
-        else if (this.value == 2) {
+        else if (action_val == 2) {
           $('div[id=id_csv_file]').hide();
+          $('#download-actions').show();
         }
-    });
+    {% else %}
+      $('#download-actions').hide();
+      $('div[id=id_csv_file]').hide();
+      $('input[type=radio][name=action]').change(function() {
+          if (this.value == 1) {
+            $('#download-actions').hide();
+            $('div[id=id_csv_file]').show();
+          }
+          else if (this.value == 2) {
+            $('#download-actions').show();
+            $('div[id=id_csv_file]').hide();
+          }
+      });
+    {% endif %}
 
   });
 </script>

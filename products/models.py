@@ -252,14 +252,16 @@ class ProductPrice(models.Model):
     def __str__(self):
         return "%s - %s" % (self.product.product_name, self.selling_price)
 
+    def validate(self, exception_type):
+        if self.selling_price > self.mrp:
+            raise exception_type(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
+
     def clean(self):
         super(ProductPrice, self).clean()
-        if self.selling_price > self.mrp:
-            raise ValidationError(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
+        self.validate(ValidationError)
 
     def save(self, *args, **kwargs):
-        if self.selling_price > self.mrp:
-            raise Exception(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
+        self.validate(Exception)
         if self.approval_status == self.APPROVED:
             ProductPrice.objects.filter(product=self.product, shop=self.shop,
                                         approval_status=self.APPROVED

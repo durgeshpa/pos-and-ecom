@@ -243,13 +243,19 @@ class ProductsPriceFilterForm(forms.Form):
 
 
 class ProductPriceNewForm(forms.ModelForm):
-    product = forms.ModelChoiceField(
-        queryset=Product.objects.all(),
-        widget=autocomplete.ModelSelect2(
-            url='admin:product-price-autocomplete',)
-    )
     seller_shop = forms.ModelChoiceField(
-        queryset=Shop.objects.filter(shop_type__shop_type__in=['gf', 'sp']),
+        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
+        widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete')
+    )
+    city = forms.ModelChoiceField(
+        queryset=City.objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:city_autocomplete'),
+        required=False
+    )
+    buyer_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='r'),
+        widget=autocomplete.ModelSelect2(url='admin:retailer_autocomplete'),
+        required=False
     )
 
     class Meta:
