@@ -4,7 +4,6 @@ from django.db.models import Q
 from django.core.exceptions import ValidationError
 from django.forms.models import BaseInlineFormSet
 from django.contrib.admin import TabularInline
-
 from admin_auto_filters.filters import AutocompleteFilter
 from daterange_filter.filter import DateRangeFilter
 from retailer_backend.admin import InputFilter
@@ -24,7 +23,8 @@ from .resources import (
     )
 
 from .forms import (ProductPriceNewForm, ProductPriceChangePerm,
-                    ProductPriceAddPerm)
+                    ProductPriceAddPerm, ProductForm,)
+
 
 class ProductFilter(AutocompleteFilter):
     title = 'Product Name' # display title
@@ -43,6 +43,25 @@ class ProductImageMainAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+class CategorySearch(InputFilter):
+    parameter_name = 'qty'
+    title = 'Category'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(
+                Q(product_pro_category__category__category_name__icontains=self.value())
+            )
+
+class VendorCategory(InputFilter):
+    parameter_name = 'category'
+    title = 'Category'
+
+    def queryset(self, request, id, queryset):
+        if self.value() is not None:
+            return queryset.filter(
+                Q(category)
+            )
 
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
@@ -66,16 +85,17 @@ class BrandFilter(AutocompleteFilter):
 
 class CategoryFilter(AutocompleteFilter):
     title = 'Category'  # display title
-    field_name = 'category_name'  # name of the foreign key field
+    field_name = 'prodCategory'  # name of the foreign key field
+
 
 class VendorFilter(AutocompleteFilter):
     title = 'Vendor Name' # display title
     field_name = 'vendor' # name of the foreign key field
 
 class ProductVendorMappingAdmin(admin.ModelAdmin):
-    fields = ('vendor', 'product', 'product_price','product_mrp','case_size')
-    list_display = ('vendor', 'product', 'product_price','product_mrp','case_size','created_at','status')
-    list_filter = [VendorFilter,ProductFilter,]
+    fields = ('vendor', 'product', 'product_price','product_mrp','case_size', 'cat')
+    list_display = ('vendor', 'product','sku','product_price','product_mrp','case_size','created_at','status')
+    list_filter = [VendorFilter,ProductFilter, CategorySearch]
 
     class Media:
         pass
@@ -125,17 +145,6 @@ class TaxAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = TaxResource
     actions = ["export_as_csv"]
     search_fields = ['tax_name']
-
-
-class CategorySearch(InputFilter):
-    parameter_name = 'qty'
-    title = 'Category'
-
-    def queryset(self, request, queryset):
-        if self.value() is not None:
-            return queryset.filter(
-                Q(product_pro_category__category__category_name__icontains=self.value())
-            )
 
 class ProductSearch(InputFilter):
     parameter_name = 'product_sku'
@@ -227,6 +236,7 @@ class ProductTaxMappingAdmin(admin.TabularInline):
 
 class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductResource
+    form = ProductForm
 
     class Media:
             pass
