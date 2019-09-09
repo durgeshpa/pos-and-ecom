@@ -3,16 +3,18 @@ from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 from rest_framework.response import Response
 from .serializers import (RetailerTypeSerializer, ShopTypeSerializer,
-    ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer, ShopUserMappingSerializer, SellerShopSerializer,
-    AppVersionSerializer, ShopUserMappingUserSerializer
+        ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer, ShopTimingSerializer, ShopUserMappingSerializer,
+        SellerShopSerializer, AppVersionSerializer, ShopUserMappingUserSerializer, ShopRequestBrandSerializer
 )
-from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping, SalesAppVersion)
+from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping, SalesAppVersion, ShopRequestBrand, ShopTiming)
 from rest_framework import generics
 from addresses.models import City, Area, Address
 from rest_framework import status
 from django.contrib.auth import get_user_model
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES
 from rest_framework.parsers import FormParser, MultiPartParser
+
+from common.data_wrapper_view import DataWrapperViewSet
 from retailer_to_sp.models import OrderedProduct
 from retailer_to_sp.views import update_order_status
 
@@ -26,6 +28,37 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.core.exceptions import ObjectDoesNotExist
 from retailer_to_sp.models import OrderedProduct
 from retailer_to_sp.views import update_order_status, update_shipment_status_with_id
+from retailer_to_sp.api.v1.views import update_trip_status
+
+
+class ShopRequestBrandViewSet(DataWrapperViewSet):
+    '''
+    This class handles all operation of ordered product
+    '''
+    #permission_classes = (AllowAny,)
+    model = ShopRequestBrand
+    queryset = ShopRequestBrand.objects.all()
+    serializer_class = ShopRequestBrandSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    # filter_backends = (filters.DjangoFilterBackend,)
+    # filter_class = ShopRequestBrandFilter
+
+    def get_serializer_class(self):
+        '''
+        Returns the serializer according to action of viewset
+        '''
+        serializer_action_classes = {
+            'retrieve': ShopRequestBrandSerializer,
+            'list':ShopRequestBrandSerializer,
+            'create':ShopRequestBrandSerializer,
+            'update':ShopRequestBrandSerializer
+        }
+        if hasattr(self, 'action'):
+            return serializer_action_classes.get(self.action, self.serializer_class)
+        return self.serializer_class
+
 
 class RetailerTypeView(generics.ListAPIView):
     queryset = RetailerType.objects.all()
@@ -183,6 +216,44 @@ class ShopView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         shop = serializer.save(shop_owner=self.request.user)
         return shop
+
+class ShopTimingView(generics.ListCreateAPIView):
+    serializer_class = ShopTimingSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        shop_id = self.kwargs.get('shop_id')
+        return ShopTiming.objects.filter(shop_id=shop_id)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        msg = {'is_success': True,
+                'message': ["shop timing data"],
+                'response_data': serializer.data }
+        return Response(msg,status=status.HTTP_200_OK)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
+        else:
+            msg = {'is_success': False, 'message':['shop, open_timing or closing_timing Required'], 'response_data': None}
+        return Response(msg,status=status.HTTP_200_OK)
+
+    def perform_create(self, serializer):
+        timing, created = ShopTiming.objects.update_or_create(shop_id=self.request.data['shop'],
+                                                                defaults={
+                                                                    'open_timing' : self.request.data['open_timing'],
+                                                                    'closing_timing' : self.request.data['closing_timing'],
+                                                                     'break_start_time': self.request.data['break_start_time'],
+                                                                     'break_end_time': self.request.data['break_end_time'],
+                                                                     'off_day': self.request.data['off_day'],
+                                                                 })
 
 class TeamListView(generics.ListAPIView):
     serializer_class = ShopUserMappingSerializer
@@ -592,11 +663,12 @@ class CheckUser(generics.ListAPIView):
     def get(self, *args, **kwargs):
         all_user = ShopUserMapping.objects.filter(employee=self.request.user,status=True)
         if not all_user.exists():
-            msg = {'is_success': False, 'message': ["Sorry you are not authorised"], 'response_data': None, 'is_sales': False,'is_sales_manager': False}
+            msg = {'is_success': False, 'message': ["Sorry you are not authorised"], 'response_data': None, 'is_sales': False,'is_sales_manager': False, 'is_delivery_boy': False}
         else:
-            is_sales = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop', shop__shop_type__shop_type='r', status=True).exists() else False
-            is_sales_manager = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_manager_add_shop', shop__shop_type__shop_type='sp', status=True).exists() else False
-            msg = {'is_success': True, 'message': [""], 'response_data': None,'is_sales':is_sales, 'is_sales_manager':is_sales_manager}
+            is_sales = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop',shop__shop_type__shop_type='r', status=True).exists() else False
+            is_sales_manager = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_manager_add_shop',shop__shop_type__shop_type='sp', status=True).exists() else False
+            is_delivery_boy = True if ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='is_delivery_boy', status=True).exists() else False
+            msg = {'is_success': True, 'message': [""], 'response_data': None,'is_sales':is_sales, 'is_sales_manager':is_sales_manager, 'is_delivery_boy': is_delivery_boy}
         return Response(msg, status=status.HTTP_200_OK)
 
 
@@ -622,11 +694,11 @@ class StatusChangedAfterAmountCollected(APIView):
     def post(self, *args, **kwargs):
         shipment_id = kwargs.get('shipment')
         cash_collected = self.request.POST.get('cash_collected')
+        trip = self.request.POST.get('trip')
         shipment = OrderedProduct.objects.get(id=shipment_id)
         if float(cash_collected) == float(shipment.cash_to_be_collected()):
-            update_shipment_status_with_id(
-                shipment_id=shipment_id
-            )
+            update_shipment_status_with_id(shipment)
+            update_trip_status(trip)
             msg = {'is_success': True, 'message': ['Status Changed'], 'response_data': None}
         else:
             msg = {'is_success': False, 'message': ['Amount is different'], 'response_data': None}

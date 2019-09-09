@@ -2,7 +2,6 @@ from django.contrib import admin
 
 # Register your models here.
 from adminsortable.admin import NonSortableParentAdmin, SortableStackedInline
-
 from .models import Banner, BannerData,BannerPosition, BannerSlot, Page
 from.forms import BannerForm, BannerPositionForm, BannerDataPosition
 from .views import (BannerDataAutocomplete, BannerShopAutocomplete)
@@ -10,11 +9,10 @@ class BannerDataInline(SortableStackedInline):
     model = BannerData
     form = BannerDataPosition
 
+
 class BannerPositionAdmin(NonSortableParentAdmin):
     form=BannerPositionForm
     inlines = [BannerDataInline]
-
-
 
 admin.site.register(BannerPosition, BannerPositionAdmin)
 class BannerAdmin(admin.ModelAdmin):
@@ -50,3 +48,4 @@ class PageAdmin(admin.ModelAdmin):
     field = ('name')
 
 admin.site.register(Page,PageAdmin)
+

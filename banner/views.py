@@ -59,6 +59,7 @@ class ProductAutocomplete(autocomplete.Select2QuerySetView):
             qs = qs.filter(product_name__istartswith=self.q)
         return qs
 
+
 from shops.models import Shop
 from django.db.models import Q
 class BannerShopAutocomplete(autocomplete.Select2QuerySetView):

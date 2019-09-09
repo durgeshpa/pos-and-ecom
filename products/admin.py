@@ -356,6 +356,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
         ProductCategoryAdmin, ProductOptionAdmin,
         ProductImageAdmin, ProductTaxMappingAdmin
     ]
+    autocomplete_fields = ['product_hsn', 'product_brand']
 
     def product_images(self,obj):
         if obj.product_pro_image.exists():
@@ -485,6 +486,7 @@ class ProductHSNAdmin(admin.ModelAdmin, ExportCsvMixin):
     fields = ['product_hsn_code']
     list_display = ['product_hsn_code']
     actions = ['export_as_csv']
+    search_fields = ['product_hsn_code']
 
 
 admin.site.register(ProductImage, ProductImageMainAdmin)

@@ -1,5 +1,7 @@
 from rest_framework import serializers
-from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping, SalesAppVersion)
+from shops.models import (RetailerType, ShopType, Shop, ShopPhoto,
+    ShopRequestBrand, ShopDocument, ShopUserMapping, SalesAppVersion, ShopTiming
+)
 from django.contrib.auth import get_user_model
 from accounts.api.v1.serializers import UserSerializer,GroupSerializer
 from retailer_backend.validators import MobileNumberValidator
@@ -69,6 +71,11 @@ class ShopDocumentSerializer(serializers.ModelSerializer):
         response['shop_name'] = ShopSerializer(instance.shop_name).data
         return response
 
+class ShopRequestBrandSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ShopRequestBrand
+        fields = '__all__'
+
 class ShopUserMappingSerializer(serializers.ModelSerializer):
     shop = ShopSerializer()
     employee = UserSerializer()
@@ -89,10 +96,12 @@ class SellerShopSerializer(serializers.ModelSerializer):
             'shop_owner': {'required': True},
         }
 
+
 class AppVersionSerializer(serializers.ModelSerializer):
     class Meta:
         model = SalesAppVersion
         fields = ('app_version', 'update_recommended','force_update_required')
+
 
 class ShopUserMappingUserSerializer(serializers.ModelSerializer):
     employee = UserSerializer()
@@ -102,3 +111,26 @@ class ShopUserMappingUserSerializer(serializers.ModelSerializer):
         fields = ('shop','manager','employee','employee_group','created_at','status')
 
 
+class ShopTimingSerializer(serializers.ModelSerializer):
+    SUN = 'SUN'
+    MON = 'MON'
+    TUE = 'TUE'
+    WED = 'WED'
+    THU = 'THU'
+    FRI = 'FRI'
+    SAT = 'SAT'
+
+    off_day_choices = (
+        (SUN, 'Sunday'),
+        (MON, 'Monday'),
+        (TUE, 'Tuesday'),
+        (WED, 'Wednesday'),
+        (THU, 'Thuresday'),
+        (FRI, 'Friday'),
+        (SAT, 'Saturday'),
+    )
+
+    class Meta:
+        model = ShopTiming
+        fields = ('shop','open_timing','closing_timing','break_start_time','break_end_time','off_day')
+        read_only_fields = ('shop',)
