@@ -42,7 +42,7 @@ class SalesReport(APIView):
                 product_brand = cart_product_mapping.cart_product.product_brand.brand_name
                 ordered_qty = cart_product_mapping.no_of_pieces
                 all_tax_list = cart_product_mapping.cart_product.product_pro_tax
-
+                # shopName = seller_shop
 
                 product_shipments = order_shipments.filter(product=product)
                 product_shipments = product_shipments.aggregate(Sum('delivered_qty'))['delivered_qty__sum']
@@ -67,7 +67,7 @@ class SalesReport(APIView):
                     ordered_items[product.product_gf_code]['delivered_amount'] += delivered_amount
                     ordered_items[product.product_gf_code]['delivered_tax_amount'] += delivered_tax_amount
                 else:
-                    ordered_items[product.product_gf_code] = {'product_sku':product_sku, 'product_id':product_id, 'product_name':product_name,'product_brand':product_brand,'ordered_qty':ordered_qty, 'delivered_qty':product_shipments, 'ordered_amount':ordered_amount, 'ordered_tax_amount':ordered_tax_amount, 'delivered_amount':delivered_amount, 'delivered_tax_amount':delivered_tax_amount}
+                    ordered_items[product.product_gf_code] = {'product_sku':product_sku, 'product_id':product_id, 'product_name':product_name,'product_brand':product_brand,'ordered_qty':ordered_qty, 'delivered_qty':product_shipments, 'ordered_amount':ordered_amount, 'ordered_tax_amount':ordered_tax_amount, 'delivered_amount':delivered_amount, 'delivered_tax_amount':delivered_tax_amount, 'seller_shop':seller_shop}
 
         data = ordered_items
         return data
@@ -76,7 +76,6 @@ class SalesReport(APIView):
         from django.http import HttpResponse
         from django.contrib import messages
         shop_id = self.request.GET.get('shop')
-        ShopName = Shop.objects.get(pk=shop_id)
         start_date = self.request.GET.get('start_date', None)
         end_date = self.request.GET.get('end_date', None)
         if end_date < start_date:
@@ -90,9 +89,9 @@ class SalesReport(APIView):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="sales-report.csv"'
         writer = csv.writer(response)
-        writer.writerow(['GF Code', 'ID', 'SKU', 'Product Name', 'Brand', 'Ordered Qty', 'Delivered Qty', 'Ordered Amount', 'Ordered Tax Amount', 'Delivered Amount', 'Delivered Tax Amount', 'Seller_Name'])
+        writer.writerow(['GF Code', 'ID', 'SKU', 'Product Name', 'Brand', 'Ordered Qty', 'Delivered Qty', 'Ordered Amount', 'Ordered Tax Amount', 'Delivered Amount', 'Delivered Tax Amount', 'Seller_shop'])
         for k,v in data.items():
-            writer.writerow([k, v['product_id'], v['product_sku'], v['product_name'], v['product_brand'], v['ordered_qty'], v['delivered_qty'], v['ordered_amount'], v['ordered_tax_amount'],  v['delivered_amount'], v['delivered_tax_amount'], ShopName])
+            writer.writerow([k, v['product_id'], v['product_sku'], v['product_name'], v['product_brand'], v['ordered_qty'], v['delivered_qty'], v['ordered_amount'], v['ordered_tax_amount'],  v['delivered_amount'], v['delivered_tax_amount'],v['seller_shop']])
 
         return response
 
