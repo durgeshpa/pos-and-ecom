@@ -109,11 +109,28 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline):
     formset = AtLeastOneFormSet
     fields = ("paid_amount", "parent_payment", "payment_mode_name", "reference_no", "description")
     readonly_fields = ("payment_mode_name", "reference_no",)
-    # autocomplete_fields = ('parent_payment',)
-    # search_fields = ('parent_payment__order__order_no')
-
-    #autocomplete_fields = ('cart_product', 'cart_product_price')
     extra = 0
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "parent_payment":
+            try:
+                parent_obj_id = request.resolver_match.kwargs['object_id']
+                parent_obj = OrderedProduct.objects.get(pk=parent_obj_id)
+                kwargs["queryset"] = Payment.objects.filter(order=parent_obj.order)
+            except IndexError:
+                pass
+        return super(
+            ShipmentPaymentInlineAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
+
+
+    def has_change_permission(self, request, obj=None):
+        try:
+            parent_obj_id = request.resolver_match.kwargs['object_id']
+            parent_obj = OrderedProduct.objects.get(pk=parent_obj_id)
+            if parent_obj.trip.trip_status in ["CLOSED", "TRANSFERRED"]:
+                return False
+        except: 
+            return True
 
     def payment_mode_name(self,obj):
         return obj.parent_payment.payment_mode_name
@@ -134,14 +151,11 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline):
 class ShipmentPaymentDataAdmin(admin.ModelAdmin):
     inlines = [ShipmentPaymentInlineAdmin]
     model = ShipmentData
-    fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
+    fields = ['order', 'trip','invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
         'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
-    readonly_fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
+    readonly_fields = ['order', 'trip', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
         'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
-
-
-
-
+        
 
 class PaymentEditAdmin(admin.ModelAdmin):# NoDeleteAdminMixin, 
     model = PaymentEdit

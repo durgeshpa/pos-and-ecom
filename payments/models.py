@@ -25,10 +25,10 @@ CHOICES = (
   )
 
 PAYMENT_MODE_NAME = (
-    ('cash_payment', 'cash_payment'),
-    ('online_payment', 'online_payment'),
-    ('credit_payment', 'credit_payment'),
-    ('wallet_payment', 'wallet_payment')
+    ('cash_payment', 'Cash Payment'),
+    ('online_payment', 'Online Payment'),
+    ('credit_payment', 'Credit Payment'),
+    ('wallet_payment', 'Wallet Payment')
   )
 
 PAYMENT_STATUS_CHOICES = (

@@ -46,8 +46,6 @@ class ShipmentPaymentInlineForm(forms.ModelForm):
     #     shipment_payment = getattr(self, 'instance', None)
 
     #     self.fields['parent_payment'].queryset = Payment.objects.filter(order=shipment_payment.shipment.order)
- 
-
 
 
 
