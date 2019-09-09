@@ -33,11 +33,6 @@ class BannerAdmin(admin.ModelAdmin):
                 self.admin_site.admin_view(BannerDataAutocomplete.as_view()),
                 name="banner-data-autocomplete"
             ),
-            url(
-                r'^banner-shop-autocomplete/$',
-                self.admin_site.admin_view(BannerShopAutocomplete.as_view()),
-                name="banner-shop-autocomplete"
-                ),
             ] + urls
         return urls
 
