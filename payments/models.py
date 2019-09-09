@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.postgres.fields import JSONField
 from django.contrib.postgres.fields import ArrayField
-from django.db.models import Case, CharField, Value, When, F
+from django.db.models import Case, CharField, Value, When, F, Sum
 from django.contrib.auth import get_user_model
 
 from retailer_to_sp.models import Order, Shipment, OrderedProduct
@@ -125,14 +125,32 @@ class Payment(AbstractDateTime):
     processed_by = models.ForeignKey(User, related_name='payment_boy',
         null=True, blank=True, on_delete=models.SET_NULL)
 
+    def __str__(self):
+        return "{} -> {},{}".format(
+            self.order.order_no,
+            self.payment_mode_name,
+            self.paid_amount
+        )
+
     # def clean(self):
     #     if not re.match("^[a-zA-Z0-9_]*$", self.reference_no):
     #         raise ValidationError('Referece number can not have special character.')
     #     super(Payment, self).clean()
 
+    @property
+    def payment_utilised(self):
+        payment = self.payment.all()
+        if payment.exists():
+            payment_data = payment.aggregate(Sum('paid_amount')) #annotate(sum_paid_amount=Sum('paid_amount')) 
+        # payment = ShipmentPayment.objects.filter(shipment__in=trip_shipments).\
+        #     annotate(sum_paid_amount=Sum('paid_amount'))
+            if payment_data:
+                return payment_data['paid_amount__sum'] #sum_paid_amount
+        else:
+            return 0
+
+
     def save(self, *args, **kwargs):
-        #import pdb; pdb.set_trace()
-        # self.order = self.shipment.order
         if self.is_payment_approved:
             if self.payment_received >= self.paid_amount:
                 self.payment_approval_status = "approved_and_verified"
@@ -169,6 +187,13 @@ class ShipmentPayment(AbstractDateTime):
     def get_parent_or_self(self,obj):
         pass
         #return brand.id
+
+    def clean(self):
+        # check if parent payment is completely utilised
+        # import pdb; pdb.set_trace()
+        if self.parent_payment.payment_utilised + self.paid_amount > self.parent_payment.paid_amount:
+            error_msg = "Maximum amount to be utilised from parent payment is " + str(self.parent_payment.paid_amount - self.parent_payment.payment_utilised)
+            raise ValidationError(_(error_msg),)
 
 
 class PaymentMode(models.Model):

@@ -109,6 +109,9 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline):
     formset = AtLeastOneFormSet
     fields = ("paid_amount", "parent_payment", "payment_mode_name", "reference_no", "description")
     readonly_fields = ("payment_mode_name", "reference_no",)
+    # autocomplete_fields = ('parent_payment',)
+    # search_fields = ('parent_payment__order__order_no')
+
     #autocomplete_fields = ('cart_product', 'cart_product_price')
     extra = 0
 
