@@ -44,23 +44,13 @@ class ProductImageMainAdmin(admin.ModelAdmin):
         pass
 
 class CategorySearch(InputFilter):
-    parameter_name = 'qty'
+    parameter_name = 'category'
     title = 'Category'
 
     def queryset(self, request, queryset):
         if self.value() is not None:
             return queryset.filter(
                 Q(product_pro_category__category__category_name__icontains=self.value())
-            )
-
-class VendorCategory(InputFilter):
-    parameter_name = 'category'
-    title = 'Category'
-
-    def queryset(self, request, id, queryset):
-        if self.value() is not None:
-            return queryset.filter(
-                Q(category)
             )
 
 class ExportCsvMixin:

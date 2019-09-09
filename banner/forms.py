@@ -76,7 +76,6 @@ class BannerDataPosition(forms.ModelForm):
     banner_data = forms.ModelChoiceField(
         queryset=BannerData.objects.all(),
         widget=autocomplete.ModelSelect2(url='admin:banner-data-autocomplete',),
-        required=False
     )
 
     class Meta:

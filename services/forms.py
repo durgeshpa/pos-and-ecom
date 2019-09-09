@@ -14,7 +14,6 @@ class SalesReportForm(forms.Form):
     shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type__in=['sp', ]),
         widget=autocomplete.ModelSelect2(url='banner-shop-autocomplete', ),
-        required=False
     )
     start_date = forms.DateTimeField(
     widget=DateTimePicker(
