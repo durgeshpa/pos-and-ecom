@@ -1329,15 +1329,18 @@ class SellerOrderList(generics.ListAPIView):
                                                        shop__shop_type__shop_type='r', status=True)
 
     def get_queryset(self):
+        is_manager=False
         shop_emp = self.get_employee()
         if not shop_emp.exists():
             shop_emp = self.get_shops()
+            if shop_emp:
+                is_manager=True
         return shop_emp.values('shop')
 
     def list(self, request, *args, **kwargs):
         msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
         current_url = request.get_host()
-        queryset = Order.objects.filter(buyer_shop__in=self.get_queryset()).order_by('-created_at')
+        queryset = Order.objects.filter(buyer_shop__in=self.get_queryset()).order_by('-created_at') if is_manager else Order.objects.filter(buyer_shop__in=self.get_queryset(), ordered_by=request.user).order_by('-created_at')
         if not queryset.exists():
             msg = {'is_success': False, 'message': ['Order not found'], 'response_data': None}
         else:
