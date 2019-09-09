@@ -5,6 +5,7 @@ from adminsortable.admin import NonSortableParentAdmin, SortableStackedInline
 
 from .models import Banner, BannerData,BannerPosition, BannerSlot, Page
 from.forms import BannerForm, BannerPositionForm, BannerDataPosition
+from .views import (BannerDataAutocomplete, BannerShopAutocomplete)
 class BannerDataInline(SortableStackedInline):
     model = BannerData
     form = BannerDataPosition
@@ -23,7 +24,22 @@ class BannerAdmin(admin.ModelAdmin):
     search_fields= ('name', 'created_at','updated_at')
     form = BannerForm
 
-
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(BannerAdmin, self).get_urls()
+        urls = [
+            url(
+                r'^banner-data-autocomplete/$',
+                self.admin_site.admin_view(BannerDataAutocomplete.as_view()),
+                name="banner-data-autocomplete"
+            ),
+            url(
+                r'^banner-shop-autocomplete/$',
+                self.admin_site.admin_view(BannerShopAutocomplete.as_view()),
+                name="banner-shop-autocomplete"
+                ),
+            ] + urls
+        return urls
 
 admin.site.register(Banner,BannerAdmin)
 

@@ -85,7 +85,7 @@ class BrandFilter(AutocompleteFilter):
 
 class CategoryFilter(AutocompleteFilter):
     title = 'Category'  # display title
-    field_name = 'prodCategory'  # name of the foreign key field
+    field_name = 'category_name'  # name of the foreign key field
 
 
 class VendorFilter(AutocompleteFilter):
@@ -94,7 +94,7 @@ class VendorFilter(AutocompleteFilter):
 
 class ProductVendorMappingAdmin(admin.ModelAdmin):
     fields = ('vendor', 'product', 'product_price','product_mrp','case_size')
-    list_display = ('vendor', 'product','sku','product_price','product_mrp','case_size','created_at','status')
+    list_display = ('vendor', 'product','product_price','product_mrp','case_size','created_at','status')
     list_filter = [VendorFilter,ProductFilter,]
 
     class Media:
