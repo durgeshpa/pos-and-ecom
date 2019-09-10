@@ -47,6 +47,7 @@ class Banner(models.Model):
     def __str__(self):
         return '{}'.format(self.image)
 
+
     def clean(self):
         super(Banner, self).clean()
         if (self.banner_type == 'brand' and self.brand is None ):
@@ -57,6 +58,7 @@ class Banner(models.Model):
             raise ValidationError('Please select the SubBrand')
         if (self.banner_type == 'subcategory' and self.sub_category is None ):
             raise ValidationError('Please select the SubCategory')
+
             
 class Page(models.Model):
     name = models.CharField(max_length=255)
