@@ -70,3 +70,16 @@ class BannerPositionForm(forms.ModelForm):
     class Meta:
         Model = BannerPosition
         fields = '__all__'
+
+
+class BannerDataPosition(forms.ModelForm):
+    banner_data = forms.ModelChoiceField(
+        queryset=BannerData.objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:banner-data-autocomplete',),
+    )
+
+    class Meta:
+        Model = BannerData
+        fields = '__all__'
+
+
