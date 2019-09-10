@@ -1313,6 +1313,7 @@ class SellerOrderList(generics.ListAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
     pagination_class = SmallOffsetPagination
+    is_manager=False
 
     def get_manager(self):
         return ShopUserMapping.objects.filter(employee=self.request.user, status=True)
@@ -1327,9 +1328,7 @@ class SellerOrderList(generics.ListAPIView):
         return ShopUserMapping.objects.filter(employee=self.request.user,
                                                        employee_group__permissions__codename='can_sales_person_add_shop',
                                                        shop__shop_type__shop_type='r', status=True)
-
     def get_queryset(self):
-        self.is_manager=False
         shop_emp = self.get_employee()
         if not shop_emp.exists():
             shop_emp = self.get_shops()
