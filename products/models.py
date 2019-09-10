@@ -113,7 +113,7 @@ class ProductHSN(models.Model):
 class Product(models.Model):
     product_name = models.CharField(max_length=255,validators=[ProductNameValidator])
     product_slug = models.SlugField(max_length=255)
-    product_short_description = models.CharField(max_length=255,validators=[ProductNameValidator],null=True,blank=True)
+    product_short_description = models.CharField(max_length=255,validators=[ProductNameValidator], null=True, blank=True)
     product_long_description = models.TextField(null=True,blank=True)
     product_sku = models.CharField(max_length=255, blank=False, unique=True)
     product_gf_code = models.CharField(max_length=255, blank=False, unique=True)
@@ -131,7 +131,7 @@ class Product(models.Model):
         super(Product, self).save(*args, **kwargs)
 
     def __str__(self):
-        return self.product_name
+        return "{}-{}".format(self.product_name, self.product_sku)
 
     class Meta:
         ordering = ['-created_at']

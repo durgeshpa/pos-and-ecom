@@ -263,6 +263,9 @@ class ProductPriceNewForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:1]
 
+class ProductForm(forms.ModelForm):
+    product_short_description= forms.CharField(required=True)
+
 
 class ProductsFilterForm(forms.Form):
     category = forms.ModelMultipleChoiceField(

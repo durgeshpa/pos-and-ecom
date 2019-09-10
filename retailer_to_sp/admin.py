@@ -11,7 +11,7 @@ from django.contrib import admin
 from django.contrib.admin import SimpleListFilter
 from django.core.exceptions import ValidationError
 from django.contrib.admin import SimpleListFilter, helpers
-from django.utils.html import format_html
+from django.utils.html import format_html, format_html_join
 from django.urls import reverse
 from django.db.models import Q
 from django.db.models import F, FloatField, Sum
@@ -39,6 +39,7 @@ from retailer_to_sp.views import (
     trip_planning, trip_planning_change, update_delivered_qty,
     update_order_status, update_shipment_status, reshedule_update_shipment,
     RetailerCart, assign_picker, assign_picker_change, assign_picker_data,
+    UserWithNameAutocomplete
 )
 from shops.models import ParentRetailerMapping, Shop
 from sp_to_gram.models import (
@@ -55,14 +56,14 @@ from .forms import (
     ReturnProductMappingForm, ShipmentForm,
     ShipmentProductMappingForm, TripForm, ShipmentReschedulingForm,
     OrderedProductReschedule, OrderedProductMappingRescheduleForm,
-    OrderForm, EditAssignPickerForm,
+    OrderForm, EditAssignPickerForm, ResponseCommentForm
 )
 from .models import (Cart, CartProductMapping, Commercial, CustomerCare,
                      Dispatch, DispatchProductMapping, Note, Order,
                      OrderedProduct, OrderedProductMapping, Payment, Return,
                      ReturnProductMapping, Shipment, ShipmentProductMapping,
                      Trip, ShipmentRescheduling, Feedback, PickerDashboard,
-                     generate_picklist_id)
+                     generate_picklist_id, ResponseComment)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (
@@ -181,7 +182,7 @@ class OrderNumberSearch(InputFilter):
     def queryset(self, request, queryset):
         if self.value() is not None:
             order_no = self.value()
-            order_nos = order_no.replace(" ", "").replace("\t","").split(',')    
+            order_nos = order_no.replace(" ", "").replace("\t","").split(',')
             return queryset.filter(
                 Q(order__order_no__in=order_nos)
             )
@@ -389,6 +390,10 @@ class CartAdmin(admin.ModelAdmin):
                 self.admin_site.admin_view(commercial_shipment_details),
                 name="CommercialShipmentDetails"
                 ),
+            url(r'^user-with-name-autocomplete/$',
+                self.admin_site.admin_view(UserWithNameAutocomplete.as_view()),
+                name="user_with_name_autocomplete"
+                ),
         ] + urls
         return urls
 
@@ -443,7 +448,7 @@ class BuyerShopFilter(AutocompleteFilter):
 # class PickerBoyFilter(AutocompleteFilter):
 #     title = 'Picker Boy'
 #     field_name = 'picker_boy'
-#     autocomplete_url = 'picker-name-autocomplete'    
+#     autocomplete_url = 'picker-name-autocomplete'
 
 class PickerBoyFilter(InputFilter):
     title = 'Picker Boy'
@@ -470,7 +475,7 @@ class OrderDateFilter(InputFilter):
                 Q(picker_boy__first_name__icontains=value) |
                   Q(picker_boy__phone_number=value)
                 )
-        return queryset        
+        return queryset
 
 
 class PicklistIdFilter(InputFilter):
@@ -548,7 +553,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     #     'id', 'picklist_id', 'picker_boy', 'order_date', 'download_pick_list'
     #     )
     list_display = (
-        'picklist', 'picking_status', 'picker_boy', 
+        'picklist', 'picking_status', 'picker_boy',
         'created_at', 'download_pick_list', 'order_number', 'order_date'
         )
     # fields = ['order', 'picklist_id', 'picker_boy', 'order_date']
@@ -562,7 +567,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         if obj: # editing an existing object
             return self.readonly_fields + ('order', 'shipment', 'picklist_id')
-        return self.readonly_fields    
+        return self.readonly_fields
 
     def get_urls(self):
         from django.conf.urls import url
@@ -586,7 +591,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
 
         ] + urls
         return urls
-    
+
     def has_change_permission(self, request, obj=None):
         if request.user.has_perm("retailer_to_sp.change_pickerdashboard"):
             return True
@@ -635,7 +640,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
                                                                                                    obj.picklist_id)
                          )
         # if user.has_perm("can_change_picker_dashboard"):
-            
+
         # else:
         #     return self.picklist_id
     picklist.short_description = 'Picklist'
@@ -668,7 +673,8 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                        'billing_address', 'shipping_address')}),
         (_('Order Details'), {
             'fields': ('order_no', 'ordered_cart', 'order_status',
-                       'ordered_by', 'last_modified_by')}),
+                       'cancellation_reason', 'ordered_by',
+                       'last_modified_by')}),
         (_('Amount Details'), {
             'fields': ('total_mrp_amount', 'total_discount_amount',
                        'total_tax_amount', 'total_final_amount')}),
@@ -771,12 +777,12 @@ class OrderedProductAdmin(admin.ModelAdmin):
     exclude = ('received_by', 'last_modified_by')
     fields = (
         'order', 'invoice_no', 'shipment_status', 'trip',
-        'return_reason',
+        'return_reason', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check'
     )
     autocomplete_fields = ('order',)
     search_fields = ('invoice_no', 'order__order_no')
     readonly_fields = (
-        'order', 'invoice_no', 'trip', 'shipment_status',
+        'order', 'invoice_no', 'trip', 'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks'
     )
     form = OrderedProductReschedule
 
@@ -819,7 +825,7 @@ class OrderedProductAdmin(admin.ModelAdmin):
                 form_instance,
                 formsets_dict['OrderedProductMappingFormFormSet']
             )
-            create_credit_note(form)
+            create_credit_note(form.instance)
         update_order_status(
             close_order_checked=False,
             shipment_id=form_instance.id
@@ -933,12 +939,12 @@ class ShipmentAdmin(admin.ModelAdmin):
 
     ]
     fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
-        'shipment_status', 'close_order']
+        'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'close_order']
     search_fields = [
         'order__order_no', 'invoice_no', 'order__seller_shop__shop_name',
         'order__buyer_shop__shop_name', 'trip__dispatch_no',
         'trip__vehicle_no', 'trip__delivery_boy__phone_number']
-    readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city']
+    readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
     list_per_page = 50
 
 
@@ -983,7 +989,7 @@ class ShipmentAdmin(admin.ModelAdmin):
         update_order_status(
             close_order_checked=form.cleaned_data.get('close_order'),
             shipment_id=form.instance.id
-        )        
+        )
 
         no_of_pieces = form.instance.order.ordered_cart.rt_cart_list.all().values('no_of_pieces')
         # no_of_pieces = no_of_pieces.first().get('no_of_pieces')
@@ -996,7 +1002,7 @@ class ShipmentAdmin(admin.ModelAdmin):
             )
         shipped_qty = qty.aggregate(
             Sum('shipped_qty')).get('shipped_qty__sum', 0)
-        
+
         shipped_qty = shipped_qty if shipped_qty else 0
         #when more shipments needed and status == qc_pass
         close_order = form.cleaned_data.get('close_order')
@@ -1216,19 +1222,46 @@ class NoteAdmin(admin.ModelAdmin):
 class ExportCsvMixin:
     def export_as_csv_customercare(self, request, queryset):
         meta = self.model._meta
-        list_display = ('complaint_id', 'complaint_detail', 'retailer_shop', 'retailer_name', 'seller_shop', 'order_id', 'issue_status', 'select_issue', 'issue_date')
+        list_display = ('complaint_id', 'complaint_detail', 'retailer_shop', 'retailer_name', 'seller_shop', 'order_id', 'issue_status', 'select_issue', 'issue_date', 'comment_display', 'comment_date_display')
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
         writer = csv.writer(response)
         writer.writerow(list_display)
         for obj in queryset:
-            row = writer.writerow([getattr(obj, field) for field in list_display])
+            row = writer.writerow([getattr(obj, field).replace('<br>', '\n') if field in ['comment_display','comment_date_display'] else getattr(obj, field) for field in list_display])
         return response
     export_as_csv_customercare.short_description = "Download CSV of Selected CustomeCare"
 
+class ResponseCommentAdmin(admin.TabularInline):
+    model = ResponseComment
+    form = ResponseCommentForm
+    fields = ('comment', 'created_at')
+    readonly_fields = ('created_at',)
+    extra = 0
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+class AddResponseCommentAdmin(admin.TabularInline):
+    model = ResponseComment
+    form = ResponseCommentForm
+    fields = ('comment', )
+    extra = 0
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    # For Django Version > 2.1 there is a "view permission" that needs to be disabled too (https://docs.djangoproject.com/en/2.2/releases/2.1/#what-s-new-in-django-2-1)
+    def has_view_permission(self, request, obj=None):
+        return False
 
 class CustomerCareAdmin(ExportCsvMixin, admin.ModelAdmin):
+    inlines = [ResponseCommentAdmin, AddResponseCommentAdmin]
     model = CustomerCare
     actions = ["export_as_csv_customercare"]
     form = CustomerCareForm
@@ -1237,12 +1270,12 @@ class CustomerCareAdmin(ExportCsvMixin, admin.ModelAdmin):
         'select_issue', 'complaint_detail', 'issue_date', 'seller_shop', 'retailer_shop', 'retailer_name'
     )
     exclude = ('complaint_id',)
-    list_display = ('complaint_id', 'retailer_shop', 'retailer_name', 'seller_shop', 'contact_number', 'order_id', 'issue_status', 'select_issue', 'issue_date')
+    list_display = ('complaint_id', 'retailer_shop', 'retailer_name', 'seller_shop', 'contact_number', 'order_id', 'issue_status', 'select_issue', 'issue_date', 'comment_display','comment_date_display')
     autocomplete_fields = ('order_id',)
     search_fields = ('complaint_id',)
     readonly_fields = ('issue_date', 'seller_shop', 'retailer_shop', 'retailer_name')
     list_filter = [ComplaintIDSearch, OrderIdSearch, IssueStatusSearch, IssueSearch]
-
+    #change_form_template = 'admin/retailer_to_sp/customer_care/change_form.html'
 
 class PaymentAdmin(NumericFilterModelAdmin,admin.ModelAdmin):
     model = Payment
