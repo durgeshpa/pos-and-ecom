@@ -132,10 +132,12 @@ class Payment(AbstractDateTime):
             self.paid_amount
         )
 
-    # def clean(self):
-    #     if not re.match("^[a-zA-Z0-9_]*$", self.reference_no):
-    #         raise ValidationError('Referece number can not have special character.')
-    #     super(Payment, self).clean()
+    def clean(self):
+        if self.payment_mode_name != "cash_payment" and not self.reference_no:
+            raise ValidationError('Referece number is required.')
+        if not re.match("^[a-zA-Z0-9_]*$", self.reference_no):
+            raise ValidationError('Referece number can not have special character.')
+        super(Payment, self).clean()
 
     @property
     def payment_utilised(self):
@@ -191,10 +193,12 @@ class ShipmentPayment(AbstractDateTime):
     def clean(self):
         # check if parent payment is completely utilised
         # import pdb; pdb.set_trace()
-        if self.parent_payment.payment_utilised + self.paid_amount > self.parent_payment.paid_amount:
-            error_msg = "Maximum amount to be utilised from parent payment is " + str(self.parent_payment.paid_amount - self.parent_payment.payment_utilised)
-            raise ValidationError(_(error_msg),)
-
+        try:
+            if self.parent_payment.payment_utilised + self.paid_amount > self.parent_payment.paid_amount:
+                error_msg = "Maximum amount to be utilised from parent payment is " + str(self.parent_payment.paid_amount - self.parent_payment.payment_utilised)
+                raise ValidationError(_(error_msg),)
+        except: 
+            pass
 
 class PaymentMode(models.Model):
     payment_mode_name = models.CharField(max_length=50, choices=PAYMENT_MODE_NAME, null=True, blank=True)
@@ -269,16 +273,6 @@ class OnlinePayment(AbstractDateTime):
             raise ValidationError('Referece number can not have special character.')
         super(OnlinePayment, self).clean()
 
-    def save(self, *args, **kwargs):
-        if self.is_payment_approved:
-            if self.payment_received >= self.paid_amount:
-                self.payment_approval_status = "approved_and_verified"
-            elif self.payment_received == 0.0000:
-                self.payment_approval_status = "rejected"
-            elif self.payment_received < self.paid_amount:
-                self.payment_approval_status = "disputed"            
-
-        super().save(*args, **kwargs)
 
 class Offer(AbstractDateTime):
     # This method stores the discount description for a payment
@@ -348,3 +342,17 @@ def change_trip_status_online(sender, instance=None, created=False, **kwargs):
         (trip.cash_to_be_collected_value == trip.received_cash_amount + trip.approved_online_amount):
         trip.trip_status = "TRANSFERRED"
         trip.save()
+
+
+
+# @receiver(post_save, sender=Payment)
+# def add_online_payment(sender, instance=None, created=False, **kwargs):
+#     '''
+#     Method to update online payment
+#     '''
+#     #assign shipment to picklist once SHIPMENT_CREATED
+#     if created:
+#         OnlinePayment.objects.create(
+#             payment_parent=instance,
+
+#             )

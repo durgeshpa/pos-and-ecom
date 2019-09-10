@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import *
-from .forms import ShipmentPaymentForm, ShipmentPaymentInlineForm
+from .forms import ShipmentPaymentForm, ShipmentPaymentInlineForm, OnlinePaymentInlineForm
 #from .forms import ShipmentPaymentApprovalForm
 from django.utils.safestring import mark_safe
 from django.forms.models import BaseInlineFormSet
@@ -8,11 +8,21 @@ from django.forms.models import BaseInlineFormSet
 from retailer_to_sp.models import Shipment
 # Register your models here.
 
+class OnlinePaymentInlineAdmin(admin.TabularInline):
+    model = OnlinePayment
+    form = OnlinePaymentInlineForm
+
+
 class PaymentAdmin(admin.ModelAdmin):
+    # inlines = [OnlinePaymentInlineAdmin]
     model = Payment
     fields = (
         "order", "paid_amount", "payment_mode_name", "reference_no", "description"
     )
+
+    # def get_inline_instances(self, request, obj=None):
+    #     if not obj or obj.payment_mode_name != "online_payment": return []
+    #     return super(PaymentAdmin, self).get_inline_instances(request, obj)
 
 class PaymentModeAdmin(admin.ModelAdmin):
     model = PaymentMode
