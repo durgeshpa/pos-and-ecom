@@ -355,8 +355,8 @@ class Order(models.Model):
     total_discount_amount = models.FloatField(default=0)
     total_tax_amount = models.FloatField(default=0)
     order_status = models.CharField(max_length=50,choices=ORDER_STATUS)
-    #payment_status = models.CharField(max_length=50,choices=PAYMENT_STATUS, null=True, blank=True)
-    #intended_mode_of_payment = models.CharField(max_length=50,choices=PAYMENT_MODE, null=True, blank=True)
+    payment_status = models.CharField(max_length=50,choices=PAYMENT_STATUS, null=True, blank=True)
+    intended_mode_of_payment = models.CharField(max_length=50,choices=PAYMENT_MODE, null=True, blank=True)
     cancellation_reason = models.CharField(
         max_length=50, choices=CANCELLATION_REASON,
         null=True, blank=True, verbose_name='Reason for Cancellation',
@@ -818,7 +818,7 @@ class OrderedProduct(models.Model): #Shipment
         get_user_model(), related_name='rt_last_modified_user_order',
         null=True, blank=True, on_delete=models.CASCADE
     )
-    #payment_status = models.CharField(max_length=50,choices=PAYMENT_STATUS)
+    payment_status = models.CharField(max_length=50,choices=PAYMENT_STATUS, null=True, blank=True)
     is_payment_approved = models.BooleanField(default=False)
     no_of_crates = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Crates Shipped")
     no_of_packets = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Packets Shipped")
