@@ -1510,15 +1510,6 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
     Method to update picking status
     '''
     assign_update_picker_to_shipment.delay(instance.id)
-    #assign shipment to picklist once SHIPMENT_CREATED
-    # if instance.shipment_status == "SHIPMENT_CREATED":
-    #     # assign shipment to picklist
-    #     # tbd : if manual(by searching relevant picklist id) or automated
-    #     picker_lists = PickerDashboard.objects.filter(order=instance.order, picking_status="picking_assigned")
-    #     if picker_lists.exists():
-    #         picker_lists.update(shipment=instance)
-    # elif instance.shipment_status == OrderedProduct.READY_TO_SHIP:
-    #     PickerDashboard.objects.filter(shipment=instance).update(picking_status="picking_complete")
 
 
 @receiver(post_save, sender=Order)
@@ -1538,3 +1529,6 @@ def assign_picklist(sender, instance=None, created=False, **kwargs):
             picking_status="picking_pending",
             picklist_id= generate_picklist_id(pincode), #get_random_string(12).lower(), ##generate random string of 12 digits
             )
+
+
+
