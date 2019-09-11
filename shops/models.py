@@ -335,8 +335,8 @@ class ShopUserMapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
-    class Meta:
-        unique_together = ('shop', 'employee', 'status')
+    # class Meta:
+    #     unique_together = ('shop', 'employee', 'status')
 
     def save(self, *args, **kwargs):
         if self.manager == self:
