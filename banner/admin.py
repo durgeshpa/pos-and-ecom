@@ -9,7 +9,6 @@ class BannerDataInline(SortableStackedInline):
     model = BannerData
     form = BannerDataPosition
 
-
 class BannerPositionAdmin(NonSortableParentAdmin):
     form=BannerPositionForm
     inlines = [BannerDataInline]
