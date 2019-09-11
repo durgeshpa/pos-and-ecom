@@ -120,6 +120,7 @@ class Payment(AbstractDateTime):
     is_payment_approved = models.BooleanField(default=False)
     # for payment processing
     payment_status = models.CharField(max_length=50, choices=PAYMENT_STATUS_CHOICES, null=True, blank=True)
+    online_payment_type = models.CharField(max_length=50, choices=ONLINE_PAYMENT_TYPE_CHOICES, null=True, blank=True)
     initiated_time = models.DateTimeField(null=True, blank=True)
     timeout_time = models.DateTimeField(null=True, blank=True)
     processed_by = models.ForeignKey(User, related_name='payment_boy',
@@ -133,10 +134,13 @@ class Payment(AbstractDateTime):
         )
 
     def clean(self):
+        import pdb; pdb.set_trace()
         if self.payment_mode_name != "cash_payment" and not self.reference_no:
             raise ValidationError('Referece number is required.')
         if not re.match("^[a-zA-Z0-9_]*$", self.reference_no):
             raise ValidationError('Referece number can not have special character.')
+        if self.payment_mode_name == "online_payment" and not self.online_payment_type:
+            raise ValidationError('Online payment type is required.')
         super(Payment, self).clean()
 
     @property

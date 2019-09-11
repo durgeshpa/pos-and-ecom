@@ -16,8 +16,12 @@ class OnlinePaymentInlineAdmin(admin.TabularInline):
 class PaymentAdmin(admin.ModelAdmin):
     # inlines = [OnlinePaymentInlineAdmin]
     model = Payment
+    list_display = (
+        "order", "paid_amount", "payment_mode_name", "reference_no", "description"            
+        )
     fields = (
-        "order", "paid_amount", "payment_mode_name", "reference_no", "description"
+        "order", "paid_amount", "payment_mode_name", "reference_no", "description",
+        "online_payment_type"
     )
 
     # def get_inline_instances(self, request, obj=None):
@@ -46,7 +50,8 @@ class OnlinePaymentAdmin1(admin.ModelAdmin):
 class PaymentApprovalAdmin(admin.ModelAdmin):# NoDeleteAdminMixin, 
     model = PaymentApproval
     list_display = (
-        "id", "order"
+        "id", "order", "reference_no", "payment_approval_status", "paid_amount",
+        "payment_received"
     )
 
     fields = (
@@ -161,6 +166,10 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline):
 class ShipmentPaymentDataAdmin(admin.ModelAdmin):
     inlines = [ShipmentPaymentInlineAdmin]
     model = ShipmentData
+    list_display = (
+        'order', 'trip','invoice_no', 'invoice_amount', 'invoice_city'
+        )
+    list_per_page = 50
     fields = ['order', 'trip','invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
         'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
     readonly_fields = ['order', 'trip', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
