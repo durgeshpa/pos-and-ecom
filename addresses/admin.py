@@ -18,6 +18,8 @@ class StateAdmin(admin.ModelAdmin):
 
 
 class PincodeAdmin(ImportExportModelAdmin):
+    list_select_related = ('city',)
+    list_display = ('pincode', 'city')
     autocomplete_fields = ('city',)
     search_fields = ('city__city_name', 'pincode')
     resource_class = PincodeResource

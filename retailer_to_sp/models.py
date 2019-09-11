@@ -733,7 +733,7 @@ class OrderedProduct(models.Model): #Shipment
         max_length=50, choices=RETURN_REASON,
         null=True, blank=True, verbose_name='Reason for Return',
     )
-    invoice_no = models.CharField(max_length=255, null=True, blank=True)
+    invoice_no = models.CharField(max_length=255, null=True, blank=True, db_index=True)
     trip = models.ForeignKey(
         Trip, related_name="rt_invoice_trip",
         null=True, blank=True, on_delete=models.CASCADE,

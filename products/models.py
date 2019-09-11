@@ -1,6 +1,6 @@
 from django.db import models
 from retailer_backend.validators import *
-from addresses.models import Country,State,City,Area
+from addresses.models import Country, State, City, Area, Pincode
 from categories.models import Category
 from shops.models import Shop
 from django.conf import settings
@@ -240,8 +240,9 @@ class ProductPrice(models.Model):
                                    on_delete=models.CASCADE)
     city = models.ForeignKey(City, related_name='city_pro_price',
                              null=True, blank=True, on_delete=models.CASCADE)
-    pincode = models.CharField(validators=[PinCodeValidator], max_length=6,
-                               blank=True, null=True)
+    pincode = models.ForeignKey(Pincode, related_name='pincode_product_price',
+                                null=True, blank=True,
+                                on_delete=models.CASCADE)
     start_date = models.DateTimeField(null=True, blank=True)
     end_date = models.DateTimeField(null=True, blank=True)
     approval_status = models.CharField(choices=APPROVAL_CHOICES,
@@ -260,13 +261,19 @@ class ProductPrice(models.Model):
         super(ProductPrice, self).clean()
         self.validate(ValidationError)
 
+    def update_city_pincode(self):
+        if self.buyer_shop and not (self.city or self.pincode):
+            address_data = self.buyer_shop.shop_name_address_mapping\
+                .values('pincode_link', 'city')\
+                .filter(address_type='shipping').last()
+            self.city_id = address_data.get('city')
+            self.pincode_id = address_data.get('pincode_link')
+        if self.pincode and not (self.city and self.buyer_shop):
+            self.city_id = self.pincode.city_id
+
     def save(self, *args, **kwargs):
         self.validate(Exception)
-        if self.approval_status == self.APPROVED:
-            ProductPrice.objects.filter(product=self.product, shop=self.shop,
-                                        approval_status=self.APPROVED
-                                        ).update(approval_status=DEACTIVATED)
-            self.status = True
+        self.update_city_pincode()
         super().save(*args, **kwargs)
 
     # @property

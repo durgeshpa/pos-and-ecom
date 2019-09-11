@@ -1,5 +1,5 @@
 from django import forms
-from addresses.models import City, State
+from addresses.models import City, State, Pincode
 from shops.models import Shop, ShopType
 from tempus_dominus.widgets import DatePicker, TimePicker, DateTimePicker
 import datetime, csv, codecs, re
@@ -247,14 +247,23 @@ class ProductPriceNewForm(forms.ModelForm):
         queryset=Shop.objects.filter(shop_type__shop_type='sp'),
         widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete')
     )
-    city = forms.ModelChoiceField(
-        queryset=City.objects.all(),
-        widget=autocomplete.ModelSelect2(url='admin:city_autocomplete'),
-        required=False
-    )
     buyer_shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type='r'),
         widget=autocomplete.ModelSelect2(url='admin:retailer_autocomplete'),
+        required=False
+    )
+    city = forms.ModelChoiceField(
+        queryset=City.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:city_autocomplete',
+            forward=('buyer_shop',)),
+        required=False
+    )
+    pincode = forms.ModelChoiceField(
+        queryset=Pincode.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:pincode_autocomplete',
+            forward=('city', 'buyer_shop')),
         required=False
     )
 

@@ -59,9 +59,10 @@ class Pincode(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return '{}-{}'.format(self.pincode, self.city)
+        return self.pincode
 
     class Meta:
+        ordering = ['pincode']
         unique_together = ['city', 'pincode']
         verbose_name_plural = _("Pincodes")
 

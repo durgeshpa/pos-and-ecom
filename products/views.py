@@ -17,7 +17,7 @@ from django.contrib.auth.decorators import permission_required
 from decimal import Decimal
 
 from shops.models import Shop, ShopType
-from addresses.models import City, State, Address
+from addresses.models import City, State, Address, Pincode
 from categories.models import Category
 from brand.models import Brand
 from .forms import (
@@ -798,7 +798,12 @@ def product_category_mapping_sample(self):
 
 class CityAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self):
+        buyer_shop = self.forwarded.get('buyer_shop', None)
         qs = City.objects.all()
+        if buyer_shop:
+            qs = qs.filter(city_address__shop_name_id=buyer_shop,
+                           city_address__address_type='shipping')
+            return qs
         if self.q:
             qs = qs.filter(city_name__icontains=self.q)
         return qs
@@ -827,6 +832,20 @@ class ProductAutocomplete(autocomplete.Select2QuerySetView):
             qs = qs.filter(Q(product_name=self.q) |
                            Q(product_gf_code=self.q) |
                            Q(product_sku=self.q))
+        return qs
+
+
+class PincodeAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        city = self.forwarded.get('city', None)
+        buyer_shop = self.forwarded.get('buyer_shop', None)
+        qs = Pincode.objects.all()
+        if buyer_shop:
+            qs = qs.filter(pincode_address__shop_name_id=buyer_shop,
+                           pincode_address__address_type='shipping')
+            return qs
+        if city:
+            qs = qs.filter(city_id=city)
         return qs
 
 

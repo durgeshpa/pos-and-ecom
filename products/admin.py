@@ -18,7 +18,7 @@ from .views import (
     ProductCategoryAutocomplete, download_all_products,
     ProductCategoryMapping, product_category_mapping_sample,
     ProductPriceUpload, CityAutocomplete, RetailerAutocomplete,
-    SellerShopAutocomplete, ProductAutocomplete)
+    SellerShopAutocomplete, ProductAutocomplete, PincodeAutocomplete)
 from .resources import (
     SizeResource, ColorResource, FragranceResource,
     FlavorResource, WeightResource, PackageSizeResource,
@@ -358,6 +358,11 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 self.admin_site.admin_view(ProductAutocomplete.as_view()),
                 name="product_autocomplete"
             ),
+            url(
+                r'^pincode-autocomplete/$',
+                self.admin_site.admin_view(PincodeAutocomplete.as_view()),
+                name="pincode_autocomplete"
+            ),
         ] + urls
         return urls
 
@@ -418,10 +423,11 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductPriceResource
     form = ProductPriceNewForm
     actions = ['export_as_csv_productprice', 'approve_product_price']
-    list_select_related = ('product', 'seller_shop', 'buyer_shop')
+    list_select_related = ('product', 'seller_shop', 'buyer_shop', 'city',
+                           'pincode')
     list_display = [
-        'product', 'product_sku', 'product_gf_code', 'mrp',
-        'selling_price', 'seller_shop', 'buyer_shop',
+        'product', 'product_sku', 'product_gf_code', 'mrp', 'selling_price',
+        'seller_shop', 'buyer_shop', 'city', 'pincode',
         'start_date', 'end_date', 'approval_status'
     ]
 
