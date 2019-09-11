@@ -2,7 +2,7 @@ from dal import autocomplete
 from products.models import Product
 from brand.models import Brand
 from categories.models import Category
-from banner.models import BannerData
+from banner.models import BannerData, Banner
 
 class BrandAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
@@ -71,7 +71,7 @@ class BannerShopAutocomplete(autocomplete.Select2QuerySetView):
 
 class BannerDataAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        qs = BannerData.objects.all()
+        qs = Banner.objects.all()
         if self.q:
             qs = qs.filter(Q(banner_data__name__icontains=self.q))
         return qs
