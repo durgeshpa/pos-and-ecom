@@ -243,6 +243,7 @@ class ProductPrice(models.Model):
     pincode = models.ForeignKey(Pincode, related_name='pincode_product_price',
                                 null=True, blank=True,
                                 on_delete=models.CASCADE)
+    price_to_retailer = models.FloatField(null=True, blank=False)
     start_date = models.DateTimeField(null=True, blank=True)
     end_date = models.DateTimeField(null=True, blank=True)
     approval_status = models.CharField(choices=APPROVAL_CHOICES,
