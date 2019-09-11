@@ -352,6 +352,9 @@ class ShopUserMappingAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+    def has_change_permission(self, request, obj=None):
+        pass
+
 class SalesAppVersionAdmin(admin.ModelAdmin):
     list_display = ('app_version','update_recommended','force_update_required','created_at','modified_at')
 
