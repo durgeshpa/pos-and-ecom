@@ -328,7 +328,7 @@ class ShopRequestBrand(models.Model):
 class ShopUserMapping(models.Model):
     shop = models.ForeignKey(Shop, related_name='shop_user', on_delete=models.CASCADE)
     manager = models.ForeignKey('self', null=True, blank=True, related_name='employee_list', on_delete=models.SET_NULL,
-                                limit_choices_to={'manager': None},)
+                                limit_choices_to={'manager': None,'status':True, 'employee_group__permissions__codename':'can_sales_manager_add_shop'},)
     employee = models.ForeignKey(get_user_model(), related_name='shop_employee', on_delete=models.CASCADE)
     employee_group = models.ForeignKey(Group, related_name='shop_user_group',default='1', on_delete=models.SET_DEFAULT)
     created_at = models.DateTimeField(auto_now_add=True)

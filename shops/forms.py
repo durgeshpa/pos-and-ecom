@@ -269,7 +269,7 @@ class ShopUserMappingCsvViewForm(forms.Form):
             if row[1] and not re.match("^[\d]*$", row[1]) and not get_user_model().objects.filter(phone_number=row[1]).exists():
                 raise ValidationError(_('INVALID_MANAGER_NO at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
 
-            if row[1] and not any([row[1] in uploaded_employee_list, ShopUserMapping.objects.filter(employee__phone_number=row[1]).exists()]):
+            if row[1] and not any([row[1] in uploaded_employee_list, ShopUserMapping.objects.filter(employee__phone_number=row[1], employee_group__permissions__codename='can_sales_manager_add_shop',status=True).exists()]):
                 raise ValidationError(_('INVALID_MANAGER_NO at Row[%(value)s]. Please create employee first, then manager'),
                                       params={'value': id + 1}, )
 

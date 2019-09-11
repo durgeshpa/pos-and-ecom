@@ -307,11 +307,13 @@ class ShopUserMappingCsvView(FormView):
             first_row = next(reader)
             for row in reader:
                 try:
+                    if row[2]:
+                        employee = get_user_model().objects.get(phone_number=row[2])
                     if row[1]:
-                        manager = ShopUserMapping.objects.get(employee__phone_number=row[1])
-                        ShopUserMapping.objects.create(shop_id=row[0], manager=manager, employee__phone_number=row[2], employee_group_id=row[3])
+                        manager = ShopUserMapping.objects.filter(employee__phone_number=row[1],employee_group__permissions__codename='can_sales_manager_add_shop',status=True).last()
+                        ShopUserMapping.objects.create(shop_id=row[0], manager=manager, employee=employee, employee_group_id=row[3])
                     else:
-                        ShopUserMapping.objects.create(shop_id=row[0], employee__phone_number=row[2], employee_group_id=row[3])
+                        ShopUserMapping.objects.create(shop_id=row[0], employee=employee, employee_group_id=row[3])
                 except:
                     not_uploaded_list.append(ERROR_MESSAGES['INVALID_MAPPING']%(row[0], row[2]))
             #ShopUserMapping.objects.bulk_create(shop_user_mapping)
