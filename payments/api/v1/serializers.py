@@ -33,7 +33,7 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShipmentPayment
-        fields = ['parent_payment', 'shipment', 'paid_amount', 'description']
+        fields = ['id','parent_payment', 'shipment', 'paid_amount', 'description']
         #depth = 1
 
     # def validate(self, data):
@@ -55,17 +55,12 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
                 parent_payment_inst, created = Payment.objects.update_or_create(**parent_payment)
                 parent_payment_inst.save()
                 # create or update shipment payment instance
-                # shipmet_payment, created = ShipmentPayment.objects.create(parent_payment=parent_payment_inst)
-                shipment_payment = ShipmentPayment.objects.create(
+                shipment_payment, created = ShipmentPayment.objects.update_or_create(
                     parent_payment=parent_payment_inst,
-                    shipment = shipment,
-                    paid_amount = paid_amount,
-                    description = description
-                    )
-                # shipment_payment.shipment = shipment
-                # shipment_payment.paid_amount = paid_amount
-                # shipment_payment.description = description
-                # shipment_payment.save()
+                    shipment = shipment)
+                shipment_payment.paid_amount = paid_amount
+                shipment_payment.description = description
+                shipment_payment.save()
                 return shipment_payment
         except Exception as e:
-            raise serializers.ValidationError(e.message)
+            raise serializers.ValidationError(str(e))

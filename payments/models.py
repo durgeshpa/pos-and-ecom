@@ -200,6 +200,10 @@ class ShipmentPayment(AbstractDateTime):
         except: 
             pass
 
+    class Meta:
+        unique_together = (("parent_payment", "shipment"),)
+
+
 class PaymentMode(models.Model):
     payment_mode_name = models.CharField(max_length=50, choices=PAYMENT_MODE_NAME, null=True, blank=True)
     status = models.BooleanField(default=True)
