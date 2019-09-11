@@ -18,7 +18,8 @@ from .serializers import ShipmentPaymentSerializer, CashPaymentSerializer
 from payments.models import ShipmentPayment, CashPayment
 
 
-class ShipmentPaymentView(DataWrapperViewSet):
+# class ShipmentPaymentView(DataWrapperViewSet):
+class ShipmentPaymentView(viewsets.ModelViewSet):
     '''
     This class handles all operation of ordered product mapping
     '''
@@ -44,6 +45,32 @@ class ShipmentPaymentView(DataWrapperViewSet):
         if hasattr(self, 'action'):
             return serializer_action_classes.get(self.action, self.serializer_class)
         return self.serializer_class
+
+
+    def create(self, request, *args, **kwargs):
+        # import pdb; pdb.set_trace()
+        serializer = self.get_serializer(data=request.data, many=True)
+        if serializer.is_valid():
+            serializer.save(user=self.request.user)
+            msg = {'is_success': True,
+                    'message': ["Payment updated successfully"],
+                    'response_data': None}
+            return Response(msg,
+                            status=status.HTTP_200_OK)
+        else:
+            errors = []
+            for field in serializer.errors:
+                for error in serializer.errors[field]:
+                    if 'non_field_errors' in field:
+                        result = error
+                    else:
+                        result = ''.join('{} : {}'.format(field,error))
+                    errors.append(result)
+            msg = {'is_success': False,
+                    'message': [error for error in errors],
+                    'response_data': None }
+            return Response(msg,
+                            status=status.HTTP_406_NOT_ACCEPTABLE)
 
 
 
