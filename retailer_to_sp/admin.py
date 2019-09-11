@@ -825,7 +825,7 @@ class OrderedProductAdmin(admin.ModelAdmin):
                 form_instance,
                 formsets_dict['OrderedProductMappingFormFormSet']
             )
-            create_credit_note(form)
+            create_credit_note(form.instance)
         update_order_status(
             close_order_checked=False,
             shipment_id=form_instance.id

@@ -38,3 +38,9 @@ class AllCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ('id','category_name','cat_parent','category_image', 'category_desc')
+
+class SubbCategorySerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Category
+        fields = ('id','category_name','category_image_png','category_desc','status')

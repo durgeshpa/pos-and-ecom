@@ -22,6 +22,7 @@ urlpatterns = [
     path('shop-timing/', ShopTimingView.as_view(), name='shop-timing', ),
     url('shop-timing/(?P<shop_id>\d+)/shop/', ShopTimingView.as_view(), name='shop-timing-list', ),
 
+# --------------------------------------------------Sales Person APIs---------------------------------------------------
     path('seller-team-list/', TeamListView.as_view(), name='seller-team-list', ),
     path('seller-shops/', SellerShopView.as_view(), name='seller-shops', ),
     path('seller-shop-profile/', SellerShopProfile.as_view(), name='seller-shop-profile', ),
@@ -32,7 +33,7 @@ urlpatterns = [
     path('seller-check-user/', CheckUser.as_view(), name='seller-check-user', ),
     path('seller-shop-address/', SellerShopAddress.as_view(), name='seller-shop-address', ),
     path('check-app-version/', CheckAppVersion.as_view(), name='check-app-version', ),
-
+#------------------------------------------------------------------------------------------------------------------------
     url('^amount-collected/(?P<shipment>\d+)/$', StatusChangedAfterAmountCollected.as_view(), name='amount-collected'),
 
 ]

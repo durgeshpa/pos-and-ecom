@@ -6,7 +6,7 @@ from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMap
                              Size,Color,Fragrance,Flavor,Weight,PackageSize)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order,
                                    OrderedProduct, Note, CustomerCare,
-                                   Payment, Dispatch, Feedback, OrderedProductMapping, Trip, PickerDashboard)
+                                   Payment, Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping, Trip, PickerDashboard, ShipmentRescheduling)
 
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
     OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment
@@ -766,22 +766,26 @@ class ShipmentStatusSerializer(serializers.ModelSerializer):
 class ShipmentDetailSerializer(serializers.ModelSerializer):
     ordered_product_status = serializers.ReadOnlyField()
     product_short_description = serializers.ReadOnlyField()
-    mrp = serializers.ReadOnlyField()
-    price_to_retailer = serializers.ReadOnlyField()
-    cash_discount = serializers.ReadOnlyField()
-    loyalty_incentive = serializers.ReadOnlyField()
-    margin = serializers.ReadOnlyField()
+    mrp = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
+    price_to_retailer = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
+    #cash_discount = serializers.ReadOnlyField()
+    #loyalty_incentive = serializers.ReadOnlyField()
+    #margin = serializers.ReadOnlyField()
+    product_image = serializers.SerializerMethodField()
+
+    def get_product_image(self, obj):
+        return obj.product.product_pro_image.last().image.url if obj.product.product_pro_image.last() else ''
 
     class Meta:
-        model = OrderedProductMapping
-        fields = ( 'ordered_product', 'ordered_product_status', 'product', 'product_short_description', 'mrp',
-                   'price_to_retailer', 'cash_discount', 'loyalty_incentive', 'margin', 'shipped_qty',  'returned_qty',
-                   'damaged_qty')
+        model = RetailerOrderedProductMapping
+        fields = ('ordered_product', 'ordered_product_status', 'product', 'product_short_description', 'mrp','price_to_retailer',
+                  #'cash_discount', 'loyalty_incentive', 'margin',
+                  'shipped_qty',  'returned_qty','damaged_qty', 'product_image')
 
 class TripSerializer(serializers.ModelSerializer):
     trip_id = serializers.ReadOnlyField()
     total_trip_amount = serializers.SerializerMethodField()
-    #trip_return_amount = serializers.ReadOnlyField()
+    trip_return_amount = serializers.SerializerMethodField()
     cash_to_be_collected = serializers.SerializerMethodField()
     no_of_shipments = serializers.ReadOnlyField()
     trip_status = serializers.CharField(
@@ -791,11 +795,14 @@ class TripSerializer(serializers.ModelSerializer):
         return obj.total_trip_amount()
 
     def get_cash_to_be_collected(self, obj):
-        return obj.cash_to_be_collected()
+        return obj.cash_collected_by_delivery_boy()
+
+    def get_trip_return_amount(self, obj):
+        return round(float(obj.total_trip_amount()) - float(obj.cash_to_be_collected()),2)
 
     class Meta:
         model = Trip
-        fields = ('trip_id','dispatch_no', 'trip_status', 'no_of_shipments', 'total_trip_amount', 'cash_to_be_collected')
+        fields = ('trip_id','dispatch_no', 'trip_status', 'no_of_shipments', 'total_trip_amount', 'cash_to_be_collected','trip_return_amount')
 
 
 class RetailerShopSerializer(serializers.ModelSerializer):
@@ -876,8 +883,17 @@ class SellerOrderListSerializer(serializers.ModelSerializer):
     def shop_id_dt(self, obj):
         return obj.buyer_shop.id
 
-
     class Meta:
         model= Order
         fields = ('id', 'ordered_cart', 'order_no', 'total_final_amount', 'order_status',
                   'created_at', 'modified_at', 'rt_order_order_product', 'is_ordered_by_sales', 'shop_name','shop_id')
+
+class ShipmentReschedulingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ShipmentRescheduling
+        fields = ('shipment', 'rescheduling_reason', 'rescheduling_date')
+
+class ShipmentReturnSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderedProduct
+        fields = ('id', 'return_reason')

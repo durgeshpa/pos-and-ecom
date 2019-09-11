@@ -27,12 +27,13 @@ from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializ
     OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
     RetailerShopSerializer, SellerOrderListSerializer,OrderListSerializer,
     ReadOrderedProductSerializer,FeedBackSerializer, CancelOrderSerializer,
-    ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer
+    ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
+    ShipmentReschedulingSerializer, ShipmentReturnSerializer
 )
 
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
 from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
-                                OrderedProduct as SPOrderedProduct, StockAdjustment)
+                                OrderedProduct as SPOrderedProduct, StockAdjustment, create_credit_note)
 
 from categories import models as categorymodel
 
@@ -40,7 +41,8 @@ from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as 
     OrderedProductReserved as GramOrderedProductReserved, PickList, PickListItems
 )
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
-    OrderedProduct, Payment, CustomerCare, Return, Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard
+    OrderedProduct, Payment, CustomerCare, Return, Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
+    ShipmentRescheduling
 )
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,
     Order as GramMappedOrder, OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment,
@@ -1205,19 +1207,26 @@ class ShipmentDetail(APIView):
 
     def post(self, *args, **kwargs):
         shipment_id = kwargs.get('shipment')
-        shipment = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
+        msg = {'is_success': False, 'message': ['shipment id is invalid'], 'response_data': None}
+        try:
+            shipment = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
+        except ObjectDoesNotExist:
+            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+
         product = self.request.POST.get('product')
         returned_qty = self.request.POST.get('returned_qty')
         damaged_qty = self.request.POST.get('damaged_qty')
-        msg = {'is_success': False,'message': [''],'response_data': None}
 
-        datas = ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(returned_qty=returned_qty, damaged_qty=damaged_qty)
-        serializer = ShipmentDetailSerializer(shipment, many=True)
-        if serializer.data:
+        if int(ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product).shipped_qty) >= int(returned_qty) + int(damaged_qty):
+            ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(returned_qty=returned_qty, damaged_qty=damaged_qty)
+            #shipment_product_details = ShipmentDetailSerializer(shipment, many=True)
             cash_to_be_collected = shipment.last().ordered_product.cash_to_be_collected()
-            msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': serializer.data, 'cash_to_be_collected': cash_to_be_collected}
-            return Response( msg, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': None,
+                       'cash_to_be_collected': cash_to_be_collected}
+            return Response(msg, status=status.HTTP_201_CREATED)
+        else:
+            msg = {'is_success': False, 'message': ['Returned qty and damaged qty is greater than shipped qty'], 'response_data': None}
+            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
         # else:
         #     msg = {'is_success': False, 'message': ['Phone Number is not Valid'], 'response_data': None}
         #     return Response( msg, status=status.HTTP_400_BAD_REQUEST)
@@ -1338,3 +1347,63 @@ class SellerOrderList(generics.ListAPIView):
             if serializer.data:
                 msg = {'is_success': True,'message': None,'response_data': serializer.data}
         return Response(msg,status=status.HTTP_200_OK)
+
+class RescheduleReason(generics.ListCreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = ShipmentReschedulingSerializer
+
+    def list(self, request, *args, **kwargs):
+        data =[{'name': reason[0], 'display_name': reason[1]} for reason in ShipmentRescheduling.RESCHEDULING_REASON]
+        msg = {'is_success': True, 'message': None, 'response_data': data}
+        return Response(msg, status=status.HTTP_200_OK)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            self.update_shipment(request.data.get('shipment'))
+            update_trip_status(request.data.get('trip'))
+            msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
+        else:
+            msg = {'is_success': False, 'message': ['have some issue'], 'response_data': None}
+        return Response(msg, status=status.HTTP_200_OK)
+
+    def perform_create(self, serializer):
+        return serializer.save(created_by=self.request.user)
+
+    def update_shipment(self, id):
+        OrderedProduct.objects.filter(pk=id).update(shipment_status=OrderedProduct.RESCHEDULED, trip=None)
+
+def update_trip_status(trip_id):
+    shipment_status_list = ['FULLY_DELIVERED_AND_COMPLETED', 'PARTIALLY_DELIVERED_AND_COMPLETED', 'FULLY_RETURNED_AND_COMPLETED', 'RESCHEDULED']
+    order_product = OrderedProduct.objects.filter(trip_id=trip_id)
+    if order_product.exclude(shipment_status__in=shipment_status_list).count()==0:
+        Trip.objects.filter(pk=trip_id).update(trip_status='COMPLETED')
+
+class ReturnReason(generics.UpdateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = ShipmentReturnSerializer
+
+    def get(self, request, *args, **kwargs):
+        data =[{'name': reason[0], 'display_name': reason[1]} for reason in OrderedProduct.RETURN_REASON]
+        msg = {'is_success': True, 'message': None, 'response_data': data}
+        return Response(msg, status=status.HTTP_200_OK)
+
+    def get_queryset(self):
+        return OrderedProduct.objects.get(pk=self.request.data.get('id'))
+
+    def patch(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_queryset()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        if serializer.is_valid():
+            serializer.save()
+            # For creating credit note
+            shipment = OrderedProduct.objects.get(id=request.data.get('id'))
+            create_credit_note(shipment)
+            msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
+        else:
+            msg = {'is_success': False, 'message': ['have some issue'], 'response_data': None}
+        return Response(msg, status=status.HTTP_200_OK)

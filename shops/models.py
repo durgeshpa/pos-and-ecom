@@ -121,6 +121,8 @@ class Shop(models.Model):
             return self.retiler_mapping.last().parent.shop_name
     get_shop_parent_name.fget.short_description = 'Parent Shop Name'
 
+    def get_orders(self):
+        return self.rt_buyer_shop_order.all()
 
     def save(self, force_insert=False, force_update=False, *args, **kwargs):
         if self.status != self.__original_status and self.status is True and ParentRetailerMapping.objects.filter(retailer=self, status=True).exists():
@@ -158,6 +160,8 @@ class Shop(models.Model):
             ("can_do_reconciliation", "Can Do Reconciliation"),
             ("can_sales_person_add_shop", "Can Sales Person Add Shop"),
             ("can_sales_manager_add_shop", "Can Sales Manager Add Shop"),
+            ("is_delivery_boy", "Is Delivery Boy"),
+            ("hide_related_users", "Hide Related User"),
         )
 
 class ShopNameDisplay(Shop):
