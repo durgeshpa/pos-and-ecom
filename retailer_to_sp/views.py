@@ -7,7 +7,7 @@ from products.models import *
 
 from django.forms import formset_factory, inlineformset_factory, modelformset_factory, BaseFormSet, ValidationError
 from django.shortcuts import render, get_object_or_404, redirect
-from django.db.models import Sum, Q, F
+from django.db.models import Sum, Q, F, Count
 from django.db import transaction
 from django.dispatch import receiver
 from django.db.models.signals import post_save
@@ -1249,7 +1249,7 @@ class StatusChangedAfterAmountCollected(APIView):
         shipment_id = kwargs.get('shipment')
         cash_collected = self.request.POST.get('cash_collected')
         shipment = OrderedProduct.objects.get(id=shipment_id)
-        if float(cash_collected) == float(shipment.cash_to_be_collected()):
+        if float(cash_collected) == float(shipment.cash_collected_by_delivery_boy()):
             update_order_status(
                 close_order_checked=False,
                 shipment_id=shipment_id
@@ -1260,44 +1260,25 @@ class StatusChangedAfterAmountCollected(APIView):
         return Response(msg, status=status.HTTP_201_CREATED)
 
 
-def update_shipment_status_with_id(shipment_id):
-    shipment = OrderedProduct.objects.get(pk=shipment_id)
-    current_order_shipments = shipment.order.rt_order_order_product \
-        .values_list('id', flat=True)
+def update_shipment_status_with_id(shipment_obj):
+    shipment_products_dict = OrderedProductMapping.objects.values('product').filter(ordered_product=shipment_obj). \
+        aggregate(delivered_qty_sum=Sum('delivered_qty'),shipped_qty_sum=Sum('shipped_qty'),returned_qty_sum=Sum('returned_qty'), damaged_qty_sum = Sum('damaged_qty'))
 
-    shipment_products_dict = OrderedProductMapping.objects \
-        .values('product', 'ordered_product__order__ordered_cart') \
-        .filter(ordered_product__in=list(current_order_shipments)) \
-        .annotate(Sum('delivered_qty'), Sum('shipped_qty'),
-                  Sum('returned_qty'), Sum('damaged_qty'))
+    total_delivered_qty = shipment_products_dict['delivered_qty_sum']
+    total_shipped_qty = shipment_products_dict['shipped_qty_sum']
+    total_returned_qty = shipment_products_dict['returned_qty_sum']
+    total_damaged_qty = shipment_products_dict['damaged_qty_sum']
 
-    cart_products_dict = CartProductMapping.objects \
-        .values('cart_product', 'no_of_pieces') \
-        .filter(cart_product_id__in=[i.get('product')
-                                     for i in shipment_products_dict],
-                cart_id=shipment_products_dict[0].get(
-                    'ordered_product__order__ordered_cart'
-                ))
-
-    total_delivered_qty = sum([i.get('delivered_qty__sum')
-                               for i in shipment_products_dict])
-    total_shipped_qty = sum([i.get('shipped_qty__sum')
-                             for i in shipment_products_dict])
-    total_returned_qty = sum([i.get('returned_qty__sum')
-                              for i in shipment_products_dict])
-    total_damaged_qty = sum([i.get('damaged_qty__sum')
-                             for i in shipment_products_dict])
-    #ordered_qty = sum([i.get('no_of_pieces') for i in cart_products_dict])
 
     if total_shipped_qty == (total_returned_qty + total_damaged_qty):
-        shipment.shipment_status = 'FULLY_RETURNED_AND_COMPLETED'
+        shipment_obj.shipment_status = 'FULLY_RETURNED_AND_COMPLETED'
 
-    elif (total_returned_qty + total_damaged_qty) == 0 and total_shipped_qty == total_delivered_qty:
-        shipment.shipment_status = 'FULLY_DELIVERED_AND_COMPLETED'
+    elif (total_returned_qty + total_damaged_qty) == 0:
+        shipment_obj.shipment_status = 'FULLY_DELIVERED_AND_COMPLETED'
 
-    elif total_shipped_qty >= (total_delivered_qty - (total_returned_qty + total_damaged_qty)):
-        shipment.shipment_status = 'PARTIALLY_DELIVERED_AND_COMPLETED'
-    shipment.save()
+    elif total_shipped_qty >= (total_returned_qty + total_damaged_qty):
+        shipment_obj.shipment_status = 'PARTIALLY_DELIVERED_AND_COMPLETED'
+    shipment_obj.save()
 
 
 class UserWithNameAutocomplete(autocomplete.Select2QuerySetView):

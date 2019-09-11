@@ -38,14 +38,19 @@ class ShopMappedProduct(TemplateView):
             product_sum = grn_product.values('product','product__product_name', 'product__product_gf_code', 'product__product_sku').annotate(product_qty_sum=Sum('available_qty'))
             context['shop_products'] = product_sum
 
+
         elif shop_obj.shop_type.shop_type=='sp':
             sp_grn_product = OrderedProductMapping.get_shop_stock(shop_obj)
+
 
             product_sum = sp_grn_product.values('product','product__product_name', 'product__product_gf_code', 'product__product_sku').annotate(product_qty_sum=Sum('available_qty')).annotate(damaged_qty_sum=Sum('damaged_qty'))
             context['shop_products'] = product_sum
         else:
             context['shop_products'] = None
+
         return context
+
+
 
 class ShopParentAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
