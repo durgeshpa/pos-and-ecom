@@ -22,18 +22,6 @@ class BannerAdmin(admin.ModelAdmin):
     search_fields= ('name', 'created_at','updated_at')
     form = BannerForm
 
-    def get_urls(self):
-        from django.conf.urls import url
-        urls = super(BannerAdmin, self).get_urls()
-        urls = [
-            url(
-                r'^banner-data-autocomplete/$',
-                self.admin_site.admin_view(BannerDataAutocomplete.as_view()),
-                name="banner-data-autocomplete"
-            ),
-            ] + urls
-        return urls
-
 admin.site.register(Banner,BannerAdmin)
 
 class BannerSlotAdmin(admin.ModelAdmin):
@@ -48,4 +36,3 @@ class PageAdmin(admin.ModelAdmin):
     field = ('name')
 
 admin.site.register(Page,PageAdmin)
-
