@@ -15,11 +15,12 @@ from django.conf import settings
 from django.forms import widgets
 from django.utils.html import format_html
 
-
 from accounts.middlewares import get_current_user
 from payments.models import Payment, ShipmentPayment, OnlinePayment #, ShipmentPaymentApproval
+from retailer_to_sp.models import Order
 
 User = get_user_model()
+
 
 class ShipmentPaymentForm(forms.ModelForm):
 
@@ -29,6 +30,8 @@ class ShipmentPaymentForm(forms.ModelForm):
 
 
 class PaymentForm(forms.ModelForm):
+    # order = forms.ModelChoiceField(queryset=Order.objects.all(),
+    #                                required=True)
 
     class Meta:
         model = Payment

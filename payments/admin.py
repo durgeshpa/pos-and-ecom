@@ -1,6 +1,7 @@
 from django.contrib import admin
 from .models import *
-from .forms import ShipmentPaymentForm, ShipmentPaymentInlineForm, OnlinePaymentInlineForm
+from .forms import ShipmentPaymentForm, ShipmentPaymentInlineForm, OnlinePaymentInlineForm, \
+    PaymentForm
 #from .forms import ShipmentPaymentApprovalForm
 from django.utils.safestring import mark_safe
 from django.forms.models import BaseInlineFormSet
@@ -16,6 +17,9 @@ class OnlinePaymentInlineAdmin(admin.TabularInline):
 class PaymentAdmin(admin.ModelAdmin):
     # inlines = [OnlinePaymentInlineAdmin]
     model = Payment
+    autocomplete_fields = ('order',)
+
+    # form  = PaymentForm
     list_display = (
         "order", "paid_amount", "payment_mode_name", "reference_no", "description"            
         )
@@ -23,7 +27,7 @@ class PaymentAdmin(admin.ModelAdmin):
         "order", "paid_amount", "payment_mode_name", "reference_no", "description",
         "online_payment_type"
     )
-
+    
     # def get_inline_instances(self, request, obj=None):
     #     if not obj or obj.payment_mode_name != "online_payment": return []
     #     return super(PaymentAdmin, self).get_inline_instances(request, obj)

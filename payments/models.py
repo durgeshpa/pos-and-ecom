@@ -134,7 +134,6 @@ class Payment(AbstractDateTime):
         )
 
     def clean(self):
-        import pdb; pdb.set_trace()
         if self.payment_mode_name != "cash_payment" and not self.reference_no:
             raise ValidationError('Referece number is required.')
         if not re.match("^[a-zA-Z0-9_]*$", self.reference_no):
@@ -196,7 +195,6 @@ class ShipmentPayment(AbstractDateTime):
 
     def clean(self):
         # check if parent payment is completely utilised
-        # import pdb; pdb.set_trace()
         try:
             if self.parent_payment.payment_utilised + self.paid_amount > self.parent_payment.paid_amount:
                 error_msg = "Maximum amount to be utilised from parent payment is " + str(self.parent_payment.paid_amount - self.parent_payment.payment_utilised)
@@ -323,34 +321,6 @@ class PaymentEdit(Payment):
 class PaymentApproval(Payment):
     class Meta:
         proxy = True        
-
-
-@receiver(post_save, sender=CashPayment)
-def change_trip_status_cash(sender, instance=None, created=False, **kwargs):
-    '''
-    Method to update trip status 
-    '''
-    # amount to he collected == cash collected+online amount collected
-    trip = instance.payment.shipment.trip
-    # check if all the online payments are approved
-    if trip.check_online_amount_approved and \
-        (trip.cash_to_be_collected_value == trip.received_cash_amount + trip.approved_online_amount):
-        trip.trip_status = "TRANSFERRED"
-        trip.save()   
-
-
-@receiver(post_save, sender=OnlinePayment)
-def change_trip_status_online(sender, instance=None, created=False, **kwargs):
-    '''
-    Method to update trip status 
-    '''
-    # amount to he collected == cash collected+online amount collected
-    trip = instance.payment.shipment.trip
-    if trip.check_online_amount_approved and \
-        (trip.cash_to_be_collected_value == trip.received_cash_amount + trip.approved_online_amount):
-        trip.trip_status = "TRANSFERRED"
-        trip.save()
-
 
 
 # @receiver(post_save, sender=Payment)
