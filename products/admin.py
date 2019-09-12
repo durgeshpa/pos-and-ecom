@@ -4,7 +4,6 @@ from django.db.models import Q
 from django.core.exceptions import ValidationError
 from django.forms.models import BaseInlineFormSet
 from django.contrib.admin import TabularInline
-
 from admin_auto_filters.filters import AutocompleteFilter
 from daterange_filter.filter import DateRangeFilter
 from retailer_backend.admin import InputFilter
@@ -18,7 +17,8 @@ from .views import (
     ProductCategoryAutocomplete, download_all_products,
     ProductCategoryMapping, product_category_mapping_sample,
     ProductPriceUpload, CityAutocomplete, RetailerAutocomplete,
-    SellerShopAutocomplete, ProductAutocomplete, PincodeAutocomplete)
+    SellerShopAutocomplete, ProductAutocomplete, PincodeAutocomplete,
+    ProductCategoryMapping, product_category_mapping_sample, VendorAutocomplete)
 from .resources import (
     SizeResource, ColorResource, FragranceResource,
     FlavorResource, WeightResource, PackageSizeResource,
@@ -26,7 +26,7 @@ from .resources import (
     )
 
 from .forms import (ProductPriceNewForm, ProductPriceChangePerm,
-                    ProductPriceAddPerm)
+                    ProductPriceAddPerm, ProductVendorMappingForm, ProductForm)
 
 class ProductFilter(AutocompleteFilter):
     title = 'Product Name' # display title
@@ -45,6 +45,15 @@ class ProductImageMainAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+class CategorySearch(InputFilter):
+    parameter_name = 'category'
+    title = 'Category'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(
+                Q(product_pro_category__category__category_name__icontains=self.value())
+            )
 
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
@@ -70,14 +79,29 @@ class CategoryFilter(AutocompleteFilter):
     title = 'Category'  # display title
     field_name = 'category_name'  # name of the foreign key field
 
+
 class VendorFilter(AutocompleteFilter):
     title = 'Vendor Name' # display title
     field_name = 'vendor' # name of the foreign key field
 
 class ProductVendorMappingAdmin(admin.ModelAdmin):
     fields = ('vendor', 'product', 'product_price','product_mrp','case_size')
-    list_display = ('vendor', 'product', 'product_price','product_mrp','case_size','created_at','status')
+    list_display = ('vendor', 'product','product_price','product_mrp','case_size','created_at','status')
     list_filter = [VendorFilter,ProductFilter,]
+    form = ProductVendorMappingForm
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(ProductVendorMappingAdmin, self).get_urls()
+        urls = [
+            url(
+                r'^vendor-autocomplete/$',
+                self.admin_site.admin_view(VendorAutocomplete.as_view()),
+                name="vendor-autocomplete"
+            ),
+        ] + urls
+        return urls
+
 
     class Media:
         pass
@@ -127,17 +151,6 @@ class TaxAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = TaxResource
     actions = ["export_as_csv"]
     search_fields = ['tax_name']
-
-
-class CategorySearch(InputFilter):
-    parameter_name = 'qty'
-    title = 'Category'
-
-    def queryset(self, request, queryset):
-        if self.value() is not None:
-            return queryset.filter(
-                Q(product_pro_category__category__category_name__icontains=self.value())
-            )
 
 class ProductSearch(InputFilter):
     parameter_name = 'product_sku'
@@ -229,6 +242,7 @@ class ProductTaxMappingAdmin(admin.TabularInline):
 
 class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductResource
+    form = ProductForm
 
     class Media:
             pass
@@ -378,6 +392,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
         ProductCategoryAdmin, ProductOptionAdmin,
         ProductImageAdmin, ProductTaxMappingAdmin
     ]
+    autocomplete_fields = ['product_hsn', 'product_brand']
 
     def product_images(self,obj):
         if obj.product_pro_image.exists():
@@ -505,6 +520,7 @@ class ProductHSNAdmin(admin.ModelAdmin, ExportCsvMixin):
     fields = ['product_hsn_code']
     list_display = ['product_hsn_code']
     actions = ['export_as_csv']
+    search_fields = ['product_hsn_code']
 
 
 admin.site.register(ProductImage, ProductImageMainAdmin)

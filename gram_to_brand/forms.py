@@ -141,8 +141,12 @@ class CartProductMappingForm(forms.ModelForm):
     sku = forms.CharField(disabled=True, required=False)
     tax_percentage = forms.CharField(disabled=True, required=False)
     case_sizes = forms.CharField(disabled=True, required=False, label='case size')
-    no_of_cases = forms.CharField(required=True)
-    no_of_pieces = forms.CharField(required=False)
+    no_of_cases = forms.CharField(max_length=64,
+        widget=forms.TextInput(attrs={'style':'max-width: 8em'}),
+        required=True)
+    no_of_pieces = forms.CharField(max_length=64,
+        widget=forms.TextInput(attrs={'style':'max-width: 8em'}),
+        required=False)
     sub_total = forms.CharField(disabled=True, required=False)
 
     def __init__(self, *args, **kwargs):

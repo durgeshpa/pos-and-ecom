@@ -19,7 +19,7 @@ from decimal import Decimal
 from shops.models import Shop, ShopType
 from addresses.models import City, State, Address, Pincode
 from categories.models import Category
-from brand.models import Brand
+from brand.models import Brand, Vendor
 from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
     ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
@@ -708,7 +708,7 @@ class ProductPriceAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = Product.objects.filter(
                 Q(product_name__icontains=self.q) |
-                Q(product_sku__iexact=self.q)
+                Q(product_sku__icontains=self.q)
             )
         return qs
 
@@ -933,3 +933,13 @@ class ProductPriceUpload(View):
                 return products_price_excel(self.products_price_qs(data))
 
         return render(request, self.template_name, {'form': form})
+
+
+class VendorAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Vendor.objects.none
+        if self.q:
+            qs = Vendor.objects.filter(
+                Q(vendor_name__icontains=self.q)
+            )
+        return qs

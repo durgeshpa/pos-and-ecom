@@ -597,6 +597,16 @@ class Trip(models.Model):
                 shipment.cash_to_be_collected())
         return round(sum(cash_to_be_collected), 2)
 
+    def cash_collected_by_delivery_boy(self):
+        cash_to_be_collected = []
+        shipment_status_list = ['FULLY_DELIVERED_AND_COMPLETED', 'PARTIALLY_DELIVERED_AND_COMPLETED',
+                                'FULLY_RETURNED_AND_COMPLETED', 'RESCHEDULED']
+        trip_shipments = self.rt_invoice_trip.filter(shipment_status__in=shipment_status_list)
+        for shipment in trip_shipments:
+            cash_to_be_collected.append(
+                shipment.cash_to_be_collected())
+        return round(sum(cash_to_be_collected), 2)
+
     @property
     def cash_to_be_collected_value(self):
         return self.cash_to_be_collected()
@@ -733,7 +743,7 @@ class OrderedProduct(models.Model): #Shipment
         max_length=50, choices=RETURN_REASON,
         null=True, blank=True, verbose_name='Reason for Return',
     )
-    invoice_no = models.CharField(max_length=255, null=True, blank=True, db_index=True)
+    invoice_no = models.CharField(max_length=255, null=True, blank=True)
     trip = models.ForeignKey(
         Trip, related_name="rt_invoice_trip",
         null=True, blank=True, on_delete=models.CASCADE,
@@ -1008,11 +1018,11 @@ class OrderedProductMapping(models.Model):
 
     @property
     def mrp(self):
-        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.mrp
+        return round(self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.mrp,2)
 
     @property
     def price_to_retailer(self):
-        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.price_to_retailer
+        return round(self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.price_to_retailer,2)
 
     @property
     def cash_discount(self):
@@ -1215,7 +1225,7 @@ class CustomerCare(models.Model):
     complaint_detail = models.CharField(max_length=2000, null=True)
 
     def __str__(self):
-        return self.complaint_id
+        return self.complaint_id or "--"
 
     @property
     def contact_number(self):
@@ -1510,15 +1520,6 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
     Method to update picking status
     '''
     assign_update_picker_to_shipment.delay(instance.id)
-    #assign shipment to picklist once SHIPMENT_CREATED
-    # if instance.shipment_status == "SHIPMENT_CREATED":
-    #     # assign shipment to picklist
-    #     # tbd : if manual(by searching relevant picklist id) or automated
-    #     picker_lists = PickerDashboard.objects.filter(order=instance.order, picking_status="picking_assigned")
-    #     if picker_lists.exists():
-    #         picker_lists.update(shipment=instance)
-    # elif instance.shipment_status == OrderedProduct.READY_TO_SHIP:
-    #     PickerDashboard.objects.filter(shipment=instance).update(picking_status="picking_complete")
 
 
 @receiver(post_save, sender=Order)
@@ -1538,3 +1539,6 @@ def assign_picklist(sender, instance=None, created=False, **kwargs):
             picking_status="picking_pending",
             picklist_id= generate_picklist_id(pincode), #get_random_string(12).lower(), ##generate random string of 12 digits
             )
+
+
+

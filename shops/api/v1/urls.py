@@ -1,13 +1,14 @@
+from rest_framework import routers
 from django.conf.urls import url
 from django.urls import path
-from shops.api.v1.views import (RetailerTypeView, ShopTypeView,ShopView, ShopPhotoView, ShopDocumentView,
+from shops.api.v1.views import (RetailerTypeView, ShopTypeView,ShopView, ShopPhotoView, ShopDocumentView, ShopTimingView,
         TeamListView, SellerShopView, SellerShopOrder, SellerShopProfile, SalesPerformanceView,
-        SellerShopListView, CheckUser, CheckAppVersion, StatusChangedAfterAmountCollected, SalesPerformanceUserView
+        SellerShopListView, CheckUser, CheckAppVersion, StatusChangedAfterAmountCollected, SalesPerformanceUserView, ShopRequestBrandViewSet
 )
 from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetail, SellerShopAddress
-from shops.api.v1.views import (RetailerTypeView, ShopTypeView,
-        ShopView, ShopPhotoView, ShopDocumentView, StatusChangedAfterAmountCollected)
-from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetail
+
+router = routers.DefaultRouter()
+router.register(r'request-brand', ShopRequestBrandViewSet)
 
 urlpatterns = [
     path('user-shops/', ShopView.as_view(), name='user-shops', ),
@@ -18,7 +19,10 @@ urlpatterns = [
     path('shop-type/', ShopTypeView.as_view(), name='shop-type', ),
     path('shop-photo/', ShopPhotoView.as_view(), name='shop-photo', ),
     path('shop-document/', ShopDocumentView.as_view(), name='shop-document', ),
+    path('shop-timing/', ShopTimingView.as_view(), name='shop-timing', ),
+    url('shop-timing/(?P<shop_id>\d+)/shop/', ShopTimingView.as_view(), name='shop-timing-list', ),
 
+# --------------------------------------------------Sales Person APIs---------------------------------------------------
     path('seller-team-list/', TeamListView.as_view(), name='seller-team-list', ),
     path('seller-shops/', SellerShopView.as_view(), name='seller-shops', ),
     path('seller-shop-profile/', SellerShopProfile.as_view(), name='seller-shop-profile', ),
@@ -29,7 +33,9 @@ urlpatterns = [
     path('seller-check-user/', CheckUser.as_view(), name='seller-check-user', ),
     path('seller-shop-address/', SellerShopAddress.as_view(), name='seller-shop-address', ),
     path('check-app-version/', CheckAppVersion.as_view(), name='check-app-version', ),
-
+#------------------------------------------------------------------------------------------------------------------------
     url('^amount-collected/(?P<shipment>\d+)/$', StatusChangedAfterAmountCollected.as_view(), name='amount-collected'),
 
 ]
+
+urlpatterns += router.urls

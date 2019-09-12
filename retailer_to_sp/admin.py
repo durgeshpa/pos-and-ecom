@@ -39,6 +39,7 @@ from retailer_to_sp.views import (
     trip_planning, trip_planning_change, update_delivered_qty,
     update_order_status, update_shipment_status, reshedule_update_shipment,
     RetailerCart, assign_picker, assign_picker_change, assign_picker_data,
+    UserWithNameAutocomplete
 )
 from shops.models import ParentRetailerMapping, Shop
 from sp_to_gram.models import (
@@ -388,6 +389,10 @@ class CartAdmin(admin.ModelAdmin):
             url(r'^commercial/(?P<pk>\d+)/shipment-details/$',
                 self.admin_site.admin_view(commercial_shipment_details),
                 name="CommercialShipmentDetails"
+                ),
+            url(r'^user-with-name-autocomplete/$',
+                self.admin_site.admin_view(UserWithNameAutocomplete.as_view()),
+                name="user_with_name_autocomplete"
                 ),
         ] + urls
         return urls
@@ -820,7 +825,7 @@ class OrderedProductAdmin(admin.ModelAdmin):
                 form_instance,
                 formsets_dict['OrderedProductMappingFormFormSet']
             )
-            create_credit_note(form)
+            create_credit_note(form.instance)
         update_order_status(
             close_order_checked=False,
             shipment_id=form_instance.id
@@ -962,7 +967,6 @@ class ShipmentAdmin(admin.ModelAdmin):
         return obj.order.seller_shop.shop_name
 
     def shipment_address(self, obj):
-        return ""
         address = obj.order.shipping_address
         address_line = address.address_line1
         contact = address.address_contact_number
@@ -970,7 +974,6 @@ class ShipmentAdmin(admin.ModelAdmin):
         return str("%s, %s(%s)") % (shop_name, address_line, contact)
 
     def invoice_city(self, obj):
-        return ""
         city = obj.order.shipping_address.city
         return str(city)
 
@@ -983,28 +986,18 @@ class ShipmentAdmin(admin.ModelAdmin):
     def save_related(self, request, form, formsets, change):
         #update_shipment_status(form, formsets)
 
-        update_order_status(
+        ordered_qty, shipment_products_dict = update_order_status(
             close_order_checked=form.cleaned_data.get('close_order'),
             shipment_id=form.instance.id
         )
 
-        no_of_pieces = form.instance.order.ordered_cart.rt_cart_list.all().values('no_of_pieces')
-        # no_of_pieces = no_of_pieces.first().get('no_of_pieces')
-        no_of_pieces = no_of_pieces.aggregate(
-            Sum('no_of_pieces')).get('no_of_pieces__sum', 0)
+        no_of_pieces = ordered_qty
+        shipped_qty = shipment_products_dict.get('shipped_qty',0)
 
-        all_ordered_product = form.instance.order.rt_order_order_product.all()
-        qty = OrderedProductMapping.objects.filter(
-            ordered_product__in=all_ordered_product,
-            )
-        shipped_qty = qty.aggregate(
-            Sum('shipped_qty')).get('shipped_qty__sum', 0)
-
-        shipped_qty = shipped_qty if shipped_qty else 0
         #when more shipments needed and status == qc_pass
         close_order = form.cleaned_data.get('close_order')
         if close_order:
-            PickerDashboard.objects.filter(order=form.instance.order).update(picking_status="picking_complete")
+            form.instance.order.picker_order.update(picking_status="picking_complete")
         change_value = form.instance.shipment_status == form.instance.READY_TO_SHIP
         if "shipment_status" in form.changed_data and change_value and (not close_order):
 

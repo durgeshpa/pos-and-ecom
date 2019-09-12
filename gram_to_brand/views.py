@@ -299,7 +299,7 @@ class VendorProductPrice(APIView):
             "sku": product_sku,
             "case_size": product_case_size,
             "inner_case_size": product_inner_case_size,
-            "tax_percentage": tax_percentage,
+             "tax_percentage": tax_percentage,
             "success": True})
 
 
