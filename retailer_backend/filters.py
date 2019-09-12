@@ -5,8 +5,6 @@ from admin_auto_filters.filters import AutocompleteFilter
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
 
-
-
 class BrandFilter(AutocompleteFilter):
     title = 'Brand' # display title
     field_name = 'brand' # name of the foreign key field
@@ -41,11 +39,8 @@ class ProductNameSearch(InputFilter):
 
     def queryset(self, request, queryset):
         if self.value() is not None:
-            name = self.value()
-            if name is None:
-                return
             return queryset.filter(
-                Q(products__product_name__icontains=name)
+                Q(products__product_name__icontains=self.value())
             )
 
 
@@ -55,11 +50,8 @@ class ProductSKUSearch(InputFilter):
 
     def queryset(self, request, queryset):
         if self.value() is not None:
-            sku = self.value()
-            if sku is None:
-                return
             return queryset.filter(
-                Q(products__product_sku__icontains=sku)
+                Q(products__product_sku__icontains=self.value())
             )
 
 class SupplierNameSearch(InputFilter):
@@ -68,11 +60,8 @@ class SupplierNameSearch(InputFilter):
 
     def queryset(self, request, queryset):
         if self.value() is not None:
-            supp_name = self.value()
-            if supp_name is None:
-                return
             return queryset.filter(
-                Q(order__ordered_cart__supplier_name__vendor_name__icontains=supp_name)
+                Q(order__ordered_cart__supplier_name__vendor_name__icontains=self.value())
             )
 
 class POCreatedBySearch(InputFilter):
@@ -81,11 +70,8 @@ class POCreatedBySearch(InputFilter):
 
     def queryset(self, request, queryset):
         if self.value() is not None:
-            created_by = self.value()
-            if created_by is None:
-                return
             return queryset.filter(
-                Q(order__ordered_cart__po_raised_by__phone_number__icontains=created_by)
+                Q(order__ordered_cart__po_raised_by__phone_number__icontains=self.value())
             )
 
 class QuantitySearch(InputFilter):
@@ -127,8 +113,6 @@ class GRNSearch(InputFilter):
                 Q(grn_id__icontains=grn_id)
             )
 
-
-
 class POAmountSearch(InputFilter):
     parameter_name = 'po_amount'
     title = 'PO Amount'
@@ -148,11 +132,8 @@ class PONumberSearch(InputFilter):
 
     def queryset(self, request, queryset):
         if self.value() is not None:
-            po_no = self.value()
-            if po_no is None:
-                return
             return queryset.filter(
-                Q(po_no=po_no)
+                Q(po_no=self.value())
             )
 class PORaisedBy(InputFilter):
     parameter_name = 'po_raised_by'

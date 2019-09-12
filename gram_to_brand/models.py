@@ -360,10 +360,6 @@ class GRNOrder(BaseShipment): #Order Shipment
     def __str__(self):
         return str(self.grn_id)
 
-    @property
-    def product_name(self):
-        return self.order.ordered_cart.products.product_name
-
     def clean(self):
         super(GRNOrder, self).clean()
         today = datetime.date.today()
