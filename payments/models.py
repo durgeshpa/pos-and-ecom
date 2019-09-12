@@ -136,8 +136,8 @@ class Payment(AbstractDateTime):
     def clean(self):
         if self.payment_mode_name != "cash_payment" and not self.reference_no:
             raise ValidationError('Referece number is required.')
-        if not re.match("^[a-zA-Z0-9_]*$", self.reference_no):
-            raise ValidationError('Referece number can not have special character.')
+        if self.reference_no and not re.match("^[a-zA-Z0-9_]*$", self.reference_no):
+                raise ValidationError('Referece number can not have special character.')
         if self.payment_mode_name == "online_payment" and not self.online_payment_type:
             raise ValidationError('Online payment type is required.')
         super(Payment, self).clean()
@@ -194,13 +194,17 @@ class ShipmentPayment(AbstractDateTime):
         #return brand.id
 
     def clean(self):
+        #import pdb; pdb.set_trace()
+        if self.parent_payment.payment_utilised + self.paid_amount > self.parent_payment.paid_amount:
+            error_msg = "Maximum amount to be utilised from parent payment is " + str(self.parent_payment.paid_amount - self.parent_payment.payment_utilised)
+            raise ValidationError(_(error_msg),)
         # check if parent payment is completely utilised
-        try:
-            if self.parent_payment.payment_utilised + self.paid_amount > self.parent_payment.paid_amount:
-                error_msg = "Maximum amount to be utilised from parent payment is " + str(self.parent_payment.paid_amount - self.parent_payment.payment_utilised)
-                raise ValidationError(_(error_msg),)
-        except: 
-            pass
+        # try:
+        #     if self.parent_payment.payment_utilised + self.paid_amount > self.parent_payment.paid_amount:
+        #         error_msg = "Maximum amount to be utilised from parent payment is " + str(self.parent_payment.paid_amount - self.parent_payment.payment_utilised)
+        #         raise ValidationError(_(error_msg),)
+        # except: 
+        #     pass
 
     class Meta:
         unique_together = (("parent_payment", "shipment"),)

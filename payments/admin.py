@@ -142,6 +142,16 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline):
             ShipmentPaymentInlineAdmin, self).formfield_for_foreignkey(db_field, request, **kwargs)
 
 
+    def has_add_permission(self, request, obj=None):
+        try:
+            parent_obj_id = request.resolver_match.kwargs['object_id']
+            parent_obj = OrderedProduct.objects.get(pk=parent_obj_id)
+            if parent_obj.trip.trip_status in ["CLOSED", "TRANSFERRED"]:
+                return False
+        except: 
+            return True
+
+
     def has_change_permission(self, request, obj=None):
         try:
             parent_obj_id = request.resolver_match.kwargs['object_id']
@@ -171,14 +181,21 @@ class ShipmentPaymentDataAdmin(admin.ModelAdmin):
     inlines = [ShipmentPaymentInlineAdmin]
     model = ShipmentData
     list_display = (
-        'order', 'trip','invoice_no', 'invoice_amount', 'invoice_city'
+        'order', 'trip','invoice_no', 'invoice_amount', 'total_paid_amount','invoice_city'
         )
     list_per_page = 50
-    fields = ['order', 'trip','invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
+    fields = ['order', 'trip','invoice_no', 'invoice_amount', 'total_paid_amount', 'shipment_address', 'invoice_city',
         'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
-    readonly_fields = ['order', 'trip', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
+    readonly_fields = ['order', 'trip', 'invoice_no', 'invoice_amount', 'total_paid_amount', 'shipment_address', 'invoice_city',
         'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
         
+    def total_paid_amount(self,obj):
+        return obj.total_paid_amount
+    total_paid_amount.short_description = 'Total Paid Amount'
+
+    class Media:
+        js = ('admin/js/hide_save_button.js',)
+
 
 class PaymentEditAdmin(admin.ModelAdmin):# NoDeleteAdminMixin, 
     model = PaymentEdit
