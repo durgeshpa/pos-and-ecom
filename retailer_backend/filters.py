@@ -62,7 +62,31 @@ class ProductSKUSearch(InputFilter):
                 Q(products__product_sku__icontains=sku)
             )
 
+class SupplierNameSearch(InputFilter):
+    parameter_name = 'supp_name'
+    title = 'Supplier_Name'
 
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            supp_name = self.value()
+            if supp_name is None:
+                return
+            return queryset.filter(
+                Q(order__ordered_cart__supplier_name__vendor_name__icontains=supp_name)
+            )
+
+class POCreatedBySearch(InputFilter):
+    parameter_name = 'created_by'
+    title = 'Created_BY'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            created_by = self.value()
+            if created_by is None:
+                return
+            return queryset.filter(
+                Q(order__ordered_cart__po_raised_by__phone_number__icontains=created_by)
+            )
 
 class QuantitySearch(InputFilter):
     parameter_name = 'qty'
