@@ -71,7 +71,6 @@ from .utils import (
     reschedule_shipment_button
 )
 
-
 class InvoiceNumberFilter(AutocompleteFilter):
     title = 'Invoice Number'
     field_name = 'invoice_no'
@@ -307,6 +306,30 @@ class ShipmentSellerShopSearch(InputFilter):
                 Q(order__seller_shop__shop_name__icontains=seller_shop_name)
             )
 
+class SellerShopFilter(AutocompleteFilter):
+    field_name = 'seller_shop'
+    title = 'seller_shop'
+    autocomplete_url = 'seller-autocomplete'
+
+
+class BuyerShopFilter(AutocompleteFilter):
+    field_name = 'buyer_shop'
+    title = 'buyer_shop'
+    autocomplete_url = 'seller-autocomplete'
+
+class OrderIDFilter(InputFilter):
+    parameter_name = 'order_id'
+    title = 'order_id'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            order_id = self.value()
+            if order_id is None:
+                return
+            return queryset.filter(
+                Q(order_id__icontains=order_id)
+            )
+
 
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
@@ -335,13 +358,30 @@ class CartProductMappingAdmin(admin.TabularInline):
     def has_delete_permission(self, request, obj=None):
         return False
 
+class ExportCsvMixin:
+    def export_as_csv_cart(self, request, queryset):
+        meta = self.model._meta
+        list_display = ('order_id', 'seller_shop', 'buyer_shop', 'cart_status', 'date', 'time', 'seller_contact_no', 'buyer_contact_no')
+        field_names = [field.name for field in meta.fields if field.name in list_display]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in list_display])
+        return response
 
-class CartAdmin(admin.ModelAdmin):
+    export_as_csv_cart.short_description = "Download CSV of Selected Orders"
+
+
+class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     fields = ('seller_shop', 'buyer_shop')
+    actions = ["export_as_csv_cart", ]
     form = CartForm
-    list_display = ('order_id', 'seller_shop','buyer_shop','cart_status')
+    list_display = ('order_id', 'seller_shop','buyer_shop','cart_status','created_at',)
     #change_form_template = 'admin/sp_to_gram/cart/change_form.html'
+    list_filter = (SellerShopFilter, BuyerShopFilter,OrderIDFilter)
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
@@ -414,6 +454,7 @@ class CartAdmin(admin.ModelAdmin):
             Cart, CartProductMapping, SpMappedOrderedProductMapping,
             OrderedProductReserved, request.user)
         reserve_order.create()
+
 
 
 class ExportCsvMixin:

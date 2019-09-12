@@ -179,6 +179,22 @@ class Cart(models.Model):
                 cart_product.get_cart_product_price(self.seller_shop)
         super().save(*args, **kwargs)
 
+    @property
+    def buyer_contact_no(self):
+        return self.buyer_shop.shop_owner.phone_number
+
+    @property
+    def seller_contact_no(self):
+        return self.seller_shop.shop_owner.phone_number
+
+    @property
+    def date(self):
+        return self.created_at.date()
+
+    @property
+    def time(self):
+        return self.created_at.time()
+
 
 @receiver(post_save, sender=Cart)
 def create_order_id(sender, instance=None, created=False, **kwargs):
