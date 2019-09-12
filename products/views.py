@@ -870,16 +870,16 @@ class ProductPriceUpload(View):
         if data['product']:
             qs = qs.filter(product=data['product'])
         return qs.values_list(
-            'product_id', 'product__product_name', 'product__product_gf_code',
-            'seller_shop__shop_name', 'mrp', 'selling_price',
-            'city_id', 'city__city_name', 'pincode', 'buyer_shop_id',
-            'buyer_shop__shop_name', 'start_date', 'end_date',
+            'product__product_sku', 'product__product_name',
+            'product__product_gf_code', 'seller_shop__shop_name', 'mrp',
+            'selling_price', 'city_id', 'city__city_name', 'pincode',
+            'buyer_shop_id', 'buyer_shop__shop_name', 'start_date', 'end_date',
             'approval_status')
 
     def validate_row(self, first_row, row):
-        if (row[0] and not re.match("^[\d]*$", str(row[0]))) or not row[0]:
-            raise Exception("{} - Please enter a valid {}"
-                            "".format(row[0], first_row[0]))
+        # if (row[0] and not re.match("^[\d]*$", str(row[0]))) or not row[0]:
+        #     raise Exception("{} - Please enter a valid {}"
+        #                     "".format(row[0], first_row[0]))
         if ((row[4] and not re.match("^\d{0,8}(\.\d{1,2})?$", str(row[4]))) or
                 not row[4]):
             raise Exception("{} - Please enter a valid {}"
@@ -900,13 +900,18 @@ class ProductPriceUpload(View):
                     values_only=True
                 )):
                     self.validate_row(first_row, row)
+                    product = Product.objects.values('id').get(product_sku=row[0])
+                    if row[8]:
+                        pincode = Pincode.objects.values('id').get(pincode=row[8])['id']
+                    else:
+                        pincode = None
                     ProductPrice.objects.create(
-                        product_id=int(row[0]), mrp=Decimal(row[4]),
+                        product_id=product['id'], mrp=Decimal(row[4]),
                         selling_price=Decimal(row[5]),
                         seller_shop_id=int(data['seller_shop'].id),
                         buyer_shop_id=int(row[9]) if row[9] else None,
                         city_id=int(row[6]) if row[6] else None,
-                        pincode=row[8] if row[8] else None,
+                        pincode_id=pincode,
                         start_date=row[11], end_date=row[12],
                         approval_status=ProductPrice.APPROVAL_PENDING)
 

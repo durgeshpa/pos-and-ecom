@@ -275,7 +275,8 @@ class ProductPriceNewForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:1]
+        if 'approval_status' in self.fields:
+            self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:1]
 
 
 class ProductsFilterForm(forms.Form):
@@ -461,6 +462,10 @@ class ProductPriceChangePerm(forms.ModelForm):
         fields = ('product', 'mrp', 'selling_price', 'seller_shop',
                   'buyer_shop', 'city', 'pincode',
                   'start_date', 'end_date', 'approval_status')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:-1]
 
 
 class ProductCategoryMappingForm(forms.Form):

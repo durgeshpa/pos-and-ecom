@@ -1,9 +1,8 @@
 {% extends 'admin/retailer_to_sp/trip/base.html' %}
 
-{% block title %}Trip Planning | Admin{% endblock %}
-{% block breadcrumb1 %}Retailer_To_Sp{% endblock %}
-{% block breadcrumb2 %}Trip{% endblock %}
-{% block breadcrumb3 %}Trip Planning{% endblock %}
+{% block title %}Upload Products Price | Admin{% endblock %}
+{% block breadcrumb1 %}<a href="/admin/products/">Products</a>{% endblock %}
+{% block breadcrumb2 %}<a href="/admin/products/product/product-price-upload/">Upload Products Price</a>{% endblock %}
 
 {% block content %}
           <!-- Content -->
@@ -18,7 +17,7 @@
                <form method="post" enctype="multipart/form-data">
                   <div>
                     {% if messages %}
-<ul class="messages">
+<ul class="messagelist">
     {% for message in messages %}
     <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
     {% endfor %}
@@ -135,7 +134,7 @@
                      </fieldset>
                      <div class="submit-row">
                         <input type="submit" value="Save" class="default" name="_save">
-                        <p class="deletelink-box"><a href="/admin/retailer_to_sp/" class="deletelink">Back</a></p>
+                        <p class="deletelink-box"><a href="/admin/products/" class="deletelink">Back</a></p>
                      </div>
                   </div>
                </form>

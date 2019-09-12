@@ -250,6 +250,7 @@ class ProductPrice(models.Model):
                                        max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
 
     def __str__(self):
         return "%s - %s" % (self.product.product_name, self.selling_price)
@@ -277,9 +278,9 @@ class ProductPrice(models.Model):
         self.update_city_pincode()
         super().save(*args, **kwargs)
 
-    # @property
-    # def margin(self):
-    #     return round(100-(float(self.price_to_retailer)*1000000/(float(self.mrp)*(100-float(self.cash_discount))*(100-float(self.loyalty_incentive)))),2) if self.mrp>0 and self.price_to_retailer>0 else 0
+    @property
+    def margin(self):
+        return round(100-(float(self.price_to_retailer)*1000000/(float(self.mrp)*(100-float(self.cash_discount))*(100-float(self.loyalty_incentive)))),2) if self.mrp>0 and self.price_to_retailer>0 else 0
 
     @property
     def sku_code(self):

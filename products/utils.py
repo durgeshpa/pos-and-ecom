@@ -155,7 +155,7 @@ def products_price_excel(queryset):
     worksheet.set_row(0, 60)
 
     # column headings
-    worksheet.write('A1', 'Product ID\n(required)', header_format)
+    worksheet.write('A1', 'Product SKU\n(required)', header_format)
     worksheet.write('B1', 'Product Name', header_format)
     worksheet.write('C1', 'Product GF Code', header_format)
     worksheet.write('D1', 'Seller Shop Name', header_format)
@@ -166,8 +166,8 @@ def products_price_excel(queryset):
     worksheet.write('I1', 'Pincode\n(optional)', header_format)
     worksheet.write('J1', 'Buyer Shop ID\n(optional)', header_format)
     worksheet.write('K1', 'Buyer Shop Name', header_format)
-    worksheet.write('L1', 'Price Start Date\n(m/d/y H:M:S)(required)', header_format)
-    worksheet.write('M1', 'Price End Date\n(m/d/y H:M:S)(required)', header_format)
+    worksheet.write('L1', 'Price Start Date\n(m/d/y H:M:S)(optional)', header_format)
+    worksheet.write('M1', 'Price End Date\n(m/d/y H:M:S)(optional)', header_format)
     worksheet.write('N1', 'Approval Status', header_format)
 
     for row_num, columns in enumerate(data):

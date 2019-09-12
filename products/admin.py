@@ -33,8 +33,8 @@ class ProductFilter(AutocompleteFilter):
     field_name = 'product' # name of the foreign key field
 
 class ShopFilter(AutocompleteFilter):
-    title = 'Shop' # display title
-    field_name = 'shop' # name of the foreign key field
+    title = 'Seller Shop' # display title
+    field_name = 'seller_shop' # name of the foreign key field
 
 class ProductImageMainAdmin(admin.ModelAdmin):
     readonly_fields = ['image_thumbnail']
@@ -436,10 +436,10 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
         'product__product_name', 'product__product_gf_code',
         'product__product_brand__brand_name', 'shop__shop_name'
     ]
-    # list_filter = [
-    #     ProductSKUSearch, ProductFilter, ShopFilter, MRPSearch,
-    #     ('start_date', DateRangeFilter), ('end_date', DateRangeFilter),
-    #     'approval_status']
+    list_filter = [
+        ProductSKUSearch, ProductFilter, ShopFilter, MRPSearch,
+        ('start_date', DateRangeFilter), ('end_date', DateRangeFilter),
+        'approval_status']
     fields = ('product', 'mrp', 'selling_price', 'seller_shop',
               'buyer_shop', 'city', 'pincode',
               'start_date', 'end_date', 'approval_status')
