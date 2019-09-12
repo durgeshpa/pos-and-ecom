@@ -897,7 +897,7 @@ class OrderedProduct(models.Model): #Shipment
         # shipment_payment = ShipmentPayment.objects.filter(shipment__in=trip_shipments).\
         #     annotate(sum_paid_amount=Sum('paid_amount'))
             if shipment_payment_data:
-                return shipment_payment_data['paid_amount__sum'] #sum_paid_amount
+                return round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
         else:
             return ""
 
