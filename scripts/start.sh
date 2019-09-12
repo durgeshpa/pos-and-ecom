@@ -14,5 +14,6 @@ pip install -r requirements.txt
 python manage.py makemigrations
 python manage.py migrate
 
+python manage.py collectstatic --noinput --no-post-process
 #restart server
 sudo supervisorctl restart all

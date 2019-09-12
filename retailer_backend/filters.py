@@ -154,3 +154,28 @@ class PORaisedBy(InputFilter):
                     Q(po_raised_by__last_name__icontains=name)
                 )
             return queryset.filter(any_name)
+
+class ShopFilter(AutocompleteFilter):
+    title = 'Shop'
+    field_name = 'shop'
+    autocomplete_url = 'admin:shop-autocomplete'
+
+
+class ManagerFilter(InputFilter):
+    title = 'Manager'
+    parameter_name = 'manager'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(manager__employee__phone_number=value)
+
+class EmployeeFilter(InputFilter):
+    title = 'Employee'
+    parameter_name = 'employee'
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(employee__phone_number=value)
+

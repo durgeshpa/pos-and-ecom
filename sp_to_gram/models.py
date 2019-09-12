@@ -433,7 +433,6 @@ def create_brand_note_id(sender, instance=None, created=False, **kwargs):
 
 
 def create_credit_note(instance=None, created=False, **kwargs):
-    instance = instance.instance
     if created:
         return None
     if(instance.rt_order_product_order_product_mapping.last() and 

@@ -16,7 +16,7 @@ from django.contrib.auth.decorators import permission_required
 from shops.models import Shop, ShopType
 from addresses.models import City, State, Address
 from categories.models import Category
-from brand.models import Brand
+from brand.models import Brand, Vendor
 from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
     ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
@@ -703,7 +703,7 @@ class ProductPriceAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = Product.objects.filter(
                 Q(product_name__icontains=self.q) |
-                Q(product_sku__iexact=self.q)
+                Q(product_sku__icontains=self.q)
             )
         return qs
 
@@ -789,3 +789,13 @@ def product_category_mapping_sample(self):
     writer = csv.writer(response)
     writer.writerows([['gf_code', 'category_id'], ['GF01641', '161']])
     return response
+
+
+class VendorAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Vendor.objects.none
+        if self.q:
+            qs = Vendor.objects.filter(
+                Q(vendor_name__icontains=self.q)
+            )
+        return qs

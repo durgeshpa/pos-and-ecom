@@ -4,6 +4,7 @@
 {% load app_filters_invoice_sp %}
 {% load humanize %}
 
+
 <html>
 
 	<head>
@@ -36,18 +37,23 @@ table tr td,th,h4,span,address{
     <div class="row">
         <div class="col-lg-12">
           <div class="invoice-title col-md-12">
-						<div class="invoice col-sm-4 "><h4> Shop ID <span style="font-size:15px"class="invoice_no"><strong>{{shop_id}}</strong></span></h4></div>
-      			<div class="invoice col-sm-4 "><h4> Tax / Retail Invoice No: <span style="font-size:15px"class="invoice_no"><strong>{{shop.invoice_no}}</strong></span></h4></div>
+<!--						<div class="invoice col-sm-4 "><h4> Shop ID <span style="font-size:15px"class="invoice_no"><strong>{{shop_id}}</strong></span></h4></div>-->
+			  <div class="col-sm-4 "><h4 class="text-right"><span style="font-size:15px"class="invoice_no"><img src="data:image/png;base64,{{barcode}}" height="140px" style="margin-top:100"></span></h4></div>
+<!--			  <div class="col-sm-4 "><h4 class="text-right"><span style="font-size:15px"class="invoice_no"><img src="data:image/png;base64,{{barcode}}" height="80px" style="margin-top:100"></span></h4></div>-->
 
-  				<div class="col-sm-4 order_id ">
+			  			  <div style="position:absolute; top:220px;width:400px;right:50px"><h4 class="text-center">Invoice No:</h4></div>
+  				<div class="col-sm-4 order_id "><br><br>
+					<div class="pull-right col-sm-4 "><h4>Order Id: <span style="font-size:15px"class=" order_id_no "><strong>{{ order_id }}</strong></span></h4></div>
+		  </div>
+					<h4 style="font-size:30px;position:absolute;top:120px"><strong>TAX INVOICE</strong></h4><br><br>
             {% if payment_type == 'neft' %}
-                <h4 style="font-size:30px">Prepaid Order</h4>
+                <h5 style="font-size:20px;position:absolute;top:200px">Prepaid Order</h5>
             {% elif payment_type == 'cash_on_delivery' %}
-                <h4 style="font-size:30px">Cash On Delivery</h4>
+                <h5 style="font-size:20px;position:absolute;top:200px">Cash On Delivery</h5>
             {% endif %}
             </div>
-			<div class="pull-right col-sm-4 "><h4>Order Id: <span style="font-size:15px"class=" order_id_no "><strong>{{ order_id }}</strong></span></h4></div>
-		  </div>
+<!--			<div class="pull-right col-sm-4 "><h4>Order Id: <span style="font-size:15px"class=" order_id_no "><strong>{{ order_id }}</strong></span></h4></div>-->
+<!--		  </div>-->
 
     		<div class="row">
     			<div class="col-xs-6">
@@ -68,7 +74,8 @@ table tr td,th,h4,span,address{
 						{{shop.order.shipping_address.address_contact_number}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{{ buyer_shop_gistin }}</span><br>
 						<strong>State Name:</strong> <span>{{shop.order.shipping_address.state}} </span><strong>Code:</strong> <span>{{shop.order.shipping_address.pincode}}</span><br>
-						<strong>CIN:</strong> <span>---</span>
+						<strong>CIN:</strong> <span>---</span><br>
+						<strong>Shop ID:</strong><span><strong>{{ shop_id }}</strong></span>
     				</address>
 					<address>
 						<span>Supplier :</span><br>
@@ -373,17 +380,19 @@ table tr td,th,h4,span,address{
 								<tr>
 
         							<td class="text-left" colspan="5">
-								<strong>Declaration</strong> <br>
-We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.
+								<strong style = "font-size:12px">Declaration:</strong>
+								<br>
+								<br>
+<strong style = "font-size:11px"> We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</strong>
 
 <br>
-Note: This is a computerized generated invoice and hence, authorized stamp or signature is not required
+<br>
+<strong style = "font-size:11px">Note: This is a computer generated invoice </strong>
 									</td>
         							<td class="text-left" colspan="5" height="100">
 										<strong>For GFDN Service Pvt. Ltd.</strong></br>
-										<br></br>
-										<br></br>
-
+										<img src="{{scheme}}://{{url}}/static/admin/img/stamp.png" width="80" height="80">
+										<br>
 										Authorised Signatory
 									</td>
 								</tr>
@@ -395,18 +404,20 @@ Note: This is a computerized generated invoice and hence, authorized stamp or si
 
 
                                 </tr>
-
 							</thead>
 
 							</table>
+
     				</div>
     			</div>
     		</div>
     	</div>
+			<tr><strong>No. of Crates:</strong>{{no_of_crates}} <strong> No. of Packets:</strong>{{no_of_packets}}  <storng> No. of Sacks:</strong>{{no_of_sacks}}
+</tr>
     </div>
-
 </div>
 	</div>
 
 
 </body></html>
+

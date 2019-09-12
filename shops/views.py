@@ -13,13 +13,17 @@ from gram_to_brand.models import GRNOrderProductMapping
 from sp_to_gram.models import OrderedProduct, OrderedProductMapping, StockAdjustment, StockAdjustmentMapping,OrderedProductReserved
 from django.db.models import Sum,Q
 from dal import autocomplete
-from .forms import StockAdjustmentUploadForm, BulkShopUpdation
+from .forms import StockAdjustmentUploadForm, BulkShopUpdation, ShopUserMappingCsvViewForm
+from django.views.generic.edit import FormView
 import csv
 import codecs
 import datetime
 from django.db import transaction
 from addresses.models import Address, State, City
-
+from django.contrib.auth import get_user_model
+from shops.models import ShopUserMapping
+from rest_framework.views import APIView
+from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
 
 # Create your views here.
 class ShopMappedProduct(TemplateView):
@@ -34,14 +38,19 @@ class ShopMappedProduct(TemplateView):
             product_sum = grn_product.values('product','product__product_name', 'product__product_gf_code', 'product__product_sku').annotate(product_qty_sum=Sum('available_qty'))
             context['shop_products'] = product_sum
 
+
         elif shop_obj.shop_type.shop_type=='sp':
             sp_grn_product = OrderedProductMapping.get_shop_stock(shop_obj)
+
 
             product_sum = sp_grn_product.values('product','product__product_name', 'product__product_gf_code', 'product__product_sku').annotate(product_qty_sum=Sum('available_qty')).annotate(damaged_qty_sum=Sum('damaged_qty'))
             context['shop_products'] = product_sum
         else:
             context['shop_products'] = None
+
         return context
+
+
 
 class ShopParentAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
@@ -106,7 +115,7 @@ class StockAdjustmentView(View):
         self.stock_adjustment = StockAdjustment.objects.create(shop=self.shop)
         for row in reader:
             gfcode = row[0]
-            stock_available, stock_damaged, stock_expired = [int(i) for i in row[1:4]]
+            stock_available, stock_damaged, stock_expired = [int(i) for i in row[3:6]]
             product = Product.objects.get(product_gf_code=gfcode)
             db_available_products = OrderedProductMapping.get_product_availability(self.shop, product)
             db_expired_products = OrderedProductMapping.get_expired_product_qty(self.shop, product)
@@ -200,6 +209,12 @@ class StockAdjustmentView(View):
             )
         return
 
+class ShopTimingAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Shop.objects.filter(shop_type__shop_type__in=['r'])
+        if self.q:
+            qs = qs.filter(Q(shop_owner__phone_number__icontains=self.q) | Q(shop_name__icontains=self.q))
+        return qs
 
 def bulk_shop_updation(request):
     if request.method == 'POST':
@@ -261,3 +276,62 @@ def bulk_shop_updation(request):
         'admin/shop/bulk-shop-updation.html',
         {'form': form}
     )
+
+class ShopAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Shop.objects.none
+        if self.q:
+            qs = Shop.objects.filter(shop_name__icontains=self.q)
+        return qs
+
+class UserAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = get_user_model().objects.all()
+        if self.q:
+            qs = qs.filter(phone_number__icontains=self.q)
+        return qs
+
+class ShopUserMappingCsvView(FormView):
+    form_class = ShopUserMappingCsvViewForm
+    template_name = 'admin/shops/shopusermapping/shop_user_mapping.html'
+    success_url = '/admin/shops/shopusermapping/'
+
+    def post(self, request, *args, **kwargs):
+        form_class = self.get_form_class()
+        form = self.get_form(form_class)
+        #shop_user_mapping = []
+        not_uploaded_list = []
+        if form.is_valid():
+            file = request.FILES['file']
+            reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+            first_row = next(reader)
+            for row in reader:
+                try:
+                    if row[2]:
+                        employee = get_user_model().objects.get(phone_number=row[2])
+                    if row[1]:
+                        manager = ShopUserMapping.objects.get(employee__phone_number=row[1])
+                        ShopUserMapping.objects.create(shop_id=row[0], manager=manager, employee=employee, employee_group_id=row[3])
+                    else:
+                        ShopUserMapping.objects.create(shop_id=row[0], employee=employee, employee_group_id=row[3])
+                except:
+                    not_uploaded_list.append(ERROR_MESSAGES['INVALID_MAPPING']%(row[0], row[2]))
+            #ShopUserMapping.objects.bulk_create(shop_user_mapping)
+            if not not_uploaded_list:
+                messages.success(request, SUCCESS_MESSAGES['CSV_UPLOADED'])
+            else:
+                messages.success(request, SUCCESS_MESSAGES['CSV_UPLOADED_EXCEPT']%(not_uploaded_list))
+            return self.form_valid(form)
+        else:
+            return self.form_invalid(form)
+
+from django.views.generic import View
+class ShopUserMappingCsvSample(View):
+    def get(self, request, *args, **kwargs):
+        filename = "shop_user_list.csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        writer = csv.writer(response)
+        writer.writerow(['shop', 'manager', 'employee', 'employee_group'])
+        writer.writerow(['23', '8989787878', '8989898989', '2'])
+        return response
