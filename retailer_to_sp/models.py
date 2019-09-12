@@ -60,6 +60,7 @@ NOTE_TYPE_CHOICES = (
 PAYMENT_MODE_CHOICES = (
     ("cash_on_delivery", "Cash On Delivery"),
     ("neft", "NEFT"),
+    ("credit", "credit")
 )
 
 MESSAGE_STATUS = (
@@ -82,6 +83,16 @@ TRIP_STATUS = (
     ('TRANSFERRED', 'Transferred')
 )
 
+PAYMENT_STATUS = (
+    ('PENDING', 'Pending'),
+    ('PARTIALLY_PAID', 'Partially_paid'),
+    ('PAID', 'Paid'),
+)
+
+PAYMENT_MODE = (
+    ('CREDIT', 'Credit'),
+    ('INSTANT_PAYMENT', 'Instant_payment'),
+)
 
 def generate_picklist_id(pincode):
 
@@ -344,6 +355,8 @@ class Order(models.Model):
     total_discount_amount = models.FloatField(default=0)
     total_tax_amount = models.FloatField(default=0)
     order_status = models.CharField(max_length=50,choices=ORDER_STATUS)
+    payment_status = models.CharField(max_length=50,choices=PAYMENT_STATUS, null=True, blank=True)
+    intended_mode_of_payment = models.CharField(max_length=50,choices=PAYMENT_MODE, null=True, blank=True)
     cancellation_reason = models.CharField(
         max_length=50, choices=CANCELLATION_REASON,
         null=True, blank=True, verbose_name='Reason for Cancellation',
@@ -607,6 +620,18 @@ class Trip(models.Model):
                 shipment.cash_to_be_collected())
         return round(sum(cash_to_be_collected), 2)
 
+    @property    
+    def total_received_amount(self):
+        # import pdb; pdb.set_trace()
+        from payments.models import ShipmentPayment
+        trip_shipments = self.rt_invoice_trip.all()
+        shipment_payment = ShipmentPayment.objects.filter(shipment__in=trip_shipments).\
+            annotate(sum_paid_amount=Sum('paid_amount'))
+        if shipment_payment:
+            return shipment_payment.sum_paid_amount
+        else:
+            return ""
+
     @property
     def cash_to_be_collected_value(self):
         return self.cash_to_be_collected()
@@ -643,6 +668,7 @@ class Trip(models.Model):
             self.starts_at = datetime.datetime.now()
         elif self.trip_status == 'COMPLETED':
             self.completed_at = datetime.datetime.now()
+
         super().save(*args, **kwargs)
 
     def dispathces(self):
@@ -756,6 +782,8 @@ class OrderedProduct(models.Model): #Shipment
         get_user_model(), related_name='rt_last_modified_user_order',
         null=True, blank=True, on_delete=models.CASCADE
     )
+    payment_status = models.CharField(max_length=50,choices=PAYMENT_STATUS, null=True, blank=True)
+    is_payment_approved = models.BooleanField(default=False)
     no_of_crates = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Crates Shipped")
     no_of_packets = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Packets Shipped")
     no_of_sacks = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Sacks Shipped")
@@ -822,6 +850,21 @@ class OrderedProduct(models.Model): #Shipment
                     self._payment_mode.append(dict(PAYMENT_MODE_CHOICES)[payment['payment_choice']])
                     self._payment_amount.append(float(payment['paid_amount']))
         return self._payment_mode, self._payment_amount
+
+    @property    
+    def total_paid_amount(self):
+        #import pdb; pdb.set_trace()
+        from payments.models import ShipmentPayment
+        shipment_payment = self.shipment_payment.all()
+        if shipment_payment.exists():
+            shipment_payment_data = shipment_payment.aggregate(Sum('paid_amount')) #annotate(sum_paid_amount=Sum('paid_amount')) 
+        # shipment_payment = ShipmentPayment.objects.filter(shipment__in=trip_shipments).\
+        #     annotate(sum_paid_amount=Sum('paid_amount'))
+            if shipment_payment_data:
+                return round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
+        else:
+            return ""
+
 
     @property
     def payment_mode(self):
@@ -1196,13 +1239,13 @@ class Commercial(Trip):
                     (int(self.received_amount) !=
                         int(self.cash_to_be_collected()))):
                     raise ValidationError(_("Received amount should be equal"
-                                            " to Cash to be Collected"
+                                            " to Amount to be Collected"
                                             ),)
             if (self.trip_status == 'COMPLETED' and
                     (int(self.received_amount) >
                         int(self.cash_to_be_collected()))):
                     raise ValidationError(_("Received amount should be less"
-                                            " than Cash to be Collected"
+                                            " than Amount to be Collected"
                                             ),)
 
 class CustomerCare(models.Model):
