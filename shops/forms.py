@@ -277,9 +277,6 @@ class ShopUserMappingCsvViewForm(forms.Form):
                 raise ValidationError(_('INVALID_GROUP_ID at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
 
             uploaded_employee_list.append(row[2])
-            # if ShopUserMapping.objects.filter(shop_id=row[0],employee=get_user_model().objects.get(phone_number=row[2])).exists():
-            #     raise ValidationError(_('This shop_user_mapping already exists at Row[%(value)s]'),
-            #                           params={'value': id + 1}, )
 
 
 
