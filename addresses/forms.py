@@ -4,6 +4,7 @@ from django.urls import reverse
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import RegexValidator
+from dal import autocomplete
 
 from retailer_backend.validators import PinCodeValidator
 
@@ -11,7 +12,13 @@ from retailer_backend.validators import PinCodeValidator
 class AddressForm(forms.ModelForm):
     state = forms.ModelChoiceField(queryset=State.objects.order_by('state_name'))
     city = forms.ModelChoiceField(queryset=City.objects.all())
-
+    pincode_link = forms.ModelChoiceField(
+        queryset=Pincode.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:pincode_autocomplete',
+            forward=('city',)),
+        required=False
+    )
     class Media:
         js = ('https://code.jquery.com/jquery-3.2.1.js','admin/js/vendor/vendor_form.js',
                 'https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/js/select2.min.js')
