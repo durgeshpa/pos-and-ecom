@@ -330,6 +330,7 @@ class ShopUserMappingAdmin(admin.ModelAdmin):
     form = ShopUserMappingForm
     list_display = ('shop','manager','employee','employee_group','created_at','status')
     list_filter = [ShopFilter, ManagerFilter, EmployeeFilter, 'status', ('created_at', DateTimeRangeFilter), ]
+    search_fields = ('employee',)
 
     def get_urls(self):
         from django.conf.urls import url
