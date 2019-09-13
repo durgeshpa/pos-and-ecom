@@ -120,7 +120,7 @@ class Payment(AbstractDateTime):
     description = models.CharField(max_length=100, null=True, blank=True)
     reference_no = models.CharField(max_length=50, null=True, blank=True)
     paid_amount = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')
-    payment_mode_name = models.CharField(max_length=50, choices=PAYMENT_MODE_NAME, null=True, blank=True)
+    payment_mode_name = models.CharField(max_length=50, choices=PAYMENT_MODE_NAME, default="cash_payment")
     prepaid_or_postpaid = models.CharField(max_length=50, choices=PAYMENT_TYPE_CHOICES,null=True, blank=True)
     # for finance team
     payment_approval_status = models.CharField(max_length=50, choices=PAYMENT_APPROVAL_STATUS_CHOICES, default="pending_approval",null=True, blank=True)
