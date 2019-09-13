@@ -309,13 +309,13 @@ class ShipmentSellerShopSearch(InputFilter):
 class SellerShopFilter(AutocompleteFilter):
     field_name = 'seller_shop'
     title = 'seller_shop'
-    # autocomplete_url = 'seller-autocomplete'
+    autocomplete_url = 'seller-autocomplete'
 
 
 class BuyerShopFilter(AutocompleteFilter):
     field_name = 'buyer_shop'
     title = 'buyer_shop'
-    # autocomplete_url = 'seller-autocomplete'
+    autocomplete_url = 'seller-autocomplete'
 
 class OrderIDFilter(InputFilter):
     parameter_name = 'order_id'
