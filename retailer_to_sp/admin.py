@@ -70,7 +70,6 @@ from .utils import (
     GetPcsFromQty, add_cart_user, create_order_from_cart,
     reschedule_shipment_button
 )
-
 class InvoiceNumberFilter(AutocompleteFilter):
     title = 'Invoice Number'
     field_name = 'invoice_no'
@@ -372,7 +371,6 @@ class ExportCsvMixin:
         return response
 
     export_as_csv_cart.short_description = "Download CSV of Selected Orders"
-
 
 class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]

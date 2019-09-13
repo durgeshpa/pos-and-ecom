@@ -1291,11 +1291,8 @@ class UserWithNameAutocomplete(autocomplete.Select2QuerySetView):
             )
         return qs
 
-
-
 class SellerAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        print(self.q)
         qs = Shop.objects.all()
 
         if self.q:
