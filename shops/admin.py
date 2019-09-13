@@ -123,7 +123,7 @@ class ServicePartnerFilter(InputFilter):
     def queryset(self, request, queryset):
         value = self.value()
         if value :
-            return queryset.filter(retailer_mapping__parent__shop_name__icontains=value )
+            return queryset.filter(retiler_mapping__parent__shop_name__icontains=value )
         return queryset
 
 class ShopCityFilter(InputFilter):
@@ -330,6 +330,7 @@ class ShopUserMappingAdmin(admin.ModelAdmin):
     form = ShopUserMappingForm
     list_display = ('shop','manager','employee','employee_group','created_at','status')
     list_filter = [ShopFilter, ManagerFilter, EmployeeFilter, 'status', ('created_at', DateTimeRangeFilter), ]
+    search_fields = ('employee',)
 
     def get_urls(self):
         from django.conf.urls import url
@@ -350,6 +351,9 @@ class ShopUserMappingAdmin(admin.ModelAdmin):
         return urls
 
     class Media:
+        pass
+
+    def has_change_permission(self, request, obj=None):
         pass
 
 class SalesAppVersionAdmin(admin.ModelAdmin):
