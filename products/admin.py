@@ -443,7 +443,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     list_display = [
         'product', 'product_sku', 'product_gf_code', 'mrp', 'selling_price',
         'seller_shop', 'buyer_shop', 'city', 'pincode',
-        'start_date', 'end_date', 'approval_status'
+        'start_date', 'end_date', 'approval_status', 'status'
     ]
 
     autocomplete_fields = ['product']

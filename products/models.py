@@ -217,9 +217,9 @@ class ProductHistory(models.Model):
 
 
 class ProductPrice(models.Model):
-    APPROVED = 'a'
-    APPROVAL_PENDING = 'ap'
-    DEACTIVATED = 'd'
+    APPROVED = 2
+    APPROVAL_PENDING = 1
+    DEACTIVATED = 0
     APPROVAL_CHOICES = (
         (APPROVED, 'Approved'),
         (APPROVAL_PENDING, 'Approval Pending'),
