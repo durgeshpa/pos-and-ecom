@@ -127,6 +127,8 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline):
             parent_obj = OrderedProduct.objects.get(pk=parent_obj_id)
             if parent_obj.trip.trip_status in ["CLOSED", "TRANSFERRED"]:
                 return False
+            else: 
+                return True
         except: 
             return True
 
@@ -137,6 +139,8 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline):
             parent_obj = OrderedProduct.objects.get(pk=parent_obj_id)
             if parent_obj.trip.trip_status in ["CLOSED", "TRANSFERRED"]:
                 return False
+            else: 
+                return True
         except: 
             return True
 
