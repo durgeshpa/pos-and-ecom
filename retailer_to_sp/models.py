@@ -622,15 +622,18 @@ class Trip(models.Model):
 
     @property    
     def total_received_amount(self):
-        # import pdb; pdb.set_trace()
         from payments.models import ShipmentPayment
         trip_shipments = self.rt_invoice_trip.all()
-        shipment_payment = ShipmentPayment.objects.filter(shipment__in=trip_shipments).\
-            annotate(sum_paid_amount=Sum('paid_amount'))
-        if shipment_payment:
-            return shipment_payment.sum_paid_amount
+        if trip_shipments.exists():
+            shipment_payment_data = ShipmentPayment.objects.filter(shipment__in=trip_shipments)\
+                .aggregate(Sum('paid_amount')) 
+            if shipment_payment_data['paid_amount__sum']:
+                return round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
+            else:
+                return ""
         else:
             return ""
+
 
     @property
     def cash_to_be_collected_value(self):
