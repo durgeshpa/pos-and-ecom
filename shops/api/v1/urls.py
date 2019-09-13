@@ -17,6 +17,7 @@ from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetai
 router = routers.DefaultRouter()
 router.register(r'request-brand', ShopRequestBrandViewSet)
 router.register(r'favourite-product', FavouriteProductView)
+#router.register(r'list-favourite-product', FavouriteProductListView)
 
 urlpatterns = [
     path('user-shops/', ShopView.as_view(), name='user-shops', ),

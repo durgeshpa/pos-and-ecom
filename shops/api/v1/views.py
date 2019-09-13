@@ -121,8 +121,17 @@ class FavouriteProductListView(generics.ListAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
     #permission_classes = (AllowAny,)
-    filter_backends = (filters.DjangoFilterBackend,)
-    filter_class = FavouriteProductFilter
+    # filter_backends = (filters.DjangoFilterBackend,)
+    # filter_class = FavouriteProductFilter
+
+    def get_queryset(self):
+        buyer_shop = self.request.query_params.get('buyer_shop', None)
+        buyer_shop_products = FavouriteProduct.objects.all()
+        if buyer_shop:
+            buyer_shop_products = buyer_shop_products.filter(
+                buyer_shop=buyer_shop
+                )
+        return buyer_shop_products
 
     def list(self, request):
         queryset = self.get_queryset()
