@@ -47,6 +47,14 @@ PAYMENT_APPROVAL_STATUS_CHOICES = (
     ('rejected', 'rejected'),
   )
 
+
+FINAL_PAYMENT_STATUS_CHOICES = (
+    ('PENDING', 'Pending'),
+    ('PARTIALLY_PAID', 'Partially_paid'),
+    ('PAID', 'Paid'),
+)
+
+
 ONLINE_PAYMENT_TYPE_CHOICES = (
     #('paytm', 'paytm'),
     ('upi', 'upi'),
@@ -104,10 +112,10 @@ class AbstractDateTime(models.Model):
 
 
 #if prepaid then its against order, else shipment
+# replace order with user
 class Payment(AbstractDateTime):
+    #order = models.ManytoManyField(Order, through="OrderPayment", related_name='order_payment_data', on_delete=models.CASCADE)
     order = models.ForeignKey(Order, related_name='order_payment_data', on_delete=models.CASCADE)
-    # shipment = models.ForeignKey(OrderedProduct, related_name='shipment_payment', on_delete=models.SET_NULL,
-    # null=True, blank=True) #shipment_id
     # payment description
     description = models.CharField(max_length=100, null=True, blank=True)
     reference_no = models.CharField(max_length=50, null=True, blank=True)
@@ -118,12 +126,16 @@ class Payment(AbstractDateTime):
     payment_approval_status = models.CharField(max_length=50, choices=PAYMENT_APPROVAL_STATUS_CHOICES, default="pending_approval",null=True, blank=True)
     payment_received = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')
     is_payment_approved = models.BooleanField(default=False)
+    mark_as_settled = models.BooleanField(default=False)
+
     # for payment processing
     payment_status = models.CharField(max_length=50, choices=PAYMENT_STATUS_CHOICES, null=True, blank=True)
     online_payment_type = models.CharField(max_length=50, choices=ONLINE_PAYMENT_TYPE_CHOICES, null=True, blank=True)
     initiated_time = models.DateTimeField(null=True, blank=True)
     timeout_time = models.DateTimeField(null=True, blank=True)
     processed_by = models.ForeignKey(User, related_name='payment_boy',
+        null=True, blank=True, on_delete=models.SET_NULL)
+    approved_by = models.ForeignKey(User, related_name='payment_approver',
         null=True, blank=True, on_delete=models.SET_NULL)
 
     def __str__(self):
@@ -208,6 +220,27 @@ class ShipmentPayment(AbstractDateTime):
 
     class Meta:
         unique_together = (("parent_payment", "shipment"),)
+
+
+class OrderPaymentStatus(AbstractDateTime):
+    # This class stores the payment information for the shipment
+    description = models.CharField(max_length=50, null=True, blank=True)
+    payment_status = models.CharField(max_length=50,choices=FINAL_PAYMENT_STATUS_CHOICES, null=True, blank=True)
+    order = models.ForeignKey(Order, related_name='order_payment_status', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return str(self.order.id), str(self.payment_status)
+
+
+        
+class ShipmentPaymentStatus(AbstractDateTime):
+    # This class stores the payment information for the shipment
+    description = models.CharField(max_length=50, null=True, blank=True)
+    payment_status = models.CharField(max_length=50,choices=FINAL_PAYMENT_STATUS_CHOICES, null=True, blank=True)
+    shipment = models.ForeignKey(Shipment, related_name='shipment_payment_status', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return str(self.shipment.id), str(self.payment_status)
 
 
 class PaymentMode(models.Model):

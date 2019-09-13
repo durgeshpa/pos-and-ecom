@@ -76,27 +76,6 @@ class PaymentApprovalAdmin(admin.ModelAdmin):# NoDeleteAdminMixin,
         else:
             return False
 
-    # def trip_id(self, obj):
-    #     shipment_payment = ShipmentPayment.objects.get(parent_payment=obj)
-    #     return shipment_payment.shipment.trip
-    # trip_id.short_description = "Trip id"
-
-    # def trip_created_date(self, obj):
-    #     shipment_payment = ShipmentPayment.objects.get(parent_payment=obj)
-    #     if shipment_payment.shipment.trip:
-    #         return shipment_payment.shipment.trip.created_at
-    # trip_created_date.short_description = "Trip Created Date"
-
-    # def invoice_no(self, obj):
-    #     shipment_payment = ShipmentPayment.objects.get(parent_payment=obj)
-    #     return shipment_payment.shipment.invoice_no
-    # invoice_no.short_description = "Shipment Invoice No"
-
-    # def amount_to_be_collected(self, obj):
-    #     shipment_payment = ShipmentPayment.objects.get(parent_payment=obj)
-    #     return shipment_payment.shipment.cash_to_be_collected()
-    # amount_to_be_collected.short_description = "Amount to be Collected"
-
     def order(self, obj):
         shipment_payment = ShipmentPayment.objects.get(parent_payment=obj)
         return mark_safe("<a href='/admin/retailer_to_sp/order/%s/change/'>%s<a/>" % (order.id,
