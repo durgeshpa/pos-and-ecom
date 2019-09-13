@@ -114,8 +114,8 @@ class AbstractDateTime(models.Model):
 #if prepaid then its against order, else shipment
 # replace order with user
 class Payment(AbstractDateTime):
-    #order = models.ManytoManyField(Order, through="OrderPayment", related_name='order_payment_data', on_delete=models.CASCADE)
-    order = models.ForeignKey(Order, related_name='order_payment_data', on_delete=models.CASCADE)
+    order = models.ManyToManyField(Order, through="OrderPayment", related_name='order_payment_data')
+    #order = models.ForeignKey(Order, related_name='order_payment_data', on_delete=models.CASCADE)
     # payment description
     description = models.CharField(max_length=100, null=True, blank=True)
     reference_no = models.CharField(max_length=50, null=True, blank=True)
@@ -138,12 +138,12 @@ class Payment(AbstractDateTime):
     approved_by = models.ForeignKey(User, related_name='payment_approver',
         null=True, blank=True, on_delete=models.SET_NULL)
 
-    def __str__(self):
-        return "{} -> {},{}".format(
-            self.order.order_no,
-            self.payment_mode_name,
-            self.paid_amount
-        )
+    # def __str__(self):
+    #     return "{} -> {},{}".format(
+    #         #self.order.order_no,
+    #         self.payment_mode_name,
+    #         #self.paid_amount
+    #     )
 
     def clean(self):
         if self.payment_mode_name != "cash_payment" and not self.reference_no:
@@ -187,13 +187,29 @@ class Payment(AbstractDateTime):
             shipment_payment1.save()
 
 
+class OrderPayment(AbstractDateTime):
+    # This class stores the payment information for the shipment
+    description = models.CharField(max_length=50, null=True, blank=True)
+    order = models.ForeignKey(Order, related_name='order_payment', on_delete=models.CASCADE) #shipment_id
+    parent_payment = models.ForeignKey(Payment, 
+       related_name='parent_payment_order', on_delete=models.CASCADE)
+    created_by = models.ForeignKey(User, related_name='order_payment_created_by', null=True, blank=True, on_delete=models.SET_NULL)
+    updated_by = models.ForeignKey(User, related_name='order_payment_updated_by', null=True, blank=True, on_delete=models.SET_NULL)
+
+    def __str__(self):
+        return str(self.order.id), str(self.parent_payment.id)
+
+
+
 # create payment mode table shipment payment mapping
 class ShipmentPayment(AbstractDateTime):
     # This class stores the payment information for the shipment
     description = models.CharField(max_length=50, null=True, blank=True)
     shipment = models.ForeignKey(OrderedProduct, related_name='shipment_payment', on_delete=models.CASCADE) #shipment_id
+    parent_order_payment = models.ForeignKey(OrderPayment, 
+       related_name='shipment_order_payment', on_delete=models.CASCADE)
     parent_payment = models.ForeignKey(Payment, 
-       related_name='payment', on_delete=models.CASCADE)
+       related_name='shipment_payment', on_delete=models.CASCADE, null=True, blank=True)
     paid_amount = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')
     created_by = models.ForeignKey(User, related_name='payment_created_by', null=True, blank=True, on_delete=models.SET_NULL)
     updated_by = models.ForeignKey(User, related_name='payment_updated_by', null=True, blank=True, on_delete=models.SET_NULL)
@@ -219,7 +235,7 @@ class ShipmentPayment(AbstractDateTime):
         #     pass
 
     class Meta:
-        unique_together = (("parent_payment", "shipment"),)
+        unique_together = (("parent_order_payment", "shipment"),)
 
 
 class OrderPaymentStatus(AbstractDateTime):

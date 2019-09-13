@@ -14,17 +14,21 @@ class OnlinePaymentInlineAdmin(admin.TabularInline):
     form = OnlinePaymentInlineForm
 
 
+class OrderPaymentAdmin(admin.ModelAdmin):
+    model = OrderPayment
+
+
 class PaymentAdmin(admin.ModelAdmin):
     # inlines = [OnlinePaymentInlineAdmin]
     model = Payment
-    autocomplete_fields = ('order',)
+    # autocomplete_fields = ('order',)
 
     # form  = PaymentForm
     list_display = (
-        "order", "paid_amount", "payment_mode_name", "reference_no", "description"            
+        "paid_amount", "payment_mode_name", "reference_no", "description"            
         )
     fields = (
-        "order", "paid_amount", "payment_mode_name", "reference_no", "description",
+        "paid_amount", "payment_mode_name", "reference_no", "description",
         "online_payment_type"
     )
     
@@ -105,16 +109,16 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline):
     model = ShipmentPayment
     form = ShipmentPaymentInlineForm
     formset = AtLeastOneFormSet
-    fields = ("paid_amount", "parent_payment", "payment_mode_name", "reference_no", "description")
+    fields = ("paid_amount", "parent_order_payment", "payment_mode_name", "reference_no", "description")
     readonly_fields = ("payment_mode_name", "reference_no",)
     extra = 0
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        if db_field.name == "parent_payment":
+        if db_field.name == "parent_order_payment":
             try:
                 parent_obj_id = request.resolver_match.kwargs['object_id']
                 parent_obj = OrderedProduct.objects.get(pk=parent_obj_id)
-                kwargs["queryset"] = Payment.objects.filter(order=parent_obj.order)
+                kwargs["queryset"] = OrderPayment.objects.filter(order=parent_obj.order)
             except IndexError:
                 pass
         return super(
@@ -247,6 +251,7 @@ class WalletPaymentAdmin(admin.ModelAdmin):
 
 # payments
 admin.site.register(Payment,PaymentAdmin)
+admin.site.register(OrderPayment,OrderPaymentAdmin)
 admin.site.register(ShipmentPayment,ShipmentPaymentAdmin)
 
 #payment modes
