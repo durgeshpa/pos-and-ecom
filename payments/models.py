@@ -183,6 +183,7 @@ class OrderPayment(AbstractDateTime):
     order = models.ForeignKey(Order, related_name='order_payment', on_delete=models.CASCADE) #shipment_id
     parent_payment = models.ForeignKey(Payment, 
        related_name='parent_payment_order', on_delete=models.CASCADE)
+    paid_amount = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')
     created_by = models.ForeignKey(UserWithName, related_name='order_payment_created_by', null=True, blank=True, on_delete=models.SET_NULL)
     updated_by = models.ForeignKey(UserWithName, related_name='order_payment_updated_by', null=True, blank=True, on_delete=models.SET_NULL)
 
@@ -190,7 +191,7 @@ class OrderPayment(AbstractDateTime):
         return "{}->{},{}".format(
             str(self.order), 
             str(self.parent_payment.payment_mode_name), 
-            str(self.parent_payment.paid_amount))
+            str(self.paid_amount))
 
     @property
     def payment_utilised(self):
@@ -205,6 +206,25 @@ class OrderPayment(AbstractDateTime):
         
     class Meta:
         unique_together = (("order", "parent_payment"),)
+
+    @property
+    def payment_utilised_excluding_current(self):
+        payment = self.parent_payment.parent_payment_order.all()
+        payment_excluding_current = payment.exclude(id=self.id)
+        if payment_excluding_current.exists():
+            payment_data = payment_excluding_current.aggregate(Sum('paid_amount')) #annotate(sum_paid_amount=Sum('paid_amount')) 
+
+            if payment_data:
+                return payment_data['paid_amount__sum'] #sum_paid_amount
+        else:
+            return 0
+
+    def clean(self):
+        #payment except current
+        # import pdb; pdb.set_trace()
+        if self.payment_utilised_excluding_current + self.paid_amount > self.parent_payment.paid_amount:
+            error_msg = "Maximum amount to be utilised from parent payment is " + str(self.parent_payment.paid_amount - self.payment_utilised_excluding_current)
+            raise ValidationError(_(error_msg),)
 
 
 # create payment mode table shipment payment mapping
@@ -226,13 +246,26 @@ class ShipmentPayment(AbstractDateTime):
     def get_parent_or_self(self,obj):
         pass
         #return brand.id
+    
+    @property
+    def payment_utilised_excluding_current(self):
+        payment = self.parent_order_payment.shipment_order_payment.all()
+        payment_excluding_current = payment.exclude(id=self.id)
+        if payment_excluding_current.exists():
+            payment_data = payment_excluding_current.aggregate(Sum('paid_amount')) #annotate(sum_paid_amount=Sum('paid_amount')) 
+
+            if payment_data:
+                return payment_data['paid_amount__sum'] #sum_paid_amount
+        else:
+            return 0
 
     def clean(self):
-        # check the parent payment amount
-        if self.parent_order_payment.payment_utilised + self.paid_amount > self.parent_order_payment.parent_payment.paid_amount:
-            error_msg = "Maximum amount to be utilised from parent payment is " + str(self.parent_order_payment.parent_payment.paid_amount - self.parent_order_payment.payment_utilised)
+        #payment except current
+        # import pdb; pdb.set_trace()
+        if self.payment_utilised_excluding_current + self.paid_amount > self.parent_order_payment.paid_amount:
+            error_msg = "Maximum amount to be utilised from parent order payment is " + str(self.parent_order_payment.paid_amount - self.payment_utilised_excluding_current)
             raise ValidationError(_(error_msg),)
-        
+
     class Meta:
         unique_together = (("parent_order_payment", "shipment"),)
 
