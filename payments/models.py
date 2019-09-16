@@ -1,3 +1,5 @@
+import sys
+import traceback
 import datetime, csv, codecs, re
 
 from django.db import models
@@ -12,7 +14,9 @@ from django.contrib.postgres.fields import ArrayField
 from django.db.models import Case, CharField, Value, When, F, Sum
 from django.contrib.auth import get_user_model
 
+from accounts.models import UserWithName
 from retailer_to_sp.models import Order, Shipment, OrderedProduct
+
 
 User = get_user_model()
 # Create your models here.
@@ -133,17 +137,16 @@ class Payment(AbstractDateTime):
     online_payment_type = models.CharField(max_length=50, choices=ONLINE_PAYMENT_TYPE_CHOICES, null=True, blank=True)
     initiated_time = models.DateTimeField(null=True, blank=True)
     timeout_time = models.DateTimeField(null=True, blank=True)
-    processed_by = models.ForeignKey(User, related_name='payment_boy',
+    processed_by = models.ForeignKey(UserWithName, related_name='payment_boy',
         null=True, blank=True, on_delete=models.SET_NULL)
-    approved_by = models.ForeignKey(User, related_name='payment_approver',
+    approved_by = models.ForeignKey(UserWithName, related_name='payment_approver',
         null=True, blank=True, on_delete=models.SET_NULL)
 
-    # def __str__(self):
-    #     return "{} -> {},{}".format(
-    #         #self.order.order_no,
-    #         self.payment_mode_name,
-    #         #self.paid_amount
-    #     )
+    def __str__(self):
+        return "{} -> {}".format(
+            self.payment_mode_name,
+            self.paid_amount
+        )
 
     def clean(self):
         if self.payment_mode_name != "cash_payment" and not self.reference_no:
@@ -153,19 +156,6 @@ class Payment(AbstractDateTime):
         if self.payment_mode_name == "online_payment" and not self.online_payment_type:
             raise ValidationError('Online payment type is required.')
         super(Payment, self).clean()
-
-    @property
-    def payment_utilised(self):
-        payment = self.payment.all()
-        if payment.exists():
-            payment_data = payment.aggregate(Sum('paid_amount')) #annotate(sum_paid_amount=Sum('paid_amount')) 
-        # payment = ShipmentPayment.objects.filter(shipment__in=trip_shipments).\
-        #     annotate(sum_paid_amount=Sum('paid_amount'))
-            if payment_data:
-                return payment_data['paid_amount__sum'] #sum_paid_amount
-        else:
-            return 0
-
 
     def save(self, *args, **kwargs):
         if self.is_payment_approved:
@@ -179,12 +169,12 @@ class Payment(AbstractDateTime):
         # create entry to edit shipment payment
         super().save(*args, **kwargs)
         # assuming that a postpaid order payment has one shipment payment
-        shipment_payment = ShipmentPayment.objects.filter(parent_payment=self) 
+        # shipment_payment = ShipmentPayment.objects.filter(parent_payment=self) 
 
-        if self.prepaid_or_postpaid == "postpaid" and shipment_payment.exists():
-            shipment_payment1 = shipment_payment[0]
-            shipment_payment1.paid_amount = self.paid_amount
-            shipment_payment1.save()
+        # if self.prepaid_or_postpaid == "postpaid" and shipment_payment.exists():
+        #     shipment_payment1 = shipment_payment[0]
+        #     shipment_payment1.paid_amount = self.paid_amount
+        #     shipment_payment1.save()
 
 
 class OrderPayment(AbstractDateTime):
@@ -193,12 +183,25 @@ class OrderPayment(AbstractDateTime):
     order = models.ForeignKey(Order, related_name='order_payment', on_delete=models.CASCADE) #shipment_id
     parent_payment = models.ForeignKey(Payment, 
        related_name='parent_payment_order', on_delete=models.CASCADE)
-    created_by = models.ForeignKey(User, related_name='order_payment_created_by', null=True, blank=True, on_delete=models.SET_NULL)
-    updated_by = models.ForeignKey(User, related_name='order_payment_updated_by', null=True, blank=True, on_delete=models.SET_NULL)
+    created_by = models.ForeignKey(UserWithName, related_name='order_payment_created_by', null=True, blank=True, on_delete=models.SET_NULL)
+    updated_by = models.ForeignKey(UserWithName, related_name='order_payment_updated_by', null=True, blank=True, on_delete=models.SET_NULL)
 
     def __str__(self):
-        return str(self.order.id), str(self.parent_payment.id)
+        return "{}->{},{}".format(
+            str(self.order), 
+            str(self.parent_payment.payment_mode_name), 
+            str(self.parent_payment.paid_amount))
 
+    @property
+    def payment_utilised(self):
+        payment = self.shipment_order_payment.all()
+        if payment.exists():
+            payment_data = payment.aggregate(Sum('paid_amount')) #annotate(sum_paid_amount=Sum('paid_amount')) 
+
+            if payment_data:
+                return payment_data['paid_amount__sum'] #sum_paid_amount
+        else:
+            return 0
 
 
 # create payment mode table shipment payment mapping
@@ -222,18 +225,11 @@ class ShipmentPayment(AbstractDateTime):
         #return brand.id
 
     def clean(self):
-        #import pdb; pdb.set_trace()
-        if self.parent_payment.payment_utilised + self.paid_amount > self.parent_payment.paid_amount:
-            error_msg = "Maximum amount to be utilised from parent payment is " + str(self.parent_payment.paid_amount - self.parent_payment.payment_utilised)
+        # check the parent payment amount
+        if self.parent_order_payment.payment_utilised + self.paid_amount > self.parent_order_payment.parent_payment.paid_amount:
+            error_msg = "Maximum amount to be utilised from parent payment is " + str(self.parent_order_payment.parent_payment.paid_amount - self.parent_order_payment.payment_utilised)
             raise ValidationError(_(error_msg),)
-        # check if parent payment is completely utilised
-        # try:
-        #     if self.parent_payment.payment_utilised + self.paid_amount > self.parent_payment.paid_amount:
-        #         error_msg = "Maximum amount to be utilised from parent payment is " + str(self.parent_payment.paid_amount - self.parent_payment.payment_utilised)
-        #         raise ValidationError(_(error_msg),)
-        # except: 
-        #     pass
-
+        
     class Meta:
         unique_together = (("parent_order_payment", "shipment"),)
 

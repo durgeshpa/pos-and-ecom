@@ -16,6 +16,8 @@ class OnlinePaymentInlineAdmin(admin.TabularInline):
 
 class OrderPaymentAdmin(admin.ModelAdmin):
     model = OrderPayment
+    autocomplete_fields = ('order', 'parent_payment')
+    search_fields = ('order', 'parent_payment')
 
 
 class PaymentAdmin(admin.ModelAdmin):
@@ -31,7 +33,8 @@ class PaymentAdmin(admin.ModelAdmin):
         "paid_amount", "payment_mode_name", "reference_no", "description",
         "online_payment_type"
     )
-    
+    search_fields = ('order', 'parent_payment')
+
     # def get_inline_instances(self, request, obj=None):
     #     if not obj or obj.payment_mode_name != "online_payment": return []
     #     return super(PaymentAdmin, self).get_inline_instances(request, obj)
@@ -107,7 +110,7 @@ class AtLeastOneFormSet(BaseInlineFormSet):
 
 class ShipmentPaymentInlineAdmin(admin.TabularInline):
     model = ShipmentPayment
-    form = ShipmentPaymentInlineForm
+    #form = ShipmentPaymentInlineForm
     formset = AtLeastOneFormSet
     fields = ("paid_amount", "parent_order_payment", "payment_mode_name", "reference_no", "description")
     readonly_fields = ("payment_mode_name", "reference_no",)
@@ -149,15 +152,15 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline):
             return True
 
     def payment_mode_name(self,obj):
-        return obj.parent_payment.payment_mode_name
+        return obj.parent_order_payment.parent_payment.payment_mode_name
     payment_mode_name.short_description = 'Payment Mode'
 
     def reference_no(self,obj):
-        return obj.parent_payment.reference_no
+        return obj.parent_order_payment.parent_payment.reference_no
     reference_no.short_description = 'Reference No'
 
     def description(self,obj):
-        return obj.parent_payment.description
+        return obj.description
     description.short_description = 'Description'
 
     def has_delete_permission(self, request, obj=None):
