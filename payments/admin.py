@@ -39,6 +39,11 @@ class PaymentAdmin(admin.ModelAdmin):
     #     if not obj or obj.payment_mode_name != "online_payment": return []
     #     return super(PaymentAdmin, self).get_inline_instances(request, obj)
 
+    # class Media:
+    #     js = ('admin/js/hide_admin_fields_payment.js',)
+
+
+
 class PaymentModeAdmin(admin.ModelAdmin):
     model = PaymentMode
 

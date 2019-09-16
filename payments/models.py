@@ -202,6 +202,9 @@ class OrderPayment(AbstractDateTime):
                 return payment_data['paid_amount__sum'] #sum_paid_amount
         else:
             return 0
+        
+    class Meta:
+        unique_together = (("order", "parent_payment"),)
 
 
 # create payment mode table shipment payment mapping
