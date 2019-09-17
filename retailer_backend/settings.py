@@ -94,6 +94,7 @@ INSTALLED_APPS = [
     'fcm',
     'django_celery_beat',
     'django_celery_results',
+    'coupon',
 ]
 
 FCM_APIKEY = config('FCM_APIKEY')
@@ -248,7 +249,7 @@ INVOICE_STARTS_WITH = 'ORD'
 EMAIL_BACKEND = 'django_ses.SESBackend' #"smtp.sendgrid.net" #
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587
-# EMAIL_HOST_USER = config('EMAIL_HOST_USER') 
+# EMAIL_HOST_USER = config('EMAIL_HOST_USER')
 # EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 # FROM_EMAIL = config('FROM_EMAIL')
 
