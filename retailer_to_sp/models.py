@@ -147,7 +147,7 @@ class Cart(models.Model):
     @property
     def subtotal(self):
         try:
-            return round(self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum'],2)
+            return round(self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__selling_price') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum'],2)
         except:
             return None
 
@@ -779,8 +779,8 @@ class OrderedProduct(models.Model): #Shipment
             self._delivered_amount = 0
             shipment_products = self.rt_order_product_order_product_mapping.values('product','shipped_qty','returned_qty','damaged_qty').all()
             shipment_map = {i['product']:(i['shipped_qty'], i['returned_qty'], i['damaged_qty']) for i in shipment_products}
-            cart_product_map = self.order.ordered_cart.rt_cart_list.values('cart_product_price__price_to_retailer', 'cart_product', 'qty').filter(cart_product_id__in=shipment_map.keys())
-            product_price_map = {i['cart_product']:(i['cart_product_price__price_to_retailer'], i['qty']) for i in cart_product_map}
+            cart_product_map = self.order.ordered_cart.rt_cart_list.values('cart_product_price__selling_price', 'cart_product', 'qty').filter(cart_product_id__in=shipment_map.keys())
+            product_price_map = {i['cart_product']:(i['cart_product_price__selling_price'], i['qty']) for i in cart_product_map}
             for product, shipment_details in shipment_map.items():
                 try:
                     product_price = product_price_map[product][0]
