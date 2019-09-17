@@ -223,20 +223,21 @@ class CartProductMapping(models.Model):
     def product_inner_case_size(self):
         return self.cart_product.product_inner_case_size
 
-    def set_cart_product_price(self, shop):
-        self.cart_product_price = self.cart_product.get_current_shop_price(shop)
+    def set_cart_product_price(self, seller_shop_id, buyer_shop_id):
+        self.cart_product_price = self.cart_product.\
+            get_current_shop_price(seller_shop_id, buyer_shop_id)
         self.save()
 
-    def get_cart_product_price(self, shop):
+    def get_cart_product_price(self, seller_shop_id, buyer_shop_id):
         if not self.cart_product_price:
-            self.set_cart_product_price(shop)
+            self.set_cart_product_price(seller_shop_id, buyer_shop_id)
         return self.cart_product_price
 
-    def get_product_latest_mrp(self,shop):
+    def get_product_latest_mrp(self, shop):
         if self.cart_product_price:
-            return round(self.cart_product_price.mrp,2)
+            return self.cart_product_price.mrp
         else:
-            return round(self.cart_product.get_current_shop_price(shop).mrp,2)
+            return self.cart_product.get_current_shop_price(seller_shop_id, buyer_shop_id).mrp
 
 
 class Order(models.Model):

@@ -399,8 +399,10 @@ class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
         return int(obj.no_of_pieces)
 
     def product_sub_total_dt(self,obj):
-        shop = self.context.get("parent_mapping", None)
-        return float(obj.no_of_pieces) * float(round(obj.get_cart_product_price(shop).price_to_retailer,2))
+        seller_shop_id = self.context.get('parent_mapping', None)
+        buyer_shop_id = self.context.get('buyer_shop_id', None)
+        return (Decimal(obj.no_of_pieces) *
+                Decimal(obj.get_cart_product_price(seller_shop_id, buyer_shop_id).selling_price))
 
     def product_inner_case_size_dt(self,obj):
         return int(int(obj.no_of_pieces) // int(obj.qty))
@@ -487,8 +489,10 @@ class OrderedCartProductMappingListSerializer(serializers.ModelSerializer):
         return int(obj.no_of_pieces)
 
     def product_sub_total_dt(self,obj):
-        shop = self.context.get("parent_mapping", None)
-        return float(obj.no_of_pieces) * float(round(obj.get_cart_product_price(shop).price_to_retailer,2))
+        seller_shop_id = self.context.get('parent_mapping', None)
+        buyer_shop_id = self.context.get('buyer_shop_id', None)
+        return (Decimal(obj.no_of_pieces) *
+                Decimal(obj.get_cart_product_price(seller_shop_id, buyer_shop_id).selling_price))
 
     def product_inner_case_size_dt(self,obj):
         return int(int(obj.no_of_pieces) // int(obj.qty))

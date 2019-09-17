@@ -770,10 +770,18 @@ class OrderList(generics.ListAPIView):
         current_url = request.get_host()
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             queryset = Order.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
-            serializer = OrderListSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
+            serializer = OrderListSerializer(
+                queryset, many=True,
+                context={'parent_mapping_id': parent_mapping.parent.id,
+                         'current_url': current_url,
+                         'buyer_shop_id': shop_id})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             queryset = GramMappedOrder.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
-            serializer = GramMappedOrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
+            serializer = GramMappedOrderSerializer(
+                queryset, many=True,
+                context={'parent_mapping_id': parent_mapping.parent.id,
+                         'current_url': current_url,
+                         'buyer_shop_id': shop_id})
 
         if serializer.data:
             msg = {'is_success': True,'message': None,'response_data': serializer.data}
@@ -878,7 +886,9 @@ class DownloadInvoiceSP(APIView):
             inline_sum_amount = 0
 
             cart_product_map = order_obj.order.ordered_cart.rt_cart_list.filter(cart_product=m.product).last()
-            product_price = cart_product_map.get_cart_product_price(order_obj.order.ordered_cart.seller_shop)
+            product_price = cart_product_map.get_cart_product_price(
+                order_obj.order.ordered_cart.seller_shop,
+                order_obj.order.ordered_cart.buyer_shop)
 
             product_pro_price_ptr = product_price.price_to_retailer
             product_pro_price_mrp = round(product_price.mrp,2)
