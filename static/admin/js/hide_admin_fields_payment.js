@@ -36,7 +36,7 @@
 
             //value != 'cash_payment' ? verified.show() : verified.hide();
         }
-        alert("helo world");
+        //        alert("helo world");
         // show/hide on load based on pervious value of selectField
         toggleVerified(selectField.val());
 
