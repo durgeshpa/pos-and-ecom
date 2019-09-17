@@ -58,16 +58,16 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
             return Response(msg,
                             status=status.HTTP_200_OK)
         else:
-            errors = []
-            for field in serializer.errors:
-                for error in serializer.errors[field]:
-                    if 'non_field_errors' in field:
-                        result = error
-                    else:
-                        result = ''.join('{} : {}'.format(field,error))
-                    errors.append(result)
+            # errors = []
+            # for field in serializer.errors:
+            #     for error in serializer.errors[field]:
+            #         if 'non_field_errors' in field:
+            #             result = error
+            #         else:
+            #             result = ''.join('{} : {}'.format(field,error))
+            #         errors.append(result)
             msg = {'is_success': False,
-                    'message': [error for error in errors],
+                    'message': serializer.errors, #[error for error in errors],
                     'response_data': None }
             return Response(msg,
                             status=status.HTTP_406_NOT_ACCEPTABLE)

@@ -16,21 +16,21 @@ class OnlinePaymentInlineAdmin(admin.TabularInline):
 
 class OrderPaymentAdmin(admin.ModelAdmin):
     model = OrderPayment
-    autocomplete_fields = ('order', 'parent_payment')
+    autocomplete_fields = ('order', 'parent_payment', 'created_by', 'updated_by',)
     search_fields = ('order', 'parent_payment')
 
 
 class PaymentAdmin(admin.ModelAdmin):
     # inlines = [OnlinePaymentInlineAdmin]
     model = Payment
-    # autocomplete_fields = ('order',)
+    autocomplete_fields = ('paid_by',)
 
-    # form  = PaymentForm
+    form  = PaymentForm
     list_display = (
-        "paid_amount", "payment_mode_name", "reference_no", "description"            
+        "paid_by", "paid_amount", "payment_mode_name", "reference_no", "description"            
         )
     fields = (
-        "paid_amount", "payment_mode_name", "reference_no", "description",
+        "paid_by", "paid_amount", "payment_mode_name", "reference_no", "description",
         "online_payment_type"
     )
     search_fields = ('order', 'parent_payment')
@@ -39,8 +39,8 @@ class PaymentAdmin(admin.ModelAdmin):
     #     if not obj or obj.payment_mode_name != "online_payment": return []
     #     return super(PaymentAdmin, self).get_inline_instances(request, obj)
 
-    # class Media:
-    #     js = ('admin/js/hide_admin_fields_payment.js',)
+    class Media:
+        js = ('admin/js/hide_admin_fields_payment.js',)
 
 
 
@@ -52,6 +52,9 @@ class ShipmentPaymentAdmin(admin.ModelAdmin):
     model = ShipmentPayment
     #fields = ("shipment",) #, "is_payment_approved")
     raw_id_fields = ("shipment",)
+    list_display = (
+        "shipment", "parent_order_payment", "paid_amount",            
+        )
 
 
 class NoDeleteAdminMixin:
@@ -66,19 +69,18 @@ class OnlinePaymentAdmin1(admin.ModelAdmin):
 class PaymentApprovalAdmin(admin.ModelAdmin):# NoDeleteAdminMixin, 
     model = PaymentApproval
     list_display = (
-        "id", "order", "reference_no", "payment_approval_status", "paid_amount",
+        "id", "reference_no", "payment_approval_status", "paid_amount",
         "payment_received"
     )
 
     fields = (
-        "order", "paid_amount", "payment_received", "payment_mode_name",
+        "paid_amount", "payment_received", "payment_mode_name",
         "reference_no", "is_payment_approved", "payment_approval_status",
         "description"
     )
     
     readonly_fields = (
         "paid_amount", "payment_mode_name", "reference_no", "payment_approval_status",
-        "order",
     )
 
     # raw_id_fields = ("shipment",)
@@ -115,7 +117,7 @@ class AtLeastOneFormSet(BaseInlineFormSet):
 
 class ShipmentPaymentInlineAdmin(admin.TabularInline):
     model = ShipmentPayment
-    #form = ShipmentPaymentInlineForm
+    form = ShipmentPaymentInlineForm
     formset = AtLeastOneFormSet
     fields = ("paid_amount", "parent_order_payment", "payment_mode_name", "reference_no", "description")
     readonly_fields = ("payment_mode_name", "reference_no",)
@@ -179,14 +181,18 @@ class ShipmentPaymentDataAdmin(admin.ModelAdmin):
         'order', 'trip','invoice_no', 'invoice_amount', 'total_paid_amount','invoice_city'
         )
     list_per_page = 50
-    fields = ['order', 'trip','invoice_no', 'invoice_amount', 'total_paid_amount', 'shipment_address', 'invoice_city',
+    fields = ['order', 'trip', 'trip_status', 'invoice_no', 'invoice_amount', 'total_paid_amount', 'shipment_address', 'invoice_city',
         'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
-    readonly_fields = ['order', 'trip', 'invoice_no', 'invoice_amount', 'total_paid_amount', 'shipment_address', 'invoice_city',
+    readonly_fields = ['order', 'trip', 'trip_status', 'invoice_no', 'invoice_amount', 'total_paid_amount', 'shipment_address', 'invoice_city',
         'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
         
     def total_paid_amount(self,obj):
         return obj.total_paid_amount
     total_paid_amount.short_description = 'Total Paid Amount'
+
+    def trip_status(self,obj):
+        return obj.trip.trip_status
+    trip_status.short_description = 'Trip Status'
 
     class Media:
         js = ('admin/js/hide_save_button.js',)

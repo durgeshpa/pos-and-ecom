@@ -123,6 +123,8 @@ class Payment(AbstractDateTime):
     # payment description
     description = models.CharField(max_length=100, null=True, blank=True)
     reference_no = models.CharField(max_length=50, null=True, blank=True)
+    #payment_screenshot = models.ImageField(upload_to='payment_screenshot/', null=True, blank=True)
+
     paid_amount = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')
     payment_mode_name = models.CharField(max_length=50, choices=PAYMENT_MODE_NAME, default="cash_payment")
     prepaid_or_postpaid = models.CharField(max_length=50, choices=PAYMENT_TYPE_CHOICES,null=True, blank=True)
@@ -137,6 +139,8 @@ class Payment(AbstractDateTime):
     online_payment_type = models.CharField(max_length=50, choices=ONLINE_PAYMENT_TYPE_CHOICES, null=True, blank=True)
     initiated_time = models.DateTimeField(null=True, blank=True)
     timeout_time = models.DateTimeField(null=True, blank=True)
+    paid_by = models.ForeignKey(UserWithName, related_name='payment_user',
+        null=True, blank=True, on_delete=models.SET_NULL)
     processed_by = models.ForeignKey(UserWithName, related_name='payment_boy',
         null=True, blank=True, on_delete=models.SET_NULL)
     approved_by = models.ForeignKey(UserWithName, related_name='payment_approver',
@@ -260,11 +264,17 @@ class ShipmentPayment(AbstractDateTime):
             return 0
 
     def clean(self):
-        #payment except current
-        # import pdb; pdb.set_trace()
         if self.payment_utilised_excluding_current + self.paid_amount > self.parent_order_payment.paid_amount:
             error_msg = "Maximum amount to be utilised from parent order payment is " + str(self.parent_order_payment.paid_amount - self.payment_utilised_excluding_current)
             raise ValidationError(_(error_msg),)
+        # try:
+        #     payment = self.parent_order_payment
+        # except:
+        #     pass #raise ValidationError(_("Parent Order Payment is required"))
+        # else:
+        #     if self.payment_utilised_excluding_current + self.paid_amount > self.parent_order_payment.paid_amount:
+        #         error_msg = "Maximum amount to be utilised from parent order payment is " + str(self.parent_order_payment.paid_amount - self.payment_utilised_excluding_current)
+        #         raise ValidationError(_(error_msg),)
 
     class Meta:
         unique_together = (("parent_order_payment", "shipment"),)

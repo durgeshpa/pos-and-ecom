@@ -30,13 +30,16 @@ class ShipmentPaymentForm(forms.ModelForm):
 
 
 class PaymentForm(forms.ModelForm):
-    # order = forms.ModelChoiceField(queryset=Order.objects.all(),
-    #                                required=True)
-
     class Meta:
         model = Payment
         fields = "__all__"
 
+    def __init__(self, *args, **kwargs):
+        super(PaymentForm, self).__init__(*args, **kwargs)
+        self.fields.get('paid_by').required = True
+        # if self.data and self.data.get('payment_mode_name') != 'cash_payment':
+        #     self.fields.get('reference_no').required = True
+    
     
 class ShipmentPaymentInlineForm(forms.ModelForm):
 
@@ -44,11 +47,13 @@ class ShipmentPaymentInlineForm(forms.ModelForm):
         model = ShipmentPayment
         fields = "__all__"
 
-    # def __init__(self, *args, **kwargs):
-    #     # show only the payments for the relevant order
-    #     shipment_payment = getattr(self, 'instance', None)
+    def __init__(self, *args, **kwargs):
+        # show only the payments for the relevant order
+        super(ShipmentPaymentInlineForm, self).__init__(*args, **kwargs)
+        self.fields.get('parent_order_payment').required = True
+        # shipment_payment = getattr(self, 'instance', None)
 
-    #     self.fields['parent_payment'].queryset = Payment.objects.filter(order=shipment_payment.shipment.order)
+        # self.fields['parent_payment'].queryset = Payment.objects.filter(order=shipment_payment.shipment.order)
 
 
 

@@ -6,8 +6,13 @@ from django.db import transaction
 from rest_framework import serializers
 
 from payments.models import ShipmentPayment, CashPayment, OnlinePayment, PaymentMode, \
-    Payment
+    Payment, OrderPayment
 
+
+class OrderPaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderPayment
+        fields = "__all__"\
 
 
 class PaymentSerializer(serializers.ModelSerializer):
@@ -29,11 +34,11 @@ class OnlinePaymentSerializer(serializers.ModelSerializer):
         
 
 class ShipmentPaymentSerializer(serializers.ModelSerializer):
-    parent_payment = PaymentSerializer()
+    parent_order_payment = OrderPaymentSerializer()
 
     class Meta:
         model = ShipmentPayment
-        fields = ['id','parent_payment', 'shipment', 'paid_amount', 'description']
+        fields = ['id','parent_order_payment', 'shipment', 'paid_amount', 'description']
         #depth = 1
 
     # def validate(self, data):
@@ -45,18 +50,18 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         # import pdb; pdb.set_trace()
-        parent_payment = validated_data.pop('parent_payment')
+        parent_order_payment = validated_data.pop('parent_order_payment')
         shipment = validated_data.pop('shipment')
         paid_amount = validated_data.pop('paid_amount')
         description = validated_data.pop('description')
         try:
             with transaction.atomic(): #for roll back if any exception occur
                 # if payment data contains id then update else create
-                parent_payment_inst, created = Payment.objects.update_or_create(**parent_payment)
-                parent_payment_inst.save()
+                parent_order_payment_inst, created = OrderPayment.objects.update_or_create(**parent_order_payment)
+                parent_order_payment_inst.save()
                 # create or update shipment payment instance
                 shipment_payment, created = ShipmentPayment.objects.update_or_create(
-                    parent_payment=parent_payment_inst,
+                    parent_order_payment=parent_order_payment_inst,
                     shipment = shipment)
                 shipment_payment.paid_amount = paid_amount
                 shipment_payment.description = description
