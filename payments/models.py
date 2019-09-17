@@ -264,17 +264,17 @@ class ShipmentPayment(AbstractDateTime):
             return 0
 
     def clean(self):
-        if self.payment_utilised_excluding_current + self.paid_amount > self.parent_order_payment.paid_amount:
-            error_msg = "Maximum amount to be utilised from parent order payment is " + str(self.parent_order_payment.paid_amount - self.payment_utilised_excluding_current)
-            raise ValidationError(_(error_msg),)
-        # try:
-        #     payment = self.parent_order_payment
-        # except:
-        #     pass #raise ValidationError(_("Parent Order Payment is required"))
-        # else:
-        #     if self.payment_utilised_excluding_current + self.paid_amount > self.parent_order_payment.paid_amount:
-        #         error_msg = "Maximum amount to be utilised from parent order payment is " + str(self.parent_order_payment.paid_amount - self.payment_utilised_excluding_current)
-        #         raise ValidationError(_(error_msg),)
+        # if self.payment_utilised_excluding_current + self.paid_amount > self.parent_order_payment.paid_amount:
+        #     error_msg = "Maximum amount to be utilised from parent order payment is " + str(self.parent_order_payment.paid_amount - self.payment_utilised_excluding_current)
+        #     raise ValidationError(_(error_msg),)
+        try:
+            payment = self.parent_order_payment
+        except:
+            pass #raise ValidationError(_("Parent Order Payment is required"))
+        else:
+            if self.payment_utilised_excluding_current + self.paid_amount > self.parent_order_payment.paid_amount:
+                error_msg = "Maximum amount to be utilised from parent order payment is " + str(self.parent_order_payment.paid_amount - self.payment_utilised_excluding_current)
+                raise ValidationError(_(error_msg),)
 
     class Meta:
         unique_together = (("parent_order_payment", "shipment"),)
