@@ -687,7 +687,8 @@ class DispatchSerializer(serializers.ModelSerializer):
     trip_status = serializers.SerializerMethodField()
 
     def get_trip_status(self, obj):
-        return obj.trip.trip_status
+        if obj.trip:
+            return obj.trip.trip_status
 
     def get_shipment_payment(self, obj):
         return ""
@@ -719,7 +720,8 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
     paid_amount_shipment = serializers.SerializerMethodField()
 
     def get_trip_status(self, obj):
-        return obj.trip.trip_status
+        if obj.trip:
+            return obj.trip.trip_status
 
     def get_paid_amount_shipment(self, obj):
         return obj.total_paid_amount    
