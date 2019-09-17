@@ -29,6 +29,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from retailer_to_sp.models import OrderedProduct
 from retailer_to_sp.views import update_order_status, update_shipment_status_with_id
 from retailer_to_sp.api.v1.views import update_trip_status
+from dateutil.relativedelta import relativedelta
 
 
 class ShopRequestBrandViewSet(DataWrapperViewSet):
@@ -284,22 +285,21 @@ class TeamListView(generics.ListAPIView):
                                          output_field=FloatField())) \
             .order_by('ordered_by')
 
-    def get_avg_order(self,shops_list,today,last_day):
-        return Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today,
-                             created_at__date__gte=last_day).values('ordered_by') \
-            .annotate(sum_no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
-            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer') * F(
-            'ordered_cart__rt_cart_list__no_of_pieces'), output_field=FloatField())).order_by('buyer_shop')
-
     def get_buyer_shop(self,shops_list,today,last_day):
         return Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today,
                              created_at__date__gte=last_day).values('ordered_by').annotate(
             buyer_shop_count=Count('ordered_by')).order_by('ordered_by')
 
     def list(self, request, *args, **kwargs):
-        days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
-        today = datetime.now()
-        last_day = today - timedelta(days=days_diff)
+        days_diff = int(self.request.query_params.get('day', 1))
+        to_date = datetime.now() + timedelta(days=1) if days_diff == 1 else datetime.now()
+        if days_diff == 1:
+            from_date = to_date - timedelta(days=days_diff)
+        elif days_diff == 30:
+            from_date = datetime.now() - relativedelta(months=+1)
+        else:
+            from_date = datetime.now() - timedelta(days=days_diff)
+            
         employee_list = self.get_employee_list()
         if not employee_list.exists():
             msg = {'is_success': False, 'message': ["Sorry No matching user found"], 'response_data': None}
@@ -307,19 +307,16 @@ class TeamListView(generics.ListAPIView):
         shops_list = self.get_shops()
         data = []
         data_total = []
-        order_obj = self.ger_order(shops_list,today,last_day)
-        avg_order_obj = self.get_avg_order(shops_list,today,last_day)
-        buyer_order_obj = self.get_buyer_shop(shops_list,today,last_day)
-
+        order_obj = self.ger_order(shops_list, to_date, from_date)
+        buyer_order_obj = self.get_buyer_shop(shops_list, to_date, from_date)
         buyer_order_map = {i['ordered_by']: (i['buyer_shop_count'],) for i in buyer_order_obj}
-        avg_order_map = {i['ordered_by']: (i['sum_no_of_ordered_sku'], i['ordered_amount']) for i in avg_order_obj}
 
         order_map = {i['ordered_by']: (i['no_of_ordered_sku'], i['no_of_ordered_sku_pieces'], i['avg_no_of_ordered_sku_pieces'],
         i['ordered_amount'], i['avg_ordered_amount'], i['shops_ordered']) for i in order_obj}
 
         ordered_sku_pieces_total, ordered_amount_total, store_added_total, avg_order_total, avg_order_line_items_total, no_of_ordered_sku_total = 0,0,0,0,0,0
         for emp in employee_list:
-            store_added = emp.employee.shop_created_by.filter(created_at__date__lte=today, created_at__date__gte=last_day).count()
+            store_added = emp.employee.shop_created_by.filter(created_at__date__lte=to_date, created_at__date__gte=from_date).count()
             rt = {
                 'ordered_sku_pieces': order_map[emp.employee.id][1] if emp.employee.id in order_map else 0,
                 'ordered_amount': round(order_map[emp.employee.id][3], 2) if emp.employee.id in order_map else 0,
@@ -447,14 +444,20 @@ class SellerShopOrder(generics.ListAPIView):
                 msg = {'is_success': False, 'message': ["Sorry No matching user found"], 'response_data': data, 'response_data_total': data_total}
                 return Response(msg, status=status.HTTP_200_OK)
 
-        today = datetime.now()
-        days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
-        last_day = today - timedelta(days=days_diff)
+        days_diff = int(self.request.query_params.get('day', 1))
+        to_date = datetime.now() + timedelta(days=1) if days_diff == 1 else datetime.now()
+        if days_diff == 1:
+            from_date = to_date - timedelta(days=days_diff)
+        elif days_diff == 30:
+            from_date = datetime.now() - relativedelta(months=+1)
+        else:
+            from_date = datetime.now() - timedelta(days=days_diff)
+
         shop_list = shop_user_obj.values('shop', 'shop__id', 'shop__shop_name').order_by('shop').distinct('shop')
         shops_list = shop_user_obj.values('shop').distinct('shop')
-        order_obj = self.get_order(shops_list,today,last_day)
+        order_obj = self.get_order(shops_list, to_date, from_date)
 
-        buyer_order_obj = self.get_shop_count(shops_list, today,last_day)
+        buyer_order_obj = self.get_shop_count(shops_list, to_date, from_date)
         buyer_order_map = {i['buyer_shop']: (i['buyer_shop_count'],) for i in buyer_order_obj}
         order_map = {i['buyer_shop']: (i['buyer_shop_count'], i['no_of_ordered_sku'], i['no_of_ordered_sku_pieces'],i['ordered_amount']) for i in order_obj}
         no_of_order_total, no_of_ordered_sku_total, no_of_ordered_sku_pieces_total, ordered_amount_total = 0, 0, 0, 0
