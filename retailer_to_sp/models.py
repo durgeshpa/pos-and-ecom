@@ -176,7 +176,7 @@ class Cart(models.Model):
     def save(self, *args, **kwargs):
         if self.cart_status == self.ORDERED:
             for cart_product in self.rt_cart_list.all():
-                cart_product.get_cart_product_price(self.seller_shop)
+                cart_product.get_cart_product_price(self.seller_shop.id, self.buyer_shop.id)
         super().save(*args, **kwargs)
 
 
