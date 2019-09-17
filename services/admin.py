@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import OrderReports, GRNReports, MasterReports, OrderGrnReports, OrderDetailReports
+from .models import RetailerReports, OrderReports, GRNReports, MasterReports, OrderGrnReports, OrderDetailReports,CategoryProductReports
 # Register your models here.
 
 class OrderDetailReportsAdmin(admin.ModelAdmin):
@@ -25,3 +25,16 @@ admin.site.register(MasterReports, MasterReportsAdmin)
 class OrderGrnReportsAdmin(admin.ModelAdmin):
     list_display = ('order', 'grn')
 admin.site.register(OrderGrnReports, OrderGrnReportsAdmin)
+
+class RetailerReportsAdmin(admin.ModelAdmin):
+    list_display = ('retailer_id', 'retailer_name', 'retailer_type', 'created_at', 'service_partner', 'service_partner_id','service_partner_contact')
+admin.site.register(RetailerReports, RetailerReportsAdmin) 
+
+class CategoryProductReportsAdmin(admin.ModelAdmin):
+    list_display = ('product_id', 'product_name', 'product_short_description', 'product_created_at', 'category_id', 'category', 'category_name')
+admin.site.register(CategoryProductReports, CategoryProductReportsAdmin)
+
+
+
+
+

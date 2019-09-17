@@ -18,9 +18,10 @@ from rest_framework import permissions, authentication
 from .forms import SalesReportForm, OrderReportForm, GRNReportForm, MasterReportForm, OrderGrnForm
 from django.views import View
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping, Tax
-from .models import OrderReports,GRNReports, MasterReports, OrderGrnReports, OrderDetailReports
+from .models import RetailerReports, OrderReports,GRNReports, MasterReports, OrderGrnReports, OrderDetailReports, CategoryProductReports
 from gram_to_brand.models import Order as PurchaseOrder
 from datetime import timedelta
+from categories.models import Category
 from gram_to_brand.models import Order as GOrder, GRNOrder as GRNOrder
 # Create your views here.
 class SalesReport(APIView):
@@ -106,17 +107,20 @@ class SalesReportFormView(View):
             'admin/services/sales-report.html',
             {'form': form}
         )
+seller_shop_map = {'172':'GFDN SERVICES PVT LTD (DELHI) - 7006440794','600':'GFDN SERVICES PVT LTD (NOIDA) - 9891597697'}
 
 class OrderReport(APIView):
     permission_classes = (AllowAny,)
-
     def get_order_report(self, shop_id, start_date, end_date):
         seller_shop = Shop.objects.get(pk=shop_id)
+        last_modified_entry = OrderDetailReports.objects.filter(seller_shop=seller_shop_map[str(shop_id)]).latest('order_modified_at')
+        start_date = last_modified_entry.order_modified_at
+        print(start_date)
         orders = Order.objects.filter(seller_shop = seller_shop)
         if start_date:
-            orders = orders.filter(created_at__gte = start_date)
+            orders = orders.filter(modified_at__gte = start_date)
         if end_date:
-            orders = orders.filter(created_at__lte = end_date)
+            orders = orders.filter(modified_at__lte = end_date)
         order_details = {}
         i=0
         for order in orders:
@@ -152,7 +156,7 @@ class OrderReport(APIView):
                     order_status = order.get_order_status_display()
                     order_date = order.created_at
                     order_by = order.ordered_by
-                    retailer_id = order.ordered_by.id
+                    retailer_id = order.buyer_shop.id
                     retailer_name = order.buyer_shop
                     order_invoice = shipment.invoice_no
                     invoice_date = shipment.created_at
@@ -222,49 +226,51 @@ class GRNReport(APIView):
             for grns in order.order_grn_order.all():
                 for products in grns.grn_order_grn_order_product.all():
                     i += 1
-                    product_id = products.product.id
-                    product_name = products.product.product_name
-                    product_brand = products.product.product_brand
-                    product_mrp = products.product.product_vendor_mapping.filter(product = products.product).last().product_mrp
-                    gram_to_brand_price = grns.grn_order_grn_order_product.filter(product = products.product).last().po_product_price
-                    #product_value_tax_included = products.product.product_pro_price.get(status=True, shop = buyer_shop).price_to_retailer
-                    if products.product.product_pro_tax.filter(tax__tax_type ='gst').exists():
-                        product_gst = products.product.product_pro_tax.filter(tax__tax_type ='gst').last()
-                    if order.ordered_cart.supplier_state == order.ordered_cart.gf_shipping_address.state:
-                        product_cgst = (float(product_gst.tax.tax_percentage)/2.0)
-                        product_sgst = (float(product_gst.tax.tax_percentage)/2.0)
-                        product_igst = ''
-                    else:
-                        product_cgst = ''
-                        product_sgst = ''
-                        product_igst = (float(product_gst.tax.tax_percentage))
-                    if products.product.product_pro_tax.filter(tax__tax_type ='cess').exists():
-                        product_cess = products.product.product_pro_tax.filter(tax__tax_type ='cess').last().tax.tax_percentage
-                    else:
-                        product_cess = ''
-                    po_no = order.order_no
-                    po_date = order.created_at
-                    po_status = order.ordered_cart.get_po_status_display()
-                    vendor_name = order.ordered_cart.supplier_name
-                    vendor_id = order.ordered_cart.supplier_name.id
-                    buyer_shop = order.ordered_cart.gf_shipping_address.shop_name
-                    shipping_address = order.ordered_cart.gf_shipping_address.address_line1
-                    category_manager = ''
-                    manufacture_date = grns.grn_order_grn_order_product.get(product = products.product).manufacture_date
-                    expiry_date = grns.grn_order_grn_order_product.get(product = products.product).expiry_date
-                    po_sku_pieces = grns.grn_order_grn_order_product.get(product = products.product).po_product_quantity
-                    discount = ''
-                    grn_id = grns.grn_id
-                    grn_date = grns.created_at
-                    grn_sku_pieces = grns.grn_order_grn_order_product.get(product = products.product).product_invoice_qty
-                    invoice_item_gross_value = (grns.grn_order_grn_order_product.get(product = products.product).product_invoice_qty) * (gram_to_brand_price)
-                    delivered_sku_pieces = grns.grn_order_grn_order_product.get(product = products.product).delivered_qty
-                    returned_sku_pieces = grns.grn_order_grn_order_product.get(product = products.product).returned_qty
-                    dn_number = ''
-                    dn_value_basic =''
-                    GRNReports.objects.using('gfanalytics').create(po_no = po_no, po_date = po_date, po_status = po_status, vendor_name = vendor_name,  vendor_id = vendor_id, buyer_shop=buyer_shop, shipping_address = shipping_address, category_manager = category_manager, product_id = product_id, product_name = product_name, product_brand = product_brand, manufacture_date = manufacture_date, expiry_date = expiry_date, po_sku_pieces = po_sku_pieces, product_mrp = product_mrp, discount = discount,  gram_to_brand_price = gram_to_brand_price, grn_id = grn_id, grn_date = grn_date, grn_sku_pieces = grn_sku_pieces, product_cgst = product_cgst, product_sgst = product_sgst, product_igst = product_igst, product_cess = product_cess, invoice_item_gross_value = invoice_item_gross_value, delivered_sku_pieces = delivered_sku_pieces, returned_sku_pieces = returned_sku_pieces, dn_number = dn_number, dn_value_basic = dn_value_basic)
-                    grn_details[i] = { 'po_no':po_no, 'po_date':po_date, 'po_status':po_status, 'vendor_name':vendor_name, 'vendor_id':vendor_id, 'buyer_shop':buyer_shop, 'shipping_address':shipping_address, 'category_manager':category_manager, 'product_id':product_id, 'product_name':product_name, 'product_brand':product_brand, 'manufacture_date':manufacture_date, 'expiry_date':expiry_date, 'po_sku_pieces':po_sku_pieces, 'product_mrp':product_mrp, 'discount':discount, 'gram_to_brand_price':gram_to_brand_price, 'grn_id':grn_id, 'grn_date':grn_date, 'grn_sku_pieces':grn_sku_pieces, 'product_cgst':product_cgst, 'product_sgst':product_sgst, 'product_igst':product_igst, 'product_cess':product_cess, 'invoice_item_gross_value':invoice_item_gross_value, 'delivered_sku_pieces':delivered_sku_pieces, 'returned_sku_pieces':returned_sku_pieces, 'dn_number':dn_number, 'dn_value_basic':dn_value_basic}
-
+                    try:
+                        product_id = products.product.id
+                        product_name = products.product.product_name
+                        product_brand = products.product.product_brand
+                        product_mrp = products.product.product_vendor_mapping.filter(product = products.product).last().product_mrp
+                        gram_to_brand_price = grns.grn_order_grn_order_product.filter(product = products.product).last().po_product_price
+                        #product_value_tax_included = products.product.product_pro_price.get(status=True, shop = buyer_shop).price_to_retailer
+                        if products.product.product_pro_tax.filter(tax__tax_type ='gst').exists():
+                            product_gst = products.product.product_pro_tax.filter(tax__tax_type ='gst').last()
+                        if order.ordered_cart.supplier_state == order.ordered_cart.gf_shipping_address.state:
+                            product_cgst = (float(product_gst.tax.tax_percentage)/2.0)
+                            product_sgst = (float(product_gst.tax.tax_percentage)/2.0)
+                            product_igst = ''
+                        else:
+                            product_cgst = ''
+                            product_sgst = ''
+                            product_igst = (float(product_gst.tax.tax_percentage))
+                        if products.product.product_pro_tax.filter(tax__tax_type ='cess').exists():
+                            product_cess = products.product.product_pro_tax.filter(tax__tax_type ='cess').last().tax.tax_percentage
+                        else:
+                            product_cess = ''
+                        po_no = order.order_no
+                        po_date = order.created_at
+                        po_status = order.ordered_cart.get_po_status_display()
+                        vendor_name = order.ordered_cart.supplier_name
+                        vendor_id = order.ordered_cart.supplier_name.id
+                        buyer_shop = order.ordered_cart.gf_shipping_address.shop_name
+                        shipping_address = order.ordered_cart.gf_shipping_address.address_line1
+                        category_manager = ''
+                        manufacture_date = grns.grn_order_grn_order_product.get(product = products.product).manufacture_date
+                        expiry_date = grns.grn_order_grn_order_product.get(product = products.product).expiry_date
+                        po_sku_pieces = grns.grn_order_grn_order_product.get(product = products.product).po_product_quantity if products.product else ''
+                        discount = ''
+                        grn_id = grns.grn_id
+                        grn_date = grns.created_at
+                        grn_sku_pieces = grns.grn_order_grn_order_product.get(product = products.product).product_invoice_qty if products.product else ''
+                        invoice_item_gross_value = (grns.grn_order_grn_order_product.get(product = products.product).product_invoice_qty) * (gram_to_brand_price)
+                        delivered_sku_pieces = grns.grn_order_grn_order_product.get(product = products.product).delivered_qty if products.product else ''
+                        returned_sku_pieces = grns.grn_order_grn_order_product.get(product = products.product).returned_qty if products.product else ''
+                        dn_number = ''
+                        dn_value_basic =''
+                        GRNReports.objects.using('gfanalytics').create(po_no = po_no, po_date = po_date, po_status = po_status, vendor_name = vendor_name,  vendor_id = vendor_id, buyer_shop=buyer_shop, shipping_address = shipping_address, category_manager = category_manager, product_id = product_id, product_name = product_name, product_brand = product_brand, manufacture_date = manufacture_date, expiry_date = expiry_date, po_sku_pieces = po_sku_pieces, product_mrp = product_mrp, discount = discount,  gram_to_brand_price = gram_to_brand_price, grn_id = grn_id, grn_date = grn_date, grn_sku_pieces = grn_sku_pieces, product_cgst = product_cgst, product_sgst = product_sgst, product_igst = product_igst, product_cess = product_cess, invoice_item_gross_value = invoice_item_gross_value, delivered_sku_pieces = delivered_sku_pieces, returned_sku_pieces = returned_sku_pieces, dn_number = dn_number, dn_value_basic = dn_value_basic)
+                        grn_details[i] = { 'po_no':po_no, 'po_date':po_date, 'po_status':po_status, 'vendor_name':vendor_name, 'vendor_id':vendor_id, 'buyer_shop':buyer_shop, 'shipping_address':shipping_address, 'category_manager':category_manager, 'product_id':product_id, 'product_name':product_name, 'product_brand':product_brand, 'manufacture_date':manufacture_date, 'expiry_date':expiry_date, 'po_sku_pieces':po_sku_pieces, 'product_mrp':product_mrp, 'discount':discount, 'gram_to_brand_price':gram_to_brand_price, 'grn_id':grn_id, 'grn_date':grn_date, 'grn_sku_pieces':grn_sku_pieces, 'product_cgst':product_cgst, 'product_sgst':product_sgst, 'product_igst':product_igst, 'product_cess':product_cess, 'invoice_item_gross_value':invoice_item_gross_value, 'delivered_sku_pieces':delivered_sku_pieces, 'returned_sku_pieces':returned_sku_pieces, 'dn_number':dn_number, 'dn_value_basic':dn_value_basic}
+                    except:
+                        pass
         data = grn_details
         return data
 
@@ -338,7 +344,8 @@ class MasterReport(APIView):
             sku_code = products.product.product_sku
             short_description = products.product.product_short_description
             long_description = products.product.product_long_description
-            MasterReports.objects.using('gfanalytics').create(product = product, service_partner = service_partner, mrp = mrp, price_to_retailer = price_to_retailer, product_gf_code = product_gf_code,  product_brand = product_brand, product_subbrand = product_subbrand, product_category = product_category, tax_gst_percentage = tax_gst_percentage, tax_cess_percentage = tax_cess_percentage, tax_surcharge_percentage = tax_surcharge_percentage, pack_size = pack_size, case_size = case_size, hsn_code = hsn_code, product_id = product_id, sku_code = sku_code,  short_description = short_description, long_description = long_description)
+            created_at = products.product.created_at
+            MasterReports.objects.using('gfanalytics').create(product = product, service_partner = service_partner, mrp = mrp, price_to_retailer = price_to_retailer, product_gf_code = product_gf_code,  product_brand = product_brand, product_subbrand = product_subbrand, product_category = product_category, tax_gst_percentage = tax_gst_percentage, tax_cess_percentage = tax_cess_percentage, tax_surcharge_percentage = tax_surcharge_percentage, pack_size = pack_size, case_size = case_size, hsn_code = hsn_code, product_id = product_id, sku_code = sku_code,  short_description = short_description, long_description = long_description, created_at = created_at)
 
             products_list[i] = {'product':product, 'service_partner':service_partner, 'mrp':mrp, 'price_to_retailer':price_to_retailer, 'product_gf_code':product_gf_code, 'product_brand':product_brand, 'product_subbrand':product_subbrand, 'product_category':product_category, 'tax_gst_percentage':tax_gst_percentage, 'tax_cess_percentage':tax_cess_percentage, 'tax_surcharge_percentage':tax_surcharge_percentage, 'pack_size':pack_size, 'case_size':case_size, 'hsn_code':hsn_code, 'product_id':product_id, 'sku_code':sku_code, 'short_description':short_description, 'long_description':long_description}
         data = products_list
@@ -370,29 +377,40 @@ class MasterReportFormView(View):
 
 class RetailerProfileReport(APIView):
     permission_classes = (AllowAny,)
-
-    def get_master_report(self, shop_id):
+    def get_unmapped_shops(self):
+        retailers = ParentRetailerMapping.objects.filter(parent__isnull=True)
+        for retailer in retailers:
+            retailer_id = retailer.retailer.id
+            retailer_name = retailer.retailer
+            retailer_type = retailer.retailer.shop_type.shop_type
+            retailer_phone_number = retailer.retailer.shop_owner.phone_number
+            created_at = retailer.retailer.created_at
+            RetailerReports.objects.using('gfanalytics').create(retailer_id = retailer_id, retailer_name = retailer_name, retailer_type=retailer_type, retailer_phone_number=retailer_phone_number, created_at=created_at)
+        
+    def get_retailer_report(self, shop_id):
         shop = Shop.objects.get(pk=shop_id)
-        retailers = ParentRetailerMapping.objects.filter(parent = shop)
+        last_entry = RetailerReports.objects.using('gfanalytics').latest('created_at').created_at
+        retailers = ParentRetailerMapping.objects.filter(parent = shop,created_at__gte=last_entry)
         retailers_list = {}
         i=0
         for retailer in retailers:
             i+=1
-            retailer_id = retailer.retailer.shop_owner.id
-            retailer_name = retailer.retailer.shop_owner.first_name
+            retailer_id = retailer.retailer.id
+            retailer_name = retailer.retailer
             retailer_type = retailer.retailer.shop_type.shop_type
             retailer_phone_number = retailer.retailer.shop_owner.phone_number
-            for address in m.retailer.shop_name_address_mapping.all():
-                retailer_location = address.address_line1
-                retailer_pincode = address.pincode
+            created_at = retailer.retailer.created_at
+            #for address in m.retailer.shop_name_address_mapping.all():
+             #   retailer_location = address.address_line1
+              #  retailer_pincode = address.pincode
             service_partner = shop.shop_name
-            service_partner_id = shop.id
-            service_partner_contact = shop.shop_owner.phone_number
+            service_partner_id = shop.id or ''
+            service_partner_contact = shop.shop_owner.phone_number if shop else ''
             sales_manager = ''
             sales_manager_contact = ''
             bda_name = ''
             bda_number = ''
-
+            RetailerReports.objects.using('gfanalytics').create(retailer_id = retailer_id, retailer_name = retailer_name, retailer_type=retailer_type, retailer_phone_number=retailer_phone_number, created_at=created_at, service_partner=service_partner, service_partner_id=service_partner_id, service_partner_contact=service_partner_contact)
         data = retailers_list
         return data
 
@@ -482,6 +500,56 @@ class OrderGrnReportFormView(View):
             'admin/services/order-grn-report.html',
             {'form': form}
         )
+
+class CategoryProductReport(APIView):
+    permission_classes = (AllowAny,)
+
+    def get_category_product_report(self, created_at):
+        products = Product.objects.all()
+        if created_at:
+            products = Product.objects.filter(created_at__gte = created_at)
+        i=0
+        cat_prod_list = {}
+        for product in products:
+            for cat in product.product_pro_category.all():
+                i+=1
+                product_id = product.id
+                product_name = product.product_name
+                product_short_description = product.product_short_description
+                product_created_at = product.created_at
+                category_id = cat.category.id
+                category = cat.category
+                category_name = cat.category.category_name
+
+                CategoryProductReports.objects.using('gfanalytics').create(product_id = product_id, product_name = product_name, product_short_description=product_short_description, product_created_at=product_created_at, category_id=category_id, category=category, category_name=category_name)
+                cat_prod_list[i] = {'product_id':product_id, 'product_name':product_name, 'product_short_description':product_short_description, 'product_created_at':product_created_at, 'category_id':category_id, 'category':category, 'category_name':category_name}
+        data = cat_prod_list
+        return data
+
+    def get(self, *args, **kwargs):
+        from django.http import HttpResponse
+        from django.contrib import messages
+
+        created_at = self.request.GET.get('created_at', None)
+        data = self.get_category_product_report(created_at)
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="cat-prod-report.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['S.No',  'Product Id', 'Product Name', 'Product Short Description', 'Category ID', 'Category', 'Category Name'])
+        for k,v in data.items():
+            writer.writerow([k,v['product_id'], v['product_name'], v['product_short_description'], v['category_id'], v['category'], v['category_name']])
+
+        return response
+
+class CategoryProductReportFormView(View):
+    def get(self, request):
+        form = CategoryProductReportFormView(user=request.user)
+        return render(
+            self.request,
+            'admin/services/cate-prod-report.html',
+            {'form': form}
+        )
+
 
 class ResizeImage(APIView):
     permission_classes = (AllowAny,)

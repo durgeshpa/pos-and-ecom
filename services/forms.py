@@ -126,3 +126,13 @@ class OrderGrnForm(forms.Form):
             queryset = Shop.objects.filter(shop_type__shop_type__in=['sp'])
             queryset = queryset.filter(Q(related_users=user) | Q(shop_owner=user))
             self.fields['shop'].queryset = queryset
+
+class CategoryProductReportForm(forms.Form):
+    created_at = forms.DateTimeField(
+        widget=DateTimePicker(
+            options={
+            'format': 'YYYY-MM-DD H:mm:ss',
+            }
+        ),
+    )
+

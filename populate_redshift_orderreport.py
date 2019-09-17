@@ -13,5 +13,5 @@ def populate_order(shop_id,start_date):
     return "done"
 if __name__=='__main__':
   shop_id=sys.argv[1]
-  start_date=sys.argv[2]
+  start_date = sys.argv[2]
   populate_order(shop_id,start_date)
