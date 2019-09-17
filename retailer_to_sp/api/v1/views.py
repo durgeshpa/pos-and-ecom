@@ -403,7 +403,7 @@ class AddToCart(APIView):
                 if cart.rt_cart_list.count() <= 0:
                     msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],'response_data': None}
                 else:
-                    serializer = CartSerializer(Cart.objects.get(id=cart.id),context={'parent_mapping_id': parent_mapping.parent.id})
+                    serializer = CartSerializer(Cart.objects.get(id=cart.id),context={'parent_mapping_id': parent_mapping.parent.id, 'buyer_shop_id': shop_id})
                     msg = {'is_success': True, 'message': ['Data added to cart'], 'response_data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
 

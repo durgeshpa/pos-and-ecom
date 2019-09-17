@@ -1,3 +1,4 @@
+from decimal import Decimal
 from rest_framework import serializers
 
 from common.common_utils import convert_date_format_ddmmmyyyy
@@ -197,26 +198,34 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
     cash_discount = serializers.SerializerMethodField('cash_discount_dt')
 
     def product_price_dt(self, obj):
-        self.product_price = obj.getRetailerPrice(self.context.get("parent_mapping_id"))
+        self.product_price = obj.getRetailerPrice(
+            self.context.get('parent_mapping_id'),
+            self.context.get('buyer_shop_id'))
         return self.product_price
 
     def product_mrp_dt(self, obj):
-        self.product_mrp = obj.getMRP(self.context.get("parent_mapping_id"))
+        self.product_mrp = obj.getMRP(
+            self.context.get('parent_mapping_id'),
+            self.context.get('buyer_shop_id'))
         return self.product_mrp
 
-    def product_case_size_picies_dt(self,obj):
+    def product_case_size_picies_dt(self, obj):
         return str(int(obj.product_inner_case_size)*int(obj.product_case_size))
 
-    def loyalty_discount_dt(self,obj):
-        self.loyalty_discount = obj.getLoyaltyIncentive(self.context.get("parent_mapping_id"))
+    def loyalty_discount_dt(self, obj):
+        self.loyalty_discount = obj.getLoyaltyIncentive(
+            self.context.get('parent_mapping_id'),
+            self.context.get('buyer_shop_id'))
         return self.loyalty_discount
 
-    def cash_discount_dt(self,obj):
-        self.cash_discount = obj.getCashDiscount(self.context.get("parent_mapping_id"))
+    def cash_discount_dt(self, obj):
+        self.cash_discount = obj.getCashDiscount(
+            self.context.get('parent_mapping_id'),
+            self.context.get('buyer_shop_id'))
         return self.cash_discount
 
-    def margin_dt(self,obj):
-        return round(100 - (float(self.product_price) * 1000000 / (float(self.product_mrp) * (100 - float(obj.getCashDiscount(self.context.get("parent_mapping_id")))) * (100 -  float(obj.getLoyaltyIncentive(self.context.get("parent_mapping_id")))))),2) if self.product_mrp and self.product_mrp > 0 else 0
+    def margin_dt(self, obj):
+        return (((self.product_mrp - self.product_price) / self.product_mrp) * 100)
 
     class Meta:
         model = Product
@@ -263,10 +272,12 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
     def no_pieces_dt(self, obj):
         return int(obj.cart_product.product_inner_case_size) * int(obj.qty)
 
-    def product_sub_total_dt(self,obj):
-        shop_id = self.context.get("parent_mapping_id", None)
-        product_price = 0 if obj.cart_product.product_pro_price.filter(shop__id=shop_id).last() is None else round(obj.cart_product.product_pro_price.filter(shop__id=shop_id).last().price_to_retailer,2)
-        return round(float(obj.cart_product.product_inner_case_size)*float(obj.qty)*float(product_price),2)
+    def product_sub_total_dt(self, obj):
+        product_price = obj.cart_product.\
+            getRetailerPrice(self.context.get('parent_mapping_id'),
+                             self.context.get('buyer_shop_id'))
+        return (Decimal(obj.cart_product.product_inner_case_size) *
+                Decimal(obj.qty) * Decimal(product_price))
 
     class Meta:
         model = CartProductMapping
@@ -287,14 +298,16 @@ class CartSerializer(serializers.ModelSerializer):
         self.items_count = 0
         for cart_pro in obj.rt_cart_list.all():
             self.items_count = self.items_count + int(cart_pro.qty)
-            shop_id = self.context.get("parent_mapping_id", None)
-            shop = Shop.objects.get(pk=shop_id)
-            pro_price = cart_pro.cart_product.get_current_shop_price(shop)
-            self.total_amount += float(pro_price.price_to_retailer) * float(cart_pro.qty) * float(pro_price.product.product_inner_case_size)
-        return round(self.total_amount,2)
+            pro_price = cart_pro.cart_product.get_current_shop_price(
+                self.context.get('parent_mapping_id'),
+                self.context.get('buyer_shop_id'))
+            self.total_amount += (
+                Decimal(pro_price.selling_price) * Decimal(cart_pro.qty) *
+                Decimal(pro_price.product.product_inner_case_size))
+        return self.total_amount
 
     def sub_total_id(self, obj):
-        return round(self.total_amount,2)
+        return self.total_amount
 
     def items_count_id(self, obj):
         return obj.rt_cart_list.count()

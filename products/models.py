@@ -1,6 +1,6 @@
 from django.db import models
 from retailer_backend.validators import *
-from addresses.models import Country, State, City, Area, Pincode
+from addresses.models import Country, State, City, Area, Pincode, Address
 from categories.models import Category
 from shops.models import Shop
 from django.conf import settings
@@ -136,56 +136,60 @@ class Product(models.Model):
     class Meta:
         ordering = ['-created_at']
 
-    def get_current_shop_price(self, seller_shop, buyer_shop):
+    def get_current_shop_price(self, seller_shop_id, buyer_shop_id):
         '''
         Firstly we will only filter using seller shop. If the queryset exists
         we will further filter to city, pincode and buyer shop level.
         '''
         today = datetime.datetime.today()
+        buyer_shop_dt = Address.objects.values('city_id', 'pincode_link')\
+            .filter(shop_name_id=buyer_shop_id, address_type='shipping')
+        if buyer_shop_dt.exists():
+            buyer_shop_dt = buyer_shop_dt.last()
         product_price = self.product_pro_price\
-            .filter(seller_shop=shop, approval_status=ProductPrice.APPROVED,
+            .filter(seller_shop_id=seller_shop_id,
+                    approval_status=ProductPrice.APPROVED,
                     start_date__lte=today, end_date__gte=today)\
-            .order_by('start_date').last()
-        if product_price.exists():
+            .order_by('start_date')
+        if product_price.count() > 1:
             product_price = product_price\
-                .filter(seller_shop=shop, city=buyer_shop.city,
+                .filter(seller_shop_id=seller_shop_id,
+                        city_id=buyer_shop_dt.get('city_id', None),
                         approval_status=ProductPrice.APPROVED,
                         start_date__lte=today, end_date__gte=today)\
-                .order_by('start_date').last()
-        if product_price.exists():
+                .order_by('start_date')
+        if product_price.count() > 1:
             product_price = product_price\
-                .filter(seller_shop=shop, pincode=buyer_shop.pincode,
+                .filter(seller_shop_id=seller_shop_id,
+                        pincode_id=buyer_shop_dt.get('pincode_link', None),
                         approval_status=ProductPrice.APPROVED,
                         start_date__lte=today, end_date__gte=today)\
-                .order_by('start_date').last()
-        if product_price.exists():
+                .order_by('start_date')
+        if product_price.count() > 1:
             product_price = product_price\
-                .filter(seller_shop=shop, buyer_shop=buyer_shop,
+                .filter(seller_shop_id=seller_shop_id,
+                        buyer_shop_id=buyer_shop_id,
                         approval_status=ProductPrice.APPROVED,
                         start_date__lte=today, end_date__gte=today)\
-                .order_by('start_date').last()
-        return product_price
+                .order_by('start_date')
+        return product_price.last()
 
+    def getPriceByShopId(self, seller_shop_id, buyer_shop_id):
+        return self.get_current_shop_price(seller_shop_id, buyer_shop_id)
 
-    def getPriceByShopId(self, shop_id):
-        shop = Shop.objects.get(pk=shop_id)
-        return self.get_current_shop_price(shop)
+    def getMRP(self, seller_shop_id, buyer_shop_id):
+        product_price = self.getPriceByShopId(seller_shop_id, buyer_shop_id)
+        return product_price.mrp
 
-    def getMRP(self, shop_id):
-        product_price = self.getPriceByShopId(shop_id)
-        return round(product_price.mrp,2)
+    def getRetailerPrice(self, seller_shop_id, buyer_shop_id):
+        product_price = self.getPriceByShopId(seller_shop_id, buyer_shop_id)
+        return product_price.selling_price
 
-    def getRetailerPrice(self, shop_id):
-        product_price = self.getPriceByShopId(shop_id)
-        return round(product_price.price_to_retailer,2)
+    def getCashDiscount(self, seller_shop_id, buyer_shop_id):
+        return 0
 
-    def getCashDiscount(self, shop_id):
-        product_price = self.getPriceByShopId(shop_id)
-        return round(product_price.cash_discount,2)
-
-    def getLoyaltyIncentive(self, shop_id):
-        product_price = self.getPriceByShopId(shop_id)
-        return round(product_price.loyalty_incentive,2)
+    def getLoyaltyIncentive(self, seller_shop_id, buyer_shop_id):
+        return 0
 
 
 class ProductSKUGenerator(models.Model):
@@ -279,7 +283,7 @@ class ProductPrice(models.Model):
 
     @property
     def margin(self):
-        return round(100-(float(self.price_to_retailer)*1000000/(float(self.mrp)*(100-float(self.cash_discount))*(100-float(self.loyalty_incentive)))),2) if self.mrp>0 and self.price_to_retailer>0 else 0
+        return (((self.mrp - self.selling_price) / self.mrp) * 100)
 
     @property
     def sku_code(self):

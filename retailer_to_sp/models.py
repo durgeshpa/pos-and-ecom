@@ -1015,26 +1015,30 @@ class OrderedProductMapping(models.Model):
             return str(gf_code)
         return str("-")
 
-
     @property
     def mrp(self):
-        return round(self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.mrp,2)
+        return self.ordered_product.order.ordered_cart.rt_cart_list\
+            .get(cart_product=self.product).cart_product_price.mrp
 
     @property
     def price_to_retailer(self):
-        return round(self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.price_to_retailer,2)
+        return self.ordered_product.order.ordered_cart.rt_cart_list\
+            .get(cart_product=self.product).cart_product_price.selling_price
 
     @property
     def cash_discount(self):
-        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.cash_discount
+        return self.ordered_product.order.ordered_cart.rt_cart_list\
+            .get(cart_product=self.product).cart_product_price.cash_discount
 
     @property
     def loyalty_incentive(self):
-        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.loyalty_incentive
+        return self.ordered_product.order.ordered_cart.rt_cart_list\
+            .get(cart_product=self.product).cart_product_price.loyalty_incentive
 
     @property
     def margin(self):
-        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.margin
+        return self.ordered_product.order.ordered_cart.rt_cart_list\
+            .get(cart_product=self.product).cart_product_price.margin
 
     @property
     def ordered_product_status(self):
