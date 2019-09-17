@@ -320,12 +320,12 @@ class Order(models.Model):
     #Todo Remove
     seller_shop = models.ForeignKey(
         Shop, related_name='rt_seller_shop_order',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     #Todo Remove
     buyer_shop = models.ForeignKey(
         Shop, related_name='rt_buyer_shop_order',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     ordered_cart = models.OneToOneField(
         Cart, related_name='rt_order_cart_mapping',
@@ -334,11 +334,11 @@ class Order(models.Model):
     order_no = models.CharField(max_length=255, null=True, blank=True)
     billing_address = models.ForeignKey(
         Address, related_name='rt_billing_address_order',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     shipping_address = models.ForeignKey(
         Address, related_name='rt_shipping_address_order',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     total_mrp = models.FloatField(default=0)
     total_discount_amount = models.FloatField(default=0)
@@ -351,15 +351,15 @@ class Order(models.Model):
     order_closed = models.BooleanField(default=False, null=True, blank=True)
     ordered_by = models.ForeignKey(
         get_user_model(), related_name='rt_ordered_by_user',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     received_by = models.ForeignKey(
         get_user_model(), related_name='rt_received_by_user',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_order_modified_user',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -1539,6 +1539,3 @@ def assign_picklist(sender, instance=None, created=False, **kwargs):
             picking_status="picking_pending",
             picklist_id= generate_picklist_id(pincode), #get_random_string(12).lower(), ##generate random string of 12 digits
             )
-
-
-
