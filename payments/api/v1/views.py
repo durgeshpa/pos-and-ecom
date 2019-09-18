@@ -14,7 +14,8 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db.models import Q
 from common.data_wrapper_view import DataWrapperViewSet
 
-from .serializers import ShipmentPaymentSerializer, CashPaymentSerializer 
+from .serializers import ShipmentPaymentSerializer, CashPaymentSerializer, \
+    ShipmentPaymentSerializer1 
 from payments.models import ShipmentPayment, CashPayment
 
 
@@ -37,8 +38,8 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
         Returns the serializer according to action of viewset
         '''
         serializer_action_classes = {
-            'retrieve': ShipmentPaymentSerializer,
-            'list':ShipmentPaymentSerializer,
+            'retrieve': ShipmentPaymentSerializer1,
+            'list':ShipmentPaymentSerializer1,
             'create':ShipmentPaymentSerializer,
             'update':ShipmentPaymentSerializer
         }
@@ -48,8 +49,8 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
 
 
     def create(self, request, *args, **kwargs):
-        # import pdb; pdb.set_trace()
-        serializer = self.get_serializer(data=request.data, many=True)
+        #import pdb; pdb.set_trace()
+        serializer = self.get_serializer(data=request.data)#, many=True)
         if serializer.is_valid():
             serializer.save(user=self.request.user)
             msg = {'is_success': True,
