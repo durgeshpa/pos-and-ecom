@@ -602,7 +602,8 @@ class ReservedOrder(generics.ListAPIView):
                     serializer = CartSerializer(
                         cart,
                         context={
-                            'parent_mapping_id':parent_mapping.parent.id
+                            'parent_mapping_id':parent_mapping.parent.id,
+                            'buyer_shop_id': shop_id
                         })
                     msg = {'is_success': True,
                            'message': [''],
@@ -616,7 +617,8 @@ class ReservedOrder(generics.ListAPIView):
                         })
                     create_reserved_order(reserved_args)
             serializer = CartSerializer(cart, context={
-                'parent_mapping_id': parent_mapping.parent.id})
+                'parent_mapping_id': parent_mapping.parent.id,
+                'buyer_shop_id': shop_id})
             msg = {
                     'is_success': True,
                     'message': [''],
