@@ -208,11 +208,12 @@ def create_order_id(sender, instance=None, created=False, **kwargs):
 
 
 class CartProductMapping(models.Model):
-    cart = models.ForeignKey(Cart, related_name='rt_cart_list',
-                             on_delete=models.CASCADE)
+    cart = models.ForeignKey(Cart, related_name='rt_cart_list',null=True,
+                             on_delete=models.SET_NULL
+    )
     cart_product = models.ForeignKey(
-        Product, related_name='rt_cart_product_mapping',
-        on_delete=models.CASCADE
+        Product, related_name='rt_cart_product_mapping',null=True,
+        on_delete=models.SET_NULL
     )
     cart_product_price = models.ForeignKey(
         ProductPrice, related_name='rt_cart_product_price_mapping',
@@ -344,8 +345,8 @@ class Order(models.Model):
         null=True, blank=True, on_delete=models.SET_NULL
     )
     ordered_cart = models.OneToOneField(
-        Cart, related_name='rt_order_cart_mapping',
-        on_delete=models.CASCADE
+        Cart, related_name='rt_order_cart_mapping',null=True,
+        on_delete=models.SET_NULL
     )
     order_no = models.CharField(max_length=255, null=True, blank=True)
     billing_address = models.ForeignKey(
@@ -520,13 +521,13 @@ class Order(models.Model):
 
 class Trip(models.Model):
     seller_shop = models.ForeignKey(
-        Shop, related_name='trip_seller_shop',
-        on_delete=models.CASCADE
+        Shop, related_name='trip_seller_shop', null=True,
+        on_delete=models.SET_NULL
     )
     dispatch_no = models.CharField(max_length=50, unique=True)
     delivery_boy = models.ForeignKey(
-        UserWithName, related_name='order_delivered_by_user',
-        on_delete=models.CASCADE, verbose_name='Delivery Boy'
+        UserWithName, related_name='order_delivered_by_user', null=True,
+        on_delete=models.SET_NULL, verbose_name='Delivery Boy'
     )
     vehicle_no = models.CharField(max_length=50)
     trip_status = models.CharField(max_length=100, choices=TRIP_STATUS)
@@ -921,11 +922,11 @@ class PickerDashboard(models.Model):
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(
         OrderedProduct, related_name='rt_order_product_order_product_mapping',
-        null=True, blank=True, on_delete=models.SET_NULL
+        null=True, on_delete=models.SET_NULL
     )
     product = models.ForeignKey(
         Product, related_name='rt_product_order_product',
-        null=True, blank=True, on_delete=models.SET_NULL
+        null=True, on_delete=models.SET_NULL
     )
     shipped_qty = models.PositiveIntegerField(default=0, verbose_name="Shipped Pieces")
     delivered_qty = models.PositiveIntegerField(default=0, verbose_name="Delivered Pieces")
@@ -933,7 +934,7 @@ class OrderedProductMapping(models.Model):
     damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Pieces")
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_order_product',
-        null=True, blank=True, on_delete=models.SET_NULL
+        null=True, on_delete=models.SET_NULL
     )
     product_tax_json = JSONField(null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1157,7 +1158,7 @@ class ShipmentRescheduling(models.Model):
 
     shipment = models.ForeignKey(
         OrderedProduct, related_name='rescheduling_shipment',
-        blank=False, on_delete=models.CASCADE
+        blank=False, null=True, on_delete=models.SET_NULL
     )
     rescheduling_reason = models.CharField(
         max_length=50, choices=RESCHEDULING_REASON,
@@ -1313,7 +1314,7 @@ class Payment(models.Model):
 
     order_id = models.ForeignKey(
         Order, related_name='rt_payment',
-        on_delete=models.CASCADE, null=True
+        on_delete=models.SET_NULL, null=True
     )
     name = models.CharField(max_length=255, null=True, blank=True)
     paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
@@ -1382,7 +1383,7 @@ def order_notification(sender, instance=None, created=False, **kwargs):
 
 class Return(models.Model):
     invoice_no = models.ForeignKey(
-        OrderedProduct, on_delete=models.CASCADE,
+        OrderedProduct, on_delete=models.SET_NULL,
         null=True, verbose_name='Shipment Id'
     )
     name = models.CharField(max_length=255, null=True, blank=True)
