@@ -10,16 +10,16 @@ class DiscountValueAdmin( admin.ModelAdmin):
     list_display = ('discount_value', 'is_percentage', 'max_discount')
 
 class CouponRuleSetAdmin( admin.ModelAdmin):
-    list_display = ('rulename', 'rule_description', 'discount_qty_step', 'discount_qty_amount', 'discount', 'is_free_shipment', 'cart_qualifying_min_sku_value', 'cart_qualifying_min_sku_item', 'is_active', 'created_at', 'expiry_date')
+    list_display = ('rulename', 'rule_description', 'all_users', 'discount_qty_step', 'discount_qty_amount', 'discount', 'is_free_shipment', 'cart_qualifying_min_sku_value', 'cart_qualifying_min_sku_item', 'is_active', 'created_at', 'expiry_date')
 
 class CouponAdmin( admin.ModelAdmin):
-    list_display = ('rule', 'coupon_name', 'coupon_code', 'limit_per_user', 'limit_of_usages', 'coupon_type', 'no_of_times_used', 'is_display', 'is_active', 'created_at', 'expiry_date')
+    list_display = ('coupon_code', 'coupon_name', 'rule', 'limit_per_user', 'limit_of_usages', 'coupon_type', 'no_of_times_used', 'is_display', 'is_active', 'created_at', 'expiry_date')
 
 class CusotmerCouponUsageAdmin( admin.ModelAdmin):
     list_display = ('coupon', 'customer', 'times_used')
 
 class RuleSetProductMappingAdmin( admin.ModelAdmin):
-    list_display = ('rule', 'product', 'product_type', 'max_qty_per_use', 'created_at')
+    list_display = ('purchased_product', 'free_product', 'rule', 'max_qty_per_use', 'created_at')
 
 class RuleSetBrandMappingAdmin( admin.ModelAdmin):
     list_display = ('rule', 'brand', 'created_at')

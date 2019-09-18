@@ -11,19 +11,27 @@ class DiscountValue(models.Model):
     is_percentage = models.BooleanField(default=False)
     max_discount = models.PositiveIntegerField(default=0, null=True, blank=True)
 
+    def __str__(self):
+        return str(self.discount_value)
+
 class CouponRuleSet(models.Model):
     rulename = models.CharField(max_length=255, unique=True, null=True)
     rule_description = models.CharField(max_length=255, null=True)
     no_of_users_allowed = models.ManyToManyField(User, blank=True)
+    all_users = models.BooleanField(default=False)
     discount_qty_step = models.PositiveIntegerField(default=0, null=True, blank=True)
     discount_qty_amount = models.PositiveIntegerField(default=0, null=True, blank=True)
     discount = models.ForeignKey(DiscountValue, related_name='discount_value_id', on_delete=models.CASCADE, null=True, blank=True)
     is_free_shipment = models.BooleanField(default=False, null=True, blank=True)
-    cart_qualifying_min_sku_value = models.PositiveIntegerField(default=0)
-    cart_qualifying_min_sku_item = models.PositiveIntegerField(default=0)
+    cart_qualifying_min_sku_value = models.PositiveIntegerField(default=0, blank=True, null =True)
+    cart_qualifying_min_sku_item = models.PositiveIntegerField(default=0, blank=True, null =True)
     is_active = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
-    expiry_date = models.DateTimeField(auto_now=True)
+    expiry_date = models.DateTimeField()
+
+    def __str__(self):
+        return self.rulename
+
 
 class Coupon(models.Model):
     CART = "cart"
@@ -46,7 +54,7 @@ class Coupon(models.Model):
     is_display = models.BooleanField(default=False)
     is_active = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
-    expiry_date = models.DateTimeField(auto_now=True)
+    expiry_date = models.DateTimeField()
 
 class CusotmerCouponUsage(models.Model):
     coupon = models.ForeignKey(Coupon, related_name ='customer_coupon', on_delete=models.CASCADE)
@@ -54,17 +62,14 @@ class CusotmerCouponUsage(models.Model):
     times_used = models.PositiveIntegerField(default=0)
 
 class RuleSetProductMapping(models.Model):
-    PURCHASE = "purchase"
-    FREE = "free"
-    PRODUCT_TYPE = (
-        (PURCHASE, "purchase"),
-        (FREE, "FREE"),
-    )
     rule = models.ForeignKey(CouponRuleSet, related_name ='product_ruleset', on_delete=models.CASCADE)
-    product = models.ForeignKey(Product, related_name ='product_coupon', on_delete=models.CASCADE)
-    product_type = models.CharField(max_length=255, choices=PRODUCT_TYPE,null=True, blank=True)
+    purchased_product = models.ForeignKey(Product, related_name ='purchased_product_coupon', on_delete=models.CASCADE, null=True)
+    free_product = models.ForeignKey(Product, related_name ='free_product_coupon', on_delete=models.CASCADE, null=True)
     max_qty_per_use = models.PositiveIntegerField(default=0, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return  "%s->%s"%(self.purchased_product, self.free_product)
 
 class RuleSetBrandMapping(models.Model):
     rule = models.ForeignKey(CouponRuleSet, related_name ='brand_ruleset', on_delete=models.CASCADE)
