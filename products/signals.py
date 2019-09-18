@@ -12,11 +12,10 @@ from .tasks import approve_product_price
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
     if instance.approval_status == sender.APPROVED:
         approve_product_price.delay(instance.id)
-        # update_shop_product_es.delay(
-        #     instance.shop.id, instance.product.id,
-        #     ptr=instance.price_to_retailer, mrp=round(instance.mrp, 2),
-        #     loyalty_discount=instance.loyalty_incentive,
-        #     cash_discount=instance.cash_discount, margin=instance.margin)
+        update_shop_product_es.delay(
+            instance.shop.id, instance.product.id,
+            ptr=instance.selling_price, mrp=instance.mrp)
+
 
 @receiver(post_save, sender=ProductCategory)
 def update_category_elasticsearch(sender, instance=None, created=False, **kwargs):

@@ -301,11 +301,11 @@ class GramGRNProductsList(APIView):
             products_list = es_search(index="all_products", body=body)
 
         for p in products_list['hits']['hits']:
-
+            product = Product.objects.get(id=p["_source"]["id"])
+            ptr = product.getRetailerPrice(shop_id, parent_mapping.parent.id)
+            loyalty_discount = product.getLoyaltyIncentive(shop_id, parent_mapping.parent.id)
+            cash_discount = product.getCashDiscount(shop_id, parent_mapping.parent.id)
             if cart_check == True:
-                ptr = p["_source"]['ptr']
-                loyalty_discount = p["_source"]['loyalty_discount']
-                cash_discount = p["_source"]['cash_discount']
                 for c_p in cart_products:
                     if c_p.cart_product_id == p["_source"]["id"]:
                         user_selected_qty = c_p.qty
