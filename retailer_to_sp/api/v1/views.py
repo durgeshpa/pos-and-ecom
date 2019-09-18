@@ -704,7 +704,10 @@ class CreateOrder(APIView):
                         ordered_reserve.reserve_status = OrderedProductReserved.ORDERED
                         ordered_reserve.save()
 
-                    serializer = OrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
+                    serializer = OrderSerializer(order, 
+                        context={'parent_mapping_id': parent_mapping.parent.id,
+                                 'buyer_shop_id': shop_id,
+                                 'current_url':current_url})
                     msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                 else:
                     msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
