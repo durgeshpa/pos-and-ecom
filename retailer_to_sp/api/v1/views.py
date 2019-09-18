@@ -934,7 +934,7 @@ class DownloadInvoiceSP(APIView):
             inline_sum_amount += int(m.shipped_qty) * product_pro_price_ptr
 
             for n in m.product.product_pro_tax.all():
-                divisor= (1+(n.tax.tax_percentage/100))
+                divisor= Decimal(1+(n.tax.tax_percentage/100))
                 original_amount= (inline_sum_amount/divisor)
                 tax_amount = inline_sum_amount - original_amount
                 if n.tax.tax_type=='gst':
