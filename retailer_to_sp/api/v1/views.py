@@ -308,6 +308,7 @@ class GramGRNProductsList(APIView):
                 if not check_price:
                     continue
                 ptr = check_price.selling_price
+                mrp = check_price.mrp
                 loyalty_discount = product.getLoyaltyIncentive(parent_mapping.parent.id, shop_id)
                 cash_discount = product.getCashDiscount(parent_mapping.parent.id, shop_id)
             if cart_check == True:
@@ -319,6 +320,7 @@ class GramGRNProductsList(APIView):
                         p["_source"]["no_of_pieces"] = no_of_pieces
                         p["_source"]["sub_total"] = Decimal(no_of_pieces) * ptr
                         p["_source"]["ptr"] = ptr
+                        p["_source"]["mrp"] = mrp
             p_list.append(p["_source"])
 
         msg = {'is_store_active': is_store_active,
