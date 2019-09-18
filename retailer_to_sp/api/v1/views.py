@@ -302,9 +302,9 @@ class GramGRNProductsList(APIView):
 
         for p in products_list['hits']['hits']:
             product = Product.objects.get(id=p["_source"]["id"])
-            ptr = product.getRetailerPrice(shop_id, parent_mapping.parent.id)
-            loyalty_discount = product.getLoyaltyIncentive(shop_id, parent_mapping.parent.id)
-            cash_discount = product.getCashDiscount(shop_id, parent_mapping.parent.id)
+            ptr = product.getRetailerPrice(parent_mapping.parent.id, shop_id)
+            loyalty_discount = product.getLoyaltyIncentive(parent_mapping.parent.id, shop_id)
+            cash_discount = product.getCashDiscount(parent_mapping.parent.id, shop_id)
             if cart_check == True:
                 for c_p in cart_products:
                     if c_p.cart_product_id == p["_source"]["id"]:
