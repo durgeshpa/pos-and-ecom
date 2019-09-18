@@ -54,7 +54,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
         if serializer.is_valid():
             serializer.save(user=self.request.user)
             msg = {'is_success': True,
-                    'message': ["Payment updated successfully"],
+                    'message': ["Payment created successfully"],
                     'response_data': None}
             return Response(msg,
                             status=status.HTTP_200_OK)
