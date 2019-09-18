@@ -40,7 +40,7 @@ def get_warehouse_stock(shop_id=None):
 		name = p.product.product_name
 		mrp = p.mrp
 		ptr = p.selling_price
-		maring = (((p.mrp - p.selling_price) / p.mrp) * 100)
+		margin = (((p.mrp - p.selling_price) / p.mrp) * 100)
 
 		status = p.product.status
 		product_opt = p.product.product_opt_product.all()
