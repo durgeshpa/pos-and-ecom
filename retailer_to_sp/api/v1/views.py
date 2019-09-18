@@ -1130,7 +1130,9 @@ class PaymentApi(APIView):
                 payment.save()
                 order.order_status = 'opdp'
                 order.save()
-            serializer = OrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id})
+            serializer = OrderSerializer(
+                order,context={'parent_mapping_id': parent_mapping.parent.id,
+                               'buyer_shop_id': shop_id})
 
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
 
