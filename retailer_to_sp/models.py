@@ -121,11 +121,11 @@ class Cart(models.Model):
     order_id = models.CharField(max_length=255, null=True, blank=True)
     seller_shop = models.ForeignKey(
         Shop, related_name='rt_seller_shop_cart',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     buyer_shop = models.ForeignKey(
         Shop, related_name='rt_buyer_shop_cart',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     cart_status = models.CharField(
         max_length=200, choices=CART_STATUS,
@@ -133,7 +133,7 @@ class Cart(models.Model):
     )
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_cart',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -216,7 +216,7 @@ class CartProductMapping(models.Model):
     )
     cart_product_price = models.ForeignKey(
         ProductPrice, related_name='rt_cart_product_price_mapping',
-        on_delete=models.CASCADE, null=True, blank=True
+        on_delete=models.SET_NULL, null=True, blank=True
     )
     qty = models.PositiveIntegerField(default=0)
     no_of_pieces = models.PositiveIntegerField(default=0)
@@ -748,7 +748,7 @@ class OrderedProduct(models.Model): #Shipment
 
     order = models.ForeignKey(
         Order, related_name='rt_order_order_product',
-        on_delete=models.CASCADE, null=True, blank=True
+        on_delete=models.SET_NULL, null=True, blank=True
     )
     shipment_status = models.CharField(
         max_length=50, choices=SHIPMENT_STATUS,
@@ -762,15 +762,15 @@ class OrderedProduct(models.Model): #Shipment
     invoice_no = models.CharField(max_length=255, null=True, blank=True)
     trip = models.ForeignKey(
         Trip, related_name="rt_invoice_trip",
-        null=True, blank=True, on_delete=models.CASCADE,
+        null=True, blank=True, on_delete=models.SET_NULL,
     )
     received_by = models.ForeignKey(
         get_user_model(), related_name='rt_ordered_product_received_by_user',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_order',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     no_of_crates = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Crates Shipped")
     no_of_packets = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Packets Shipped")
@@ -897,13 +897,13 @@ class PickerDashboard(models.Model):
     order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE)
     shipment = models.ForeignKey(
         OrderedProduct, related_name="picker_shipment",
-        on_delete=models.CASCADE, null=True, blank=True)
+        on_delete=models.SET_NULL, null=True, blank=True)
     picking_status = models.CharField(max_length=50,choices=PICKING_STATUS, default='picking_pending')
     #make unique to picklist id
     picklist_id = models.CharField(max_length=255, null=True, blank=True)#unique=True)
     picker_boy = models.ForeignKey(
         UserWithName, related_name='picker_user',
-        on_delete=models.CASCADE, verbose_name='Picker Boy',
+        on_delete=models.SET_NULL, verbose_name='Picker Boy',
         null=True, blank=True
     )
     created_at = models.DateTimeField(auto_now_add=True)
@@ -921,11 +921,11 @@ class PickerDashboard(models.Model):
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(
         OrderedProduct, related_name='rt_order_product_order_product_mapping',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     product = models.ForeignKey(
         Product, related_name='rt_product_order_product',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     shipped_qty = models.PositiveIntegerField(default=0, verbose_name="Shipped Pieces")
     delivered_qty = models.PositiveIntegerField(default=0, verbose_name="Delivered Pieces")
@@ -933,7 +933,7 @@ class OrderedProductMapping(models.Model):
     damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Pieces")
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_order_product',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     product_tax_json = JSONField(null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1167,7 +1167,7 @@ class ShipmentRescheduling(models.Model):
     created_by = models.ForeignKey(
         get_user_model(),
         related_name='rescheduled_by',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -1223,7 +1223,7 @@ class Commercial(Trip):
 
 class CustomerCare(models.Model):
     order_id = models.ForeignKey(
-        Order, on_delete=models.CASCADE, null=True, blank=True
+        Order, on_delete=models.SET_NULL, null=True, blank=True
     )
     phone_number = models.CharField( max_length=10, blank=True, null=True)
     complaint_id = models.CharField(max_length=255, null=True, blank=True)
@@ -1293,7 +1293,7 @@ class CustomerCare(models.Model):
         super(CustomerCare, self).save()
 
 class ResponseComment(models.Model):
-    customer_care = models.ForeignKey(CustomerCare,related_name='customer_care_comments',null=True,blank=True,on_delete=models.CASCADE)
+    customer_care = models.ForeignKey(CustomerCare,related_name='customer_care_comments', null=True, blank=True, on_delete=models.SET_NULL)
     comment = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(
         auto_now_add=True, verbose_name="Comment Date")
@@ -1389,16 +1389,16 @@ class Return(models.Model):
     shipped_by = models.ForeignKey(
         get_user_model(),
         related_name='return_shipped_product_ordered_by_user',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     received_by = models.ForeignKey(
         get_user_model(),
         related_name='return_ordered_product_received_by_user',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='return_last_modified_user_order',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -1415,11 +1415,11 @@ class Return(models.Model):
 class ReturnProductMapping(models.Model):
     return_id = models.ForeignKey(
         Return, related_name='rt_product_return_product_mapping',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     returned_product = models.ForeignKey(
         Product, related_name='rt_product_return_product',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     total_returned_qty = models.PositiveIntegerField(default=0)
     reusable_qty = models.PositiveIntegerField(default=0)
@@ -1427,7 +1427,7 @@ class ReturnProductMapping(models.Model):
     last_modified_by = models.ForeignKey(
         get_user_model(),
         related_name='return_last_modified_user_return_product',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     manufacture_date = models.DateField()
     expiry_date = models.DateField()
@@ -1463,16 +1463,16 @@ class ReturnProductMapping(models.Model):
 
 
 class Note(models.Model):
-    shop = models.ForeignKey(Shop, related_name='credit_notes', null=True, blank=True, on_delete=models.CASCADE)
+    shop = models.ForeignKey(Shop, related_name='credit_notes', null=True, blank=True, on_delete=models.SET_NULL)
     credit_note_id = models.CharField(max_length=255, null=True, blank=True)
-    shipment = models.ForeignKey(OrderedProduct, null=True, blank=True, on_delete=models.CASCADE, related_name='credit_note')
+    shipment = models.ForeignKey(OrderedProduct, null=True, blank=True, on_delete=models.SET_NULL, related_name='credit_note')
     note_type = models.CharField(
         max_length=255, choices=NOTE_TYPE_CHOICES, default='credit_note'
     )
     amount = models.FloatField(default=0)
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_note',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
