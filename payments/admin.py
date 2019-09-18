@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import *
 from .forms import ShipmentPaymentForm, ShipmentPaymentInlineForm, OnlinePaymentInlineForm, \
-    PaymentForm
+    PaymentForm, OrderPaymentForm
 #from .forms import ShipmentPaymentApprovalForm
 from django.utils.safestring import mark_safe
 from django.forms.models import BaseInlineFormSet
@@ -16,6 +16,7 @@ class OnlinePaymentInlineAdmin(admin.TabularInline):
 
 class OrderPaymentAdmin(admin.ModelAdmin):
     model = OrderPayment
+    form  = OrderPaymentForm
     autocomplete_fields = ('order', 'parent_payment', 'created_by', 'updated_by',)
     search_fields = ('order', 'parent_payment')
 

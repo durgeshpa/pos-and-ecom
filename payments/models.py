@@ -180,6 +180,13 @@ class Payment(AbstractDateTime):
         #     shipment_payment1.paid_amount = self.paid_amount
         #     shipment_payment1.save()
 
+class Error(Exception):
+   """Base class for other exceptions"""
+   pass
+
+class ValueTooLargeError(Error):
+   """Raised when the input value is too large"""
+   pass
 
 class OrderPayment(AbstractDateTime):
     # This class stores the payment information for the shipment
@@ -195,7 +202,9 @@ class OrderPayment(AbstractDateTime):
         return "{}->{},{}".format(
             str(self.order), 
             str(self.parent_payment.payment_mode_name), 
-            str(self.paid_amount))
+            str(self.paid_amount),
+            #str(self.paid_amount - self.payment_utilised)
+            )
 
     @property
     def payment_utilised(self):
@@ -226,9 +235,14 @@ class OrderPayment(AbstractDateTime):
     def clean(self):
         #payment except current
         # import pdb; pdb.set_trace()
-        if self.payment_utilised_excluding_current + self.paid_amount > self.parent_payment.paid_amount:
-            error_msg = "Maximum amount to be utilised from parent payment is " + str(self.parent_payment.paid_amount - self.payment_utilised_excluding_current)
+        try:
+            if float(self.payment_utilised_excluding_current) + float(self.paid_amount) > float(self.parent_payment.paid_amount):
+                error_msg = "Maximum amount to be utilised from parent payment is " + str(self.parent_payment.paid_amount - self.payment_utilised_excluding_current)
+                raise ValueTooLargeError #ValidationError(_(error_msg),)   
+        except ValueTooLargeError:
             raise ValidationError(_(error_msg),)
+        except:
+            pass
 
 
 # create payment mode table shipment payment mapping
@@ -268,13 +282,22 @@ class ShipmentPayment(AbstractDateTime):
         #     error_msg = "Maximum amount to be utilised from parent order payment is " + str(self.parent_order_payment.paid_amount - self.payment_utilised_excluding_current)
         #     raise ValidationError(_(error_msg),)
         try:
-            payment = self.parent_order_payment
-        except:
-            pass #raise ValidationError(_("Parent Order Payment is required"))
-        else:
-            if self.payment_utilised_excluding_current + self.paid_amount > self.parent_order_payment.paid_amount:
+            if float(self.payment_utilised_excluding_current) + float(self.paid_amount) > float(self.parent_order_payment.paid_amount):
                 error_msg = "Maximum amount to be utilised from parent order payment is " + str(self.parent_order_payment.paid_amount - self.payment_utilised_excluding_current)
-                raise ValidationError(_(error_msg),)
+                raise ValueTooLargeError #ValidationError(_(error_msg),)   
+        except ValueTooLargeError:
+            raise ValidationError(_(error_msg),)
+        except:
+            pass
+            
+        # try:
+        #     payment = self.parent_order_payment
+        # except:
+        #     pass #raise ValidationError(_("Parent Order Payment is required"))
+        # else:
+        #     if float(self.payment_utilised_excluding_current) + float(self.paid_amount) > float(self.parent_order_payment.paid_amount):
+        #         error_msg = "Maximum amount to be utilised from parent order payment is " + str(self.parent_order_payment.paid_amount - self.payment_utilised_excluding_current)
+        #         raise ValidationError(_(error_msg),)
 
     class Meta:
         unique_together = (("parent_order_payment", "shipment"),)

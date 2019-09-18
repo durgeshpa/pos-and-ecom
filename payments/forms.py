@@ -16,7 +16,8 @@ from django.forms import widgets
 from django.utils.html import format_html
 
 from accounts.middlewares import get_current_user
-from payments.models import Payment, ShipmentPayment, OnlinePayment #, ShipmentPaymentApproval
+from payments.models import Payment, ShipmentPayment, OnlinePayment,\
+    OrderPayment #, ShipmentPaymentApproval
 from retailer_to_sp.models import Order
 
 User = get_user_model()
@@ -39,6 +40,20 @@ class PaymentForm(forms.ModelForm):
         self.fields.get('paid_by').required = True
         # if self.data and self.data.get('payment_mode_name') != 'cash_payment':
         #     self.fields.get('reference_no').required = True
+
+
+class OrderPaymentForm(forms.ModelForm):
+    class Meta:
+        model = OrderPayment
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super(OrderPaymentForm, self).__init__(*args, **kwargs)
+        self.fields.get('parent_payment').required = True
+        self.fields.get('paid_amount').required = True
+        # if self.data and self.data.get('payment_mode_name') != 'cash_payment':
+        #     self.fields.get('reference_no').required = True
+    
     
     
 class ShipmentPaymentInlineForm(forms.ModelForm):
