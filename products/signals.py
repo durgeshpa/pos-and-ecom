@@ -20,8 +20,10 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
 @receiver(post_save, sender=ProductCategory)
 def update_category_elasticsearch(sender, instance=None, created=False, **kwargs):
 	category = [str(c.category) for c in instance.product.product_pro_category.filter(status=True)]
-	for prod_price in instance.product.product_pro_price.filter(status=True).values('shop', 'product'):
-		update_shop_product_es.delay(prod_price['shop'], prod_price['product'], category=category)
+	for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
+		update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'], category=category)
+
+
 
 @receiver(post_save, sender=ProductImage)
 def update_product_image_elasticsearch(sender, instance=None, created=False, **kwargs):
@@ -30,12 +32,13 @@ def update_product_image_elasticsearch(sender, instance=None, created=False, **k
                         "image_alt":instance.image_alt_text,
                         "image_url":instance.image.url
                        }]
-    for prod_price in instance.product.product_pro_price.filter(status=True).values('shop', 'product'):
-	    update_shop_product_es.delay(prod_price['shop'], prod_price['product'], product_images=product_images)
+    for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
+	    update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'], product_images=product_images)
+
 
 @receiver(post_save, sender=Product)
 def update_product_elasticsearch(sender, instance=None, created=False, **kwargs):
-    for prod_price in instance.product_pro_price.filter(status=True).values('shop', 'product'):
-	    update_shop_product_es.delay(prod_price['shop'], prod_price['product'], name=instance.product_name)
-	    update_shop_product_es.delay(prod_price['shop'], prod_price['product'], pack_size=instance.product_inner_case_size)
-	    update_shop_product_es.delay(prod_price['shop'], prod_price['product'], product_status=instance.status)
+    for prod_price in instance.product_pro_price.filter(status=True).values('seller_shop', 'product'):
+	    update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'], name=instance.product_name)
+	    update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'], pack_size=instance.product_inner_case_size)
+	    update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'], product_status=instance.status)
