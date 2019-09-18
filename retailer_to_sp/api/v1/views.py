@@ -499,6 +499,7 @@ class CartDetail(APIView):
                     serializer = CartSerializer(
                         Cart.objects.get(id=cart.id),
                         context={'parent_mapping_id': parent_mapping.parent.id,
+                                 'buyer_shop_id': shop_id,
                                  'delivery_message': self.delivery_message()}
                     )
                     msg = {
