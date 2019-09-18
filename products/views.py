@@ -829,9 +829,9 @@ class ProductAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self):
         qs = Product.objects.all()
         if self.q:
-            qs = qs.filter(Q(product_name=self.q) |
-                           Q(product_gf_code=self.q) |
-                           Q(product_sku=self.q))
+            qs = qs.filter(Q(product_name__icontains=self.q) |
+                           Q(product_gf_code__icontains=self.q) |
+                           Q(product_sku__icontains=self.q))
         return qs
 
 
