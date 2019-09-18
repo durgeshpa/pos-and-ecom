@@ -119,7 +119,8 @@ def products_price_excel(queryset):
     data = queryset
 
     data_rows = data.count()
-    workbook = xlsxwriter.Workbook(output)
+    workbook = xlsxwriter.Workbook(output, {'default_date_format':
+                                            'dd/mm/yy hh:mm:ss'})
     worksheet = workbook.add_worksheet()
     unlocked = workbook.add_format({'locked': 0})
 
@@ -166,12 +167,14 @@ def products_price_excel(queryset):
     worksheet.write('I1', 'Pincode\n(optional)', header_format)
     worksheet.write('J1', 'Buyer Shop ID\n(optional)', header_format)
     worksheet.write('K1', 'Buyer Shop Name', header_format)
-    worksheet.write('L1', 'Price Start Date\n(m/d/y H:M:S)(optional)', header_format)
-    worksheet.write('M1', 'Price End Date\n(m/d/y H:M:S)(optional)', header_format)
+    worksheet.write('L1', 'Price Start Date\n(dd/mm/yy hh:mm:ss)(required)', header_format)
+    worksheet.write('M1', 'Price End Date\n(dd/mm/yy hh:mm:ss)(required)', header_format)
     worksheet.write('N1', 'Approval Status', header_format)
 
     for row_num, columns in enumerate(data):
         for col_num, cell_data in enumerate(columns):
+            if col_num in (11, 12):
+                worksheet.write_datetime(row_num + 1, col_num, cell_data)
             worksheet.write(row_num + 1, col_num, cell_data)
 
     # worksheet.data_validation(

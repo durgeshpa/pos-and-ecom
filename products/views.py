@@ -888,6 +888,12 @@ class ProductPriceUpload(View):
                 not row[5]):
             raise Exception("{} - Please enter a valid {}"
                             "".format(row[5], first_row[5]))
+        if not row[11]:
+            raise Exception("{} - Please enter a valid {}"
+                            "".format(row[11], first_row[11]))
+        if not row[12]:
+            raise Exception("{} - Please enter a valid {}"
+                            "".format(row[12], first_row[12]))
 
     def create_product_price(self, request, data):
         try:
