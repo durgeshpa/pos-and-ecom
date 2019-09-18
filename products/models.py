@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 from retailer_backend.validators import *
 from addresses.models import Country, State, City, Area, Pincode, Address
 from categories.models import Category
