@@ -301,10 +301,14 @@ class GramGRNProductsList(APIView):
             products_list = es_search(index="all_products", body=body)
 
         for p in products_list['hits']['hits']:
-            product = Product.objects.get(id=p["_source"]["id"])
-            ptr = product.getRetailerPrice(parent_mapping.parent.id, shop_id)
-            loyalty_discount = product.getLoyaltyIncentive(parent_mapping.parent.id, shop_id)
-            cash_discount = product.getCashDiscount(parent_mapping.parent.id, shop_id)
+            if is_store_active:
+                product = Product.objects.get(id=p["_source"]["id"])
+                check_price = product.get_current_shop_price(parent_mapping.parent.id, shop_id)
+                if not check_price:
+                    continue
+                ptr = check_price.selling_price
+                loyalty_discount = product.getLoyaltyIncentive(parent_mapping.parent.id, shop_id)
+                cash_discount = product.getCashDiscount(parent_mapping.parent.id, shop_id)
             if cart_check == True:
                 for c_p in cart_products:
                     if c_p.cart_product_id == p["_source"]["id"]:
@@ -890,8 +894,8 @@ class DownloadInvoiceSP(APIView):
                 order_obj.order.ordered_cart.seller_shop,
                 order_obj.order.ordered_cart.buyer_shop)
 
-            product_pro_price_ptr = product_price.price_to_retailer
-            product_pro_price_mrp = round(product_price.mrp,2)
+            product_pro_price_ptr = product_price.selling_price
+            product_pro_price_mrp = product_price.mrp
 
             no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
             cart_qty = m.product.rt_cart_product_mapping.last().qty
