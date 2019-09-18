@@ -153,15 +153,15 @@ class Product(models.Model):
             .order_by('start_date')
         if product_price.count() > 1:
             product_price = product_price\
-                .exclude(~Q(city_id=buyer_shop_dt.get('city_id')) |
+                .exclude(~Q(city_id=buyer_shop_dt.get('city_id')) &
                          ~Q(city_id=None))
         if product_price.count() > 1:
             product_price = product_price\
-                .exclude(~Q(pincode_id=buyer_shop_dt.get('pincode_link')) |
+                .exclude(~Q(pincode_id=buyer_shop_dt.get('pincode_link')) &
                          ~Q(pincode_id=None))
         if product_price.count() > 1:
             product_price = product_price\
-                .exclude(~Q(buyer_shop_id=buyer_shop_id) |
+                .exclude(~Q(buyer_shop_id=buyer_shop_id) &
                          ~Q(buyer_shop_id=None))
         return product_price.last()
 
