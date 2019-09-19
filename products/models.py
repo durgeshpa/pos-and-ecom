@@ -149,9 +149,9 @@ class Product(models.Model):
             buyer_shop_dt = buyer_shop_dt.last()
         product_price = self.product_pro_price\
             .filter(seller_shop_id=seller_shop_id,
-                    city_id__in=[buyer_shop_dt.get('city_id'), None],
-                    pincode_id__in=[buyer_shop_dt.get('pincode_link'), None],
-                    buyer_shop_id__in=[buyer_shop_id, None],
+                    Q(city_id=buyer_shop_dt.get('city_id')) | Q(city_id=None),
+                    Q(pincode_id=buyer_shop_dt.get('pincode_link')) | Q(pincode_id=None),
+                    Q(buyer_shop_id=buyer_shop_id) | Q(buyer_shop_id=None),
                     approval_status=ProductPrice.APPROVED,
                     start_date__lte=today, end_date__gte=today)\
             .order_by('start_date')
