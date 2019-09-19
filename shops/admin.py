@@ -105,7 +105,9 @@ class AddressAdmin(admin.TabularInline):
     model = Address
     formset = AddressInlineFormSet
     form = AddressForm
-    fields = ('nick_name','address_contact_name','address_contact_number','address_type','address_line1','state','city','pincode',)
+    fields = ('nick_name', 'address_contact_name', 'address_contact_number',
+              'address_type', 'address_line1', 'state', 'city', 'pincode',
+              'pincode_link')
     extra = 2
 
 class ShopParentRetailerMapping(admin.TabularInline):

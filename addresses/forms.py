@@ -28,7 +28,9 @@ class AddressForm(forms.ModelForm):
 
     class Meta:
         model = Address
-        fields = '__all__'
+        fields = ('nick_name', 'address_contact_name', 'address_contact_number',
+                  'address_type', 'address_line1', 'state', 'city', 'pincode',
+                  'pincode_link')
 
     def __init__(self, *args, **kwargs):
         super(AddressForm, self).__init__(*args, **kwargs)
