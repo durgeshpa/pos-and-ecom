@@ -318,7 +318,7 @@ class GramGRNProductsList(APIView):
                         no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
                         p["_source"]["user_selected_qty"] = user_selected_qty
                         p["_source"]["no_of_pieces"] = no_of_pieces
-                        p["_source"]["sub_total"] = Decimal(no_of_pieces) * ptr
+                        p["_source"]["sub_total"] = Decimal(no_of_pieces) * p["_source"]["ptr"]
             p_list.append(p["_source"])
 
         msg = {'is_store_active': is_store_active,
