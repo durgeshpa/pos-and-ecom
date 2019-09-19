@@ -11,7 +11,7 @@ def approve_product_price(product_price_id):
     price_data = ProductPrice.objects.values(
         'product_id', 'seller_shop_id', 'buyer_shop_id', 'city_id',
         'pincode_id').get(id=product_price_id)
-    ProductPrice.objects.filter(
+    product_prices = ProductPrice.objects.filter(
         ~Q(id=product_price_id),
         product=price_data.get('product_id'),
         seller_shop=price_data.get('seller_shop_id'),
@@ -19,4 +19,5 @@ def approve_product_price(product_price_id):
         city=price_data.get('city_id'),
         pincode=price_data.get('pincode_id'),
         approval_status=ProductPrice.APPROVED
-    ).update(approval_status=ProductPrice.DEACTIVATED)
+    )
+    product_prices.update(approval_status=ProductPrice.DEACTIVATED)
