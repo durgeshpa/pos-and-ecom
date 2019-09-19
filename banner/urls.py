@@ -23,4 +23,5 @@ url(r'^banner-product-autocomplete/$',
     ProductAutocomplete.as_view(),
     name='banner-product-autocomplete', ),
 url(r'^banner-shop-autocomplete/$', BannerShopAutocomplete.as_view(), name='banner-shop-autocomplete',),
+url(r'^banner-data-autocomplete/$', BannerDataAutocomplete.as_view(), name='banner-data-autocomplete',),
 ]

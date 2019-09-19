@@ -7,10 +7,10 @@ from retailer_backend.validators import *
 from django.core.exceptions import ValidationError
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from products.models import ProductCategory, Tax, Size, Color, Fragrance, Weight, Flavor, PackageSize
-from brand.models import Brand
+from brand.models import Brand, Vendor
 from categories.models import Category
 from django.utils.translation import gettext_lazy as _
-from products.models import Product, ProductImage, ProductPrice
+from products.models import Product, ProductImage, ProductPrice, ProductVendorMapping
 from shops.models import Shop
 from dal import autocomplete
 
@@ -473,3 +473,21 @@ class ProductCategoryMappingForm(forms.Form):
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only csv file accepted")
         return self.cleaned_data['file']
+
+
+class ProductVendorMappingForm(forms.ModelForm):
+    vendor = forms.ModelChoiceField(
+        queryset=Vendor.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:vendor-autocomplete', )
+    )
+
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:product-price-autocomplete', )
+    )
+
+    class Meta:
+        model = ProductVendorMapping
+        fields = ('vendor', 'product', 'product_price', 'product_mrp', 'case_size', )

@@ -28,7 +28,7 @@ from retailer_to_sp.models import OrderedProduct
 from retailer_to_sp.views import update_order_status
 
 from datetime import datetime,timedelta, date
-from django.db.models import Q,Sum,Count,F, FloatField, Avg
+from django.db.models import Q,Sum,Count,F, FloatField, Avg, Value, IntegerField
 from retailer_to_sp.models import Order
 from django.contrib.auth.models import Group
 User =  get_user_model()

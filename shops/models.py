@@ -124,6 +124,8 @@ class Shop(models.Model):
             return self.retiler_mapping.last().parent.shop_name
     get_shop_parent_name.fget.short_description = 'Parent Shop Name'
 
+    def get_orders(self):
+        return self.rt_buyer_shop_order.all()
 
     def save(self, force_insert=False, force_update=False, *args, **kwargs):
         if self.status != self.__original_status and self.status is True and ParentRetailerMapping.objects.filter(retailer=self, status=True).exists():
@@ -343,21 +345,22 @@ class ShopRequestBrand(models.Model):
 class ShopUserMapping(models.Model):
     shop = models.ForeignKey(Shop, related_name='shop_user', on_delete=models.CASCADE)
     manager = models.ForeignKey('self', null=True, blank=True, related_name='employee_list', on_delete=models.SET_NULL,
-                                limit_choices_to={'manager': None},)
+                                limit_choices_to={'manager': None,'status':True, 'employee_group__permissions__codename':'can_sales_manager_add_shop'},)
     employee = models.ForeignKey(get_user_model(), related_name='shop_employee', on_delete=models.CASCADE)
     employee_group = models.ForeignKey(Group, related_name='shop_user_group',default='1', on_delete=models.SET_DEFAULT)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
-    class Meta:
-        unique_together = ('shop', 'employee', 'status')
+    # class Meta:
+    #     unique_together = ('shop', 'employee', 'status')
 
     def save(self, *args, **kwargs):
         if self.manager == self:
             raise ValidationError(_('Manager and Employee cannot be same'))
         else:
-            ShopUserMapping.objects.filter(shop=self.shop, shop__shop_type__shop_type='r', employee_group=self.employee_group, status=True).update(status=False)
+            ShopUserMapping.objects.filter(shop=self.shop, employee=self.employee, employee_group=self.employee_group, status=True).update(status=False)
+            #ShopUserMapping.objects.filter(shop=self.shop, shop__shop_type__shop_type='r', employee_group=self.employee_group, status=True).update(status=False)
             self.status = True
         super().save(*args, **kwargs)
 
