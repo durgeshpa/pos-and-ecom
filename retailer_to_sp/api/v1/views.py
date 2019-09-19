@@ -68,6 +68,7 @@ from django.contrib.auth import get_user_model
 from django.utils.translation import ugettext_lazy as _
 from common.data_wrapper import format_serializer_errors
 from sp_to_gram.tasks import es_search
+from coupon.serializers import CouponSerializer
 
 
 User = get_user_model()
@@ -299,9 +300,11 @@ class GramGRNProductsList(APIView):
                 "query":query,"_source":{"includes":["name", "product_images","pack_size","weight_unit","weight_value"]}
                 }
             products_list = es_search(index="all_products", body=body)
-
         for p in products_list['hits']['hits']:
-
+            product = Product.objects.get(id=p["_source"]["id"])
+            product_coupons = product.getProductCoupons()
+            coupons = CouponSerializer(product_coupons, many=True).data
+            p["_source"]["coupons"] = coupons
             if cart_check == True:
                 ptr = p["_source"]['ptr']
                 loyalty_discount = p["_source"]['loyalty_discount']

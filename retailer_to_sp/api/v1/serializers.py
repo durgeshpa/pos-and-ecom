@@ -27,6 +27,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from shops.models import Shop
 
 from django.contrib.auth import get_user_model
+from coupon.serializers import CouponSerializer
 
 User = get_user_model()
 

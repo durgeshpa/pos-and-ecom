@@ -319,7 +319,7 @@ REDIS_DB_CHOICE = {
     'staging': '2',
     'qa': '7',
     'qa1': '3',
-    'local':'5',
+    'local-raj':'5',
     'qa3':'6',
     'qa2':'8',
 }

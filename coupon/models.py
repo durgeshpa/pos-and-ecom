@@ -56,6 +56,12 @@ class Coupon(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     expiry_date = models.DateTimeField()
 
+    def save(self, *args, **kwargs):
+        if self.is_active == True:
+            Coupon.objects.filter(rule = self.rule, is_active=True).update(is_active=False)
+            self.is_active = True
+        super().save(*args, **kwargs)
+
 class CusotmerCouponUsage(models.Model):
     coupon = models.ForeignKey(Coupon, related_name ='customer_coupon', on_delete=models.CASCADE)
     customer = models.ForeignKey(User, related_name='user_coupon', on_delete=models.CASCADE, null=True, blank=True)
@@ -64,7 +70,7 @@ class CusotmerCouponUsage(models.Model):
 class RuleSetProductMapping(models.Model):
     rule = models.ForeignKey(CouponRuleSet, related_name ='product_ruleset', on_delete=models.CASCADE)
     purchased_product = models.ForeignKey(Product, related_name ='purchased_product_coupon', on_delete=models.CASCADE, null=True)
-    free_product = models.ForeignKey(Product, related_name ='free_product_coupon', on_delete=models.CASCADE, null=True)
+    free_product = models.ForeignKey(Product, related_name ='free_product_coupon', on_delete=models.CASCADE, null=True, blank=True)
     max_qty_per_use = models.PositiveIntegerField(default=0, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

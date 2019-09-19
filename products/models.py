@@ -166,6 +166,13 @@ class Product(models.Model):
         product_price = self.getPriceByShopId(shop_id)
         return round(product_price.loyalty_incentive,2)
 
+    def getProductCoupons(self):
+        product_coupons = []
+        for rules in self.purchased_product_coupon.all():
+            for rule in rules.rule.coupon_ruleset.filter(is_active=True):
+                product_coupons.append(rule.coupon_code)
+        return product_coupons
+
 
 class ProductSKUGenerator(models.Model):
     parent_cat_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
@@ -423,5 +430,3 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
         ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code,brand_sku_code=brand_sku_code,last_auto_increment=last_sku_increment)
         product.product_sku="%s%s%s%s"%(cat_sku_code,parent_cat_sku_code,brand_sku_code,last_sku_increment)
         product.save()
-
-
