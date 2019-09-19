@@ -173,9 +173,10 @@ def products_price_excel(queryset):
 
     for row_num, columns in enumerate(data):
         for col_num, cell_data in enumerate(columns):
-            if col_num in (11, 12):
+            if cell_data and col_num in (11, 12):
                 worksheet.write_datetime(row_num + 1, col_num, cell_data)
-            worksheet.write(row_num + 1, col_num, cell_data)
+            else:
+                worksheet.write(row_num + 1, col_num, cell_data)
 
     # worksheet.data_validation(
     #     'L2:L{}'.format(data_rows + 1),
