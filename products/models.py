@@ -148,7 +148,7 @@ class Product(models.Model):
         if buyer_shop_dt.exists():
             buyer_shop_dt = buyer_shop_dt.last()
         product_price = self.product_pro_price\
-            .filter(seller_shop_id=seller_shop_id,
+            .filter(Q(seller_shop_id=seller_shop_id),
                     Q(city_id=buyer_shop_dt.get('city_id')) | Q(city_id=None),
                     Q(pincode_id=buyer_shop_dt.get('pincode_link')) | Q(pincode_id=None),
                     Q(buyer_shop_id=buyer_shop_id) | Q(buyer_shop_id=None),
