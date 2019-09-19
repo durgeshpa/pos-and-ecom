@@ -52,19 +52,27 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
             'shipment', 'online_payment_type'
             ]  #"__all__"
 
-    def validate(self, data):
-        initial_data = self.initial_data
-        reference_no = initial_data.get('reference_no', None)#['reference_no']
-        if reference_no:
-            if not re.match("^[a-zA-Z0-9_]*$", reference_no):
-                raise serializers.ValidationError('Referece number can not have special character!')
-        return initial_data     
+    # def validate(self, data):
+    #     initial_data = self.initial_data
+    #     #import pdb; pdb.set_trace() 
+    #     # for item in initial_data:
+    #     #     if item['payment_mode_name'] == "online_payment":
+    #     #         if item.get('reference_no') is None:
+    #     #             raise serializers.ValidationError("Reference number is required!")
+    #     #             # raise ValidationError("Reference number is required") 
+    #     #         if item.get('online_payment_type') is None:
+    #     #             raise serializers.ValidationError("Online payment type is required!")
+
+    #     # reference_no = initial_data.get('reference_no', None)#['reference_no']
+    #     # if reference_no:
+    #     #     if not re.match("^[a-zA-Z0-9_]*$", reference_no):
+    #     #         raise serializers.ValidationError('Referece number can not have special character!')
+    #     return initial_data     
 
     def create(self, validated_data):
         
         # try:
         with transaction.atomic():
-            #import pdb; pdb.set_trace()
             shipment = validated_data.pop('shipment', None)
             paid_amount = validated_data.pop('paid_amount', None)
             payment_mode_name = validated_data.pop('payment_mode_name', None)
@@ -90,7 +98,7 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
             payment.save()
 
             # create order payment
-            shipment = OrderedProduct.objects.get(pk=shipment)
+            #shipment = OrderedProduct.objects.get(pk=shipment)
             order_payment = OrderPayment.objects.create(
                 paid_amount = paid_amount,
                 parent_payment = payment,

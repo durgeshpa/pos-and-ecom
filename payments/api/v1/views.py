@@ -47,12 +47,12 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
             return serializer_action_classes.get(self.action, self.serializer_class)
         return self.serializer_class
 
-
     def create(self, request, *args, **kwargs):
-        #import pdb; pdb.set_trace()
-        serializer = self.get_serializer(data=request.data)#, many=True)
+        # import pdb; pdb.set_trace()
+        #serializer = ShipmentPaymentSerializer(data=request.data, many=True)
+        serializer = self.get_serializer(data=request.data, many=True)
         if serializer.is_valid():
-            serializer.save(user=self.request.user)
+            serializer.save() #user=self.request.user
             msg = {'is_success': True,
                     'message': ["Payment created successfully"],
                     'response_data': None}

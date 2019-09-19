@@ -1169,8 +1169,8 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
         'delivery_boy__phone_number', 'vehicle_no', 'dispatch_no',
         'seller_shop__shop_name'
     ]
-    fields = ['trip_status', 'trip_amount', 'cash_to_be_collected', 'dispatch_no',
-              'total_received_amount',
+    fields = ['trip_status', 'trip_amount', 'cash_to_be_collected', 'description', 
+                'dispatch_no', 'total_received_amount', 
               #'received_cash_amount', 'received_online_amount', 
               'delivery_boy', 'seller_shop', 'starts_at', 'completed_at', 
               'e_way_bill_no', 'vehicle_no']

@@ -15,6 +15,7 @@ from django.db.models import Case, CharField, Value, When, F, Sum
 from django.contrib.auth import get_user_model
 
 from accounts.models import UserWithName
+from retailer_backend.common_function import payment_id_pattern
 from retailer_to_sp.models import Order, Shipment, OrderedProduct
 
 
@@ -195,6 +196,7 @@ class OrderPayment(AbstractDateTime):
     parent_payment = models.ForeignKey(Payment, 
        related_name='parent_payment_order', on_delete=models.CASCADE)
     paid_amount = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')
+    payment_id = models.CharField(max_length=255, null=True, blank=True)
     created_by = models.ForeignKey(UserWithName, related_name='order_payment_created_by', null=True, blank=True, on_delete=models.SET_NULL)
     updated_by = models.ForeignKey(UserWithName, related_name='order_payment_updated_by', null=True, blank=True, on_delete=models.SET_NULL)
 
@@ -452,3 +454,13 @@ class PaymentApproval(Payment):
 #             payment_parent=instance,
 
 #             )
+
+@receiver(post_save, sender=OrderPayment)
+def create_payment_id(sender, instance=None, created=False, **kwargs):
+    if created:
+        instance.payment_id = payment_id_pattern(
+                                    sender, 'payment_id', instance.pk,
+                                    instance.order.seller_shop.
+                                    shop_name_address_mapping.filter(
+                                        address_type='billing').last().pk)
+        instance.save()

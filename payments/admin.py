@@ -71,17 +71,17 @@ class PaymentApprovalAdmin(admin.ModelAdmin):# NoDeleteAdminMixin,
     model = PaymentApproval
     list_display = (
         "id", "reference_no", "payment_approval_status", "paid_amount",
-        "payment_received"
+        #"payment_received"
     )
 
     fields = (
-        "paid_amount", "payment_received", "payment_mode_name",
-        "reference_no", "is_payment_approved", "payment_approval_status",
+        "retailer", "processed_by", "paid_amount", "payment_mode_name",
+        "reference_no", "is_payment_approved", #"payment_approval_status", "payment_received",
         "description"
     )
     
     readonly_fields = (
-        "paid_amount", "payment_mode_name", "reference_no", "payment_approval_status",
+        "retailer", "processed_by", "paid_amount", "payment_mode_name", "reference_no", #"payment_approval_status",
     )
 
     # raw_id_fields = ("shipment",)
@@ -97,6 +97,8 @@ class PaymentApprovalAdmin(admin.ModelAdmin):# NoDeleteAdminMixin,
                   order.order_no)
                          )
 
+    def retailer(self, obj):
+        return obj.paid_by
 
 # class PaymentEditAdmin(admin.TabularInline):# NoDeleteAdminMixin, 
 #     model = Payment   

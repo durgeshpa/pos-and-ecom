@@ -534,6 +534,7 @@ class Trip(models.Model):
                                     max_digits=19, decimal_places=2)
     received_amount = models.DecimalField(blank=True, null=True,
                                     max_digits=19, decimal_places=2)
+    description = models.CharField(max_length=50, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
