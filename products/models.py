@@ -271,6 +271,17 @@ class ProductPrice(models.Model):
     def save(self, *args, **kwargs):
         self.validate(Exception)
         self.update_city_pincode()
+        if self.approval_status == self.APPROVED:
+            product_price = ProductPrice.objects.filter(
+                product=self.product,
+                seller_shop=self.seller_shop,
+                buyer_shop=self.buyer_shop,
+                city=self.city,
+                pincode=self.pincode,
+                approval_status=ProductPrice.APPROVED
+            )
+            product_price.update(approval_status=ProductPrice.DEACTIVATED)
+            self.approval_status = ProductPrice.APPROVED
         super().save(*args, **kwargs)
 
     @property
