@@ -15,6 +15,7 @@ import datetime
 from django.core.validators import MinLengthValidator
 from django.contrib.auth.models import Group
 
+Product = 'products.product'
 logger = logging.getLogger(__name__)
 
 
@@ -39,6 +40,7 @@ class RetailerType(models.Model):
     def __str__(self):
         return self.retailer_type_name
 
+
 class ShopType(models.Model):
     shop_type = models.CharField(max_length=50, choices=SHOP_TYPE_CHOICES, default='r')
     shop_sub_type = models.ForeignKey(RetailerType, related_name='shop_sub_type_shop', null=True, blank=True,on_delete=models.CASCADE)
@@ -59,6 +61,7 @@ class Shop(models.Model):
     shop_code = models.CharField(max_length=1, blank=True, null=True)
     warehouse_code = models.CharField(max_length=2, blank=True, null=True)
     imei_no = models.CharField(max_length=20, null=True, blank=True)
+    favourite_products = models.ManyToManyField(Product, through='shops.FavouriteProduct')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=False)
@@ -163,6 +166,18 @@ class Shop(models.Model):
             ("is_delivery_boy", "Is Delivery Boy"),
             ("hide_related_users", "Hide Related User"),
         )
+
+
+class FavouriteProduct(models.Model):
+    #user = models.ForeignKey(get_user_model(), related_name='user_favourite',on_delete=models.CASCADE)
+    buyer_shop = models.ForeignKey(Shop, related_name='shop_favourite', on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, related_name='product_favourite', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.product.product_sku
+
 
 class ShopNameDisplay(Shop):
     class Meta:

@@ -2,17 +2,26 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 from rest_framework.response import Response
+from django_filters import rest_framework as filters
+
 from .serializers import (RetailerTypeSerializer, ShopTypeSerializer,
         ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer, ShopTimingSerializer, ShopUserMappingSerializer,
-        SellerShopSerializer, AppVersionSerializer, ShopUserMappingUserSerializer, ShopRequestBrandSerializer
+        SellerShopSerializer, AppVersionSerializer, ShopUserMappingUserSerializer, ShopRequestBrandSerializer,
+        FavouriteProductSerializer, AddFavouriteProductSerializer,
+        ListFavouriteProductSerializer
 )
-from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping, SalesAppVersion, ShopRequestBrand, ShopTiming)
+from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping, SalesAppVersion, ShopRequestBrand, ShopTiming,
+    FavouriteProduct)
 from rest_framework import generics
 from addresses.models import City, Area, Address
 from rest_framework import status
 from django.contrib.auth import get_user_model
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES
 from rest_framework.parsers import FormParser, MultiPartParser
+from common.data_wrapper_view import DataWrapperViewSet
+from rest_framework.permissions import IsAuthenticated, AllowAny
+
+from shops.filters import FavouriteProductFilter
 
 from common.data_wrapper_view import DataWrapperViewSet
 from retailer_to_sp.models import OrderedProduct
@@ -58,6 +67,80 @@ class ShopRequestBrandViewSet(DataWrapperViewSet):
         if hasattr(self, 'action'):
             return serializer_action_classes.get(self.action, self.serializer_class)
         return self.serializer_class
+
+
+
+class FavouriteProductView(DataWrapperViewSet):
+    '''
+    This class handles all operation of favourite product for a shop
+    '''
+    #permission_classes = (AllowAny,)
+    model = FavouriteProduct
+    serializer_class = FavouriteProductSerializer
+    queryset = FavouriteProduct.objects.all()
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    filter_backends = (filters.DjangoFilterBackend,)
+    filter_class = FavouriteProductFilter
+
+    def get_serializer_class(self):
+        '''
+        Returns the serializer according to action of viewset
+        '''
+        serializer_action_classes = {
+            'retrieve': FavouriteProductSerializer,
+            'list': FavouriteProductSerializer,
+            'create':AddFavouriteProductSerializer,
+            'update':FavouriteProductSerializer,
+            'delete':FavouriteProductSerializer
+        }
+        if hasattr(self, 'action'):
+            return serializer_action_classes.get(self.action, self.serializer_class)
+        return self.serializer_class
+
+    def delete(self, request, *args, **kwargs):
+    
+        try:
+            # import pdb; pdb.set_trace()
+            buyer_shop=request.query_params['buyer_shop']
+            product=request.query_params['product']
+            favourite = FavouriteProduct.objects.filter(buyer_shop=buyer_shop, product=product)
+            if favourite.exists():
+                favourite.delete()
+                return Response(data={'message':"deleted"})
+            else:
+                return Response(data={'message':"not found"})
+
+        except Exception as e:
+            return Response(data={'message':str(e)})
+
+
+class FavouriteProductListView(generics.ListAPIView):
+    queryset = FavouriteProduct.objects.all()
+    serializer_class = ListFavouriteProductSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    #permission_classes = (AllowAny,)
+    # filter_backends = (filters.DjangoFilterBackend,)
+    # filter_class = FavouriteProductFilter
+
+    def get_queryset(self):
+        buyer_shop = self.request.query_params.get('buyer_shop', None)
+        buyer_shop_products = FavouriteProduct.objects.all()
+        if buyer_shop:
+            buyer_shop_products = buyer_shop_products.filter(
+                buyer_shop=buyer_shop
+                )
+        return buyer_shop_products
+
+    def list(self, request):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        msg = {'is_success':True,
+                'message': None,
+                'response_data':serializer.data}
+        return Response(msg,
+                        status=status.HTTP_200_OK)
 
 
 class RetailerTypeView(generics.ListAPIView):
