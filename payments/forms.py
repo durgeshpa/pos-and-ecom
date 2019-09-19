@@ -19,6 +19,8 @@ from accounts.middlewares import get_current_user
 from payments.models import Payment, ShipmentPayment, OnlinePayment,\
     OrderPayment #, ShipmentPaymentApproval
 from retailer_to_sp.models import Order
+from shops.models import Shop
+
 
 User = get_user_model()
 
@@ -62,11 +64,24 @@ class PaymentForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(PaymentForm, self).__init__(*args, **kwargs)
         self.fields.get('paid_by').required = True
+        users = Shop.objects.all().values('shop_owner')
+        self.fields.get('paid_by').queryset = users
         # if self.data and self.data.get('payment_mode_name') != 'cash_payment':
         #     self.fields.get('reference_no').required = True
 
 
 class OrderPaymentForm(forms.ModelForm):
+
+    order = forms.ModelChoiceField(
+        queryset=Order.objects.all(),
+        widget=autocomplete.ModelSelect2(url='order-autocomplete',)
+    )
+    parent_payment = forms.ModelChoiceField(
+        queryset=Payment.objects.all(),
+        widget=autocomplete.ModelSelect2(url='order-payment-autocomplete',
+                                         forward=('order'))
+    )
+
     class Meta:
         model = OrderPayment
         fields = "__all__"
@@ -77,7 +92,7 @@ class OrderPaymentForm(forms.ModelForm):
         self.fields.get('paid_amount').required = True
         # if self.data and self.data.get('payment_mode_name') != 'cash_payment':
         #     self.fields.get('reference_no').required = True
-    
+        # select queryset on the basis of user
     
     
 class ShipmentPaymentInlineForm(forms.ModelForm):

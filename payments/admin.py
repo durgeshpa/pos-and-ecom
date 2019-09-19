@@ -19,7 +19,9 @@ class OrderPaymentAdmin(admin.ModelAdmin):
     form  = OrderPaymentForm
     autocomplete_fields = ('order', 'parent_payment', 'created_by', 'updated_by',)
     search_fields = ('order', 'parent_payment')
-
+    readonly_fields = (
+       "payment_id",
+    )
 
 class PaymentAdmin(admin.ModelAdmin):
     # inlines = [OnlinePaymentInlineAdmin]

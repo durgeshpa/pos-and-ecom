@@ -14,7 +14,7 @@ from payments.models import ShipmentPayment, CashPayment, OnlinePayment, Payment
 class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
-        fields = "__all__"
+        fields = "__all__"  
 
 
 class OrderPaymentSerializer(serializers.ModelSerializer):
@@ -60,17 +60,17 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Payment mode name is required!")
             if item['payment_mode_name'] == "online_payment":
                 if item.get('reference_no') is None:
-                    raise serializers.ValidationError("Reference number is required!")
+                    raise serializers.ValidationError("Reference number is required!!!!")
                     # raise ValidationError("Reference number is required") 
                 if item.get('online_payment_type') is None:
-                    raise serializers.ValidationError("Online payment type is required!")
+                    raise serializers.ValidationError("Online payment type is required!!!!")
 
         # reference_no = initial_data.get('reference_no', None)#['reference_no']
         # if reference_no:
         #     if not re.match("^[a-zA-Z0-9_]*$", reference_no):
         #         raise serializers.ValidationError('Referece number can not have special character!')
         return data    
-        
+
     def create(self, validated_data):
         
         # try:
