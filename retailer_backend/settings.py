@@ -317,7 +317,7 @@ REDIS_DB_CHOICE = {
     'production': '1',
     'staging': '2',
     'qa': '7',
-    'qa1': '3',
+    'qa1': '9',
     'local':'5',
     'qa3':'6',
     'qa2':'8',
