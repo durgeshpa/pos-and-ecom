@@ -39,6 +39,7 @@ class RelatedFieldWidgetCanAdd(widgets.Select):
         self.related_url = related_url
 
     def render(self, name, value, *args, **kwargs):
+        import pdb; pdb.set_trace()
         self.related_url = reverse(self.related_url)
         output = [super(RelatedFieldWidgetCanAdd, self).render(name, value, *args, **kwargs)]
         output.append('<a href="%s" class="related-widget-wrapper-link add-related" id="add_id_%s" \
@@ -90,6 +91,9 @@ class OrderPaymentForm(forms.ModelForm):
         super(OrderPaymentForm, self).__init__(*args, **kwargs)
         self.fields.get('parent_payment').required = True
         self.fields.get('paid_amount').required = True
+        #import pdb; pdb.set_trace()
+        if kwargs.get('order') is not None:
+            self.fields['order'].initial = order
         # if self.data and self.data.get('payment_mode_name') != 'cash_payment':
         #     self.fields.get('reference_no').required = True
         # select queryset on the basis of user
@@ -107,9 +111,13 @@ class ShipmentPaymentInlineForm(forms.ModelForm):
         self.fields.get('parent_order_payment').required = True
         # shipment_payment = getattr(self, 'instance', None)
 
-        # self.fields['parent_payment'].queryset = Payment.objects.filter(order=shipment_payment.shipment.order)
-
-
+        # self.fields['parent_payment'].queryset = Payment.objects.filter(order=shipment_payment.shipment.order)        
+        if self.fields.get('shipment') is not None:
+            order = self.fields['shipment'].order
+            # self.fields.get('parent_order_payment').widget = RelatedFieldWidgetCanAdd(
+            #                                             OrderPayment,
+            #                                             related_url="admin:payments_orderpayment_add",
+            #                                             order = order)                                            
 
 
 # class ShipmentPaymentApprovalForm(forms.ModelForm):
