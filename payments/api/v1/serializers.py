@@ -69,53 +69,53 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
         # if reference_no:
         #     if not re.match("^[a-zA-Z0-9_]*$", reference_no):
         #         raise serializers.ValidationError('Referece number can not have special character!')
-        return data     
-
+        return data    
+        
     def create(self, validated_data):
         
         # try:
-        with transaction.atomic():
-            #import pdb; pdb.set_trace()
-            shipment = validated_data.pop('shipment', None)
-            paid_amount = validated_data.pop('paid_amount', None)
-            payment_mode_name = validated_data.pop('payment_mode_name', None)
-            
-            reference_no = validated_data.pop('reference_no', None)
-            online_payment_type = validated_data.pop('online_payment_type', None)
-            description = validated_data.pop('description', None)
+        #with transaction.atomic():
+        #import pdb; pdb.set_trace()
+        shipment = validated_data.pop('shipment', None)
+        paid_amount = validated_data.pop('paid_amount', None)
+        payment_mode_name = validated_data.pop('payment_mode_name', None)
+        
+        reference_no = validated_data.pop('reference_no', None)
+        online_payment_type = validated_data.pop('online_payment_type', None)
+        description = validated_data.pop('description', None)
 
-            # create payment
-            payment = Payment.objects.create(
-                paid_amount = paid_amount,
-                payment_mode_name = payment_mode_name,
-                )
-            if payment_mode_name == "online_payment":
-                # if reference_no is None:
-                #     raise serializers.ValidationError("Reference number is required!")
-                #     # raise ValidationError("Reference number is required") 
-                # if online_payment_type is None:
-                #     raise serializers.ValidationError("Online payment type is required!")
+        # create payment
+        payment = Payment.objects.create(
+            paid_amount = paid_amount,
+            payment_mode_name = payment_mode_name,
+            )
+        if payment_mode_name == "online_payment":
+            # if reference_no is None:
+            #     raise serializers.ValidationError("Reference number is required!")
+            #     # raise ValidationError("Reference number is required") 
+            # if online_payment_type is None:
+            #     raise serializers.ValidationError("Online payment type is required!")
 
-                payment.reference_no = reference_no
-                payment.online_payment_type = online_payment_type
-            payment.save()
+            payment.reference_no = reference_no
+            payment.online_payment_type = online_payment_type
+        payment.save()
 
-            # create order payment
-            #shipment = OrderedProduct.objects.get(pk=shipment)
-            order_payment = OrderPayment.objects.create(
-                paid_amount = paid_amount,
-                parent_payment = payment,
-                order = shipment.order
-                )
-            
-            # create shipment payment
-            shipment_payment = ShipmentPayment.objects.create(
-                paid_amount = paid_amount,
-                parent_order_payment = order_payment,
-                shipment = shipment
-                )
-            
-            return shipment_payment
+        # create order payment
+        shipment = OrderedProduct.objects.get(pk=shipment)
+        order_payment = OrderPayment.objects.create(
+            paid_amount = paid_amount,
+            parent_payment = payment,
+            order = shipment.order
+            )
+        
+        # create shipment payment
+        shipment_payment = ShipmentPayment.objects.create(
+            paid_amount = paid_amount,
+            parent_order_payment = order_payment,
+            shipment = shipment
+            )
+        
+        return shipment_payment
         # except Exception as e:
         #     print (traceback.format_exc(sys.exc_info()))
         #     raise serializers.ValidationError(e.message)        

@@ -10,13 +10,18 @@ from rest_framework import viewsets
 from rest_framework import permissions, authentication
 from rest_framework.decorators import list_route
 import datetime
+
+from django.db import transaction
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db.models import Q
 from common.data_wrapper_view import DataWrapperViewSet
 
 from .serializers import ShipmentPaymentSerializer, CashPaymentSerializer, \
     ShipmentPaymentSerializer1 
-from payments.models import ShipmentPayment, CashPayment
+from retailer_to_sp.models import OrderedProduct
+from payments.models import ShipmentPayment, CashPayment, OnlinePayment, PaymentMode, \
+    Payment, OrderPayment
+
 
 
 # class ShipmentPaymentView(DataWrapperViewSet):
@@ -49,16 +54,70 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         # import pdb; pdb.set_trace()
-        #serializer = ShipmentPaymentSerializer(data=request.data, many=True)
-        serializer = self.get_serializer(data=request.data, many=True)
-        if serializer.is_valid():
-            serializer.save() #user=self.request.user
-            msg = {'is_success': True,
-                    'message': ["Payment created successfully"],
-                    'response_data': None}
+        try:
+            serializer = self.get_serializer(data=request.data, many=True)
+            if not serializer.is_valid():
+                msg = {'is_success': False,
+                    'message': serializer.errors,
+                    'response_data': None }
+                return Response(msg,
+                                status=status.HTTP_406_NOT_ACCEPTABLE)
+
+            with transaction.atomic():
+                for item in request.data:
+                    # serializer = self.get_serializer(data=item)
+                    # if serializer.is_valid():
+                    shipment = item.get('shipment', None)
+                    paid_amount = item.get('paid_amount', None)
+                    payment_mode_name = item.get('payment_mode_name', None)
+                    
+                    reference_no = item.get('reference_no', None)
+                    online_payment_type = item.get('online_payment_type', None)
+                    description = item.get('description', None)
+
+                    # create payment
+                    payment = Payment.objects.create(
+                        paid_amount = paid_amount,
+                        payment_mode_name = payment_mode_name,
+                        )
+                    if payment_mode_name == "online_payment":
+                        # if reference_no is None:
+                        #     raise serializers.ValidationError("Reference number is required!")
+                        #     # raise ValidationError("Reference number is required") 
+                        # if online_payment_type is None:
+                        #     raise serializers.ValidationError("Online payment type is required!")
+
+                        payment.reference_no = reference_no
+                        payment.online_payment_type = online_payment_type
+                    payment.save()
+
+                    # create order payment
+                    shipment = OrderedProduct.objects.get(pk=shipment)
+                    order_payment = OrderPayment.objects.create(
+                        paid_amount = paid_amount,
+                        parent_payment = payment,
+                        order = shipment.order
+                        )
+                    
+                    # create shipment payment
+                    shipment_payment = ShipmentPayment.objects.create(
+                        paid_amount = paid_amount,
+                        parent_order_payment = order_payment,
+                        shipment = shipment
+                        )
+
+                msg = {'is_success': True,
+                        'message': ["Payment created successfully"],
+                        'response_data': None}
+                return Response(msg,
+                        status=status.HTTP_200_OK)
+
+        except Exception as e:
+            msg = {'is_success': False,
+                    'message': str(e), #[error for error in errors],
+                    'response_data': None }
             return Response(msg,
-                            status=status.HTTP_200_OK)
-        else:
+                            status=status.HTTP_406_NOT_ACCEPTABLE)
             # errors = []
             # for field in serializer.errors:
             #     for error in serializer.errors[field]:
@@ -67,12 +126,6 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
             #         else:
             #             result = ''.join('{} : {}'.format(field,error))
             #         errors.append(result)
-            msg = {'is_success': False,
-                    'message': serializer.errors, #[error for error in errors],
-                    'response_data': None }
-            return Response(msg,
-                            status=status.HTTP_406_NOT_ACCEPTABLE)
-
 
 
 class CashPaymentView(DataWrapperViewSet):
