@@ -448,12 +448,14 @@ class ProductsSearchListSerializer(serializers.ModelSerializer):
     product_case_size_picies = serializers.SerializerMethodField('product_case_size_picies_dt')
 
     def product_price_dt(self, obj):
-        shop_id = self.context.get("parent_mapping_id",None)
-        return obj.getRetailerPrice(shop_id)
+        seller_shop_id = self.context.get('parent_mapping', None)
+        buyer_shop_id = self.context.get('buyer_shop_id', None)
+        return obj.getRetailerPrice(seller_shop_id, buyer_shop_id)
 
     def product_mrp_dt(self, obj):
-        shop_id = self.context.get("parent_mapping_id",None)
-        return obj.getMRP(shop_id)
+        seller_shop_id = self.context.get('parent_mapping', None)
+        buyer_shop_id = self.context.get('buyer_shop_id', None)
+        return obj.getMRP(seller_shop_id, buyer_shop_id)
 
     def product_case_size_picies_dt(self,obj):
         return str(int(obj.product_inner_case_size)*int(obj.product_case_size))
@@ -469,7 +471,7 @@ class CartProductListPrice(serializers.ModelSerializer):
     product_mrp = serializers.SerializerMethodField('product_mrp_dt')
 
     def product_price_dt(self,obj):
-        return obj.price_to_retailer
+        return obj.selling_price
 
     def product_mrp_dt(self,obj):
         return obj.mrp
