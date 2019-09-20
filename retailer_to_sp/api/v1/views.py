@@ -1,3 +1,4 @@
+from decimal import Decimal
 import logging
 import json
 from datetime import datetime, timedelta
@@ -301,18 +302,23 @@ class GramGRNProductsList(APIView):
             products_list = es_search(index="all_products", body=body)
 
         for p in products_list['hits']['hits']:
-
+            if is_store_active:
+                product = Product.objects.get(id=p["_source"]["id"])
+                check_price = product.get_current_shop_price(parent_mapping.parent.id, shop_id)
+                if not check_price:
+                    continue
+                p["_source"]["ptr"] = check_price.selling_price
+                p["_source"]["mrp"] = check_price.mrp
+                loyalty_discount = product.getLoyaltyIncentive(parent_mapping.parent.id, shop_id)
+                cash_discount = product.getCashDiscount(parent_mapping.parent.id, shop_id)
             if cart_check == True:
-                ptr = p["_source"]['ptr']
-                loyalty_discount = p["_source"]['loyalty_discount']
-                cash_discount = p["_source"]['cash_discount']
                 for c_p in cart_products:
                     if c_p.cart_product_id == p["_source"]["id"]:
                         user_selected_qty = c_p.qty
                         no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
                         p["_source"]["user_selected_qty"] = user_selected_qty
                         p["_source"]["no_of_pieces"] = no_of_pieces
-                        p["_source"]["sub_total"] = float(no_of_pieces) * float(ptr)
+                        p["_source"]["sub_total"] = Decimal(no_of_pieces) * p["_source"]["ptr"]
             p_list.append(p["_source"])
 
         msg = {'is_store_active': is_store_active,
@@ -403,7 +409,7 @@ class AddToCart(APIView):
                 if cart.rt_cart_list.count() <= 0:
                     msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],'response_data': None}
                 else:
-                    serializer = CartSerializer(Cart.objects.get(id=cart.id),context={'parent_mapping_id': parent_mapping.parent.id})
+                    serializer = CartSerializer(Cart.objects.get(id=cart.id),context={'parent_mapping_id': parent_mapping.parent.id, 'buyer_shop_id': shop_id})
                     msg = {'is_success': True, 'message': ['Data added to cart'], 'response_data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
 
@@ -494,6 +500,7 @@ class CartDetail(APIView):
                     serializer = CartSerializer(
                         Cart.objects.get(id=cart.id),
                         context={'parent_mapping_id': parent_mapping.parent.id,
+                                 'buyer_shop_id': shop_id,
                                  'delivery_message': self.delivery_message()}
                     )
                     msg = {
@@ -596,7 +603,8 @@ class ReservedOrder(generics.ListAPIView):
                     serializer = CartSerializer(
                         cart,
                         context={
-                            'parent_mapping_id':parent_mapping.parent.id
+                            'parent_mapping_id':parent_mapping.parent.id,
+                            'buyer_shop_id': shop_id
                         })
                     msg = {'is_success': True,
                            'message': [''],
@@ -610,7 +618,8 @@ class ReservedOrder(generics.ListAPIView):
                         })
                     create_reserved_order(reserved_args)
             serializer = CartSerializer(cart, context={
-                'parent_mapping_id': parent_mapping.parent.id})
+                'parent_mapping_id': parent_mapping.parent.id,
+                'buyer_shop_id': shop_id})
             msg = {
                     'is_success': True,
                     'message': [''],
@@ -696,7 +705,10 @@ class CreateOrder(APIView):
                         ordered_reserve.reserve_status = OrderedProductReserved.ORDERED
                         ordered_reserve.save()
 
-                    serializer = OrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
+                    serializer = OrderSerializer(order, 
+                        context={'parent_mapping_id': parent_mapping.parent.id,
+                                 'buyer_shop_id': shop_id,
+                                 'current_url':current_url})
                     msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                 else:
                     msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
@@ -770,10 +782,18 @@ class OrderList(generics.ListAPIView):
         current_url = request.get_host()
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             queryset = Order.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
-            serializer = OrderListSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
+            serializer = OrderListSerializer(
+                queryset, many=True,
+                context={'parent_mapping_id': parent_mapping.parent.id,
+                         'current_url': current_url,
+                         'buyer_shop_id': shop_id})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             queryset = GramMappedOrder.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
-            serializer = GramMappedOrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
+            serializer = GramMappedOrderSerializer(
+                queryset, many=True,
+                context={'parent_mapping_id': parent_mapping.parent.id,
+                         'current_url': current_url,
+                         'buyer_shop_id': shop_id})
 
         if serializer.data:
             msg = {'is_success': True,'message': None,'response_data': serializer.data}
@@ -799,7 +819,11 @@ class OrderDetail(generics.RetrieveAPIView):
         current_url = request.get_host()
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             queryset = Order.objects.get(id=pk)
-            serializer = OrderDetailSerializer(queryset, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
+            serializer = OrderDetailSerializer(
+                queryset,
+                context={'parent_mapping_id': parent_mapping.parent.id,
+                         'current_url':current_url,
+                         'buyer_shop_id': shop_id})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             queryset = GramMappedOrder.objects.get(id=pk)
             serializer = GramMappedOrderSerializer(queryset,context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
@@ -878,10 +902,12 @@ class DownloadInvoiceSP(APIView):
             inline_sum_amount = 0
 
             cart_product_map = order_obj.order.ordered_cart.rt_cart_list.filter(cart_product=m.product).last()
-            product_price = cart_product_map.get_cart_product_price(order_obj.order.ordered_cart.seller_shop)
+            product_price = cart_product_map.get_cart_product_price(
+                order_obj.order.ordered_cart.seller_shop,
+                order_obj.order.ordered_cart.buyer_shop)
 
-            product_pro_price_ptr = product_price.price_to_retailer
-            product_pro_price_mrp = round(product_price.mrp,2)
+            product_pro_price_ptr = product_price.selling_price
+            product_pro_price_mrp = product_price.mrp
 
             no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
             cart_qty = m.product.rt_cart_product_mapping.last().qty
@@ -920,7 +946,7 @@ class DownloadInvoiceSP(APIView):
             inline_sum_amount += int(m.shipped_qty) * product_pro_price_ptr
 
             for n in m.product.product_pro_tax.all():
-                divisor= (1+(n.tax.tax_percentage/100))
+                divisor= Decimal(1+(n.tax.tax_percentage/100))
                 original_amount= (inline_sum_amount/divisor)
                 tax_amount = inline_sum_amount - original_amount
                 if n.tax.tax_type=='gst':
@@ -1109,7 +1135,9 @@ class PaymentApi(APIView):
                 payment.save()
                 order.order_status = 'opdp'
                 order.save()
-            serializer = OrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id})
+            serializer = OrderSerializer(
+                order,context={'parent_mapping_id': parent_mapping.parent.id,
+                               'buyer_shop_id': shop_id})
 
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
 

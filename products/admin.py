@@ -15,6 +15,9 @@ from .views import (
     load_gf, products_export_for_vendor, products_vendor_mapping,
     MultiPhotoUploadView, ProductPriceAutocomplete,
     ProductCategoryAutocomplete, download_all_products,
+    ProductCategoryMapping, product_category_mapping_sample,
+    ProductPriceUpload, CityAutocomplete, RetailerAutocomplete,
+    SellerShopAutocomplete, ProductAutocomplete, PincodeAutocomplete,
     ProductCategoryMapping, product_category_mapping_sample, VendorAutocomplete)
 from .resources import (
     SizeResource, ColorResource, FragranceResource,
@@ -30,8 +33,8 @@ class ProductFilter(AutocompleteFilter):
     field_name = 'product' # name of the foreign key field
 
 class ShopFilter(AutocompleteFilter):
-    title = 'Shop' # display title
-    field_name = 'shop' # name of the foreign key field
+    title = 'Seller Shop' # display title
+    field_name = 'seller_shop' # name of the foreign key field
 
 class ProductImageMainAdmin(admin.ModelAdmin):
     readonly_fields = ['image_thumbnail']
@@ -344,6 +347,36 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 self.admin_site.admin_view(product_category_mapping_sample),
                 name="product-category-mapping-sample"
             ),
+            url(
+                r'^product-price-upload/$',
+                self.admin_site.admin_view(ProductPriceUpload.as_view()),
+                name="product_price_upload"
+            ),
+            url(
+                r'^city-autocomplete/$',
+                self.admin_site.admin_view(CityAutocomplete.as_view()),
+                name="city_autocomplete"
+            ),
+            url(
+                r'^retailer-autocomplete/$',
+                self.admin_site.admin_view(RetailerAutocomplete.as_view()),
+                name="retailer_autocomplete"
+            ),
+            url(
+                r'^seller-shop-autocomplete/$',
+                self.admin_site.admin_view(SellerShopAutocomplete.as_view()),
+                name="seller_shop_autocomplete"
+            ),
+            url(
+                r'^product-autocomplete/$',
+                self.admin_site.admin_view(ProductAutocomplete.as_view()),
+                name="product_autocomplete"
+            ),
+            url(
+                r'^pincode-autocomplete/$',
+                self.admin_site.admin_view(PincodeAutocomplete.as_view()),
+                name="pincode_autocomplete"
+            ),
         ] + urls
         return urls
 
@@ -405,27 +438,27 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductPriceResource
     form = ProductPriceNewForm
     actions = ['export_as_csv_productprice', 'approve_product_price']
-    list_select_related = ('product', 'shop')
+    list_select_related = ('product', 'seller_shop', 'buyer_shop', 'city',
+                           'pincode')
     list_display = [
-        'product', 'product_sku', 'product_gf_code', 'mrp',
-        'price_to_service_partner', 'price_to_retailer',
-        'price_to_super_retailer', 'shop', 'cash_discount',
-        'loyalty_incentive', 'margin', 'start_date', 'end_date', 'status',
-        'approval_status'
+        'product', 'product_sku', 'product_gf_code', 'mrp', 'selling_price',
+        'seller_shop', 'buyer_shop', 'city', 'pincode',
+        'start_date', 'end_date', 'approval_status', 'status'
     ]
+
     autocomplete_fields = ['product']
     search_fields = [
         'product__product_name', 'product__product_gf_code',
-        'product__product_brand__brand_name', 'shop__shop_name'
+        'product__product_brand__brand_name', 'seller_shop__shop_name',
+        'buyer_shop__shop_name'
     ]
     list_filter = [
         ProductSKUSearch, ProductFilter, ShopFilter, MRPSearch,
         ('start_date', DateRangeFilter), ('end_date', DateRangeFilter),
         'approval_status']
-    fields = ('product', 'city', 'area', 'mrp', 'shop', 'price_to_retailer',
-              'price_to_super_retailer', 'price_to_service_partner',
-              'cash_discount', 'loyalty_incentive', 'start_date', 'end_date',
-              'approval_status', 'status')
+    fields = ('product', 'mrp', 'selling_price', 'seller_shop',
+              'buyer_shop', 'city', 'pincode',
+              'start_date', 'end_date', 'approval_status')
 
     class Media:
         js = ('admin/js/sweetalert.min.js',
@@ -435,10 +468,9 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
         if not request.user.is_superuser:
             if obj and obj.approval_status == ProductPrice.APPROVED:
                 return self.readonly_fields + (
-                    'mrp', 'price_to_retailer', 'price_to_super_retailer',
-                    'price_to_service_partner', 'approval_status', 'status',
-                    'product', 'city', 'area', 'shop', 'cash_discount',
-                    'loyalty_incentive', 'start_date', 'end_date')
+                    'product', 'mrp', 'selling_price', 'seller_shop',
+                    'buyer_shop', 'city', 'pincode',
+                    'start_date', 'end_date', 'approval_status')
         return self.readonly_fields
 
     def product_sku(self, obj):
@@ -452,7 +484,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     product_gf_code.short_description = 'Gf Code'
 
     def approve_product_price(self, request, queryset):
-        queryset = queryset.filter(approval_status='approval_pending')
+        queryset = queryset.filter(approval_status=ProductPrice.APPROVAL_PENDING).order_by('created_at')
         for product in queryset:
             product.approval_status = ProductPrice.APPROVED
             product.save()
@@ -479,9 +511,9 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
         if request.user.is_superuser:
             return qs
         return qs.filter(
-            Q(shop__related_users=request.user) |
-            Q(shop__shop_owner=request.user),
-            Q(status=True) | Q(approval_status=ProductPrice.APPROVAL_PENDING)
+            Q(seller_shop__related_users=request.user) |
+            Q(seller_shop__shop_owner=request.user),
+            approval_status=ProductPrice.APPROVAL_PENDING
         ).distinct()
 
 
