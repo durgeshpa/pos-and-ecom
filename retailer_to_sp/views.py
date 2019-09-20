@@ -753,7 +753,6 @@ class DownloadPickList(TemplateView, ):
             show_content_in_browser=False, cmd_options=cmd_option)
         return response
 
-
 def order_invoices(request):
     order_id = request.GET.get('order_id')
     if order_id:
@@ -1290,4 +1289,12 @@ class UserWithNameAutocomplete(autocomplete.Select2QuerySetView):
                 Q(first_name__icontains=self.q) |
                 Q(last_name__icontains=self.q)
             )
+        return qs
+
+class SellerAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Shop.objects.all()
+
+        if self.q:
+            qs = qs.filter(shop_name__icontains=self.q)
         return qs
