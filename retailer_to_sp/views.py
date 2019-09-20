@@ -407,9 +407,9 @@ def trip_planning_change(request, pk):
                 trip = form.save()
                 current_trip_status = trip.trip_status
                 if trip_status == 'STARTED':
-                    trip_instance.rt_invoice_trip.all().update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
+                    trip_instance.rt_invoice_trip.filter(shipment_status='OUT_FOR_DELIVERY').update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
                     if current_trip_status == "COMPLETED":
-                        OrderedProductMapping.objects.filter(ordered_product__in=trip_instance.rt_invoice_trip.filter('OUT_FOR_DELIVERY')).update(delivered_qty=F('shipped_qty'))
+                        OrderedProductMapping.objects.filter(ordered_product__in=trip_instance.rt_invoice_trip.filter(shipment_status='OUT_FOR_DELIVERY')).update(delivered_qty=F('shipped_qty'))
                     return redirect('/admin/retailer_to_sp/trip/')
 
                 if trip_status == 'READY':
