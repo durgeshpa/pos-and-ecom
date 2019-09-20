@@ -28,15 +28,19 @@ class PaymentAdmin(admin.ModelAdmin):
     model = Payment
     autocomplete_fields = ('paid_by',)
 
-    form  = PaymentForm
+    #form  = PaymentForm
     list_display = (
-        "paid_by", "paid_amount", "payment_mode_name", "reference_no", "description"            
+        "paid_by", "paid_amount", "payment_mode_name", "reference_no", "description",
+        "payment_id"            
         )
     fields = (
         "paid_by", "paid_amount", "payment_mode_name", "reference_no", "description",
-        "online_payment_type"
+        "online_payment_type", "payment_id"
     )
     search_fields = ('order', 'parent_payment')
+    readonly_fields = (
+       "payment_id",
+    )
 
     # def get_inline_instances(self, request, obj=None):
     #     if not obj or obj.payment_mode_name != "online_payment": return []

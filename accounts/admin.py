@@ -44,4 +44,4 @@ admin.site.register(AppVersion, AppVersionAdmin)
 @admin.register(UserWithName)
 class UserDocumentAdmin(admin.ModelAdmin):
     model = UserWithName
-    search_fields = ("phone_number", "first_name")
+    search_fields = ('phone_number','email', 'first_name', 'last_name')

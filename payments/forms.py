@@ -65,7 +65,7 @@ class PaymentForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(PaymentForm, self).__init__(*args, **kwargs)
         self.fields.get('paid_by').required = True
-        users = Shop.objects.all().values('shop_owner')
+        users = Shop.objects.filter(shop_type__shop_type="retailer").values('shop_owner')
         self.fields.get('paid_by').queryset = users
         # if self.data and self.data.get('payment_mode_name') != 'cash_payment':
         #     self.fields.get('reference_no').required = True

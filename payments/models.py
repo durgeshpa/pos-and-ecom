@@ -17,6 +17,7 @@ from django.contrib.auth import get_user_model
 from accounts.models import UserWithName
 from retailer_backend.common_function import payment_id_pattern
 from retailer_to_sp.models import Order, Shipment, OrderedProduct
+from shops.models import Shop
 
 
 User = get_user_model()
@@ -124,11 +125,13 @@ class Payment(AbstractDateTime):
     # payment description
     description = models.CharField(max_length=100, null=True, blank=True)
     reference_no = models.CharField(max_length=50, null=True, blank=True)
-    #payment_screenshot = models.ImageField(upload_to='payment_screenshot/', null=True, blank=True)
+    payment_screenshot = models.ImageField(upload_to='payment_screenshot/', null=True, blank=True)
 
     paid_amount = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')
     payment_mode_name = models.CharField(max_length=50, choices=PAYMENT_MODE_NAME, default="cash_payment")
     prepaid_or_postpaid = models.CharField(max_length=50, choices=PAYMENT_TYPE_CHOICES,null=True, blank=True)
+    payment_id = models.CharField(max_length=255, null=True, blank=True)
+
     # for finance team
     payment_approval_status = models.CharField(max_length=50, choices=PAYMENT_APPROVAL_STATUS_CHOICES, default="pending_approval",null=True, blank=True)
     payment_received = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')
@@ -163,6 +166,7 @@ class Payment(AbstractDateTime):
         super(Payment, self).clean()
 
     def save(self, *args, **kwargs):
+        #super().save(*args, **kwargs)
         if self.is_payment_approved:
             if self.payment_received >= self.paid_amount:
                 self.payment_approval_status = "approved_and_verified"
@@ -172,6 +176,23 @@ class Payment(AbstractDateTime):
                 self.payment_approval_status = "disputed"            
 
         # create entry to edit shipment payment
+        try:
+            # import pdb; pdb.set_trace()
+            shop = Shop.objects.filter(shop_owner=self.paid_by)
+            if shop:
+                shop=shop[0]
+                shop_address = shop.shop_name_address_mapping.filter(address_type='billing')
+                if shop_address.exists():
+                    shop_address_pk = shop_address.last().pk
+                else:
+                    shop_address = shop.shop_name_address_mapping.all()
+                    shop_address_pk = shop_address.last().pk
+                self.payment_id = payment_id_pattern(
+                                            Payment, 'payment_id', self.pk,
+                                            shop_address_pk)
+        except:
+            pass
+        # self.save()
         super().save(*args, **kwargs)
         # assuming that a postpaid order payment has one shipment payment
         # shipment_payment = ShipmentPayment.objects.filter(parent_payment=self) 
@@ -455,12 +476,27 @@ class PaymentApproval(Payment):
 
 #             )
 
+
+# @receiver(post_save, sender=Payment)
+# def create_payment_id(sender, instance=None, created=False, **kwargs):
+#     if created:
+#         shop = Shop.objects.get(shop_owner=instance.paid_by)
+#         instance.payment_id = payment_id_pattern(
+#                                     sender, 'payment_id', instance.pk,
+#                                     shop.shop_name_address_mapping.filter(
+#                                         address_type='billing').last().pk)
+#         instance.save()
+
+
 @receiver(post_save, sender=OrderPayment)
 def create_payment_id(sender, instance=None, created=False, **kwargs):
     if created:
-        instance.payment_id = payment_id_pattern(
-                                    sender, 'payment_id', instance.pk,
-                                    instance.order.seller_shop.
-                                    shop_name_address_mapping.filter(
-                                        address_type='billing').last().pk)
-        instance.save()
+        try:
+            instance.payment_id = payment_id_pattern(
+                                        sender, 'payment_id', instance.pk,
+                                        instance.order.seller_shop.
+                                        shop_name_address_mapping.filter(
+                                            address_type='billing').last().pk)
+            instance.save()
+        except:
+            pass

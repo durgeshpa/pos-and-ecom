@@ -18,6 +18,7 @@ from common.data_wrapper_view import DataWrapperViewSet
 
 from .serializers import ShipmentPaymentSerializer, CashPaymentSerializer, \
     ShipmentPaymentSerializer1 
+from accounts.models import UserWithName
 from retailer_to_sp.models import OrderedProduct
 from payments.models import ShipmentPayment, CashPayment, OnlinePayment, PaymentMode, \
     Payment, OrderPayment
@@ -53,7 +54,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
         return self.serializer_class
 
     def create(self, request, *args, **kwargs):
-        # import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         try:
             serializer = self.get_serializer(data=request.data, many=True)
             if not serializer.is_valid():
@@ -68,17 +69,21 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                     # serializer = self.get_serializer(data=item)
                     # if serializer.is_valid():
                     shipment = item.get('shipment', None)
+                    paid_by = item.get('paid_by', None)
                     paid_amount = item.get('paid_amount', None)
                     payment_mode_name = item.get('payment_mode_name', None)
-                    
+                    payment_screenshot = item.get('payment_screenshot', None)
                     reference_no = item.get('reference_no', None)
                     online_payment_type = item.get('online_payment_type', None)
                     description = item.get('description', None)
 
+                    paid_by = UserWithName.objects.get(pk=paid_by)
                     # create payment
                     payment = Payment.objects.create(
                         paid_amount = paid_amount,
                         payment_mode_name = payment_mode_name,
+                        paid_by = paid_by,
+                        payment_screenshot = payment_screenshot,
                         )
                     if payment_mode_name == "online_payment":
                         # if reference_no is None:
