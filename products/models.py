@@ -285,6 +285,7 @@ class ProductPrice(models.Model):
                 product_price = ProductPrice.objects.filter(
                     product=self.product,
                     seller_shop=self.seller_shop,
+                    buyer_shop=None,
                     city=self.city,
                     pincode=self.pincode,
                     approval_status=ProductPrice.APPROVED
@@ -293,13 +294,18 @@ class ProductPrice(models.Model):
                 product_price = ProductPrice.objects.filter(
                     product=self.product,
                     seller_shop=self.seller_shop,
+                    buyer_shop=None,
                     city=self.city,
+                    pincode=None,
                     approval_status=ProductPrice.APPROVED
                 )
             else:
                 product_price = ProductPrice.objects.filter(
                     product=self.product,
                     seller_shop=self.seller_shop,
+                    buyer_shop=None,
+                    city=None,
+                    pincode=None,
                     approval_status=ProductPrice.APPROVED
                 )
             product_price.update(approval_status=ProductPrice.DEACTIVATED)
