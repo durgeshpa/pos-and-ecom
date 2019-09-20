@@ -6,8 +6,9 @@ from .models import (
     ShopRequestBrand, SalesAppVersion, ShopTiming
 )
 from addresses.models import Address
+from addresses.forms import AddressForm
 from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
-                    ShopForm, AddressForm, RequiredInlineFormSet,
+                    ShopForm, RequiredInlineFormSet,
                     AddressInlineFormSet, ShopTimingForm, ShopUserMappingForm, ShopTimingForm)
 from .views import (StockAdjustmentView, stock_adjust_sample,
                     bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete
@@ -106,9 +107,9 @@ class AddressAdmin(admin.TabularInline):
     formset = AddressInlineFormSet
     form = AddressForm
     fields = ('nick_name', 'address_contact_name', 'address_contact_number',
-              'address_type', 'address_line1', 'state', 'city', 'pincode',
-              'pincode_link')
+              'address_type', 'address_line1', 'state', 'city', 'pincode_link')
     extra = 2
+
 
 class ShopParentRetailerMapping(admin.TabularInline):
     model = ParentRetailerMapping

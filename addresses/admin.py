@@ -32,8 +32,7 @@ class CityAdmin(admin.ModelAdmin):
 class AddressAdmin(admin.ModelAdmin):
     form = AddressForm
     fields = ('nick_name', 'address_contact_name', 'address_contact_number',
-              'address_type', 'address_line1', 'state', 'city', 'pincode',
-              'pincode_link')
+              'address_type', 'address_line1', 'state', 'city', 'pincode_link')
     raw_id_fields = ('shop_name',)
 
 

@@ -799,11 +799,13 @@ def product_category_mapping_sample(self):
 class CityAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self):
         buyer_shop = self.forwarded.get('buyer_shop', None)
+        state = self.forwarded.get('state', None)
         qs = City.objects.all()
         if buyer_shop:
             qs = qs.filter(city_address__shop_name_id=buyer_shop,
                            city_address__address_type='shipping')
-            return qs
+        if state:
+            qs = qs.filter(state=state)
         if self.q:
             qs = qs.filter(city_name__icontains=self.q)
         return qs

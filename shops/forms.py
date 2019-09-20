@@ -149,16 +149,6 @@ class ShopForm(forms.ModelForm):
         return warehouse_code
 
 
-class AddressForm(forms.ModelForm):
-    nick_name = forms.CharField(required=True)
-    address_contact_name = forms.CharField(required=True)
-    address_contact_number = forms.CharField(required=True)
-    state = forms.ModelChoiceField(queryset=State.objects.all())
-    pincode = forms.CharField(max_length=6, required=True)
-
-    class Meta:
-        Model = Address
-
 from django.forms.models import BaseInlineFormSet
 
 class RequiredInlineFormSet(BaseInlineFormSet):
