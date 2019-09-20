@@ -399,7 +399,7 @@ class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
         return int(obj.no_of_pieces)
 
     def product_sub_total_dt(self,obj):
-        seller_shop_id = self.context.get('parent_mapping', None)
+        seller_shop_id = self.context.get('parent_mapping_id', None)
         buyer_shop_id = self.context.get('buyer_shop_id', None)
         return (Decimal(obj.no_of_pieces) *
                 Decimal(obj.get_cart_product_price(seller_shop_id, buyer_shop_id).selling_price))
@@ -448,12 +448,12 @@ class ProductsSearchListSerializer(serializers.ModelSerializer):
     product_case_size_picies = serializers.SerializerMethodField('product_case_size_picies_dt')
 
     def product_price_dt(self, obj):
-        seller_shop_id = self.context.get('parent_mapping', None)
+        seller_shop_id = self.context.get('parent_mapping_id', None)
         buyer_shop_id = self.context.get('buyer_shop_id', None)
         return obj.getRetailerPrice(seller_shop_id, buyer_shop_id)
 
     def product_mrp_dt(self, obj):
-        seller_shop_id = self.context.get('parent_mapping', None)
+        seller_shop_id = self.context.get('parent_mapping_id', None)
         buyer_shop_id = self.context.get('buyer_shop_id', None)
         return obj.getMRP(seller_shop_id, buyer_shop_id)
 
@@ -491,7 +491,7 @@ class OrderedCartProductMappingListSerializer(serializers.ModelSerializer):
         return int(obj.no_of_pieces)
 
     def product_sub_total_dt(self,obj):
-        seller_shop_id = self.context.get('parent_mapping', None)
+        seller_shop_id = self.context.get('parent_mapping_id', None)
         buyer_shop_id = self.context.get('buyer_shop_id', None)
         return (Decimal(obj.no_of_pieces) *
                 Decimal(obj.get_cart_product_price(seller_shop_id, buyer_shop_id).selling_price))
