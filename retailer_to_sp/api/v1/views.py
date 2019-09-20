@@ -819,7 +819,11 @@ class OrderDetail(generics.RetrieveAPIView):
         current_url = request.get_host()
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             queryset = Order.objects.get(id=pk)
-            serializer = OrderDetailSerializer(queryset, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
+            serializer = OrderDetailSerializer(
+                queryset,
+                context={'parent_mapping_id': parent_mapping.parent.id,
+                         'current_url':current_url,
+                         'buyer_shop_id': shop_id})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             queryset = GramMappedOrder.objects.get(id=pk)
             serializer = GramMappedOrderSerializer(queryset,context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
