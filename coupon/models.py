@@ -19,7 +19,7 @@ class CouponRuleSet(models.Model):
     rule_description = models.CharField(max_length=255, null=True)
     no_of_users_allowed = models.ManyToManyField(User, blank=True)
     all_users = models.BooleanField(default=False)
-    discount_qty_step = models.PositiveIntegerField(default=0, null=True, blank=True)
+    discount_qty_step = models.PositiveIntegerField(default=1, null=True, blank=True)
     discount_qty_amount = models.PositiveIntegerField(default=0, null=True, blank=True)
     discount = models.ForeignKey(DiscountValue, related_name='discount_value_id', on_delete=models.CASCADE, null=True, blank=True)
     is_free_shipment = models.BooleanField(default=False, null=True, blank=True)

@@ -219,6 +219,8 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
     def margin_dt(self,obj):
         return round(100 - (float(self.product_price) * 1000000 / (float(self.product_mrp) * (100 - float(obj.getCashDiscount(self.context.get("parent_mapping_id")))) * (100 -  float(obj.getLoyaltyIncentive(self.context.get("parent_mapping_id")))))),2) if self.product_mrp and self.product_mrp > 0 else 0
 
+
+
     class Meta:
         model = Product
         fields = ('id','product_name','product_slug','product_short_description','product_long_description','product_sku','product_mrp',
@@ -255,6 +257,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
     is_available = serializers.SerializerMethodField('is_available_dt')
     no_of_pieces = serializers.SerializerMethodField('no_pieces_dt')
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
+    product_coupons = serializers.SerializerMethodField('product_coupons_dt')
 
     def is_available_dt(self,obj):
         ordered_product_sum = OrderedProductMapping.objects.filter(product=obj.cart_product).aggregate(available_qty_sum=Sum('available_qty'))
@@ -269,9 +272,22 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
         product_price = 0 if obj.cart_product.product_pro_price.filter(shop__id=shop_id).last() is None else round(obj.cart_product.product_pro_price.filter(shop__id=shop_id).last().price_to_retailer,2)
         return round(float(obj.cart_product.product_inner_case_size)*float(obj.qty)*float(product_price),2)
 
+    def product_coupons_dt(self, obj):
+        product_coupons = []
+        sku_no_of_pieces = int(obj.cart_product.product_inner_case_size) * int(obj.qty)
+        for rules in obj.cart_product.purchased_product_coupon.all():
+            for rule in rules.rule.coupon_ruleset.filter(is_active=True):
+                if rules.rule.discount_qty_amount > 0:
+                    if sku_no_of_pieces >= rules.rule.discount_qty_step:
+                        product_coupons.append(rule.coupon_name)
+                if (rules.rule.discount_qty_step >=1) and (rules.rule.discount != None):
+                    if sku_no_of_pieces >= rules.rule.discount_qty_step:
+                        product_coupons.append(rule.coupon_name)
+        return product_coupons
+
     class Meta:
         model = CartProductMapping
-        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg','is_available','no_of_pieces','product_sub_total')
+        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg','is_available','no_of_pieces','product_sub_total', 'product_coupons')
 
 
 class CartSerializer(serializers.ModelSerializer):
@@ -282,6 +298,13 @@ class CartSerializer(serializers.ModelSerializer):
     total_amount = serializers.SerializerMethodField('total_amount_id')
     sub_total = serializers.SerializerMethodField('sub_total_id')
     delivery_msg = serializers.SerializerMethodField()
+    offers_applied = serializers.ReadOnlyField()
+
+    class Meta:
+        model = Cart
+        fields = ('id', 'order_id', 'cart_status', 'last_modified_by',
+                  'created_at', 'modified_at', 'rt_cart_list', 'total_amount',
+                  'sub_total', 'items_count', 'delivery_msg', 'offers_applied')
 
     def total_amount_id(self, obj):
         self.total_amount = 0
@@ -302,12 +325,6 @@ class CartSerializer(serializers.ModelSerializer):
 
     def get_delivery_msg(self, obj):
         return self.context.get("delivery_message", None)
-
-    class Meta:
-        model = Cart
-        fields = ('id', 'order_id', 'cart_status', 'last_modified_by',
-                  'created_at', 'modified_at', 'rt_cart_list', 'total_amount',
-                  'sub_total', 'items_count', 'delivery_msg')
 
 
 class NoteSerializer(serializers.ModelSerializer):
@@ -392,6 +409,7 @@ class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
 
     def product_inner_case_size_dt(self,obj):
         return int(int(obj.no_of_pieces) // int(obj.qty))
+
 
     class Meta:
         model = CartProductMapping

@@ -69,6 +69,7 @@ from django.utils.translation import ugettext_lazy as _
 from common.data_wrapper import format_serializer_errors
 from sp_to_gram.tasks import es_search
 from coupon.serializers import CouponSerializer
+from coupon.models import Coupon
 
 
 User = get_user_model()
@@ -303,8 +304,9 @@ class GramGRNProductsList(APIView):
         for p in products_list['hits']['hits']:
             product = Product.objects.get(id=p["_source"]["id"])
             product_coupons = product.getProductCoupons()
-            coupons = CouponSerializer(product_coupons, many=True).data
-            p["_source"]["coupons"] = coupons
+            coupons_queryset = Coupon.objects.filter(coupon_code__in = product_coupons)
+            coupons = CouponSerializer(coupons_queryset, many=True).data
+            p["_source"]["coupon"] = coupons
             if cart_check == True:
                 ptr = p["_source"]['ptr']
                 loyalty_discount = p["_source"]['loyalty_discount']
@@ -379,9 +381,9 @@ class AddToCart(APIView):
 
             if parent_mapping.parent.shop_type.shop_type == 'sp':
                 if Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
-                                       cart_status__in=['active', 'pending']).exists():
+                                       cart_status__in=['active', 'pending', 'ordered']).exists():
                     cart = Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
-                                               cart_status__in=['active', 'pending']).last()
+                                               cart_status__in=['active', 'pending', 'ordered']).last()
                     cart.cart_status = 'active'
                     cart.seller_shop = parent_mapping.parent
                     cart.buyer_shop = parent_mapping.retailer
@@ -487,9 +489,9 @@ class CartDetail(APIView):
 
         # if shop mapped with sp
         if parent_mapping.parent.shop_type.shop_type == 'sp':
-            if Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer, cart_status__in=['active', 'pending']).exists():
+            if Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer, cart_status__in=['active', 'pending', 'ordered']).exists():
                 cart = Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
-                                           cart_status__in=['active', 'pending']).last()
+                                           cart_status__in=['active', 'pending', 'ordered']).last()
                 if cart.rt_cart_list.count() <= 0:
                     msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
                            'response_data': None}

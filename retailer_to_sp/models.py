@@ -42,6 +42,7 @@ from .utils import (order_invoices, order_shipment_amount,
 from accounts.models import UserWithName, User
 from django.core.validators import RegexValidator
 from django.contrib.postgres.fields import JSONField
+from coupon.models import *
 
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
 
@@ -173,10 +174,45 @@ class Cart(models.Model):
     def no_of_pieces_sum(self):
         return self.rt_cart_list.aggregate(qty_sum=Sum('no_of_pieces'))['no_of_pieces_sum']
 
+
+    def offers_applied(self):
+        offers =[]
+        discount_value = 0
+        cart_products = self.rt_cart_list.all()
+        for m in cart_products:
+            sku_no_of_pieces = int(m.cart_product.product_inner_case_size) * int(m.qty)
+            sku_ptr = m.cart_product_price.price_to_retailer
+            for n in m.cart_product.purchased_product_coupon.all():
+                for o in n.rule.coupon_ruleset.filter(is_active=True):
+                    if n.rule.discount_qty_amount > 0:
+                        if sku_no_of_pieces >= n.rule.discount_qty_step:
+                            free_item = n.free_product.product_name
+                            discount_qty_step_multiple = (sku_no_of_pieces)/n.rule.discount_qty_step
+                            free_item_amount = (n.rule.discount_qty_amount) * discount_qty_step_multiple
+                            offers.append({'type':'free product', 'coupon':o.coupon_name, 'coupon_code':o.coupon_code, 'item':m.cart_product.product_name, 'item_sku':m.cart_product.product_sku, 'free_item':free_item, 'free_item_amount':free_item_amount})
+                    elif (n.rule.discount_qty_step >=1) and (n.rule.discount != None):
+                        if sku_no_of_pieces >= n.rule.discount_qty_step:
+                            discount_value = n.rule.discount.discount_value if n.rule.discount.is_percentage == False else ((n.rule.discount.discount_value/100)* sku_no_of_pieces * sku_ptr)
+                            offers.append({'type':'discount on product', 'coupon':o.coupon_name, 'coupon_code':o.coupon_code, 'item':m.cart_product.product_name, 'item_sku':m.cart_product.product_sku, 'discount_value':discount_value})
+        cart_coupons = Coupon.objects.filter(coupon_type = 'cart').order_by('-rule__cart_qualifying_min_sku_value')
+        cart_value = self.subtotal
+        for cart_coupon in cart_coupons:
+            if cart_value >=cart_coupon.rule.cart_qualifying_min_sku_value:
+                if cart_coupon.rule.discount.is_percentage == False:
+                    offers.append({'type':'discount on cart', 'coupon':cart_coupon.coupon_name, 'coupon_code':cart_coupon.coupon_code, 'discount_value':cart_coupon.rule.discount.discount_value})
+                elif cart_coupon.rule.discount.is_percentage == True and (cart_coupon.rule.discount.max_discount == None):
+                    discount_value = (cart_coupon.rule.discount.discount_value/100)* cart_value
+                    offers.append({'type':'discount on cart', 'coupon':cart_coupon.coupon_name, 'coupon_code':cart_coupon.coupon_code, 'discount_value':discount_value})
+                elif cart_coupon.rule.discount.is_percentage == True and (cart_coupon.rule.discount.max_discount < ((cart_coupon.rule.discount.discount_value/100)* cart_value)) :
+                    offers.append({'type':'discount on cart', 'coupon':cart_coupon.coupon_name, 'coupon_code':cart_coupon.coupon_code, 'discount_value':cart_coupon.rule.discount.max_discount})
+            break
+        return offers
+
     def save(self, *args, **kwargs):
         if self.cart_status == self.ORDERED:
             for cart_product in self.rt_cart_list.all():
                 cart_product.get_cart_product_price(self.seller_shop)
+
         super().save(*args, **kwargs)
 
 
@@ -1539,6 +1575,3 @@ def assign_picklist(sender, instance=None, created=False, **kwargs):
             picking_status="picking_pending",
             picklist_id= generate_picklist_id(pincode), #get_random_string(12).lower(), ##generate random string of 12 digits
             )
-
-
-
