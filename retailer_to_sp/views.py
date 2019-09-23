@@ -1052,7 +1052,8 @@ class RetailerCart(APIView):
         order_obj = Order.objects.get(order_no=request.GET.get('order_no'))
         dt = OrderedCartSerializer(
             order_obj.ordered_cart,
-            context={'parent_mapping_id': order_obj.seller_shop.id, }
+            context={'parent_mapping_id': order_obj.seller_shop.id,
+                     'buyer_shop_id': order_obj.buyer_shop.id}
         )
         return Response({'is_success': True, 'response_data': dt.data}, status=status.HTTP_200_OK)
 
