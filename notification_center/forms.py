@@ -8,7 +8,7 @@ from django.utils.translation import gettext_lazy as _
 
 from retailer_backend.validators import PinCodeValidator
 
-from addresses.models import City
+from addresses.models import City, Pincode
 from shops.models import Shop
 from notification_center.models import(
     Template, TextSMSActivity, VoiceCallActivity,
@@ -28,10 +28,24 @@ class GroupNotificationForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='admin:retailer_autocomplete'),
         required=False
     )
-    pincode_from = forms.CharField(max_length=6, min_length=6, required=False,
-                                   validators=[PinCodeValidator])
-    pincode_to = forms.CharField(max_length=6, min_length=6, required=False,
-                                 validators=[PinCodeValidator])
+    pincode_from = forms.ModelChoiceField(
+        queryset=Pincode.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:pincode_autocomplete',
+            forward=('city',)),
+        required=False
+    )
+    pincode_to = forms.ModelChoiceField(
+        queryset=Pincode.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:pincode_autocomplete',
+            forward=('city',)),
+        required=False
+    )
+    # pincode_from = forms.CharField(max_length=6, min_length=6, required=False,
+    #                                validators=[PinCodeValidator])
+    # pincode_to = forms.CharField(max_length=6, min_length=6, required=False,
+    #                              validators=[PinCodeValidator])
 
     def clean_pincode_from(self):
         cleaned_data = self.cleaned_data

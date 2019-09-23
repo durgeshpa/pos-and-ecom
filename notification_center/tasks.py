@@ -32,8 +32,15 @@ def schedule_notification(*args, **kwargs):
         # import pdb; pdb.set_trace()
         print ("in schedule_notification")
         city_id = kwargs.get('city_id')
+        pincode_from = kwargs.get('pincode_from')
+        pincode_to = kwargs.get('pincode_to')
+
         activity_type = kwargs.get('activity_type')
-        shop_owners = Address.objects.filter(city=city_id).values_list('shop_name__shop_owner')
+        
+        if pincode_from:
+            shop_owners = Address.objects.filter(pincode__range=(pincode_from, pincode_to)).values_list('shop_name__shop_owner')
+        else:
+            shop_owners = Address.objects.filter(city=city_id).values_list('shop_name__shop_owner')
         for shop_owner in shop_owners:
             user_id = shop_owner[0]
             # user_id = shop.shop_owner.id

@@ -180,10 +180,20 @@ class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
     form = GroupNotificationForm
 
     def save_model(self, request, obj, form, change):
-        # import pdb; pdb.set_trace()
         data = {}
         #data['test'] = "test"
-        data['city_id'] = form.cleaned_data.get('city').id
+        city = form.cleaned_data.get('city', None)
+        pincode_from = form.cleaned_data.get('pincode_from', None)
+        pincode_to = form.cleaned_data.get('pincode_to', None)
+        buyer_shop = form.cleaned_data.get('buyer_shop', None)
+
+        if city:
+            data['city'] = form.cleaned_data.get('city').id
+        if pincode_from:
+            data['pincode_from'] = form.cleaned_data.get('pincode_from').pincode
+        if pincode_to:
+            data['pincode_to'] = form.cleaned_data.get('pincode_to').pincode
+        data['buyer_shop'] = form.cleaned_data.get('buyer_shop').id
         data['activity_type'] = obj.template.type
         # repeat until
 
