@@ -4,6 +4,7 @@ import datetime
 import os
 import logging
 import re
+import openpyxl
 
 from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
@@ -13,14 +14,16 @@ from django.db import transaction
 from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import permission_required
 
+from decimal import Decimal
+
 from shops.models import Shop, ShopType
-from addresses.models import City, State, Address
+from addresses.models import City, State, Address, Pincode
 from categories.models import Category
-from brand.models import Brand
+from brand.models import Brand, Vendor
 from .forms import (
     GFProductPriceForm, ProductPriceForm, ProductsFilterForm,
     ProductsPriceFilterForm, ProductsCSVUploadForm, ProductImageForm,
-    ProductCategoryMappingForm
+    ProductCategoryMappingForm, NewProductPriceUpload
     )
 from products.models import (
     Product, ProductCategory, ProductOption,
@@ -31,6 +34,8 @@ from products.models import (
 logger = logging.getLogger(__name__)
 from dal import autocomplete
 from django.db.models import Q
+from .utils import products_price_excel
+
 
 def load_cities(request):
     """Return list of cities for specific state id
@@ -703,7 +708,7 @@ class ProductPriceAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = Product.objects.filter(
                 Q(product_name__icontains=self.q) |
-                Q(product_sku__iexact=self.q)
+                Q(product_sku__icontains=self.q)
             )
         return qs
 
@@ -789,3 +794,160 @@ def product_category_mapping_sample(self):
     writer = csv.writer(response)
     writer.writerows([['gf_code', 'category_id'], ['GF01641', '161']])
     return response
+
+
+class CityAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        buyer_shop = self.forwarded.get('buyer_shop', None)
+        state = self.forwarded.get('state', None)
+        qs = City.objects.all()
+        if buyer_shop:
+            qs = qs.filter(city_address__shop_name_id=buyer_shop,
+                           city_address__address_type='shipping')
+        if state:
+            qs = qs.filter(state=state)
+        if self.q:
+            qs = qs.filter(city_name__icontains=self.q)
+        return qs
+
+
+class RetailerAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = Shop.objects.filter(shop_type__shop_type='r')
+        if self.q:
+            qs = qs.filter(shop_name__icontains=self.q)
+        return qs
+
+
+class SellerShopAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = Shop.objects.filter(shop_type__shop_type='sp')
+        if self.q:
+            qs = qs.filter(shop_name__icontains=self.q)
+        return qs
+
+
+class ProductAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = Product.objects.all()
+        if self.q:
+            qs = qs.filter(Q(product_name__icontains=self.q) |
+                           Q(product_gf_code__icontains=self.q) |
+                           Q(product_sku__icontains=self.q))
+        return qs
+
+
+class PincodeAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        city = self.forwarded.get('city', None)
+        buyer_shop = self.forwarded.get('buyer_shop', None)
+        qs = Pincode.objects.all()
+        if buyer_shop:
+            qs = qs.filter(pincode_address__shop_name_id=buyer_shop,
+                           pincode_address__address_type='shipping')
+            return qs
+        if city:
+            qs = qs.filter(city_id=city)
+        return qs
+
+
+class ProductPriceUpload(View):
+    form_class = NewProductPriceUpload
+    template_name = 'admin/products/NewProductPriceUpload.html'
+
+    def get(self, request, *args, **kwargs):
+        form = self.form_class()
+        return render(request, self.template_name, {'form': form})
+
+    def products_price_qs(self, data):
+        qs = ProductPrice.objects.filter(seller_shop=data['seller_shop'])
+        if data['city']:
+            qs = qs.filter(city=data['city'])
+        if data['pincode_from'] and data['pincode_to']:
+            pincode_range = [i for i in range(int(data['pincode_from']),
+                             int(data['pincode_to']))]
+            qs = qs.filter(pincode__in=pincode_range)
+        if data['buyer_shop']:
+            qs = qs.filter(buyer_shop=data['buyer_shop'])
+        if data['product']:
+            qs = qs.filter(product=data['product'])
+        return qs.values_list(
+            'product__product_sku', 'product__product_name',
+            'product__product_gf_code', 'seller_shop__shop_name', 'mrp',
+            'selling_price', 'city_id', 'city__city_name', 'pincode',
+            'buyer_shop_id', 'buyer_shop__shop_name', 'start_date', 'end_date',
+            'approval_status')
+
+    def validate_row(self, first_row, row):
+        # if (row[0] and not re.match("^[\d]*$", str(row[0]))) or not row[0]:
+        #     raise Exception("{} - Please enter a valid {}"
+        #                     "".format(row[0], first_row[0]))
+        if ((row[4] and not re.match("^\d{0,8}(\.\d{1,2})?$", str(row[4]))) or
+                not row[4]):
+            raise Exception("{} - Please enter a valid {}"
+                            "".format(row[4], first_row[4]))
+        if ((row[5] and not re.match("^\d{0,8}(\.\d{1,2})?$", str(row[5]))) or
+                not row[5]):
+            raise Exception("{} - Please enter a valid {}"
+                            "".format(row[5], first_row[5]))
+        if not row[11]:
+            raise Exception("{} - Please enter a valid {}"
+                            "".format(row[11], first_row[11]))
+        if not row[12]:
+            raise Exception("{} - Please enter a valid {}"
+                            "".format(row[12], first_row[12]))
+
+    def create_product_price(self, request, data):
+        try:
+            with transaction.atomic():
+                wb_obj = openpyxl.load_workbook(data.get('csv_file'))
+                sheet_obj = wb_obj.active
+                first_row = next(sheet_obj.iter_rows(values_only=True))
+                for row_id, row in enumerate(sheet_obj.iter_rows(
+                    min_row=2, max_row=None, min_col=None, max_col=None,
+                    values_only=True
+                )):
+                    self.validate_row(first_row, row)
+                    product = Product.objects.values('id').get(product_sku=row[0])
+                    if row[8]:
+                        pincode = Pincode.objects.values('id').get(pincode=row[8])['id']
+                    else:
+                        pincode = None
+                    ProductPrice.objects.create(
+                        product_id=product['id'], mrp=Decimal(row[4]),
+                        selling_price=Decimal(row[5]),
+                        seller_shop_id=int(data['seller_shop'].id),
+                        buyer_shop_id=int(row[9]) if row[9] else None,
+                        city_id=int(row[6]) if row[6] else None,
+                        pincode_id=pincode,
+                        start_date=row[11], end_date=row[12],
+                        approval_status=ProductPrice.APPROVAL_PENDING)
+
+                messages.success(request, 'Prices uploaded successfully')
+
+        except Exception as e:
+            messages.error(request, "{} at Row[{}] for {}"
+                                    "".format(e, row_id + 2, row[1]))
+
+    def post(self, request, *args, **kwargs):
+        form = self.form_class(request.POST, request.FILES)
+        if form.is_valid():
+            data = form.cleaned_data
+            # if action is upload
+            if data['action'] == '1':
+                self.create_product_price(request, data)
+            # if action is download
+            elif data['action'] == '2':
+                return products_price_excel(self.products_price_qs(data))
+
+        return render(request, self.template_name, {'form': form})
+
+
+class VendorAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Vendor.objects.none
+        if self.q:
+            qs = Vendor.objects.filter(
+                Q(vendor_name__icontains=self.q)
+            )
+        return qs

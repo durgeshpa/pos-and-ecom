@@ -1,3 +1,4 @@
+from decimal import Decimal
 from rest_framework import serializers
 
 from common.common_utils import convert_date_format_ddmmmyyyy
@@ -6,7 +7,7 @@ from products.models import (Product,ProductPrice,ProductImage,Tax,ProductTaxMap
                              Size,Color,Fragrance,Flavor,Weight,PackageSize)
 from retailer_to_sp.models import (CartProductMapping, Cart, Order,
                                    OrderedProduct, Note, CustomerCare,
-                                   Payment, Dispatch, Feedback, OrderedProductMapping, Trip, PickerDashboard)
+                                   Payment, Dispatch, Feedback, OrderedProductMapping as RetailerOrderedProductMapping, Trip, PickerDashboard, ShipmentRescheduling)
 
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,Order as GramMappedOrder,
     OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment
@@ -197,26 +198,34 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
     cash_discount = serializers.SerializerMethodField('cash_discount_dt')
 
     def product_price_dt(self, obj):
-        self.product_price = obj.getRetailerPrice(self.context.get("parent_mapping_id"))
+        self.product_price = obj.getRetailerPrice(
+            self.context.get('parent_mapping_id'),
+            self.context.get('buyer_shop_id'))
         return self.product_price
 
     def product_mrp_dt(self, obj):
-        self.product_mrp = obj.getMRP(self.context.get("parent_mapping_id"))
+        self.product_mrp = obj.getMRP(
+            self.context.get('parent_mapping_id'),
+            self.context.get('buyer_shop_id'))
         return self.product_mrp
 
-    def product_case_size_picies_dt(self,obj):
+    def product_case_size_picies_dt(self, obj):
         return str(int(obj.product_inner_case_size)*int(obj.product_case_size))
 
-    def loyalty_discount_dt(self,obj):
-        self.loyalty_discount = obj.getLoyaltyIncentive(self.context.get("parent_mapping_id"))
+    def loyalty_discount_dt(self, obj):
+        self.loyalty_discount = obj.getLoyaltyIncentive(
+            self.context.get('parent_mapping_id'),
+            self.context.get('buyer_shop_id'))
         return self.loyalty_discount
 
-    def cash_discount_dt(self,obj):
-        self.cash_discount = obj.getCashDiscount(self.context.get("parent_mapping_id"))
+    def cash_discount_dt(self, obj):
+        self.cash_discount = obj.getCashDiscount(
+            self.context.get('parent_mapping_id'),
+            self.context.get('buyer_shop_id'))
         return self.cash_discount
 
-    def margin_dt(self,obj):
-        return round(100 - (float(self.product_price) * 1000000 / (float(self.product_mrp) * (100 - float(obj.getCashDiscount(self.context.get("parent_mapping_id")))) * (100 -  float(obj.getLoyaltyIncentive(self.context.get("parent_mapping_id")))))),2) if self.product_mrp and self.product_mrp > 0 else 0
+    def margin_dt(self, obj):
+        return (((self.product_mrp - self.product_price) / self.product_mrp) * 100)
 
     class Meta:
         model = Product
@@ -263,10 +272,12 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
     def no_pieces_dt(self, obj):
         return int(obj.cart_product.product_inner_case_size) * int(obj.qty)
 
-    def product_sub_total_dt(self,obj):
-        shop_id = self.context.get("parent_mapping_id", None)
-        product_price = 0 if obj.cart_product.product_pro_price.filter(shop__id=shop_id).last() is None else round(obj.cart_product.product_pro_price.filter(shop__id=shop_id).last().price_to_retailer,2)
-        return round(float(obj.cart_product.product_inner_case_size)*float(obj.qty)*float(product_price),2)
+    def product_sub_total_dt(self, obj):
+        product_price = obj.cart_product.\
+            getRetailerPrice(self.context.get('parent_mapping_id'),
+                             self.context.get('buyer_shop_id'))
+        return (Decimal(obj.cart_product.product_inner_case_size) *
+                Decimal(obj.qty) * Decimal(product_price))
 
     class Meta:
         model = CartProductMapping
@@ -287,14 +298,16 @@ class CartSerializer(serializers.ModelSerializer):
         self.items_count = 0
         for cart_pro in obj.rt_cart_list.all():
             self.items_count = self.items_count + int(cart_pro.qty)
-            shop_id = self.context.get("parent_mapping_id", None)
-            shop = Shop.objects.get(pk=shop_id)
-            pro_price = cart_pro.cart_product.get_current_shop_price(shop)
-            self.total_amount += float(pro_price.price_to_retailer) * float(cart_pro.qty) * float(pro_price.product.product_inner_case_size)
-        return round(self.total_amount,2)
+            pro_price = cart_pro.cart_product.get_current_shop_price(
+                self.context.get('parent_mapping_id'),
+                self.context.get('buyer_shop_id'))
+            self.total_amount += (
+                Decimal(pro_price.selling_price) * Decimal(cart_pro.qty) *
+                Decimal(pro_price.product.product_inner_case_size))
+        return self.total_amount
 
     def sub_total_id(self, obj):
-        return round(self.total_amount,2)
+        return self.total_amount
 
     def items_count_id(self, obj):
         return obj.rt_cart_list.count()
@@ -365,10 +378,10 @@ class CartProductPrice(serializers.ModelSerializer):
     product_mrp = serializers.SerializerMethodField('product_mrp_dt')
 
     def product_price_dt(self,obj):
-        return round(obj.price_to_retailer,2)
+        return obj.selling_price
 
     def product_mrp_dt(self,obj):
-        return round(obj.mrp,2)
+        return obj.mrp
 
     class Meta:
         model = ProductPrice
@@ -386,8 +399,10 @@ class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
         return int(obj.no_of_pieces)
 
     def product_sub_total_dt(self,obj):
-        shop = self.context.get("parent_mapping", None)
-        return float(obj.no_of_pieces) * float(round(obj.get_cart_product_price(shop).price_to_retailer,2))
+        seller_shop_id = self.context.get('parent_mapping_id', None)
+        buyer_shop_id = self.context.get('buyer_shop_id', None)
+        return (Decimal(obj.no_of_pieces) *
+                Decimal(obj.get_cart_product_price(seller_shop_id, buyer_shop_id).selling_price))
 
     def product_inner_case_size_dt(self,obj):
         return int(int(obj.no_of_pieces) // int(obj.qty))
@@ -433,12 +448,14 @@ class ProductsSearchListSerializer(serializers.ModelSerializer):
     product_case_size_picies = serializers.SerializerMethodField('product_case_size_picies_dt')
 
     def product_price_dt(self, obj):
-        shop_id = self.context.get("parent_mapping_id",None)
-        return obj.getRetailerPrice(shop_id)
+        seller_shop_id = self.context.get('parent_mapping_id', None)
+        buyer_shop_id = self.context.get('buyer_shop_id', None)
+        return obj.getRetailerPrice(seller_shop_id, buyer_shop_id)
 
     def product_mrp_dt(self, obj):
-        shop_id = self.context.get("parent_mapping_id",None)
-        return obj.getMRP(shop_id)
+        seller_shop_id = self.context.get('parent_mapping_id', None)
+        buyer_shop_id = self.context.get('buyer_shop_id', None)
+        return obj.getMRP(seller_shop_id, buyer_shop_id)
 
     def product_case_size_picies_dt(self,obj):
         return str(int(obj.product_inner_case_size)*int(obj.product_case_size))
@@ -454,7 +471,7 @@ class CartProductListPrice(serializers.ModelSerializer):
     product_mrp = serializers.SerializerMethodField('product_mrp_dt')
 
     def product_price_dt(self,obj):
-        return obj.price_to_retailer
+        return obj.selling_price
 
     def product_mrp_dt(self,obj):
         return obj.mrp
@@ -474,8 +491,10 @@ class OrderedCartProductMappingListSerializer(serializers.ModelSerializer):
         return int(obj.no_of_pieces)
 
     def product_sub_total_dt(self,obj):
-        shop = self.context.get("parent_mapping", None)
-        return float(obj.no_of_pieces) * float(round(obj.get_cart_product_price(shop).price_to_retailer,2))
+        seller_shop_id = self.context.get('parent_mapping_id', None)
+        buyer_shop_id = self.context.get('buyer_shop_id', None)
+        return (Decimal(obj.no_of_pieces) *
+                Decimal(obj.get_cart_product_price(seller_shop_id, buyer_shop_id).selling_price))
 
     def product_inner_case_size_dt(self,obj):
         return int(int(obj.no_of_pieces) // int(obj.qty))
@@ -737,8 +756,7 @@ class CancelOrderSerializer(serializers.ModelSerializer):
             if status:
                 raise serializers.ValidationError(
                     _('Sorry! This order cannot be cancelled'),)
-        else:
-            return data
+        return data
 
 class ShipmentOrderSerializer(serializers.ModelSerializer):
     ordered_by = UserSerializer()
@@ -767,22 +785,26 @@ class ShipmentStatusSerializer(serializers.ModelSerializer):
 class ShipmentDetailSerializer(serializers.ModelSerializer):
     ordered_product_status = serializers.ReadOnlyField()
     product_short_description = serializers.ReadOnlyField()
-    mrp = serializers.ReadOnlyField()
-    price_to_retailer = serializers.ReadOnlyField()
-    cash_discount = serializers.ReadOnlyField()
-    loyalty_incentive = serializers.ReadOnlyField()
-    margin = serializers.ReadOnlyField()
+    mrp = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
+    price_to_retailer = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
+    #cash_discount = serializers.ReadOnlyField()
+    #loyalty_incentive = serializers.ReadOnlyField()
+    #margin = serializers.ReadOnlyField()
+    product_image = serializers.SerializerMethodField()
+
+    def get_product_image(self, obj):
+        return obj.product.product_pro_image.last().image.url if obj.product.product_pro_image.last() else ''
 
     class Meta:
-        model = OrderedProductMapping
-        fields = ( 'ordered_product', 'ordered_product_status', 'product', 'product_short_description', 'mrp',
-                   'price_to_retailer', 'cash_discount', 'loyalty_incentive', 'margin', 'shipped_qty',  'returned_qty',
-                   'damaged_qty')
+        model = RetailerOrderedProductMapping
+        fields = ('ordered_product', 'ordered_product_status', 'product', 'product_short_description', 'mrp','price_to_retailer',
+                  #'cash_discount', 'loyalty_incentive', 'margin',
+                  'shipped_qty',  'returned_qty','damaged_qty', 'product_image')
 
 class TripSerializer(serializers.ModelSerializer):
     trip_id = serializers.ReadOnlyField()
     total_trip_amount = serializers.SerializerMethodField()
-    #trip_return_amount = serializers.ReadOnlyField()
+    trip_return_amount = serializers.SerializerMethodField()
     cash_to_be_collected = serializers.SerializerMethodField()
     no_of_shipments = serializers.ReadOnlyField()
     trip_status = serializers.CharField(
@@ -792,11 +814,14 @@ class TripSerializer(serializers.ModelSerializer):
         return obj.total_trip_amount()
 
     def get_cash_to_be_collected(self, obj):
-        return obj.cash_to_be_collected()
+        return obj.cash_collected_by_delivery_boy()
+
+    def get_trip_return_amount(self, obj):
+        return round(float(obj.total_trip_amount()) - float(obj.cash_to_be_collected()),2)
 
     class Meta:
         model = Trip
-        fields = ('trip_id','dispatch_no', 'trip_status', 'no_of_shipments', 'total_trip_amount', 'cash_to_be_collected')
+        fields = ('trip_id','dispatch_no', 'trip_status', 'no_of_shipments', 'total_trip_amount', 'cash_to_be_collected','trip_return_amount')
 
 
 class RetailerShopSerializer(serializers.ModelSerializer):
@@ -877,8 +902,17 @@ class SellerOrderListSerializer(serializers.ModelSerializer):
     def shop_id_dt(self, obj):
         return obj.buyer_shop.id
 
-
     class Meta:
         model= Order
         fields = ('id', 'ordered_cart', 'order_no', 'total_final_amount', 'order_status',
                   'created_at', 'modified_at', 'rt_order_order_product', 'is_ordered_by_sales', 'shop_name','shop_id')
+
+class ShipmentReschedulingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ShipmentRescheduling
+        fields = ('shipment', 'rescheduling_reason', 'rescheduling_date')
+
+class ShipmentReturnSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderedProduct
+        fields = ('id', 'return_reason')

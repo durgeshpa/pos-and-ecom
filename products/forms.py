@@ -1,5 +1,5 @@
 from django import forms
-from addresses.models import City, State
+from addresses.models import City, State, Pincode
 from shops.models import Shop, ShopType
 from tempus_dominus.widgets import DatePicker, TimePicker, DateTimePicker
 import datetime, csv, codecs, re
@@ -7,10 +7,10 @@ from retailer_backend.validators import *
 from django.core.exceptions import ValidationError
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from products.models import ProductCategory, Tax, Size, Color, Fragrance, Weight, Flavor, PackageSize
-from brand.models import Brand
+from brand.models import Brand, Vendor
 from categories.models import Category
 from django.utils.translation import gettext_lazy as _
-from products.models import Product, ProductImage, ProductPrice
+from products.models import Product, ProductImage, ProductPrice, ProductVendorMapping
 from shops.models import Shop
 from dal import autocomplete
 
@@ -243,25 +243,46 @@ class ProductsPriceFilterForm(forms.Form):
 
 
 class ProductPriceNewForm(forms.ModelForm):
-    product = forms.ModelChoiceField(
-        queryset=Product.objects.all(),
-        widget=autocomplete.ModelSelect2(
-            url='admin:product-price-autocomplete',)
+    seller_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
+        widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete')
     )
-    shop = forms.ModelChoiceField(
-        queryset=Shop.objects.filter(shop_type__shop_type__in=['gf', 'sp']),
+    buyer_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='r'),
+        widget=autocomplete.ModelSelect2(url='admin:retailer_autocomplete'),
+        required=False
+    )
+    city = forms.ModelChoiceField(
+        queryset=City.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:city_autocomplete',
+            forward=('buyer_shop',)),
+        required=False
+    )
+    pincode = forms.ModelChoiceField(
+        queryset=Pincode.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:pincode_autocomplete',
+            forward=('city', 'buyer_shop')),
+        required=False
     )
 
     class Meta:
         model = ProductPrice
-        fields = ('product', 'city', 'area', 'shop',
-                  'price_to_service_partner', 'price_to_retailer',
-                  'price_to_super_retailer', 'start_date', 'end_date',
-                  'approval_status')
+        fields = ('product', 'mrp', 'selling_price', 'seller_shop',
+                  'buyer_shop', 'city', 'pincode',
+                  'start_date', 'end_date', 'approval_status')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:1]
+        self.fields['start_date'].required = True
+        self.fields['end_date'].required = True
+        if 'approval_status' in self.fields:
+            self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:1]
+
+
+class ProductForm(forms.ModelForm):
+    product_short_description= forms.CharField(required=True)
 
 
 class ProductsFilterForm(forms.Form):
@@ -415,23 +436,23 @@ class ProductPriceAddPerm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(
             url='admin:product-price-autocomplete',)
     )
-    shop = forms.ModelChoiceField(
+    seller_shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type__in=['gf', 'sp']),
     )
 
     class Meta:
         model = ProductPrice
-        fields = ('product', 'city', 'area', 'shop',
-                  'price_to_service_partner', 'price_to_retailer',
-                  'price_to_super_retailer', 'start_date', 'end_date',
-                  'approval_status', 'status',)
+        fields = ('product', 'mrp', 'selling_price', 'seller_shop',
+                  'buyer_shop', 'city', 'pincode',
+                  'start_date', 'end_date', 'approval_status')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if 'approval_status' and 'status' in self.fields:
+        self.fields['start_date'].required = True
+        self.fields['end_date'].required = True
+        if 'approval_status' in self.fields:
             self.fields['approval_status'].initial = ProductPrice.APPROVAL_PENDING
             self.fields['approval_status'].widget = forms.HiddenInput()
-            self.fields['status'].widget = forms.HiddenInput()
 
 
 class ProductPriceChangePerm(forms.ModelForm):
@@ -440,21 +461,21 @@ class ProductPriceChangePerm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(
             url='admin:product-price-autocomplete',)
     )
-    shop = forms.ModelChoiceField(
+    seller_shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type__in=['gf', 'sp']),
     )
 
     class Meta:
         model = ProductPrice
-        fields = ('product', 'city', 'area', 'shop',
-                  'price_to_service_partner', 'price_to_retailer',
-                  'price_to_super_retailer', 'start_date', 'end_date',
-                  'approval_status', 'status',)
+        fields = ('product', 'mrp', 'selling_price', 'seller_shop',
+                  'buyer_shop', 'city', 'pincode',
+                  'start_date', 'end_date', 'approval_status')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if 'status' in self.fields:
-            self.fields['status'].widget = forms.HiddenInput()
+        self.fields['start_date'].required = True
+        self.fields['end_date'].required = True
+        self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:-1]
 
 
 class ProductCategoryMappingForm(forms.Form):
@@ -470,3 +491,75 @@ class ProductCategoryMappingForm(forms.Form):
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only csv file accepted")
         return self.cleaned_data['file']
+
+
+class NewProductPriceUpload(forms.Form):
+
+    seller_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
+        widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete')
+    )
+    city = forms.ModelChoiceField(
+        queryset=City.objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:city_autocomplete'),
+        required=False
+    )
+    buyer_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='r'),
+        widget=autocomplete.ModelSelect2(url='admin:retailer_autocomplete'),
+        required=False
+    )
+    pincode_from = forms.CharField(max_length=6, min_length=6, required=False,
+                                   validators=[PinCodeValidator])
+    pincode_to = forms.CharField(max_length=6, min_length=6, required=False,
+                                 validators=[PinCodeValidator])
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(), required=False,
+        widget=autocomplete.ModelSelect2(url='admin:product_autocomplete')
+    )
+    action = forms.ChoiceField(widget=forms.RadioSelect,
+                               choices=[('1', 'Upload'), ('2', 'Download')])
+    csv_file = forms.FileField(required=False)
+
+    class Meta:
+        fields = ('seller_shop', 'city', 'pincode_from', 'pincode_to',
+                  'buyer_shop', 'product', 'action', 'csv_file')
+
+    def clean_pincode_from(self):
+        cleaned_data = self.cleaned_data
+        data = self.data
+        if (data.get('pincode_to', None) and not
+                cleaned_data.get('pincode_from', None)):
+            raise forms.ValidationError('This field is required')
+        return cleaned_data['pincode_from']
+
+    def clean_pincode_to(self):
+        cleaned_data = self.cleaned_data
+        if (cleaned_data.get('pincode_from', None) and not
+                cleaned_data.get('pincode_to', None)):
+            raise forms.ValidationError('This field is required')
+        return cleaned_data['pincode_to']
+
+    def clean_csv_file(self):
+        file = self.cleaned_data['csv_file']
+        if file and not file.name[-5:] in ('.xlsx'):
+            raise forms.ValidationError('Only Excel(.xlsx) file accepted')
+        return file
+
+
+class ProductVendorMappingForm(forms.ModelForm):
+    vendor = forms.ModelChoiceField(
+        queryset=Vendor.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:vendor-autocomplete', )
+    )
+
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:product-price-autocomplete', )
+    )
+
+    class Meta:
+        model = ProductVendorMapping
+        fields = ('vendor', 'product', 'product_price', 'product_mrp', 'case_size', )

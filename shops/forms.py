@@ -1,5 +1,5 @@
 from django import forms
-from .models import ParentRetailerMapping, Shop, ShopType, ShopUserMapping
+from .models import ParentRetailerMapping, Shop, ShopType, ShopUserMapping, ShopTiming
 from addresses.models import Address
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -113,10 +113,15 @@ class ShopForm(forms.ModelForm):
                             ),
                         ])
 
+    shop_owner = forms.ModelChoiceField(
+        queryset=get_user_model().objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:user-autocomplete', )
+    )
+
     class Meta:
         Model = Shop
         fields = (
-            'shop_name', 'shop_owner', 'shop_type', 'related_users',
+            'shop_name', 'shop_owner', 'shop_type',
             'shop_code', 'warehouse_code','created_by', 'status')
 
     @classmethod
@@ -144,16 +149,6 @@ class ShopForm(forms.ModelForm):
         return warehouse_code
 
 
-class AddressForm(forms.ModelForm):
-    nick_name = forms.CharField(required=True)
-    address_contact_name = forms.CharField(required=True)
-    address_contact_number = forms.CharField(required=True)
-    state = forms.ModelChoiceField(queryset=State.objects.all())
-    pincode = forms.CharField(max_length=6, required=True)
-
-    class Meta:
-        Model = Address
-
 from django.forms.models import BaseInlineFormSet
 
 class RequiredInlineFormSet(BaseInlineFormSet):
@@ -180,6 +175,37 @@ class AddressInlineFormSet(BaseInlineFormSet):
         elif flag==0:
             raise forms.ValidationError('Please add at least one shipping address')
 
+class ShopTimingForm(forms.ModelForm):
+    SUN = 'SUN'
+    MON = 'MON'
+    TUE = 'TUE'
+    WED = 'WED'
+    THU = 'THU'
+    FRI = 'FRI'
+    SAT = 'SAT'
+
+    off_day_choices = (
+        (SUN, 'Sunday'),
+        (MON, 'Monday'),
+        (TUE, 'Tuesday'),
+        (WED, 'Wednesday'),
+        (THU, 'Thuresday'),
+        (FRI, 'Friday'),
+        (SAT, 'Saturday'),
+    )
+    shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['r']),
+        widget=autocomplete.ModelSelect2(url='admin:shop-timing-autocomplete', )
+    )
+    off_day = forms.MultipleChoiceField(
+        required=False,
+        choices=off_day_choices,
+        widget=forms.SelectMultiple(),
+    )
+
+    class Meta:
+        model = ShopTiming
+        fields = ('shop','open_timing','closing_timing','break_start_time','break_end_time','off_day')
 
 class BulkShopUpdation(forms.Form):
     file = forms.FileField(label='Select a file')
@@ -238,7 +264,7 @@ class ShopUserMappingCsvViewForm(forms.Form):
             if row[1] and not re.match("^[\d]*$", row[1]) and not get_user_model().objects.filter(phone_number=row[1]).exists():
                 raise ValidationError(_('INVALID_MANAGER_NO at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
 
-            if row[1] and not any([row[1] in uploaded_employee_list, ShopUserMapping.objects.filter(employee__phone_number=row[1]).exists()]):
+            if row[1] and not any([row[1] in uploaded_employee_list, ShopUserMapping.objects.filter(employee__phone_number=row[1], employee_group__permissions__codename='can_sales_manager_add_shop',status=True).exists()]):
                 raise ValidationError(_('INVALID_MANAGER_NO at Row[%(value)s]. Please create employee first, then manager'),
                                       params={'value': id + 1}, )
 
@@ -246,9 +272,6 @@ class ShopUserMappingCsvViewForm(forms.Form):
                 raise ValidationError(_('INVALID_GROUP_ID at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
 
             uploaded_employee_list.append(row[2])
-            if ShopUserMapping.objects.filter(shop_id=row[0], employee__phone_number=row[2]).exists():
-                raise ValidationError(_('This shop_user_mapping already exists at Row[%(value)s]'),
-                                      params={'value': id + 1}, )
 
 
 

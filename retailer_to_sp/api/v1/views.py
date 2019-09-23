@@ -1,3 +1,4 @@
+from decimal import Decimal
 import logging
 import json
 from datetime import datetime, timedelta
@@ -27,12 +28,13 @@ from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializ
     OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
     RetailerShopSerializer, SellerOrderListSerializer,OrderListSerializer,
     ReadOrderedProductSerializer,FeedBackSerializer, CancelOrderSerializer,
-    ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer
+    ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
+    ShipmentReschedulingSerializer, ShipmentReturnSerializer
 )
 
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
 from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
-                                OrderedProduct as SPOrderedProduct, StockAdjustment)
+                                OrderedProduct as SPOrderedProduct, StockAdjustment, create_credit_note)
 
 from categories import models as categorymodel
 
@@ -40,7 +42,8 @@ from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as 
     OrderedProductReserved as GramOrderedProductReserved, PickList, PickListItems
 )
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
-    OrderedProduct, Payment, CustomerCare, Return, Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard
+    OrderedProduct, Payment, CustomerCare, Return, Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
+    ShipmentRescheduling
 )
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,
     Order as GramMappedOrder, OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment,
@@ -299,18 +302,23 @@ class GramGRNProductsList(APIView):
             products_list = es_search(index="all_products", body=body)
 
         for p in products_list['hits']['hits']:
-
+            if is_store_active:
+                product = Product.objects.get(id=p["_source"]["id"])
+                check_price = product.get_current_shop_price(parent_mapping.parent.id, shop_id)
+                if not check_price:
+                    continue
+                p["_source"]["ptr"] = check_price.selling_price
+                p["_source"]["mrp"] = check_price.mrp
+                loyalty_discount = product.getLoyaltyIncentive(parent_mapping.parent.id, shop_id)
+                cash_discount = product.getCashDiscount(parent_mapping.parent.id, shop_id)
             if cart_check == True:
-                ptr = p["_source"]['ptr']
-                loyalty_discount = p["_source"]['loyalty_discount']
-                cash_discount = p["_source"]['cash_discount']
                 for c_p in cart_products:
                     if c_p.cart_product_id == p["_source"]["id"]:
                         user_selected_qty = c_p.qty
                         no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
                         p["_source"]["user_selected_qty"] = user_selected_qty
                         p["_source"]["no_of_pieces"] = no_of_pieces
-                        p["_source"]["sub_total"] = float(no_of_pieces) * float(ptr)
+                        p["_source"]["sub_total"] = Decimal(no_of_pieces) * p["_source"]["ptr"]
             p_list.append(p["_source"])
 
         msg = {'is_store_active': is_store_active,
@@ -401,7 +409,7 @@ class AddToCart(APIView):
                 if cart.rt_cart_list.count() <= 0:
                     msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],'response_data': None}
                 else:
-                    serializer = CartSerializer(Cart.objects.get(id=cart.id),context={'parent_mapping_id': parent_mapping.parent.id})
+                    serializer = CartSerializer(Cart.objects.get(id=cart.id),context={'parent_mapping_id': parent_mapping.parent.id, 'buyer_shop_id': shop_id})
                     msg = {'is_success': True, 'message': ['Data added to cart'], 'response_data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
 
@@ -492,6 +500,7 @@ class CartDetail(APIView):
                     serializer = CartSerializer(
                         Cart.objects.get(id=cart.id),
                         context={'parent_mapping_id': parent_mapping.parent.id,
+                                 'buyer_shop_id': shop_id,
                                  'delivery_message': self.delivery_message()}
                     )
                     msg = {
@@ -594,7 +603,8 @@ class ReservedOrder(generics.ListAPIView):
                     serializer = CartSerializer(
                         cart,
                         context={
-                            'parent_mapping_id':parent_mapping.parent.id
+                            'parent_mapping_id':parent_mapping.parent.id,
+                            'buyer_shop_id': shop_id
                         })
                     msg = {'is_success': True,
                            'message': [''],
@@ -608,7 +618,8 @@ class ReservedOrder(generics.ListAPIView):
                         })
                     create_reserved_order(reserved_args)
             serializer = CartSerializer(cart, context={
-                'parent_mapping_id': parent_mapping.parent.id})
+                'parent_mapping_id': parent_mapping.parent.id,
+                'buyer_shop_id': shop_id})
             msg = {
                     'is_success': True,
                     'message': [''],
@@ -694,7 +705,10 @@ class CreateOrder(APIView):
                         ordered_reserve.reserve_status = OrderedProductReserved.ORDERED
                         ordered_reserve.save()
 
-                    serializer = OrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
+                    serializer = OrderSerializer(order, 
+                        context={'parent_mapping_id': parent_mapping.parent.id,
+                                 'buyer_shop_id': shop_id,
+                                 'current_url':current_url})
                     msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
                 else:
                     msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
@@ -768,10 +782,18 @@ class OrderList(generics.ListAPIView):
         current_url = request.get_host()
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             queryset = Order.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
-            serializer = OrderListSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
+            serializer = OrderListSerializer(
+                queryset, many=True,
+                context={'parent_mapping_id': parent_mapping.parent.id,
+                         'current_url': current_url,
+                         'buyer_shop_id': shop_id})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             queryset = GramMappedOrder.objects.filter(buyer_shop=parent_mapping.retailer).order_by('-created_at')
-            serializer = GramMappedOrderSerializer(queryset, many=True, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
+            serializer = GramMappedOrderSerializer(
+                queryset, many=True,
+                context={'parent_mapping_id': parent_mapping.parent.id,
+                         'current_url': current_url,
+                         'buyer_shop_id': shop_id})
 
         if serializer.data:
             msg = {'is_success': True,'message': None,'response_data': serializer.data}
@@ -797,7 +819,11 @@ class OrderDetail(generics.RetrieveAPIView):
         current_url = request.get_host()
         if parent_mapping.parent.shop_type.shop_type == 'sp':
             queryset = Order.objects.get(id=pk)
-            serializer = OrderDetailSerializer(queryset, context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
+            serializer = OrderDetailSerializer(
+                queryset,
+                context={'parent_mapping_id': parent_mapping.parent.id,
+                         'current_url':current_url,
+                         'buyer_shop_id': shop_id})
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             queryset = GramMappedOrder.objects.get(id=pk)
             serializer = GramMappedOrderSerializer(queryset,context={'parent_mapping_id': parent_mapping.parent.id,'current_url':current_url})
@@ -876,10 +902,12 @@ class DownloadInvoiceSP(APIView):
             inline_sum_amount = 0
 
             cart_product_map = order_obj.order.ordered_cart.rt_cart_list.filter(cart_product=m.product).last()
-            product_price = cart_product_map.get_cart_product_price(order_obj.order.ordered_cart.seller_shop)
+            product_price = cart_product_map.get_cart_product_price(
+                order_obj.order.ordered_cart.seller_shop,
+                order_obj.order.ordered_cart.buyer_shop)
 
-            product_pro_price_ptr = product_price.price_to_retailer
-            product_pro_price_mrp = round(product_price.mrp,2)
+            product_pro_price_ptr = product_price.selling_price
+            product_pro_price_mrp = product_price.mrp
 
             no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
             cart_qty = m.product.rt_cart_product_mapping.last().qty
@@ -918,7 +946,7 @@ class DownloadInvoiceSP(APIView):
             inline_sum_amount += int(m.shipped_qty) * product_pro_price_ptr
 
             for n in m.product.product_pro_tax.all():
-                divisor= (1+(n.tax.tax_percentage/100))
+                divisor= Decimal(1+(n.tax.tax_percentage/100))
                 original_amount= (inline_sum_amount/divisor)
                 tax_amount = inline_sum_amount - original_amount
                 if n.tax.tax_type=='gst':
@@ -1107,7 +1135,9 @@ class PaymentApi(APIView):
                 payment.save()
                 order.order_status = 'opdp'
                 order.save()
-            serializer = OrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id})
+            serializer = OrderSerializer(
+                order,context={'parent_mapping_id': parent_mapping.parent.id,
+                               'buyer_shop_id': shop_id})
 
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
 
@@ -1205,19 +1235,26 @@ class ShipmentDetail(APIView):
 
     def post(self, *args, **kwargs):
         shipment_id = kwargs.get('shipment')
-        shipment = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
+        msg = {'is_success': False, 'message': ['shipment id is invalid'], 'response_data': None}
+        try:
+            shipment = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
+        except ObjectDoesNotExist:
+            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+
         product = self.request.POST.get('product')
         returned_qty = self.request.POST.get('returned_qty')
         damaged_qty = self.request.POST.get('damaged_qty')
-        msg = {'is_success': False,'message': [''],'response_data': None}
 
-        datas = ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(returned_qty=returned_qty, damaged_qty=damaged_qty)
-        serializer = ShipmentDetailSerializer(shipment, many=True)
-        if serializer.data:
+        if int(ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product).shipped_qty) >= int(returned_qty) + int(damaged_qty):
+            ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(returned_qty=returned_qty, damaged_qty=damaged_qty)
+            #shipment_product_details = ShipmentDetailSerializer(shipment, many=True)
             cash_to_be_collected = shipment.last().ordered_product.cash_to_be_collected()
-            msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': serializer.data, 'cash_to_be_collected': cash_to_be_collected}
-            return Response( msg, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': None,
+                       'cash_to_be_collected': cash_to_be_collected}
+            return Response(msg, status=status.HTTP_201_CREATED)
+        else:
+            msg = {'is_success': False, 'message': ['Returned qty and damaged qty is greater than shipped qty'], 'response_data': None}
+            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
         # else:
         #     msg = {'is_success': False, 'message': ['Phone Number is not Valid'], 'response_data': None}
         #     return Response( msg, status=status.HTTP_400_BAD_REQUEST)
@@ -1304,6 +1341,7 @@ class SellerOrderList(generics.ListAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
     pagination_class = SmallOffsetPagination
+    is_manager=False
 
     def get_manager(self):
         return ShopUserMapping.objects.filter(employee=self.request.user, status=True)
@@ -1318,17 +1356,18 @@ class SellerOrderList(generics.ListAPIView):
         return ShopUserMapping.objects.filter(employee=self.request.user,
                                                        employee_group__permissions__codename='can_sales_person_add_shop',
                                                        shop__shop_type__shop_type='r', status=True)
-
     def get_queryset(self):
         shop_emp = self.get_employee()
         if not shop_emp.exists():
             shop_emp = self.get_shops()
+            if shop_emp:
+                self.is_manager=True
         return shop_emp.values('shop')
 
     def list(self, request, *args, **kwargs):
         msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
         current_url = request.get_host()
-        queryset = Order.objects.filter(buyer_shop__in=self.get_queryset()).order_by('-created_at')
+        queryset = Order.objects.filter(buyer_shop__in=self.get_queryset()).order_by('-created_at') if self.is_manager else Order.objects.filter(buyer_shop__in=self.get_queryset(), ordered_by=request.user).order_by('-created_at')
         if not queryset.exists():
             msg = {'is_success': False, 'message': ['Order not found'], 'response_data': None}
         else:
@@ -1338,3 +1377,63 @@ class SellerOrderList(generics.ListAPIView):
             if serializer.data:
                 msg = {'is_success': True,'message': None,'response_data': serializer.data}
         return Response(msg,status=status.HTTP_200_OK)
+
+class RescheduleReason(generics.ListCreateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = ShipmentReschedulingSerializer
+
+    def list(self, request, *args, **kwargs):
+        data =[{'name': reason[0], 'display_name': reason[1]} for reason in ShipmentRescheduling.RESCHEDULING_REASON]
+        msg = {'is_success': True, 'message': None, 'response_data': data}
+        return Response(msg, status=status.HTTP_200_OK)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            self.update_shipment(request.data.get('shipment'))
+            update_trip_status(request.data.get('trip'))
+            msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
+        else:
+            msg = {'is_success': False, 'message': ['have some issue'], 'response_data': None}
+        return Response(msg, status=status.HTTP_200_OK)
+
+    def perform_create(self, serializer):
+        return serializer.save(created_by=self.request.user)
+
+    def update_shipment(self, id):
+        OrderedProduct.objects.filter(pk=id).update(shipment_status=OrderedProduct.RESCHEDULED, trip=None)
+
+def update_trip_status(trip_id):
+    shipment_status_list = ['FULLY_DELIVERED_AND_COMPLETED', 'PARTIALLY_DELIVERED_AND_COMPLETED', 'FULLY_RETURNED_AND_COMPLETED', 'RESCHEDULED']
+    order_product = OrderedProduct.objects.filter(trip_id=trip_id)
+    if order_product.exclude(shipment_status__in=shipment_status_list).count()==0:
+        Trip.objects.filter(pk=trip_id).update(trip_status='COMPLETED')
+
+class ReturnReason(generics.UpdateAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = ShipmentReturnSerializer
+
+    def get(self, request, *args, **kwargs):
+        data =[{'name': reason[0], 'display_name': reason[1]} for reason in OrderedProduct.RETURN_REASON]
+        msg = {'is_success': True, 'message': None, 'response_data': data}
+        return Response(msg, status=status.HTTP_200_OK)
+
+    def get_queryset(self):
+        return OrderedProduct.objects.get(pk=self.request.data.get('id'))
+
+    def patch(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_queryset()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        if serializer.is_valid():
+            serializer.save()
+            # For creating credit note
+            shipment = OrderedProduct.objects.get(id=request.data.get('id'))
+            create_credit_note(shipment)
+            msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
+        else:
+            msg = {'is_success': False, 'message': ['have some issue'], 'response_data': None}
+        return Response(msg, status=status.HTTP_200_OK)

@@ -6,7 +6,8 @@ from .views import (ProductsList, GramGRNProductsList,AddToCart,CartDetail,
     DownloadNote, CustomerCareApi, CustomerOrdersList,  PaymentApi,
     ProductDetail,ReleaseBlocking, OrderedProductViewSet, OrderedProductMappingView,
     CancelOrder, DeliveryBoyTrips,RetailerShopsList, FeedbackData, SellerOrderList,
-    DeliveryShipmentDetails, ShipmentDetail, PickerDashboardViewSet
+    DeliveryShipmentDetails, ShipmentDetail, PickerDashboardViewSet, RescheduleReason,
+    ReturnReason
 )
 
 router = routers.DefaultRouter()
@@ -44,6 +45,8 @@ urlpatterns = [
     url('^retailer-shops/$', RetailerShopsList.as_view(), name='retailer_shops'),
 
     url('^seller-order-list/$', SellerOrderList.as_view(), name='seller-order-list'),
+    url('^reschedule-reason/$', RescheduleReason.as_view(), name='reschedule-reason'),
+    url('^return-reason/$', ReturnReason.as_view(), name='return-reason'),
 ]
 
 urlpatterns += router.urls

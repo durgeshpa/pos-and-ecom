@@ -2,6 +2,7 @@ from django.contrib import admin
 from .models import (Order,Cart,CartProductMapping,GRNOrder,GRNOrderProductMapping,BrandNote,PickList,PickListItems,
                      OrderedProductReserved,Po_Message, Document)
 from products.models import Product
+from retailer_backend.admin import InputFilter
 from django import forms
 from django.db.models import Sum, F
 from django.utils.html import format_html
@@ -19,7 +20,7 @@ from gram_to_brand.forms import (OrderForm, CartProductMappingForm, GRNOrderForm
 from .forms import POGenerationForm
 from django.http import HttpResponse, HttpResponseRedirect
 from retailer_backend.filters import ( BrandFilter, SupplierStateFilter,SupplierFilter, OrderSearch, QuantitySearch, InvoiceNoSearch,
-                                       GRNSearch, POAmountSearch, PORaisedBy)
+                                       GRNSearch, POAmountSearch, PORaisedBy,ProductNameSearch, ProductSKUSearch,SupplierNameSearch, POCreatedBySearch,PONumberSearch)
 
 from django.db.models import Q
 from .views import DownloadPurchaseOrder, GetMessage
@@ -51,7 +52,7 @@ class CartAdmin(admin.ModelAdmin):
     exclude = ('po_no', 'po_status','last_modified_by')
     autocomplete_fields = ('brand',)
     #list_display = ('po_no','po_edit_link','brand','supplier_state','supplier_name', 'po_creation_date','po_validity_date','po_raised_by','po_status', 'download_purchase_order')
-    list_filter = [BrandFilter,SupplierStateFilter ,SupplierFilter,('po_creation_date', DateRangeFilter),('po_validity_date', DateRangeFilter),POAmountSearch,PORaisedBy]
+    list_filter = [BrandFilter,SupplierStateFilter ,SupplierFilter,('po_creation_date', DateRangeFilter),('po_validity_date', DateRangeFilter),POAmountSearch,PORaisedBy, PONumberSearch]
     form = POGenerationForm
     list_display_links = None
 
@@ -217,7 +218,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
     exclude = ('order_item','grn_id','last_modified_by',)
     #list_display_links = None
     list_display = ('grn_id','order','invoice_no','grn_date','brand', 'supplier_state', 'supplier_name','po_status', 'po_created_by','download_debit_note')
-    list_filter = [OrderSearch, InvoiceNoSearch, GRNSearch, ('created_at', DateRangeFilter),('grn_order_grn_order_product__expiry_date', DateRangeFilter)]
+    list_filter = [OrderSearch, InvoiceNoSearch, GRNSearch,ProductNameSearch, ProductSKUSearch,SupplierNameSearch,POCreatedBySearch,('created_at', DateRangeFilter),('grn_order_grn_order_product__expiry_date', DateRangeFilter)]
     form = GRNOrderForm
     #fields = ('order','invoice_no','brand_invoice','e_way_bill_no','e_way_bill_document', 'invoice_date', 'invoice_amount')
     fields = ('order','invoice_no','invoice_date', 'invoice_amount')

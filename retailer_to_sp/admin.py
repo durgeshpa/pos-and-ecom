@@ -39,6 +39,7 @@ from retailer_to_sp.views import (
     trip_planning, trip_planning_change, update_delivered_qty,
     update_order_status, update_shipment_status, reshedule_update_shipment,
     RetailerCart, assign_picker, assign_picker_change, assign_picker_data,
+    UserWithNameAutocomplete,  SellerAutocomplete
 )
 from shops.models import ParentRetailerMapping, Shop
 from sp_to_gram.models import (
@@ -69,8 +70,6 @@ from .utils import (
     GetPcsFromQty, add_cart_user, create_order_from_cart,
     reschedule_shipment_button
 )
-
-
 class InvoiceNumberFilter(AutocompleteFilter):
     title = 'Invoice Number'
     field_name = 'invoice_no'
@@ -306,6 +305,30 @@ class ShipmentSellerShopSearch(InputFilter):
                 Q(order__seller_shop__shop_name__icontains=seller_shop_name)
             )
 
+class SellerShopFilter(AutocompleteFilter):
+    field_name = 'seller_shop'
+    title = 'seller_shop'
+    autocomplete_url = 'admin:seller-autocomplete'
+
+
+class BuyerShopFilter(AutocompleteFilter):
+    field_name = 'buyer_shop'
+    title = 'buyer_shop'
+    autocomplete_url = 'admin:seller-autocomplete'
+
+class OrderIDFilter(InputFilter):
+    parameter_name = 'order_id'
+    title = 'order_id'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            order_id = self.value()
+            if order_id is None:
+                return
+            return queryset.filter(
+                Q(order_id__icontains=order_id)
+            )
+
 
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
@@ -334,13 +357,29 @@ class CartProductMappingAdmin(admin.TabularInline):
     def has_delete_permission(self, request, obj=None):
         return False
 
+class ExportCsvMixin:
+    def export_as_csv_cart(self, request, queryset):
+        meta = self.model._meta
+        list_display = ('order_id', 'seller_shop', 'buyer_shop', 'cart_status', 'date', 'time', 'seller_contact_no', 'buyer_contact_no')
+        field_names = [field.name for field in meta.fields if field.name in list_display]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in list_display])
+        return response
 
-class CartAdmin(admin.ModelAdmin):
+    export_as_csv_cart.short_description = "Download CSV of Selected Orders"
+
+class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
     fields = ('seller_shop', 'buyer_shop')
+    actions = ["export_as_csv_cart", ]
     form = CartForm
-    list_display = ('order_id', 'seller_shop','buyer_shop','cart_status')
+    list_display = ('order_id', 'seller_shop','buyer_shop','cart_status','created_at',)
     #change_form_template = 'admin/sp_to_gram/cart/change_form.html'
+    list_filter = (SellerShopFilter, BuyerShopFilter,OrderIDFilter)
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
@@ -389,6 +428,14 @@ class CartAdmin(admin.ModelAdmin):
                 self.admin_site.admin_view(commercial_shipment_details),
                 name="CommercialShipmentDetails"
                 ),
+            url(r'^user-with-name-autocomplete/$',
+                self.admin_site.admin_view(UserWithNameAutocomplete.as_view()),
+                name="user_with_name_autocomplete"
+                ),
+            url(r'^seller-autocomplete/$',
+                self.admin_site.admin_view( SellerAutocomplete.as_view()),
+                name='seller-autocomplete'
+                ),
         ] + urls
         return urls
 
@@ -409,6 +456,7 @@ class CartAdmin(admin.ModelAdmin):
             Cart, CartProductMapping, SpMappedOrderedProductMapping,
             OrderedProductReserved, request.user)
         reserve_order.create()
+
 
 
 class ExportCsvMixin:
@@ -820,7 +868,7 @@ class OrderedProductAdmin(admin.ModelAdmin):
                 form_instance,
                 formsets_dict['OrderedProductMappingFormFormSet']
             )
-            create_credit_note(form)
+            create_credit_note(form.instance)
         update_order_status(
             close_order_checked=False,
             shipment_id=form_instance.id
@@ -962,7 +1010,6 @@ class ShipmentAdmin(admin.ModelAdmin):
         return obj.order.seller_shop.shop_name
 
     def shipment_address(self, obj):
-        return ""
         address = obj.order.shipping_address
         address_line = address.address_line1
         contact = address.address_contact_number
@@ -970,7 +1017,6 @@ class ShipmentAdmin(admin.ModelAdmin):
         return str("%s, %s(%s)") % (shop_name, address_line, contact)
 
     def invoice_city(self, obj):
-        return ""
         city = obj.order.shipping_address.city
         return str(city)
 
@@ -983,28 +1029,18 @@ class ShipmentAdmin(admin.ModelAdmin):
     def save_related(self, request, form, formsets, change):
         #update_shipment_status(form, formsets)
 
-        update_order_status(
+        ordered_qty, shipment_products_dict = update_order_status(
             close_order_checked=form.cleaned_data.get('close_order'),
             shipment_id=form.instance.id
         )
 
-        no_of_pieces = form.instance.order.ordered_cart.rt_cart_list.all().values('no_of_pieces')
-        # no_of_pieces = no_of_pieces.first().get('no_of_pieces')
-        no_of_pieces = no_of_pieces.aggregate(
-            Sum('no_of_pieces')).get('no_of_pieces__sum', 0)
+        no_of_pieces = ordered_qty
+        shipped_qty = shipment_products_dict.get('shipped_qty',0)
 
-        all_ordered_product = form.instance.order.rt_order_order_product.all()
-        qty = OrderedProductMapping.objects.filter(
-            ordered_product__in=all_ordered_product,
-            )
-        shipped_qty = qty.aggregate(
-            Sum('shipped_qty')).get('shipped_qty__sum', 0)
-
-        shipped_qty = shipped_qty if shipped_qty else 0
         #when more shipments needed and status == qc_pass
         close_order = form.cleaned_data.get('close_order')
         if close_order:
-            PickerDashboard.objects.filter(order=form.instance.order).update(picking_status="picking_complete")
+            form.instance.order.picker_order.update(picking_status="picking_complete")
         change_value = form.instance.shipment_status == form.instance.READY_TO_SHIP
         if "shipment_status" in form.changed_data and change_value and (not close_order):
 
