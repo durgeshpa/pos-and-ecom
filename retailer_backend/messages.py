@@ -38,7 +38,7 @@ SUCCESS_MESSAGES = {
 
 ERROR_MESSAGES = {
     'AVAILABLE_PRODUCT': 'Available No of Pieces : {0}',
-    'INVALID_PRICE_UPLOAD': "You cannot upload Retailer Price greater than MRP",
+    'INVALID_PRICE_UPLOAD': "You cannot upload Selling Price greater than MRP",
     'INVALID_SP_PRICE': "You cannot upload Service Partner Price greater than Super Retailer",
     'INVALID_SR_PRICE': "You cannot upload Super Retailer Price greater than Retailer",
     'INVALID_MAPPING': "Shop id- %s and employee no- %s , has duplicate entry",

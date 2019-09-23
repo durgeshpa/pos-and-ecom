@@ -1,0 +1,192 @@
+{% extends 'admin/retailer_to_sp/trip/base.html' %}
+
+{% block title %}Upload Products Price | Admin{% endblock %}
+{% block breadcrumb1 %}<a href="/admin/products/">Products</a>{% endblock %}
+{% block breadcrumb2 %}<a href="/admin/products/product/product-price-upload/">Upload Products Price</a>{% endblock %}
+
+{% block content %}
+          <!-- Content -->
+         <div id="content" class="colM">
+            <h1>{% block content_header %}{% endblock %}</h1>
+            <div id="content-main">
+               <ul class="object-tools">
+                  <!--<li>-->
+                  <!--<a href="/admin/retailer_to_sp/orderedproduct/119/history/" class="historylink">History</a>-->
+                  <!--</li>-->
+               </ul>
+               <form method="post" enctype="multipart/form-data">
+                  <div>
+                    {% if messages %}
+<ul class="messagelist">
+    {% for message in messages %}
+    <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+    {% endfor %}
+</ul>
+{% endif %}
+                     <fieldset class="module aligned ">
+                        {% csrf_token %}
+                        {% if form.errors %}
+                        {% for error in form.non_field_errors %}
+                        <p class="errornote">
+                           {{ error|escape }}
+                        </p>
+                        {% endfor %}
+                        {% endif %}
+                        {% for hidden in form.hidden_fields %}
+                        {{ hidden.errors }}
+                        {{ hidden }}
+                        {% endfor %}
+                    
+                    <div class="form-row">  
+                        <p><label for="{{ form.seller_shop.auto_id }}">{{form.seller_shop.label}}:    {% if form.seller_shop.field.required %}
+                           <span class="required">*</span>
+                           {% endif %}
+                           </label>{{ form.seller_shop.errors }}{{ form.seller_shop }}
+                        </p>
+                        {{ seller_shop.widget.attrs.id }}
+                    </div>
+
+                    <div class="form-row">
+                        <p><label for="{{ form.action.auto_id }}">{{form.action.label}}:    {% if form.action.field.required %}
+                           <span class="required">*</span>
+                           {% endif %}
+                           </label>{{ form.action.errors }}{{ form.action }}
+                        </p>
+                        {{ action.widget.attrs.id }}
+                    </div>                    
+                    
+                    <div id="download-actions">
+                    <div class="form-row">
+                        <p><label for="{{ form.city.auto_id }}">{{form.city.label}}:    {% if form.city.field.required %}
+                           <span class="required">*</span>
+                           {% endif %}
+                           </label>{{ form.city.errors }}{{ form.city }}
+                        </p>
+                        {{ city.widget.attrs.id }}
+                    </div>   
+
+            <div class="form-row field-pincode_from field-pincode_to">
+                
+                <div class="fieldBox pincode_from">
+                    {{ form.pincode_from.errors }}
+                    <label for="{{ form.pincode_from.auto_id }}">{{form.pincode_from.label}}:    {% if form.pincode_from.field.required %}
+                       <span class="required">*</span>
+                       {% endif %}
+                       </label>{{ form.pincode_from }}
+                    
+                    {{ pincode_from.widget.attrs.id }}                                               
+                </div>
+                
+                <div class="fieldBox pincode_to">
+                                  {{ form.pincode_to.errors }}
+
+                        <label for="{{ form.pincode_to.auto_id }}">{{form.pincode_to.label}}:    {% if form.pincode_to.field.required %}
+                           <span class="required">*</span>
+                           {% endif %}
+                           </label>{{ form.pincode_to }}
+                        
+                        {{ pincode_to.widget.attrs.id }}                 
+                </div>
+            
+        </div>
+
+
+
+
+                    <div class="form-row">
+                        <p><label for="{{ form.buyer_shop.auto_id }}">{{form.buyer_shop.label}}:    {% if form.buyer_shop.field.required %}
+                           <span class="required">*</span>
+                           {% endif %}
+                           </label>{{ form.buyer_shop.errors }}{{ form.buyer_shop }}
+                        </p>
+                        {{ buyer_shop.widget.attrs.id }}
+                    </div>
+
+                    <div class="form-row">
+                        <p><label for="{{ form.product.auto_id }}">{{form.product.label}}:    {% if form.product.field.required %}
+                           <span class="required">*</span>
+                           {% endif %}
+                           </label>{{ form.product.errors }}{{ form.product }}
+                        </p>
+                        {{ product.widget.attrs.id }}
+                    </div>
+                        </div>
+                        
+                        <div id="{{ form.csv_file.auto_id }}">
+                          {{ form.csv_file.errors }}
+                        <p><label for="{{ form.csv_file.auto_id }}">{{form.csv_file.label}}:    {% if form.csv_file.field.required %}
+                           <span class="required">*</span>
+                           {% endif %}
+                           </label>{{ form.csv_file }}
+                        </p>
+                        {{ csv_file.widget.attrs.id }}
+                      </div>
+                    
+
+                      <!--  {% for field in form.visible_fields %}
+                        <p><label for="{{ field.auto_id }}">{{field.label}}:    {% if field.field.required %}
+                           <span class="required">*</span>
+                           {% endif %}
+                           </label>{{ field.errors }}{{ field }}
+                        </p>
+                        {{ field.widget.attrs.id }}
+                        {% endfor %} -->
+                     </fieldset>
+                     <div class="submit-row">
+                        <input type="submit" value="Save" class="default" name="_save">
+                        <p class="deletelink-box"><a href="/admin/products/" class="deletelink">Back</a></p>
+                     </div>
+                  </div>
+               </form>
+            </div>
+            <br class="clear">
+         </div>
+         <!-- END Content -->
+{% endblock %}
+
+{% block javascript %}
+<script >
+    
+  $(document).ready(function() {
+
+    {% if form.errors or messages %}
+              $('input[type=radio][name=action]').change(function() {
+          if (this.value == 1) {
+            $('#download-actions').hide();
+            $('div[id=id_csv_file]').show();
+          }
+          else if (this.value == 2) {
+            $('#download-actions').show();
+            $('div[id=id_csv_file]').hide();
+          }
+      });
+        var action = $("input[type=radio][name=action]:checked");
+        var action_val = action.val();
+        //$("input[type=radio][name=action]").attr('disabled','disabled');
+        if (action_val == 1){
+          $('#download-actions').hide();
+          $('div[id=id_csv_file]').show();
+        }
+        else if (action_val == 2) {
+          $('div[id=id_csv_file]').hide();
+          $('#download-actions').show();
+        }
+    {% else %}
+      $('#download-actions').hide();
+      $('div[id=id_csv_file]').hide();
+      $('input[type=radio][name=action]').change(function() {
+          if (this.value == 1) {
+            $('#download-actions').hide();
+            $('div[id=id_csv_file]').show();
+          }
+          else if (this.value == 2) {
+            $('#download-actions').show();
+            $('div[id=id_csv_file]').hide();
+          }
+      });
+    {% endif %}
+
+  });
+</script>
+{% endblock %}
+

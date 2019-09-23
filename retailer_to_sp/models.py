@@ -147,7 +147,7 @@ class Cart(models.Model):
     @property
     def subtotal(self):
         try:
-            return round(self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum'],2)
+            return round(self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__selling_price') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum'],2)
         except:
             return None
 
@@ -176,7 +176,7 @@ class Cart(models.Model):
     def save(self, *args, **kwargs):
         if self.cart_status == self.ORDERED:
             for cart_product in self.rt_cart_list.all():
-                cart_product.get_cart_product_price(self.seller_shop)
+                cart_product.get_cart_product_price(self.seller_shop.id, self.buyer_shop.id)
         super().save(*args, **kwargs)
 
     @property
@@ -240,20 +240,21 @@ class CartProductMapping(models.Model):
     def product_inner_case_size(self):
         return self.cart_product.product_inner_case_size
 
-    def set_cart_product_price(self, shop):
-        self.cart_product_price = self.cart_product.get_current_shop_price(shop)
+    def set_cart_product_price(self, seller_shop_id, buyer_shop_id):
+        self.cart_product_price = self.cart_product.\
+            get_current_shop_price(seller_shop_id, buyer_shop_id)
         self.save()
 
-    def get_cart_product_price(self, shop):
+    def get_cart_product_price(self, seller_shop_id, buyer_shop_id):
         if not self.cart_product_price:
-            self.set_cart_product_price(shop)
+            self.set_cart_product_price(seller_shop_id, buyer_shop_id)
         return self.cart_product_price
 
-    def get_product_latest_mrp(self,shop):
+    def get_product_latest_mrp(self, shop):
         if self.cart_product_price:
-            return round(self.cart_product_price.mrp,2)
+            return self.cart_product_price.mrp
         else:
-            return round(self.cart_product.get_current_shop_price(shop).mrp,2)
+            return self.cart_product.get_current_shop_price(seller_shop_id, buyer_shop_id).mrp
 
 
 class Order(models.Model):
@@ -795,8 +796,8 @@ class OrderedProduct(models.Model): #Shipment
             self._delivered_amount = 0
             shipment_products = self.rt_order_product_order_product_mapping.values('product','shipped_qty','returned_qty','damaged_qty').all()
             shipment_map = {i['product']:(i['shipped_qty'], i['returned_qty'], i['damaged_qty']) for i in shipment_products}
-            cart_product_map = self.order.ordered_cart.rt_cart_list.values('cart_product_price__price_to_retailer', 'cart_product', 'qty').filter(cart_product_id__in=shipment_map.keys())
-            product_price_map = {i['cart_product']:(i['cart_product_price__price_to_retailer'], i['qty']) for i in cart_product_map}
+            cart_product_map = self.order.ordered_cart.rt_cart_list.values('cart_product_price__selling_price', 'cart_product', 'qty').filter(cart_product_id__in=shipment_map.keys())
+            product_price_map = {i['cart_product']:(i['cart_product_price__selling_price'], i['qty']) for i in cart_product_map}
             for product, shipment_details in shipment_map.items():
                 try:
                     product_price = product_price_map[product][0]
@@ -1032,26 +1033,30 @@ class OrderedProductMapping(models.Model):
             return str(gf_code)
         return str("-")
 
-
     @property
     def mrp(self):
-        return round(self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.mrp,2)
+        return self.ordered_product.order.ordered_cart.rt_cart_list\
+            .get(cart_product=self.product).cart_product_price.mrp
 
     @property
     def price_to_retailer(self):
-        return round(self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.price_to_retailer,2)
+        return self.ordered_product.order.ordered_cart.rt_cart_list\
+            .get(cart_product=self.product).cart_product_price.selling_price
 
     @property
     def cash_discount(self):
-        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.cash_discount
+        return self.ordered_product.order.ordered_cart.rt_cart_list\
+            .get(cart_product=self.product).cart_product_price.cash_discount
 
     @property
     def loyalty_incentive(self):
-        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.loyalty_incentive
+        return self.ordered_product.order.ordered_cart.rt_cart_list\
+            .get(cart_product=self.product).cart_product_price.loyalty_incentive
 
     @property
     def margin(self):
-        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.margin
+        return self.ordered_product.order.ordered_cart.rt_cart_list\
+            .get(cart_product=self.product).cart_product_price.margin
 
     @property
     def ordered_product_status(self):
