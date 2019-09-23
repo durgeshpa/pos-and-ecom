@@ -3,11 +3,12 @@ from django.contrib import admin
 from .models import (
     Shop, ShopType, RetailerType, ParentRetailerMapping,
     ShopPhoto, ShopDocument, ShopInvoicePattern, ShopUserMapping,
-    ShopRequestBrand, SalesAppVersion, ShopTiming
+    ShopRequestBrand, SalesAppVersion, ShopTiming, FavouriteProduct
 )
 from addresses.models import Address
+from addresses.forms import AddressForm
 from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
-                    ShopForm, AddressForm, RequiredInlineFormSet,
+                    ShopForm, RequiredInlineFormSet,
                     AddressInlineFormSet, ShopTimingForm, ShopUserMappingForm, ShopTimingForm)
 from .views import (StockAdjustmentView, stock_adjust_sample,
                     bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete
@@ -35,6 +36,20 @@ class ExportCsvMixin:
         return create_shops_excel(queryset)
 
     export_as_csv.short_description = "Download CSV of Selected Shops"
+
+    def export_as_csv_fav_product(self, request, queryset):
+        meta = self.model._meta
+        exclude_fields = ['modified_at']
+        field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in field_names])
+        return response
+    export_as_csv_fav_product.short_description = "Download CSV of Selected Objects"
+
 
 class ShopNameSearch(InputFilter):
     parameter_name = 'shop_name'
@@ -80,6 +95,36 @@ class ShopOwnerSearch(InputFilter):
                 return
             return queryset.filter(shop_owner__phone_number__icontains=shop_owner_number)
 
+class ShopFilter(AutocompleteFilter):
+    title = 'Shop' # display title
+    field_name = 'buyer_shop' # name of the foreign key field
+
+
+class ProductFilter(AutocompleteFilter):
+    title = 'Product' # display title
+    field_name = 'product' # name of the foreign key field    
+
+
+class FavouriteProductAdmin(admin.ModelAdmin, ExportCsvMixin):
+    #change_list_template = 'admin/shops/shop/change_list.html'
+    actions = ["export_as_csv_fav_product"]
+    list_display = ('buyer_shop', 'product', 'created_at', 'get_product_brand')#, 'get_product_sp')
+    raw_id_fields = ['buyer_shop', 'product']
+    list_filter = (ShopFilter, ProductFilter)
+
+    # def get_product_sp(self, obj):
+    #     return obj.product.product_brand
+    # get_product_sp.short_description = 'Parent Shop Name'  #Renames column head
+
+
+    def get_product_brand(self, obj):
+        return obj.product.product_brand
+    get_product_brand.short_description = 'Brand Name'  #Renames column head
+
+    class Media:
+        pass
+
+
 class ShopPhotosAdmin(admin.TabularInline):
     model = ShopPhoto
     fields = ( 'shop_photo','shop_photo_thumbnail', )
@@ -105,8 +150,10 @@ class AddressAdmin(admin.TabularInline):
     model = Address
     formset = AddressInlineFormSet
     form = AddressForm
-    fields = ('nick_name','address_contact_name','address_contact_number','address_type','address_line1','state','city','pincode',)
+    fields = ('nick_name', 'address_contact_name', 'address_contact_number',
+              'address_type', 'address_line1', 'state', 'city', 'pincode_link')
     extra = 2
+
 
 class ShopParentRetailerMapping(admin.TabularInline):
     model = ParentRetailerMapping
@@ -363,6 +410,7 @@ admin.site.register(ParentRetailerMapping,ParentRetailerMappingAdmin)
 admin.site.register(ShopType)
 admin.site.register(RetailerType)
 admin.site.register(Shop,ShopAdmin)
+admin.site.register(FavouriteProduct, FavouriteProductAdmin)
 admin.site.register(ShopRequestBrand,ShopRequestBrandAdmin)
 admin.site.register(ShopUserMapping,ShopUserMappingAdmin)
 admin.site.register(SalesAppVersion, SalesAppVersionAdmin)

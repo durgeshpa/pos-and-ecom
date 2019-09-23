@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import (AllowAny,
                                         IsAuthenticated)
 from rest_framework.response import Response
-from addresses.models import Country, State, City, Area, Address
+from addresses.models import Country, State, City, Area, Address, Pincode
 from .serializers import (CountrySerializer, StateSerializer, CitySerializer,
         AreaSerializer, AddressSerializer)
 from rest_framework import generics
@@ -11,6 +11,7 @@ from rest_framework import status
 from rest_framework import permissions, authentication
 from shops.models import Shop, ShopUserMapping
 from django.http import Http404
+from rest_framework import serializers
 
 
 class CountryView(generics.ListAPIView):
@@ -120,9 +121,17 @@ class AddressView(generics.ListCreateAPIView):
         return queryset
 
     def create(self, request, *args, **kwargs):
+        pincode_id = Pincode.objects.filter(
+            city=request.data.get('city', None),
+            pincode=request.data.get('pincode', None))
+        if not pincode_id.exists():
+            msg = {'is_success': False,
+                   'message': ['Invalid pincode for selected City'],
+                   'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(pincode_link=pincode_id.last())
             msg = {'is_success': True,
                     'message': ["Address added successfully"],
                     'response_data': serializer.data}

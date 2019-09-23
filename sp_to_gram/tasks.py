@@ -28,7 +28,7 @@ def get_warehouse_stock(shop_id=None):
 		grn_list = models.OrderedProductMapping.objects.values('product_id').distinct()
 	products = Product.objects.filter(pk__in=grn_list).order_by('product_name')
 	if shop_id:
-		products_price = ProductPrice.objects.filter(product__in=products, shop=shop, status=True).order_by('product_id', '-created_at').distinct('product')
+		products_price = ProductPrice.objects.filter(product__in=products, seller_shop=shop, status=True).order_by('product_id', '-created_at').distinct('product')
 	else:
 		products_price = ProductPrice.objects.filter(product__in=products, status=True).order_by('product_id', '-created_at').distinct('product')
 	p_list = []
@@ -38,11 +38,12 @@ def get_warehouse_stock(shop_id=None):
 		no_of_pieces = None
 		sub_total = None
 		name = p.product.product_name
-		mrp = round(p.mrp, 2) if p.mrp else p.mrp
-		ptr = round(p.price_to_retailer, 2) if p.price_to_retailer else p.price_to_retailer
-		loyalty_discount = round(p.loyalty_incentive, 2) if p.loyalty_incentive else p.loyalty_incentive
-		cash_discount = round(p.cash_discount, 2) if p.cash_discount else p.cash_discount
-		margin = round(100 - (float(ptr) * 1000000 / (float(mrp) * (100 - float(cash_discount)) * (100 - float(loyalty_discount)))), 2) if mrp and ptr else 0
+		mrp = p.mrp
+		ptr = p.selling_price
+		try:
+			margin = (((p.mrp - p.selling_price) / p.mrp) * 100)
+		except:
+			margin = 0 
 
 		status = p.product.status
 		product_opt = p.product.product_opt_product.all()
@@ -75,7 +76,7 @@ def get_warehouse_stock(shop_id=None):
 		category = [str(c.category) for c in p.product.product_pro_category.filter(status=True)]
 		product_details = {"name":p.product.product_name,"brand":str(p.product.product_brand),"category": category, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "id":p.product_id, 
 		                "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":user_selected_qty, "pack_size":pack_size,
-		               "loyalty_discount":loyalty_discount,"cash_discount":cash_discount,"margin":margin ,"no_of_pieces":no_of_pieces, "sub_total":sub_total}
+		               "margin":margin ,"no_of_pieces":no_of_pieces, "sub_total":sub_total}
 		if grn_dict:
 			product_details["available"] = int(grn_dict[p.product.id])
 		yield(product_details)
