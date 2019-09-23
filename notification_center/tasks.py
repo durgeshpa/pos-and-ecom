@@ -3,7 +3,9 @@ import logging
 from celery.task import task
 from rest_framework.authtoken.models import Token
 
+
 from notification_center.utils import SendNotification
+from addresses.models import Address
 
 logger = logging.getLogger(__name__)
 
@@ -27,15 +29,17 @@ def send_notification(*args, **kwargs):
 def schedule_notification(*args, **kwargs):
     #setup_periodic_tasks()
     try:
-        user_id = kwargs.get('user_id')
+        # import pdb; pdb.set_trace()
+        print ("in schedule_notification")
+        city_id = kwargs.get('city_id')
         activity_type = kwargs.get('activity_type')
-
-        # user_id = args[0]
-        # activity_type = args[1]
-        SendNotification(user_id=user_id, activity_type=activity_type).send()
+        shop_owners = Address.objects.filter(city=city_id).values_list('shop_name__shop_owner')
+        for shop_owner in shop_owners:
+            user_id = shop_owner[0]
+            # user_id = shop.shop_owner.id
+            SendNotification(user_id=user_id, activity_type=activity_type).send()
     except Exception as e:
         logging.error(str(e))
-
 
 
 @task

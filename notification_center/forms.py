@@ -1,9 +1,15 @@
 import re
 
+from dal import autocomplete
+
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
+from retailer_backend.validators import PinCodeValidator
+
+from addresses.models import City
+from shops.models import Shop
 from notification_center.models import(
     Template, TextSMSActivity, VoiceCallActivity,
     EmailActivity, GCMActivity, GroupNotificationScheduler
@@ -11,9 +17,41 @@ from notification_center.models import(
 
 
 class GroupNotificationForm(forms.ModelForm):
+
+    city = forms.ModelChoiceField(
+        queryset=City.objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:city_autocomplete'),
+        required=False
+    )
+    buyer_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='r'),
+        widget=autocomplete.ModelSelect2(url='admin:retailer_autocomplete'),
+        required=False
+    )
+    pincode_from = forms.CharField(max_length=6, min_length=6, required=False,
+                                   validators=[PinCodeValidator])
+    pincode_to = forms.CharField(max_length=6, min_length=6, required=False,
+                                 validators=[PinCodeValidator])
+
+    def clean_pincode_from(self):
+        cleaned_data = self.cleaned_data
+        data = self.data
+        if (data.get('pincode_to', None) and not
+                cleaned_data.get('pincode_from', None)):
+            raise forms.ValidationError('This field is required')
+        return cleaned_data['pincode_from']
+
+    def clean_pincode_to(self):
+        cleaned_data = self.cleaned_data
+        if (cleaned_data.get('pincode_from', None) and not
+                cleaned_data.get('pincode_to', None)):
+            raise forms.ValidationError('This field is required')
+        return cleaned_data['pincode_to']
+
     class Meta:
-        model = GroupNotificationScheduler
-        fields = '__all__'
+        # model = GroupNotificationScheduler
+        fields = ('city', 'pincode_from', 'pincode_to',
+                  'buyer_shop', 'template', 'run_at', 'repeat')  #'__all__'
         
 
 class TemplateForm(forms.ModelForm):

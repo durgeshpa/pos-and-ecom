@@ -3,6 +3,8 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 
+from retailer_backend.validators import (NameValidator, AddressNameValidator,
+        MobileNumberValidator, PinCodeValidator)
 from fcm.models import AbstractDevice
 
 from addresses.models import City
@@ -225,32 +227,21 @@ class NotificationScheduler(models.Model):
         return '%s-%s-%s' % (self.user, self.template, self.pk)
         
 
+
 class GroupNotificationScheduler(models.Model):
 
-    SELECTION_TYPE_CHOICES = (
-        ('shop', 'shop'),
-        ('user', 'user'),
-        ('last_login', 'last_login'),
-        ('last_order', 'last_order'),
-    )
-
-    selection_type = models.TextField(choices=SELECTION_TYPE_CHOICES, max_length=255, default='user')
-
-    # user = models.ManyToManyField()
-    # shop = models.ManyToManyField()
-
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
-    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, null=True, blank=True)
-    last_login = models.DateField(null=True, blank=True)
-    last_order = models.DateField(null=True, blank=True)
-
+    city = models.ForeignKey(City, related_name='notification_city', on_delete=models.CASCADE,
+                    null=True, blank=True)
+    pincode_from = models.CharField(validators=[PinCodeValidator], max_length=6, blank=True)
+    pincode_to = models.CharField(validators=[PinCodeValidator], max_length=6, blank=True)
+    buyer_shop = models.ForeignKey(Shop, related_name='notification_shop', on_delete=models.CASCADE, null=True, blank=True)
     template = models.ForeignKey(
         Template,
         related_name='group_scheduler',
         on_delete=models.CASCADE,
     )
 
-    run_at = models.DateTimeField(db_index=True)
+    run_at = models.DateTimeField(db_index=True, null=True, blank=True)
 
     # Repeat choices are encoded as number of seconds
     # The repeat implementation is based on this encoding
@@ -276,7 +267,7 @@ class GroupNotificationScheduler(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return '%s-%s-%s' % (self.user, self.template, self.pk)
+        return '%s-%s' % (self.template, self.pk)
 
 
 

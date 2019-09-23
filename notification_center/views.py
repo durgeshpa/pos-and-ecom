@@ -4,6 +4,7 @@ import datetime
 import os
 import logging
 
+from dal import autocomplete
 from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from django.shortcuts import render, redirect
@@ -18,6 +19,41 @@ logger = logging.getLogger(__name__)
 
 
 # Create your views here.
+class CityAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        buyer_shop = self.forwarded.get('buyer_shop', None)
+        state = self.forwarded.get('state', None)
+        qs = City.objects.all()
+        if buyer_shop:
+            qs = qs.filter(city_address__shop_name_id=buyer_shop,
+                           city_address__address_type='shipping')
+        if state:
+            qs = qs.filter(state=state)
+        if self.q:
+            qs = qs.filter(city_name__icontains=self.q)
+        return qs
+
+
+class RetailerAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = Shop.objects.filter(shop_type__shop_type='r')
+        if self.q:
+            qs = qs.filter(shop_name__icontains=self.q)
+        return qs
+
+
+class PincodeAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        city = self.forwarded.get('city', None)
+        buyer_shop = self.forwarded.get('buyer_shop', None)
+        qs = Pincode.objects.all()
+        if buyer_shop:
+            qs = qs.filter(pincode_address__shop_name_id=buyer_shop,
+                           pincode_address__address_type='shipping')
+            return qs
+        if city:
+            qs = qs.filter(city_id=city)
+        return qs
 
 
 def fetch_user_data(user_id):

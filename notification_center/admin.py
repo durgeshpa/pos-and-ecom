@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime, timedelta
 
 from django.contrib import admin
@@ -20,6 +21,8 @@ from notification_center.utils import (
 from notification_center.views import (
     group_notification_view
     )
+from .tasks import schedule_notification
+
 
 User = get_user_model()
 
@@ -170,52 +173,33 @@ class NotificationSchedulerAdmin(admin.ModelAdmin):
 
 class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
     model = GroupNotificationScheduler
-    list_display = ('id', 'user', 'template', 'run_at', 'repeat', 'created_at')
-    search_fields = ('id', 'user', 'template')
-    change_form_template = 'admin/notification_center/group_notification_scheduler/change_form.html'
-    # form = GroupNotificationForm
+    #raw_id_fields = ('buyer_shop')
+    list_display = ('id', 'template', 'run_at', 'repeat', 'created_at')
+    search_fields = ('id', 'template')
+    #change_form_template = 'admin/notification_center/group_notification_scheduler/change_form.html'
+    form = GroupNotificationForm
 
     def save_model(self, request, obj, form, change):
-        try:
-            #pass
-            activity_type = Template.objects.get(id=obj.template.id).type
+        # import pdb; pdb.set_trace()
+        data = {}
+        #data['test'] = "test"
+        data['city_id'] = form.cleaned_data.get('city').id
+        data['activity_type'] = obj.template.type
+        # repeat until
 
-            if obj.selection_type == "user":      
-                user_id = obj.user.id
-                SendNotification(user_id=user_id, activity_type=activity_type).send()
-            
-            elif obj.selection_type == "shop":
-                user_id = obj.shop.shop_owner.id
-                SendNotification(user_id=user_id, activity_type=activity_type).send()
+        schedule_notification(**data)
 
-                related_users = obj.shop.related_users
-                for user in related_users:
-                    user_id = user.id
-                    SendNotification(user_id=user_id, activity_type=activity_type).send()
+        # schedule= IntervalSchedule.objects.create(every=obj.repeat, period=IntervalSchedule.SECONDS)
+    
 
-            elif obj.selection_type == "last_order":
-                shops = Shop.objects.filter(last_login_at__lte=obj.last_order)        
-                for shop in shops:
-                    user_id = shop.shop_owner.id
-                    SendNotification(user_id=user_id, activity_type=activity_type).send()
-
-                # fetch user id for the last order before a particular date..
-                # last_order = obj.last_order
-                # # fetch all users who ordered before a 
-                # orders = Order.objects.filter(cart.created_at lte last_order).group_by(cart.seller_shop.shop_owner)    
-                # for order in orders:
-                #     user = order.cart.seller_shop.shop_owner.id
-                #     SendNotification(user_id=user_id, activity_type=activity_type).send()
-
-            elif obj.selection_type == "last_login":
-                users = User.objects.filter(last_login__lte=obj.last_login)        
-                for user in users:
-                    user_id = user.id
-                    SendNotification(user_id=user_id, activity_type=activity_type).send()
-
-        except Exception as e:
-            print (e.args)
-            logging.error(str(e))
+        # task = PeriodicTask.objects.create(
+        #     interval=schedule, 
+        #     name='schedule_notification: '+str(datetime.now()), 
+        #     task='tasks.schedule_notification',
+        #     expires=obj.repeat_until, 
+        #     start_time=obj.run_at,
+        #     args=json.dumps(['66']),
+        #     kwargs=json.dumps(data))
         super(GroupNotificationSchedulerAdmin, self).save_model(request, obj, form, change)    
         
 
