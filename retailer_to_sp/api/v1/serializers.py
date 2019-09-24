@@ -77,14 +77,14 @@ class OrderedProductMappingSerializer(serializers.ModelSerializer):
     def get_product_price(self, obj):
         # fetch product , order_id
         cart_product_mapping = CartProductMapping.objects.get(cart_product=obj.product, cart=obj.ordered_product.order.ordered_cart)
-        self.product_price = cart_product_mapping.cart_product_price.price_to_retailer
-        return round(self.product_price,2)
+        self.product_price = cart_product_mapping.cart_product_price.selling_price
+        return self.product_price
 
     def get_product_total_price(self, obj):
         cart_product_mapping = CartProductMapping.objects.get(cart_product=obj.product, cart=obj.ordered_product.order.ordered_cart)
-        product_price = cart_product_mapping.cart_product_price.price_to_retailer
-        self.product_total_price = product_price*obj.shipped_qty
-        return round(self.product_total_price,2)
+        product_price = cart_product_mapping.cart_product_price.selling_price
+        self.product_total_price = product_price * Decimal(obj.shipped_qty)
+        return self.product_total_price
 
     class Meta:
         model = OrderedProductMapping
@@ -859,7 +859,7 @@ class SellerCartProductMappingListSerializer(serializers.ModelSerializer):
         return int(obj.no_of_pieces)
 
     def product_sub_total_dt(self,obj):
-        return float(obj.no_of_pieces) * float(obj.cart_product_price.price_to_retailer)
+        return Decimal(obj.no_of_pieces) * obj.cart_product_price.selling_price
 
     def product_inner_case_size_dt(self,obj):
         return int(int(obj.no_of_pieces) // int(obj.qty))
