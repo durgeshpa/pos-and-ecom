@@ -277,12 +277,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
         sku_no_of_pieces = int(obj.cart_product.product_inner_case_size) * int(obj.qty)
         for rules in obj.cart_product.purchased_product_coupon.all():
             for rule in rules.rule.coupon_ruleset.filter(is_active=True):
-                if rules.rule.discount_qty_amount > 0:
-                    if sku_no_of_pieces >= rules.rule.discount_qty_step:
-                        product_coupons.append(rule.coupon_name)
-                if (rules.rule.discount_qty_step >=1) and (rules.rule.discount != None):
-                    if sku_no_of_pieces >= rules.rule.discount_qty_step:
-                        product_coupons.append(rule.coupon_name)
+                product_coupons.append(rule.coupon_code)
         return product_coupons
 
     class Meta:
@@ -298,13 +293,12 @@ class CartSerializer(serializers.ModelSerializer):
     total_amount = serializers.SerializerMethodField('total_amount_id')
     sub_total = serializers.SerializerMethodField('sub_total_id')
     delivery_msg = serializers.SerializerMethodField()
-    offers_applied = serializers.ReadOnlyField()
 
     class Meta:
         model = Cart
         fields = ('id', 'order_id', 'cart_status', 'last_modified_by',
                   'created_at', 'modified_at', 'rt_cart_list', 'total_amount',
-                  'sub_total', 'items_count', 'delivery_msg', 'offers_applied')
+                  'sub_total', 'items_count', 'delivery_msg', 'offers')
 
     def total_amount_id(self, obj):
         self.total_amount = 0
@@ -424,7 +418,7 @@ class OrderedCartSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Cart
-        fields = ('id','order_id','cart_status','created_at','modified_at','rt_cart_list','total_amount','sub_total','items_count')
+        fields = ('id','order_id','cart_status','created_at','modified_at','rt_cart_list','total_amount','sub_total','items_count', 'offers')
 
 #order Details
 class OrderDetailSerializer(serializers.ModelSerializer):
@@ -508,7 +502,7 @@ class OrderedCartListSerializer(serializers.ModelSerializer):
     rt_cart_list = OrderedCartProductMappingListSerializer(many=True)
     class Meta:
         model = Cart
-        fields = ('id','order_id','cart_status','rt_cart_list')
+        fields = ('id','order_id','cart_status','rt_cart_list', 'offers')
 
 
 #order List
