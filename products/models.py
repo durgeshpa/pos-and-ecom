@@ -165,11 +165,11 @@ class Product(models.Model):
             product_price = product_price.filter(
                 buyer_shop_id=buyer_shop_id)
         if not product_price:
-            product_price = self.product_pro_price.filter(shop=shop, status=True, start_date__lte=today, end_date__gte=today).order_by('start_date').last()
+            product_price = self.product_pro_price.filter(seller_shop_id=seller_shop_id, status=True, start_date__lte=today, end_date__gte=today).order_by('start_date').last()
             if not product_price:
-                product_price = self.product_pro_price.filter(shop=shop, status=True).last()
+                product_price = self.product_pro_price.filter(seller_shop_id=seller_shop_id, status=True).last()
             if not product_price:
-                product_price = self.product_pro_price.filter(shop=shop, created_at__lte=today).order_by('created_at').last()
+                product_price = self.product_pro_price.filter(seller_shop_id=seller_shop_id, created_at__lte=today).order_by('created_at').last()
             return product_price
         return product_price.last()
 
