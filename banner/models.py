@@ -9,7 +9,7 @@ from brand.models import Brand
 from products.models import Product
 from django.core.exceptions import ValidationError
 from shops.models import Shop
-
+from addresses.models import City,Pincode
 # Create your models here.
 
 class Banner(models.Model):
@@ -80,9 +80,12 @@ class BannerSlot(models.Model):
 
 
 class BannerPosition(SortableMixin):
-    shop = models.ForeignKey(Shop,blank=True, on_delete=models.CASCADE, null=True)
+    shop = models.ForeignKey(Shop,blank=True, on_delete=models.SET_NULL, null=True, verbose_name="Seller Shop")
     page = models.ForeignKey(Page,on_delete=models.CASCADE, null=True)
-    bannerslot = models.ForeignKey(BannerSlot,max_length=255, null=True, on_delete=models.CASCADE)
+    bannerslot = models.ForeignKey(BannerSlot,max_length=255, null=True, on_delete=models.SET_NULL)
+    buyer_shop = models.ForeignKey(Shop,related_name='buyer_shop_banner', null=True, blank=True, on_delete=models.SET_NULL)
+    city = models.ForeignKey(City, related_name='city_banner', null=True, blank=True, on_delete=models.SET_NULL)
+    pincode = models.ForeignKey(Pincode, related_name='pincode_banner', null=True, blank=True,on_delete=models.SET_NULL)
     banner_position_order = models.PositiveIntegerField(default=0,editable=False, db_index=True)
 
     def __str__(self):
