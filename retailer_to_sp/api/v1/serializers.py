@@ -78,13 +78,13 @@ class OrderedProductMappingSerializer(serializers.ModelSerializer):
         # fetch product , order_id
         cart_product_mapping = CartProductMapping.objects.get(cart_product=obj.product, cart=obj.ordered_product.order.ordered_cart)
         self.product_price = cart_product_mapping.cart_product_price.selling_price
-        return round(self.product_price,2)
+        return self.product_price
 
     def get_product_total_price(self, obj):
         cart_product_mapping = CartProductMapping.objects.get(cart_product=obj.product, cart=obj.ordered_product.order.ordered_cart)
         product_price = cart_product_mapping.cart_product_price.selling_price
-        self.product_total_price = product_price*obj.shipped_qty
-        return round(self.product_total_price,2)
+        self.product_total_price = product_price * Decimal(obj.shipped_qty)
+        return self.product_total_price
 
     class Meta:
         model = OrderedProductMapping
@@ -603,7 +603,7 @@ class GramMappedCartProductMappingSerializer(serializers.ModelSerializer):
 
     def product_sub_total_dt(self,obj):
         shop_id = self.context.get("parent_mapping_id", None)
-        product_price = 0 if obj.cart_product.product_pro_price.filter(shop__id=shop_id).last() is None else obj.cart_product.product_pro_price.filter(shop__id=shop_id).last().selling_price
+        product_price = 0 if obj.cart_product.product_pro_price.filter(shop__id=shop_id).last() is None else obj.cart_product.product_pro_price.filter(shop__id=shop_id).last().price_to_retailer
         return float(obj.cart_product.product_inner_case_size)*float(obj.qty)*float(product_price)
 
     class Meta:
@@ -626,8 +626,8 @@ class GramMappedCartSerializer(serializers.ModelSerializer):
             self.items_count = self.items_count + int(cart_pro.qty)
             shop_id = self.context.get("parent_mapping_id", None)
             pro_price = ProductPrice.objects.filter(shop__id=shop_id,product=cart_pro.cart_product).last()
-            if pro_price and pro_price.selling_price:
-                self.total_amount = float(self.total_amount) + (float(pro_price.selling_price) * float(cart_pro.qty) * float(pro_price.product.product_inner_case_size))
+            if pro_price and pro_price.price_to_retailer:
+                self.total_amount = float(self.total_amount) + (float(pro_price.price_to_retailer) * float(cart_pro.qty) * float(pro_price.product.product_inner_case_size))
             else:
                 self.total_amount = float(self.total_amount) + 0
         return self.total_amount
@@ -786,7 +786,7 @@ class ShipmentDetailSerializer(serializers.ModelSerializer):
     ordered_product_status = serializers.ReadOnlyField()
     product_short_description = serializers.ReadOnlyField()
     mrp = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
-    selling_price = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
+    price_to_retailer = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
     #cash_discount = serializers.ReadOnlyField()
     #loyalty_incentive = serializers.ReadOnlyField()
     #margin = serializers.ReadOnlyField()
@@ -797,7 +797,7 @@ class ShipmentDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RetailerOrderedProductMapping
-        fields = ('ordered_product', 'ordered_product_status', 'product', 'product_short_description', 'mrp','selling_price',
+        fields = ('ordered_product', 'ordered_product_status', 'product', 'product_short_description', 'mrp','price_to_retailer',
                   #'cash_discount', 'loyalty_incentive', 'margin',
                   'shipped_qty',  'returned_qty','damaged_qty', 'product_image')
 
