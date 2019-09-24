@@ -57,7 +57,7 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
     def validate(self, data):
         initial_data = self.initial_data
         #import pdb; pdb.set_trace() 
-        for item in initial_data:
+        for item in initial_data['payment_data']:
             if item.get('payment_mode_name') is None:
                 raise serializers.ValidationError("Payment mode name is required!")
             if item.get('paid_by') is None:

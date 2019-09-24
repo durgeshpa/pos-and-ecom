@@ -9,6 +9,8 @@ from rest_framework import status
 from rest_framework import viewsets
 from rest_framework import permissions, authentication
 from rest_framework.decorators import list_route
+from rest_framework.parsers import FormParser, MultiPartParser
+
 import datetime
 
 from django.db import transaction
@@ -30,12 +32,13 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
     '''
     This class handles all operation of ordered product mapping
     '''
-    permission_classes = (AllowAny,)
+    # permission_classes = (AllowAny,)
     model = ShipmentPayment
     serializer_class = ShipmentPaymentSerializer
     queryset = ShipmentPayment.objects.all()
-    # authentication_classes = (authentication.TokenAuthentication,)
-    # permission_classes = (permissions.IsAuthenticated,)
+    parser_classes = (FormParser, MultiPartParser)
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
     # filter_backends = (filters.DjangoFilterBackend,)
     # filter_class = ShipmentPaymentFilter
 
