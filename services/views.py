@@ -114,8 +114,12 @@ class OrderReport(APIView):
     def get_order_report(self, shop_id, start_date, end_date):
         seller_shop = Shop.objects.get(pk=shop_id)
         last_modified_entry = OrderDetailReports.objects.filter(seller_shop=seller_shop_map[str(shop_id)]).latest('order_modified_at')
+        #first_modified_entry = OrderDetailReports.objects.filter(seller_shop=seller_shop_map[str(shop_id)]).order_by('order_modified_at').first()
+        #start_date = datetime.datetime.today()-datetime.timedelta(50)
         start_date = last_modified_entry.order_modified_at
+        #end_date = first_modified_entry.order_modified_at
         print(start_date)
+        #print(end_date)
         orders = Order.objects.filter(seller_shop = seller_shop)
         if start_date:
             orders = orders.filter(modified_at__gte = start_date)
@@ -166,7 +170,7 @@ class OrderReport(APIView):
                     delivered_sku_pieces = products.delivered_qty
                     returned_sku_pieces = products.returned_qty
                     damaged_sku_pieces = products.damaged_qty
-                    sales_person_name = ''
+                    sales_person_name = "{} {}".format(order.ordered_by.first_name, order.ordered_by.last_name)
                     order_type =''
                     campaign_name =''
                     discount = ''
