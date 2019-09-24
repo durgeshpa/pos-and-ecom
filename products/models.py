@@ -168,8 +168,9 @@ class Product(models.Model):
 
     def getProductCoupons(self):
         product_coupons = []
-        for rules in self.purchased_product_coupon.all():
-            for rule in rules.rule.coupon_ruleset.filter(is_active=True):
+        date = datetime.datetime.now()
+        for rules in self.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date):
+            for rule in rules.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte = date):
                 product_coupons.append(rule.coupon_code)
         return product_coupons
 
