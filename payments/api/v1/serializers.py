@@ -43,25 +43,22 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
     payment_mode_name = serializers.CharField(max_length=50)
     reference_no = serializers.CharField(required=False)
     online_payment_type = serializers.CharField(required=False)
-    paid_by = serializers.CharField(source='parent_order_payment.parent_payment.paid_by')
+    paid_by = serializers.CharField(source='parent_order_payment.parent_payment.paid_by.phone_number', required=False)
     payment_screenshot = serializers.FileField(source='parent_order_payment.parent_payment.payment_screenshot', required=False)
-
     #cash_payment = CashPaymentSerializer(fields=['paid_amount'])
     #online_payment = OnlinePaymentSerializer()
     class Meta:
         model = ShipmentPayment
         fields = ['description', 'paid_amount', 'payment_mode_name', 'reference_no', 
-            'shipment', 'online_payment_type', 'paid_by', 'payment_screenshot'
+            'online_payment_type', 'paid_by', 'payment_screenshot'
             ]  #"__all__"
 
     def validate(self, data):
         initial_data = self.initial_data
         #import pdb; pdb.set_trace() 
-        for item in initial_data['payment_data']:
+        for item in initial_data:
             if item.get('payment_mode_name') is None:
                 raise serializers.ValidationError("Payment mode name is required!")
-            if item.get('paid_by') is None:
-                raise serializers.ValidationError("Paid by user is required!")
             if item['payment_mode_name'] == "online_payment":
                 if item.get('reference_no') is None:
                     raise serializers.ValidationError("Reference number is required!!!!")

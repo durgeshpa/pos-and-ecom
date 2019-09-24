@@ -32,7 +32,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
     '''
     This class handles all operation of ordered product mapping
     '''
-    # permission_classes = (AllowAny,)
+    permission_classes = (AllowAny,)
     model = ShipmentPayment
     serializer_class = ShipmentPaymentSerializer
     queryset = ShipmentPayment.objects.all()
@@ -59,7 +59,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         #import pdb; pdb.set_trace()
         try:
-            serializer = self.get_serializer(data=request.data, many=True)
+            serializer = self.get_serializer(data=request.data.get('payment_data'), many=True)
             if not serializer.is_valid():
                 msg = {'is_success': False,
                     'message': serializer.errors,
@@ -67,12 +67,16 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                 return Response(msg,
                                 status=status.HTTP_406_NOT_ACCEPTABLE)
 
+            shipment = request.data.get('shipment', None)
+            shipment = OrderedProduct.objects.get(pk=shipment)
+
+            paid_by = request.data.get('paid_by', None)
+            paid_by = UserWithName.objects.get(phone_number=paid_by)
+
             with transaction.atomic():
-                for item in request.data:
+                for item in request.data.get('payment_data'):
                     # serializer = self.get_serializer(data=item)
                     # if serializer.is_valid():
-                    shipment = item.get('shipment', None)
-                    paid_by = item.get('paid_by', None)
                     paid_amount = item.get('paid_amount', None)
                     payment_mode_name = item.get('payment_mode_name', None)
                     payment_screenshot = item.get('payment_screenshot', None)
@@ -80,7 +84,6 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                     online_payment_type = item.get('online_payment_type', None)
                     description = item.get('description', None)
 
-                    paid_by = UserWithName.objects.get(pk=paid_by)
                     # create payment
                     payment = Payment.objects.create(
                         paid_amount = paid_amount,
@@ -100,7 +103,6 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                     payment.save()
 
                     # create order payment
-                    shipment = OrderedProduct.objects.get(pk=shipment)
                     order_payment = OrderPayment.objects.create(
                         paid_amount = paid_amount,
                         parent_payment = payment,
