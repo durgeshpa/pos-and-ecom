@@ -100,6 +100,16 @@ class GCMActivityAdmin(admin.TabularInline):
         return False
 
 
+class GCMActivityAdmin1(admin.ModelAdmin):
+    model = GCMActivity
+    fields = ['gcm_alert', 'gcm_sent', 'sent_at']
+    readonly_fields = ['gcm_sent', 'gcm_alert', 'sent_at']
+
+    # for disabling and hiding delete button from admin
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 class UserNotificationAdmin(admin.ModelAdmin):
     model = UserNotification
     #fields = '__all__'
@@ -195,22 +205,22 @@ class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
             data['pincode_to'] = form.cleaned_data.get('pincode_to').pincode
         # if buyer_shop:
         #     data['buyer_shop'] = form.cleaned_data.get('buyer_shop').id
-        data['activity_type'] = obj.template.type
+        data['activity_type'] = obj.template.id#.type
         # repeat until
 
         schedule_notification(**data)
 
-        # schedule= IntervalSchedule.objects.create(every=obj.repeat, period=IntervalSchedule.SECONDS)
+        schedule= IntervalSchedule.objects.create(every=obj.repeat, period=IntervalSchedule.SECONDS)
     
 
-        # task = PeriodicTask.objects.create(
-        #     interval=schedule, 
-        #     name='schedule_notification: '+str(datetime.now()), 
-        #     task='tasks.schedule_notification',
-        #     expires=obj.repeat_until, 
-        #     start_time=obj.run_at,
-        #     args=json.dumps(['66']),
-        #     kwargs=json.dumps(data))
+        task = PeriodicTask.objects.create(
+            interval=schedule, 
+            name='schedule_notification: '+str(datetime.now()), 
+            task='tasks.schedule_notification',
+            expires=obj.repeat_until, 
+            start_time=obj.run_at,
+            #args=json.dumps(['66']),
+            kwargs=json.dumps(data))
         super(GroupNotificationSchedulerAdmin, self).save_model(request, obj, form, change)    
         
 
@@ -221,3 +231,4 @@ admin.site.register(UserNotification, UserNotificationAdmin)
 #admin.site.register(TextSMSActivity, TextSMSActivityAdmin)
 admin.site.register(NotificationScheduler, NotificationSchedulerAdmin)
 admin.site.register(GroupNotificationScheduler, GroupNotificationSchedulerAdmin)
+admin.site.register(GCMActivity, GCMActivityAdmin1)

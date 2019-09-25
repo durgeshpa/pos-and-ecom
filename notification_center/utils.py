@@ -9,7 +9,8 @@ from django.conf import settings
 from otp.sms import SendSms
 from notification_center.fcm_notification import SendFCMNotification
 
-from notification_center.models import TemplateVariable, Template, UserNotification
+from notification_center.models import TemplateVariable, Template, UserNotification, \
+    GCMActivity, Notification
 from gram_to_brand.models import Cart
 from shops.models import Shop, ParentRetailerMapping
 
@@ -195,8 +196,9 @@ class SendNotification:
         try:
             # import pdb; pdb.set_trace()
             print ("in SendNotification: Send")
-            template = Template.objects.get(type=self.template_type)
- 
+            #template = Template.objects.get(type=self.template_type)
+            template = Template.objects.get(pk=self.template_type)
+
             # generate template variable data
             self.template_data = GenerateTemplateData(self.user_id, self.template_type, self.data).create()#.generate_data()
             #self.template_data['username'] = self.data['username']
@@ -206,10 +208,12 @@ class SendNotification:
             #     email_content = merge_template_with_data(template.text_email_template, self.email_variable)
             #     email = SendEmail()
             #     email.send()
+            notification, created = Notification.objects.get_or_create(user=self.user_id, template=template)
 
             if template.gcm_alert:
                 # fetch user registration id
                 #reg_id = Device.objects.last().reg_id
+                gcm_activity = GCMActivity.objects.create(notification=notification)
                 devices = Device.objects.filter(user_id=self.user_id)
                 for device in devices:
                     #reg_id = Device.objects.get(user_id=self.user_id).reg_id

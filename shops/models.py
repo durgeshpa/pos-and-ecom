@@ -69,7 +69,7 @@ class Shop(models.Model):
     #last_login_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return "%s - %s"%(self.shop_name,self.shop_owner)
+        return "%s"%(self.shop_name) #,self.shop_owner)
 
     def __init__(self, *args, **kwargs):
         super(Shop, self).__init__(*args, **kwargs)

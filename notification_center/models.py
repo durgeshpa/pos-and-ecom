@@ -181,6 +181,7 @@ class Notification(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        unique_together = (("user", "template"),)
 
     def __str__(self):
         return '%s-%s' % (self.user, self.pk)
@@ -379,7 +380,8 @@ class GCMActivity(models.Model):
         return '%s' % self.notification
 
     # adding extra field to show alert status from template
+    @property
     def gcm_alert(self):
         return self.notification.template.gcm_alert
     # for boolean into images
-    gcm_alert.boolean = True
+    # gcm_alert.boolean = True
