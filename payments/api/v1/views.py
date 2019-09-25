@@ -19,7 +19,7 @@ from django.db.models import Q
 from common.data_wrapper_view import DataWrapperViewSet
 
 from .serializers import ShipmentPaymentSerializer, CashPaymentSerializer, \
-    ShipmentPaymentSerializer1 
+    ShipmentPaymentSerializer1, ShipmentPaymentSerializer2
 from accounts.models import UserWithName
 from retailer_to_sp.models import OrderedProduct
 from payments.models import ShipmentPayment, CashPayment, OnlinePayment, PaymentMode, \
@@ -57,8 +57,24 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
         return self.serializer_class
 
     def create(self, request, *args, **kwargs):
-        #import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         try:
+            shipment = request.data.get('shipment', None)
+            paid_by = request.data.get('paid_by', None)
+            if not OrderedProduct.objects.filter(pk=shipment).exists():
+                msg = {'is_success': False,
+                                'message': "Shipment not found",
+                                'response_data': None }
+                return Response(msg,
+                                status=status.HTTP_406_NOT_ACCEPTABLE)
+
+            if not UserWithName.objects.filter(phone_number=paid_by).exists():
+                msg = {'is_success': False,
+                                'message': "Paid by user not found",
+                                'response_data': None }
+                return Response(msg,
+                                status=status.HTTP_406_NOT_ACCEPTABLE)
+
             serializer = self.get_serializer(data=request.data.get('payment_data'), many=True)
             if not serializer.is_valid():
                 msg = {'is_success': False,

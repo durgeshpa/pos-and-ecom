@@ -55,7 +55,8 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         initial_data = self.initial_data
-        #import pdb; pdb.set_trace() 
+        #import pdb; pdb.set_trace()
+
         for item in initial_data:
             if item.get('payment_mode_name') is None:
                 raise serializers.ValidationError("Payment mode name is required!")
@@ -121,6 +122,27 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
         #     print (traceback.format_exc(sys.exc_info()))
         #     raise serializers.ValidationError(e.message)        
     
+
+
+
+class ShipmentPaymentSerializer2(serializers.Serializer):
+    #paid_amount = serializers.DecimalField(default=0.0000, max_digits=20, decimal_places=4)
+    payment_data = ShipmentPaymentSerializer(many=True)
+    class Meta:
+        fields = ['payment_data', 'shipment', 'paid_by'
+            ]  #"__all__"
+
+    def validate(self, data):
+        initial_data = self.initial_data
+        #import pdb; pdb.set_trace() 
+        shipment = initial_data.get('shipment', None)
+        paid_by = initial_data.get('paid_by', None)
+        if not OrderedProduct.objects.filter(pk=shipment).exists():
+            raise serializers.ValidationError("Shipment not found!")
+        if not UserWithName.objects.filter(phone_number=paid_by).exists():
+            raise serializers.ValidationError("Paid by User not found!")  
+        payment_data = initial_data.get('payment_data', None) 
+        s = ShipmentPaymentSerializer(initial_data=payment_data)
 
 
 class ShipmentPaymentSerializer1(serializers.ModelSerializer):
