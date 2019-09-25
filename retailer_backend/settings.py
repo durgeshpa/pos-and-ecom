@@ -122,7 +122,6 @@ MIDDLEWARE += [
 ROOT_URLCONF = 'retailer_backend.urls'
 STATICFILES_STORAGE = "retailer_backend.storage.ExtendedManifestStaticFilesStorage"
 
-
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
