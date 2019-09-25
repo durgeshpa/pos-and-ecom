@@ -36,7 +36,21 @@ class CityAutocomplete(autocomplete.Select2QuerySetView):
 
 class RetailerAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self):
+        city = self.forwarded.get('city', None)
+        pincode_from = self.forwarded.get('pincode_from', None)
+        pincode_to = self.forwarded.get('pincode_to', None)
+
         qs = Shop.objects.filter(shop_type__shop_type='r')
+
+        address = Address.objects.all()
+        if city:
+            address = address.filter(city=city)
+        if pincode_from and pincode_to:
+            address = address.filter(pincode__range=(pincode_from, pincode_to))
+        #find shop for the address
+        shops = address.values('shop_name')
+        qs = qs.filter(pk__in=shops)
+
         if self.q:
             qs = qs.filter(shop_name__icontains=self.q)
         return qs

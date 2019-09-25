@@ -193,7 +193,8 @@ class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
             data['pincode_from'] = form.cleaned_data.get('pincode_from').pincode
         if pincode_to:
             data['pincode_to'] = form.cleaned_data.get('pincode_to').pincode
-        data['buyer_shop'] = form.cleaned_data.get('buyer_shop').id
+        # if buyer_shop:
+        #     data['buyer_shop'] = form.cleaned_data.get('buyer_shop').id
         data['activity_type'] = obj.template.type
         # repeat until
 

@@ -171,6 +171,26 @@ class SendNotification:
                 # # message = SendSms(phone=9643112048,body="Dear sagar, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory")
                 # message.send()
 
+    def send_promotional_content(self):
+        try:
+            # import pdb; pdb.set_trace()
+            print ("in SendNotification: send_promotional_content")
+            devices = Device.objects.filter(user_id=self.user_id)
+            for device in devices:
+                #reg_id = Device.objects.get(user_id=self.user_id).reg_id
+                reg_id = device.reg_id
+                message_title = self.data['message_title']#template.gcm_title
+                message_body = self.data['message_body']
+                notification = SendFCMNotification(
+                    registration_id=reg_id,
+                    message_title=message_title,
+                    message_body=message_body
+                    )            
+                notification.send()
+        except Exception as e:
+            # print (str(e))
+            logging.error(str(e))    
+
     def send(self):
         try:
             # import pdb; pdb.set_trace()

@@ -31,9 +31,9 @@ def schedule_notification(*args, **kwargs):
     try:
         # import pdb; pdb.set_trace()
         print ("in schedule_notification")
-        city_id = kwargs.get('city_id')
-        pincode_from = kwargs.get('pincode_from')
-        pincode_to = kwargs.get('pincode_to')
+        city_id = kwargs.get('city')
+        pincode_from = kwargs.get('pincode_from', None)
+        pincode_to = kwargs.get('pincode_to', None)
 
         activity_type = kwargs.get('activity_type')
         

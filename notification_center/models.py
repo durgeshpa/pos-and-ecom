@@ -232,8 +232,8 @@ class GroupNotificationScheduler(models.Model):
 
     city = models.ForeignKey(City, related_name='notification_city', on_delete=models.CASCADE,
                     null=True, blank=True)
-    pincode_from = models.CharField(validators=[PinCodeValidator], max_length=6, blank=True)
-    pincode_to = models.CharField(validators=[PinCodeValidator], max_length=6, blank=True)
+    pincode_from = models.CharField(validators=[PinCodeValidator], max_length=6, null=True, blank=True)
+    pincode_to = models.CharField(validators=[PinCodeValidator], max_length=6, null=True, blank=True)
     buyer_shop = models.ForeignKey(Shop, related_name='notification_shop', on_delete=models.CASCADE, null=True, blank=True)
     template = models.ForeignKey(
         Template,
