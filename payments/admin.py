@@ -35,7 +35,7 @@ class PaymentAdmin(admin.ModelAdmin):
         )
     fields = (
         "paid_by", "paid_amount", "payment_mode_name", "reference_no", "description",
-        "online_payment_type", "payment_id"
+        "online_payment_type", "payment_id", "payment_screenshot"
     )
     search_fields = ('order', 'parent_payment')
     readonly_fields = (

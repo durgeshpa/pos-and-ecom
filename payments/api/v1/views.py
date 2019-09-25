@@ -32,7 +32,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
     '''
     This class handles all operation of ordered product mapping
     '''
-    permission_classes = (AllowAny,)
+    #permission_classes = (AllowAny,)
     model = ShipmentPayment
     serializer_class = ShipmentPaymentSerializer
     queryset = ShipmentPayment.objects.all()
@@ -57,7 +57,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
         return self.serializer_class
 
     def create(self, request, *args, **kwargs):
-        # import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         try:
             shipment = request.data.get('shipment', None)
             paid_by = request.data.get('paid_by', None)
@@ -139,19 +139,22 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                         status=status.HTTP_200_OK)
 
         except Exception as e:
+            # msg = {'is_success': False,
+            #         'message': str(e), #[error for error in errors],
+            #         'response_data': None }
+            errors = []
+            for field in e: #serializer.errors:
+                for error in e[field]:#serializer.errors[field]:
+                    if 'non_field_errors' in field:
+                        result = error
+                    else:
+                        result = ''.join('{} : {}'.format(field,error))
+                    errors.append(result)
             msg = {'is_success': False,
-                    'message': str(e), #[error for error in errors],
+                    'message': errors, #[error for error in errors],
                     'response_data': None }
             return Response(msg,
                             status=status.HTTP_406_NOT_ACCEPTABLE)
-            # errors = []
-            # for field in serializer.errors:
-            #     for error in serializer.errors[field]:
-            #         if 'non_field_errors' in field:
-            #             result = error
-            #         else:
-            #             result = ''.join('{} : {}'.format(field,error))
-            #         errors.append(result)
 
 
 class CashPaymentView(DataWrapperViewSet):
