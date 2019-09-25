@@ -359,7 +359,6 @@ class AddToCart(APIView):
         msg = {'is_success': False,'message': ['Sorry no any mapping with any shop!'],'response_data': None}
 
         if Shop.objects.filter(id=shop_id).exists():
-
             # get Product
             try:
                 product = Product.objects.get(id=cart_product)
@@ -381,9 +380,9 @@ class AddToCart(APIView):
 
             if parent_mapping.parent.shop_type.shop_type == 'sp':
                 if Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
-                                       cart_status__in=['active', 'pending', 'ordered']).exists():
+                                       cart_status__in=['active', 'pending']).exists():
                     cart = Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
-                                               cart_status__in=['active', 'pending', 'ordered']).last()
+                                               cart_status__in=['active', 'pending']).last()
                     cart.cart_status = 'active'
                     cart.seller_shop = parent_mapping.parent
                     cart.buyer_shop = parent_mapping.retailer
@@ -489,9 +488,9 @@ class CartDetail(APIView):
 
         # if shop mapped with sp
         if parent_mapping.parent.shop_type.shop_type == 'sp':
-            if Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer, cart_status__in=['active', 'pending', 'ordered']).exists():
+            if Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer, cart_status__in=['active', 'pending']).exists():
                 cart = Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
-                                           cart_status__in=['active', 'pending', 'ordered']).last()
+                                           cart_status__in=['active', 'pending']).last()
                 if cart.rt_cart_list.count() <= 0:
                     msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
                            'response_data': None}
