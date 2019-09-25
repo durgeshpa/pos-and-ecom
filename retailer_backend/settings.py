@@ -120,7 +120,6 @@ MIDDLEWARE += [
 ]
 
 ROOT_URLCONF = 'retailer_backend.urls'
-#STATICFILES_STORAGE = "django.contrib.staticfiles.storage.ManifestStaticFilesStorage"
 STATICFILES_STORAGE = "retailer_backend.storage.ExtendedManifestStaticFilesStorage"
 
 
