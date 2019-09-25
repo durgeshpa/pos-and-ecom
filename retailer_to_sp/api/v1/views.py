@@ -309,6 +309,7 @@ class GramGRNProductsList(APIView):
                     continue
                 p["_source"]["ptr"] = check_price.selling_price
                 p["_source"]["mrp"] = check_price.mrp
+                p["_source"]["margin"] = (((check_price.mrp - check_price.selling_price) / check_price.mrp) * 100)
                 loyalty_discount = product.getLoyaltyIncentive(parent_mapping.parent.id, shop_id)
                 cash_discount = product.getCashDiscount(parent_mapping.parent.id, shop_id)
             if cart_check == True:
