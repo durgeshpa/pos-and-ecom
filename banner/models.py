@@ -9,7 +9,6 @@ from brand.models import Brand
 from products.models import Product
 from django.core.exceptions import ValidationError
 from shops.models import Shop
-
 # Create your models here.
 
 class Banner(models.Model):
