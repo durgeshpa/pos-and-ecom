@@ -313,6 +313,13 @@ class GramGRNProductsList(APIView):
                 cash_discount = p["_source"]['cash_discount']
                 for c_p in cart_products:
                     if c_p.cart_product_id == p["_source"]["id"]:
+                        keyValList = ['catalog']
+                        exampleSet = cart.offers
+                        array = list(filter(lambda d: d['coupon_type'] in keyValList, exampleSet))
+                        for i in array:
+                            if i['item_sku']== c_p.cart_product.product_sku:
+                                for i in coupons: i['is_applied'] = True
+
                         user_selected_qty = c_p.qty
                         no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
                         p["_source"]["user_selected_qty"] = user_selected_qty
@@ -372,7 +379,6 @@ class AddToCart(APIView):
             parent_mapping = getShopMapping(shop_id)
             if parent_mapping is None:
                 return Response(msg, status=status.HTTP_200_OK)
-
             if qty is None or qty=='':
                 msg['message'] = ["Qty not Found"]
                 return Response(msg, status=status.HTTP_200_OK)
