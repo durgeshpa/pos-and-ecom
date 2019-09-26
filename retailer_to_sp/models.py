@@ -185,7 +185,7 @@ class Cart(models.Model):
         cart_products = self.rt_cart_list.all()
         date = datetime.datetime.now()
         for m in cart_products:
-            sku_no_of_pieces = int(m.cart_product.product_inner_case_size) * int(m.qty)
+            sku_no_of_pieces = int(m.qty)
             price = m.cart_product.get_current_shop_price(shop)
             sku_ptr = price.price_to_retailer
             for n in m.cart_product.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date ):
