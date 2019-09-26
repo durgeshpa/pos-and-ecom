@@ -586,9 +586,16 @@ class ResizeImage(APIView):
         return response
 
 
-def OrderReportType(request, id):
-    response =  requests.get('http://127.0.0.1:8000/services/api/v1/orderReport-type/id/')
+def OrderReportType(request):
+    response =  requests.get('http://127.0.0.1:8000/services/api/v1/orderReport-type/2/')
     data = response.json()
     return render(request, 'admin/services/orderReport.html',{
-        id:data['id'],
+        "id":data['id'],
+        "invoice_id":data['invoice_id'],
+        "order_invoice":data['order_invoice'],
+        "invoice_date":data["invoice_date"],
+        "invoice_modified_at":data["invoice_modified_at"],
+        "invoice_last_modified_by":data["invoice_last_modified_by"]
+
+
     })
