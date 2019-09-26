@@ -379,7 +379,7 @@ class TeamListView(generics.ListAPIView):
         if days_diff == 1:
             from_date = to_date - timedelta(days=days_diff)
         elif days_diff == 30:
-            from_date = (datetime.now() + timedelta(days=1)) - relativedelta(months=+1)
+            from_date = datetime.now() - relativedelta(months=+1)
         else:
             from_date = datetime.now() - timedelta(days=days_diff)
             
@@ -532,7 +532,7 @@ class SellerShopOrder(generics.ListAPIView):
         if days_diff == 1:
             from_date = to_date - timedelta(days=days_diff)
         elif days_diff == 30:
-            from_date = (datetime.now() + timedelta(days=1)) - relativedelta(months=+1)
+            from_date = datetime.now() - relativedelta(months=+1)
         else:
             from_date = datetime.now() - timedelta(days=days_diff)
 
