@@ -99,6 +99,8 @@ class SalesReport(APIView):
 
         return response
 
+
+
 class SalesReportFormView(View):
     def get(self, request):
         form = SalesReportForm(user=request.user)
@@ -582,3 +584,11 @@ class ResizeImage(APIView):
         }
         image.save(response, image_type[content_type])
         return response
+
+
+def OrderReportType(request, id):
+    response =  requests.get('http://127.0.0.1:8000/services/api/v1/orderReport-type/id/')
+    data = response.json()
+    return render(request, 'admin/services/orderReport.html',{
+        id:data['id'],
+    })
