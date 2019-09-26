@@ -360,10 +360,10 @@ class TeamListView(generics.ListAPIView):
             .annotate(no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
             .annotate(no_of_ordered_sku_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces')) \
             .annotate(avg_no_of_ordered_sku_pieces=Avg('ordered_cart__rt_cart_list__no_of_pieces')) \
-            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer') * F(
+            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__selling_price') * F(
             'ordered_cart__rt_cart_list__no_of_pieces'),
                                          output_field=FloatField())) \
-            .annotate(avg_ordered_amount=Avg(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer') * F(
+            .annotate(avg_ordered_amount=Avg(F('ordered_cart__rt_cart_list__cart_product_price__selling_price') * F(
             'ordered_cart__rt_cart_list__no_of_pieces'),
                                          output_field=FloatField())) \
             .order_by('ordered_by')
@@ -379,7 +379,7 @@ class TeamListView(generics.ListAPIView):
         if days_diff == 1:
             from_date = to_date - timedelta(days=days_diff)
         elif days_diff == 30:
-            from_date = datetime.now() - relativedelta(months=+1)
+            from_date = (datetime.now() + timedelta(days=1)) - relativedelta(months=+1)
         else:
             from_date = datetime.now() - timedelta(days=days_diff)
             
@@ -507,7 +507,7 @@ class SellerShopOrder(generics.ListAPIView):
             annotate(buyer_shop_count=Count('buyer_shop')) \
             .annotate(no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
             .annotate(no_of_ordered_sku_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces')) \
-            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer') * F(
+            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__selling_price') * F(
             'ordered_cart__rt_cart_list__no_of_pieces'),
                                          output_field=FloatField())) \
             .order_by('buyer_shop')
@@ -532,7 +532,7 @@ class SellerShopOrder(generics.ListAPIView):
         if days_diff == 1:
             from_date = to_date - timedelta(days=days_diff)
         elif days_diff == 30:
-            from_date = datetime.now() - relativedelta(months=+1)
+            from_date = (datetime.now() + timedelta(days=1)) - relativedelta(months=+1)
         else:
             from_date = datetime.now() - timedelta(days=days_diff)
 
@@ -591,9 +591,9 @@ class SellerShopProfile(generics.ListAPIView):
         return Order.objects.filter(buyer_shop__id__in=shops_list).values('buyer_shop', 'created_at').\
             annotate(buyer_shop_count=Count('buyer_shop'))\
             .annotate(sum_no_of_ordered_sku=Count('ordered_cart__rt_cart_list'))\
-            .annotate(avg_ordered_amount=Avg(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer')* F('ordered_cart__rt_cart_list__no_of_pieces'),
+            .annotate(avg_ordered_amount=Avg(F('ordered_cart__rt_cart_list__cart_product_price__selling_price')* F('ordered_cart__rt_cart_list__no_of_pieces'),
                                      output_field=FloatField())) \
-            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer') * F(
+            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__selling_price') * F(
             'ordered_cart__rt_cart_list__no_of_pieces'),
                                          output_field=FloatField())) \
         .order_by('buyer_shop','created_at')
@@ -602,7 +602,7 @@ class SellerShopProfile(generics.ListAPIView):
         return Order.objects.filter(buyer_shop__id__in=shops_list).values('buyer_shop') \
             .annotate(buyer_shop_count=Count('buyer_shop')) \
             .annotate(sum_no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
-            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer') * F(
+            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__selling_price') * F(
             'ordered_cart__rt_cart_list__no_of_pieces'),
                                          output_field=FloatField())).order_by('buyer_shop')
 
