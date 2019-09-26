@@ -348,7 +348,7 @@ class TeamListView(generics.ListAPIView):
         return ShopUserMapping.objects.filter(employee=self.request.user, status=True)
 
     def get_employee_list(self):
-        return ShopUserMapping.objects.filter(manager__in=self.get_manager(), shop__shop_type__shop_type='sp', status=True).order_by('employee__first_name','employee').distinct('employee')
+        return ShopUserMapping.objects.filter(manager__in=self.get_manager(), shop__shop_type__shop_type='sp', status=True).order_by('employee','employee__first_name').distinct('employee')
 
     def get_shops(self):
         return ShopUserMapping.objects.filter(employee__in=self.get_employee_list().values('employee'), status=True).values('shop').order_by('shop').distinct('shop')
