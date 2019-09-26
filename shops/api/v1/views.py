@@ -539,6 +539,7 @@ class SellerShopOrder(generics.ListAPIView):
         shop_list = shop_user_obj.values('shop', 'shop__id', 'shop__shop_name').order_by('shop').distinct('shop')
         shops_list = shop_user_obj.values('shop').distinct('shop')
         order_obj = self.get_order(shops_list, to_date, from_date)
+        print(order_obj.query)
 
         buyer_order_obj = self.get_shop_count(shops_list, to_date, from_date)
         buyer_order_map = {i['buyer_shop']: (i['buyer_shop_count'],) for i in buyer_order_obj}
