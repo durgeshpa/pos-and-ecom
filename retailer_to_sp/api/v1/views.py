@@ -1370,7 +1370,8 @@ class SellerOrderList(generics.ListAPIView):
         import ipdb
         ipdb.set_trace()
         current_url = request.get_host()
-        queryset = Order.objects.filter(buyer_shop__in=self.get_queryset()).order_by('-created_at') if self.is_manager else Order.objects.filter(buyer_shop__in=self.get_queryset(), ordered_by=request.user).order_by('-created_at')
+        shop_list = self.get_queryset()
+        queryset = Order.objects.filter(buyer_shop__in=shop_list).order_by('-created_at') if self.is_manager else Order.objects.filter(buyer_shop__in=shop_list, ordered_by=request.user).order_by('-created_at')
         if not queryset.exists():
             msg = {'is_success': False, 'message': ['Order not found'], 'response_data': None}
         else:
