@@ -536,7 +536,7 @@ class SellerShopOrder(generics.ListAPIView):
         else:
             from_date = datetime.now() - timedelta(days=days_diff)
 
-        shop_list = shop_user_obj.values('shop', 'shop__id', 'shop__shop_name').order_by('shop__shop_name')
+        shop_list = shop_user_obj.values('shop', 'shop__id', 'shop__shop_name').order_by('shop').distinct('shop')
         shops_list = shop_user_obj.values('shop').distinct('shop')
         order_obj = self.get_order(shops_list, to_date, from_date)
         
@@ -619,7 +619,7 @@ class SellerShopProfile(generics.ListAPIView):
                 msg = {'is_success': False, 'message': ["Sorry No matching user found"], 'response_data': data}
                 return Response(msg, status=status.HTTP_200_OK)
 
-        shop_list = shop_user_obj.values('shop','shop__id','shop__shop_name').order_by('shop__shop_name')
+        shop_list = shop_user_obj.values('shop','shop__id','shop__shop_name').order_by('shop').distinct('shop')
         shops_list = shop_user_obj.values('shop').distinct('shop')
         order_list = self.get_order(shops_list)
         avg_order_obj = self.get_avg_order_count(shops_list)
@@ -652,7 +652,7 @@ class SalesPerformanceView(generics.ListAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        return ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop', shop__shop_type__shop_type='r', status=True).values('shop').order_by('shop__shop_name')
+        return ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop', shop__shop_type__shop_type='r', status=True).values('shop').order_by('shop').distinct('shop')
 
     def list(self, request, *args, **kwargs):
         days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
