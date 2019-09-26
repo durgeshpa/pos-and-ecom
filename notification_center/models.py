@@ -364,7 +364,7 @@ class EmailActivity(models.Model):
 
 
 class GCMActivity(models.Model):
-    notification = models.OneToOneField(
+    notification = models.ForeignKey(
         Notification,
         on_delete=models.CASCADE,
     )

@@ -102,12 +102,12 @@ class GCMActivityAdmin(admin.TabularInline):
 
 class GCMActivityAdmin1(admin.ModelAdmin):
     model = GCMActivity
-    fields = ['gcm_alert', 'gcm_sent', 'sent_at']
+    fields = ['gcm_alert', 'gcm_sent', 'sent_at', 'notification']
     readonly_fields = ['gcm_sent', 'gcm_alert', 'sent_at']
 
     # for disabling and hiding delete button from admin
-    def has_delete_permission(self, request, obj=None):
-        return False
+    # def has_delete_permission(self, request, obj=None):
+    #     return False
 
 
 class UserNotificationAdmin(admin.ModelAdmin):
@@ -190,37 +190,40 @@ class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
     form = GroupNotificationForm
 
     def save_model(self, request, obj, form, change):
-        data = {}
-        #data['test'] = "test"
-        city = form.cleaned_data.get('city', None)
-        pincode_from = form.cleaned_data.get('pincode_from', None)
-        pincode_to = form.cleaned_data.get('pincode_to', None)
-        buyer_shop = form.cleaned_data.get('buyer_shop', None)
+        #import pdb; pdb.set_trace()
+        try:
+            data = {}
+            #data['test'] = "test"
+            city = form.cleaned_data.get('city', None)
+            pincode_from = form.cleaned_data.get('pincode_from', None)
+            pincode_to = form.cleaned_data.get('pincode_to', None)
+            buyer_shop = form.cleaned_data.get('buyer_shop', None)
 
-        if city:
-            data['city'] = form.cleaned_data.get('city').id
-        if pincode_from:
-            data['pincode_from'] = form.cleaned_data.get('pincode_from').pincode
-        if pincode_to:
-            data['pincode_to'] = form.cleaned_data.get('pincode_to').pincode
-        # if buyer_shop:
-        #     data['buyer_shop'] = form.cleaned_data.get('buyer_shop').id
-        data['activity_type'] = obj.template.id#.type
-        # repeat until
+            if city:
+                data['city'] = form.cleaned_data.get('city').id
+            if pincode_from:
+                data['pincode_from'] = form.cleaned_data.get('pincode_from').pincode
+            if pincode_to:
+                data['pincode_to'] = form.cleaned_data.get('pincode_to').pincode
+            # if buyer_shop:
+            #     data['buyer_shop'] = form.cleaned_data.get('buyer_shop').id
+            data['activity_type'] = obj.template.id#.type
+            # repeat until
 
-        schedule_notification(**data)
+            schedule_notification(**data)
 
-        schedule= IntervalSchedule.objects.create(every=obj.repeat, period=IntervalSchedule.SECONDS)
-    
+            # schedule= IntervalSchedule.objects.create(every=obj.repeat, period=IntervalSchedule.SECONDS)
 
-        task = PeriodicTask.objects.create(
-            interval=schedule, 
-            name='schedule_notification: '+str(datetime.now()), 
-            task='tasks.schedule_notification',
-            expires=obj.repeat_until, 
-            start_time=obj.run_at,
-            #args=json.dumps(['66']),
-            kwargs=json.dumps(data))
+            # task = PeriodicTask.objects.create(
+            #     interval=schedule, 
+            #     name='schedule_notification: '+str(datetime.now()), 
+            #     task='tasks.schedule_notification',
+            #     expires=obj.repeat_until, 
+            #     start_time=obj.run_at,
+            #     #args=json.dumps(['66']),
+            #     kwargs=json.dumps(data))
+        except Exception as e:
+            print (e)
         super(GroupNotificationSchedulerAdmin, self).save_model(request, obj, form, change)    
         
 

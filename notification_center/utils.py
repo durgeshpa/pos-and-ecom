@@ -208,12 +208,13 @@ class SendNotification:
             #     email_content = merge_template_with_data(template.text_email_template, self.email_variable)
             #     email = SendEmail()
             #     email.send()
-            notification, created = Notification.objects.get_or_create(user=self.user_id, template=template)
-
+            notification, created = Notification.objects.get_or_create(user_id=self.user_id, template=template)
+            notification.save()
             if template.gcm_alert:
                 # fetch user registration id
                 #reg_id = Device.objects.last().reg_id
-                gcm_activity = GCMActivity.objects.create(notification=notification)
+                GCMActivity.objects.create(notification=notification)
+                #gcm_activity.save()
                 devices = Device.objects.filter(user_id=self.user_id)
                 for device in devices:
                     #reg_id = Device.objects.get(user_id=self.user_id).reg_id
@@ -230,12 +231,13 @@ class SendNotification:
 
             if template.text_sms_alert:
                 sms_content = self.merge_template_with_data(template.text_sms_template)
-                print (self.data['phone_number'], sms_content)
+                #print (self.data['phone_number'], sms_content)
                 # logging.info(self.data['phone_number'], sms_content)
                 # # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
                 # message = SendSms(phone=self.data['phone_number'], body=sms_content)
                 # message.send()
 
         except Exception as e:
-            # print (str(e))
-            logging.error(str(e))    
+            pass
+            # print (str(e)) 
+            #logging.error(str(e))    

@@ -18,11 +18,11 @@ from notification_center.models import(
 
 class GroupNotificationForm(forms.ModelForm):
 
-    city = forms.ModelChoiceField(
-        queryset=City.objects.all(),
-        widget=autocomplete.ModelSelect2(url='admin:city_autocomplete'),
-        required=False
-    )
+    # city = forms.ModelChoiceField(
+    #     queryset=City.objects.all(),
+    #     widget=autocomplete.ModelSelect2(url='admin:city_autocomplete'),
+    #     required=False
+    # )
     buyer_shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type='r'),
         #widget=autocomplete.ModelSelect2(url='admin:retailer_autocomplete'),
@@ -67,8 +67,8 @@ class GroupNotificationForm(forms.ModelForm):
 
     class Meta:
         # model = GroupNotificationScheduler
-        fields = ('city', 'pincode_from', 'pincode_to', 'template',
-                 'buyer_shop',  'run_at', 'repeat')  #'__all__'
+        fields = ('city', 'pincode_from', 'pincode_to', 'template',)
+#                 'buyer_shop',  'run_at', 'repeat')  #'__all__'
         
 
 class TemplateForm(forms.ModelForm):
