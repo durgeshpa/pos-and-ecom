@@ -375,7 +375,7 @@ class TeamListView(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         days_diff = int(self.request.query_params.get('day', 1))
-        to_date = datetime.now() + timedelta(days=1) if days_diff == 1 else datetime.now()
+        to_date = datetime.now() + timedelta(days=1) if days_diff == 1 else datetime.now()- timedelta(days=1)
         if days_diff == 1:
             from_date = to_date - timedelta(days=days_diff)
         elif days_diff == 30:
@@ -528,7 +528,7 @@ class SellerShopOrder(generics.ListAPIView):
                 return Response(msg, status=status.HTTP_200_OK)
 
         days_diff = int(self.request.query_params.get('day', 1))
-        to_date = datetime.now() + timedelta(days=1) if days_diff == 1 else datetime.now()
+        to_date = datetime.now() + timedelta(days=1) if days_diff == 1 else datetime.now()- timedelta(days=1)
         if days_diff == 1:
             from_date = to_date - timedelta(days=days_diff)
         elif days_diff == 30:
