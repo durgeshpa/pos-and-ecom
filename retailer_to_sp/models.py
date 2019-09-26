@@ -185,19 +185,20 @@ class Cart(models.Model):
         cart_products = self.rt_cart_list.all()
         date = datetime.datetime.now()
         for m in cart_products:
-            sku_no_of_pieces = int(m.qty)
+            sku_qty = int(m.qty)
+            sku_no_of_pieces = int(m.cart_product.product_inner_case_size) * int(m.qty)
             price = m.cart_product.get_current_shop_price(shop)
             sku_ptr = price.price_to_retailer
             for n in m.cart_product.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date ):
                 for o in n.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte = date):
                     if n.rule.discount_qty_amount > 0:
-                        if sku_no_of_pieces >= n.rule.discount_qty_step:
+                        if sku_qty >= n.rule.discount_qty_step:
                             free_item = n.free_product.product_name
-                            discount_qty_step_multiple = int((sku_no_of_pieces)/n.rule.discount_qty_step)
+                            discount_qty_step_multiple = int((sku_qty)/n.rule.discount_qty_step)
                             free_item_amount = int((n.rule.discount_qty_amount) * discount_qty_step_multiple)
                             offers_list.append({'type':'free', 'sub_type':'free product', 'coupon':o.coupon_name, 'coupon_code':o.coupon_code, 'item':m.cart_product.product_name, 'item_sku':m.cart_product.product_sku, 'free_item':free_item, 'free_item_amount':free_item_amount, 'coupon_type':'catalog'})
                     elif (n.rule.discount_qty_step >=1) and (n.rule.discount != None):
-                        if sku_no_of_pieces >= n.rule.discount_qty_step:
+                        if sku_qty >= n.rule.discount_qty_step:
                             discount_value = n.rule.discount.discount_value if n.rule.discount.is_percentage == False else ((n.rule.discount.discount_value/100)* sku_no_of_pieces * sku_ptr)
                             offers_list.append({'type':'discount', 'sub_type':'discount on product', 'coupon':o.coupon_name, 'coupon_code':o.coupon_code, 'item':m.cart_product.product_name, 'item_sku':m.cart_product.product_sku, 'discount_value':discount_value, 'coupon_type':'catalog'})
         cart_coupons = Coupon.objects.filter(coupon_type = 'cart', is_active = True, expiry_date__gte = date).order_by('-rule__cart_qualifying_min_sku_value')
