@@ -78,11 +78,11 @@ class OrderPaymentForm(forms.ModelForm):
         queryset=Order.objects.all(),
         widget=autocomplete.ModelSelect2(url='order-autocomplete',)
     )
-    parent_payment = forms.ModelChoiceField(
-        queryset=Payment.objects.all(),
-        widget=autocomplete.ModelSelect2(url='order-payment-autocomplete',
-                                         forward=('order'))
-    )
+    # parent_payment = forms.ModelChoiceField(
+    #     queryset=Payment.objects.all(),
+    #     widget=autocomplete.ModelSelect2(url='order-payment-autocomplete',
+    #                                      forward=('order',))
+    # )
 
     class Meta:
         model = OrderPayment
@@ -95,9 +95,7 @@ class OrderPaymentForm(forms.ModelForm):
         #import pdb; pdb.set_trace()
         if kwargs.get('order') is not None:
             self.fields['order'].initial = order
-        #not completely utilised payments
-        # self.fields.get('parent_payment').queryset =  
-           
+
         # if self.data and self.data.get('payment_mode_name') != 'cash_payment':
         #     self.fields.get('reference_no').required = True
         # select queryset on the basis of user

@@ -1,3 +1,5 @@
+#from dal import autocomplete_light
+
 from django.contrib import admin
 from .models import *
 from .forms import ShipmentPaymentForm, ShipmentPaymentInlineForm, OnlinePaymentInlineForm, \
@@ -17,7 +19,7 @@ class OnlinePaymentInlineAdmin(admin.TabularInline):
 class OrderPaymentAdmin(admin.ModelAdmin):
     model = OrderPayment
     form  = OrderPaymentForm
-    autocomplete_fields = ('order', 'parent_payment', 'created_by', 'updated_by',)
+    #autocomplete_fields = ('order', 'parent_payment', 'created_by', 'updated_by',)
     search_fields = ('order', 'parent_payment')
     readonly_fields = (
        "payment_id",
@@ -289,3 +291,4 @@ admin.site.register(ShipmentPayment,ShipmentPaymentAdmin)
 admin.site.register(PaymentApproval,PaymentApprovalAdmin)
 # admin.site.register(PaymentEdit,PaymentEditAdmin)
 admin.site.register(ShipmentData,ShipmentPaymentDataAdmin)
+#autocomplete_light.register(Payment, add_another_url_name='admin:payments_payment_add')

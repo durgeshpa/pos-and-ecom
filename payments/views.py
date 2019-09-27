@@ -1,5 +1,6 @@
 from dal import autocomplete
 from django.shortcuts import render
+from django.db.models import Q
 
 from retailer_to_sp.models import Order
 from .models import Payment
@@ -18,14 +19,15 @@ class OrderAutocomplete(autocomplete.Select2QuerySetView):
 class OrderPaymentAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self):
         qs = Payment.objects.all()
+        order_id = self.forwarded.get('order', None)
 
-        order = self.forwarded.get('order', None)
-
-        if order:
+        if order_id:
+            order = Order.objects.get(pk=order_id)
             users = order.buyer_shop.related_users.all()
-            qs = qs.filter(paid_by=users)
+            shop_owner = order.buyer_shop.shop_owner
+            qs = qs.filter(Q(paid_by__in=users) | Q(paid_by=shop_owner))
 
         if self.q:
             qs = qs.filter(Q(buyer_shop__shop_owner__phone_number__icontains=self.q) | Q(buyer_shop__shop_name__icontains=self.q))
-
+        #print (order_id, order, users, shop_owner, qs)
         return qs
