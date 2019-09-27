@@ -291,7 +291,12 @@ class Cart(models.Model):
                             offers_list.append({'type':'discount', 'sub_type':'discount on category', 'coupon':category_coupon.coupon_name, 'coupon_code':category_coupon.coupon_code, 'discount_value':category_coupon.rule.discount.max_discount})
 
             break
-
+        sum = 0
+        keyValList1 = ['discount']
+        exampleSet1 = offers_list
+        array1 = list(filter(lambda d: d['type'] in keyValList1, exampleSet1))
+        for i in array1:
+            sum = sum + i['discount_value']
         return offers_list
 
     def save(self, *args, **kwargs):

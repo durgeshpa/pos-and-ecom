@@ -313,10 +313,10 @@ class GramGRNProductsList(APIView):
                 cash_discount = p["_source"]['cash_discount']
                 for c_p in cart_products:
                     if c_p.cart_product_id == p["_source"]["id"]:
-                        keyValList = ['catalog']
-                        exampleSet = cart.offers
-                        array = list(filter(lambda d: d['coupon_type'] in keyValList, exampleSet))
-                        for i in array:
+                        keyValList2 = ['catalog']
+                        exampleSet2 = cart.offers
+                        array2 = list(filter(lambda d: d['coupon_type'] in keyValList2, exampleSet2))
+                        for i in array2:
                             if i['item_sku']== c_p.cart_product.product_sku:
                                 for i in coupons: i['is_applied'] = True
 
