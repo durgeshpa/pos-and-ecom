@@ -177,22 +177,21 @@ class Payment(AbstractDateTime):
 
         # create entry to edit shipment payment
         try:
-            # import pdb; pdb.set_trace()
-            shop = Shop.objects.filter(shop_owner=self.paid_by)
-            if shop:
-                shop=shop[0]
-                shop_address = shop.shop_name_address_mapping.filter(address_type='billing')
-                if shop_address.exists():
-                    shop_address_pk = shop_address.last().pk
-                else:
-                    shop_address = shop.shop_name_address_mapping.all()
-                    shop_address_pk = shop_address.last().pk
-                self.payment_id = payment_id_pattern(
-                                            Payment, 'payment_id', self.pk,
-                                            shop_address_pk)
+            if self.pk is None:
+                shop = Shop.objects.filter(shop_owner=self.paid_by)
+                if shop:
+                    shop=shop[0]
+                    shop_address = shop.shop_name_address_mapping.filter(address_type='billing')
+                    if shop_address.exists():
+                        shop_address_pk = shop_address.last().pk
+                    else:
+                        shop_address = shop.shop_name_address_mapping.all()
+                        shop_address_pk = shop_address.last().pk
+                    self.payment_id = payment_id_pattern(
+                                                Payment, 'payment_id', self.pk,
+                                                shop_address_pk)
         except:
             pass
-        # self.save()
         super().save(*args, **kwargs)
         # assuming that a postpaid order payment has one shipment payment
         # shipment_payment = ShipmentPayment.objects.filter(parent_payment=self) 

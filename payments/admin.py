@@ -28,7 +28,7 @@ class PaymentAdmin(admin.ModelAdmin):
     model = Payment
     autocomplete_fields = ('paid_by',)
 
-    #form  = PaymentForm
+    form  = PaymentForm
     list_display = (
         "paid_by", "paid_amount", "payment_mode_name", "reference_no", "description",
         "payment_id"            
@@ -128,6 +128,7 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline):
     model = ShipmentPayment
     form = ShipmentPaymentInlineForm
     formset = AtLeastOneFormSet
+    #autocomplete_fields = ("parent_order_payment",)
     fields = ("paid_amount", "parent_order_payment", "payment_mode_name", "reference_no", "description")
     readonly_fields = ("payment_mode_name", "reference_no",)
     extra = 0

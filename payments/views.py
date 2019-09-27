@@ -17,7 +17,6 @@ class OrderAutocomplete(autocomplete.Select2QuerySetView):
 
 class OrderPaymentAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self):
-        import pdb; pdb.set_trace()
         qs = Payment.objects.all()
 
         order = self.forwarded.get('order', None)

@@ -95,6 +95,7 @@ INSTALLED_APPS = [
     'fcm',
     'django_celery_beat',
     'django_celery_results',
+    #'django_extensions'
 ]
 
 FCM_APIKEY = config('FCM_APIKEY')

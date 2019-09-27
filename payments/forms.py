@@ -16,6 +16,7 @@ from django.forms import widgets
 from django.utils.html import format_html
 
 from accounts.middlewares import get_current_user
+from accounts.models import UserWithName
 from payments.models import Payment, ShipmentPayment, OnlinePayment,\
     OrderPayment #, ShipmentPaymentApproval
 from retailer_to_sp.models import Order
@@ -65,8 +66,8 @@ class PaymentForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(PaymentForm, self).__init__(*args, **kwargs)
         self.fields.get('paid_by').required = True
-        users = Shop.objects.filter(shop_type__shop_type="retailer").values('shop_owner')
-        self.fields.get('paid_by').queryset = users
+        users = Shop.objects.filter(shop_type__shop_type="r").values('shop_owner__id')
+        self.fields.get('paid_by').queryset = UserWithName.objects.filter(pk__in=users)
         # if self.data and self.data.get('payment_mode_name') != 'cash_payment':
         #     self.fields.get('reference_no').required = True
 
@@ -94,6 +95,9 @@ class OrderPaymentForm(forms.ModelForm):
         #import pdb; pdb.set_trace()
         if kwargs.get('order') is not None:
             self.fields['order'].initial = order
+        #not completely utilised payments
+        # self.fields.get('parent_payment').queryset =  
+           
         # if self.data and self.data.get('payment_mode_name') != 'cash_payment':
         #     self.fields.get('reference_no').required = True
         # select queryset on the basis of user
