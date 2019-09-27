@@ -281,14 +281,15 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
         for rules in obj.cart_product.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date):
             for rule in rules.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte = date):
                 product_coupons.append(rule.coupon_code)
-                coupons_queryset = Coupon.objects.filter(coupon_code__in = product_coupons)
-                coupons = CouponSerializer(coupons_queryset, many=True).data
-                keyValList = ['catalog']
-                exampleSet = obj.cart.offers
-                array = list(filter(lambda d: d['coupon_type'] in keyValList, exampleSet))
-                for i in array:
-                    if i['item_sku']== obj.cart_product.product_sku:
-                        for i in coupons: i['is_applied'] = True
+        if product_coupons:
+            coupons_queryset = Coupon.objects.filter(coupon_code__in = product_coupons)
+            coupons = CouponSerializer(coupons_queryset, many=True).data
+            keyValList = ['catalog']
+            exampleSet = obj.cart.offers
+            array = list(filter(lambda d: d['coupon_type'] in keyValList, exampleSet))
+            for i in array:
+                if i['item_sku']== obj.cart_product.product_sku:
+                    for i in coupons: i['is_applied'] = True
             return coupons
 
     class Meta:
