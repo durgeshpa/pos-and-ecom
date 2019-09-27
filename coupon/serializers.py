@@ -18,5 +18,5 @@ class CouponSerializer(serializers.ModelSerializer):
             if product_coupon.max_qty_per_use > 0:
                 max_qty = product_coupon.max_qty_per_use
             else:
-                max_qty = '-'
+                max_qty = -1
         return max_qty
