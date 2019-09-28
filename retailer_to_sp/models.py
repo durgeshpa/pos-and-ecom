@@ -214,9 +214,9 @@ class Cart(models.Model):
                 if cart_value >=cart_coupon.rule.cart_qualifying_min_sku_value:
                     if cart_coupon.rule.discount.is_percentage == False:
                         offers_list.append({'type':'discount', 'sub_type':'discount on cart', 'coupon':cart_coupon.coupon_name, 'coupon_code':cart_coupon.coupon_code, 'discount_value':cart_coupon.rule.discount.discount_value, 'coupon_type':'cart'})
-                    elif cart_coupon.rule.discount.is_percentage == True and (cart_coupon.rule.discount.max_discount == None):
+                    elif cart_coupon.rule.discount.is_percentage == True and (cart_coupon.rule.discount.max_discount == 0):
                         discount_value = round((cart_coupon.rule.discount.discount_value/100)* cart_value, 2)
-                        offers_list.append({'type':'discount', 'sub_type':'discount on cart', 'coupon':cart_coupon.coupon_name, 'coupon_code':cart_coupon.coupon_code, 'discount_value':discount_value, 'coupon_type':cart})
+                        offers_list.append({'type':'discount', 'sub_type':'discount on cart', 'coupon':cart_coupon.coupon_name, 'coupon_code':cart_coupon.coupon_code, 'discount_value':discount_value, 'coupon_type':'cart'})
                     elif cart_coupon.rule.discount.is_percentage == True and (cart_coupon.rule.discount.max_discount < ((cart_coupon.rule.discount.discount_value/100)* cart_value)) :
                         offers_list.append({'type':'discount', 'sub_type':'discount on cart', 'coupon':cart_coupon.coupon_name, 'coupon_code':cart_coupon.coupon_code, 'discount_value':cart_coupon.rule.discount.max_discount, 'coupon_type':'cart'})
                     break
