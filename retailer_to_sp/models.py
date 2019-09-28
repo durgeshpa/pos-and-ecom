@@ -177,14 +177,6 @@ class Cart(models.Model):
     def no_of_pieces_sum(self):
         return self.rt_cart_list.aggregate(qty_sum=Sum('no_of_pieces'))['no_of_pieces_sum']
 
-    def get_total_discount(self):
-        sum = 0
-        keyValList1 = ['discount']
-        exampleSet1 = self.offers
-        array1 = list(filter(lambda d: d['type'] in keyValList1, exampleSet1))
-        for i in array1:
-            sum = sum + i['discount_value']
-        return round(sum, 2)
 
     def offers_applied(self):
         offers_list =[]
@@ -214,7 +206,7 @@ class Cart(models.Model):
 
             cart_coupons = Coupon.objects.filter(coupon_type = 'cart', is_active = True, expiry_date__gte = date).order_by('-rule__cart_qualifying_min_sku_value')
             if self.cart_status in ['active', 'pending']:
-                cart_value = (self.rt_cart_list.filter(cart_product__product_pro_price__shop=self.seller_shop, cart_product__product_pro_price__status=True, cart_product__product_pro_price__approval_status='approved').aggregate(value=Sum(F('cart_product__product_pro_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['value'])- self.get_total_discount()
+                cart_value = (self.rt_cart_list.filter(cart_product__product_pro_price__shop=self.seller_shop, cart_product__product_pro_price__status=True, cart_product__product_pro_price__approval_status='approved').aggregate(value=Sum(F('cart_product__product_pro_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['value'])
             if self.cart_status in ['ordered']:
                 cart_value = (self.rt_cart_list.aggregate(value=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['value']) - self.get_total_discount()
             cart_items_count = self.rt_cart_list.count()
@@ -320,6 +312,18 @@ class Cart(models.Model):
                             break
 
         return offers_list
+
+    # def get_total_discount(self):
+    #     sum = 0
+    #     keyValList1 = ['discount']
+    #     exampleSet1 = self.offers
+    #     if self.offers:
+    #         array1 = list(filter(lambda d: d['type'] in keyValList1, exampleSet1))
+    #         for i in array1:
+    #             sum = sum + i['discount_value']
+    #         return round(sum, 2)
+    #     else:
+    #         return 0
 
     def save(self, *args, **kwargs):
         if self.cart_status == self.ORDERED:
