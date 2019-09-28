@@ -30,6 +30,11 @@ class RuleSetCategoryMappingAdmin( admin.ModelAdmin):
 class RuleAreaMappingAdmin( admin.ModelAdmin):
     list_display = ('rule', 'seller_shop', 'buyer_shop', 'city')
 
+class CouponLocationAdmin( admin.ModelAdmin):
+    list_display = ('seller_shop', 'buyer_shop', 'city')
+
+
+
 admin.site.register(DiscountValue,DiscountValueAdmin)
 admin.site.register(CouponRuleSet,CouponRuleSetAdmin)
 admin.site.register(Coupon, CouponAdmin)
@@ -38,3 +43,4 @@ admin.site.register(RuleSetProductMapping, RuleSetProductMappingAdmin)
 admin.site.register(RuleSetBrandMapping, RuleSetBrandMappingAdmin)
 admin.site.register(RuleSetCategoryMapping, RuleSetCategoryMappingAdmin)
 admin.site.register(RuleAreaMapping, RuleAreaMappingAdmin)
+admin.site.register(CouponLocation, CouponLocationAdmin)
