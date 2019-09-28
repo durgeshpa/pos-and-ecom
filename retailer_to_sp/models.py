@@ -250,7 +250,7 @@ class Cart(models.Model):
                     if brand_product_subtotals >= brand_coupon.rule.cart_qualifying_min_sku_value:
                         if brand_coupon.rule.discount.is_percentage == False:
                             offers_list.append({'type':'discount', 'sub_type':'discount on brand', 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'discount_value':brand_coupon.rule.discount.discount_value, 'coupon_type':'brand'})
-                        elif brand_coupon.rule.discount.is_percentage == True and (brand_coupon.rule.discount.max_discount == None):
+                        elif brand_coupon.rule.discount.is_percentage == True and (brand_coupon.rule.discount.max_discount == 0):
                             discount_value = round((brand_coupon.rule.discount.discount_value/100)* brand_product_subtotals, 2)
                             offers_list.append({'type':'discount', 'sub_type':'discount on brand', 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'discount_value':discount_value, 'coupon_type':'brand'})
                         elif brand_coupon.rule.discount.is_percentage == True and (brand_coupon.rule.discount.max_discount < ((brand_coupon.rule.discount.discount_value/100)* brand_product_subtotals)) :
@@ -260,7 +260,7 @@ class Cart(models.Model):
                     if brand_product_items_count >= brand_coupon.rule.cart_qualifying_min_sku_item:
                         if brand_coupon.rule.discount.is_percentage == False:
                             offers_list.append({'type':'discount', 'sub_type':'discount on brand', 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'discount_value':brand_coupon.rule.discount.discount_value, 'coupon_type':'brand'})
-                        elif brand_coupon.rule.discount.is_percentage == True and (brand_coupon.rule.discount.max_discount == None):
+                        elif brand_coupon.rule.discount.is_percentage == True and (brand_coupon.rule.discount.max_discount == 0):
                             discount_value = round((brand_coupon.rule.discount.discount_value/100)* brand_product_subtotals, 2)
                             offers_list.append({'type':'discount', 'sub_type':'discount on brand', 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'discount_value':discount_value, 'coupon_type':'brand'})
                         elif brand_coupon.rule.discount.is_percentage == True and (brand_coupon.rule.discount.max_discount < ((brand_coupon.rule.discount.discount_value/100)* brand_product_subtotals)) :
@@ -287,7 +287,7 @@ class Cart(models.Model):
                     if category_product_subtotals >= category_coupon.rule.cart_qualifying_min_sku_value:
                         if category_coupon.rule.discount.is_percentage == False:
                             offers_list.append({'type':'discount', 'sub_type':'discount on category', 'coupon':category_coupon.coupon_name, 'coupon_code':category_coupon.coupon_code, 'category_name':offer_category.category_name, 'discount_value':category_coupon.rule.discount.discount_value, 'coupon_type':'category'})
-                        elif category_coupon.rule.discount.is_percentage == True and (category_coupon.rule.discount.max_discount == None):
+                        elif category_coupon.rule.discount.is_percentage == True and (category_coupon.rule.discount.max_discount == 0):
                             discount_value = round((category_coupon.rule.discount.discount_value/100)* category_product_subtotals, 2)
                             offers_list.append({'type':'discount', 'sub_type':'discount on category', 'coupon':category_coupon.coupon_name, 'coupon_code':category_coupon.coupon_code, 'category_name':offer_category.category_name, 'discount_value':discount_value, 'coupon_type':'category'})
                         elif category_coupon.rule.discount.is_percentage == True and (category_coupon.rule.discount.max_discount < ((category_coupon.rule.discount.discount_value/100)* category_product_subtotals)) :
@@ -297,7 +297,7 @@ class Cart(models.Model):
                     if category_product_items_count >= category_coupon.rule.cart_qualifying_min_sku_item:
                         if category_coupon.rule.discount.is_percentage == False:
                             offers_list.append({'type':'discount', 'sub_type':'discount on category', 'coupon':category_coupon.coupon_name, 'coupon_code':category_coupon.coupon_code, 'category_name':offer_category.category_name, 'discount_value':category_coupon.rule.discount.discount_value})
-                        elif category_coupon.rule.discount.is_percentage == True and (category_coupon.rule.discount.max_discount == None):
+                        elif category_coupon.rule.discount.is_percentage == True and (category_coupon.rule.discount.max_discount == 0):
                             discount_value = round((category_coupon.rule.discount.discount_value/100)* category_product_subtotals, 2)
                             offers_list.append({'type':'discount', 'sub_type':'discount on category', 'coupon':category_coupon.coupon_name, 'coupon_code':category_coupon.coupon_code, 'category_name':offer_category.category_name, 'discount_value':discount_value})
                         elif category_coupon.rule.discount.is_percentage == True and (category_coupon.rule.discount.max_discount < ((category_coupon.rule.discount.discount_value/100)* category_product_subtotals)) :
