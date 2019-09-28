@@ -184,6 +184,7 @@ class Cart(models.Model):
         shop = self.seller_shop
         cart_products = self.rt_cart_list.all()
         date = datetime.datetime.now()
+        discount_sum = 0
         if cart_products:
             for m in cart_products:
                 sku_qty = int(m.qty)
@@ -201,14 +202,15 @@ class Cart(models.Model):
                         elif (n.rule.discount_qty_step >=1) and (n.rule.discount != None):
                             if sku_qty >= n.rule.discount_qty_step:
                                 discount_value = n.rule.discount.discount_value if n.rule.discount.is_percentage == False else round(((n.rule.discount.discount_value/100)* sku_no_of_pieces * sku_ptr), 2)
+                                discount_sum += discount_value
                                 discounted_product_subtotal = (sku_no_of_pieces * sku_ptr) - discount_value
                                 offers_list.append({'type':'discount', 'sub_type':'discount on product', 'coupon':o.coupon_name, 'coupon_code':o.coupon_code, 'item':m.cart_product.product_name, 'item_sku':m.cart_product.product_sku, 'item_id':m.cart_product.id, 'discount_value':discount_value, 'coupon_type':'catalog', 'discounted_product_subtotal':discounted_product_subtotal})
 
             cart_coupons = Coupon.objects.filter(coupon_type = 'cart', is_active = True, expiry_date__gte = date).order_by('-rule__cart_qualifying_min_sku_value')
             if self.cart_status in ['active', 'pending']:
-                cart_value = (self.rt_cart_list.filter(cart_product__product_pro_price__shop=self.seller_shop, cart_product__product_pro_price__status=True, cart_product__product_pro_price__approval_status='approved').aggregate(value=Sum(F('cart_product__product_pro_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['value'])
+                cart_value = (self.rt_cart_list.filter(cart_product__product_pro_price__shop=self.seller_shop, cart_product__product_pro_price__status=True, cart_product__product_pro_price__approval_status='approved').aggregate(value=Sum(F('cart_product__product_pro_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['value']) - discount_sum
             if self.cart_status in ['ordered']:
-                cart_value = (self.rt_cart_list.aggregate(value=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['value']) - self.get_total_discount()
+                cart_value = (self.rt_cart_list.aggregate(value=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['value']) - discount_sum
             cart_items_count = self.rt_cart_list.count()
             for cart_coupon in cart_coupons:
                 if cart_coupon.rule.cart_qualifying_min_sku_value and not cart_coupon.rule.cart_qualifying_min_sku_item:
@@ -245,9 +247,9 @@ class Cart(models.Model):
                         for sub_brands in sub_brands_list:
                             brands_list.append(sub_brands)
                     if self.cart_status in ['active', 'pending']:
-                        brand_product_subtotals = self.rt_cart_list.filter(cart_product__product_brand__in  = brands_list, cart_product__product_pro_price__shop=self.seller_shop, cart_product__product_pro_price__status=True, cart_product__product_pro_price__approval_status='approved').aggregate(brand_product_subtotal=Sum(F('cart_product__product_pro_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['brand_product_subtotal']
+                        brand_product_subtotals = (self.rt_cart_list.filter(cart_product__product_brand__in  = brands_list, cart_product__product_pro_price__shop=self.seller_shop, cart_product__product_pro_price__status=True, cart_product__product_pro_price__approval_status='approved').aggregate(brand_product_subtotal=Sum(F('cart_product__product_pro_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['brand_product_subtotal'])
                     if self.cart_status in ['ordered']:
-                        brand_product_subtotals = self.rt_cart_list.filter(cart_product__product_brand__in  = brands_list).aggregate(brand_product_subtotal=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['brand_product_subtotal']
+                        brand_product_subtotals = (self.rt_cart_list.filter(cart_product__product_brand__in  = brands_list).aggregate(brand_product_subtotal=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['brand_product_subtotal'])
                     brand_product_items_count = self.rt_cart_list.filter(cart_product__product_brand__in  = brands_list).count()
                     if brand_coupon.rule.cart_qualifying_min_sku_value and not brand_coupon.rule.cart_qualifying_min_sku_item:
                         if brand_product_subtotals >= brand_coupon.rule.cart_qualifying_min_sku_value:
