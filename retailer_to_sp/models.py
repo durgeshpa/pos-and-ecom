@@ -215,7 +215,7 @@ class Cart(models.Model):
         if self.cart_status in ['active', 'pending']:
             cart_value = (self.rt_cart_list.filter(cart_product__product_pro_price__shop=self.seller_shop, cart_product__product_pro_price__status=True, cart_product__product_pro_price__approval_status='approved').aggregate(value=Sum(F('cart_product__product_pro_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['value'])- self.get_total_discount()
         if self.cart_status in ['ordered']:
-            cart_value = self.rt_cart_list.aggregate(value=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['value']
+            cart_value = (self.rt_cart_list.aggregate(value=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['value']) - self.get_total_discount()
         cart_items_count = self.rt_cart_list.count()
         for cart_coupon in cart_coupons:
             if cart_coupon.rule.cart_qualifying_min_sku_value and not cart_coupon.rule.cart_qualifying_min_sku_item:
@@ -385,6 +385,11 @@ class CartProductMapping(models.Model):
         else:
             return round(self.cart_product.get_current_shop_price(shop).mrp,2)
 
+    # def delete(self):
+    #     if self.qty and self.no_of_pieces:
+    #         import pdb; pdb.set_trace()
+    #         Cart.objects.filter(id=self.cart.id).update(offers=self.cart.offers_applied())
+    #     super(CartProductMapping, self).delete()
 
 class Order(models.Model):
     ACTIVE = 'active'
@@ -1689,5 +1694,12 @@ def assign_picklist(sender, instance=None, created=False, **kwargs):
 
 @receiver(post_save, sender=CartProductMapping)
 def create_offers(sender, instance=None, created=False, **kwargs):
+    if instance.qty and instance.no_of_pieces:
+        Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
+
+from django.db.models.signals import post_delete
+
+@receiver(post_delete, sender=CartProductMapping)
+def create_offers_at_deletion(sender, instance=None, created=False, **kwargs):
     if instance.qty and instance.no_of_pieces:
         Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
