@@ -69,7 +69,7 @@ from django.utils.translation import ugettext_lazy as _
 from common.data_wrapper import format_serializer_errors
 from sp_to_gram.tasks import es_search
 from coupon.serializers import CouponSerializer
-from coupon.models import Coupon
+from coupon.models import Coupon, CusotmerCouponUsage
 
 
 User = get_user_model()
@@ -577,9 +577,22 @@ class ReservedOrder(generics.ListAPIView):
             if cart.exists():
                 cart = cart.last()
                 cart.offers = cart.offers_applied()
-                #coupon_codes_list = []
+                # coupon_codes_list = []
                 # for j in cart.offers:
-                #     coupon_codes_list.append(j['coupon_code'])
+                #     coupon_codes_list.append(j['coupon_id'])
+                # coupon_usage_count = 0
+                # for i in coupon_codes_list:
+                #     customer_coupon_usage = CusotmerCouponUsage.objects.filter(coupon_id = i ,customer = parent_mapping.retailer)
+                #     if customer_coupon_usage:
+                #         customer_coupon_usage = customer_coupon_usage.last()
+                #         customer_coupon_usage.customer = parent_mapping.retailer
+                #         customer_coupon_usage.times_used += coupon_usage_count + 1
+                #         customer_coupon_usage.save()
+                #     else:
+                #         customer_coupon_usage = CusotmerCouponUsage(coupon_id = i)
+                #         customer_coupon_usage.customer = parent_mapping.retailer
+                #         customer_coupon_usage.times_used = coupon_usage_count + 1
+                #         customer_coupon_usage.save()
                 cart_products = CartProductMapping.objects.select_related(
                     'cart_product'
                 ).filter(
@@ -596,12 +609,10 @@ class ReservedOrder(generics.ListAPIView):
                 cart_product_ids = cart_products.values('cart_product')
                 shop_products_available = OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product__in=cart_product_ids,available_qty__gt=0).values('product_id').annotate(available_qty=Sum('available_qty'))
                 shop_products_dict = {g['product_id']:int(g['available_qty']) for g in shop_products_available}
-                cart_products.update(sku_coupon_error_msg='')
 
                 products_available = {}
                 products_unavailable = []
                 for cart_product in cart_products:
-                    # import pdb; pdb.set_trace()
                     # cart_product_coupons = cart_product.cart_product.getProductCoupons()
                     # for i in cart_product_coupons:
                     #     if i not in coupon_codes_list:

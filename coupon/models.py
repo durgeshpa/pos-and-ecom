@@ -70,7 +70,7 @@ class Coupon(models.Model):
 
 class CusotmerCouponUsage(models.Model):
     coupon = models.ForeignKey(Coupon, related_name ='customer_coupon', on_delete=models.CASCADE)
-    customer = models.ForeignKey(User, related_name='user_coupon', on_delete=models.CASCADE, null=True, blank=True)
+    customer = models.ForeignKey(Shop, related_name='customer_coupon_usage', on_delete=models.CASCADE, null=True, blank=True)
     times_used = models.PositiveIntegerField(default=0)
 
 class RuleSetProductMapping(models.Model):
