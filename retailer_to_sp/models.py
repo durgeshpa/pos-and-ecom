@@ -139,10 +139,10 @@ class Cart(models.Model):
         null=True, blank=True, on_delete=models.CASCADE
     )
     offers = JSONField(null=True,blank=True)
-    cart_coupon_error_msg = models.CharField(
-        max_length=255, null=True,
-        blank=True, editable=False
-    )
+    # cart_coupon_error_msg = models.CharField(
+    #     max_length=255, null=True,
+    #     blank=True, editable=False
+    # )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -382,10 +382,10 @@ class CartProductMapping(models.Model):
         max_length=255, null=True,
         blank=True, editable=False
     )
-    sku_coupon_error_msg = models.CharField(
-        max_length=255, null=True,
-        blank=True, editable=False
-    )
+    # sku_coupon_error_msg = models.CharField(
+    #     max_length=255, null=True,
+    #     blank=True, editable=False
+    # )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
