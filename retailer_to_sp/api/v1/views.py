@@ -576,6 +576,10 @@ class ReservedOrder(generics.ListAPIView):
                                        cart_status__in=['active', 'pending'])
             if cart.exists():
                 cart = cart.last()
+                cart.offers = cart.offers_applied()
+                #coupon_codes_list = []
+                # for j in cart.offers:
+                #     coupon_codes_list.append(j['coupon_code'])
                 cart_products = CartProductMapping.objects.select_related(
                     'cart_product'
                 ).filter(
@@ -592,10 +596,16 @@ class ReservedOrder(generics.ListAPIView):
                 cart_product_ids = cart_products.values('cart_product')
                 shop_products_available = OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product__in=cart_product_ids,available_qty__gt=0).values('product_id').annotate(available_qty=Sum('available_qty'))
                 shop_products_dict = {g['product_id']:int(g['available_qty']) for g in shop_products_available}
+                cart_products.update(sku_coupon_error_msg='')
 
                 products_available = {}
                 products_unavailable = []
                 for cart_product in cart_products:
+                    # import pdb; pdb.set_trace()
+                    # cart_product_coupons = cart_product.cart_product.getProductCoupons()
+                    # for i in cart_product_coupons:
+                    #     if i not in coupon_codes_list:
+                    #         cart_product.sku_coupon_error_msg = 'The following Coupon is not applicable'
                     product_availability = shop_products_dict.get(cart_product.cart_product.id, 0)
 
                     ordered_amount = (
