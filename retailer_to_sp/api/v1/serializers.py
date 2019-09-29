@@ -284,6 +284,11 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
         if product_coupons:
             coupons_queryset = Coupon.objects.filter(coupon_code__in = product_coupons)
             coupons = CouponSerializer(coupons_queryset, many=True).data
+            for coupon in coupons_queryset:
+                for product_coupon in coupon.rule.product_ruleset.filter(purchased_product = obj.cart_product):
+                    if product_coupon.max_qty_per_use > 0:
+                        max_qty = product_coupon.max_qty_per_use
+                        for i in coupons: i['max_qty'] = max_qty
             keyValList3 = ['catalog']
             exampleSet3 = obj.cart.offers
             array3 = list(filter(lambda d: d['coupon_type'] in keyValList3, exampleSet3))

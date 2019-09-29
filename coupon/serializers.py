@@ -14,9 +14,5 @@ class CouponSerializer(serializers.ModelSerializer):
         return status
 
     def get_max_qty(self, obj):
-        for product_coupon in obj.rule.product_ruleset.all():
-            if product_coupon.max_qty_per_use > 0:
-                max_qty = product_coupon.max_qty_per_use
-            else:
-                max_qty = -1
-        return max_qty
+
+        return -1
