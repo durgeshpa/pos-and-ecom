@@ -308,11 +308,12 @@ class GramGRNProductsList(APIView):
             coupons = CouponSerializer(coupons_queryset, many=True).data
             p["_source"]["coupon"] = coupons
             # check in case of multiple coupons
-            for coupon in coupons_queryset:
-                for product_coupon in coupon.rule.product_ruleset.filter(purchased_product = product):
-                    if product_coupon.max_qty_per_use > 0:
-                        max_qty = product_coupon.max_qty_per_use
-                        for i in coupons: i['max_qty'] = max_qty
+            if coupons_queryset:
+                for coupon in coupons_queryset:
+                    for product_coupon in coupon.rule.product_ruleset.filter(purchased_product = product):
+                        if product_coupon.max_qty_per_use > 0:
+                            max_qty = product_coupon.max_qty_per_use
+                            for i in coupons: i['max_qty'] = max_qty
 
             if cart_check == True:
                 ptr = p["_source"]['ptr']
