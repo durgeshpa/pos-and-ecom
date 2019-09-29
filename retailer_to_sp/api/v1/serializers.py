@@ -299,7 +299,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CartProductMapping
-        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg', 'sku_coupon_error_msg', 'is_available','no_of_pieces','product_sub_total', 'product_coupons')
+        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg', 'is_available','no_of_pieces','product_sub_total', 'product_coupons')
 
 
 class CartSerializer(serializers.ModelSerializer):
