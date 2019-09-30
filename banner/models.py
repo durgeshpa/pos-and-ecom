@@ -83,9 +83,6 @@ class BannerPosition(SortableMixin):
     shop = models.ForeignKey(Shop,blank=True, on_delete=models.SET_NULL, null=True, verbose_name="Seller Shop")
     page = models.ForeignKey(Page,on_delete=models.CASCADE, null=True)
     bannerslot = models.ForeignKey(BannerSlot,max_length=255, null=True, on_delete=models.SET_NULL)
-    buyer_shop = models.ForeignKey(Shop,related_name='buyer_shop_banner', null=True, blank=True, on_delete=models.SET_NULL)
-    city = models.ForeignKey(City, related_name='city_banner', null=True, blank=True, on_delete=models.SET_NULL)
-    pincode = models.ForeignKey(Pincode, related_name='pincode_banner', null=True, blank=True,on_delete=models.SET_NULL)
     banner_position_order = models.PositiveIntegerField(default=0,editable=False, db_index=True)
 
     def __str__(self):
@@ -107,3 +104,28 @@ class BannerData(SortableMixin):
 
     class Meta:
         ordering = ['banner_data_order']
+
+
+class BannerLocation(models.Model):
+    banner = models.ForeignKey(Banner, related_name='city_banner', on_delete=models.CASCADE)
+    buyer_shop = models.ForeignKey(Shop, related_name='buyer_shop_banner', null=True, blank=True, on_delete=models.SET_NULL)
+    pincode = models.ForeignKey(Pincode, related_name='pincode_banner', null=True, blank=True, on_delete=models.SET_NULL)
+    city = models.ForeignKey(City, related_name='city_banner', null=True, blank=True, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
+    #def save(self):
+    #    if self.buyer_shop:
+    #        address = self.buyer_shop.shop_name_address_mapping.filter(address_type='shipping')
+    #        if address.exists():
+    #            self.city = address.last().city
+    #            self.pincode = address.last().pincode_link
+    #    elif self.pincode:
+    #        pincode = Pincode.objects.filter(id=self.pincode.id)
+    #        if pincode.exists():
+    #            self.city = pincode.last().city
+    #    super(BannerLocation, self).save()
+
+
+
+
