@@ -23,51 +23,31 @@ class GroupNotificationForm(forms.ModelForm):
     #     widget=autocomplete.ModelSelect2(url='admin:city_autocomplete'),
     #     required=False
     # )
-    buyer_shop = forms.ModelChoiceField(
+    seller_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
+        widget=autocomplete.ModelSelect2(url='admin:seller-autocomplete1'),
+        required=False
+    )
+
+    buyer_shops = forms.ModelMultipleChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type='r'),
-        #widget=autocomplete.ModelSelect2(url='admin:retailer_autocomplete'),
-        widget=autocomplete.ModelSelect2(
-            url='admin:retailer_autocomplete',
-            forward=('city','pincode_from', 'pincode_to')),
+        widget=autocomplete.ModelSelect2Multiple(url='admin:retailer_autocomplete'),
+        # widget=autocomplete.ModelSelect2(
+        #     url='admin:retailer_autocomplete',
+        #     forward=('city','pincode_from', 'pincode_to')),
         required=False
     )
-    pincode_from = forms.ModelChoiceField(
+    pincode = forms.ModelMultipleChoiceField(
         queryset=Pincode.objects.all(),
-        widget=autocomplete.ModelSelect2(
+        widget=autocomplete.ModelSelect2Multiple(
             url='admin:pincode_autocomplete',
             forward=('city',)),
         required=False
     )
-    pincode_to = forms.ModelChoiceField(
-        queryset=Pincode.objects.all(),
-        widget=autocomplete.ModelSelect2(
-            url='admin:pincode_autocomplete',
-            forward=('city',)),
-        required=False
-    )
-    # pincode_from = forms.CharField(max_length=6, min_length=6, required=False,
-    #                                validators=[PinCodeValidator])
-    # pincode_to = forms.CharField(max_length=6, min_length=6, required=False,
-    #                              validators=[PinCodeValidator])
-
-    def clean_pincode_from(self):
-        cleaned_data = self.cleaned_data
-        data = self.data
-        if (data.get('pincode_to', None) and not
-                cleaned_data.get('pincode_from', None)):
-            raise forms.ValidationError('This field is required')
-        return cleaned_data['pincode_from']
-
-    def clean_pincode_to(self):
-        cleaned_data = self.cleaned_data
-        if (cleaned_data.get('pincode_from', None) and not
-                cleaned_data.get('pincode_to', None)):
-            raise forms.ValidationError('This field is required')
-        return cleaned_data['pincode_to']
-
+    
     class Meta:
-        # model = GroupNotificationScheduler
-        fields = ('city', 'pincode_from', 'pincode_to', 'template',)
+        model = GroupNotificationScheduler
+        fields = ('seller_shop', 'city', 'pincode', 'buyer_shops', 'template')
 #                 'buyer_shop',  'run_at', 'repeat')  #'__all__'
         
 

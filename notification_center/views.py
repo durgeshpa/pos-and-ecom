@@ -11,6 +11,7 @@ from django.shortcuts import render, redirect
 from django.views import View
 
 from accounts.models import User
+from shops.models import Shop
 from .forms import (
 	GroupNotificationForm
     )
@@ -31,6 +32,14 @@ class CityAutocomplete(autocomplete.Select2QuerySetView):
             qs = qs.filter(state=state)
         if self.q:
             qs = qs.filter(city_name__icontains=self.q)
+        return qs
+
+
+class SellerAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = Shop.objects.filter(shop_type__shop_type='sp')
+        if self.q:
+            qs = qs.filter(shop_name__icontains=self.q)
         return qs
 
 

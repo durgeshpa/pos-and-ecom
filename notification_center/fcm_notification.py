@@ -31,7 +31,7 @@ class SendFCMNotification:
 	def send(self):
 		try:
 			#registration_ids = []
-			#print (self.registration_id, self.message_title, self.message_body)
+			# print (self.registration_id, self.message_title, self.message_body)
 			my_phone = Device.objects.get(reg_id=self.registration_id)
 			my_phone.send_message({'message':self.message_body,
 									#'image':self.message_image,

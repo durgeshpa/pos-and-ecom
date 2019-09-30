@@ -7,6 +7,10 @@ from django.contrib.auth import get_user_model
 from django.conf.urls import url
 from django_celery_beat.models import PeriodicTask, IntervalSchedule
 
+from notification_center.views import (
+    SellerAutocomplete
+)
+
 from notification_center.models import (
     Template, TemplateVariable, Notification, UserNotification,
     TextSMSActivity, VoiceCallActivity, EmailActivity,
@@ -151,6 +155,17 @@ class NotificationSchedulerAdmin(admin.ModelAdmin):
     # ]
     #readonly_fields = ['user', 'template']
     #for hiding object names in tabular inline
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(NotificationSchedulerAdmin, self).get_urls()
+        urls = [
+            url(r'^seller-autocomplete1/$',
+                self.admin_site.admin_view(SellerAutocomplete.as_view()),
+                name='seller-autocomplete1'
+                ),
+        ] + urls
+        return urls
+
 
     def save_model(self, request, obj, form, change):
         try:
@@ -184,27 +199,31 @@ class NotificationSchedulerAdmin(admin.ModelAdmin):
 class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
     model = GroupNotificationScheduler
     #raw_id_fields = ('buyer_shop')
+    #autocomplete_fields = ('buyer_shops',)
     list_display = ('id', 'template', 'run_at', 'repeat', 'created_at')
     search_fields = ('id', 'template')
     #change_form_template = 'admin/notification_center/group_notification_scheduler/change_form.html'
     form = GroupNotificationForm
 
     def save_model(self, request, obj, form, change):
-        #import pdb; pdb.set_trace()
         try:
+            # import pdb; pdb.set_trace()
             data = {}
             #data['test'] = "test"
-            city = form.cleaned_data.get('city', None)
-            pincode_from = form.cleaned_data.get('pincode_from', None)
-            pincode_to = form.cleaned_data.get('pincode_to', None)
-            buyer_shop = form.cleaned_data.get('buyer_shop', None)
+            seller_shop = form.cleaned_data.get('seller_shop', None)
 
+            city = form.cleaned_data.get('city', None)
+            pincodes = form.cleaned_data.get('pincodes', None)
+            buyer_shops = form.cleaned_data.get('buyer_shops', None)
+
+            if seller_shop:
+                data['seller_shop'] = form.cleaned_data.get('seller_shop').id
             if city:
                 data['city'] = form.cleaned_data.get('city').id
-            if pincode_from:
-                data['pincode_from'] = form.cleaned_data.get('pincode_from').pincode
-            if pincode_to:
-                data['pincode_to'] = form.cleaned_data.get('pincode_to').pincode
+            if pincodes:
+                data['pincodes'] = form.cleaned_data.get('pincodes').values('id')
+            if buyer_shops:
+                data['buyer_shops'] = form.cleaned_data.get('buyer_shops').values('id')
             # if buyer_shop:
             #     data['buyer_shop'] = form.cleaned_data.get('buyer_shop').id
             data['activity_type'] = obj.template.id#.type

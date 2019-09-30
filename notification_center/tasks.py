@@ -6,6 +6,8 @@ from rest_framework.authtoken.models import Token
 
 from notification_center.utils import SendNotification
 from addresses.models import Address
+from shops.models import ParentRetailerMapping
+from shops.models import Shop
 
 logger = logging.getLogger(__name__)
 
@@ -24,26 +26,32 @@ def send_notification(*args, **kwargs):
         logging.error(str(e))
 
 
-
 @task
 def schedule_notification(*args, **kwargs):
     #setup_periodic_tasks()
     try:
         # import pdb; pdb.set_trace()
+
         print ("in schedule_notification")
+        seller_shop_id = kwargs.get('seller_shop', None)
         city_id = kwargs.get('city')
-        pincode_from = kwargs.get('pincode_from', None)
-        pincode_to = kwargs.get('pincode_to', None)
+        pincodes = kwargs.get('pincodes', None)
+        buyer_shops = kwargs.get('buyer_shops', None)
 
         activity_type = kwargs.get('activity_type')
-        
-        if pincode_from:
-            shop_owners = Address.objects.filter(pincode__range=(pincode_from, pincode_to)).values_list('shop_name__shop_owner')
-        else:
-            shop_owners = Address.objects.filter(city=city_id).values_list('shop_name__shop_owner')
-        for shop_owner in shop_owners:
+        if buyer_shops:
+            shop_owners = Address.objects.filter(shop_name__pk__in=buyer_shops).values_list('shop_name__shop_owner')
+        elif pincodes:
+            shop_owners = Address.objects.filter(pincode_link__pk__in=pincodes).values_list('shop_name__shop_owner')
+        elif city_id:
+            shop_owners = Address.objects.filter(city=city_id).values_list('shop_name__shop_owner')   
+        # filter the users for the following sp:
+        if seller_shop_id:
+            shop_owners_mapped = ParentRetailerMapping.objects.filter(parent=seller_shop_id, status=True).values_list('retailer__shop_owner')
+        for shop_owner in (set(shop_owners) & set(shop_owners_mapped)):
             user_id = shop_owner[0]
             # user_id = shop.shop_owner.id
+            # print (Shop.objects.filter(shop_owner=shop_owner[0])[0].get_shop_parent)
             SendNotification(user_id=user_id, activity_type=activity_type).send()
     except Exception as e:
         logging.error(str(e))

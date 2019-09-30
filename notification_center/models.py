@@ -7,7 +7,7 @@ from retailer_backend.validators import (NameValidator, AddressNameValidator,
         MobileNumberValidator, PinCodeValidator)
 from fcm.models import AbstractDevice
 
-from addresses.models import City
+from addresses.models import City, Pincode
 
 #from accounts.models import User
 #from shops.models import Shop
@@ -231,11 +231,15 @@ class NotificationScheduler(models.Model):
 
 class GroupNotificationScheduler(models.Model):
 
+    seller_shop = models.ForeignKey(Shop, related_name='notification_seller_shop', 
+                    on_delete=models.CASCADE, null=True, blank=True)
     city = models.ForeignKey(City, related_name='notification_city', on_delete=models.CASCADE,
                     null=True, blank=True)
-    pincode_from = models.CharField(validators=[PinCodeValidator], max_length=6, null=True, blank=True)
-    pincode_to = models.CharField(validators=[PinCodeValidator], max_length=6, null=True, blank=True)
-    buyer_shop = models.ForeignKey(Shop, related_name='notification_shop', on_delete=models.CASCADE, null=True, blank=True)
+    pincode = models.ManyToManyField(Pincode, related_name='notification_pincodes',
+                    blank=True)
+    buyer_shops = models.ManyToManyField(Shop, related_name='notification_shops',
+                    blank=True)
+
     template = models.ForeignKey(
         Template,
         related_name='group_scheduler',
