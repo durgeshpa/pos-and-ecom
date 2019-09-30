@@ -56,7 +56,7 @@ class Template(models.Model):
         max_length=255
     )
     
-    notification_groups = models.ManyToManyField(Group) 
+    notification_groups = models.ManyToManyField(Group, blank=True) 
     # to be mapped to a order
     #location = models.ForeignKey(City)
 
@@ -119,6 +119,7 @@ class Template(models.Model):
 
     class Meta:
         ordering = ['name']
+        unique_together = (("name", "type"),)
 
     def __str__(self):
         return '%s-%s' % (self.name, self.get_type_display())
