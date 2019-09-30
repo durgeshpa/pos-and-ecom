@@ -200,7 +200,7 @@ class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
     model = GroupNotificationScheduler
     #raw_id_fields = ('buyer_shop')
     #autocomplete_fields = ('buyer_shops',)
-    list_display = ('id', 'template', 'run_at', 'repeat', 'created_at')
+    list_display = ('id', 'template', 'seller_shop')# 'run_at', 'repeat', 'created_at')
     search_fields = ('id', 'template')
     #change_form_template = 'admin/notification_center/group_notification_scheduler/change_form.html'
     form = GroupNotificationForm
