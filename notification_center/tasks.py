@@ -30,8 +30,6 @@ def send_notification(*args, **kwargs):
 def schedule_notification(*args, **kwargs):
     #setup_periodic_tasks()
     try:
-        import pdb; pdb.set_trace()
-
         print ("in schedule_notification")
         seller_shop_id = kwargs.get('seller_shop', None)
         city_id = kwargs.get('city')
