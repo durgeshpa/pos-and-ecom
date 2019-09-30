@@ -194,7 +194,7 @@ class SendNotification:
 
     def send(self):
         try:
-            # import pdb; pdb.set_trace()
+            #import pdb; pdb.set_trace()
             print ("in SendNotification: Send")
             #template = Template.objects.get(type=self.template_type)
             template = Template.objects.get(pk=self.template_type)
