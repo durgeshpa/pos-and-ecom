@@ -80,7 +80,7 @@ class BannerSlot(models.Model):
 
 
 class BannerPosition(SortableMixin):
-    shop = models.ForeignKey(Shop,blank=True, on_delete=models.SET_NULL, null=True, verbose_name="Seller Shop")
+    shop = models.ForeignKey(Shop,blank=True, on_delete=models.CASCADE, null=True)
     page = models.ForeignKey(Page,on_delete=models.CASCADE, null=True)
     bannerslot = models.ForeignKey(BannerSlot,max_length=255, null=True, on_delete=models.SET_NULL)
     city = models.ForeignKey(City, related_name='city_banner', null=True, blank=True, on_delete=models.SET_NULL)
@@ -107,8 +107,3 @@ class BannerData(SortableMixin):
 
     class Meta:
         ordering = ['banner_data_order']
-
-
-
-
-

@@ -120,6 +120,7 @@ MIDDLEWARE += [
 ]
 
 ROOT_URLCONF = 'retailer_backend.urls'
+STATICFILES_STORAGE = "retailer_backend.storage.ExtendedManifestStaticFilesStorage"
 
 TEMPLATES = [
     {

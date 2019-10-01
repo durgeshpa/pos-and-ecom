@@ -1,6 +1,7 @@
 import datetime
 import logging
 
+from decimal import Decimal
 from dal import autocomplete
 from wkhtmltopdf.views import PDFTemplateResponse
 from products.models import *
@@ -118,12 +119,12 @@ class DownloadCreditNote(APIView):
             sum_amount = sum_amount + (
                     int(m.product.product_inner_case_size) *
                     int(m.returned_qty) *
-                    h.price_to_retailer
+                    h.selling_price
             )
             inline_sum_amount = (
                     int(m.product.product_inner_case_size) *
                     int(m.returned_qty) *
-                    h.price_to_retailer
+                    h.selling_price
             )
             for n in m.get_products_gst_tax():
                 divisor = (1 + (n.tax.tax_percentage / 100))
@@ -407,9 +408,11 @@ def trip_planning_change(request, pk):
                 trip = form.save()
                 current_trip_status = trip.trip_status
                 if trip_status == 'STARTED':
-                    trip_instance.rt_invoice_trip.all().update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
                     if current_trip_status == "COMPLETED":
-                        OrderedProductMapping.objects.filter(ordered_product__in=trip_instance.rt_invoice_trip.all()).update(delivered_qty=F('shipped_qty'))
+                        trip_instance.rt_invoice_trip.filter(shipment_status='OUT_FOR_DELIVERY').update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
+                        OrderedProductMapping.objects.filter(ordered_product__in=trip_instance.rt_invoice_trip.filter(shipment_status='OUT_FOR_DELIVERY')).update(delivered_qty=F('shipped_qty'))
+                    else:
+                        trip_instance.rt_invoice_trip.all().update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
                     return redirect('/admin/retailer_to_sp/trip/')
 
                 if trip_status == 'READY':
@@ -1100,7 +1103,7 @@ class OrderCancellation(object):
     def get_cart_products_price(self, products_list):
         cart_products_price = CartProductMapping.objects \
             .values(product_id=F('cart_product'),
-                    product_price=F('cart_product_price__price_to_retailer')) \
+                    product_price=F('cart_product_price__selling_price')) \
             .filter(cart_product_id__in=products_list,
                     cart=self.cart)
         product_price_map = {i['product_id']: i['product_price']
@@ -1146,8 +1149,7 @@ class OrderCancellation(object):
                     expiry_date=item['exp_date'],
                 )
                 product_price = product_price_map.get(item['r_product'], 0)
-                product_price = float(round(product_price, 2))
-                credit_amount += (int(item['s_qty']) *
+                credit_amount += (Decimal(item['s_qty']) *
                                   product_price)
         else:
             for item in reserved_qty_queryset:
@@ -1163,8 +1165,7 @@ class OrderCancellation(object):
                     expiry_date=item['exp_date'],
                 )
                 product_price = product_price_map.get(item['r_product'], 0)
-                product_price = float(round(product_price, 2))
-                credit_amount += (int(item['s_qty']) *
+                credit_amount += (Decimal(item['s_qty']) *
                                   product_price)
 
         # update credit note amount
