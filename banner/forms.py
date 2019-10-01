@@ -7,7 +7,6 @@ from categories.models import Category
 from .models import Banner , BannerPosition, BannerData
 from shops.models import Shop
 from products.models import Product
-from banner.models import BannerLocation
 from addresses.models import Pincode, City
 
 class BannerForm(forms.ModelForm):
@@ -68,6 +67,21 @@ class BannerPositionForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='banner-shop-autocomplete', ),
         required=False
     )
+    buyer_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='r'),
+        widget=autocomplete.ModelSelect2(url='admin:retailer-shop-autocomplete', ),
+        required=False
+    )
+    pincode = forms.ModelChoiceField(
+        queryset=Pincode.objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:pincode-autocomplete', ),
+        required=False
+    )
+    city = forms.ModelChoiceField(
+        queryset=City.objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:city-autocomplete', ),
+        required=False
+    )
 
     class Meta:
         Model = BannerPosition
@@ -82,29 +96,4 @@ class BannerDataPosition(forms.ModelForm):
 
     class Meta:
         Model = BannerData
-        fields = '__all__'
-
-class BannerLocationForm(forms.ModelForm):
-    #banner = forms.ModelChoiceField(
-    #    queryset=Banner.objects.all(),
-    #    widget=autocomplete.ModelSelect2(url='banner-data-autocomplete',),
-    #)
-    buyer_shop = forms.ModelChoiceField(
-        queryset=Shop.objects.filter(shop_type__shop_type='r'),
-        widget=autocomplete.ModelSelect2(url='admin:retailer-shop-autocomplete',),
-        required=False
-    )
-    pincode = forms.ModelChoiceField(
-        queryset=Pincode.objects.all(),
-        widget=autocomplete.ModelSelect2(url='admin:pincode-autocomplete',),
-        required=False
-    )
-    city = forms.ModelChoiceField(
-        queryset=City.objects.all(),
-        widget=autocomplete.ModelSelect2(url='admin:city-autocomplete',),
-        required=False
-    )
-
-    class Meta:
-        Model = BannerLocation
         fields = '__all__'
