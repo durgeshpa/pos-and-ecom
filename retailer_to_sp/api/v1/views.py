@@ -271,13 +271,14 @@ class GramGRNProductsList(APIView):
             is_store_active = False
         else:
             '''2nd Step
-                Check if shop fond then check weather it is sp 4th Step or retailer 5th Step
+                Check if shop found then check whether it is sp 4th Step or retailer 5th Step
             '''
-            try:
-                parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
-            except ObjectDoesNotExist:
+            if not shop.shop_approved():
                 message = "Shop Mapping Not Found"
                 is_store_active = False
+            # try:
+            #     parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
+            # except ObjectDoesNotExist:
             else:
 
                 if parent_mapping.parent.shop_type.shop_type == 'sp':
