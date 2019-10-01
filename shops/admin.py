@@ -187,13 +187,17 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     change_list_template = 'admin/shops/shop/change_list.html'
     resource_class = ShopResource
     form = ShopForm
-    fields = ['shop_name', 'shop_owner', 'shop_type', 'status']
+    fields = ['shop_name', 'shop_owner', 'shop_type', 'status', 'approval_status']
     actions = ["export_as_csv"]
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin,
         AddressAdmin, ShopInvoicePatternAdmin,ShopParentRetailerMapping
     ]
-    list_display = ('shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent','shop_owner','shop_type','created_at','status', 'get_shop_city','shop_mapped_product','imei_no',)
+    list_display = (
+        'shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent',
+        'shop_owner','shop_type','created_at','status', 'get_shop_city', 'approval_status',
+        'shop_mapped_product','imei_no',
+        )
     filter_horizontal = ('related_users',)
     list_filter = (ShopCityFilter,ServicePartnerFilter,ShopNameSearch,ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,'status',('created_at', DateTimeRangeFilter))
     search_fields = ('shop_name', )
