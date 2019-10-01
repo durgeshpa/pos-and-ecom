@@ -44,12 +44,12 @@ class GetSlotBannerListView(APIView):
                         | Q(slot__pincode=buyer_shop_address.last().pincode_link)
                         | Q(slot__buyer_shop=buyer_shop)
                         | Q(banner_data__banner_start_date__isnull=True)
-                        | Q(banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate))
+                        | Q(banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate)).order_by('banner_data').distinct('banner_data')
                 else:
                     data = BannerData.objects.filter(banner_data__status=True, slot__page__name=position_name,
                         slot__bannerslot__name=pos_name, slot__shop=parent.id).filter(
                         Q(banner_data__banner_start_date__isnull=True)
-                        | Q(banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate))
+                        | Q(banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate)).order_by('banner_data').distinct('banner_data')
 
                 is_success = True if data else False
                 message = "" if is_success else "Banners are currently not available"
