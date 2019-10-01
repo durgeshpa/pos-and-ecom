@@ -10,6 +10,7 @@ from import_export import resources
 from import_export.admin import ImportExportModelAdmin
 from django.utils.safestring import mark_safe
 from django.conf.urls import url
+from retailer_backend.filters import SellerShopFilter, CityFilter
 
 class BannerDataInline(SortableStackedInline):
     model = BannerData
@@ -19,6 +20,7 @@ class BannerPositionAdmin(NonSortableParentAdmin):
     form=BannerPositionForm
     inlines = [BannerDataInline]
     list_display = ('shop', 'page', 'bannerslot', 'city', 'pincode', 'buyer_shop')
+    list_filter = (SellerShopFilter,CityFilter)
 
     def get_urls(self):
         urls = super(BannerPositionAdmin, self).get_urls()
@@ -40,6 +42,9 @@ class BannerPositionAdmin(NonSortableParentAdmin):
             ),
         ] + urls
         return urls
+
+    class Media:
+        pass
 
 class BannerAdmin(admin.ModelAdmin):
     fields = ('name','image','banner_type','category','sub_category','brand','sub_brand','products','status','banner_start_date','banner_end_date','alt_text','text_below_image')
