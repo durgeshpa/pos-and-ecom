@@ -62,16 +62,24 @@ class Coupon(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     expiry_date = models.DateTimeField()
 
+    def __str__(self):
+        return self.coupon_name
+
     def save(self, *args, **kwargs):
         if self.is_active == True:
             Coupon.objects.filter(rule = self.rule, is_active=True).update(is_active=False)
             self.is_active = True
         super().save(*args, **kwargs)
 
+
 class CusotmerCouponUsage(models.Model):
     coupon = models.ForeignKey(Coupon, related_name ='customer_coupon', on_delete=models.CASCADE)
-    customer = models.ForeignKey(Shop, related_name='customer_coupon_usage', on_delete=models.CASCADE, null=True, blank=True)
+    cart = models.ForeignKey("retailer_to_sp.Cart", related_name ='customer_coupon', on_delete=models.CASCADE, null=True)
+    shop = models.ForeignKey(Shop, related_name='customer_coupon_usage', on_delete=models.CASCADE, null=True, blank=True)
     times_used = models.PositiveIntegerField(default=0)
+
+    def __str__(self):
+        return self.coupon.coupon_name
 
 class RuleSetProductMapping(models.Model):
     rule = models.ForeignKey(CouponRuleSet, related_name ='product_ruleset', on_delete=models.CASCADE)
@@ -83,18 +91,18 @@ class RuleSetProductMapping(models.Model):
     def __str__(self):
         return  "%s->%s"%(self.purchased_product, self.free_product)
 
-class RuleSetBrandMapping(models.Model):
-    rule = models.ForeignKey(CouponRuleSet, related_name ='brand_ruleset', on_delete=models.CASCADE)
-    brand = models.ForeignKey(Brand, related_name ='brand_coupon', on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-class RuleSetCategoryMapping(models.Model):
-    rule = models.ForeignKey(CouponRuleSet, related_name ='category_ruleset', on_delete=models.CASCADE)
-    category = models.ForeignKey(Category, related_name ='category_coupon', on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-class RuleAreaMapping(models.Model):
-    rule = models.ForeignKey(CouponRuleSet, related_name ='area_ruleset', on_delete=models.CASCADE)
-    seller_shop = models.ForeignKey(Shop, related_name ='seller_shop_ruleset', on_delete=models.CASCADE, blank=True, null=True)
-    buyer_shop = models.ForeignKey(Shop, related_name ='buyer_shop_ruleset', on_delete=models.CASCADE, blank=True, null=True)
-    city = models.ForeignKey(City, related_name ='city_shop_ruleset', on_delete=models.CASCADE, blank=True, null=True)
+# class RuleSetBrandMapping(models.Model):
+#     rule = models.ForeignKey(CouponRuleSet, related_name ='brand_ruleset', on_delete=models.CASCADE)
+#     brand = models.ForeignKey(Brand, related_name ='brand_coupon', on_delete=models.CASCADE)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#
+# class RuleSetCategoryMapping(models.Model):
+#     rule = models.ForeignKey(CouponRuleSet, related_name ='category_ruleset', on_delete=models.CASCADE)
+#     category = models.ForeignKey(Category, related_name ='category_coupon', on_delete=models.CASCADE)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#
+# class RuleAreaMapping(models.Model):
+#     rule = models.ForeignKey(CouponRuleSet, related_name ='area_ruleset', on_delete=models.CASCADE)
+#     seller_shop = models.ForeignKey(Shop, related_name ='seller_shop_ruleset', on_delete=models.CASCADE, blank=True, null=True)
+#     buyer_shop = models.ForeignKey(Shop, related_name ='buyer_shop_ruleset', on_delete=models.CASCADE, blank=True, null=True)
+#     city = models.ForeignKey(City, related_name ='city_shop_ruleset', on_delete=models.CASCADE, blank=True, null=True)

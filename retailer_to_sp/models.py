@@ -42,7 +42,7 @@ from .utils import (order_invoices, order_shipment_amount,
 from accounts.models import UserWithName, User
 from django.core.validators import RegexValidator
 from django.contrib.postgres.fields import JSONField
-from coupon.models import *
+from coupon.models import Coupon
 from django.db.models import Sum
 
 
@@ -189,6 +189,7 @@ class Cart(models.Model):
         cart_products = self.rt_cart_list.all()
         date = datetime.datetime.now()
         discount_sum = 0
+        sum = 0
         if cart_products:
             for m in cart_products:
                 sku_qty = int(m.qty)
@@ -202,94 +203,15 @@ class Cart(models.Model):
                                 free_item = n.free_product.product_name
                                 discount_qty_step_multiple = int((sku_qty)/n.rule.discount_qty_step)
                                 free_item_amount = int((n.rule.discount_qty_amount) * discount_qty_step_multiple)
-                                offers_list.append({'type':'free', 'sub_type':'free product', 'coupon_id':o.id, 'coupon':o.coupon_name, 'coupon_code':o.coupon_code, 'item':m.cart_product.product_name, 'item_sku':m.cart_product.product_sku, 'item_id':m.cart_product.id, 'free_item':free_item, 'free_item_amount':free_item_amount, 'coupon_type':'catalog', 'discounted_product_subtotal':(sku_no_of_pieces * sku_ptr) })
+                                sum += (sku_ptr * sku_no_of_pieces)
+                                offers_list.append({'type':'free', 'sub_type':'free product', 'coupon_id':o.id, 'coupon':o.coupon_name, 'coupon_code':o.coupon_code, 'item':m.cart_product.product_name, 'item_sku':m.cart_product.product_sku, 'item_id':m.cart_product.id, 'free_item':free_item, 'free_item_amount':free_item_amount, 'coupon_type':'catalog', 'discounted_product_subtotal':-1, 'brand_id':m.cart_product.product_brand.id , 'total_pieces':sku_no_of_pieces })
                         elif (n.rule.discount_qty_step >=1) and (n.rule.discount != None):
                             if sku_qty >= n.rule.discount_qty_step:
                                 discount_value = n.rule.discount.discount_value if n.rule.discount.is_percentage == False else round(((n.rule.discount.discount_value/100)* sku_no_of_pieces * sku_ptr), 2)
                                 discount_sum += discount_value
                                 discounted_product_subtotal = (sku_no_of_pieces * sku_ptr) - discount_value
-                                offers_list.append({'type':'discount', 'sub_type':'discount on product', 'coupon_id':o.id, 'coupon':o.coupon_name, 'coupon_code':o.coupon_code, 'item':m.cart_product.product_name, 'item_sku':m.cart_product.product_sku, 'item_id':m.cart_product.id, 'discount_value':discount_value, 'coupon_type':'catalog', 'discounted_product_subtotal':discounted_product_subtotal})
-            brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date).order_by('-rule__cart_qualifying_min_sku_value')
-            brands_list = []
-            for brand_coupon in brand_coupons:
-                for brand in brand_coupon.rule.brand_ruleset.filter(rule__is_active = True, rule__expiry_date__gte = date ):
-                    offer_brand = brand.brand
-                    brands_list.append(offer_brand)
-                    sub_brands_list = Brand.objects.filter(brand_parent = offer_brand)
-                    if sub_brands_list:
-                        for sub_brands in sub_brands_list:
-                            brands_list.append(sub_brands)
-                    if self.cart_status in ['active', 'pending']:
-                        brand_product_subtotals = (self.rt_cart_list.filter(cart_product__product_brand__in  = brands_list, cart_product__product_pro_price__shop=self.seller_shop, cart_product__product_pro_price__status=True, cart_product__product_pro_price__approval_status='approved').aggregate(brand_product_subtotal=Sum(F('cart_product__product_pro_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['brand_product_subtotal'])
-                    if self.cart_status in ['ordered']:
-                        brand_product_subtotals = (self.rt_cart_list.filter(cart_product__product_brand__in  = brands_list).aggregate(brand_product_subtotal=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['brand_product_subtotal'])
-                    brand_product_items_count = self.rt_cart_list.filter(cart_product__product_brand__in  = brands_list).count()
-                    if brand_coupon.rule.cart_qualifying_min_sku_value and not brand_coupon.rule.cart_qualifying_min_sku_item:
-                        if brand_product_subtotals >= brand_coupon.rule.cart_qualifying_min_sku_value:
-                            if brand_coupon.rule.discount.is_percentage == False:
-                                discount_sum+= brand_coupon.rule.discount.discount_value
-                                offers_list.append({'type':'discount', 'sub_type':'discount on brand', 'coupon_id':brand_coupon.id, 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'discount_value':brand_coupon.rule.discount.discount_value, 'coupon_type':'brand'})
-                            elif brand_coupon.rule.discount.is_percentage == True and (brand_coupon.rule.discount.max_discount == 0):
-                                discount_value = round((brand_coupon.rule.discount.discount_value/100)* brand_product_subtotals, 2)
-                                discount_sum+= discount_value
-                                offers_list.append({'type':'discount', 'sub_type':'discount on brand', 'coupon_id':brand_coupon.id, 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'discount_value':discount_value, 'coupon_type':'brand'})
-                            elif brand_coupon.rule.discount.is_percentage == True and (brand_coupon.rule.discount.max_discount < ((brand_coupon.rule.discount.discount_value/100)* brand_product_subtotals)) :
-                                discount_sum+= brand_coupon.rule.discount.max_discount
-                                offers_list.append({'type':'discount', 'sub_type':'discount on brand', 'coupon_id':brand_coupon.id, 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'discount_value':brand_coupon.rule.discount.max_discount, 'coupon_type':'brand'})
-
-                            break
-
-                    elif brand_coupon.rule.cart_qualifying_min_sku_item and not brand_coupon.rule.cart_qualifying_min_sku_value:
-                        if brand_product_items_count >= brand_coupon.rule.cart_qualifying_min_sku_item:
-                            if brand_coupon.rule.discount.is_percentage == False:
-                                discount_sum+= brand_coupon.rule.discount.discount_value
-                                offers_list.append({'type':'discount', 'sub_type':'discount on brand', 'coupon_id':brand_coupon.id, 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'discount_value':brand_coupon.rule.discount.discount_value, 'coupon_type':'brand'})
-                            elif brand_coupon.rule.discount.is_percentage == True and (brand_coupon.rule.discount.max_discount == 0):
-                                discount_value = round((brand_coupon.rule.discount.discount_value/100)* brand_product_subtotals, 2)
-                                discount_sum+= discount_value
-                                offers_list.append({'type':'discount', 'sub_type':'discount on brand', 'coupon_id':brand_coupon.id, 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'discount_value':discount_value, 'coupon_type':'brand'})
-                            elif brand_coupon.rule.discount.is_percentage == True and (brand_coupon.rule.discount.max_discount < ((brand_coupon.rule.discount.discount_value/100)* brand_product_subtotals)) :
-                                offers_list.append({'type':'discount', 'sub_type':'discount on brand', 'coupon_id':brand_coupon.id, 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'discount_value':brand_coupon.rule.discount.max_discount, 'coupon_type':'brand'})
-
-                            break
-
-            category_coupons = Coupon.objects.filter(coupon_type = 'category', is_active = True, expiry_date__gte = date).order_by('-rule__cart_qualifying_min_sku_value')
-            categories_list = []
-            for category_coupon in category_coupons:
-                for category in category_coupon.rule.category_ruleset.filter(rule__is_active = True, rule__expiry_date__gte = date):
-                    offer_category = category.category
-                    categories_list.append(offer_category)
-                    sub_category_list = Category.objects.filter(category_parent = offer_category)
-                    if sub_category_list:
-                        for sub_categories in sub_category_list:
-                            categories_list.append(sub_categories)
-                    if self.cart_status in ['active', 'pending']:
-                        category_product_subtotals = self.rt_cart_list.filter(cart_product__product_pro_category__in  = categories_list, cart_product__product_pro_price__shop=self.seller_shop, cart_product__product_pro_price__status=True, cart_product__product_pro_price__approval_status='approved').aggregate(category_product_subtotal=Sum(F('cart_product__product_pro_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['category_product_subtotal']
-                    if self.cart_status in ['ordered']:
-                        category_product_subtotals = self.rt_cart_list.filter(cart_product__product_pro_category__in  = categories_list).aggregate(category_product_subtotal=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['category_product_subtotal']
-                    category_product_items_count = self.rt_cart_list.filter(cart_product__product_pro_category__in  = categories_list).count()
-                    if category_coupon.rule.cart_qualifying_min_sku_value and not category_coupon.rule.cart_qualifying_min_sku_item:
-                        if category_product_subtotals >= category_coupon.rule.cart_qualifying_min_sku_value:
-                            if category_coupon.rule.discount.is_percentage == False:
-                                offers_list.append({'type':'discount', 'sub_type':'discount on category', 'coupon_id':category_coupon.id, 'coupon':category_coupon.coupon_name, 'coupon_code':category_coupon.coupon_code, 'category_name':offer_category.category_name, 'discount_value':category_coupon.rule.discount.discount_value, 'coupon_type':'category'})
-                            elif category_coupon.rule.discount.is_percentage == True and (category_coupon.rule.discount.max_discount == 0):
-                                discount_value = round((category_coupon.rule.discount.discount_value/100)* category_product_subtotals, 2)
-                                offers_list.append({'type':'discount', 'sub_type':'discount on category', 'coupon_id':category_coupon.id, 'coupon':category_coupon.coupon_name, 'coupon_code':category_coupon.coupon_code, 'category_name':offer_category.category_name, 'discount_value':discount_value, 'coupon_type':'category'})
-                            elif category_coupon.rule.discount.is_percentage == True and (category_coupon.rule.discount.max_discount < ((category_coupon.rule.discount.discount_value/100)* category_product_subtotals)) :
-                                offers_list.append({'type':'discount', 'sub_type':'discount on category', 'coupon_id':category_coupon.id, 'coupon':category_coupon.coupon_name, 'coupon_code':category_coupon.coupon_code, 'category_name':offer_category.category_name, 'discount_value':category_coupon.rule.discount.max_discount, 'coupon_type':'category'})
-                            break
-
-                    elif category_coupon.rule.cart_qualifying_min_sku_item and not category_coupon.rule.cart_qualifying_min_sku_value:
-                        if category_product_items_count >= category_coupon.rule.cart_qualifying_min_sku_item:
-                            if category_coupon.rule.discount.is_percentage == False:
-                                offers_list.append({'type':'discount', 'sub_type':'discount on category', 'coupon_id':category_coupon.id, 'coupon':category_coupon.coupon_name, 'coupon_code':category_coupon.coupon_code, 'category_name':offer_category.category_name, 'discount_value':category_coupon.rule.discount.discount_value})
-                            elif category_coupon.rule.discount.is_percentage == True and (category_coupon.rule.discount.max_discount == 0):
-                                discount_value = round((category_coupon.rule.discount.discount_value/100)* category_product_subtotals, 2)
-                                offers_list.append({'type':'discount', 'sub_type':'discount on category', 'coupon_id':category_coupon.id, 'coupon':category_coupon.coupon_name, 'coupon_code':category_coupon.coupon_code, 'category_name':offer_category.category_name, 'discount_value':discount_value})
-                            elif category_coupon.rule.discount.is_percentage == True and (category_coupon.rule.discount.max_discount < ((category_coupon.rule.discount.discount_value/100)* category_product_subtotals)) :
-                                offers_list.append({'type':'discount', 'sub_type':'discount on category', 'coupon_id':category_coupon.id, 'coupon':category_coupon.coupon_name, 'coupon_code':category_coupon.coupon_code, 'category_name':offer_category.category_name, 'discount_value':category_coupon.rule.discount.max_discount})
-
-                            break
+                                sum += discounted_product_subtotal
+                                offers_list.append({'type':'discount', 'sub_type':'discount on product', 'coupon_id':o.id, 'coupon':o.coupon_name, 'coupon_code':o.coupon_code, 'item':m.cart_product.product_name, 'item_sku':m.cart_product.product_sku, 'item_id':m.cart_product.id, 'discount_value':discount_value, 'coupon_type':'catalog', 'discounted_product_subtotal':discounted_product_subtotal, 'brand_id':m.cart_product.product_brand.id, 'total_pieces':sku_no_of_pieces})
 
             cart_coupons = Coupon.objects.filter(coupon_type = 'cart', is_active = True, expiry_date__gte = date).order_by('-rule__cart_qualifying_min_sku_value')
             cart_coupon_list = []
@@ -306,18 +228,21 @@ class Cart(models.Model):
                     i+=1
                     if i > 1:
                         next_cart_coupon_min_value = cart_coupon_list[i-2].rule.cart_qualifying_min_sku_value
+                        next_cart_coupon_min_value_diff = next_cart_coupon_min_value - cart_value
                         next_cart_coupon_discount = cart_coupon_list[i-2].rule.discount.discount_value if cart_coupon_list[i-2].rule.discount.is_percentage == False else (str(cart_coupon_list[i-2].rule.discount.discount_value) + '%')
+                        enitce_text = "Shop for Rs %s more to avail a discount of Rs %s on the entire cart" % (next_cart_coupon_min_value_diff, next_cart_coupon_discount) if cart_coupon_list[i-2].rule.discount.is_percentage == False else "Shop for Rs %s more to avail a discount of %s on the entire cart" % (next_cart_coupon_min_value_diff, next_cart_coupon_discount)
                     else:
                         next_cart_coupon_min_value = -1
                         next_cart_coupon_discount = -1
+                        enitce_text = ""
                     if cart_value >=cart_coupon.rule.cart_qualifying_min_sku_value:
                         if cart_coupon.rule.discount.is_percentage == False:
-                            offers_list.append({'type':'discount', 'sub_type':'discount on cart', 'coupon_id':cart_coupon.id, 'coupon':cart_coupon.coupon_name, 'coupon_code':cart_coupon.coupon_code, 'discount_value':cart_coupon.rule.discount.discount_value, 'coupon_type':'cart', 'next_cart_coupon_min_value':next_cart_coupon_min_value, 'next_cart_coupon_discount':next_cart_coupon_discount})
+                            offers_list.append({'type':'discount', 'sub_type':'discount on cart', 'coupon_id':cart_coupon.id, 'coupon':cart_coupon.coupon_name, 'coupon_code':cart_coupon.coupon_code, 'discount_value':cart_coupon.rule.discount.discount_value, 'coupon_type':'cart', 'next_cart_coupon_min_value':next_cart_coupon_min_value, 'next_cart_coupon_discount':next_cart_coupon_discount, 'enitce_text':enitce_text})
                         elif cart_coupon.rule.discount.is_percentage == True and (cart_coupon.rule.discount.max_discount == 0):
                             discount_value = round((cart_coupon.rule.discount.discount_value/100)* cart_value, 2)
-                            offers_list.append({'type':'discount', 'sub_type':'discount on cart', 'coupon_id':cart_coupon.id, 'coupon':cart_coupon.coupon_name, 'coupon_code':cart_coupon.coupon_code, 'discount_value':discount_value, 'coupon_type':'cart', 'next_cart_coupon_min_value':next_cart_coupon_min_value, 'next_cart_coupon_discount':next_cart_coupon_discount})
+                            offers_list.append({'type':'discount', 'sub_type':'discount on cart', 'coupon_id':cart_coupon.id, 'coupon':cart_coupon.coupon_name, 'coupon_code':cart_coupon.coupon_code, 'discount_value':discount_value, 'coupon_type':'cart', 'next_cart_coupon_min_value':next_cart_coupon_min_value, 'next_cart_coupon_discount':next_cart_coupon_discount, 'enitce_text':enitce_text})
                         elif cart_coupon.rule.discount.is_percentage == True and (cart_coupon.rule.discount.max_discount < ((cart_coupon.rule.discount.discount_value/100)* cart_value)) :
-                            offers_list.append({'type':'discount', 'sub_type':'discount on cart', 'coupon_id':cart_coupon.id, 'coupon':cart_coupon.coupon_name, 'coupon_code':cart_coupon.coupon_code, 'discount_value':cart_coupon.rule.discount.max_discount, 'coupon_type':'cart', 'next_cart_coupon_min_value':next_cart_coupon_min_value, 'next_cart_coupon_discount':next_cart_coupon_discount})
+                            offers_list.append({'type':'discount', 'sub_type':'discount on cart', 'coupon_id':cart_coupon.id, 'coupon':cart_coupon.coupon_name, 'coupon_code':cart_coupon.coupon_code, 'discount_value':cart_coupon.rule.discount.max_discount, 'coupon_type':'cart', 'next_cart_coupon_min_value':next_cart_coupon_min_value, 'next_cart_coupon_discount':next_cart_coupon_discount, 'enitce_text':enitce_text})
                         break
 
                 elif cart_coupon.rule.cart_qualifying_min_sku_item and not cart_coupon.rule.cart_qualifying_min_sku_value:
@@ -332,20 +257,93 @@ class Cart(models.Model):
 
                         break
 
+            # brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date).order_by('-rule__cart_qualifying_min_sku_value')
+            # array = list(filter(lambda d: d['coupon_type'] in 'catalog', offers_list))
+            # for brand_coupon in brand_coupons:
+            #     brands_list = []
+            #     brand_product_subtotals= 0
+            #     for brand in brand_coupon.rule.brand_ruleset.filter(rule__is_active = True, rule__expiry_date__gte = date ):
+            #         offer_brand = brand.brand
+            #         offer_brand_id = brand.brand.id
+            #         brands_list.append(offer_brand_id)
+            #         sub_brands_list = Brand.objects.filter(brand_parent_id = offer_brand_id)
+            #         if sub_brands_list:
+            #             for sub_brands in sub_brands_list:
+            #                 brands_list.append(sub_brands.id)
+            #         for i in array:
+            #             if i['brand_id'] in brands_list:
+            #                 brand_product_subtotals += int(i['discounted_product_subtotal'])
+            #                 # post_brand_disc_price.append(i[])
+            #         brand_product_items_count = self.rt_cart_list.filter(cart_product__product_brand__in  = brands_list).count()
+            #         if brand_coupon.rule.cart_qualifying_min_sku_value and not brand_coupon.rule.cart_qualifying_min_sku_item:
+            #             if brand_product_subtotals >= brand_coupon.rule.cart_qualifying_min_sku_value:
+            #                 if brand_coupon.rule.discount.is_percentage == False:
+            #                     discount_sum+= brand_coupon.rule.discount.discount_value
+            #                     offers_list.append({'type':'discount', 'sub_type':'discount on brand', 'coupon_id':brand_coupon.id, 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'discount_value':brand_coupon.rule.discount.discount_value, 'coupon_type':'brand'})
+            #                 elif brand_coupon.rule.discount.is_percentage == True and (brand_coupon.rule.discount.max_discount == 0):
+            #                     discount_value = round((brand_coupon.rule.discount.discount_value/100)* brand_product_subtotals, 2)
+            #                     discount_sum+= discount_value
+            #                     offers_list.append({'type':'discount', 'sub_type':'discount on brand', 'coupon_id':brand_coupon.id, 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'discount_value':discount_value, 'coupon_type':'brand'})
+            #                 elif brand_coupon.rule.discount.is_percentage == True and (brand_coupon.rule.discount.max_discount < ((brand_coupon.rule.discount.discount_value/100)* brand_product_subtotals)) :
+            #                     discount_sum+= brand_coupon.rule.discount.max_discount
+            #                     offers_list.append({'type':'discount', 'sub_type':'discount on brand', 'coupon_id':brand_coupon.id, 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'discount_value':brand_coupon.rule.discount.max_discount, 'coupon_type':'brand'})
+            #                 break
+            #         elif brand_coupon.rule.cart_qualifying_min_sku_item and not brand_coupon.rule.cart_qualifying_min_sku_value:
+            #             if brand_product_items_count >= brand_coupon.rule.cart_qualifying_min_sku_item:
+            #                 if brand_coupon.rule.discount.is_percentage == False:
+            #                     discount_sum+= brand_coupon.rule.discount.discount_value
+            #                     offers_list.append({'type':'discount', 'sub_type':'discount on brand', 'coupon_id':brand_coupon.id, 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'discount_value':brand_coupon.rule.discount.discount_value, 'coupon_type':'brand'})
+            #                 elif brand_coupon.rule.discount.is_percentage == True and (brand_coupon.rule.discount.max_discount == 0):
+            #                     discount_value = round((brand_coupon.rule.discount.discount_value/100)* brand_product_subtotals, 2)
+            #                     discount_sum+= discount_value
+            #                     offers_list.append({'type':'discount', 'sub_type':'discount on brand', 'coupon_id':brand_coupon.id, 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'discount_value':discount_value, 'coupon_type':'brand'})
+            #                 elif brand_coupon.rule.discount.is_percentage == True and (brand_coupon.rule.discount.max_discount < ((brand_coupon.rule.discount.discount_value/100)* brand_product_subtotals)) :
+            #                     discount_sum+= brand_coupon.rule.discount.max_discount
+            #                     offers_list.append({'type':'discount', 'sub_type':'discount on brand', 'coupon_id':brand_coupon.id, 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'discount_value':brand_coupon.rule.discount.max_discount, 'coupon_type':'brand'})
+            #
+            #                 break
+            #
+            # category_coupons = Coupon.objects.filter(coupon_type = 'category', is_active = True, expiry_date__gte = date).order_by('-rule__cart_qualifying_min_sku_value')
+            # categories_list = []
+            # for category_coupon in category_coupons:
+            #     for category in category_coupon.rule.category_ruleset.filter(rule__is_active = True, rule__expiry_date__gte = date):
+            #         offer_category = category.category
+            #         offer_category_id = category.category.id
+            #         categories_list.append(offer_category_id)
+            #         sub_category_list = Category.objects.filter(category_parent = offer_category)
+            #         if sub_category_list:
+            #             for sub_categories in sub_category_list:
+            #                 categories_list.append(sub_categories.id)
+            #         if self.cart_status in ['active', 'pending']:
+            #             category_product_subtotals = self.rt_cart_list.filter(cart_product__product_pro_category__in  = categories_list, cart_product__product_pro_price__shop=self.seller_shop, cart_product__product_pro_price__status=True, cart_product__product_pro_price__approval_status='approved').aggregate(category_product_subtotal=Sum(F('cart_product__product_pro_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['category_product_subtotal']
+            #         if self.cart_status in ['ordered']:
+            #             category_product_subtotals = self.rt_cart_list.filter(cart_product__product_pro_category__in  = categories_list).aggregate(category_product_subtotal=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['category_product_subtotal']
+            #         category_product_items_count = self.rt_cart_list.filter(cart_product__product_pro_category__in  = categories_list).count()
+            #         if category_coupon.rule.cart_qualifying_min_sku_value and not category_coupon.rule.cart_qualifying_min_sku_item:
+            #             if category_product_subtotals >= category_coupon.rule.cart_qualifying_min_sku_value:
+            #                 if category_coupon.rule.discount.is_percentage == False:
+            #                     offers_list.append({'type':'discount', 'sub_type':'discount on category', 'coupon_id':category_coupon.id, 'coupon':category_coupon.coupon_name, 'coupon_code':category_coupon.coupon_code, 'category_name':offer_category.category_name, 'discount_value':category_coupon.rule.discount.discount_value, 'coupon_type':'category'})
+            #                 elif category_coupon.rule.discount.is_percentage == True and (category_coupon.rule.discount.max_discount == 0):
+            #                     discount_value = round((category_coupon.rule.discount.discount_value/100)* category_product_subtotals, 2)
+            #                     offers_list.append({'type':'discount', 'sub_type':'discount on category', 'coupon_id':category_coupon.id, 'coupon':category_coupon.coupon_name, 'coupon_code':category_coupon.coupon_code, 'category_name':offer_category.category_name, 'discount_value':discount_value, 'coupon_type':'category'})
+            #                 elif category_coupon.rule.discount.is_percentage == True and (category_coupon.rule.discount.max_discount < ((category_coupon.rule.discount.discount_value/100)* category_product_subtotals)) :
+            #                     offers_list.append({'type':'discount', 'sub_type':'discount on category', 'coupon_id':category_coupon.id, 'coupon':category_coupon.coupon_name, 'coupon_code':category_coupon.coupon_code, 'category_name':offer_category.category_name, 'discount_value':category_coupon.rule.discount.max_discount, 'coupon_type':'category'})
+            #                 break
+            #
+            #         elif category_coupon.rule.cart_qualifying_min_sku_item and not category_coupon.rule.cart_qualifying_min_sku_value:
+            #             if category_product_items_count >= category_coupon.rule.cart_qualifying_min_sku_item:
+            #                 if category_coupon.rule.discount.is_percentage == False:
+            #                     offers_list.append({'type':'discount', 'sub_type':'discount on category', 'coupon_id':category_coupon.id, 'coupon':category_coupon.coupon_name, 'coupon_code':category_coupon.coupon_code, 'category_name':offer_category.category_name, 'discount_value':category_coupon.rule.discount.discount_value})
+            #                 elif category_coupon.rule.discount.is_percentage == True and (category_coupon.rule.discount.max_discount == 0):
+            #                     discount_value = round((category_coupon.rule.discount.discount_value/100)* category_product_subtotals, 2)
+            #                     offers_list.append({'type':'discount', 'sub_type':'discount on category', 'coupon_id':category_coupon.id, 'coupon':category_coupon.coupon_name, 'coupon_code':category_coupon.coupon_code, 'category_name':offer_category.category_name, 'discount_value':discount_value})
+            #                 elif category_coupon.rule.discount.is_percentage == True and (category_coupon.rule.discount.max_discount < ((category_coupon.rule.discount.discount_value/100)* category_product_subtotals)) :
+            #                     offers_list.append({'type':'discount', 'sub_type':'discount on category', 'coupon_id':category_coupon.id, 'coupon':category_coupon.coupon_name, 'coupon_code':category_coupon.coupon_code, 'category_name':offer_category.category_name, 'discount_value':category_coupon.rule.discount.max_discount})
+            #
+            #                 break
 
         return offers_list
 
-    # def get_total_discount(self):
-    #     sum = 0
-    #     keyValList1 = ['discount']
-    #     exampleSet1 = self.offers
-    #     if self.offers:
-    #         array1 = list(filter(lambda d: d['type'] in keyValList1, exampleSet1))
-    #         for i in array1:
-    #             sum = sum + i['discount_value']
-    #         return round(sum, 2)
-    #     else:
-    #         return 0
 
     def save(self, *args, **kwargs):
         if self.cart_status == self.ORDERED:
