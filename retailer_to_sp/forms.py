@@ -673,9 +673,7 @@ class CartProductMappingForm(forms.ModelForm):
 
     class Meta:
         model = CartProductMapping
-        fields = (
-            'cart', 'cart_product', 'cart_product_price', 'qty',
-            'no_of_pieces', 'product_case_size', 'product_inner_case_size')
+        fields = '__all__'
 
     def __init__(self, *args, **kwargs):
         super(CartProductMappingForm, self).__init__(*args, **kwargs)

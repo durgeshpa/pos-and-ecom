@@ -66,14 +66,14 @@ class Coupon(models.Model):
         super().save(*args, **kwargs)
 
 class CouponLocation(models.Model):
-    coupon = models.ForeignKey(Coupon, related_name ='location_coupon', on_delete=models.CASCADE)
+    coupon = models.ForeignKey(Coupon, related_name ='location_coupon', on_delete=models.CASCADE, null=True)
     seller_shop = models.ForeignKey(Shop, related_name ='seller_shop_coupon', on_delete=models.CASCADE, blank=True, null=True)
     buyer_shop = models.ForeignKey(Shop, related_name ='buyer_shop_coupon', on_delete=models.CASCADE, blank=True, null=True)
     city = models.ForeignKey(City, related_name ='city_shop_coupon', on_delete=models.CASCADE, blank=True, null=True)
 
 
 class CusotmerCouponUsage(models.Model):
-    coupon = models.ForeignKey(Coupon, related_name ='customer_coupon', on_delete=models.CASCADE)
+    coupon = models.ForeignKey(Coupon, related_name ='customer_coupon', on_delete=models.CASCADE, null= True)
     cart = models.ForeignKey("retailer_to_sp.Cart", related_name ='customer_coupon', on_delete=models.CASCADE, null=True)
     shop = models.ForeignKey(Shop, related_name='customer_coupon_usage', on_delete=models.CASCADE, null=True, blank=True)
     times_used = models.PositiveIntegerField(default=0)

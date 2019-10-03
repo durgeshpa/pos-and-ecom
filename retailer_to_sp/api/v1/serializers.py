@@ -289,9 +289,9 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
                     if product_coupon.max_qty_per_use > 0:
                         max_qty = product_coupon.max_qty_per_use
                         for i in coupons: i['max_qty'] = max_qty
-            keyValList3 = ['catalog']
+            keyValList3 = ['discount_on_product']
             exampleSet3 = obj.cart.offers
-            array3 = list(filter(lambda d: d['coupon_type'] in keyValList3, exampleSet3))
+            array3 = list(filter(lambda d: d['sub_type'] in keyValList3, exampleSet3))
             for i in array3:
                 if i['item_sku']== obj.cart_product.product_sku:
                     for i in coupons: i['is_applied'] = True

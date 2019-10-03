@@ -313,7 +313,7 @@ class CartProductMappingAdmin(admin.TabularInline):
     form = CartProductMappingForm
     formset = AtLeastOneFormSet
     fields = ('cart', 'cart_product', 'cart_product_price', 'qty',
-              'no_of_pieces', 'product_case_size', 'product_inner_case_size', 'discounted_product_subtotal')
+              'no_of_pieces', 'product_case_size', 'product_inner_case_size', 'item_effective_prices')
     autocomplete_fields = ('cart_product', 'cart_product_price')
     extra = 0
 
@@ -328,7 +328,7 @@ class CartProductMappingAdmin(admin.TabularInline):
             .get_readonly_fields(request, obj)
         if obj:
             readonly_fields = readonly_fields + (
-                'cart_product', 'cart_product_price', 'qty', 'no_of_pieces'
+                'cart_product', 'cart_product_price', 'qty', 'no_of_pieces', 'item_effective_prices'
             )
         return readonly_fields
 
