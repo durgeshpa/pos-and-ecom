@@ -122,7 +122,7 @@ class Shop(models.Model):
 
     @property
     def shop_approved(self):
-        return True if self.status==True and self.retiler_mapping.exists() and self.approval_status==self.APPROVED else False
+        return True if self.status==True and self.retiler_mapping.filter(status=True).exists() and self.approval_status==self.APPROVED else False
 
     @property
     def shipping_address(self):
