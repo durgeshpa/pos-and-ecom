@@ -25,6 +25,9 @@ from retailer_backend.cron import CronToDeleteOrderedProductReserved,cron_to_del
 from accounts.views import (terms_and_conditions, privacy_policy)
 from shops.views import ShopMappedProduct
 
+from django_ses.views import handle_bounce
+from django.views.decorators.csrf import csrf_exempt
+
 schema_view = get_swagger_view(title='GramFactory API')
 
 
@@ -40,12 +43,15 @@ urlpatterns = [
     url(r'^product/', include('products.urls')),
     url(r'^rest-auth/registration/', include('rest_auth.registration.urls')),
     url(r'^bannerapi/', include('banner.urls')),
+    url(r'^offerbannerapi/', include('offer.urls')),
     url(r'^brandapi/', include('brand.urls')),
     url(r'^service-partner/', include('sp_to_gram.urls')),
     url(r'^retailer/sp/', include('retailer_to_sp.urls')),
     url(r'^gram/brand/', include('gram_to_brand.urls')),
     url(r'^retailer/gram/', include('retailer_to_gram.urls')),
     url(r'^services/', include('services.urls')),
+    url(r'^fcm/', include('fcm.urls')),
+    url(r'^notification-center/', include('notification_center.urls')),
     url(r'^admin/shops/shop-mapped/(?P<pk>\d+)/product/$', ShopMappedProduct.as_view(), name='shop_mapped_product'),
 
     url('^delete-ordered-product-reserved/$', CronToDeleteOrderedProductReserved.as_view(), name='delete_ordered_product_reserved'),
@@ -53,11 +59,14 @@ urlpatterns = [
     url('^privacy-policy/$', privacy_policy, name='privacy_policy'),
 
     url('^delete-ordered-product-reserved1/$', cron_to_delete_ordered_product_reserved, name='delete_ordered_product_reserved'),
+    # url(r'^jet/dashboard/', include('jet.dashboard.urls', 'jet-dashboard')),  # Django JET dashboard URLS
+    # url(r'^jet/', include('jet.urls', 'jet')),
     path('admin/', admin.site.urls),
-
+    url(r'^ses/bounce/$', csrf_exempt(handle_bounce)),
 ]
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+urlpatterns += (url(r'^admin/django-ses/', include('django_ses.urls')),)
 # if settings.DEBUG:
 #     urlpatterns += [url(r'^$', schema_view)]
 

@@ -267,7 +267,10 @@ class VendorProductAutocomplete(autocomplete.Select2QuerySetView):
                 .filter(vendor__id=supplier_id,case_size__gt=0,status=True).values('product')
             qs = qs.filter(id__in=[product_id])
             if self.q:
-                qs = qs.filter(product_name__icontains=self.q)
+                qs = qs.filter(
+                    Q(product_name__icontains=self.q) |
+                    Q(product_sku__iexact=self.q)
+                )
         return qs
 
 
@@ -277,11 +280,13 @@ class VendorProductPrice(APIView):
     def get(self, *args, **kwargs):
         supplier_id = self.request.GET.get('supplier_id')
         product_id = self.request.GET.get('product_id')
-        vendor_product_price,product_case_size,product_inner_case_size = 0,0,0
+        vendor_product_price,vendor_product_mrp,product_case_size,product_inner_case_size = 0,0,0,0
         vendor_mapping = ProductVendorMapping.objects.filter(vendor__id=supplier_id, product__id=product_id)
         if vendor_mapping.exists():
             product = vendor_mapping.last().product
+            product_sku = vendor_mapping.last().product.product_sku
             vendor_product_price = vendor_mapping.last().product_price
+            vendor_product_mrp = vendor_mapping.last().product_mrp
             product_case_size = vendor_mapping.last().case_size if vendor_mapping.last().case_size else vendor_mapping.last().product.product_case_size
             product_inner_case_size = vendor_mapping.last().product.product_inner_case_size
             taxes = ([field.tax.tax_percentage for field in vendor_mapping.last().product.product_pro_tax.all()])
@@ -290,9 +295,11 @@ class VendorProductPrice(APIView):
 
         return Response({
             "price": vendor_product_price,
+            "mrp": vendor_product_mrp,
+            "sku": product_sku,
             "case_size": product_case_size,
             "inner_case_size": product_inner_case_size,
-            "tax_percentage": tax_percentage,
+             "tax_percentage": tax_percentage,
             "success": True})
 
 
@@ -428,3 +435,25 @@ class DisapproveView(UpdateView):
         return reverse_lazy(
             'dis-approve-account', args=(self.kwargs.get('pk'),)
         )
+
+class GetMessage(APIView):
+    permission_classes =(AllowAny, )
+
+    def get(self,request, *args, **kwargs):
+        data,is_success,po_obj = [], False,''
+        if request.GET.get('po'):
+            po_obj = Cart.objects.get(id=request.GET.get('po'))
+            if request.GET.get('po') and po_obj.po_message is not None:
+                is_success = True
+                dt = {
+                    'user': po_obj.po_message.created_by.phone_number,
+                    'message': po_obj.po_message.message,
+                    'created_at': po_obj.po_message.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                }
+                data.append(dt)
+        return Response({
+            "message": [""],
+            "response_data": data,
+            "is_success": is_success,
+            "po_status":po_obj.po_status if po_obj else ''
+        })

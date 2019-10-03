@@ -9,7 +9,6 @@ from brand.models import Brand
 from products.models import Product
 from django.core.exceptions import ValidationError
 from shops.models import Shop
-
 # Create your models here.
 
 class Banner(models.Model):
@@ -45,7 +44,8 @@ class Banner(models.Model):
     text_below_image= models.CharField(max_length=20, blank=True, null=True)
 
     def __str__(self):
-        return '{}'.format(self.image)
+        return '{}'.format(self.name)
+
 
     def clean(self):
         super(Banner, self).clean()
@@ -57,7 +57,8 @@ class Banner(models.Model):
             raise ValidationError('Please select the SubBrand')
         if (self.banner_type == 'subcategory' and self.sub_category is None ):
             raise ValidationError('Please select the SubCategory')
-            
+
+
 class Page(models.Model):
     name = models.CharField(max_length=255)
 

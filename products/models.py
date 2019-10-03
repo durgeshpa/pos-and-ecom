@@ -1,6 +1,7 @@
 from django.db import models
+from django.db.models import Q
 from retailer_backend.validators import *
-from addresses.models import Country,State,City,Area
+from addresses.models import Country, State, City, Area, Pincode, Address
 from categories.models import Category
 from shops.models import Shop
 from django.conf import settings
@@ -113,7 +114,7 @@ class ProductHSN(models.Model):
 class Product(models.Model):
     product_name = models.CharField(max_length=255,validators=[ProductNameValidator])
     product_slug = models.SlugField(max_length=255)
-    product_short_description = models.CharField(max_length=255,validators=[ProductNameValidator],null=True,blank=True)
+    product_short_description = models.CharField(max_length=255,validators=[ProductNameValidator], null=True, blank=True)
     product_long_description = models.TextField(null=True,blank=True)
     product_sku = models.CharField(max_length=255, blank=False, unique=True)
     product_gf_code = models.CharField(max_length=255, blank=False, unique=True)
@@ -131,38 +132,63 @@ class Product(models.Model):
         super(Product, self).save(*args, **kwargs)
 
     def __str__(self):
-        return self.product_name
+        return "{}-{}".format(self.product_name, self.product_sku)
 
+    class Meta:
+        ordering = ['-created_at']
 
-    def get_current_shop_price(self, shop):
+    def get_current_shop_price(self, seller_shop_id, buyer_shop_id):
+        '''
+        Firstly we will only filter using seller shop. If the queryset exists
+        we will further filter to city, pincode and buyer shop level.
+        '''
         today = datetime.datetime.today()
-        product_price = self.product_pro_price.filter(shop=shop, status=True, start_date__lte=today, end_date__gte=today).order_by('start_date').last()
+        buyer_shop_dt = Address.objects.values('city_id', 'pincode_link')\
+            .filter(shop_name_id=buyer_shop_id, address_type='shipping')
+        if buyer_shop_dt.exists():
+            buyer_shop_dt = buyer_shop_dt.last()
+        product_price = self.product_pro_price\
+            .filter(Q(seller_shop_id=seller_shop_id),
+                    Q(city_id=buyer_shop_dt.get('city_id')) | Q(city_id=None),
+                    Q(pincode_id=buyer_shop_dt.get('pincode_link')) | Q(pincode_id=None),
+                    Q(buyer_shop_id=buyer_shop_id) | Q(buyer_shop_id=None),
+                    approval_status=ProductPrice.APPROVED,
+                    start_date__lte=today, end_date__gte=today)\
+            .order_by('start_date')
+        if product_price.count() > 1:
+            product_price = product_price.filter(
+                city_id=buyer_shop_dt.get('city_id'))
+        if product_price.count() > 1:
+            product_price = product_price.filter(
+                pincode_id=buyer_shop_dt.get('pincode_link', None))
+        if product_price.count() > 1:
+            product_price = product_price.filter(
+                buyer_shop_id=buyer_shop_id)
         if not product_price:
-            product_price = self.product_pro_price.filter(shop=shop, status=True).last()
-        if not product_price:
-            product_price = self.product_pro_price.filter(shop=shop, created_at__lte=today).order_by('created_at').last()
-        return product_price
+            product_price = self.product_pro_price.filter(seller_shop_id=seller_shop_id, approval_status=ProductPrice.APPROVED, start_date__lte=today, end_date__gte=today).order_by('start_date').last()
+            if not product_price:
+                product_price = self.product_pro_price.filter(seller_shop_id=seller_shop_id, approval_status=ProductPrice.APPROVED).last()
+            if not product_price:
+                product_price = self.product_pro_price.filter(seller_shop_id=seller_shop_id, created_at__lte=today).order_by('created_at').last()
+            return product_price
+        return product_price.last()
 
+    def getPriceByShopId(self, seller_shop_id, buyer_shop_id):
+        return self.get_current_shop_price(seller_shop_id, buyer_shop_id)
 
-    def getPriceByShopId(self, shop_id):
-        shop = Shop.objects.get(pk=shop_id)
-        return self.get_current_shop_price(shop)
+    def getMRP(self, seller_shop_id, buyer_shop_id):
+        product_price = self.getPriceByShopId(seller_shop_id, buyer_shop_id)
+        return product_price.mrp
 
-    def getMRP(self, shop_id):
-        product_price = self.getPriceByShopId(shop_id)
-        return round(product_price.mrp,2)
+    def getRetailerPrice(self, seller_shop_id, buyer_shop_id):
+        product_price = self.getPriceByShopId(seller_shop_id, buyer_shop_id)
+        return product_price.selling_price
 
-    def getRetailerPrice(self, shop_id):
-        product_price = self.getPriceByShopId(shop_id)
-        return round(product_price.price_to_retailer,2)
+    def getCashDiscount(self, seller_shop_id, buyer_shop_id):
+        return 0
 
-    def getCashDiscount(self, shop_id):
-        product_price = self.getPriceByShopId(shop_id)
-        return round(product_price.cash_discount,2)
-
-    def getLoyaltyIncentive(self, shop_id):
-        product_price = self.getPriceByShopId(shop_id)
-        return round(product_price.loyalty_incentive,2)
+    def getLoyaltyIncentive(self, seller_shop_id, buyer_shop_id):
+        return 0
 
 
 class ProductSKUGenerator(models.Model):
@@ -192,46 +218,115 @@ class ProductHistory(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
+
 class ProductPrice(models.Model):
-    product = models.ForeignKey(Product,related_name='product_pro_price',on_delete=models.CASCADE)
-    city = models.ForeignKey(City,related_name='city_pro_price',null=True,blank=True,on_delete=models.CASCADE)
-    area = models.ForeignKey(Area,related_name='area_pro_price',null=True,blank=True,on_delete=models.CASCADE)
-    mrp = models.FloatField(null=True,blank=False)
-    shop = models.ForeignKey(Shop,related_name='shop_product_price', null=True,blank=True,on_delete=models.CASCADE)
-    price_to_service_partner = models.FloatField(null=True,blank=False)
-    price_to_retailer = models.FloatField(null=True,blank=False)
-    price_to_super_retailer = models.FloatField(null=True,blank=False)
-    cash_discount = models.FloatField(default=0, blank=True,validators=[PriceValidator2])
-    loyalty_incentive = models.FloatField(default=0, blank=True,validators=[PriceValidator2])
-    start_date = models.DateTimeField(null=True,blank=True)
-    end_date = models.DateTimeField(null=True,blank=True)
+    APPROVED = 2
+    APPROVAL_PENDING = 1
+    DEACTIVATED = 0
+    APPROVAL_CHOICES = (
+        (APPROVED, 'Approved'),
+        (APPROVAL_PENDING, 'Approval Pending'),
+        (DEACTIVATED, 'Deactivated'),
+    )
+    product = models.ForeignKey(Product, related_name='product_pro_price',
+                                on_delete=models.CASCADE)
+    mrp = models.DecimalField(max_digits=10, decimal_places=2, null=True,
+                              blank=False)
+    selling_price = models.DecimalField(max_digits=10, decimal_places=2,
+                                        null=True, blank=False)
+    seller_shop = models.ForeignKey(Shop, related_name='shop_product_price',
+                                    null=True, blank=True,
+                                    on_delete=models.CASCADE)
+    buyer_shop = models.ForeignKey(Shop,
+                                   related_name='buyer_shop_product_price',
+                                   null=True, blank=True,
+                                   on_delete=models.CASCADE)
+    city = models.ForeignKey(City, related_name='city_pro_price',
+                             null=True, blank=True, on_delete=models.CASCADE)
+    pincode = models.ForeignKey(Pincode, related_name='pincode_product_price',
+                                null=True, blank=True,
+                                on_delete=models.CASCADE)
+    price_to_retailer = models.FloatField(null=True, blank=False)
+    start_date = models.DateTimeField(null=True, blank=True)
+    end_date = models.DateTimeField(null=True, blank=True)
+    approval_status = models.IntegerField(choices=APPROVAL_CHOICES, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
     def __str__(self):
-        return "%s - %s"%(self.product.product_name, self.price_to_retailer)
+        return "%s - %s" % (self.product.product_name, self.selling_price)
+
+    def validate(self, exception_type):
+        if self.selling_price > self.mrp:
+            raise exception_type(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
 
     def clean(self):
         super(ProductPrice, self).clean()
-        if self.cash_discount is None:
-            raise ValidationError(VALIDATION_ERROR_MESSAGES['INVALID_MARGIN']%"Cash discount")
-        if self.loyalty_incentive is None:
-            raise ValidationError(VALIDATION_ERROR_MESSAGES['INVALID_MARGIN'] % "Loyalty discount")
-        if self.price_to_retailer > self.mrp:
-            raise ValidationError(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
+        self.validate(ValidationError)
+
+    def update_city_pincode(self):
+        if self.buyer_shop and not (self.city or self.pincode):
+            address_data = self.buyer_shop.shop_name_address_mapping\
+                .values('pincode_link', 'city')\
+                .filter(address_type='shipping').last()
+            self.city_id = address_data.get('city')
+            self.pincode_id = address_data.get('pincode_link')
+        if self.pincode and not (self.city and self.buyer_shop):
+            self.city_id = self.pincode.city_id
 
     def save(self, *args, **kwargs):
-        last_product_prices = ProductPrice.objects.filter(product=self.product,shop=self.shop,status=True).update(status=False)
-        self.status = True
+        self.validate(Exception)
+        self.update_city_pincode()
+        if self.approval_status == self.APPROVED:
+            if self.buyer_shop:
+                product_price = ProductPrice.objects.filter(
+                    product=self.product,
+                    seller_shop=self.seller_shop,
+                    buyer_shop=self.buyer_shop,
+                    city=self.city,
+                    pincode=self.pincode,
+                    approval_status=ProductPrice.APPROVED
+                )
+            elif self.pincode:
+                product_price = ProductPrice.objects.filter(
+                    product=self.product,
+                    seller_shop=self.seller_shop,
+                    buyer_shop=None,
+                    city=self.city,
+                    pincode=self.pincode,
+                    approval_status=ProductPrice.APPROVED
+                )
+            elif self.city:
+                product_price = ProductPrice.objects.filter(
+                    product=self.product,
+                    seller_shop=self.seller_shop,
+                    buyer_shop=None,
+                    city=self.city,
+                    pincode=None,
+                    approval_status=ProductPrice.APPROVED
+                )
+            else:
+                product_price = ProductPrice.objects.filter(
+                    product=self.product,
+                    seller_shop=self.seller_shop,
+                    buyer_shop=None,
+                    city=None,
+                    pincode=None,
+                    approval_status=ProductPrice.APPROVED
+                )
+            product_price.update(approval_status=ProductPrice.DEACTIVATED)
+            self.approval_status = ProductPrice.APPROVED
         super().save(*args, **kwargs)
 
+    @property
     def margin(self):
-        return round(100-(float(self.price_to_retailer)*1000000/(float(self.mrp)*(100-float(self.cash_discount))*(100-float(self.loyalty_incentive)))),2) if self.mrp>0 and self.price_to_retailer>0 else 0
+        return (((self.mrp - self.selling_price) / self.mrp) * 100)
 
     @property
     def sku_code(self):
         return self.product.product_sku
+
 
 class ProductCategory(models.Model):
     product = models.ForeignKey(Product, related_name='product_pro_category',on_delete=models.CASCADE)
@@ -279,7 +374,7 @@ class Tax(models.Model):
         )
 
     tax_name = models.CharField(max_length=255,validators=[ProductNameValidator])
-    tax_type=  models.CharField(max_length=255, choices=TAX_CHOICES, null=True)
+    tax_type = models.CharField(max_length=255, choices=TAX_CHOICES, null=True)
     tax_percentage = models.FloatField(default=0)
     tax_start_at = models.DateTimeField(null=True,blank=True)
     tax_end_at = models.DateTimeField(null=True,blank=True)
@@ -368,6 +463,9 @@ class ProductVendorMapping(models.Model):
     def __str__(self):
         return '%s' % (self.vendor)
 
+    def sku(self):
+        return self.product.product_sku
+
 @receiver(post_save, sender=Vendor)
 def create_product_vendor_mapping(sender, instance=None, created=False, **kwargs):
     vendor = instance
@@ -377,11 +475,11 @@ def create_product_vendor_mapping(sender, instance=None, created=False, **kwargs
         first_row = next(reader)
         product_mapping = []
         for row in reader:
-            if row[3]:
+            if row[4]:
                 vendor_product = ProductVendorMapping.objects.filter(vendor=vendor, product_id=row[0])
                 if vendor_product.exists():
                     vendor_product.update(status=False)
-                product_mapping.append(ProductVendorMapping(vendor=vendor, product_id=row[0], product_mrp=row[3], product_price=row[4],case_size=row[5]))
+                product_mapping.append(ProductVendorMapping(vendor=vendor, product_id=row[0], product_mrp=row[4], product_price=row[5],case_size=row[6]))
 
         ProductVendorMapping.objects.bulk_create(product_mapping)
         #ProductVendorMapping.objects.bulk_create([ProductVendorMapping(vendor=vendor, product_id = row[0], product_price=row[3]) for row in reader if row[3]])
@@ -401,3 +499,5 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
         ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code,brand_sku_code=brand_sku_code,last_auto_increment=last_sku_increment)
         product.product_sku="%s%s%s%s"%(cat_sku_code,parent_cat_sku_code,brand_sku_code,last_sku_increment)
         product.save()
+
+

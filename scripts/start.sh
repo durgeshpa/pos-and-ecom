@@ -5,8 +5,6 @@ cd /home/ubuntu/project/retailer-backend/
 python manage.py makemigrations
 python manage.py migrate --fake
 
-echo "############################-----User Is ------####### "
-echo "$USER"
 #pull latest code
 /bin/su -c "/home/ubuntu/project/scripts/pull.sh" - ubuntu
 
@@ -14,7 +12,9 @@ echo "$USER"
 pip install -r requirements.txt
 
 python manage.py makemigrations
+python manage.py makemigrations offer
 python manage.py migrate
 
+python manage.py collectstatic --noinput --no-post-process
 #restart server
 sudo supervisorctl restart all

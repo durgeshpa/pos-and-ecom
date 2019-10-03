@@ -1,4 +1,5 @@
 import datetime
+from decimal import Decimal
 from datetime import timedelta
 
 from django.dispatch import receiver
@@ -14,16 +15,15 @@ import logging
 
 from shops.models import Shop, ParentRetailerMapping, ShopInvoicePattern
 from brand.models import Brand
-from products.models import Product
+from products.models import Product, ProductPrice
 from retailer_to_sp.models import Cart as RetailerCart
 from addresses.models import Address, City, State
 from retailer_to_sp.models import Note as CreditNote, OrderedProduct as RetailerShipment, OrderedProductMapping as RetailerShipmentMapping
 from retailer_backend.common_function import (
     order_id_pattern, brand_credit_note_pattern, getcredit_note_id
 )
-
+from sp_to_gram.tasks import update_shop_product_es
 logger = logging.getLogger(__name__)
-
 
 
 ORDER_STATUS = (
@@ -320,15 +320,21 @@ class OrderedProductReserved(models.Model):
     RESERVED = "reserved"
     ORDERED = "ordered"
     FREE = "free"
+    ORDER_CANCELLED = 'order_cancelled'
     RESERVE_STATUS = (
         (RESERVED, "Reserved"),
         (ORDERED, "Ordered"),
         (FREE, "Free"),
+        (ORDER_CANCELLED, 'Order Cancelled')
     )
-    order_product_reserved = models.ForeignKey(OrderedProductMapping, related_name='sp_order_product_order_product_reserved',null=True, blank=True, on_delete=models.CASCADE)
+    order_product_reserved = models.ForeignKey(
+        OrderedProductMapping,
+        related_name='sp_order_product_order_product_reserved', null=True,
+        blank=True, on_delete=models.CASCADE, verbose_name='GRN Product')
     product = models.ForeignKey(Product, related_name='sp_product_order_product_reserved', null=True, blank=True,on_delete=models.CASCADE)
     cart = models.ForeignKey(RetailerCart, related_name='sp_ordered_retailer_cart',null=True,blank=True,on_delete=models.CASCADE)
     reserved_qty = models.PositiveIntegerField(default=0)
+    shipped_qty = models.PositiveIntegerField(default=0)
     order_reserve_end_time = models.DateTimeField(null=True,blank=True,editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -391,6 +397,18 @@ class StockAdjustmentMapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
 
+@receiver(post_save, sender=OrderedProductMapping)
+def update_elasticsearch(sender, instance=None, created=False, **kwargs):
+    db_available_products = instance.get_product_availability(instance.shop, instance.product)
+    products_available = db_available_products.aggregate(Sum('available_qty'))['available_qty__sum']
+    if products_available and products_available > int(instance.product.product_inner_case_size):
+        product_status = True
+    else:
+        product_status = False
+        products_available = 0
+    update_shop_product_es.delay(instance.shop.id, instance.product.id, available=products_available, status=product_status)
+
+
 @receiver(pre_save, sender=SpNote)
 def create_brand_note_id(sender, instance=None, created=False, **kwargs):
     if instance._state.adding:
@@ -416,7 +434,6 @@ def create_brand_note_id(sender, instance=None, created=False, **kwargs):
 
 
 def create_credit_note(instance=None, created=False, **kwargs):
-    instance = instance.instance
     if created:
         return None
     if(instance.rt_order_product_order_product_mapping.last() and 
@@ -473,11 +490,11 @@ def create_credit_note(instance=None, created=False, **kwargs):
             grn_item.save()
             try:
                 cart_product_map = instance.order.ordered_cart.rt_cart_list.filter(cart_product=item.product).last()
-                credit_amount += (int(item.returned_qty)+int(item.damaged_qty)) * float(round(cart_product_map.get_cart_product_price(instance.order.seller_shop).price_to_retailer,2))
+                credit_amount += (Decimal(item.returned_qty)+Decimal(item.damaged_qty)) * cart_product_map.get_cart_product_price(instance.order.seller_shop, instance.order.buyer_shop).selling_price
             except Exception as e:
                 logger.exception("Product price not found for {} -- {}".format(item.product, e))
-                credit_amount += int(item.returned_qty) * float(item.product.product_pro_price.filter(
-                    shop=instance.order.seller_shop, status=True
-                    ).last().price_to_retailer)
+                credit_amount += Decimal(item.returned_qty) * item.product.product_pro_price.filter(
+                    seller_shop=instance.order.seller_shop, approval_status=ProductPrice.APPROVED
+                    ).last().selling_price
         credit_note.amount = credit_amount
         credit_note.save()
