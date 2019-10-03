@@ -343,7 +343,7 @@ class CartProductMapping(models.Model):
                 if self.cart_product.id == i['item_id']:
                     item_effective_price = (i['discounted_product_subtotal']) / self.no_of_pieces
         else:
-            item_effective_price = self.cart_product_price
+            item_effective_price = self.cart_product_price.price_to_retailer
         return item_effective_price
 
     def set_cart_product_price(self, shop):
