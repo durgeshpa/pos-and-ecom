@@ -1,7 +1,7 @@
 import re
+import datetime
 
 from dal import autocomplete
-
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -44,12 +44,16 @@ class GroupNotificationForm(forms.ModelForm):
             forward=('city',)),
         required=False
     )
-    
+
     class Meta:
         model = GroupNotificationScheduler
-        fields = ('seller_shop', 'city', 'pincode', 'buyer_shops', 'template')
-#                 'buyer_shop',  'run_at', 'repeat')  #'__all__'
-        
+        fields = ('seller_shop', 'city', 'pincode', 'buyer_shops', 'template',
+                'run_at', 'repeat')  #'__all__'
+    
+    class Media:
+        js = (
+            'admin/js/change_save_button_title.js'
+        )    
 
 class TemplateForm(forms.ModelForm):
     class Meta:

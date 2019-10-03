@@ -202,7 +202,8 @@ class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
     #autocomplete_fields = ('buyer_shops',)
     list_display = ('id', 'template', 'seller_shop')# 'run_at', 'repeat', 'created_at')
     search_fields = ('id', 'template')
-    #change_form_template = 'admin/notification_center/group_notification_scheduler/change_form.html'
+    # readonly_fields = ('run_at',)
+    #change_form_template = 'admin/notification_center/group_notification_scheduler/change_form3.html'
     form = GroupNotificationForm
 
     def save_model(self, request, obj, form, change):
@@ -231,7 +232,7 @@ class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
 
             schedule_notification(**data)
 
-            # schedule= IntervalSchedule.objects.create(every=obj.repeat, period=IntervalSchedule.SECONDS)
+            schedule= IntervalSchedule.objects.create(every=obj.repeat, period=IntervalSchedule.SECONDS)
 
             # task = PeriodicTask.objects.create(
             #     interval=schedule, 
