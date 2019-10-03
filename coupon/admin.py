@@ -35,7 +35,7 @@ class RuleSetProductMappingAdmin(ImportExportModelAdmin):
 #     list_display = ('rule', 'seller_shop', 'buyer_shop', 'city')
 
 class CouponLocationAdmin( admin.ModelAdmin):
-    list_display = ('seller_shop', 'buyer_shop', 'city')
+    list_display = ('coupon', 'seller_shop', 'buyer_shop', 'city')
 
 
 

@@ -311,12 +311,23 @@ class CartSerializer(serializers.ModelSerializer):
     total_discount = serializers.SerializerMethodField()
     sub_total = serializers.SerializerMethodField('sub_total_id')
     delivery_msg = serializers.SerializerMethodField()
+    discounted_prices_sum = serializers.SerializerMethodField()
 
     class Meta:
         model = Cart
         fields = ('id', 'order_id', 'cart_status', 'last_modified_by',
                   'created_at', 'modified_at', 'rt_cart_list', 'total_amount',
-                  'total_discount', 'sub_total', 'items_count', 'delivery_msg', 'offers')
+                  'total_discount', 'sub_total', 'discounted_prices_sum', 'items_count', 'delivery_msg', 'offers')
+
+    def get_discounted_prices_sum(self, obj):
+        sum = 0
+
+        keyValList1 = ['catalog']
+        exampleSet1 = obj.offers
+        array1 = list(filter(lambda d: d['coupon_type'] in keyValList1, exampleSet1))
+        for i in array1:
+            sum = sum + i['discounted_product_subtotal']
+        return round(sum, 2)
 
     def get_total_discount(self, obj):
         sum = 0
@@ -441,9 +452,37 @@ class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
 
 class OrderedCartSerializer(serializers.ModelSerializer):
     rt_cart_list = OrderedCartProductMappingSerializer(many=True)
-    items_count = serializers.ReadOnlyField(source='qty_sum')
-    total_amount = serializers.ReadOnlyField(source='subtotal')
-    sub_total = serializers.ReadOnlyField(source='subtotal')
+    items_count = serializers.SerializerMethodField('items_count_id')
+    total_amount = serializers.SerializerMethodField('total_amount_id')
+    total_discount = serializers.SerializerMethodField()
+
+    def get_total_discount(self, obj):
+        sum = 0
+        keyValList1 = ['discount']
+        exampleSet1 = obj.offers
+        array1 = list(filter(lambda d: d['type'] in keyValList1, exampleSet1))
+        for i in array1:
+            sum = sum + i['discount_value']
+        return round(sum, 2)
+
+    def total_amount_id(self, obj):
+        self.total_amount = 0
+        self.items_count = 0
+        total_discount = self.get_total_discount(obj)
+        for cart_pro in obj.rt_cart_list.all():
+            self.items_count = self.items_count + int(cart_pro.qty)
+            shop_id = self.context.get("parent_mapping_id", None)
+            shop = Shop.objects.get(pk=shop_id)
+            pro_price = cart_pro.cart_product.get_current_shop_price(shop)
+            self.total_amount += float(pro_price.price_to_retailer) * float(cart_pro.qty) * float(pro_price.product.product_inner_case_size)
+        return round(self.total_amount, 2)
+
+    def sub_total_id(self, obj):
+        sub_total = self.total_amount_id(obj) - self.get_total_discount(obj)
+        return round(sub_total, 2)
+
+    def items_count_id(self, obj):
+        return obj.rt_cart_list.count()
 
     class Meta:
         model = Cart

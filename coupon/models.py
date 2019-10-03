@@ -14,11 +14,6 @@ class DiscountValue(models.Model):
     def __str__(self):
         return str(self.discount_value)
 
-class CouponLocation(models.Model):
-    seller_shop = models.ForeignKey(Shop, related_name ='seller_shop_coupon', on_delete=models.CASCADE, blank=True, null=True)
-    buyer_shop = models.ForeignKey(Shop, related_name ='buyer_shop_coupon', on_delete=models.CASCADE, blank=True, null=True)
-    city = models.ForeignKey(City, related_name ='city_shop_coupon', on_delete=models.CASCADE, blank=True, null=True)
-
 class CouponRuleSet(models.Model):
     rulename = models.CharField(max_length=255, unique=True, null=True)
     rule_description = models.CharField(max_length=255, null=True)
@@ -50,7 +45,6 @@ class Coupon(models.Model):
         (CATEGORY, "category"),
     )
     rule = models.ForeignKey(CouponRuleSet, related_name ='coupon_ruleset', on_delete=models.CASCADE)
-    location = models.ForeignKey(CouponLocation, related_name = 'coupon_location', on_delete = models.CASCADE, null=True, blank=True)
     coupon_name = models.CharField(max_length=255, null=True)
     coupon_code = models.CharField(max_length=255, null=True)
     limit_per_user = models.PositiveIntegerField(default=0, null=True, blank=True)
@@ -70,6 +64,12 @@ class Coupon(models.Model):
             Coupon.objects.filter(rule = self.rule, is_active=True).update(is_active=False)
             self.is_active = True
         super().save(*args, **kwargs)
+
+class CouponLocation(models.Model):
+    coupon = models.ForeignKey(Coupon, related_name ='location_coupon', on_delete=models.CASCADE)
+    seller_shop = models.ForeignKey(Shop, related_name ='seller_shop_coupon', on_delete=models.CASCADE, blank=True, null=True)
+    buyer_shop = models.ForeignKey(Shop, related_name ='buyer_shop_coupon', on_delete=models.CASCADE, blank=True, null=True)
+    city = models.ForeignKey(City, related_name ='city_shop_coupon', on_delete=models.CASCADE, blank=True, null=True)
 
 
 class CusotmerCouponUsage(models.Model):

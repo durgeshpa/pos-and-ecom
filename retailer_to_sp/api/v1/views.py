@@ -328,6 +328,7 @@ class GramGRNProductsList(APIView):
                             if i['item_sku']== c_p.cart_product.product_sku:
                                 for i in coupons: i['is_applied'] = True
 
+
                         user_selected_qty = c_p.qty
                         no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
                         p["_source"]["user_selected_qty"] = user_selected_qty
@@ -578,7 +579,8 @@ class ReservedOrder(generics.ListAPIView):
                 cart = cart.last()
                 cart.offers = cart.offers_applied()
                 coupon_codes_list = []
-                for j in cart.offers:
+                array = list(filter(lambda d: d['type'] in 'discount', cart.offers))
+                for j in array:
                     coupon_codes_list.append(j['coupon_id'])
                 coupon_usage_count = 0
                 for i in coupon_codes_list:
@@ -593,6 +595,7 @@ class ReservedOrder(generics.ListAPIView):
                         customer_coupon_usage.shop = parent_mapping.retailer
                         customer_coupon_usage.times_used = coupon_usage_count + 1
                         customer_coupon_usage.save()
+
                 cart_products = CartProductMapping.objects.select_related(
                     'cart_product'
                 ).filter(
