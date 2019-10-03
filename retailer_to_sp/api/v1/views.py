@@ -273,7 +273,7 @@ class GramGRNProductsList(APIView):
             '''2nd Step
                 Check if shop found then check whether it is sp 4th Step or retailer 5th Step
             '''
-            if not shop.shop_approved():
+            if not shop.shop_approved:
                 message = "Shop Mapping Not Found"
                 is_store_active = False
             # try:
