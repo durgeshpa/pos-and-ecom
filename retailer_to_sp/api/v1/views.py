@@ -280,13 +280,13 @@ class GramGRNProductsList(APIView):
             #     parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
             # except ObjectDoesNotExist:
             else:
-
-                if shop.retailer_mapping.parent.shop_type.shop_type == 'sp':
+                parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
+                if parent_mapping.parent.shop_type.shop_type == 'sp':
                     '''4th Step
                         SP mapped data shown
                     '''
                     body = {"from" : offset, "size" : page_size, "query":query}
-                    products_list = es_search(index=shop.retailer_mapping.parent.id, body=body)
+                    products_list = es_search(index=parent_mapping.parent.id, body=body)
                     cart = Cart.objects.filter(last_modified_by=self.request.user,buyer_shop_id=shop_id,cart_status__in=['active', 'pending']).last()
                     if cart:
                         cart_products = cart.rt_cart_list.all()
