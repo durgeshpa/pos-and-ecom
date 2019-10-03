@@ -1,3 +1,8 @@
+import requests
+import datetime
+import traceback
+import sys
+
 from django.shortcuts import render
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.generics import CreateAPIView, DestroyAPIView, ListAPIView, RetrieveAPIView, UpdateAPIView
@@ -11,8 +16,6 @@ from rest_framework import permissions, authentication
 from rest_framework.decorators import list_route
 from rest_framework.parsers import FormParser, MultiPartParser
 
-import datetime
-
 from django.db import transaction
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db.models import Q
@@ -24,6 +27,25 @@ from accounts.models import UserWithName
 from retailer_to_sp.models import OrderedProduct
 from payments.models import ShipmentPayment, CashPayment, OnlinePayment, PaymentMode, \
     Payment, OrderPayment
+
+from common.common_utils import convert_hash_using_hmac_sha256
+
+BHARATPE_BASE_URL = "http://api.bharatpe.io:8080"
+
+
+def overdraft_payment(payload):
+    context = {}
+    try:
+        headers = {'Content-Type': 'application/json', 
+                    'Accept':'application/json',
+                    'hash': convert_hash_using_hmac_sha256(payload)}
+        resp = requests.post(BHARATPE_BASE_URL+"/create_invoice", data = json.dumps(payload), headers=headers)        
+        data = json.loads(resp.content)         
+        return (True, "payment successful")
+    except Exception as e:
+        logging.info("Class name: %s - Error = %s:"%('Bharatpe',str(e)))
+        logging.info(traceback.format_exc(sys.exc_info()))
+        return (False, e.message)
 
 
 
@@ -99,6 +121,15 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                     reference_no = item.get('reference_no', None)
                     online_payment_type = item.get('online_payment_type', None)
                     description = item.get('description', None)
+
+                    if payment_mode_name == "credit_payment":
+                        payload = {}
+                        payload['buyerMobile'] = request.data.get('paid_by', None)
+                        payload['creditAmount'] = paid_amount
+                        payload['comments'] = "overdraft payment"
+                        status, message = overdraft_payment(payload)
+                        if status == False:
+                            raise ValidationError(message)
 
                     # create payment
                     payment = Payment.objects.create(
