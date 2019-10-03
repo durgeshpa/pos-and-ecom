@@ -47,13 +47,14 @@ class GroupNotificationForm(forms.ModelForm):
 
     class Meta:
         model = GroupNotificationScheduler
-        fields = ('seller_shop', 'city', 'pincode', 'buyer_shops', 'template',
-                'run_at', 'repeat')  #'__all__'
+        fields = ('seller_shop', 'city', 'pincode', 'buyer_shops', 'template',)
+                # 'run_at', 'repeat')  #'__all__'
     
-    class Media:
-        js = (
-            'admin/js/change_save_button_title.js'
-        )    
+    # class Media:
+    #     js = (
+    #         'admin/js/change_save_button_title.js'
+    #     )    
+
 
 class TemplateForm(forms.ModelForm):
     class Meta:

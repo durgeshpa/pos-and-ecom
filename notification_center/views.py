@@ -43,6 +43,15 @@ class SellerAutocomplete(autocomplete.Select2QuerySetView):
         return qs
 
 
+
+class BuyersAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        qs = Shop.objects.filter(shop_type__shop_type='sp')
+        if self.q:
+            qs = qs.filter(shop_name__icontains=self.q)
+        return qs
+
+
 class RetailerAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self):
         city = self.forwarded.get('city', None)

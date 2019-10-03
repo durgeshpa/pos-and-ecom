@@ -1,11 +1,17 @@
 import json
 import logging
 from datetime import datetime, timedelta
+from dal_admin_filters import AutocompleteFilter
 
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.conf.urls import url
 from django_celery_beat.models import PeriodicTask, IntervalSchedule
+from django.db.models import Q
+from rangefilter.filter import DateRangeFilter, DateTimeRangeFilter
+
+from retailer_backend.admin import InputFilter
+from brand.admin import CityFilter
 
 from notification_center.views import (
     SellerAutocomplete
@@ -23,12 +29,23 @@ from notification_center.utils import (
     SendNotification
     )
 from notification_center.views import (
-    group_notification_view
+    group_notification_view, BuyersAutocomplete
     )
 from .tasks import schedule_notification
 
 
 User = get_user_model()
+
+class TemplateTypeSearch(InputFilter):
+    parameter_name = 'type'
+    title = 'Template type'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            template_type = self.value()
+            return queryset.filter(
+                Q(type=template_type)
+            )
 
 
 class TemplateAdmin(admin.ModelAdmin):
@@ -39,6 +56,8 @@ class TemplateAdmin(admin.ModelAdmin):
         'text_sms_alert', 'voice_call_alert', 'gcm_alert'
         )
     search_fields = ('id', 'name', 'type')
+    list_filter = ('type', 'text_sms_alert', 'gcm_alert' )
+
 
 
 class TemplateVariableAdmin(admin.ModelAdmin):
@@ -48,6 +67,8 @@ class TemplateVariableAdmin(admin.ModelAdmin):
         'voice_call_variable', 'gcm_variable'
         )
     search_fields = ('id', 'template')
+
+
 
 
 class TextSMSActivityAdmin(admin.TabularInline):
@@ -155,16 +176,6 @@ class NotificationSchedulerAdmin(admin.ModelAdmin):
     # ]
     #readonly_fields = ['user', 'template']
     #for hiding object names in tabular inline
-    def get_urls(self):
-        from django.conf.urls import url
-        urls = super(NotificationSchedulerAdmin, self).get_urls()
-        urls = [
-            url(r'^seller-autocomplete1/$',
-                self.admin_site.admin_view(SellerAutocomplete.as_view()),
-                name='seller-autocomplete1'
-                ),
-        ] + urls
-        return urls
 
 
     def save_model(self, request, obj, form, change):
@@ -196,15 +207,48 @@ class NotificationSchedulerAdmin(admin.ModelAdmin):
         super(NotificationSchedulerAdmin, self).save_model(request, obj, form, change)    
 
 
+class SellerShopFilter(AutocompleteFilter):
+    field_name = 'seller_shop'
+    title = 'seller_shop'
+    autocomplete_url = 'admin:seller-autocomplete1'
+
+
+class BuyerShopFilter(AutocompleteFilter):
+    field_name = 'buyer_shop'
+    title = 'buyer_shop'
+    autocomplete_url = 'admin:buyers-autocomplete'
+
+
 class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
     model = GroupNotificationScheduler
     #raw_id_fields = ('buyer_shop')
     #autocomplete_fields = ('buyer_shops',)
-    list_display = ('id', 'template', 'seller_shop')# 'run_at', 'repeat', 'created_at')
+    list_display = ('id', 'template', 'seller_shop', 'city', 'created_at')# 'run_at', 'repeat', 'created_at')
     search_fields = ('id', 'template')
+    list_filter = (CityFilter, SellerShopFilter, ('created_at', DateTimeRangeFilter),)
+
     # readonly_fields = ('run_at',)
     #change_form_template = 'admin/notification_center/group_notification_scheduler/change_form3.html'
     form = GroupNotificationForm
+
+    class Media:
+        pass
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(GroupNotificationSchedulerAdmin, self).get_urls()
+        urls = [
+            url(r'^seller-autocomplete1/$',
+                self.admin_site.admin_view( SellerAutocomplete.as_view()),
+                name='seller-autocomplete1'
+                ),
+            url(r'^buyers-autocomplete/$',
+                self.admin_site.admin_view( BuyersAutocomplete.as_view()),
+                name='buyers-autocomplete'
+                ),
+        ] + urls
+        return urls
+
 
     def save_model(self, request, obj, form, change):
         try:
@@ -232,7 +276,7 @@ class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
 
             schedule_notification(**data)
 
-            schedule= IntervalSchedule.objects.create(every=obj.repeat, period=IntervalSchedule.SECONDS)
+            # schedule= IntervalSchedule.objects.create(every=obj.repeat, period=IntervalSchedule.SECONDS)
 
             # task = PeriodicTask.objects.create(
             #     interval=schedule, 
