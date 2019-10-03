@@ -252,7 +252,7 @@ class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         try:
-            # import pdb; pdb.set_trace()
+            #import pdb; pdb.set_trace()
             data = {}
             #data['test'] = "test"
             seller_shop = form.cleaned_data.get('seller_shop', None)
