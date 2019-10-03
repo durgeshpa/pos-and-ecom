@@ -209,7 +209,6 @@ class SendNotification:
             #     email = SendEmail()
             #     email.send()
             notification, created = Notification.objects.get_or_create(user_id=self.user_id, template=template)
-            notification.save()
             if template.gcm_alert:
                 # fetch user registration id
                 #reg_id = Device.objects.last().reg_id

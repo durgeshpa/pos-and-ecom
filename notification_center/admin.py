@@ -258,7 +258,7 @@ class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
             seller_shop = form.cleaned_data.get('seller_shop', None)
 
             city = form.cleaned_data.get('city', None)
-            pincodes = form.cleaned_data.get('pincodes', None)
+            pincodes = form.cleaned_data.get('pincode', None)
             buyer_shops = form.cleaned_data.get('buyer_shops', None)
 
             if seller_shop:
@@ -266,9 +266,9 @@ class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
             if city:
                 data['city'] = form.cleaned_data.get('city').id
             if pincodes:
-                data['pincodes'] = form.cleaned_data.get('pincodes').values('id')
+                data['pincodes'] = form.cleaned_data.get('pincode').values_list('id', flat=True)
             if buyer_shops:
-                data['buyer_shops'] = form.cleaned_data.get('buyer_shops').values('id')
+                data['buyer_shops'] = form.cleaned_data.get('buyer_shops').values_list('id', flat=True)
             # if buyer_shop:
             #     data['buyer_shop'] = form.cleaned_data.get('buyer_shop').id
             data['activity_type'] = obj.template.id#.type
