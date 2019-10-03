@@ -95,7 +95,7 @@ class ShopOwnerSearch(InputFilter):
                 return
             return queryset.filter(shop_owner__phone_number__icontains=shop_owner_number)
 
-class ShopFilter(AutocompleteFilter):
+class BuyerShopFilter(AutocompleteFilter):
     title = 'Shop' # display title
     field_name = 'buyer_shop' # name of the foreign key field
 
@@ -110,7 +110,7 @@ class FavouriteProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     actions = ["export_as_csv_fav_product"]
     list_display = ('buyer_shop', 'product', 'created_at', 'get_product_brand')#, 'get_product_sp')
     raw_id_fields = ['buyer_shop', 'product']
-    list_filter = (ShopFilter, ProductFilter)
+    list_filter = (BuyerShopFilter, ProductFilter)
 
     # def get_product_sp(self, obj):
     #     return obj.product.product_brand
