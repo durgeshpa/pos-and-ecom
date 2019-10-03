@@ -326,9 +326,9 @@ class GramGRNProductsList(APIView):
                         array2 = list(filter(lambda d: d['coupon_type'] in keyValList2, exampleSet2))
                         for i in array2:
                             if i['item_sku']== c_p.cart_product.product_sku:
-                                for i in coupons: i['is_applied'] = True
-
-
+                                discounted_product_subtotal = i['discounted_product_subtotal']
+                                p["_source"]["discounted_product_subtotal"] = discounted_product_subtotal
+                                for j in coupons: j['is_applied'] = True
                         user_selected_qty = c_p.qty
                         no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
                         p["_source"]["user_selected_qty"] = user_selected_qty
@@ -471,6 +471,7 @@ class AddToCart(APIView):
 
     def gf_mapping_cart(self,qty,product):
         pass
+
 class CartDetail(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
