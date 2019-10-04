@@ -95,6 +95,7 @@ INSTALLED_APPS = [
     'django_celery_beat',
     'django_celery_results',
     'offer',
+    'analytics',
 ]
 
 FCM_APIKEY = config('FCM_APIKEY')
@@ -380,3 +381,4 @@ CELERY_TIMEZONE = TIME_ZONE
 
 # ElasticSearch
 ELASTICSEARCH_PREFIX = config('ELASTICSEARCH_PREFIX')
+REDSHIFT_URL = config('REDSHIFT_URL')
