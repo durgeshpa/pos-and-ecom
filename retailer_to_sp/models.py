@@ -172,7 +172,7 @@ class Cart(models.Model):
                         item_effective_total += (i.get('discounted_product_subtotal',0))
         else:
             for m in self.rt_cart_list.all():
-                if m.cart_product_price.price_to_retailer:
+                if m.cart_product_price:
                     item_effective_total += (m.cart_product_price.price_to_retailer * m.no_of_pieces)
         return item_effective_total
 
