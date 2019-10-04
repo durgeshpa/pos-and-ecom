@@ -174,8 +174,6 @@ class SendNotification:
 
     def send_promotional_content(self):
         try:
-            # import pdb; pdb.set_trace()
-            print ("in SendNotification: send_promotional_content")
             devices = Device.objects.filter(user_id=self.user_id)
             for device in devices:
                 #reg_id = Device.objects.get(user_id=self.user_id).reg_id
@@ -194,8 +192,6 @@ class SendNotification:
 
     def send(self):
         try:
-            #import pdb; pdb.set_trace()
-            print ("in SendNotification: Send")
             #template = Template.objects.get(type=self.template_type)
             template = Template.objects.get(pk=self.template_type)
 
@@ -239,6 +235,4 @@ class SendNotification:
                 message.send()
 
         except Exception as e:
-            pass
-            # print (str(e)) 
-            #logging.error(str(e))    
+            logging.error(str(e))    

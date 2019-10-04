@@ -40,5 +40,6 @@ class SendFCMNotification:
 				}, collapse_key='something')
 
 		except Exception as e:
-			print (traceback.format_exc(sys.exc_info()))
-			print (e)
+		    logging.error(str(e))
+			# print (traceback.format_exc(sys.exc_info()))
+			# print (e)

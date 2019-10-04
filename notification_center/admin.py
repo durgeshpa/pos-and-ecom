@@ -252,7 +252,6 @@ class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         try:
-            #import pdb; pdb.set_trace()
             data = {}
             #data['test'] = "test"
             seller_shop = form.cleaned_data.get('seller_shop', None)
@@ -287,7 +286,7 @@ class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
             #     #args=json.dumps(['66']),
             #     kwargs=json.dumps(data))
         except Exception as e:
-            print (e)
+            logging.error(str(e))    
         super(GroupNotificationSchedulerAdmin, self).save_model(request, obj, form, change)    
         
 
