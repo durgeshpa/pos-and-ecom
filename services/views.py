@@ -334,10 +334,10 @@ class MasterReport(APIView):
             mrp = products.mrp
             price_to_retailer = products.price_to_retailer
             #New Code for pricing
-            selling_price = products.selling_price
-            buyer_shop = products.buyer_shop
-            city = products.city
-            pincode = products.pincode
+            selling_price = products.selling_price if products.selling_price else ''
+            buyer_shop = products.buyer_shop if products.buyer_shop else ''
+            city = products.city if products.city else ''
+            pincode = products.pincode if products.pincode else ''
 
             product_gf_code = products.product.product_gf_code
             product_ean_code = products.product.product_ean_code
