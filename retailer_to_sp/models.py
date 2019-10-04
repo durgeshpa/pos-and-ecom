@@ -166,15 +166,12 @@ class Cart(models.Model):
         item_effective_total = 0
         if self.offers:
             for m in self.rt_cart_list.all():
-                array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.offers))
-                for i in array:
-                    if m.cart_product.id == i['item_id']:
-                        item_effective_total += (i.get('discounted_product_subtotal',0))
+                item_effective_total += (m.item_effective_prices * m.no_of_pieces)
         else:
             for m in self.rt_cart_list.all():
                 if m.cart_product_price:
                     item_effective_total += (m.cart_product_price.price_to_retailer * m.no_of_pieces)
-        return item_effective_total
+        return round(item_effective_total, 2)
 
     @property
     def mrp_subtotal(self):
