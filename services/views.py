@@ -139,8 +139,11 @@ class OrderReport(APIView):
                     product_id = products.product.id
                     product_name = products.product.product_name
                     product_brand = products.product.product_brand
-                    product_mrp = products.product.product_pro_price.get(status=True, shop = seller_shop).mrp
-                    product_value_tax_included = products.product.product_pro_price.get(status=True, shop = seller_shop).price_to_retailer
+                    #product_mrp = products.product.product_pro_price.get(status=True, shop = seller_shop).mrp
+                    #product_value_tax_included = products.product.product_pro_price.get(status=True, shop = seller_shop).price_to_retailer
+                    # New Price Logic
+                    product_mrp = products.product.getMRP(seller_shop.id,order.buyer_shop.id)
+                    product_value_tax_included = products.product.getRetailerPrice(seller_shop.id,order.buyer_shop.id)
                     if products.product.product_pro_tax.filter(tax__tax_type ='gst').exists():
                         product_gst = products.product.product_pro_tax.filter(tax__tax_type ='gst').last()
                     if order.shipping_address.state == order.seller_shop.shop_name_address_mapping.filter(address_type='shipping').last().state:
@@ -322,7 +325,7 @@ class MasterReport(APIView):
 
     def get_master_report(self, shop_id):
         shop = Shop.objects.get(pk=shop_id)
-        product_prices = ProductPrice.objects.filter(shop=shop, status=True)
+        product_prices = ProductPrice.objects.filter(shop=shop, approval_status=ProductPrice.APPROVED)
         products_list = {}
         i=0
         for products in product_prices:
@@ -330,6 +333,12 @@ class MasterReport(APIView):
             product = products.product
             mrp = products.mrp
             price_to_retailer = products.price_to_retailer
+            #New Code for pricing
+            selling_price = products.selling_price
+            buyer_shop = products.buyer_shop
+            city = products.city
+            pincode = products.pincode
+
             product_gf_code = products.product.product_gf_code
             product_ean_code = products.product.product_ean_code
             product_brand = products.product.product_brand if products.product.product_brand.brand_parent == None else products.product.product_brand.brand_parent
@@ -354,9 +363,20 @@ class MasterReport(APIView):
             short_description = products.product.product_short_description
             long_description = products.product.product_long_description
             created_at = products.product.created_at
-            MasterReports.objects.using('gfanalytics').create(product = product, service_partner = service_partner, mrp = mrp, price_to_retailer = price_to_retailer, product_gf_code = product_gf_code,  product_brand = product_brand, product_subbrand = product_subbrand, product_category = product_category, tax_gst_percentage = tax_gst_percentage, tax_cess_percentage = tax_cess_percentage, tax_surcharge_percentage = tax_surcharge_percentage, pack_size = pack_size, case_size = case_size, hsn_code = hsn_code, product_id = product_id, sku_code = sku_code,  short_description = short_description, long_description = long_description, created_at = created_at)
+            MasterReports.objects.using('gfanalytics').create(product = product, service_partner = service_partner,
+            mrp = mrp, price_to_retailer = price_to_retailer, selling_price=selling_price, buyer_shop=buyer_shop, city=city,
+            pincode=pincode, product_gf_code = product_gf_code,  product_brand = product_brand,
+            product_subbrand = product_subbrand, product_category = product_category, tax_gst_percentage = tax_gst_percentage,
+            tax_cess_percentage = tax_cess_percentage, tax_surcharge_percentage = tax_surcharge_percentage, pack_size = pack_size,
+            case_size = case_size, hsn_code = hsn_code, product_id = product_id, sku_code = sku_code,
+            short_description = short_description, long_description = long_description, created_at = created_at)
 
-            products_list[i] = {'product':product, 'service_partner':service_partner, 'mrp':mrp, 'price_to_retailer':price_to_retailer, 'product_gf_code':product_gf_code, 'product_brand':product_brand, 'product_subbrand':product_subbrand, 'product_category':product_category, 'tax_gst_percentage':tax_gst_percentage, 'tax_cess_percentage':tax_cess_percentage, 'tax_surcharge_percentage':tax_surcharge_percentage, 'pack_size':pack_size, 'case_size':case_size, 'hsn_code':hsn_code, 'product_id':product_id, 'sku_code':sku_code, 'short_description':short_description, 'long_description':long_description}
+            products_list[i] = {'product':product, 'service_partner':service_partner, 'mrp':mrp, 'price_to_retailer':price_to_retailer,
+            'selling_price':selling_price, 'buyer_shop':buyer_shop, 'city':city,'pincode':pincode,
+            'product_gf_code':product_gf_code, 'product_brand':product_brand, 'product_subbrand':product_subbrand,
+            'product_category':product_category, 'tax_gst_percentage':tax_gst_percentage, 'tax_cess_percentage':tax_cess_percentage,
+            'tax_surcharge_percentage':tax_surcharge_percentage, 'pack_size':pack_size, 'case_size':case_size, 'hsn_code':hsn_code,
+            'product_id':product_id, 'sku_code':sku_code, 'short_description':short_description, 'long_description':long_description}
         data = products_list
         return data
 
@@ -369,9 +389,13 @@ class MasterReport(APIView):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="master-report.csv"'
         writer = csv.writer(response)
-        writer.writerow(['S.No', 'Product Name', 'Service Partner', 'MRP', 'PTR', 'GF Code', 'Brand', 'Subbrand', 'Category', 'GST %', 'CESS %', 'Surcharge %', 'Pack Size', 'Case Size', 'HSN', 'Product ID', 'SKU Code', 'Short Desc.', 'Long Desc.'])
+        writer.writerow(['S.No', 'Product Name', 'Service Partner', 'MRP', 'PTR','Selling Price', 'Buyer Shop','City','Pincode', 'GF Code', 'Brand', 'Subbrand', 'Category', 'GST %', 'CESS %', 'Surcharge %', 'Pack Size', 'Case Size', 'HSN', 'Product ID', 'SKU Code', 'Short Desc.', 'Long Desc.'])
         for k,v in data.items():
-            writer.writerow([k, v['product'], v['service_partner'], v['mrp'], v['price_to_retailer'], v['product_gf_code'], v['product_brand'], v['product_subbrand'], v['product_category'], v['tax_gst_percentage'], v['tax_cess_percentage'], v['tax_surcharge_percentage'], v['pack_size'], v['case_size'], v['hsn_code'],  v['product_id'], v['sku_code'], v['short_description'], v['long_description']])
+            writer.writerow([k, v['product'], v['service_partner'], v['mrp'], v['price_to_retailer'],
+            v['selling_price'], v['buyer_shop'], v['city'], v['pincode'],
+            v['product_gf_code'], v['product_brand'], v['product_subbrand'], v['product_category'], v['tax_gst_percentage'],
+            v['tax_cess_percentage'], v['tax_surcharge_percentage'], v['pack_size'], v['case_size'], v['hsn_code'],
+            v['product_id'], v['sku_code'], v['short_description'], v['long_description']])
 
         return response
 
@@ -432,9 +456,14 @@ class RetailerProfileReport(APIView):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="master-report.csv"'
         writer = csv.writer(response)
-        writer.writerow(['S.No', 'Product Name', 'MRP', 'PTR', 'GF Code', 'Brand', 'Subbrand', 'Category', 'GST %', 'CESS %', 'Surcharge %', 'Pack Size', 'Case Size', 'HSN', 'Product ID', 'SKU Code', 'Short Desc.', 'Long Desc.'])
+
+        writer.writerow(['S.No', 'Product Name', 'Service Partner', 'MRP', 'PTR', 'Selling Price', 'Buyer Shop', 'City', 'Pincode', 'GF Code', 'Brand', 'Subbrand', 'Category', 'GST %', 'CESS %', 'Surcharge %', 'Pack Size', 'Case Size', 'HSN', 'Product ID', 'SKU Code', 'Short Desc.', 'Long Desc.'])
         for k,v in data.items():
-            writer.writerow([k, v['product'], v['mrp'], v['price_to_retailer'], v['product_gf_code'], v['product_brand'], v['product_subbrand'], v['product_category'], v['tax_gst_percentage'], v['tax_cess_percentage'], v['tax_surcharge_percentage'], v['pack_size'], v['case_size'], v['hsn_code'],  v['product_id'], v['sku_code'], v['short_description'], v['long_description']])
+            writer.writerow([k, v['product'], v['service_partner'], v['mrp'], v['price_to_retailer'],
+            v['selling_price'], v['buyer_shop'], v['city'], v['pincode'], v['product_gf_code'], v['product_brand'],
+            v['product_subbrand'], v['product_category'], v['tax_gst_percentage'], v['tax_cess_percentage'],
+            v['tax_surcharge_percentage'], v['pack_size'], v['case_size'], v['hsn_code'],  v['product_id'],
+            v['sku_code'], v['short_description'], v['long_description']])
 
         return response
 

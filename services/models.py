@@ -120,6 +120,12 @@ class MasterReports(models.Model):
     service_partner = models.CharField(max_length=255, null=True)
     mrp = models.CharField(max_length=255, null=True)
     price_to_retailer = models.CharField(max_length=255, null=True)
+    #New Fields Added
+    selling_price = models.CharField(max_length=255, null=True)
+    buyer_shop = models.CharField(max_length=255, null=True)
+    city = models.CharField(max_length=255, null=True)
+    pincode = models.CharField(max_length=255, null=True)
+
     product_gf_code = models.CharField(max_length=255, null=True)
     product_brand = models.CharField(max_length=255, null=True)
     product_subbrand = models.CharField(max_length=255, null=True)
@@ -135,7 +141,6 @@ class MasterReports(models.Model):
     short_description = models.CharField(max_length=3000, null=True)
     long_description = models.CharField(max_length=3000, null=True)
     created_at = models.CharField(max_length=255, null=True)
-
 
     def __str__(self):
         return  "%s"%(self.product)
