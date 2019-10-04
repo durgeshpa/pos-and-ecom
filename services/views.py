@@ -354,7 +354,7 @@ class MasterReport(APIView):
                     tax_cess_percentage = tax.tax.tax_percentage
                 elif tax.tax.tax_type == 'surcharge':
                     tax_surcharge_percentage = tax.tax.tax_percentage
-            service_partner = products.shop
+            service_partner = products.seller_shop
             pack_size = products.product.product_inner_case_size
             case_size = products.product.product_case_size
             hsn_code = products.product.product_hsn
