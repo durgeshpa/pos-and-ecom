@@ -848,6 +848,7 @@ class DownloadInvoiceSP(APIView):
         pk=self.kwargs.get('pk')
         a = OrderedProduct.objects.get(pk=pk)
         shop=a
+        inv = a.invoice_no
         barcode = barcodeGen(a.invoice_no)
         payment_type=''
         products = a.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0)
@@ -977,7 +978,7 @@ class DownloadInvoiceSP(APIView):
                 "payment_type":payment_type,"total_amount_int":total_amount_int,"product_listing":product_listing,
                 "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
                 "address_contact_number":address_contact_number,"sum_amount_tax":round(total_tax_sum, 2), "no_of_crates":no_of_crates,
-                "no_of_packets":no_of_packets, "no_of_sacks":no_of_sacks}
+                "no_of_packets":no_of_packets, "no_of_sacks":no_of_sacks, "inv":inv,}
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
@@ -1368,8 +1369,7 @@ class SellerOrderList(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         msg = {'is_success': False, 'message': ['Data Not Found'], 'response_data': None}
         current_url = request.get_host()
-        shop_list = self.get_queryset()
-        queryset = Order.objects.filter(buyer_shop__in=shop_list).order_by('-created_at') if self.is_manager else Order.objects.filter(buyer_shop__in=shop_list, ordered_by=request.user).order_by('-created_at')
+        queryset = Order.objects.filter(buyer_shop__in=self.get_queryset()).order_by('-created_at') if self.is_manager else Order.objects.filter(buyer_shop__in=self.get_queryset(), ordered_by=request.user).order_by('-created_at')
         if not queryset.exists():
             msg = {'is_success': False, 'message': ['Order not found'], 'response_data': None}
         else:
