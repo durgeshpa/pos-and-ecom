@@ -325,7 +325,7 @@ class MasterReport(APIView):
 
     def get_master_report(self, shop_id):
         shop = Shop.objects.get(pk=shop_id)
-        product_prices = ProductPrice.objects.filter(shop=shop, approval_status=ProductPrice.APPROVED)
+        product_prices = ProductPrice.objects.filter(seller_shop=shop, approval_status=ProductPrice.APPROVED)
         products_list = {}
         i=0
         for products in product_prices:
