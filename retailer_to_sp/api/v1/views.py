@@ -924,7 +924,7 @@ class DownloadInvoiceSP(APIView):
             cart_product_map = order_obj.order.ordered_cart.rt_cart_list.filter(cart_product=m.product).last()
             product_price = cart_product_map.get_cart_product_price(order_obj.order.ordered_cart.seller_shop)
 
-            product_pro_price_ptr = product_price.price_to_retailer
+            product_pro_price_ptr = cart_product_map.item_effective_prices
             product_pro_price_mrp = round(product_price.mrp,2)
 
             no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces

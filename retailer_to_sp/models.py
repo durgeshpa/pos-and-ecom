@@ -162,6 +162,20 @@ class Cart(models.Model):
             return None
 
     @property
+    def order_amount(self):
+        item_effective_total = 0
+        if self.offers:
+            for m in self.rt_cart_list.all():
+                array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
+                for i in array:
+                    if m.cart_product.id == i['item_id']:
+                        item_effective_total += (i['discounted_product_subtotal'])
+        else:
+            for m in self.rt_cart_list.all():
+                item_effective_total += (m.cart_product_price.price_to_retailer * m.no_of_pieces)
+        return item_effective_total
+
+    @property
     def mrp_subtotal(self):
         try:
             return round(self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__mrp') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum'],2)
@@ -208,7 +222,7 @@ class Cart(models.Model):
                                 discount_qty_step_multiple = int((sku_qty)/n.rule.discount_qty_step)
                                 free_item_amount = int((n.rule.discount_qty_amount) * discount_qty_step_multiple)
                                 sum += (sku_ptr * sku_no_of_pieces)
-                                offers_list.append({'type':'free', 'sub_type':'free product', 'coupon_id':o.id, 'coupon':o.coupon_name, 'coupon_code':o.coupon_code, 'item':m.cart_product.product_name, 'item_sku':m.cart_product.product_sku, 'item_id':m.cart_product.id, 'free_item':free_item, 'free_item_amount':free_item_amount, 'coupon_type':'catalog', 'discounted_product_subtotal':(sku_ptr * sku_no_of_pieces), 'brand_id':m.cart_product.product_brand.id , 'total_pieces':sku_no_of_pieces })
+                                offers_list.append({'type':'free', 'sub_type':'discount_on_product', 'coupon_id':o.id, 'coupon':o.coupon_name, 'coupon_code':o.coupon_code, 'item':m.cart_product.product_name, 'item_sku':m.cart_product.product_sku, 'item_id':m.cart_product.id, 'free_item':free_item, 'free_item_amount':free_item_amount, 'coupon_type':'catalog', 'discounted_product_subtotal':(sku_ptr * sku_no_of_pieces), 'brand_id':m.cart_product.product_brand.id , 'total_pieces':sku_no_of_pieces })
                         elif (n.rule.discount_qty_step >=1) and (n.rule.discount != None):
                             if sku_qty >= n.rule.discount_qty_step:
                                 discount_value = n.rule.discount.discount_value if n.rule.discount.is_percentage == False else round(((n.rule.discount.discount_value/100)* sku_no_of_pieces * sku_ptr), 2)
@@ -224,6 +238,7 @@ class Cart(models.Model):
             cart_coupon_list = []
 
             i = 0
+            cart_value = (self.rt_cart_list.filter(cart_product__product_pro_price__shop=self.seller_shop, cart_product__product_pro_price__status=True, cart_product__product_pro_price__approval_status='approved').aggregate(value=Sum(F('cart_product__product_pro_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['value']) - discount_sum
             if self.cart_status in ['active', 'pending']:
                 cart_value = (self.rt_cart_list.filter(cart_product__product_pro_price__shop=self.seller_shop, cart_product__product_pro_price__status=True, cart_product__product_pro_price__approval_status='approved').aggregate(value=Sum(F('cart_product__product_pro_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['value']) - discount_sum
             if self.cart_status in ['ordered']:
@@ -344,7 +359,8 @@ class CartProductMapping(models.Model):
                     item_effective_price = (i['discounted_product_subtotal']) / self.no_of_pieces
         else:
             item_effective_price = self.cart_product_price.price_to_retailer
-        return item_effective_price
+        return round(item_effective_price, 2)
+
 
     def set_cart_product_price(self, shop):
         self.cart_product_price = self.cart_product.get_current_shop_price(shop)
@@ -360,7 +376,6 @@ class CartProductMapping(models.Model):
             return round(self.cart_product_price.mrp,2)
         else:
             return round(self.cart_product.get_current_shop_price(shop).mrp,2)
-
 
 class Order(models.Model):
     ACTIVE = 'active'
@@ -509,7 +524,7 @@ class Order(models.Model):
 
     @property
     def total_final_amount(self):
-        return self.ordered_cart.subtotal
+        return self.ordered_cart.order_amount
 
     @property
     def total_mrp_amount(self):
@@ -901,8 +916,8 @@ class OrderedProduct(models.Model): #Shipment
             self._delivered_amount = 0
             shipment_products = self.rt_order_product_order_product_mapping.values('product','shipped_qty','returned_qty','damaged_qty').all()
             shipment_map = {i['product']:(i['shipped_qty'], i['returned_qty'], i['damaged_qty']) for i in shipment_products}
-            cart_product_map = self.order.ordered_cart.rt_cart_list.values('cart_product_price__price_to_retailer', 'cart_product', 'qty').filter(cart_product_id__in=shipment_map.keys())
-            product_price_map = {i['cart_product']:(i['cart_product_price__price_to_retailer'], i['qty']) for i in cart_product_map}
+            cart_product_map = self.order.ordered_cart.rt_cart_list.filter(cart_product_id__in=shipment_map.keys())
+            product_price_map = {i.cart_product.id:(i.item_effective_prices, i.qty) for i in cart_product_map}
             for product, shipment_details in shipment_map.items():
                 try:
                     product_price = product_price_map[product][0]
