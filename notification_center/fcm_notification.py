@@ -1,5 +1,6 @@
 import sys
 import traceback
+import logging
 
 from fcm.utils import get_device_model
 
