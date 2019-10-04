@@ -352,6 +352,7 @@ class CartProductMapping(models.Model):
 
     @property
     def item_effective_prices(self):
+        item_effective_price = 0
         if self.cart.offers:
             array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
             for i in array:
