@@ -67,19 +67,19 @@ class BannerPositionForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(url='banner-shop-autocomplete', ),
         required=False
     )
-    buyer_shop = forms.ModelChoiceField(
+    buyer_shop = forms.ModelMultipleChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type='r'),
-        widget=autocomplete.ModelSelect2(url='admin:retailer-shop-autocomplete', ),
+        widget=autocomplete.ModelSelect2Multiple(url='admin:retailer-shop-autocomplete', ),
         required=False
     )
-    pincode = forms.ModelChoiceField(
+    pincode = forms.ModelMultipleChoiceField(
         queryset=Pincode.objects.all(),
-        widget=autocomplete.ModelSelect2(url='admin:pincode-autocomplete', ),
+        widget=autocomplete.ModelSelect2Multiple(url='admin:pincode-autocomplete', ),
         required=False
     )
-    city = forms.ModelChoiceField(
+    city = forms.ModelMultipleChoiceField(
         queryset=City.objects.all(),
-        widget=autocomplete.ModelSelect2(url='admin:city-autocomplete', ),
+        widget=autocomplete.ModelSelect2Multiple(url='admin:city-autocomplete', ),
         required=False
     )
 

@@ -19,8 +19,8 @@ class BannerDataInline(SortableStackedInline):
 class BannerPositionAdmin(NonSortableParentAdmin):
     form=BannerPositionForm
     inlines = [BannerDataInline]
-    list_display = ('shop', 'page', 'bannerslot', 'city', 'pincode', 'buyer_shop')
-    list_filter = (SellerShopFilter,CityFilter)
+    list_display = ('shop', 'page', 'bannerslot', 'city_list', 'pincode_list', 'buyer_shop_list')
+    list_filter = (SellerShopFilter,)
 
     def get_urls(self):
         urls = super(BannerPositionAdmin, self).get_urls()
