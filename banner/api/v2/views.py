@@ -38,12 +38,17 @@ class GetSlotBannerListView(APIView):
                 buyer_shop = retailer_mapping.retailer
                 buyer_shop_address = buyer_shop.shop_name_address_mapping.filter(address_type='shipping')
                 if buyer_shop_address.exists():
+                    banner_slot = BannerPosition.objects.filter(shop=parent.id, buyer_shop__in=[buyer_shop])
+                    if banner_slot.count()==0:
+                        banner_slot = BannerPosition.objects.filter(shop=parent.id, pincode__in=[buyer_shop_address.last().pincode_link])
+                    if banner_slot.count()==0:
+                        banner_slot = BannerPosition.objects.filter(shop=parent.id, city__in=[buyer_shop_address.last().city])
+                    if banner_slot.count()==0:
+                        banner_slot = BannerPosition.objects.filter(shop=parent.id)
+
                     data = BannerData.objects.filter(banner_data__status=True, slot__page__name=position_name,
-                        slot__bannerslot__name=pos_name, slot__shop=parent.id).filter(
-                        Q(slot__city=buyer_shop_address.last().city)
-                        | Q(slot__pincode=buyer_shop_address.last().pincode_link)
-                        | Q(slot__buyer_shop=buyer_shop)
-                        | Q(banner_data__banner_start_date__isnull=True)
+                        slot__bannerslot__name=pos_name,slot=banner_slot.last()).filter(
+                        Q(banner_data__banner_start_date__isnull=True)
                         | Q(banner_data__banner_start_date__lte=startdate, banner_data__banner_end_date__gte=startdate)).order_by('banner_data').distinct('banner_data')
                 else:
                     data = BannerData.objects.filter(banner_data__status=True, slot__page__name=position_name,
