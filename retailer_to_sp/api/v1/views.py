@@ -580,22 +580,7 @@ class ReservedOrder(generics.ListAPIView):
                 cart = cart.last()
                 cart.offers = cart.offers_applied()
                 coupon_codes_list = []
-                array = list(filter(lambda d: d['type'] in 'discount', cart.offers))
-                for j in array:
-                    coupon_codes_list.append(j['coupon_id'])
-                coupon_usage_count = 0
-                for i in coupon_codes_list:
-                    customer_coupon_usage = CusotmerCouponUsage.objects.filter(coupon_id = i ,cart=cart, shop = parent_mapping.retailer)
-                    if customer_coupon_usage:
-                        customer_coupon_usage = customer_coupon_usage.last()
-                        customer_coupon_usage.shop = parent_mapping.retailer
-                        customer_coupon_usage.times_used += coupon_usage_count + 1
-                        customer_coupon_usage.save()
-                    else:
-                        customer_coupon_usage = CusotmerCouponUsage(coupon_id = i, cart=cart)
-                        customer_coupon_usage.shop = parent_mapping.retailer
-                        customer_coupon_usage.times_used = coupon_usage_count + 1
-                        customer_coupon_usage.save()
+                array = list(filter(lambda d: d['sub_type'] in 'discount_on_product', cart.offers))
 
                 cart_products = CartProductMapping.objects.select_related(
                     'cart_product'
@@ -617,10 +602,14 @@ class ReservedOrder(generics.ListAPIView):
                 products_available = {}
                 products_unavailable = []
                 for cart_product in cart_products:
-                    # cart_product_coupons = cart_product.cart_product.getProductCoupons()
-                    # for i in cart_product_coupons:
-                    #     if i not in coupon_codes_list:
-                    #         cart_product.sku_coupon_error_msg = 'The following Coupon is not applicable'
+                    coupon_usage_count = 0
+                    for i in array:
+                        if cart_product.cart_product.id == i['item_id']:
+                            customer_coupon_usage = CusotmerCouponUsage(coupon_id = i['coupon_id'], cart=cart)
+                            customer_coupon_usage.shop = parent_mapping.retailer
+                            customer_coupon_usage.product = cart_product.cart_product
+                            customer_coupon_usage.times_used += coupon_usage_count + 1
+                            customer_coupon_usage.save()
 
                     product_availability = shop_products_dict.get(cart_product.cart_product.id, 0)
 
@@ -1202,8 +1191,11 @@ class ReleaseBlocking(APIView):
                         ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
                     ordered_reserve.order_product_reserved.save()
                     ordered_reserve.delete()
-            CusotmerCouponUsage.objects.filter(cart__id = cart_id, shop__id=shop_id).delete()
+            if CusotmerCouponUsage.objects.filter(cart__id = cart_id, shop__id=shop_id).exists():
+                CusotmerCouponUsage.objects.filter(cart__id = cart_id, shop__id=shop_id).delete()
+
             msg = {'is_success': True, 'message': ['Blocking has released'], 'response_data': None}
+
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             if GramOrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved').exists():
                 for ordered_reserve in GramOrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved'):
