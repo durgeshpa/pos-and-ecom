@@ -179,3 +179,12 @@ class EmployeeFilter(InputFilter):
         if value:
             return queryset.filter(employee__phone_number=value)
 
+class SellerShopFilter(AutocompleteFilter):
+    title = 'Seller Shop'
+    field_name = 'shop'
+    autocomplete_url = 'admin:seller_shop_autocomplete'
+
+class CityFilter(AutocompleteFilter):
+    title = 'City'
+    field_name = 'city'
+
