@@ -326,7 +326,7 @@ class CartSerializer(serializers.ModelSerializer):
         exampleSet1 = obj.offers
         array1 = list(filter(lambda d: d['coupon_type'] in keyValList1, exampleSet1))
         for i in array1:
-            sum = sum + i['discounted_product_subtotal']
+            sum = sum + round(i['discounted_product_subtotal'], 2)
         return round(sum, 2)
 
     def get_total_discount(self, obj):

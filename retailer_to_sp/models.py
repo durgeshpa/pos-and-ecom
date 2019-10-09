@@ -355,7 +355,7 @@ class CartProductMapping(models.Model):
             else:
                 item_effective_price = self.cart_product_price.price_to_retailer
         except:
-            print("No Cart Product Pricet")
+            print("No Cart Product Price")
         return round(item_effective_price, 2)
 
 
