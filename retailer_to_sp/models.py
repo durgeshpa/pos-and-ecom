@@ -345,14 +345,17 @@ class CartProductMapping(models.Model):
 
     @property
     def item_effective_prices(self):
-        item_effective_price = 0
-        if self.cart.offers:
-            array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
-            for i in array:
-                if self.cart_product.id == i['item_id']:
-                    item_effective_price = (i.get('discounted_product_subtotal',0)) / self.no_of_pieces
-        else:
-            item_effective_price = self.cart_product_price.price_to_retailer
+        try:
+            item_effective_price = 0
+            if self.cart.offers:
+                array = list(filter(lambda d: d['coupon_type'] in 'catalog', self.cart.offers))
+                for i in array:
+                    if self.cart_product.id == i['item_id']:
+                        item_effective_price = (i.get('discounted_product_subtotal',0)) / self.no_of_pieces
+            else:
+                item_effective_price = self.cart_product_price.price_to_retailer
+        except:
+            print("No Cart Product Pricet")
         return round(item_effective_price, 2)
 
 
