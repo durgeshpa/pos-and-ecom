@@ -1,9 +1,15 @@
 import re
+import datetime
 
+from dal import autocomplete
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
+from retailer_backend.validators import PinCodeValidator
+
+from addresses.models import City, Pincode
+from shops.models import Shop
 from notification_center.models import(
     Template, TextSMSActivity, VoiceCallActivity,
     EmailActivity, GCMActivity, GroupNotificationScheduler
@@ -11,10 +17,44 @@ from notification_center.models import(
 
 
 class GroupNotificationForm(forms.ModelForm):
+
+    # city = forms.ModelChoiceField(
+    #     queryset=City.objects.all(),
+    #     widget=autocomplete.ModelSelect2(url='admin:city_autocomplete'),
+    #     required=False
+    # )
+    seller_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
+        widget=autocomplete.ModelSelect2(url='admin:seller-autocomplete1'),
+        required=False
+    )
+
+    buyer_shops = forms.ModelMultipleChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='r'),
+        widget=autocomplete.ModelSelect2Multiple(url='admin:retailer_autocomplete'),
+        # widget=autocomplete.ModelSelect2(
+        #     url='admin:retailer_autocomplete',
+        #     forward=('city','pincode_from', 'pincode_to')),
+        required=False
+    )
+    pincode = forms.ModelMultipleChoiceField(
+        queryset=Pincode.objects.all(),
+        widget=autocomplete.ModelSelect2Multiple(
+            url='admin:pincode_autocomplete',
+            forward=('city',)),
+        required=False
+    )
+
     class Meta:
         model = GroupNotificationScheduler
-        fields = '__all__'
-        
+        fields = ('seller_shop', 'city', 'pincode', 'buyer_shops', 'template',)
+                # 'run_at', 'repeat')  #'__all__'
+    
+    # class Media:
+    #     js = (
+    #         'admin/js/change_save_button_title.js'
+    #     )    
+
 
 class TemplateForm(forms.ModelForm):
     class Meta:

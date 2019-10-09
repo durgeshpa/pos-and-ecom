@@ -95,6 +95,8 @@ INSTALLED_APPS = [
     'django_celery_beat',
     'django_celery_results',
     'offer',
+    'django_extensions',
+    'celerybeat_status'
 ]
 
 FCM_APIKEY = config('FCM_APIKEY')
@@ -359,6 +361,7 @@ REDIS_DB_CHOICE = {
 # ]
 # JET_SIDE_MENU_COMPACT = True
 
+FCM_MAX_RECIPIENTS = 1000
 
 REDIS_URL = "{}/{}".format(config('CACHE_HOST'), REDIS_DB_CHOICE[ENVIRONMENT.lower()])
 CELERY_BROKER_URL = REDIS_URL
