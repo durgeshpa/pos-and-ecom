@@ -95,7 +95,6 @@ INSTALLED_APPS = [
     'django_celery_beat',
     'django_celery_results',
     'offer',
-    'django_extensions',
     'celerybeat_status'
 ]
 
