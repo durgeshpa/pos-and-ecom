@@ -41,7 +41,7 @@ class GetSlotBannerListView(APIView):
                     if banner_slot.count() == 0:
                         banner_slot = BannerPosition.objects.filter(shop=parent.id,city__in=[buyer_shop_address.last().city])
                     if banner_slot.count() == 0:
-                        banner_slot = BannerPosition.objects.filter(shop=parent.id)
+                        banner_slot = BannerPosition.objects.filter(shop=parent.id,buyer_shop=None,pincode=None,city=None)
 
                     data = BannerData.objects.filter(banner_data__status=True, slot__page__name=position_name,
                         slot__bannerslot__name=pos_name, slot=banner_slot.last()).filter(
