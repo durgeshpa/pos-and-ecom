@@ -379,7 +379,7 @@ class CartProductMapping(models.Model):
                 item_effective_price = self.cart_product_price.selling_price
         except:
             print("No Cart Product Price")
-        return round(item_effective_price, 2)
+        return item_effective_price
 
 
     def set_cart_product_price(self, seller_shop_id, buyer_shop_id):
