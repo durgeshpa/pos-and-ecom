@@ -971,7 +971,7 @@ class DownloadInvoiceSP(APIView):
                 "basic_amount": float(m.shipped_qty) * float(basic_rate),
                 "price_to_retailer": product_pro_price_ptr,
                 "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr)
-                "product_tax_amount": round(product_tax_amount, 2),
+                "product_tax_amount": round(product_tax_amount, 2)
 
             }
             total_tax_sum = total_tax_sum + product_tax_amount
