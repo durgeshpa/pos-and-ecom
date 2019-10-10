@@ -330,13 +330,14 @@ class GramGRNProductsList(APIView):
                 for c_p in cart_products:
                     if c_p.cart_product_id == p["_source"]["id"]:
                         keyValList2 = ['discount_on_product']
-                        exampleSet2 = cart.offers
-                        array2 = list(filter(lambda d: d['sub_type'] in keyValList2, exampleSet2))
-                        for i in array2:
-                            if i['item_sku']== c_p.cart_product.product_sku:
-                                discounted_product_subtotal = i['discounted_product_subtotal']
-                                p["_source"]["discounted_product_subtotal"] = discounted_product_subtotal
-                                for j in coupons: j['is_applied'] = True
+                        if cart.offers:
+                            exampleSet2 = cart.offers
+                            array2 = list(filter(lambda d: d['sub_type'] in keyValList2, exampleSet2))
+                            for i in array2:
+                                if i['item_sku']== c_p.cart_product.product_sku:
+                                    discounted_product_subtotal = i['discounted_product_subtotal']
+                                    p["_source"]["discounted_product_subtotal"] = discounted_product_subtotal
+                                    for j in coupons: j['is_applied'] = True
                         user_selected_qty = c_p.qty
                         no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
                         p["_source"]["user_selected_qty"] = user_selected_qty
