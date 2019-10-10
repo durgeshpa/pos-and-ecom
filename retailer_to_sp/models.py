@@ -238,7 +238,7 @@ class Cart(models.Model):
             i = 0
             if self.cart_status in ['active', 'pending']:
                 cart_value = 0
-                for product in self.rt_cart_list:
+                for product in self.rt_cart_list.all():
                     cart_value += product.cart_product.get_current_shop_price(self.seller_shop, self.buyer_shop).selling_price * product.no_of_pieces
                 cart_value -= discount_sum
             if self.cart_status in ['ordered']:
