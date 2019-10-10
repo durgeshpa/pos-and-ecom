@@ -437,7 +437,7 @@ class ExportCsvMixin:
 class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductPriceResource
     form = ProductPriceNewForm
-    actions = ['export_as_csv_productprice', 'approve_product_price']
+    actions = ['export_as_csv_productprice', 'approve_product_price','disapprove_product_price']
     list_select_related = ('product', 'seller_shop', 'buyer_shop', 'city',
                            'pincode')
     list_display = [
@@ -489,8 +489,16 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
             product.approval_status = ProductPrice.APPROVED
             product.save()
 
+    def disapprove_product_price(self, request, queryset):
+        queryset = queryset.filter(approval_status=ProductPrice.APPROVED).order_by('created_at')
+        for product in queryset:
+            product.approval_status = ProductPrice.DEACTIVATED
+            product.save()
+
     approve_product_price.short_description = "Approve Selected Products Prices"
     approve_product_price.allowed_permissions = ('change',)
+    disapprove_product_price.short_description = "Disapprove Selected Products Prices"
+    disapprove_product_price.allowed_permissions = ('change',)
 
     def has_delete_permission(self, request, obj=None):
         if request.user.is_superuser:
