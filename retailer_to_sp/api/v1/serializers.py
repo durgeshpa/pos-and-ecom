@@ -366,7 +366,7 @@ class CartSerializer(serializers.ModelSerializer):
         return self.total_amount
 
     def sub_total_id(self, obj):
-        sub_total = self.total_amount_id(obj) - self.get_total_discount(obj)
+        sub_total = float(self.total_amount_id(obj)) - self.get_total_discount(obj)
         return round(sub_total, 2)
 
     def items_count_id(self, obj):
@@ -511,7 +511,7 @@ class OrderedCartSerializer(serializers.ModelSerializer):
     #     return round(self.total_amount, 2)
 
     def sub_total_id(self, obj):
-        sub_total = self.total_amount_id(obj) - self.get_total_discount(obj)
+        sub_total = float(self.total_amount_id(obj)) - self.get_total_discount(obj)
         return round(sub_total, 2)
 
     def items_count_id(self, obj):
