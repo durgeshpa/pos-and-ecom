@@ -337,7 +337,7 @@ class GramGRNProductsList(APIView):
                                 if i['item_sku']== c_p.cart_product.product_sku:
                                     discounted_product_subtotal = i['discounted_product_subtotal']
                                     p["_source"]["discounted_product_subtotal"] = discounted_product_subtotal
-                                    p["_source"]["margin"] = (((check_price.mrp - c_p.item_effective_price) / check_price.mrp) * 100)
+                                    p["_source"]["margin"] = (((check_price.mrp - c_p.item_effective_prices) / check_price.mrp) * 100)
                                     for j in coupons: j['is_applied'] = True
                         user_selected_qty = c_p.qty
                         no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
