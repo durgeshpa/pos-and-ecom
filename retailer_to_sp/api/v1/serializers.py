@@ -80,12 +80,12 @@ class OrderedProductMappingSerializer(serializers.ModelSerializer):
     def get_product_price(self, obj):
         # fetch product , order_id
         cart_product_mapping = CartProductMapping.objects.get(cart_product=obj.product, cart=obj.ordered_product.order.ordered_cart)
-        self.product_price = cart_product_mapping.item_effective_prices
-        return round(self.product_price, 2)
+        self.product_price = round(cart_product_mapping.item_effective_prices,2)
+        return self.product_price
 
     def get_product_total_price(self, obj):
-        self.product_total_price = self.product_price * obj.shipped_qty
-        return round(self.product_total_price, 2)
+        self.product_total_price = round(self.product_price,2) * obj.shipped_qty
+        return round(self.product_total_price,2)
 
     class Meta:
         model = OrderedProductMapping
