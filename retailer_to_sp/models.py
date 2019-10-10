@@ -225,7 +225,7 @@ class Cart(models.Model):
                             elif (n.rule.discount_qty_step >=1) and (n.rule.discount != None):
                                 if sku_qty >= n.rule.discount_qty_step:
                                     discount_value = n.rule.discount.discount_value if n.rule.discount.is_percentage == False else round(((n.rule.discount.discount_value/100)* sku_no_of_pieces * sku_ptr), 2)
-                                    discount_sum += discount_value
+                                    discount_sum += round(discount_value, 2)
                                     discounted_product_subtotal = round((sku_no_of_pieces * sku_ptr) - discount_value, 2)
                                     sum += discounted_product_subtotal
                                     offers_list.append({'type':'discount', 'sub_type':'discount_on_product', 'coupon_id':o.id, 'coupon':o.coupon_name, 'coupon_code':o.coupon_code, 'item':m.cart_product.product_name, 'item_sku':m.cart_product.product_sku, 'item_id':m.cart_product.id, 'discount_value':discount_value, 'discount_total_sku':discount_sum, 'coupon_type':'catalog', 'discounted_product_subtotal':discounted_product_subtotal})
