@@ -335,7 +335,7 @@ class CartProductMappingAdmin(admin.TabularInline):
     form = CartProductMappingForm
     formset = AtLeastOneFormSet
     fields = ('cart', 'cart_product', 'cart_product_price', 'qty',
-              'no_of_pieces', 'product_case_size', 'product_inner_case_size')
+              'no_of_pieces', 'product_case_size', 'product_inner_case_size', 'item_effective_prices')
     autocomplete_fields = ('cart_product', 'cart_product_price')
     extra = 0
 
@@ -350,7 +350,7 @@ class CartProductMappingAdmin(admin.TabularInline):
             .get_readonly_fields(request, obj)
         if obj:
             readonly_fields = readonly_fields + (
-                'cart_product', 'cart_product_price', 'qty', 'no_of_pieces'
+                'cart_product', 'cart_product_price', 'qty', 'no_of_pieces', 'item_effective_prices'
             )
         return readonly_fields
 
@@ -374,7 +374,7 @@ class ExportCsvMixin:
 
 class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
-    fields = ('seller_shop', 'buyer_shop')
+    fields = ('seller_shop', 'buyer_shop', 'offers')
     actions = ["export_as_csv_cart", ]
     form = CartForm
     list_display = ('order_id', 'seller_shop','buyer_shop','cart_status','created_at',)
