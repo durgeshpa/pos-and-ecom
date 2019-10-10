@@ -276,6 +276,7 @@ class Cart(models.Model):
                 #             offers_list.append({'type':'discount', 'sub_type':'discount_on_cart', 'coupon_id':cart_coupon.id, 'coupon':cart_coupon.coupon_name, 'coupon_code':cart_coupon.coupon_code, 'discount_value':discount_value_cart, 'coupon_type':'cart'})
                 #
                 #         break
+            entice_text = ''
             if coupon_applied:
                 next_index = 2
             else:
@@ -284,17 +285,17 @@ class Cart(models.Model):
                 next_cart_coupon_min_value = cart_coupon_list[i-next_index].rule.cart_qualifying_min_sku_value
                 next_cart_coupon_min_value_diff = next_cart_coupon_min_value - cart_value + discount_value_cart
                 next_cart_coupon_discount = cart_coupon_list[i-next_index].rule.discount.discount_value if cart_coupon_list[i-next_index].rule.discount.is_percentage == False else (str(cart_coupon_list[i-next_index].rule.discount.discount_value) + '%')
-                enitce_text = "Shop for Rs %s more to avail a discount of Rs %s on the entire cart" % (next_cart_coupon_min_value_diff, next_cart_coupon_discount) if cart_coupon_list[i-next_index].rule.discount.is_percentage == False else "Shop for Rs %s more to avail a discount of %s on the entire cart" % (next_cart_coupon_min_value_diff, next_cart_coupon_discount)
-                offers_list.append({'entice_text':enitce_text, 'coupon_type': 'none', 'type': 'none', 'sub_type':'none'})
+                entice_text = "Shop for Rs %s more to avail a discount of Rs %s on the entire cart" % (next_cart_coupon_min_value_diff, next_cart_coupon_discount) if cart_coupon_list[i-next_index].rule.discount.is_percentage == False else "Shop for Rs %s more to avail a discount of %s on the entire cart" % (next_cart_coupon_min_value_diff, next_cart_coupon_discount)
+                offers_list.append({'entice_text':entice_text, 'coupon_type': 'none', 'type': 'none', 'sub_type':'none'})
             elif i==1 and  not coupon_applied:
                 next_cart_coupon_min_value = cart_coupon_list[i-next_index].rule.cart_qualifying_min_sku_value
                 next_cart_coupon_min_value_diff = next_cart_coupon_min_value - cart_value
                 next_cart_coupon_discount = cart_coupon_list[i-next_index].rule.discount.discount_value if cart_coupon_list[i-next_index].rule.discount.is_percentage == False else (str(cart_coupon_list[i-next_index].rule.discount.discount_value) + '%')
-                enitce_text = "Shop for Rs %s more to avail a discount of Rs %s on the entire cart" % (next_cart_coupon_min_value_diff, next_cart_coupon_discount) if cart_coupon_list[i-next_index].rule.discount.is_percentage == False else "Shop for Rs %s more to avail a discount of %s on the entire cart" % (next_cart_coupon_min_value_diff, next_cart_coupon_discount)
-                offers_list.append({'entice_text':enitce_text, 'coupon_type': 'none', 'type': 'none', 'sub_type':'none'})
+                entice_text = "Shop for Rs %s more to avail a discount of Rs %s on the entire cart" % (next_cart_coupon_min_value_diff, next_cart_coupon_discount) if cart_coupon_list[i-next_index].rule.discount.is_percentage == False else "Shop for Rs %s more to avail a discount of %s on the entire cart" % (next_cart_coupon_min_value_diff, next_cart_coupon_discount)
+                offers_list.append({'entice_text':entice_text, 'coupon_type': 'none', 'type': 'none', 'sub_type':'none'})
             else:
                 entice_text = ''
-                offers_list.append({'entice_text':enitce_text, 'coupon_type': 'none', 'type': 'none', 'sub_type':'none'})
+                offers_list.append({'entice_text':entice_text, 'coupon_type': 'none', 'type': 'none', 'sub_type':'none'})
             if discount_value_cart:
                 for product in cart_products:
                     array = list(filter(lambda d: d['coupon_type'] in 'catalog', offers_list))
