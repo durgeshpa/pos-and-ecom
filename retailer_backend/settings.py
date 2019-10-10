@@ -94,6 +94,7 @@ INSTALLED_APPS = [
     'fcm',
     'django_celery_beat',
     'django_celery_results',
+    'coupon',
     'offer',
     'celerybeat_status'
 ]
@@ -101,7 +102,7 @@ INSTALLED_APPS = [
 FCM_APIKEY = config('FCM_APIKEY')
 
 FCM_DEVICE_MODEL = 'notification_center.FCMDevice'
-
+IMPORT_EXPORT_USE_TRANSACTIONS = True
 SITE_ID = 1
 if DEBUG:
     MIDDLEWARE = [
@@ -251,7 +252,7 @@ INVOICE_STARTS_WITH = 'ORD'
 EMAIL_BACKEND = 'django_ses.SESBackend' #"smtp.sendgrid.net" #
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587
-# EMAIL_HOST_USER = config('EMAIL_HOST_USER') 
+# EMAIL_HOST_USER = config('EMAIL_HOST_USER')
 # EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 # FROM_EMAIL = config('FROM_EMAIL')
 
