@@ -281,6 +281,11 @@ class Cart(models.Model):
                 next_cart_coupon_discount = cart_coupon_list[i-2].rule.discount.discount_value if cart_coupon_list[i-2].rule.discount.is_percentage == False else (str(cart_coupon_list[i-2].rule.discount.discount_value) + '%')
                 enitce_text = "Shop for Rs %s more to avail a discount of Rs %s on the entire cart" % (next_cart_coupon_min_value_diff, next_cart_coupon_discount) if cart_coupon_list[i-2].rule.discount.is_percentage == False else "Shop for Rs %s more to avail a discount of %s on the entire cart" % (next_cart_coupon_min_value_diff, next_cart_coupon_discount)
                 offers_list.append({'enitce_text':enitce_text, 'coupon_type': 'none', 'type': 'none', 'sub_type':'none'})
+            else:
+                next_cart_coupon_min_value = cart_coupon_list[i-1].rule.cart_qualifying_min_sku_value
+                next_cart_coupon_min_value_diff = next_cart_coupon_min_value - cart_value
+                next_cart_coupon_discount = cart_coupon_list[i-1].rule.discount.discount_value if cart_coupon_list[i-1].rule.discount.is_percentage == False else (str(cart_coupon_list[i-1].rule.discount.discount_value) + '%')
+                enitce_text = "Shop for Rs %s more to avail a discount of Rs %s on the entire cart" % (next_cart_coupon_min_value_diff, next_cart_coupon_discount) if cart_coupon_list[i-1].rule.discount.is_percentage == False else "Shop for Rs %s more to avail a discount of %s on the entire cart" % (next_cart_coupon_min_value_diff, next_cart_coupon_discount)
 
             if discount_value_cart:
                 for product in cart_products:
