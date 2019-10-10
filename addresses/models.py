@@ -39,7 +39,7 @@ class State(models.Model):
 class City(models.Model):
     country = models.ForeignKey(Country, related_name='country_city', null=True, blank=True, on_delete=models.CASCADE)
     state = models.ForeignKey(State, related_name='state_city', null=True, blank=True, on_delete=models.CASCADE)
-    city_name = models.CharField(max_length=255, validators=[NameValidator])
+    city_name = models.CharField(max_length=255, validators=[NameValidator],db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
@@ -54,7 +54,7 @@ class City(models.Model):
 class Pincode(models.Model):
     city = models.ForeignKey(City, related_name='city_pincode',
                              on_delete=models.CASCADE)
-    pincode = models.CharField(max_length=6, validators=[PinCodeValidator])
+    pincode = models.CharField(max_length=6, validators=[PinCodeValidator],db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 

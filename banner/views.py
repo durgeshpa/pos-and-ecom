@@ -3,6 +3,7 @@ from products.models import Product
 from brand.models import Brand
 from categories.models import Category
 from banner.models import BannerData, Banner
+from addresses.models import Pincode, City
 
 class BrandAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
@@ -75,3 +76,25 @@ class BannerDataAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(name__icontains=self.q)
         return qs
+
+class RetailerShopAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Shop.objects.filter(shop_type__shop_type='r')
+        if self.q:
+            qs = qs.filter(shop_name__icontains=self.q)
+        return qs
+
+class PincodeAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Pincode.objects.all()
+        if self.q:
+            qs = qs.filter(pincode__icontains=self.q)
+        return qs
+
+class CityAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = City.objects.all()
+        if self.q:
+            qs = qs.filter(city_name__icontains=self.q)
+        return qs
+
