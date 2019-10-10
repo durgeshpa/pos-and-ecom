@@ -956,7 +956,7 @@ class DownloadInvoiceSP(APIView):
             get_tax_val = tax_sum / 100
             basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
             base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
-            product_tax_amount = float(base_price) * float(get_tax_val)
+            product_tax_amount = round(float(base_price) * float(get_tax_val),2)
 
             ordered_prodcut = {
                 "product_sku": m.product.product_gf_code,
@@ -970,10 +970,9 @@ class DownloadInvoiceSP(APIView):
                 "basic_rate": basic_rate,
                 "basic_amount": float(m.shipped_qty) * float(basic_rate),
                 "price_to_retailer": product_pro_price_ptr,
-                "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr)
-                "product_tax_amount": round(product_tax_amount, 2)
-
-            }
+                "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr),
+                "product_tax_amount": product_tax_amount
+                }
             total_tax_sum = total_tax_sum + product_tax_amount
             inline_sum_amount = inline_sum_amount + product_pro_price_ptr
             product_listing.append(ordered_prodcut)
