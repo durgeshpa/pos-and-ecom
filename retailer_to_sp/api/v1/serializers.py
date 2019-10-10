@@ -337,7 +337,7 @@ class CartSerializer(serializers.ModelSerializer):
         exampleSet1 = obj.offers
         array1 = list(filter(lambda d: d['coupon_type'] in keyValList1, exampleSet1))
         for i in array1:
-            sum = sum + i['discounted_product_subtotal']
+            sum = sum + round(i['discounted_product_subtotal'], 2)
         return round(sum, 2)
 
     def get_total_discount(self, obj):
@@ -470,6 +470,7 @@ class OrderedCartSerializer(serializers.ModelSerializer):
     items_count = serializers.SerializerMethodField('items_count_id')
     total_amount = serializers.SerializerMethodField('total_amount_id')
     total_discount = serializers.SerializerMethodField()
+    sub_total = serializers.SerializerMethodField('sub_total_id')
 
     def get_total_discount(self, obj):
         sum = 0
@@ -515,7 +516,7 @@ class OrderedCartSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Cart
-        fields = ('id','order_id','cart_status','created_at','modified_at','rt_cart_list','total_amount','sub_total','items_count', 'offers')
+        fields = ('id','order_id','cart_status','created_at','modified_at','rt_cart_list','total_amount','sub_total','items_count', 'offers', 'total_discount')
 
 #order Details
 class OrderDetailSerializer(serializers.ModelSerializer):

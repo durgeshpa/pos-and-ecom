@@ -14,5 +14,4 @@ class CouponSerializer(serializers.ModelSerializer):
         return status
 
     def get_max_qty(self, obj):
-
         return -1

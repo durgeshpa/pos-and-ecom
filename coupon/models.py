@@ -5,6 +5,7 @@ from categories.models import Category
 from products.models import Product
 from shops.models import Shop
 from addresses.models import City
+from django.db.models import F, FloatField, Sum
 # Create your models here.
 class DiscountValue(models.Model):
     discount_value = models.PositiveIntegerField(default=0, null=True, blank=True)
@@ -47,10 +48,10 @@ class Coupon(models.Model):
     rule = models.ForeignKey(CouponRuleSet, related_name ='coupon_ruleset', on_delete=models.CASCADE)
     coupon_name = models.CharField(max_length=255, null=True)
     coupon_code = models.CharField(max_length=255, null=True)
-    limit_per_user = models.PositiveIntegerField(default=0, null=True, blank=True)
+    limit_per_user_per_day = models.PositiveIntegerField(default=0, null=True, blank=True)
     limit_of_usages = models.PositiveIntegerField(default=0, null=True, blank=True)
     coupon_type = models.CharField(max_length=255, choices=COUPON_TYPE,null=True, blank=True)
-    no_of_times_used = models.PositiveIntegerField(default=0, null=True, blank=True)
+    # no_of_times_used = models.PositiveIntegerField(default=0, null=True, blank=True)
     is_display = models.BooleanField(default=False)
     is_active = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -58,6 +59,14 @@ class Coupon(models.Model):
 
     def __str__(self):
         return self.coupon_name
+
+    @property
+    def no_of_times_used(self):
+        count = CusotmerCouponUsage.objects.filter(coupon = self).count()
+        if count > 0:
+            count = CusotmerCouponUsage.objects.filter(coupon = self).count()
+        return count
+
 
     def save(self, *args, **kwargs):
         if self.is_active == True:
@@ -76,10 +85,13 @@ class CusotmerCouponUsage(models.Model):
     coupon = models.ForeignKey(Coupon, related_name ='customer_coupon', on_delete=models.CASCADE, null= True)
     cart = models.ForeignKey("retailer_to_sp.Cart", related_name ='customer_coupon', on_delete=models.CASCADE, null=True)
     shop = models.ForeignKey(Shop, related_name='customer_coupon_usage', on_delete=models.CASCADE, null=True, blank=True)
+    product = models.ForeignKey(Product, related_name='customer_coupon_product', on_delete=models.CASCADE, null=True, blank=True)
     times_used = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.coupon.coupon_name
+
 
 class RuleSetProductMapping(models.Model):
     rule = models.ForeignKey(CouponRuleSet, related_name ='product_ruleset', on_delete=models.CASCADE)
