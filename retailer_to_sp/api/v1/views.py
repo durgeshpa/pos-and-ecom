@@ -516,7 +516,7 @@ class CartDetail(APIView):
             if Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer, cart_status__in=['active', 'pending']).exists():
                 cart = Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
                                            cart_status__in=['active', 'pending']).last()
-                Cart.objects.filter(id=cart.id).update(offers=instance.cart.offers_applied())
+                Cart.objects.filter(id=cart.id).update(offers=cart.offers_applied())
                 if cart.rt_cart_list.count() <= 0:
                     msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
                            'response_data': None}
@@ -589,7 +589,7 @@ class ReservedOrder(generics.ListAPIView):
                                        cart_status__in=['active', 'pending'])
             if cart.exists():
                 cart = cart.last()
-                Cart.objects.filter(id=cart.id).update(offers=instance.cart.offers_applied())
+                Cart.objects.filter(id=cart.id).update(offers=cart.offers_applied())
                 coupon_codes_list = []
                 array = list(filter(lambda d: d['sub_type'] in 'discount_on_product', cart.offers))
 
