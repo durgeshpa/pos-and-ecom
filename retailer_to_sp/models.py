@@ -126,11 +126,11 @@ class Cart(models.Model):
     order_id = models.CharField(max_length=255, null=True, blank=True)
     seller_shop = models.ForeignKey(
         Shop, related_name='rt_seller_shop_cart',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     buyer_shop = models.ForeignKey(
         Shop, related_name='rt_buyer_shop_cart',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     cart_status = models.CharField(
         max_length=200, choices=CART_STATUS,
@@ -138,7 +138,7 @@ class Cart(models.Model):
     )
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_cart',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     offers = JSONField(null=True,blank=True)
     # cart_coupon_error_msg = models.CharField(
@@ -157,7 +157,7 @@ class Cart(models.Model):
     @property
     def subtotal(self):
         try:
-            return round(self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum'],2)
+            return round(self.rt_cart_list.aggregate(subtotal_sum=Sum(F('cart_product_price__selling_price') * F('no_of_pieces'),output_field=FloatField()))['subtotal_sum'],2)
         except:
             return None
 
@@ -192,14 +192,14 @@ class Cart(models.Model):
         date = datetime.datetime.now()
         discount_sum = 0
         sum = 0
-        # buyer_shop = self.buyer_shop
+        buyer_shop = self.buyer_shop
         # buyer_shop_city = buyer_shop.shop_name_address_mapping.filter(address_type = 'shipping').last().city
         if cart_products:
             for m in cart_products:
                 sku_qty = int(m.qty)
                 sku_no_of_pieces = int(m.cart_product.product_inner_case_size) * int(m.qty)
-                price = m.cart_product.get_current_shop_price(shop)
-                sku_ptr = price.price_to_retailer
+                price = m.cart_product.get_current_shop_price(shop, buyer_shop)
+                sku_ptr = price.selling_price
                 for n in m.cart_product.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date ):
                     for o in n.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte = date):
                         if n.rule.discount_qty_amount > 0:
@@ -225,9 +225,12 @@ class Cart(models.Model):
 
             i = 0
             if self.cart_status in ['active', 'pending']:
-                cart_value = (self.rt_cart_list.filter(cart_product__product_pro_price__shop=self.seller_shop, cart_product__product_pro_price__status=True, cart_product__product_pro_price__approval_status='approved').aggregate(value=Sum(F('cart_product__product_pro_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['value']) - discount_sum
+                cart_value = 0
+                for product in self.rt_cart_list:
+                    cart_value += product.cart_product.get_current_shop_price(self.seller_shop, self.buyer_shop).selling_price * product.no_of_pieces
+                cart_value -= discount_sum
             if self.cart_status in ['ordered']:
-                cart_value = (self.rt_cart_list.aggregate(value=Sum(F('cart_product_price__price_to_retailer') * F('no_of_pieces'),output_field=FloatField()))['value']) - discount_sum
+                cart_value = (self.rt_cart_list.aggregate(value=Sum(F('cart_product_price__selling_price') * F('no_of_pieces'),output_field=FloatField()))['value']) - discount_sum
             cart_items_count = self.rt_cart_list.count()
             for cart_coupon in cart_coupons:
                 if cart_coupon.rule.cart_qualifying_min_sku_value and not cart_coupon.rule.cart_qualifying_min_sku_item:
@@ -284,8 +287,24 @@ class Cart(models.Model):
     def save(self, *args, **kwargs):
         if self.cart_status == self.ORDERED:
             for cart_product in self.rt_cart_list.all():
-                cart_product.get_cart_product_price(self.seller_shop)
+                cart_product.get_cart_product_price(self.seller_shop.id, self.buyer_shop.id)
         super().save(*args, **kwargs)
+
+    @property
+    def buyer_contact_no(self):
+        return self.buyer_shop.shop_owner.phone_number
+
+    @property
+    def seller_contact_no(self):
+        return self.seller_shop.shop_owner.phone_number
+
+    @property
+    def date(self):
+        return self.created_at.date()
+
+    @property
+    def time(self):
+        return self.created_at.time()
 
 
 @receiver(post_save, sender=Cart)
@@ -300,15 +319,16 @@ def create_order_id(sender, instance=None, created=False, **kwargs):
 
 
 class CartProductMapping(models.Model):
-    cart = models.ForeignKey(Cart, related_name='rt_cart_list',
-                             on_delete=models.CASCADE)
+    cart = models.ForeignKey(Cart, related_name='rt_cart_list',null=True,
+                             on_delete=models.SET_NULL
+    )
     cart_product = models.ForeignKey(
-        Product, related_name='rt_cart_product_mapping',
-        on_delete=models.CASCADE
+        Product, related_name='rt_cart_product_mapping',null=True,
+        on_delete=models.SET_NULL
     )
     cart_product_price = models.ForeignKey(
         ProductPrice, related_name='rt_cart_product_price_mapping',
-        on_delete=models.CASCADE, null=True, blank=True
+        on_delete=models.SET_NULL, null=True, blank=True
     )
     qty = models.PositiveIntegerField(default=0)
     no_of_pieces = models.PositiveIntegerField(default=0)
@@ -343,23 +363,24 @@ class CartProductMapping(models.Model):
                 if self.cart_product.id == i['item_id']:
                     item_effective_price = (i['discounted_product_subtotal']) / self.no_of_pieces
         else:
-            item_effective_price = self.cart_product_price.price_to_retailer
+            item_effective_price = self.cart_product_price.selling_price
         return item_effective_price
 
-    def set_cart_product_price(self, shop):
-        self.cart_product_price = self.cart_product.get_current_shop_price(shop)
+    def set_cart_product_price(self, seller_shop_id, buyer_shop_id):
+        self.cart_product_price = self.cart_product.\
+            get_current_shop_price(seller_shop_id, buyer_shop_id)
         self.save()
 
-    def get_cart_product_price(self, shop):
+    def get_cart_product_price(self, seller_shop_id, buyer_shop_id):
         if not self.cart_product_price:
-            self.set_cart_product_price(shop)
+            self.set_cart_product_price(seller_shop_id, buyer_shop_id)
         return self.cart_product_price
 
-    def get_product_latest_mrp(self,shop):
+    def get_product_latest_mrp(self, shop):
         if self.cart_product_price:
-            return round(self.cart_product_price.mrp,2)
+            return self.cart_product_price.mrp
         else:
-            return round(self.cart_product.get_current_shop_price(shop).mrp,2)
+            return self.cart_product.get_current_shop_price(seller_shop_id, buyer_shop_id).mrp
 
 
 class Order(models.Model):
@@ -443,25 +464,25 @@ class Order(models.Model):
     #Todo Remove
     seller_shop = models.ForeignKey(
         Shop, related_name='rt_seller_shop_order',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     #Todo Remove
     buyer_shop = models.ForeignKey(
         Shop, related_name='rt_buyer_shop_order',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     ordered_cart = models.OneToOneField(
-        Cart, related_name='rt_order_cart_mapping',
-        on_delete=models.CASCADE
+        Cart, related_name='rt_order_cart_mapping',null=True,
+        on_delete=models.SET_NULL
     )
     order_no = models.CharField(max_length=255, null=True, blank=True)
     billing_address = models.ForeignKey(
         Address, related_name='rt_billing_address_order',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     shipping_address = models.ForeignKey(
         Address, related_name='rt_shipping_address_order',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     total_mrp = models.FloatField(default=0)
     total_discount_amount = models.FloatField(default=0)
@@ -474,15 +495,15 @@ class Order(models.Model):
     order_closed = models.BooleanField(default=False, null=True, blank=True)
     ordered_by = models.ForeignKey(
         get_user_model(), related_name='rt_ordered_by_user',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     received_by = models.ForeignKey(
         get_user_model(), related_name='rt_received_by_user',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_order_modified_user',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -627,13 +648,13 @@ class Order(models.Model):
 
 class Trip(models.Model):
     seller_shop = models.ForeignKey(
-        Shop, related_name='trip_seller_shop',
-        on_delete=models.CASCADE
+        Shop, related_name='trip_seller_shop', null=True,
+        on_delete=models.SET_NULL
     )
     dispatch_no = models.CharField(max_length=50, unique=True)
     delivery_boy = models.ForeignKey(
-        UserWithName, related_name='order_delivered_by_user',
-        on_delete=models.CASCADE, verbose_name='Delivery Boy'
+        UserWithName, related_name='order_delivered_by_user', null=True,
+        on_delete=models.SET_NULL, verbose_name='Delivery Boy'
     )
     vehicle_no = models.CharField(max_length=50)
     trip_status = models.CharField(max_length=100, choices=TRIP_STATUS)
@@ -855,7 +876,7 @@ class OrderedProduct(models.Model): #Shipment
 
     order = models.ForeignKey(
         Order, related_name='rt_order_order_product',
-        on_delete=models.CASCADE, null=True, blank=True
+        on_delete=models.SET_NULL, null=True, blank=True
     )
     shipment_status = models.CharField(
         max_length=50, choices=SHIPMENT_STATUS,
@@ -869,15 +890,15 @@ class OrderedProduct(models.Model): #Shipment
     invoice_no = models.CharField(max_length=255, null=True, blank=True)
     trip = models.ForeignKey(
         Trip, related_name="rt_invoice_trip",
-        null=True, blank=True, on_delete=models.CASCADE,
+        null=True, blank=True, on_delete=models.SET_NULL,
     )
     received_by = models.ForeignKey(
         get_user_model(), related_name='rt_ordered_product_received_by_user',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_order',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     no_of_crates = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Crates Shipped")
     no_of_packets = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Packets Shipped")
@@ -901,8 +922,8 @@ class OrderedProduct(models.Model): #Shipment
             self._delivered_amount = 0
             shipment_products = self.rt_order_product_order_product_mapping.values('product','shipped_qty','returned_qty','damaged_qty').all()
             shipment_map = {i['product']:(i['shipped_qty'], i['returned_qty'], i['damaged_qty']) for i in shipment_products}
-            cart_product_map = self.order.ordered_cart.rt_cart_list.values('cart_product_price__price_to_retailer', 'cart_product', 'qty').filter(cart_product_id__in=shipment_map.keys())
-            product_price_map = {i['cart_product']:(i['cart_product_price__price_to_retailer'], i['qty']) for i in cart_product_map}
+            cart_product_map = self.order.ordered_cart.rt_cart_list.values('cart_product_price__selling_price', 'cart_product', 'qty').filter(cart_product_id__in=shipment_map.keys())
+            product_price_map = {i['cart_product']:(i['cart_product_price__selling_price'], i['qty']) for i in cart_product_map}
             for product, shipment_details in shipment_map.items():
                 try:
                     product_price = product_price_map[product][0]
@@ -1004,13 +1025,13 @@ class PickerDashboard(models.Model):
     order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE)
     shipment = models.ForeignKey(
         OrderedProduct, related_name="picker_shipment",
-        on_delete=models.CASCADE, null=True, blank=True)
+        on_delete=models.SET_NULL, null=True, blank=True)
     picking_status = models.CharField(max_length=50,choices=PICKING_STATUS, default='picking_pending')
     #make unique to picklist id
     picklist_id = models.CharField(max_length=255, null=True, blank=True)#unique=True)
     picker_boy = models.ForeignKey(
         UserWithName, related_name='picker_user',
-        on_delete=models.CASCADE, verbose_name='Picker Boy',
+        on_delete=models.SET_NULL, verbose_name='Picker Boy',
         null=True, blank=True
     )
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1028,11 +1049,11 @@ class PickerDashboard(models.Model):
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(
         OrderedProduct, related_name='rt_order_product_order_product_mapping',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, on_delete=models.SET_NULL
     )
     product = models.ForeignKey(
         Product, related_name='rt_product_order_product',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, on_delete=models.SET_NULL
     )
     shipped_qty = models.PositiveIntegerField(default=0, verbose_name="Shipped Pieces")
     delivered_qty = models.PositiveIntegerField(default=0, verbose_name="Delivered Pieces")
@@ -1040,7 +1061,7 @@ class OrderedProductMapping(models.Model):
     damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Pieces")
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_order_product',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, on_delete=models.SET_NULL
     )
     product_tax_json = JSONField(null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1138,26 +1159,30 @@ class OrderedProductMapping(models.Model):
             return str(gf_code)
         return str("-")
 
-
     @property
     def mrp(self):
-        return round(self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.mrp,2)
+        return self.ordered_product.order.ordered_cart.rt_cart_list\
+            .get(cart_product=self.product).cart_product_price.mrp
 
     @property
     def price_to_retailer(self):
-        return round(self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.price_to_retailer,2)
+        return self.ordered_product.order.ordered_cart.rt_cart_list\
+            .get(cart_product=self.product).cart_product_price.selling_price
 
     @property
     def cash_discount(self):
-        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.cash_discount
+        return self.ordered_product.order.ordered_cart.rt_cart_list\
+            .get(cart_product=self.product).cart_product_price.cash_discount
 
     @property
     def loyalty_incentive(self):
-        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.loyalty_incentive
+        return self.ordered_product.order.ordered_cart.rt_cart_list\
+            .get(cart_product=self.product).cart_product_price.loyalty_incentive
 
     @property
     def margin(self):
-        return self.ordered_product.order.ordered_cart.rt_cart_list.get(cart_product = self.product).cart_product_price.margin
+        return self.ordered_product.order.ordered_cart.rt_cart_list\
+            .get(cart_product=self.product).cart_product_price.margin
 
     @property
     def ordered_product_status(self):
@@ -1264,7 +1289,7 @@ class ShipmentRescheduling(models.Model):
 
     shipment = models.ForeignKey(
         OrderedProduct, related_name='rescheduling_shipment',
-        blank=False, on_delete=models.CASCADE
+        blank=False, null=True, on_delete=models.SET_NULL
     )
     rescheduling_reason = models.CharField(
         max_length=50, choices=RESCHEDULING_REASON,
@@ -1274,7 +1299,7 @@ class ShipmentRescheduling(models.Model):
     created_by = models.ForeignKey(
         get_user_model(),
         related_name='rescheduled_by',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -1330,7 +1355,7 @@ class Commercial(Trip):
 
 class CustomerCare(models.Model):
     order_id = models.ForeignKey(
-        Order, on_delete=models.CASCADE, null=True, blank=True
+        Order, on_delete=models.SET_NULL, null=True, blank=True
     )
     phone_number = models.CharField( max_length=10, blank=True, null=True)
     complaint_id = models.CharField(max_length=255, null=True, blank=True)
@@ -1400,7 +1425,7 @@ class CustomerCare(models.Model):
         super(CustomerCare, self).save()
 
 class ResponseComment(models.Model):
-    customer_care = models.ForeignKey(CustomerCare,related_name='customer_care_comments',null=True,blank=True,on_delete=models.CASCADE)
+    customer_care = models.ForeignKey(CustomerCare,related_name='customer_care_comments', null=True, blank=True, on_delete=models.SET_NULL)
     comment = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(
         auto_now_add=True, verbose_name="Comment Date")
@@ -1420,7 +1445,7 @@ class Payment(models.Model):
 
     order_id = models.ForeignKey(
         Order, related_name='rt_payment',
-        on_delete=models.CASCADE, null=True
+        on_delete=models.SET_NULL, null=True
     )
     name = models.CharField(max_length=255, null=True, blank=True)
     paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
@@ -1489,23 +1514,23 @@ def order_notification(sender, instance=None, created=False, **kwargs):
 
 class Return(models.Model):
     invoice_no = models.ForeignKey(
-        OrderedProduct, on_delete=models.CASCADE,
+        OrderedProduct, on_delete=models.SET_NULL,
         null=True, verbose_name='Shipment Id'
     )
     name = models.CharField(max_length=255, null=True, blank=True)
     shipped_by = models.ForeignKey(
         get_user_model(),
         related_name='return_shipped_product_ordered_by_user',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     received_by = models.ForeignKey(
         get_user_model(),
         related_name='return_ordered_product_received_by_user',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='return_last_modified_user_order',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -1522,11 +1547,11 @@ class Return(models.Model):
 class ReturnProductMapping(models.Model):
     return_id = models.ForeignKey(
         Return, related_name='rt_product_return_product_mapping',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     returned_product = models.ForeignKey(
         Product, related_name='rt_product_return_product',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     total_returned_qty = models.PositiveIntegerField(default=0)
     reusable_qty = models.PositiveIntegerField(default=0)
@@ -1534,7 +1559,7 @@ class ReturnProductMapping(models.Model):
     last_modified_by = models.ForeignKey(
         get_user_model(),
         related_name='return_last_modified_user_return_product',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     manufacture_date = models.DateField()
     expiry_date = models.DateField()
@@ -1570,16 +1595,16 @@ class ReturnProductMapping(models.Model):
 
 
 class Note(models.Model):
-    shop = models.ForeignKey(Shop, related_name='credit_notes', null=True, blank=True, on_delete=models.CASCADE)
+    shop = models.ForeignKey(Shop, related_name='credit_notes', null=True, blank=True, on_delete=models.SET_NULL)
     credit_note_id = models.CharField(max_length=255, null=True, blank=True)
-    shipment = models.ForeignKey(OrderedProduct, null=True, blank=True, on_delete=models.CASCADE, related_name='credit_note')
+    shipment = models.ForeignKey(OrderedProduct, null=True, blank=True, on_delete=models.SET_NULL, related_name='credit_note')
     note_type = models.CharField(
         max_length=255, choices=NOTE_TYPE_CHOICES, default='credit_note'
     )
     amount = models.FloatField(default=0)
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_note',
-        null=True, blank=True, on_delete=models.CASCADE
+        null=True, blank=True, on_delete=models.SET_NULL
     )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)

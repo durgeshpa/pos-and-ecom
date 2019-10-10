@@ -1,6 +1,7 @@
 import datetime
 import logging
 
+from decimal import Decimal
 from dal import autocomplete
 from wkhtmltopdf.views import PDFTemplateResponse
 from products.models import *
@@ -118,12 +119,12 @@ class DownloadCreditNote(APIView):
             sum_amount = sum_amount + (
                     int(m.product.product_inner_case_size) *
                     int(m.returned_qty) *
-                    h.price_to_retailer
+                    h.selling_price
             )
             inline_sum_amount = (
                     int(m.product.product_inner_case_size) *
                     int(m.returned_qty) *
-                    h.price_to_retailer
+                    h.selling_price
             )
             for n in m.get_products_gst_tax():
                 divisor = (1 + (n.tax.tax_percentage / 100))
@@ -407,9 +408,11 @@ def trip_planning_change(request, pk):
                 trip = form.save()
                 current_trip_status = trip.trip_status
                 if trip_status == 'STARTED':
-                    trip_instance.rt_invoice_trip.all().update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
                     if current_trip_status == "COMPLETED":
-                        OrderedProductMapping.objects.filter(ordered_product__in=trip_instance.rt_invoice_trip.all()).update(delivered_qty=F('shipped_qty'))
+                        trip_instance.rt_invoice_trip.filter(shipment_status='OUT_FOR_DELIVERY').update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
+                        OrderedProductMapping.objects.filter(ordered_product__in=trip_instance.rt_invoice_trip.filter(shipment_status='OUT_FOR_DELIVERY')).update(delivered_qty=F('shipped_qty'))
+                    else:
+                        trip_instance.rt_invoice_trip.all().update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
                     return redirect('/admin/retailer_to_sp/trip/')
 
                 if trip_status == 'READY':
@@ -638,7 +641,7 @@ class DownloadPickListPicker(TemplateView, ):
                 product_list = {
                     "product_name": cart_pro.cart_product.product_name,
                     "product_sku": cart_pro.cart_product.product_sku,
-                    "product_mrp": round(cart_pro.get_cart_product_price(order_obj.seller_shop).mrp, 2),
+                    "product_mrp": cart_pro.get_cart_product_price(order_obj.seller_shop.id, order_obj.buyer_shop.id).mrp,
                     "to_be_shipped_qty": int(cart_pro.no_of_pieces),
                     # "no_of_pieces":cart_pro.no_of_pieces,
                 }
@@ -672,7 +675,7 @@ class DownloadPickListPicker(TemplateView, ):
                 product_list = {
                     "product_name": cart_pro.cart_product.product_name,
                     "product_sku": cart_pro.cart_product.product_sku,
-                    "product_mrp": round(cart_pro.get_cart_product_price(order_obj.seller_shop).mrp, 2),
+                    "product_mrp": cart_pro.get_cart_product_price(order_obj.seller_shop.id, order_obj.buyer_shop.id).mrp,
                     # "ordered_qty": int(cart_pro.qty),
                     "ordered_qty": int(cart_pro.no_of_pieces),
                     # "no_of_pieces":cart_pro.no_of_pieces,
@@ -726,7 +729,7 @@ class DownloadPickList(TemplateView, ):
             product_list = {
                 "product_name": cart_pro.cart_product.product_name,
                 "product_sku": cart_pro.cart_product.product_sku,
-                "product_mrp": round(cart_pro.get_cart_product_price(order_obj.seller_shop).mrp, 2),
+                "product_mrp": cart_pro.get_cart_product_price(order_obj.seller_shop.id, order_obj.buyer_shop.id).mrp,
                 "ordered_qty": cart_pro.qty,
                 "no_of_pieces": cart_pro.no_of_pieces,
             }
@@ -752,7 +755,6 @@ class DownloadPickList(TemplateView, ):
             filename=self.filename, context=data,
             show_content_in_browser=False, cmd_options=cmd_option)
         return response
-
 
 def order_invoices(request):
     order_id = request.GET.get('order_id')
@@ -1053,7 +1055,8 @@ class RetailerCart(APIView):
         order_obj = Order.objects.get(order_no=request.GET.get('order_no'))
         dt = OrderedCartSerializer(
             order_obj.ordered_cart,
-            context={'parent_mapping_id': order_obj.seller_shop.id, }
+            context={'parent_mapping_id': order_obj.seller_shop.id,
+                     'buyer_shop_id': order_obj.buyer_shop.id}
         )
         return Response({'is_success': True, 'response_data': dt.data}, status=status.HTTP_200_OK)
 
@@ -1100,7 +1103,7 @@ class OrderCancellation(object):
     def get_cart_products_price(self, products_list):
         cart_products_price = CartProductMapping.objects \
             .values(product_id=F('cart_product'),
-                    product_price=F('cart_product_price__price_to_retailer')) \
+                    product_price=F('cart_product_price__selling_price')) \
             .filter(cart_product_id__in=products_list,
                     cart=self.cart)
         product_price_map = {i['product_id']: i['product_price']
@@ -1146,8 +1149,7 @@ class OrderCancellation(object):
                     expiry_date=item['exp_date'],
                 )
                 product_price = product_price_map.get(item['r_product'], 0)
-                product_price = float(round(product_price, 2))
-                credit_amount += (int(item['s_qty']) *
+                credit_amount += (Decimal(item['s_qty']) *
                                   product_price)
         else:
             for item in reserved_qty_queryset:
@@ -1163,8 +1165,7 @@ class OrderCancellation(object):
                     expiry_date=item['exp_date'],
                 )
                 product_price = product_price_map.get(item['r_product'], 0)
-                product_price = float(round(product_price, 2))
-                credit_amount += (int(item['s_qty']) *
+                credit_amount += (Decimal(item['s_qty']) *
                                   product_price)
 
         # update credit note amount
@@ -1290,4 +1291,12 @@ class UserWithNameAutocomplete(autocomplete.Select2QuerySetView):
                 Q(first_name__icontains=self.q) |
                 Q(last_name__icontains=self.q)
             )
+        return qs
+
+class SellerAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = Shop.objects.all()
+
+        if self.q:
+            qs = qs.filter(shop_name__icontains=self.q)
         return qs

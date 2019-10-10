@@ -2,17 +2,26 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 from rest_framework.response import Response
+from django_filters import rest_framework as filters
+
 from .serializers import (RetailerTypeSerializer, ShopTypeSerializer,
         ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer, ShopTimingSerializer, ShopUserMappingSerializer,
-        SellerShopSerializer, AppVersionSerializer, ShopUserMappingUserSerializer, ShopRequestBrandSerializer
+        SellerShopSerializer, AppVersionSerializer, ShopUserMappingUserSerializer, ShopRequestBrandSerializer,
+        FavouriteProductSerializer, AddFavouriteProductSerializer,
+        ListFavouriteProductSerializer
 )
-from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping, SalesAppVersion, ShopRequestBrand, ShopTiming)
+from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping, SalesAppVersion, ShopRequestBrand, ShopTiming,
+    FavouriteProduct)
 from rest_framework import generics
 from addresses.models import City, Area, Address
 from rest_framework import status
 from django.contrib.auth import get_user_model
 from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES
 from rest_framework.parsers import FormParser, MultiPartParser
+from common.data_wrapper_view import DataWrapperViewSet
+from rest_framework.permissions import IsAuthenticated, AllowAny
+
+from shops.filters import FavouriteProductFilter
 
 from common.data_wrapper_view import DataWrapperViewSet
 from retailer_to_sp.models import OrderedProduct
@@ -29,6 +38,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from retailer_to_sp.models import OrderedProduct
 from retailer_to_sp.views import update_order_status, update_shipment_status_with_id
 from retailer_to_sp.api.v1.views import update_trip_status
+from dateutil.relativedelta import relativedelta
 
 
 class ShopRequestBrandViewSet(DataWrapperViewSet):
@@ -58,6 +68,80 @@ class ShopRequestBrandViewSet(DataWrapperViewSet):
         if hasattr(self, 'action'):
             return serializer_action_classes.get(self.action, self.serializer_class)
         return self.serializer_class
+
+
+
+class FavouriteProductView(DataWrapperViewSet):
+    '''
+    This class handles all operation of favourite product for a shop
+    '''
+    #permission_classes = (AllowAny,)
+    model = FavouriteProduct
+    serializer_class = FavouriteProductSerializer
+    queryset = FavouriteProduct.objects.all()
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    filter_backends = (filters.DjangoFilterBackend,)
+    filter_class = FavouriteProductFilter
+
+    def get_serializer_class(self):
+        '''
+        Returns the serializer according to action of viewset
+        '''
+        serializer_action_classes = {
+            'retrieve': FavouriteProductSerializer,
+            'list': FavouriteProductSerializer,
+            'create':AddFavouriteProductSerializer,
+            'update':FavouriteProductSerializer,
+            'delete':FavouriteProductSerializer
+        }
+        if hasattr(self, 'action'):
+            return serializer_action_classes.get(self.action, self.serializer_class)
+        return self.serializer_class
+
+    def delete(self, request, *args, **kwargs):
+    
+        try:
+            # import pdb; pdb.set_trace()
+            buyer_shop=request.query_params['buyer_shop']
+            product=request.query_params['product']
+            favourite = FavouriteProduct.objects.filter(buyer_shop=buyer_shop, product=product)
+            if favourite.exists():
+                favourite.delete()
+                return Response(data={'message':"deleted"})
+            else:
+                return Response(data={'message':"not found"})
+
+        except Exception as e:
+            return Response(data={'message':str(e)})
+
+
+class FavouriteProductListView(generics.ListAPIView):
+    queryset = FavouriteProduct.objects.all()
+    serializer_class = ListFavouriteProductSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    #permission_classes = (AllowAny,)
+    # filter_backends = (filters.DjangoFilterBackend,)
+    # filter_class = FavouriteProductFilter
+
+    def get_queryset(self):
+        buyer_shop = self.request.query_params.get('buyer_shop', None)
+        buyer_shop_products = FavouriteProduct.objects.all()
+        if buyer_shop:
+            buyer_shop_products = buyer_shop_products.filter(
+                buyer_shop=buyer_shop
+                )
+        return buyer_shop_products
+
+    def list(self, request):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        msg = {'is_success':True,
+                'message': None,
+                'response_data':serializer.data}
+        return Response(msg,
+                        status=status.HTTP_200_OK)
 
 
 class RetailerTypeView(generics.ListAPIView):
@@ -276,20 +360,13 @@ class TeamListView(generics.ListAPIView):
             .annotate(no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
             .annotate(no_of_ordered_sku_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces')) \
             .annotate(avg_no_of_ordered_sku_pieces=Avg('ordered_cart__rt_cart_list__no_of_pieces')) \
-            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer') * F(
+            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__selling_price') * F(
             'ordered_cart__rt_cart_list__no_of_pieces'),
                                          output_field=FloatField())) \
-            .annotate(avg_ordered_amount=Avg(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer') * F(
+            .annotate(avg_ordered_amount=Avg(F('ordered_cart__rt_cart_list__cart_product_price__selling_price') * F(
             'ordered_cart__rt_cart_list__no_of_pieces'),
                                          output_field=FloatField())) \
             .order_by('ordered_by')
-
-    def get_avg_order(self,shops_list,today,last_day):
-        return Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today,
-                             created_at__date__gte=last_day).values('ordered_by') \
-            .annotate(sum_no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
-            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer') * F(
-            'ordered_cart__rt_cart_list__no_of_pieces'), output_field=FloatField())).order_by('buyer_shop')
 
     def get_buyer_shop(self,shops_list,today,last_day):
         return Order.objects.filter(buyer_shop__id__in=shops_list, created_at__date__lte=today,
@@ -297,9 +374,15 @@ class TeamListView(generics.ListAPIView):
             buyer_shop_count=Count('ordered_by')).order_by('ordered_by')
 
     def list(self, request, *args, **kwargs):
-        days_diff = 1 if self.request.query_params.get('day', None) is None else int(self.request.query_params.get('day'))
-        today = datetime.now()
-        last_day = today - timedelta(days=days_diff)
+        days_diff = int(self.request.query_params.get('day', 1))
+        to_date = datetime.now() + timedelta(days=1) if days_diff == 1 else datetime.now()- timedelta(days=1)
+        if days_diff == 1:
+            from_date = to_date - timedelta(days=days_diff)
+        elif days_diff == 30:
+            from_date = datetime.now() - relativedelta(months=+1)
+        else:
+            from_date = datetime.now() - timedelta(days=days_diff)
+            
         employee_list = self.get_employee_list()
         if not employee_list.exists():
             msg = {'is_success': False, 'message': ["Sorry No matching user found"], 'response_data': None}
@@ -307,19 +390,16 @@ class TeamListView(generics.ListAPIView):
         shops_list = self.get_shops()
         data = []
         data_total = []
-        order_obj = self.ger_order(shops_list,today,last_day)
-        avg_order_obj = self.get_avg_order(shops_list,today,last_day)
-        buyer_order_obj = self.get_buyer_shop(shops_list,today,last_day)
-
+        order_obj = self.ger_order(shops_list, to_date, from_date)
+        buyer_order_obj = self.get_buyer_shop(shops_list, to_date, from_date)
         buyer_order_map = {i['ordered_by']: (i['buyer_shop_count'],) for i in buyer_order_obj}
-        avg_order_map = {i['ordered_by']: (i['sum_no_of_ordered_sku'], i['ordered_amount']) for i in avg_order_obj}
 
         order_map = {i['ordered_by']: (i['no_of_ordered_sku'], i['no_of_ordered_sku_pieces'], i['avg_no_of_ordered_sku_pieces'],
         i['ordered_amount'], i['avg_ordered_amount'], i['shops_ordered']) for i in order_obj}
 
         ordered_sku_pieces_total, ordered_amount_total, store_added_total, avg_order_total, avg_order_line_items_total, no_of_ordered_sku_total = 0,0,0,0,0,0
         for emp in employee_list:
-            store_added = emp.employee.shop_created_by.filter(created_at__date__lte=today, created_at__date__gte=last_day).count()
+            store_added = emp.employee.shop_created_by.filter(created_at__date__lte=to_date, created_at__date__gte=from_date).count()
             rt = {
                 'ordered_sku_pieces': order_map[emp.employee.id][1] if emp.employee.id in order_map else 0,
                 'ordered_amount': round(order_map[emp.employee.id][3], 2) if emp.employee.id in order_map else 0,
@@ -427,7 +507,7 @@ class SellerShopOrder(generics.ListAPIView):
             annotate(buyer_shop_count=Count('buyer_shop')) \
             .annotate(no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
             .annotate(no_of_ordered_sku_pieces=Sum('ordered_cart__rt_cart_list__no_of_pieces')) \
-            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer') * F(
+            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__selling_price') * F(
             'ordered_cart__rt_cart_list__no_of_pieces'),
                                          output_field=FloatField())) \
             .order_by('buyer_shop')
@@ -437,74 +517,60 @@ class SellerShopOrder(generics.ListAPIView):
                              created_at__date__gte=last_day).values('buyer_shop').annotate(
             buyer_shop_count=Count('buyer_shop')).order_by('buyer_shop')
 
-    def get_sales_person_shops_data(self, sales_person, start_date, end_date):
-        queryset = sales_person.shop_employee.filter(
-            shop__shop_type__shop_type='r',
-             status=True,
-             shop__rt_buyer_shop_order__created_at__date__gte=start_date,
-             shop__rt_buyer_shop_order__created_at__date__lte=end_date).values('shop__id').annotate(
-                        num_orders=Count('shop__rt_buyer_shop_order'),
-                        num_skus=Count('shop__rt_buyer_shop_order__ordered_cart__rt_cart_list'),
-                        num_sku_pieces=Sum('shop__rt_buyer_shop_order__ordered_cart__rt_cart_list__no_of_pieces'),
-                        ordered_amount=Sum(
-                            F('shop__rt_buyer_shop_order__ordered_cart__rt_cart_list__no_of_pieces')*F(
-                                'shop__rt_buyer_shop_order__ordered_cart__rt_cart_list__cart_product_price__price_to_retailer')
-                            )
-                        )
-        def_val = Value(0, output_field=IntegerField())
-        inactive_queryset = sales_person.shop_employee.exclude(
-            shop__shop_type__shop_type='r',
-             status=True,
-             shop__rt_buyer_shop_order__created_at__date__gte=start_date,
-             shop__rt_buyer_shop_order__created_at__date__lte=end_date
-             ).values('shop__id').annotate(
-                        num_orders=def_val,
-                        num_skus=def_val,
-                        num_sku_pieces=def_val,
-                        ordered_amount=def_val
-             )
-        sp_performance = {
-            'no_of_order': 0,
-            'no_of_ordered_sku': 0,
-            'no_of_ordered_sku_pieces': 0,
-            'ordered_amount': 0,
-            'calls_made': 0,
-            'delivered_amount': 0,
-        }
-        for shop in queryset:
-            sp_performance["no_of_order"] += perf['no_of_order']
-            sp_performance["no_of_ordered_sku"] += perf['no_of_ordered_sku']
-            sp_performance["no_of_ordered_sku_pieces"] += perf['no_of_ordered_sku_pieces']
-            sp_performance["ordered_amount"] += perf['ordered_amount']
-        return queryset.union(inactive_queryset), sp_performance
-
     def list(self, request, *args, **kwargs):
-        days_diff = int(self.request.query_params.get('day', 1))
-        today = datetime.today()
-        if days_diff == 1:
-            from_date = today
-            to_date = today + timedelta(days=1)
-        else:
-            from_date = today - timedelta(days=days_diff)
-            to_date = today
-        shop_user = ShopUserMapping.objects.filter(employee=self.request.user, shop__shop_type__shop_type='sp', status=True).last()
-        
-        if not shop_user:
-            msg = {'is_success': False, 'message': ["Sorry No matching user found"], 'response_data': data, 'response_data_total': data_total}
-            return Response(msg, status=status.HTTP_200_OK)
+        data = []
+        data_total = []
+        shop_user_obj = ShopUserMapping.objects.filter(employee=self.request.user, employee_group__permissions__codename='can_sales_person_add_shop', shop__shop_type__shop_type='r', status=True)
+        if not shop_user_obj.exists():
+            shop_user_obj = self.get_shops()
+            if not shop_user_obj.exists():
+                msg = {'is_success': False, 'message': ["Sorry No matching user found"], 'response_data': data, 'response_data_total': data_total}
+                return Response(msg, status=status.HTTP_200_OK)
 
-        if shop_user.employee_group.has_perm('can_sales_person_add_shop'):
-            sales_person_performance = {
-                'no_of_order': 0,
-                'no_of_ordered_sku': 0,
-                'no_of_ordered_sku_pieces': 0,
-                'ordered_amount': 0,
+        days_diff = int(self.request.query_params.get('day', 1))
+        to_date = datetime.now() + timedelta(days=1) if days_diff == 1 else datetime.now()- timedelta(days=1)
+        if days_diff == 1:
+            from_date = to_date - timedelta(days=days_diff)
+        elif days_diff == 30:
+            from_date = datetime.now() - relativedelta(months=+1)
+        else:
+            from_date = datetime.now() - timedelta(days=days_diff)
+
+        shop_list = shop_user_obj.values('shop', 'shop__id', 'shop__shop_name').order_by('shop__shop_name')
+        shops_list = shop_user_obj.values('shop').distinct('shop')
+        order_obj = self.get_order(shops_list, to_date, from_date)
+        
+        buyer_order_obj = self.get_shop_count(shops_list, to_date, from_date)
+        buyer_order_map = {i['buyer_shop']: (i['buyer_shop_count'],) for i in buyer_order_obj}
+        order_map = {i['buyer_shop']: (i['buyer_shop_count'], i['no_of_ordered_sku'], i['no_of_ordered_sku_pieces'],i['ordered_amount']) for i in order_obj}
+        no_of_order_total, no_of_ordered_sku_total, no_of_ordered_sku_pieces_total, ordered_amount_total = 0, 0, 0, 0
+        for shop in shop_list:
+            rt = {
+                'name': shop['shop__shop_name'],
+                'no_of_order': buyer_order_map[shop['shop']][0] if shop['shop'] in buyer_order_map else 0,
+                'no_of_ordered_sku': order_map[shop['shop']][1] if shop['shop'] in order_map else 0,
+                'no_of_ordered_sku_pieces': order_map[shop['shop']][2] if shop['shop'] in order_map else 0,
+                'ordered_amount': round(order_map[shop['shop']][3],2) if shop['shop'] in order_map else 0,
                 'calls_made': 0,
                 'delivered_amount': 0,
             }
-            shops_performance_list = []
-            shops_performance_list, sales_person_performance = self.get_sales_person_shops_data(self.request.user, from_date, to_date)
-        msg = {'is_success': True, 'message': [""],'response_data': list(shops_performance_list), 'response_data_total':sales_person_performance}
+            data.append(rt)
+
+            no_of_order_total += buyer_order_map[shop['shop']][0] if shop['shop'] in buyer_order_map else 0
+            no_of_ordered_sku_total += order_map[shop['shop']][1] if shop['shop'] in order_map else 0
+            no_of_ordered_sku_pieces_total += order_map[shop['shop']][2] if shop['shop'] in order_map else 0
+            ordered_amount_total += round(order_map[shop['shop']][3], 2) if shop['shop'] in order_map else 0
+
+        dt = {
+            'no_of_order': no_of_order_total,
+            'no_of_ordered_sku': no_of_ordered_sku_total,
+            'no_of_ordered_sku_pieces': no_of_ordered_sku_pieces_total,
+            'ordered_amount': ordered_amount_total,
+            'calls_made': 0,
+            'delivered_amount': 0,
+        }
+        data_total.append(dt)
+        msg = {'is_success': True, 'message': [""],'response_data': data, 'response_data_total':data_total}
         return Response(msg,status=status.HTTP_200_OK)
 
 class SellerShopProfile(generics.ListAPIView):
@@ -525,9 +591,9 @@ class SellerShopProfile(generics.ListAPIView):
         return Order.objects.filter(buyer_shop__id__in=shops_list).values('buyer_shop', 'created_at').\
             annotate(buyer_shop_count=Count('buyer_shop'))\
             .annotate(sum_no_of_ordered_sku=Count('ordered_cart__rt_cart_list'))\
-            .annotate(avg_ordered_amount=Avg(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer')* F('ordered_cart__rt_cart_list__no_of_pieces'),
+            .annotate(avg_ordered_amount=Avg(F('ordered_cart__rt_cart_list__cart_product_price__selling_price')* F('ordered_cart__rt_cart_list__no_of_pieces'),
                                      output_field=FloatField())) \
-            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer') * F(
+            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__selling_price') * F(
             'ordered_cart__rt_cart_list__no_of_pieces'),
                                          output_field=FloatField())) \
         .order_by('buyer_shop','created_at')
@@ -536,7 +602,7 @@ class SellerShopProfile(generics.ListAPIView):
         return Order.objects.filter(buyer_shop__id__in=shops_list).values('buyer_shop') \
             .annotate(buyer_shop_count=Count('buyer_shop')) \
             .annotate(sum_no_of_ordered_sku=Count('ordered_cart__rt_cart_list')) \
-            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__price_to_retailer') * F(
+            .annotate(ordered_amount=Sum(F('ordered_cart__rt_cart_list__cart_product_price__selling_price') * F(
             'ordered_cart__rt_cart_list__no_of_pieces'),
                                          output_field=FloatField())).order_by('buyer_shop')
 
@@ -553,7 +619,7 @@ class SellerShopProfile(generics.ListAPIView):
                 msg = {'is_success': False, 'message': ["Sorry No matching user found"], 'response_data': data}
                 return Response(msg, status=status.HTTP_200_OK)
 
-        shop_list = shop_user_obj.values('shop','shop__id','shop__shop_name').order_by('shop').distinct('shop')
+        shop_list = shop_user_obj.values('shop','shop__id','shop__shop_name').order_by('shop__shop_name')
         shops_list = shop_user_obj.values('shop').distinct('shop')
         order_list = self.get_order(shops_list)
         avg_order_obj = self.get_avg_order_count(shops_list)

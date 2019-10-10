@@ -95,6 +95,7 @@ INSTALLED_APPS = [
     'django_celery_beat',
     'django_celery_results',
     'coupon',
+    'offer',
 ]
 
 FCM_APIKEY = config('FCM_APIKEY')
@@ -120,6 +121,7 @@ MIDDLEWARE += [
 ]
 
 ROOT_URLCONF = 'retailer_backend.urls'
+STATICFILES_STORAGE = "retailer_backend.storage.ExtendedManifestStaticFilesStorage"
 
 TEMPLATES = [
     {
@@ -318,8 +320,8 @@ REDIS_DB_CHOICE = {
     'production': '1',
     'staging': '2',
     'qa': '7',
-    'qa1': '3',
-    'local-raj':'5',
+    'qa1': '9',
+    'local':'5',
     'qa3':'6',
     'qa2':'8',
 }
