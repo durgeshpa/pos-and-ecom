@@ -334,19 +334,21 @@ class CartSerializer(serializers.ModelSerializer):
         sum = 0
 
         keyValList1 = ['catalog']
-        exampleSet1 = obj.offers
-        array1 = list(filter(lambda d: d['coupon_type'] in keyValList1, exampleSet1))
-        for i in array1:
-            sum = sum + round(i['discounted_product_subtotal'], 2)
+        if obj.offers:
+            exampleSet1 = obj.offers
+            array1 = list(filter(lambda d: d['coupon_type'] in keyValList1, exampleSet1))
+            for i in array1:
+                sum = sum + round(i['discounted_product_subtotal'], 2)
         return round(sum, 2)
 
     def get_total_discount(self, obj):
         sum = 0
         keyValList1 = ['discount']
-        exampleSet1 = obj.offers
-        array1 = list(filter(lambda d: d['type'] in keyValList1, exampleSet1))
-        for i in array1:
-            sum = sum + i['discount_value']
+        if obj.offers:
+            exampleSet1 = obj.offers
+            array1 = list(filter(lambda d: d['type'] in keyValList1, exampleSet1))
+            for i in array1:
+                sum = sum + i['discount_value']
         return round(sum, 2)
 
     def total_amount_id(self, obj):
@@ -475,10 +477,11 @@ class OrderedCartSerializer(serializers.ModelSerializer):
     def get_total_discount(self, obj):
         sum = 0
         keyValList1 = ['discount']
-        exampleSet1 = obj.offers
-        array1 = list(filter(lambda d: d['type'] in keyValList1, exampleSet1))
-        for i in array1:
-            sum = sum + i['discount_value']
+        if obj.offers:
+            exampleSet1 = obj.offers
+            array1 = list(filter(lambda d: d['type'] in keyValList1, exampleSet1))
+            for i in array1:
+                sum = sum + i['discount_value']
         return round(sum, 2)
 
     def total_amount_id(self, obj):
