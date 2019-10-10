@@ -490,7 +490,7 @@ def create_credit_note(instance=None, created=False, **kwargs):
             grn_item.save()
             try:
                 cart_product_map = instance.order.ordered_cart.rt_cart_list.filter(cart_product=item.product).last()
-                credit_amount += (Decimal(item.returned_qty)+Decimal(item.damaged_qty)) * cart_product_map.get_cart_product_price(instance.order.seller_shop, instance.order.buyer_shop).selling_price
+                credit_amount += (Decimal(item.returned_qty)+Decimal(item.damaged_qty)) * cart_product_map.item_effective_prices
             except Exception as e:
                 logger.exception("Product price not found for {} -- {}".format(item.product, e))
                 credit_amount += Decimal(item.returned_qty) * item.product.product_pro_price.filter(
