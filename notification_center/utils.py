@@ -9,7 +9,8 @@ from django.conf import settings
 from otp.sms import SendSms
 from notification_center.fcm_notification import SendFCMNotification
 
-from notification_center.models import TemplateVariable, Template, UserNotification
+from notification_center.models import TemplateVariable, Template, UserNotification, \
+    GCMActivity, Notification
 from gram_to_brand.models import Cart
 from shops.models import Shop, ParentRetailerMapping
 
@@ -171,10 +172,29 @@ class SendNotification:
                 # # message = SendSms(phone=9643112048,body="Dear sagar, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory")
                 # message.send()
 
+    def send_promotional_content(self):
+        try:
+            devices = Device.objects.filter(user_id=self.user_id)
+            for device in devices:
+                #reg_id = Device.objects.get(user_id=self.user_id).reg_id
+                reg_id = device.reg_id
+                message_title = self.data['message_title']#template.gcm_title
+                message_body = self.data['message_body']
+                notification = SendFCMNotification(
+                    registration_id=reg_id,
+                    message_title=message_title,
+                    message_body=message_body
+                    )            
+                notification.send()
+        except Exception as e:
+            # print (str(e))
+            logging.error(str(e))    
+
     def send(self):
         try:
-            template = Template.objects.get(type=self.template_type)
- 
+            #template = Template.objects.get(type=self.template_type)
+            template = Template.objects.get(pk=self.template_type)
+
             # generate template variable data
             self.template_data = GenerateTemplateData(self.user_id, self.template_type, self.data).create()#.generate_data()
             #self.template_data['username'] = self.data['username']
@@ -184,20 +204,24 @@ class SendNotification:
             #     email_content = merge_template_with_data(template.text_email_template, self.email_variable)
             #     email = SendEmail()
             #     email.send()
-
+            notification, created = Notification.objects.get_or_create(user_id=self.user_id, template=template)
             if template.gcm_alert:
                 # fetch user registration id
                 #reg_id = Device.objects.last().reg_id
+                GCMActivity.objects.create(notification=notification)
+                #gcm_activity.save()
                 devices = Device.objects.filter(user_id=self.user_id)
                 for device in devices:
                     #reg_id = Device.objects.get(user_id=self.user_id).reg_id
                     reg_id = device.reg_id
                     message_title = template.gcm_title
+                    message_image = template.gcm_image
                     message_body = self.merge_template_with_data(template.gcm_description)
                     # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
                     notification = SendFCMNotification(
                         registration_id=reg_id,
                         message_title=message_title,
+                        message_image=message_image,
                         message_body=message_body
                         )            
                     notification.send()
@@ -205,15 +229,10 @@ class SendNotification:
             if template.text_sms_alert:
                 sms_content = self.merge_template_with_data(template.text_sms_template)
                 #print (self.data['phone_number'], sms_content)
-                logging.info(self.data['phone_number'], sms_content)
-                # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
+                # logging.info(self.data['phone_number'], sms_content)
+                # # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
                 message = SendSms(phone=self.data['phone_number'], body=sms_content)
-                # message = SendSms(phone="9643112048",
-                #           body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App." \
-                #                " Thanks," \
-                #                " Team GramFactory " % ("sagar", "saggy-shop"))
                 message.send()
 
         except Exception as e:
-            # print (str(e))
             logging.error(str(e))    
