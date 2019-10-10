@@ -741,7 +741,7 @@ class CreateOrder(APIView):
                         ordered_reserve.reserve_status = OrderedProductReserved.ORDERED
                         ordered_reserve.save()
 
-                    serializer = OrderSerializer(order, 
+                    serializer = OrderSerializer(order,
                         context={'parent_mapping_id': parent_mapping.parent.id,
                                  'buyer_shop_id': shop_id,
                                  'current_url':current_url})
@@ -983,7 +983,7 @@ class DownloadInvoiceSP(APIView):
             inline_sum_amount += int(m.shipped_qty) * product_pro_price_ptr
 
             for n in m.product.product_pro_tax.all():
-                divisor= Decimal(1+(n.tax.tax_percentage/100))
+                divisor= (1+(n.tax.tax_percentage/100))
                 original_amount= (inline_sum_amount/divisor)
                 tax_amount = inline_sum_amount - original_amount
                 if n.tax.tax_type=='gst':
