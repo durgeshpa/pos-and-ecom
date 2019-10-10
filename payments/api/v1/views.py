@@ -48,6 +48,19 @@ def overdraft_payment(payload):
         return (False, e.message)
 
 
+# set payment_received = True fetch by payment_id 
+def callback_url(self, request):
+    try:
+        payment_id = request.POST['payment_id']
+        payment_status = request.POST['payment_status']
+        payment = Payment.objects.filter(payment_id=payment_id)
+        if payment.exists():
+            payment[0].is_payment_approved = payment_status
+            payment[0].save()
+    except Exception as e:
+        logging.info("Class name: %s - Error = %s:"%('Bharatpe callback',str(e)))
+        logging.info(traceback.format_exc(sys.exc_info()))
+        print (str(e))
 
 # class ShipmentPaymentView(DataWrapperViewSet):
 class ShipmentPaymentView(viewsets.ModelViewSet):
