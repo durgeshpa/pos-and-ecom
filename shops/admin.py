@@ -259,6 +259,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
         qs = super(ShopAdmin, self).get_queryset(request)
         if request.user.is_superuser:
             return qs
+        qs = qs.exclude(approval_status=Shop.DISAPPROVED)
         if request.user.has_perm('shops.can_see_all_shops'):
             return qs
 
