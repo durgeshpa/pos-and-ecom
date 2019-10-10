@@ -508,7 +508,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def get_queryset(self, request):
         qs = super(ProductPriceAdmin, self).get_queryset(request)
-        if request.user.is_superuser:
+        if request.user.is_superuser or request.user.has_perm('products.change_productprice'):
             return qs
         return qs.filter(
             Q(seller_shop__related_users=request.user) |
