@@ -986,7 +986,7 @@ class DownloadInvoiceSP(APIView):
 
             for n in m.product.product_pro_tax.all():
                 divisor= (1+(n.tax.tax_percentage/100))
-                original_amount= (float(inline_sum_amount)/divisor)
+                original_amount= (inline_sum_amount/divisor)
                 tax_amount = inline_sum_amount - original_amount
                 if n.tax.tax_type=='gst':
                     gst_tax_list.append(tax_amount)

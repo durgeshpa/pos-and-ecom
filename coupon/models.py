@@ -8,9 +8,9 @@ from addresses.models import City
 from django.db.models import F, FloatField, Sum
 # Create your models here.
 class DiscountValue(models.Model):
-    discount_value = models.FloatField(default=0, null=True, blank=True)
+    discount_value = models.FloatField(default = 0, null=True, blank=True)
     is_percentage = models.BooleanField(default=False)
-    max_discount = models.FloatField(default=0, null=True, blank=True)
+    max_discount = models.FloatField(default = 0, null=True, blank=True)
 
     def __str__(self):
         return str(self.discount_value)
