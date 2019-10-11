@@ -384,9 +384,9 @@ class CartProductMapping(models.Model):
                     if self.cart_product.id == i['item_id']:
                         item_effective_price = (i.get('discounted_product_subtotal',0)) / self.no_of_pieces
             else:
-                item_effective_price = self.cart_product_price.selling_price
+                item_effective_price = float(self.cart_product_price.selling_price)
         except:
-            print("No Cart Product Price")
+            logger.exception("Cart product price not found")
         return item_effective_price
 
 
