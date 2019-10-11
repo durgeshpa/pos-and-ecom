@@ -9,7 +9,7 @@ from import_export.admin import ImportExportModelAdmin
 from import_export import resources
 from .resources import RuleSetProductMappingResource
 
-class DiscountValueAdmin( admin.ModelAdmin):
+class DiscountValueAdmin(admin.ModelAdmin):
     list_display = ('discount_value', 'is_percentage', 'max_discount')
 
 class CouponRuleSetAdmin( admin.ModelAdmin):
