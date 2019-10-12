@@ -490,7 +490,6 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
             product.save()
 
     def disapprove_product_price(self, request, queryset):
-        queryset = queryset.filter(approval_status=ProductPrice.APPROVED).order_by('created_at')
         for product in queryset:
             product.approval_status = ProductPrice.DEACTIVATED
             product.save()
