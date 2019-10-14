@@ -28,6 +28,8 @@ from .resources import (
 from .forms import (ProductPriceNewForm, ProductPriceChangePerm,
                     ProductPriceAddPerm, ProductVendorMappingForm, ProductForm)
 
+from retailer_backend.filters import CityFilter, ProductCategoryFilter
+
 class ProductFilter(AutocompleteFilter):
     title = 'Product Name' # display title
     field_name = 'product' # name of the foreign key field
@@ -453,7 +455,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
         'buyer_shop__shop_name'
     ]
     list_filter = [
-        ProductSKUSearch, ProductFilter, ShopFilter, MRPSearch,
+        ProductSKUSearch, ProductFilter, ShopFilter, MRPSearch, CityFilter, ProductCategoryFilter,
         ('start_date', DateRangeFilter), ('end_date', DateRangeFilter),
         'approval_status']
     fields = ('product', 'mrp', 'selling_price', 'seller_shop',
