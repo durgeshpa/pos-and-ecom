@@ -1,4 +1,5 @@
 import datetime
+from decimal import Decimal
 from datetime import timedelta
 
 from django.dispatch import receiver
@@ -14,7 +15,7 @@ import logging
 
 from shops.models import Shop, ParentRetailerMapping, ShopInvoicePattern
 from brand.models import Brand
-from products.models import Product
+from products.models import Product, ProductPrice
 from retailer_to_sp.models import Cart as RetailerCart
 from addresses.models import Address, City, State
 from retailer_to_sp.models import Note as CreditNote, OrderedProduct as RetailerShipment, OrderedProductMapping as RetailerShipmentMapping
@@ -435,8 +436,8 @@ def create_brand_note_id(sender, instance=None, created=False, **kwargs):
 def create_credit_note(instance=None, created=False, **kwargs):
     if created:
         return None
-    if(instance.rt_order_product_order_product_mapping.last() and 
-    instance.rt_order_product_order_product_mapping.all().aggregate(Sum('returned_qty')).get('returned_qty__sum') > 0 or 
+    if(instance.rt_order_product_order_product_mapping.last() and
+    instance.rt_order_product_order_product_mapping.all().aggregate(Sum('returned_qty')).get('returned_qty__sum') > 0 or
     instance.rt_order_product_order_product_mapping.all().aggregate(Sum('damaged_qty')).get('damaged_qty__sum')>0):
         invoice_prefix = instance.order.seller_shop.invoice_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
         last_credit_note = CreditNote.objects.filter(shop=instance.order.seller_shop, status=True).order_by('credit_note_id').last()
@@ -489,11 +490,11 @@ def create_credit_note(instance=None, created=False, **kwargs):
             grn_item.save()
             try:
                 cart_product_map = instance.order.ordered_cart.rt_cart_list.filter(cart_product=item.product).last()
-                credit_amount += (int(item.returned_qty)+int(item.damaged_qty)) * float(round(cart_product_map.get_cart_product_price(instance.order.seller_shop).price_to_retailer,2))
+                credit_amount += ((item.returned_qty + item.damaged_qty) * cart_product_map.item_effective_prices)
             except Exception as e:
                 logger.exception("Product price not found for {} -- {}".format(item.product, e))
-                credit_amount += int(item.returned_qty) * float(item.product.product_pro_price.filter(
-                    shop=instance.order.seller_shop, status=True
-                    ).last().price_to_retailer)
+                credit_amount += Decimal(item.returned_qty) * item.product.product_pro_price.filter(
+                    seller_shop=instance.order.seller_shop, approval_status=ProductPrice.APPROVED
+                    ).last().selling_price
         credit_note.amount = credit_amount
         credit_note.save()

@@ -5,7 +5,6 @@ from admin_auto_filters.filters import AutocompleteFilter
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
 
-
 class BrandFilter(AutocompleteFilter):
     title = 'Brand' # display title
     field_name = 'brand' # name of the foreign key field
@@ -32,6 +31,47 @@ class OrderSearch(InputFilter):
                 return
             return queryset.filter(
                 Q(order__order_no__icontains=order)
+            )
+
+class ProductNameSearch(InputFilter):
+    parameter_name = 'product_name'
+    title = 'Product_Name'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(
+                Q(products__product_name__icontains=self.value())
+            )
+
+
+class ProductSKUSearch(InputFilter):
+    parameter_name = 'product_sku'
+    title = 'Product_SKU'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(
+                Q(products__product_sku__icontains=self.value())
+            )
+
+class SupplierNameSearch(InputFilter):
+    parameter_name = 'supp_name'
+    title = 'Supplier_Name'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(
+                Q(order__ordered_cart__supplier_name__vendor_name__icontains=self.value())
+            )
+
+class POCreatedBySearch(InputFilter):
+    parameter_name = 'created_by'
+    title = 'Created_BY'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(
+                Q(order__ordered_cart__po_raised_by__phone_number__icontains=self.value())
             )
 
 class QuantitySearch(InputFilter):
@@ -86,6 +126,15 @@ class POAmountSearch(InputFilter):
                 Q(po_amount=po_amount)
             )
 
+class PONumberSearch(InputFilter):
+    parameter_name = 'po_no'
+    title = 'PO Number'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(
+                Q(po_no=self.value())
+            )
 class PORaisedBy(InputFilter):
     parameter_name = 'po_raised_by'
     title = 'PO Raised By'
@@ -130,4 +179,12 @@ class EmployeeFilter(InputFilter):
         if value:
             return queryset.filter(employee__phone_number=value)
 
+class SellerShopFilter(AutocompleteFilter):
+    title = 'Seller Shop'
+    field_name = 'shop'
+    autocomplete_url = 'admin:seller_shop_autocomplete'
+
+class CityFilter(AutocompleteFilter):
+    title = 'City'
+    field_name = 'city'
 

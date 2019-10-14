@@ -3,11 +3,12 @@ from django.contrib import admin
 from .models import (
     Shop, ShopType, RetailerType, ParentRetailerMapping,
     ShopPhoto, ShopDocument, ShopInvoicePattern, ShopUserMapping,
-    ShopRequestBrand, SalesAppVersion, ShopTiming
+    ShopRequestBrand, SalesAppVersion, ShopTiming, FavouriteProduct
 )
 from addresses.models import Address
+from addresses.forms import AddressForm
 from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
-                    ShopForm, AddressForm, RequiredInlineFormSet,
+                    ShopForm, RequiredInlineFormSet,
                     AddressInlineFormSet, ShopTimingForm, ShopUserMappingForm, ShopTimingForm)
 from .views import (StockAdjustmentView, stock_adjust_sample,
                     bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete
@@ -35,6 +36,20 @@ class ExportCsvMixin:
         return create_shops_excel(queryset)
 
     export_as_csv.short_description = "Download CSV of Selected Shops"
+
+    def export_as_csv_fav_product(self, request, queryset):
+        meta = self.model._meta
+        exclude_fields = ['modified_at']
+        field_names = [field.name for field in meta.fields if field.name not in exclude_fields]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in field_names])
+        return response
+    export_as_csv_fav_product.short_description = "Download CSV of Selected Objects"
+
 
 class ShopNameSearch(InputFilter):
     parameter_name = 'shop_name'
@@ -80,6 +95,36 @@ class ShopOwnerSearch(InputFilter):
                 return
             return queryset.filter(shop_owner__phone_number__icontains=shop_owner_number)
 
+class BuyerShopFilter(AutocompleteFilter):
+    title = 'Shop' # display title
+    field_name = 'buyer_shop' # name of the foreign key field
+
+
+class ProductFilter(AutocompleteFilter):
+    title = 'Product' # display title
+    field_name = 'product' # name of the foreign key field    
+
+
+class FavouriteProductAdmin(admin.ModelAdmin, ExportCsvMixin):
+    #change_list_template = 'admin/shops/shop/change_list.html'
+    actions = ["export_as_csv_fav_product"]
+    list_display = ('buyer_shop', 'product', 'created_at', 'get_product_brand')#, 'get_product_sp')
+    raw_id_fields = ['buyer_shop', 'product']
+    list_filter = (BuyerShopFilter, ProductFilter)
+
+    # def get_product_sp(self, obj):
+    #     return obj.product.product_brand
+    # get_product_sp.short_description = 'Parent Shop Name'  #Renames column head
+
+
+    def get_product_brand(self, obj):
+        return obj.product.product_brand
+    get_product_brand.short_description = 'Brand Name'  #Renames column head
+
+    class Media:
+        pass
+
+
 class ShopPhotosAdmin(admin.TabularInline):
     model = ShopPhoto
     fields = ( 'shop_photo','shop_photo_thumbnail', )
@@ -105,8 +150,10 @@ class AddressAdmin(admin.TabularInline):
     model = Address
     formset = AddressInlineFormSet
     form = AddressForm
-    fields = ('nick_name','address_contact_name','address_contact_number','address_type','address_line1','state','city','pincode',)
+    fields = ('nick_name', 'address_contact_name', 'address_contact_number',
+              'address_type', 'address_line1', 'state', 'city', 'pincode_link')
     extra = 2
+
 
 class ShopParentRetailerMapping(admin.TabularInline):
     model = ParentRetailerMapping
@@ -140,13 +187,17 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     change_list_template = 'admin/shops/shop/change_list.html'
     resource_class = ShopResource
     form = ShopForm
-    fields = ['shop_name', 'shop_owner', 'shop_type', 'status']
-    actions = ["export_as_csv"]
+    fields = ['shop_name', 'shop_owner', 'shop_type', 'status', 'approval_status']
+    actions = ["export_as_csv","disable_shop"]
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin,
         AddressAdmin, ShopInvoicePatternAdmin,ShopParentRetailerMapping
     ]
-    list_display = ('shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent','shop_owner','shop_type','created_at','status', 'get_shop_city','shop_mapped_product','imei_no',)
+    list_display = (
+        'shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent',
+        'shop_owner','shop_type','created_at','status', 'get_shop_city', 'approval_status',
+        'shop_mapped_product','imei_no',
+        )
     filter_horizontal = ('related_users',)
     list_filter = (ShopCityFilter,ServicePartnerFilter,ShopNameSearch,ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,'status',('created_at', DateTimeRangeFilter))
     search_fields = ('shop_name', )
@@ -223,39 +274,15 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
             return self.fields
         return self.fields + ['related_users','shop_code', 'warehouse_code','created_by']
 
-    # # def get_shop_pending_amount(self, obj):
-    # #     pending_amount_gf = 0
-    #    -  # pending_amount_sp = 0
-    #     -  # pending_amount_total=0
-    #     -  # if obj.shop_type.shop_type == 'r':
-    #     -  # #if obj.retiler_mapping.filter(status=True).last().parent.shop_type.shop_type=='gf':
-    #     -  # orders_to_gf = obj.rtg_buyer_shop_order.all()
-    #     -  # for order in orders_to_gf:
-    #     -  # if order.rt_payment.last().payment_status == 'payment_done_approval_pending' or order.rt_payment.last().payment_status == 'cash_collected':
-    #     -  # pending_amount_gf = pending_amount_gf + order.total_final_amount
-    #     -  # #return pending_amount
-    #     -  # #elif obj.retiler_mapping.filter(status=True).last().parent.shop_type.shop_type=='sp':
-    #     -  # orders_to_sp = obj.rt_buyer_shop_order.all()
-    #     -  # for order in orders_to_sp:
-    #     -  # if order.rt_payment.last().payment_status == 'payment_done_approval_pending' or order.rt_payment.last().payment_status == 'cash_collected':
-    #     -  # pending_amount_sp = pending_amount_sp + order.total_final_amount
-    #     -  # #return pending_amount
-    #     -  # pending_amount_total = pending_amount_gf + pending_amount_sp
-    #     -  # return pending_amount_total
-    #     -  # elif obj.shop_type.shop_type == 'sp':
-    #     -  # carts_to_gf = obj.sp_shop_cart.all()
-    #     -  # total_pending_amount = 0
-    #     -  # for cart in carts_to_gf:
-    #     -  # for order in cart.sp_order_cart_mapping.all():
-    #     #total_pending_amount = total_pending_amount + order.total_final_amount
-    #      #return total_pending_amount
-    #      # get_shop_pending_amount.short_description = 'Shop Pending Amount'
+    def disable_shop(modeladmin, request, queryset):
+        queryset.update(approval_status=0)
 
     def shop_mapped_product(self, obj):
         if obj.shop_type.shop_type in ['gf','sp']:
             return format_html("<a href = '/admin/shops/shop-mapped/%s/product/' class ='addlink' > Product List</a>"% (obj.id))
 
     shop_mapped_product.short_description = 'Product List with Qty'
+    disable_shop.short_description = "Disapprove shops"
 
 class ParentFilter(AutocompleteFilter):
     title = 'Parent' # display title
@@ -330,6 +357,7 @@ class ShopUserMappingAdmin(admin.ModelAdmin):
     form = ShopUserMappingForm
     list_display = ('shop','manager','employee','employee_group','created_at','status')
     list_filter = [ShopFilter, ManagerFilter, EmployeeFilter, 'status', ('created_at', DateTimeRangeFilter), ]
+    search_fields = ('employee',)
 
     def get_urls(self):
         from django.conf.urls import url
@@ -352,6 +380,9 @@ class ShopUserMappingAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+    def has_change_permission(self, request, obj=None):
+        pass
+
 class SalesAppVersionAdmin(admin.ModelAdmin):
     list_display = ('app_version','update_recommended','force_update_required','created_at','modified_at')
 
@@ -359,6 +390,7 @@ admin.site.register(ParentRetailerMapping,ParentRetailerMappingAdmin)
 admin.site.register(ShopType)
 admin.site.register(RetailerType)
 admin.site.register(Shop,ShopAdmin)
+admin.site.register(FavouriteProduct, FavouriteProductAdmin)
 admin.site.register(ShopRequestBrand,ShopRequestBrandAdmin)
 admin.site.register(ShopUserMapping,ShopUserMappingAdmin)
 admin.site.register(SalesAppVersion, SalesAppVersionAdmin)

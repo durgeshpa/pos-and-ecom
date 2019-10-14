@@ -1,20 +1,30 @@
 from rest_framework import routers
 from django.conf.urls import url
 from django.urls import path
+
+from shops.api.v1.views import (RetailerTypeView, ShopTypeView,
+        ShopView, ShopPhotoView, ShopDocumentView, FavouriteProductView,
+        FavouriteProductListView)
+from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetail
+
 from shops.api.v1.views import (RetailerTypeView, ShopTypeView,ShopView, ShopPhotoView, ShopDocumentView, ShopTimingView,
         TeamListView, SellerShopView, SellerShopOrder, SellerShopProfile, SalesPerformanceView,
-        SellerShopListView, CheckUser, CheckAppVersion, StatusChangedAfterAmountCollected, SalesPerformanceUserView, ShopRequestBrandViewSet
+        SellerShopListView, CheckUser, CheckAppVersion, StatusChangedAfterAmountCollected, SalesPerformanceUserView, ShopRequestBrandViewSet,
+        FavouriteProductView, FavouriteProductListView
 )
 from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetail, SellerShopAddress
 
 router = routers.DefaultRouter()
 router.register(r'request-brand', ShopRequestBrandViewSet)
+router.register(r'favourite-product', FavouriteProductView)
+#router.register(r'list-favourite-product', FavouriteProductListView)
 
 urlpatterns = [
     path('user-shops/', ShopView.as_view(), name='user-shops', ),
     path('user-shop-address/', AddressView.as_view(), name='user-shop-address',),
     path('user-shop-address/default/', DefaultAddressView.as_view(), name='user-shop-address-default',),
     path('user-shop-address/<int:pk>/', AddressDetail.as_view(), name='user-shop-address-edit', ),
+    path('list-favourite-product/', FavouriteProductListView.as_view(), name='list-favourite-product', ),
     path('retailer-type/', RetailerTypeView.as_view(), name='retailer-type', ),
     path('shop-type/', ShopTypeView.as_view(), name='shop-type', ),
     path('shop-photo/', ShopPhotoView.as_view(), name='shop-photo', ),

@@ -15,6 +15,7 @@ import datetime
 from django.core.validators import MinLengthValidator
 from django.contrib.auth.models import Group
 
+Product = 'products.product'
 logger = logging.getLogger(__name__)
 
 
@@ -39,6 +40,7 @@ class RetailerType(models.Model):
     def __str__(self):
         return self.retailer_type_name
 
+
 class ShopType(models.Model):
     shop_type = models.CharField(max_length=50, choices=SHOP_TYPE_CHOICES, default='r')
     shop_sub_type = models.ForeignKey(RetailerType, related_name='shop_sub_type_shop', null=True, blank=True,on_delete=models.CASCADE)
@@ -51,6 +53,14 @@ class ShopType(models.Model):
 
 
 class Shop(models.Model):
+    APPROVAL_AWAITING = 1
+    APPROVED = 2
+    DISAPPROVED = 0
+    APPROVAL_STATUS_CHOICES = (
+        (APPROVAL_AWAITING, 'Awaiting Approval'),
+        (APPROVED, 'Approved'),
+        (DISAPPROVED, 'Disapproved'),
+        )
     shop_name = models.CharField(max_length=255)
     shop_owner = models.ForeignKey(get_user_model(), related_name='shop_owner_shop',on_delete=models.CASCADE)
     shop_type = models.ForeignKey(ShopType,related_name='shop_type_shop',on_delete=models.CASCADE)
@@ -59,14 +69,16 @@ class Shop(models.Model):
     shop_code = models.CharField(max_length=1, blank=True, null=True)
     warehouse_code = models.CharField(max_length=2, blank=True, null=True)
     imei_no = models.CharField(max_length=20, null=True, blank=True)
+    favourite_products = models.ManyToManyField(Product, through='shops.FavouriteProduct')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    approval_status = models.IntegerField(choices=APPROVAL_STATUS_CHOICES, default=1)
     status = models.BooleanField(default=False)
     #last_order_at = models.DateTimeField(auto_now_add=True)
     #last_login_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return "%s"%(self.shop_name)#,self.shop_owner)
+        return "%s"%(self.shop_name) #,self.shop_owner)
 
     def __init__(self, *args, **kwargs):
         super(Shop, self).__init__(*args, **kwargs)
@@ -110,7 +122,7 @@ class Shop(models.Model):
 
     @property
     def shop_approved(self):
-        return True if self.status==True and self.retiler_mapping.exists() else False
+        return True if self.status==True and self.retiler_mapping.filter(status=True).exists() and self.approval_status==self.APPROVED else False
 
     @property
     def shipping_address(self):
@@ -163,6 +175,18 @@ class Shop(models.Model):
             ("is_delivery_boy", "Is Delivery Boy"),
             ("hide_related_users", "Hide Related User"),
         )
+
+
+class FavouriteProduct(models.Model):
+    #user = models.ForeignKey(get_user_model(), related_name='user_favourite',on_delete=models.CASCADE)
+    buyer_shop = models.ForeignKey(Shop, related_name='shop_favourite', on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, related_name='product_favourite', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.product.product_sku
+
 
 class ShopNameDisplay(Shop):
     class Meta:
@@ -330,21 +354,22 @@ class ShopRequestBrand(models.Model):
 class ShopUserMapping(models.Model):
     shop = models.ForeignKey(Shop, related_name='shop_user', on_delete=models.CASCADE)
     manager = models.ForeignKey('self', null=True, blank=True, related_name='employee_list', on_delete=models.SET_NULL,
-                                limit_choices_to={'manager': None},)
+                                limit_choices_to={'manager': None,'status':True, 'employee_group__permissions__codename':'can_sales_manager_add_shop'},)
     employee = models.ForeignKey(get_user_model(), related_name='shop_employee', on_delete=models.CASCADE)
     employee_group = models.ForeignKey(Group, related_name='shop_user_group',default='1', on_delete=models.SET_DEFAULT)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
-    class Meta:
-        unique_together = ('shop', 'employee', 'status')
+    # class Meta:
+    #     unique_together = ('shop', 'employee', 'status')
 
     def save(self, *args, **kwargs):
         if self.manager == self:
             raise ValidationError(_('Manager and Employee cannot be same'))
         else:
-            ShopUserMapping.objects.filter(shop=self.shop, shop__shop_type__shop_type='r', employee_group=self.employee_group, status=True).update(status=False)
+            ShopUserMapping.objects.filter(shop=self.shop, employee=self.employee, employee_group=self.employee_group, status=True).update(status=False)
+            #ShopUserMapping.objects.filter(shop=self.shop, shop__shop_type__shop_type='r', employee_group=self.employee_group, status=True).update(status=False)
             self.status = True
         super().save(*args, **kwargs)
 

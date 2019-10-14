@@ -671,12 +671,14 @@ class CartProductMappingForm(forms.ModelForm):
         required=False, widget=forms.HiddenInput())
     product_inner_case_size = forms.CharField(
         required=False, widget=forms.HiddenInput())
+    item_effective_prices = forms.CharField(
+        required=False, widget=forms.HiddenInput())
 
     class Meta:
         model = CartProductMapping
         fields = (
             'cart', 'cart_product', 'cart_product_price', 'qty',
-            'no_of_pieces', 'product_case_size', 'product_inner_case_size')
+            'no_of_pieces', 'product_case_size', 'product_inner_case_size', 'item_effective_prices')
 
     def __init__(self, *args, **kwargs):
         super(CartProductMappingForm, self).__init__(*args, **kwargs)
