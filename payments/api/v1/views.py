@@ -33,19 +33,80 @@ from common.common_utils import convert_hash_using_hmac_sha256
 BHARATPE_BASE_URL = "http://api.bharatpe.io:8080"
 
 
-def overdraft_payment(payload):
-    context = {}
-    try:
-        headers = {'Content-Type': 'application/json', 
-                    'Accept':'application/json',
-                    'hash': convert_hash_using_hmac_sha256(payload)}
-        resp = requests.post(BHARATPE_BASE_URL+"/create_invoice", data = json.dumps(payload), headers=headers)        
-        data = json.loads(resp.content)         
-        return (True, "payment successful")
-    except Exception as e:
-        logging.info("Class name: %s - Error = %s:"%('Bharatpe',str(e)))
-        logging.info(traceback.format_exc(sys.exc_info()))
-        return (False, e.message)
+class SendCreditRequestAPI(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        context = {}
+        try:
+            headers = {'Content-Type': 'application/json', 
+                        'Accept':'application/json',
+                        'hash': convert_hash_using_hmac_sha256(payload)}
+            resp = requests.post(BHARATPE_BASE_URL+"/create_invoice", data = json.dumps(request.POST), headers=headers)        
+            data = json.loads(resp.content)         
+            msg = {'is_success': True,
+                   'message': [],
+                   'response_data':data }
+            return Response(msg,
+                             status=200)
+        except Exception as e:
+            logging.info("Class name: %s - Error = %s:"%('SendCreditRequestAPI',str(e)))
+            logging.info(traceback.format_exc(sys.exc_info()))
+            msg = {'is_success': False,
+                   'message': [],
+                   'response_data':str(e)}
+            return Response(msg,
+                             status=400)
+
+
+
+class CreditOTPResponseAPI(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        context = {}
+        try:
+            headers = {'Content-Type': 'application/json', 
+                        'Accept':'application/json',
+                        'hash': convert_hash_using_hmac_sha256(payload)}
+            resp = requests.post(BHARATPE_BASE_URL+"/otp-response", data = json.dumps(request.POST), headers=headers)        
+            data = json.loads(resp.content)         
+            return (True, "payment successful")
+            msg = {'is_success': True,
+                   'message': [],
+                   'response_data':data }
+            return Response(msg,
+                             status=200)
+        except Exception as e:
+            logging.info("Class name: %s - Error = %s:"%('CreditOTPResponseAPI',str(e)))
+            logging.info(traceback.format_exc(sys.exc_info()))
+            msg = {'is_success': False,
+                   'message': [],
+                   'response_data':str(e)}
+            return Response(msg,
+                             status=400)
+
+
+class BharatpeCallbackAPI(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)           
+
+    # receive delayed response from bharatpe
+    def post(self, request):
+        try:
+            payment_id = request.POST['payment_id']
+            payment_status = request.POST['payment_status']
+            payment = Payment.objects.filter(payment_id=payment_id)
+            if payment.exists():
+                payment[0].is_payment_approved = payment_status
+                payment[0].save()
+        except Exception as e:
+            logging.info("Class name: %s - Error = %s:"%('Bharatpe callback',str(e)))
+            logging.info(traceback.format_exc(sys.exc_info()))
+            print (str(e))
+
 
 
 # set payment_received = True fetch by payment_id 
@@ -61,6 +122,8 @@ def callback_url(self, request):
         logging.info("Class name: %s - Error = %s:"%('Bharatpe callback',str(e)))
         logging.info(traceback.format_exc(sys.exc_info()))
         print (str(e))
+        
+
 
 # class ShipmentPaymentView(DataWrapperViewSet):
 class ShipmentPaymentView(viewsets.ModelViewSet):
