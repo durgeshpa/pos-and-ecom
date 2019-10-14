@@ -726,7 +726,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         'seller_shop','buyer_shop', 'ordered_cart'
         )
     list_display = (
-                    'order_no', 'download_pick_list', 'seller_shop', 'buyer_shop',
+                    'order_no', 'download_pick_list', 'seller_shop', 'buyer_shop_with_mobile',
                     'pincode','total_final_amount', 'order_status', 'created_at',
                     'payment_mode', 'invoice_no', 'shipment_date', 'invoice_amount', 'shipment_status',
                     'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
@@ -761,6 +761,12 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                 (reverse('download_pick_list_sp', args=[obj.pk]))
             )
     download_pick_list.short_description = 'Download Pick List'
+
+    def buyer_shop_with_mobile(self,obj):
+        if obj.buyer_shop:
+            return "%s - %s"%(obj.buyer_shop, obj.buyer_shop.shop_owner.phone_number)
+        return "-"
+    buyer_shop_with_mobile.short_description = 'Buyer Shop'
 
     def order_products(self, obj):
         p=[]
