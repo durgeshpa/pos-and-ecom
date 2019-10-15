@@ -504,7 +504,19 @@ class OrderedCartSerializer(serializers.ModelSerializer):
         return round(sum, 2)
 
     def total_amount_id(self, obj):
-        return obj.subtotal
+        try:
+            self.total_amount = 0
+            self.items_count = 0
+            total_discount = self.get_total_discount(obj)
+            for cart_pro in obj.rt_cart_list.all():
+                self.items_count = self.items_count + int(cart_pro.qty)
+                pro_price = cart_pro.cart_product.get_current_shop_price(
+                self.context.get('parent_mapping_id'),
+                self.context.get('buyer_shop_id'))
+                self.total_amount += (Decimal(pro_price.selling_price) * cart_pro.qty * Decimal(pro_price.product.product_inner_case_size))
+            return self.total_amount
+        except:
+            return obj.subtotal
 
     def sub_total_id(self, obj):
         sub_total = float(self.total_amount_id(obj)) - self.get_total_discount(obj)
