@@ -442,8 +442,26 @@ class CartProductPrice(serializers.ModelSerializer):
         model = ProductPrice
         fields = ('id','product_price','product_mrp','created_at')
 
+# Order Details Related Serializer Start
+class ProductsSerializer(serializers.ModelSerializer):
+    product_pro_image = ProductImageSerializer(many=True)
+    product_opt_product = ProductOptionSerializer(many=True)
+    product_case_size_picies = serializers.SerializerMethodField('product_case_size_picies_dt')
+
+    def product_case_size_picies_dt(self, obj):
+        return str(int(obj.product_inner_case_size)*int(obj.product_case_size))
+
+    class Meta:
+        model = Product
+        fields = ('id','product_name','product_slug','product_short_description','product_long_description','product_sku',
+                  'product_ean_code','created_at','modified_at','status','product_pro_image',
+                  'product_opt_product', 'product_case_size_picies',
+                  #'product_price','product_inner_case_size','product_case_size','margin', 'loyalty_discount', 'cash_discount'
+         )
+
+
 class OrderedCartProductMappingSerializer(serializers.ModelSerializer):
-    cart_product = ProductsSearchSerializer()
+    cart_product = ProductsSerializer()
     #cart = CartDataSerializer()
     cart_product_price = CartProductPrice()
     no_of_pieces = serializers.SerializerMethodField('no_pieces_dt')
@@ -486,30 +504,19 @@ class OrderedCartSerializer(serializers.ModelSerializer):
         return round(sum, 2)
 
     def total_amount_id(self, obj):
-        self.total_amount = 0
-        self.items_count = 0
-        total_discount = self.get_total_discount(obj)
-        for cart_pro in obj.rt_cart_list.all():
-            self.items_count = self.items_count + int(cart_pro.qty)
-            pro_price = cart_pro.cart_product.get_current_shop_price(
+        try:
+            self.total_amount = 0
+            self.items_count = 0
+            total_discount = self.get_total_discount(obj)
+            for cart_pro in obj.rt_cart_list.all():
+                self.items_count = self.items_count + int(cart_pro.qty)
+                pro_price = cart_pro.cart_product.get_current_shop_price(
                 self.context.get('parent_mapping_id'),
                 self.context.get('buyer_shop_id'))
-            self.total_amount += (
-                Decimal(pro_price.selling_price) * cart_pro.qty *
-                Decimal(pro_price.product.product_inner_case_size))
-        return self.total_amount
-
-    # def total_amount_id(self, obj):
-    #     self.total_amount = 0
-    #     self.items_count = 0
-    #     total_discount = self.get_total_discount(obj)
-    #     for cart_pro in obj.rt_cart_list.all():
-    #         self.items_count = self.items_count + int(cart_pro.qty)
-    #         shop_id = self.context.get("parent_mapping_id", None)
-    #         shop = Shop.objects.get(pk=shop_id)
-    #         pro_price = cart_pro.cart_product.get_current_shop_price(shop)
-    #         self.total_amount += float(pro_price.price_to_retailer) * float(cart_pro.qty) * float(pro_price.product.product_inner_case_size)
-    #     return round(self.total_amount, 2)
+                self.total_amount += (Decimal(pro_price.selling_price) * cart_pro.qty * Decimal(pro_price.product.product_inner_case_size))
+            return self.total_amount
+        except:
+            return obj.subtotal
 
     def sub_total_id(self, obj):
         sub_total = float(self.total_amount_id(obj)) - self.get_total_discount(obj)
@@ -522,7 +529,8 @@ class OrderedCartSerializer(serializers.ModelSerializer):
         model = Cart
         fields = ('id','order_id','cart_status','created_at','modified_at','rt_cart_list','total_amount','sub_total','items_count', 'offers', 'total_discount')
 
-#order Details
+
+#Order Details
 class OrderDetailSerializer(serializers.ModelSerializer):
     ordered_cart = OrderedCartSerializer()
     rt_order_order_product = OrderedProductSerializer(many=True)
@@ -539,6 +547,8 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         fields = ('id','ordered_cart','order_no','shipping_address','total_mrp','total_discount_amount',
                   'total_tax_amount','total_final_amount','order_status','received_by',
                   'created_at','modified_at','rt_order_order_product')
+
+# Order Details Related Serializer End
 
 # Order List Related Serializer Start
 
@@ -580,8 +590,7 @@ class OrderedCartProductMappingListSerializer(serializers.ModelSerializer):
     def product_sub_total_dt(self,obj):
         seller_shop_id = self.context.get('parent_mapping_id', None)
         buyer_shop_id = self.context.get('buyer_shop_id', None)
-        return (Decimal(obj.no_of_pieces) *
-                Decimal(obj.get_cart_product_price(seller_shop_id, buyer_shop_id).selling_price))
+        return (Decimal(obj.no_of_pieces) * Decimal(obj.get_cart_product_price(seller_shop_id, buyer_shop_id).selling_price))
 
     def product_inner_case_size_dt(self,obj):
         return int(int(obj.no_of_pieces) // int(obj.qty))
