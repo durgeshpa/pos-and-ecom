@@ -255,19 +255,6 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
         return urls
 
 
-    def get_queryset(self, request):
-        qs = super(ShopAdmin, self).get_queryset(request)
-        if request.user.is_superuser:
-            return qs
-        qs = qs.exclude(approval_status=Shop.DISAPPROVED)
-        if request.user.has_perm('shops.can_see_all_shops'):
-            return qs
-
-        return qs.filter(
-            Q(related_users=request.user) |
-            Q(shop_owner=request.user)
-        )
-
     def get_fields(self, request, obj=None):
         if request.user.is_superuser:
             return self.fields + ['related_users','shop_code', 'warehouse_code','created_by']
