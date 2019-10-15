@@ -199,7 +199,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
         'shop_mapped_product','imei_no',
         )
     filter_horizontal = ('related_users',)
-    list_filter = (ShopCityFilter,ServicePartnerFilter,ShopNameSearch,ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch, 'approval_status',('created_at', DateTimeRangeFilter))
+    list_filter = (ShopCityFilter,ServicePartnerFilter,ShopNameSearch,ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch, 'approval_status','status',('created_at', DateTimeRangeFilter))
     search_fields = ('shop_name', )
     list_per_page = 50
 
