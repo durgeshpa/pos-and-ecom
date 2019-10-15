@@ -448,6 +448,9 @@ class ProductsSerializer(serializers.ModelSerializer):
     product_opt_product = ProductOptionSerializer(many=True)
     product_case_size_picies = serializers.SerializerMethodField('product_case_size_picies_dt')
 
+    def product_case_size_picies_dt(self, obj):
+        return str(int(obj.product_inner_case_size)*int(obj.product_case_size))
+
     class Meta:
         model = Product
         fields = ('id','product_name','product_slug','product_short_description','product_long_description','product_sku',
