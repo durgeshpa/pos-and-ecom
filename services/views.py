@@ -2,6 +2,8 @@ import requests
 from PIL import Image
 import PIL
 import datetime
+from dal import autocomplete
+from decimal import Decimal
 
 from django.shortcuts import render
 from rest_framework.views import APIView
@@ -12,6 +14,8 @@ from django.conf import settings
 from retailer_to_sp.models import Order, OrderedProductMapping
 from shops.models import Shop, ParentRetailerMapping
 from django.db.models import Sum
+from shops.models import Shop
+from django.db.models import Sum, Q
 import json
 import csv
 from rest_framework import permissions, authentication
@@ -47,6 +51,7 @@ class SalesReport(APIView):
                 product_brand = cart_product_mapping.cart_product.product_brand.brand_name
                 ordered_qty = cart_product_mapping.no_of_pieces
                 all_tax_list = cart_product_mapping.cart_product.product_pro_tax
+                # shopName = seller_shop
 
                 product_shipments = order_shipments.filter(product=product)
                 product_shipments = product_shipments.aggregate(Sum('delivered_qty'))['delivered_qty__sum']
@@ -58,11 +63,11 @@ class SalesReport(APIView):
                         tax_sum = float(tax_sum) + float(tax.tax.tax_percentage)
                     tax_sum = round(tax_sum, 2)
                     get_tax_val = tax_sum / 100
-                product_price_to_retailer = cart_product_mapping.cart_product_price.price_to_retailer
-                ordered_amount = round((float(product_price_to_retailer)*int(ordered_qty)) / (float(get_tax_val) + 1), 2)
-                ordered_tax_amount = round((float(ordered_amount) * float(get_tax_val)), 2)
-                delivered_amount = round((float(product_price_to_retailer)*int(product_shipments)) / (float(get_tax_val) + 1), 2)
-                delivered_tax_amount = round((float(delivered_amount) * float(get_tax_val)), 2)
+                product_price_to_retailer = cart_product_mapping.cart_product_price.selling_price
+                ordered_amount = (product_price_to_retailer * Decimal(ordered_qty)) / (Decimal(get_tax_val) + 1)
+                ordered_tax_amount = (ordered_amount * Decimal(get_tax_val))
+                delivered_amount = (product_price_to_retailer * Decimal(product_shipments)) / (Decimal(get_tax_val) + 1)
+                delivered_tax_amount = (delivered_amount * Decimal(get_tax_val))
                 if product.product_gf_code in ordered_items:
                     ordered_items[product.product_gf_code]['ordered_qty'] += ordered_qty
                     ordered_items[product.product_gf_code]['ordered_amount'] += ordered_amount
@@ -71,7 +76,7 @@ class SalesReport(APIView):
                     ordered_items[product.product_gf_code]['delivered_amount'] += delivered_amount
                     ordered_items[product.product_gf_code]['delivered_tax_amount'] += delivered_tax_amount
                 else:
-                    ordered_items[product.product_gf_code] = {'product_sku':product_sku, 'product_id':product_id, 'product_name':product_name,'product_brand':product_brand,'ordered_qty':ordered_qty, 'delivered_qty':product_shipments, 'ordered_amount':ordered_amount, 'ordered_tax_amount':ordered_tax_amount, 'delivered_amount':delivered_amount, 'delivered_tax_amount':delivered_tax_amount}
+                    ordered_items[product.product_gf_code] = {'product_sku':product_sku, 'product_id':product_id, 'product_name':product_name,'product_brand':product_brand,'ordered_qty':ordered_qty, 'delivered_qty':product_shipments, 'ordered_amount':ordered_amount, 'ordered_tax_amount':ordered_tax_amount, 'delivered_amount':delivered_amount, 'delivered_tax_amount':delivered_tax_amount, 'seller_shop':seller_shop}
 
         data = ordered_items
         return data
@@ -93,9 +98,9 @@ class SalesReport(APIView):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="sales-report.csv"'
         writer = csv.writer(response)
-        writer.writerow(['GF Code', 'ID', 'SKU', 'Product Name', 'Brand', 'Ordered Qty', 'Delivered Qty', 'Ordered Amount', 'Ordered Tax Amount', 'Delivered Amount', 'Delivered Tax Amount'])
+        writer.writerow(['GF Code', 'ID', 'SKU', 'Product Name', 'Brand', 'Ordered Qty', 'Delivered Qty', 'Ordered Amount', 'Ordered Tax Amount', 'Delivered Amount', 'Delivered Tax Amount', 'Seller_shop'])
         for k,v in data.items():
-            writer.writerow([k, v['product_id'], v['product_sku'], v['product_name'], v['product_brand'], v['ordered_qty'], v['delivered_qty'], v['ordered_amount'], v['ordered_tax_amount'],  v['delivered_amount'], v['delivered_tax_amount']])
+            writer.writerow([k, v['product_id'], v['product_sku'], v['product_name'], v['product_brand'], v['ordered_qty'], v['delivered_qty'], v['ordered_amount'], v['ordered_tax_amount'],  v['delivered_amount'], v['delivered_tax_amount'],v['seller_shop']])
 
         return response
 
@@ -555,7 +560,6 @@ class CategoryProductReportFormView(View):
             'admin/services/cate-prod-report.html',
             {'form': form}
         )
-
 
 class ResizeImage(APIView):
     permission_classes = (AllowAny,)

@@ -40,12 +40,15 @@ INSTALLED_APPS = [
     'dal',
     'dal_select2',
     'dal_admin_filters',
+    # 'jet.dashboard',
+    # 'jet',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.postgres',
     'rest_framework',
     'rest_framework.authtoken',
     'rest_auth',
@@ -80,15 +83,24 @@ INSTALLED_APPS = [
     'daterange_filter',
     'retailer_to_gram',
     'admin_auto_filters',
+    'notification_center',
+    'django_ses',
     'services',
     'rangefilter',
     'admin_numeric_filter',
     'django_admin_listfilter_dropdown',
     'debug_toolbar',
+    # used for installing shell_plus
+    'fcm',
     'django_celery_beat',
     'django_celery_results',
+    'offer',
+    'analytics',
 ]
 
+FCM_APIKEY = config('FCM_APIKEY')
+
+FCM_DEVICE_MODEL = 'notification_center.FCMDevice'
 
 SITE_ID = 1
 if DEBUG:
@@ -109,6 +121,7 @@ MIDDLEWARE += [
 ]
 
 ROOT_URLCONF = 'retailer_backend.urls'
+STATICFILES_STORAGE = "retailer_backend.storage.ExtendedManifestStaticFilesStorage"
 
 TEMPLATES = [
     {
@@ -235,8 +248,6 @@ STATICFILES_DIRS = ( os.path.join(BASE_DIR, "static"),)
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 MEDIA_URL = '/media/'
 
-
-
 OTP_LENGTH = 6
 OTP_CHARS = '0123456789'
 OTP_ATTEMPTS = 5
@@ -247,12 +258,20 @@ PO_STARTS_WITH = 'ADT/PO'
 CN_STARTS_WITH = 'ADT/CN'
 INVOICE_STARTS_WITH = 'ORD'
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_BACKEND = 'django_ses.SESBackend' #"smtp.sendgrid.net" #
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587
-EMAIL_HOST_USER = config('EMAIL_USER')
-EMAIL_HOST_PASSWORD = config('EMAIL_PWD')
+# EMAIL_HOST_USER = config('EMAIL_HOST_USER') 
+# EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+# FROM_EMAIL = config('FROM_EMAIL')
+
+
+MIME_TYPE = 'html'
+
+AWS_SES_ACCESS_KEY_ID = config('AWS_SES_ACCESS_KEY_ID')
+AWS_SES_SECRET_ACCESS_KEY = config('AWS_SES_SECRET_ACCESS_KEY')
+AWS_SES_REGION_NAME = 'us-east-1'
+AWS_SES_CONFIGURATION_SET = 'gramfactory_basic_emails'
 
 OLD_PASSWORD_FIELD_ENABLED = True
 LOGOUT_ON_PASSWORD_CHANGE = True
@@ -298,9 +317,10 @@ DEBUG_TOOLBAR_PATCH_SETTINGS = False
 
 # Initiate Sentry SDK
 if ENVIRONMENT.lower() in ["production","staging", "qa", "qa1"]:
+    from sentry_sdk.integrations.celery import CeleryIntegration
     sentry_sdk.init(
         dsn="https://2f8d192414f94cd6a0ba5b26d6461684@sentry.io/1407300",
-        integrations=[DjangoIntegration()],
+        integrations=[DjangoIntegration(),CeleryIntegration()],
         environment=ENVIRONMENT.lower()
     )
 
@@ -309,10 +329,46 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = 20000
 REDIS_DB_CHOICE = {
     'production': '1',
     'staging': '2',
-    'qa': '3',
-    'qa1': '3',
-    'local':'5'
+    'qa': '7',
+    'qa1': '9',
+    'local':'5',
+    'qa3':'6',
+    'qa2':'8',
 }
+
+# JET_THEMES = [
+#     {
+#         'theme': 'default', # theme folder name
+#         'color': '#47bac1', # color of the theme's button in user menu
+#         'title': 'Default' # theme title
+#     },
+#     {
+#         'theme': 'green',
+#         'color': '#44b78b',
+#         'title': 'Green'
+#     },
+#     {
+#         'theme': 'light-green',
+#         'color': '#2faa60',
+#         'title': 'Light Green'
+#     },
+#     {
+#         'theme': 'light-violet',
+#         'color': '#a464c4',
+#         'title': 'Light Violet'
+#     },
+#     {
+#         'theme': 'light-blue',
+#         'color': '#5EADDE',
+#         'title': 'Light Blue'
+#     },
+#     {
+#         'theme': 'light-gray',
+#         'color': '#222',
+#         'title': 'Light Gray'
+#     }
+# ]
+# JET_SIDE_MENU_COMPACT = True
 
 
 REDIS_URL = "{}/{}".format(config('CACHE_HOST'), REDIS_DB_CHOICE[ENVIRONMENT.lower()])
@@ -322,3 +378,7 @@ CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+
+# ElasticSearch
+ELASTICSEARCH_PREFIX = config('ELASTICSEARCH_PREFIX')
+REDSHIFT_URL = config('REDSHIFT_URL')

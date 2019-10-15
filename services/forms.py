@@ -12,8 +12,9 @@ from django.db.models import Q
 
 class SalesReportForm(forms.Form):
     shop = forms.ModelChoiceField(
-            queryset=Shop.objects.filter(shop_type__shop_type__in=['sp']),
-        )
+        queryset=Shop.objects.filter(shop_type__shop_type__in=['sp', ]),
+        widget=autocomplete.ModelSelect2(url='banner-shop-autocomplete', ),
+    )
     start_date = forms.DateTimeField(
     widget=DateTimePicker(
         options={
@@ -88,6 +89,9 @@ class GRNReportForm(forms.Form):
             queryset = Shop.objects.filter(shop_type__shop_type__in=['gf'])
             queryset = queryset.filter(Q(related_users=user) | Q(shop_owner=user))
             self.fields['shop'].queryset = queryset
+            queryset = queryset.filter(Q(related_users=request.user) | Q(shop_owner=request.user))
+        # latest = queryset.latest('id')
+        self.fields['shop'].queryset = queryset
 
 class MasterReportForm(forms.Form):
     shop = forms.ModelChoiceField(

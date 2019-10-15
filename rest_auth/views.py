@@ -214,6 +214,17 @@ class PasswordResetView(GenericAPIView):
                 phone_otp, otp = PhoneOTP.update_otp_for_number(number)
                 date = datetime.datetime.now().strftime("%a(%d/%b/%y)")
                 time = datetime.datetime.now().strftime("%I:%M %p")
+                
+                #data = {}
+                #data['otp'] = otp
+                #data['date'] = date
+                #data['time'] = time
+
+                #user_id = user.id
+                activity_type = "PASSWORD_CHANGE"
+                # from notification_center.utils import SendNotification
+                # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()    
+
                 message = SendSms(phone=number,
                                   body="%s is your One Time Password for GramFactory Account."\
                                        " Request time is %s, %s IST." % (otp,date,time))

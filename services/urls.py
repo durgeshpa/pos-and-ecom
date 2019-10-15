@@ -1,5 +1,6 @@
 from django.conf.urls import url,include
 from .views import ResizeImage, SalesReport, OrderReportType
+from .views import ResizeImage, SalesReport, SalesReportFormView
 
 urlpatterns = [
     # URLs that do not require a session or valid token

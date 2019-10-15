@@ -3,14 +3,15 @@ from rest_framework.views import APIView
 from rest_framework.permissions import (AllowAny,
                                         IsAuthenticated)
 from rest_framework.response import Response
-from addresses.models import Country, State, City, Area, Address
+from addresses.models import Country, State, City, Area, Address, Pincode
 from .serializers import (CountrySerializer, StateSerializer, CitySerializer,
         AreaSerializer, AddressSerializer)
 from rest_framework import generics
 from rest_framework import status
 from rest_framework import permissions, authentication
-from shops.models import Shop
+from shops.models import Shop, ShopUserMapping
 from django.http import Http404
+from rest_framework import serializers
 
 
 class CountryView(generics.ListAPIView):
@@ -120,9 +121,17 @@ class AddressView(generics.ListCreateAPIView):
         return queryset
 
     def create(self, request, *args, **kwargs):
+        pincode_id = Pincode.objects.filter(
+            city=request.data.get('city', None),
+            pincode=request.data.get('pincode', None))
+        if not pincode_id.exists():
+            msg = {'is_success': False,
+                   'message': ['Invalid pincode for selected City'],
+                   'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(pincode_link=pincode_id.last())
             msg = {'is_success': True,
                     'message': ["Address added successfully"],
                     'response_data': serializer.data}
@@ -234,3 +243,34 @@ class DefaultAddressView(generics.ListCreateAPIView):
                 'response_data': serializer.data}
         return Response(msg,
                         status=status.HTTP_200_OK)
+
+
+class SellerShopAddress(generics.ListAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = AddressSerializer
+
+    def get_queryset(self):
+        queryset = Address.objects.none()
+        shop_id = self.request.query_params.get('shop_id', None)
+        if shop_id is not None:
+            queryset = Address.objects.filter(shop_name_id=shop_id)
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        shipping_queryset = queryset.filter(address_type='shipping')
+        billing_queryset = queryset.filter(address_type='billing')
+        shipping_serializer = self.get_serializer(shipping_queryset, many=True)
+        billing_serializer = self.get_serializer(billing_queryset, many=True)
+
+        msg = {'is_success': True,
+                'message': ["%s objects found" % (queryset.count())],
+                'response_data': {'shipping_address':shipping_serializer.data,
+                                'billing_address':billing_serializer.data}}
+        return Response(msg,
+                        status=status.HTTP_200_OK)
+
+
+
+

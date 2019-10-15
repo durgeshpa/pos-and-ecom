@@ -1,3 +1,5 @@
+import logging
+
 from django.db import models
 from django.contrib.auth import get_user_model
 #from django.conf import settings
@@ -11,6 +13,10 @@ from django.utils.translation import gettext_lazy as _
 from retailer_backend.validators import *
 import datetime
 from django.core.validators import MinLengthValidator
+from django.contrib.auth.models import Group
+
+Product = 'products.product'
+logger = logging.getLogger(__name__)
 
 
 SHOP_TYPE_CHOICES = (
@@ -34,6 +40,7 @@ class RetailerType(models.Model):
     def __str__(self):
         return self.retailer_type_name
 
+
 class ShopType(models.Model):
     shop_type = models.CharField(max_length=50, choices=SHOP_TYPE_CHOICES, default='r')
     shop_sub_type = models.ForeignKey(RetailerType, related_name='shop_sub_type_shop', null=True, blank=True,on_delete=models.CASCADE)
@@ -44,17 +51,22 @@ class ShopType(models.Model):
     def __str__(self):
         return "%s - %s"%(self.get_shop_type_display(),self.shop_sub_type.retailer_type_name) if self.shop_sub_type else "%s"%(self.get_shop_type_display())
 
+
 class Shop(models.Model):
     shop_name = models.CharField(max_length=255)
     shop_owner = models.ForeignKey(get_user_model(), related_name='shop_owner_shop',on_delete=models.CASCADE)
     shop_type = models.ForeignKey(ShopType,related_name='shop_type_shop',on_delete=models.CASCADE)
     related_users = models.ManyToManyField(get_user_model(),blank=True, related_name='related_shop_user')
+    created_by = models.ForeignKey(get_user_model(), related_name='shop_created_by',null=True,blank=True, on_delete=models.SET_NULL)
     shop_code = models.CharField(max_length=1, blank=True, null=True)
     warehouse_code = models.CharField(max_length=2, blank=True, null=True)
     imei_no = models.CharField(max_length=20, null=True, blank=True)
+    favourite_products = models.ManyToManyField(Product, through='shops.FavouriteProduct')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=False)
+    #last_order_at = models.DateTimeField(auto_now_add=True)
+    #last_login_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return "%s - %s"%(self.shop_name,self.shop_owner)
@@ -62,6 +74,16 @@ class Shop(models.Model):
     def __init__(self, *args, **kwargs):
         super(Shop, self).__init__(*args, **kwargs)
         self.__original_status = self.status
+
+    @property
+    def parent_shop(self):
+        # return self.get_shop_parent
+        try:
+            if self.retiler_mapping.exists():
+                parent = ParentRetailerMapping.objects.get(retailer=self.id, status=True).parent
+                return parent.shop_name
+        except:
+            return None
 
     @property
     def get_shop_shipping_address(self):
@@ -89,11 +111,37 @@ class Shop(models.Model):
             return self.retiler_mapping.last().parent
     get_shop_parent.fget.short_description = 'Parent Shop'
 
+    @property
+    def shop_approved(self):
+        return True if self.status==True and self.retiler_mapping.exists() else False
+
+    @property
+    def shipping_address(self):
+       return self.shop_name_address_mapping.filter(address_type='shipping').last()
+    @property
+    def get_shop_parent_name(self):
+        if self.retiler_mapping.exists():
+            return self.retiler_mapping.last().parent.shop_name
+    get_shop_parent_name.fget.short_description = 'Parent Shop Name'
+
+    def get_orders(self):
+        return self.rt_buyer_shop_order.all()
 
     def save(self, force_insert=False, force_update=False, *args, **kwargs):
         if self.status != self.__original_status and self.status is True and ParentRetailerMapping.objects.filter(retailer=self, status=True).exists():
             username = self.shop_owner.first_name if self.shop_owner.first_name else self.shop_owner.phone_number
             shop_title = str(self.shop_name)
+
+            activity_type = "SHOP_VERIFIED" #SHOP_VERIFIED
+            user_id = self.shop_owner.id
+            data = {}
+            data['username'] = username
+            data['phone_number'] = self.shop_owner.phone_number
+            data['shop_title'] = shop_title
+
+            # from notification_center.utils import SendNotification
+            # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()
+
             message = SendSms(phone=self.shop_owner,
                               body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App." \
                                    " Thanks," \
@@ -113,7 +161,23 @@ class Shop(models.Model):
         permissions = (
             ("can_see_all_shops", "Can See All Shops"),
             ("can_do_reconciliation", "Can Do Reconciliation"),
+            ("can_sales_person_add_shop", "Can Sales Person Add Shop"),
+            ("can_sales_manager_add_shop", "Can Sales Manager Add Shop"),
+            ("is_delivery_boy", "Is Delivery Boy"),
+            ("hide_related_users", "Hide Related User"),
         )
+
+
+class FavouriteProduct(models.Model):
+    #user = models.ForeignKey(get_user_model(), related_name='user_favourite',on_delete=models.CASCADE)
+    buyer_shop = models.ForeignKey(Shop, related_name='shop_favourite', on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, related_name='product_favourite', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.product.product_sku
+
 
 class ShopNameDisplay(Shop):
     class Meta:
@@ -139,6 +203,9 @@ class ShopDocument(models.Model):
     ELE_BILL = 'bill'
     PAN = 'pan'
     FSSAI = 'fssai'
+    DL = 'dl'
+    EC = 'ec'
+    WSVD = 'wsvd'
 
     SHOP_DOCUMENTS_TYPE_CHOICES = (
         (GSTIN, "GSTIN"),
@@ -147,6 +214,9 @@ class ShopDocument(models.Model):
         (ELE_BILL, "Shop Electricity Bill"),
         (PAN, "Pan Card No"),
         (FSSAI, "Fssai License No"),
+        (DL, "Driving Licence"),
+        (EC, "Election Card"),
+        (WSVD, "Weighing Scale Verification Document"),
     )
     shop_name = models.ForeignKey(Shop, related_name='shop_name_documents', on_delete=models.CASCADE)
     shop_document_type = models.CharField(max_length=100, choices=SHOP_DOCUMENTS_TYPE_CHOICES, default='gstin')
@@ -203,17 +273,48 @@ class ParentRetailerMapping(models.Model):
 
 @receiver(post_save, sender=ParentRetailerMapping)
 def shop_verification_notification1(sender, instance=None, created=False, **kwargs):
+    try:
+        logging.info("in post_save: ParentRetailerMapping")
+        shop = instance.retailer
+        username = shop.shop_owner.first_name if shop.shop_owner.first_name else shop.shop_owner.phone_number
+        shop_title = str(shop.shop_name)
+
+        user_id = shop.shop_owner.id
+        data = {}
+        data['username'] = username
+        data['phone_number'] = instance.retailer.shop_owner.phone_number
+        data['shop_id'] = shop.id
+
         if created:
-            shop = instance.retailer
+            logging.info("created: ParentRetailerMapping")
+
             if shop.status == True:
                 username = shop.shop_owner.first_name if shop.shop_owner.first_name else shop.shop_owner.phone_number
                 shop_title = str(shop.shop_name)
-                message = SendSms(phone=shop.shop_owner,
-                                  body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App."\
-                                      " Thanks,"\
-                                      " Team GramFactory " % (username, shop_title))
 
-                message.send()
+                activity_type = "SHOP_VERIFIED"
+
+                from notification_center.utils import SendNotification
+                SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()
+
+                # message = SendSms(phone=shop.shop_owner,
+                #                   body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App."\
+                #                       " Thanks,"\
+                #                       " Team GramFactory " % (username, shop_title))
+
+                # message.send()
+
+        else:
+            logging.info("edited: ParentRetailerMapping")
+
+            activity_type = "SHOP_CREATED"
+
+            # from notification_center.utils import SendNotification
+            # SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()
+    except Exception as e:
+        logging.error("error in post_save: shop verification")
+        logging.error(str(e))
+
 
 class ShopAdjustmentFile(models.Model):
     shop = models.ForeignKey(Shop, related_name='stock_adjustment_shop', on_delete=models.CASCADE)
@@ -221,3 +322,84 @@ class ShopAdjustmentFile(models.Model):
     created_by = models.ForeignKey(get_user_model(),null=True,blank=True, related_name='stock_adjust_by',on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+
+class ShopRequestBrand(models.Model):
+    shop = models.ForeignKey(Shop, related_name='shop_request_brand',
+        on_delete=models.CASCADE)
+    brand_name = models.CharField(max_length=100, blank=True, null=True)
+    product_sku = models.CharField(max_length=100, blank=True, null=True)
+    request_count = models.IntegerField(default = 0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        # if self.brand_name:
+        #     return "%s - %s"%(self.shop.shop_name,self.brand_name)
+        # else:
+        return "%s - %s"%(self.shop.shop_name,self.id)
+
+    def __init__(self, *args, **kwargs):
+        super(ShopRequestBrand, self).__init__(*args, **kwargs)
+
+class ShopUserMapping(models.Model):
+    shop = models.ForeignKey(Shop, related_name='shop_user', on_delete=models.CASCADE)
+    manager = models.ForeignKey('self', null=True, blank=True, related_name='employee_list', on_delete=models.SET_NULL,
+                                limit_choices_to={'manager': None,'status':True, 'employee_group__permissions__codename':'can_sales_manager_add_shop'},)
+    employee = models.ForeignKey(get_user_model(), related_name='shop_employee', on_delete=models.CASCADE)
+    employee_group = models.ForeignKey(Group, related_name='shop_user_group',default='1', on_delete=models.SET_DEFAULT)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
+
+    # class Meta:
+    #     unique_together = ('shop', 'employee', 'status')
+
+    def save(self, *args, **kwargs):
+        if self.manager == self:
+            raise ValidationError(_('Manager and Employee cannot be same'))
+        else:
+            ShopUserMapping.objects.filter(shop=self.shop, employee=self.employee, employee_group=self.employee_group, status=True).update(status=False)
+            #ShopUserMapping.objects.filter(shop=self.shop, shop__shop_type__shop_type='r', employee_group=self.employee_group, status=True).update(status=False)
+            self.status = True
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return "%s"%(self.employee)
+
+class SalesAppVersion(models.Model):
+    app_version = models.CharField(max_length=200)
+    update_recommended = models.BooleanField(default=False)
+    force_update_required = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.app_version
+
+from django.contrib.postgres.fields import ArrayField
+
+class ShopTiming(models.Model):
+    SUN = 'SUN'
+    MON = 'MON'
+    TUE = 'TUE'
+    WED = 'WED'
+    THU = 'THU'
+    FRI = 'FRI'
+    SAT = 'SAT'
+
+    off_day_choices = (
+        (SUN, 'SUN'),
+        (MON, 'MON'),
+        (TUE, 'TUE'),
+        (WED, 'WED'),
+        (THU, 'THU'),
+        (FRI, 'FRI'),
+        (SAT, 'FRI'),
+    )
+    shop = models.OneToOneField(Shop, related_name='shop_timing',null=True,blank=True, on_delete=models.SET_NULL)
+    open_timing = models.TimeField()
+    closing_timing = models.TimeField()
+    break_start_time = models.TimeField(null=True, blank=True)
+    break_end_time = models.TimeField(null=True, blank=True)
+    off_day = ArrayField(models.CharField(max_length=25,choices=off_day_choices, null=True, blank=True), null=True, blank=True)

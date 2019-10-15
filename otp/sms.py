@@ -11,7 +11,7 @@ class SendSms(object):
         super(SendSms, self).__init__()
         self.phone = phone
         self.body = body
-
+        
     def send(self):
         message = self.body
     #    message = urllib.parse.quote_plus(self.body)

@@ -62,7 +62,7 @@ class GetAllCategoryListView(APIView):
 
     permission_classes = (AllowAny,)
     def get(self, *args, **kwargs):
-        categories = Category.objects.filter(category_parent=None)
+        categories = Category.objects.filter(category_parent=None, status = True)
         category_subcategory_serializer = AllCategorySerializer(categories,many=True)
 
         is_success = True if categories else False
