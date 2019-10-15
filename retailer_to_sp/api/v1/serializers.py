@@ -540,30 +540,17 @@ class OrderDetailSerializer(serializers.ModelSerializer):
                   'total_tax_amount','total_final_amount','order_status','received_by',
                   'created_at','modified_at','rt_order_order_product')
 
-# Order List Realted Serilizer Start
+# Order List Related Serializer Start
 
 class ProductsSearchListSerializer(serializers.ModelSerializer):
-    product_price = serializers.SerializerMethodField('product_price_dt')
-    product_mrp = serializers.SerializerMethodField('product_mrp_dt')
     product_case_size_picies = serializers.SerializerMethodField('product_case_size_picies_dt')
-
-    def product_price_dt(self, obj):
-        seller_shop_id = self.context.get('parent_mapping_id', None)
-        buyer_shop_id = self.context.get('buyer_shop_id', None)
-        return obj.getRetailerPrice(seller_shop_id, buyer_shop_id)
-
-    def product_mrp_dt(self, obj):
-        seller_shop_id = self.context.get('parent_mapping_id', None)
-        buyer_shop_id = self.context.get('buyer_shop_id', None)
-        return obj.getMRP(seller_shop_id, buyer_shop_id)
 
     def product_case_size_picies_dt(self,obj):
         return str(int(obj.product_inner_case_size)*int(obj.product_case_size))
 
     class Meta:
         model = Product
-        fields = ('id','product_name','product_sku','product_mrp',
-                  'product_price','product_inner_case_size','product_case_size','product_case_size_picies')
+        fields = ('id', 'product_name', 'product_sku', 'product_inner_case_size', 'product_case_size', 'product_case_size_picies')
 
 
 class CartProductListPrice(serializers.ModelSerializer):
