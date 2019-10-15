@@ -22,8 +22,7 @@ from django.http import HttpResponse
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import ugettext_lazy as _
-from django_admin_listfilter_dropdown.filters import (ChoiceDropdownFilter,
-                                                      DropdownFilter)
+from django_admin_listfilter_dropdown.filters import (ChoiceDropdownFilter, RelatedDropdownFilter, DropdownFilter)
 from django_select2.forms import ModelSelect2Widget, Select2MultipleWidget
 from django.utils.safestring import mark_safe
 
@@ -740,7 +739,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                        'total_mrp', 'total_discount_amount',
                        'total_tax_amount', 'total_final_amount', 'total_mrp_amount')
     list_filter = [PhoneNumberFilter,SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
-        ('created_at', DateTimeRangeFilter), Pincode]
+        ('created_at', DateTimeRangeFilter), Pincode, ('shipping_address__city', RelatedDropdownFilter)]
 
     # class Media:
     #     js = ('admin/js/dynamic_input_box.js', )
