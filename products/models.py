@@ -165,12 +165,9 @@ class Product(models.Model):
             product_price = product_price.filter(
                 buyer_shop_id=buyer_shop_id)
         if not product_price:
-            product_price = self.product_pro_price.filter(seller_shop_id=seller_shop_id, approval_status=ProductPrice.APPROVED, start_date__lte=today, end_date__gte=today).order_by('start_date').last()
-            if not product_price:
-                product_price = self.product_pro_price.filter(seller_shop_id=seller_shop_id, approval_status=ProductPrice.APPROVED).last()
-            if not product_price:
-                product_price = self.product_pro_price.filter(seller_shop_id=seller_shop_id, created_at__lte=today).order_by('created_at').last()
-            return product_price
+            product_price = self.product_pro_price.filter(seller_shop_id=seller_shop_id, approval_status=ProductPrice.APPROVED, start_date__lte=today, end_date__gte=today).order_by('start_date')
+        if not product_price:
+            return None
         return product_price.last()
 
     def getPriceByShopId(self, seller_shop_id, buyer_shop_id):
@@ -266,7 +263,7 @@ class ProductPrice(models.Model):
         return "%s - %s" % (self.product.product_name, self.selling_price)
 
     def validate(self, exception_type):
-        if self.selling_price > self.mrp:
+        if self.selling_price and self.selling_price > self.mrp:
             raise exception_type(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
 
     def clean(self):

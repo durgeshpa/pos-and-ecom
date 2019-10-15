@@ -4,6 +4,8 @@ from django.utils.translation import gettext_lazy as _
 from admin_auto_filters.filters import AutocompleteFilter
 from retailer_backend.admin import InputFilter
 from django.db.models import Q
+from django.contrib.admin import SimpleListFilter
+from categories.models import Category
 
 class BrandFilter(AutocompleteFilter):
     title = 'Brand' # display title
@@ -187,4 +189,16 @@ class SellerShopFilter(AutocompleteFilter):
 class CityFilter(AutocompleteFilter):
     title = 'City'
     field_name = 'city'
+
+
+class ProductCategoryFilter(SimpleListFilter):
+    title = 'Category'
+    parameter_name = 'category'
+
+    def lookups(self, request, model_admin):
+        return [(c.id, c.category_name) for c in Category.objects.all()]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(product__product_pro_category__category_id=self.value())
 
