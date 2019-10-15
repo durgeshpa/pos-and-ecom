@@ -257,6 +257,9 @@ class Cart(models.Model):
                         elif cart_coupon.rule.discount.is_percentage == True and (cart_coupon.rule.discount.max_discount == 0):
                             discount_value_cart = round((cart_coupon.rule.discount.discount_value/100)* cart_value, 2)
                             offers_list.append({'type':'discount', 'sub_type':'discount_on_cart', 'coupon_id':cart_coupon.id, 'coupon':cart_coupon.coupon_name, 'coupon_code':cart_coupon.coupon_code, 'discount_value':discount_value_cart, 'coupon_type':'cart'})
+                        elif cart_coupon.rule.discount.is_percentage == True and (cart_coupon.rule.discount.max_discount > ((cart_coupon.rule.discount.discount_value/100)* cart_value)):
+                            discount_value_cart = round((cart_coupon.rule.discount.discount_value/100)* cart_value, 2)
+                            offers_list.append({'type':'discount', 'sub_type':'discount_on_cart', 'coupon_id':cart_coupon.id, 'coupon':cart_coupon.coupon_name, 'coupon_code':cart_coupon.coupon_code, 'discount_value':discount_value_cart, 'coupon_type':'cart'})
                         elif cart_coupon.rule.discount.is_percentage == True and (cart_coupon.rule.discount.max_discount < ((cart_coupon.rule.discount.discount_value/100)* cart_value)) :
                             discount_value_cart = cart_coupon.rule.discount.max_discount
                             offers_list.append({'type':'discount', 'sub_type':'discount_on_cart', 'coupon_id':cart_coupon.id, 'coupon':cart_coupon.coupon_name, 'coupon_code':cart_coupon.coupon_code, 'discount_value':discount_value_cart,  'coupon_type':'cart'})
@@ -283,13 +286,13 @@ class Cart(models.Model):
                 next_index = 1
             if i > 1:
                 next_cart_coupon_min_value = cart_coupon_list[i-next_index].rule.cart_qualifying_min_sku_value
-                next_cart_coupon_min_value_diff = next_cart_coupon_min_value - cart_value + discount_value_cart
+                next_cart_coupon_min_value_diff = round(next_cart_coupon_min_value - cart_value + discount_value_cart,2)
                 next_cart_coupon_discount = cart_coupon_list[i-next_index].rule.discount.discount_value if cart_coupon_list[i-next_index].rule.discount.is_percentage == False else (str(cart_coupon_list[i-next_index].rule.discount.discount_value) + '%')
                 entice_text = "Shop for Rs %s more to avail a discount of Rs %s on the entire cart" % (next_cart_coupon_min_value_diff, next_cart_coupon_discount) if cart_coupon_list[i-next_index].rule.discount.is_percentage == False else "Shop for Rs %s more to avail a discount of %s on the entire cart" % (next_cart_coupon_min_value_diff, next_cart_coupon_discount)
                 offers_list.append({'entice_text':entice_text, 'coupon_type': 'none', 'type': 'none', 'sub_type':'none'})
             elif i==1 and  not coupon_applied:
                 next_cart_coupon_min_value = cart_coupon_list[i-next_index].rule.cart_qualifying_min_sku_value
-                next_cart_coupon_min_value_diff = next_cart_coupon_min_value - cart_value
+                next_cart_coupon_min_value_diff = round(next_cart_coupon_min_value - cart_value,2)
                 next_cart_coupon_discount = cart_coupon_list[i-next_index].rule.discount.discount_value if cart_coupon_list[i-next_index].rule.discount.is_percentage == False else (str(cart_coupon_list[i-next_index].rule.discount.discount_value) + '%')
                 entice_text = "Shop for Rs %s more to avail a discount of Rs %s on the entire cart" % (next_cart_coupon_min_value_diff, next_cart_coupon_discount) if cart_coupon_list[i-next_index].rule.discount.is_percentage == False else "Shop for Rs %s more to avail a discount of %s on the entire cart" % (next_cart_coupon_min_value_diff, next_cart_coupon_discount)
                 offers_list.append({'entice_text':entice_text, 'coupon_type': 'none', 'type': 'none', 'sub_type':'none'})
@@ -384,10 +387,10 @@ class CartProductMapping(models.Model):
                     if self.cart_product.id == i['item_id']:
                         item_effective_price = (i.get('discounted_product_subtotal',0)) / self.no_of_pieces
             else:
-                item_effective_price = self.cart_product_price.selling_price
+                item_effective_price = float(self.cart_product_price.selling_price)
         except:
-            print("No Cart Product Price")
-        return item_effective_price
+            logger.exception("Cart product price not found")
+        return round(item_effective_price,2)
 
 
     def set_cart_product_price(self, seller_shop_id, buyer_shop_id):
