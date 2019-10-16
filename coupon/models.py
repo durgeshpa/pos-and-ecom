@@ -103,11 +103,11 @@ class RuleSetProductMapping(models.Model):
     def __str__(self):
         return  "%s->%s"%(self.purchased_product, self.free_product)
 
-# class RuleSetBrandMapping(models.Model):
-#     rule = models.ForeignKey(CouponRuleSet, related_name ='brand_ruleset', on_delete=models.CASCADE)
-#     brand = models.ForeignKey(Brand, related_name ='brand_coupon', on_delete=models.CASCADE)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#
+class RuleSetBrandMapping(models.Model):
+    rule = models.ForeignKey(CouponRuleSet, related_name ='brand_ruleset', on_delete=models.CASCADE)
+    brand = models.ForeignKey(Brand, related_name ='brand_coupon', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
 # class RuleSetCategoryMapping(models.Model):
 #     rule = models.ForeignKey(CouponRuleSet, related_name ='category_ruleset', on_delete=models.CASCADE)
 #     category = models.ForeignKey(Category, related_name ='category_coupon', on_delete=models.CASCADE)

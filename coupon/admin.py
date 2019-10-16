@@ -27,8 +27,8 @@ class RuleSetProductMappingAdmin(ImportExportModelAdmin):
     resource_class = RuleSetProductMappingResource
     list_display = ('purchased_product', 'free_product', 'rule', 'max_qty_per_use', 'created_at')
 
-# class RuleSetBrandMappingAdmin( admin.ModelAdmin):
-#     list_display = ('rule', 'brand', 'created_at')
+class RuleSetBrandMappingAdmin( admin.ModelAdmin):
+    list_display = ('rule', 'brand', 'created_at')
 #
 # class RuleSetCategoryMappingAdmin( admin.ModelAdmin):
 #     list_display = ('rule', 'category', 'created_at')
@@ -46,7 +46,7 @@ admin.site.register(CouponRuleSet,CouponRuleSetAdmin)
 admin.site.register(Coupon, CouponAdmin)
 admin.site.register(CusotmerCouponUsage, CusotmerCouponUsageAdmin)
 admin.site.register(RuleSetProductMapping, RuleSetProductMappingAdmin)
-# admin.site.register(RuleSetBrandMapping, RuleSetBrandMappingAdmin)
+admin.site.register(RuleSetBrandMapping, RuleSetBrandMappingAdmin)
 # admin.site.register(RuleSetCategoryMapping, RuleSetCategoryMappingAdmin)
 # admin.site.register(RuleAreaMapping, RuleAreaMappingAdmin)
 admin.site.register(CouponLocation, CouponLocationAdmin)
