@@ -270,7 +270,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
 
     # def __init__(self, *args, **kwargs):
     #     super().__init__()
-        
+
     def is_available_dt(self,obj):
         ordered_product_sum = OrderedProductMapping.objects.filter(product=obj.cart_product).aggregate(available_qty_sum=Sum('available_qty'))
         self.is_available = True if ordered_product_sum['available_qty_sum'] and int(ordered_product_sum['available_qty_sum'])>0 else False
@@ -323,24 +323,25 @@ class CartSerializer(serializers.ModelSerializer):
     total_discount = serializers.SerializerMethodField()
     sub_total = serializers.SerializerMethodField('sub_total_id')
     delivery_msg = serializers.SerializerMethodField()
-    discounted_prices_sum = serializers.SerializerMethodField()
+    # discounted_prices_sum = serializers.SerializerMethodField()
 
     class Meta:
         model = Cart
         fields = ('id', 'order_id', 'cart_status', 'last_modified_by',
                   'created_at', 'modified_at', 'rt_cart_list', 'total_amount',
-                  'total_discount', 'sub_total', 'discounted_prices_sum', 'items_count', 'delivery_msg', 'offers')
+                  'total_discount', 'sub_total', 'items_count', 'delivery_msg', 'offers')
 
-    def get_discounted_prices_sum(self, obj):
-        sum = 0
-
-        keyValList1 = ['catalog']
-        if obj.offers:
-            exampleSet1 = obj.offers
-            array1 = list(filter(lambda d: d['coupon_type'] in keyValList1, exampleSet1))
-            for i in array1:
-                sum = sum + round(i['discounted_product_subtotal'], 2)
-        return round(sum, 2)
+    # def get_discounted_prices_sum(self, obj):
+    #     sum = 0
+    #
+    #     keyValList1 = ['catalog']
+    #     if obj.offers:
+    #         exampleSet1 = obj.offers
+    #         array1 = list(filter(lambda d: d['coupon_type'] in keyValList1, exampleSet1))
+    #         for i in array1:
+    #
+    #             sum = sum + round(i['discounted_product_subtotal'], 2)
+    #     return round(sum, 2)
 
     def get_total_discount(self, obj):
         sum = 0
