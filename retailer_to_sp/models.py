@@ -661,6 +661,7 @@ class Order(models.Model):
     def pincode(self):
         return self.shipping_address.pincode if self.shipping_address else '-'
 
+    @property
     def city(self):
         return self.shipping_address.city.city_name if self.shipping_address else '-'
 
@@ -673,6 +674,13 @@ class Order(models.Model):
         for s in self.shipments():
             invoice_amount += s.invoice_amount
         return invoice_amount
+
+    @property
+    def buyer_shop_with_mobile(self):
+        if self.buyer_shop:
+            return "%s - %s" % (self.buyer_shop, self.buyer_shop.shop_owner.phone_number)
+        return "-"
+
 
 
 class Trip(models.Model):
