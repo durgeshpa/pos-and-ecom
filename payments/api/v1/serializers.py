@@ -17,12 +17,12 @@ class PaymentSerializer(serializers.ModelSerializer):
         fields = "__all__"  
 
 
-class OrderPaymentSerializer(serializers.ModelSerializer):
-    parent_payment = PaymentSerializer()
+# class OrderPaymentSerializer(serializers.ModelSerializer):
+#     parent_payment = PaymentSerializer()
 
-    class Meta:
-        model = OrderPayment
-        fields = "__all__"
+#     class Meta:
+#         model = OrderPayment
+#         fields = "__all__"
 
 
 class CashPaymentSerializer(serializers.ModelSerializer):
@@ -73,54 +73,54 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
         #         raise serializers.ValidationError('Referece number can not have special character!')
         return data    
 
-    def create(self, validated_data):
+    # def create(self, validated_data):
         
-        # try:
-        #with transaction.atomic():
-        #import pdb; pdb.set_trace()
-        shipment = validated_data.pop('shipment', None)
-        paid_amount = validated_data.pop('paid_amount', None)
-        payment_mode_name = validated_data.pop('payment_mode_name', None)
+    #     # try:
+    #     #with transaction.atomic():
+    #     #import pdb; pdb.set_trace()
+    #     shipment = validated_data.pop('shipment', None)
+    #     paid_amount = validated_data.pop('paid_amount', None)
+    #     payment_mode_name = validated_data.pop('payment_mode_name', None)
         
-        reference_no = validated_data.pop('reference_no', None)
-        online_payment_type = validated_data.pop('online_payment_type', None)
-        description = validated_data.pop('description', None)
+    #     reference_no = validated_data.pop('reference_no', None)
+    #     online_payment_type = validated_data.pop('online_payment_type', None)
+    #     description = validated_data.pop('description', None)
 
-        # create payment
-        payment = Payment.objects.create(
-            paid_amount = paid_amount,
-            payment_mode_name = payment_mode_name,
-            )
-        if payment_mode_name == "online_payment":
-            # if reference_no is None:
-            #     raise serializers.ValidationError("Reference number is required!")
-            #     # raise ValidationError("Reference number is required") 
-            # if online_payment_type is None:
-            #     raise serializers.ValidationError("Online payment type is required!")
+    #     # create payment
+    #     payment = Payment.objects.create(
+    #         paid_amount = paid_amount,
+    #         payment_mode_name = payment_mode_name,
+    #         )
+    #     if payment_mode_name == "online_payment":
+    #         # if reference_no is None:
+    #         #     raise serializers.ValidationError("Reference number is required!")
+    #         #     # raise ValidationError("Reference number is required") 
+    #         # if online_payment_type is None:
+    #         #     raise serializers.ValidationError("Online payment type is required!")
 
-            payment.reference_no = reference_no
-            payment.online_payment_type = online_payment_type
-        payment.save()
+    #         payment.reference_no = reference_no
+    #         payment.online_payment_type = online_payment_type
+    #     payment.save()
 
-        # create order payment
-        shipment = OrderedProduct.objects.get(pk=shipment)
-        order_payment = OrderPayment.objects.create(
-            paid_amount = paid_amount,
-            parent_payment = payment,
-            order = shipment.order
-            )
+    #     # create order payment
+    #     shipment = OrderedProduct.objects.get(pk=shipment)
+    #     order_payment = OrderPayment.objects.create(
+    #         paid_amount = paid_amount,
+    #         parent_payment = payment,
+    #         order = shipment.order
+    #         )
         
-        # create shipment payment
-        shipment_payment = ShipmentPayment.objects.create(
-            paid_amount = paid_amount,
-            parent_order_payment = order_payment,
-            shipment = shipment
-            )
+    #     # create shipment payment
+    #     shipment_payment = ShipmentPayment.objects.create(
+    #         paid_amount = paid_amount,
+    #         parent_order_payment = order_payment,
+    #         shipment = shipment
+    #         )
         
-        return shipment_payment
-        # except Exception as e:
-        #     print (traceback.format_exc(sys.exc_info()))
-        #     raise serializers.ValidationError(e.message)        
+    #     return shipment_payment
+    #     # except Exception as e:
+    #     #     print (traceback.format_exc(sys.exc_info()))
+    #     #     raise serializers.ValidationError(e.message)        
     
 
 
@@ -209,3 +209,66 @@ class ShipmentPaymentSerializer1(serializers.ModelSerializer):
     #             return shipment_payment
     #     except Exception as e:
     #         raise serializers.ValidationError(str(e))
+
+
+class OrderPaymentSerializer(serializers.ModelSerializer):
+    payment_mode_name = serializers.CharField(max_length=50)
+    reference_no = serializers.CharField(required=False)
+    online_payment_type = serializers.CharField(required=False)
+    paid_by = serializers.CharField(source='parent_payment.paid_by.phone_number', required=False)
+    payment_screenshot = serializers.FileField(source='parent_payment.payment_screenshot', required=False)
+
+    class Meta:
+        model = OrderPayment
+        fields = ['description', 'paid_amount', 'payment_mode_name', 'reference_no', 
+            'online_payment_type', 'paid_by', 'payment_screenshot'
+            ]  #"__all__"
+
+    def validate(self, data):
+        initial_data = self.initial_data
+
+        for item in initial_data:
+            if item.get('payment_mode_name') is None:
+                raise serializers.ValidationError("Payment mode name is required!")
+            if item['payment_mode_name'] == "online_payment":
+                if item.get('reference_no') is None:
+                    raise serializers.ValidationError("Reference number is required!!!!")
+                    # raise ValidationError("Reference number is required") 
+                if item.get('online_payment_type') is None:
+                    raise serializers.ValidationError("Online payment type is required!!!!")
+
+        return data    
+
+
+class OrderPaymentSerializer1(serializers.ModelSerializer):
+    payment_mode_name = serializers.SerializerMethodField()
+    reference_no = serializers.SerializerMethodField()
+    online_payment_type = serializers.SerializerMethodField()
+    paid_by = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OrderPayment
+        fields = ['description', 'paid_amount', 'payment_mode_name', 'reference_no', 
+            'order', 'online_payment_type', 'paid_by'
+            ] 
+
+    def get_paid_by(self, obj):
+        return obj.parent_payment.paid_by
+
+    def get_payment_mode_name(self, obj):
+        return obj.parent_payment.payment_mode_name
+
+    def get_online_payment_data(self, obj):
+        if self.get_payment_mode_name(obj) == "online_payment":
+            parent_payment = obj.parent_payment
+            return parent_payment.reference_no, parent_payment.online_payment_type
+
+    def get_reference_no(self, obj):
+        if self.get_payment_mode_name(obj) == "online_payment":
+            reference_no, _ = self.get_online_payment_data(obj)
+            return reference_no
+
+    def get_online_payment_type(self, obj):
+        if self.get_payment_mode_name(obj) == "online_payment":
+            _, online_payment_type = self.get_online_payment_data(obj)
+            return online_payment_type

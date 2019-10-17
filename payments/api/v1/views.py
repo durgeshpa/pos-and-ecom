@@ -4,6 +4,8 @@ import traceback
 import sys
 
 from django.shortcuts import render
+from django.shortcuts import redirect
+
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.generics import CreateAPIView, DestroyAPIView, ListAPIView, RetrieveAPIView, UpdateAPIView
 from rest_framework.generics import ListCreateAPIView,RetrieveUpdateDestroyAPIView
@@ -22,7 +24,7 @@ from django.db.models import Q
 from common.data_wrapper_view import DataWrapperViewSet
 
 from .serializers import ShipmentPaymentSerializer, CashPaymentSerializer, \
-    ShipmentPaymentSerializer1, ShipmentPaymentSerializer2
+    ShipmentPaymentSerializer1, ShipmentPaymentSerializer2, OrderPaymentSerializer
 from accounts.models import UserWithName
 from retailer_to_sp.models import OrderedProduct
 from payments.models import ShipmentPayment, CashPayment, OnlinePayment, PaymentMode, \
@@ -32,11 +34,11 @@ from common.common_utils import convert_hash_using_hmac_sha256
 
 BHARATPE_BASE_URL = "http://api.bharatpe.io:8080"
 
-
+# ask front end to send request to shipment-payment/ order payment api if it succeeds
 class SendCreditRequestAPI(APIView):
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
-
+    # authentication_classes = (authentication.TokenAuthentication,)
+    # permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (AllowAny,)
     def post(self, request):
         context = {}
         try:
@@ -48,6 +50,10 @@ class SendCreditRequestAPI(APIView):
             msg = {'is_success': True,
                    'message': [],
                    'response_data':data }
+
+            #if it fails then also create some entry: 
+            #return redirect('/payments/api/v1/shipment-payment/')
+
             return Response(msg,
                              status=200)
         except Exception as e:
@@ -56,9 +62,9 @@ class SendCreditRequestAPI(APIView):
             msg = {'is_success': False,
                    'message': [],
                    'response_data':str(e)}
+            # if it fails add entry with not success and generate payment id for future reference
             return Response(msg,
                              status=400)
-
 
 
 class CreditOTPResponseAPI(APIView):
@@ -130,7 +136,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
     '''
     This class handles all operation of ordered product mapping
     '''
-    #permission_classes = (AllowAny,)
+    # permission_classes = (AllowAny,)
     model = ShipmentPayment
     serializer_class = ShipmentPaymentSerializer
     queryset = ShipmentPayment.objects.all()
@@ -155,7 +161,6 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
         return self.serializer_class
 
     def create(self, request, *args, **kwargs):
-        #import pdb; pdb.set_trace()
         try:
             shipment = request.data.get('shipment', None)
             paid_by = request.data.get('paid_by', None)
@@ -198,14 +203,14 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                     online_payment_type = item.get('online_payment_type', None)
                     description = item.get('description', None)
 
-                    if payment_mode_name == "credit_payment":
-                        payload = {}
-                        payload['buyerMobile'] = request.data.get('paid_by', None)
-                        payload['creditAmount'] = paid_amount
-                        payload['comments'] = "overdraft payment"
-                        status, message = overdraft_payment(payload)
-                        if status == False:
-                            raise ValidationError(message)
+                    # if payment_mode_name == "credit_payment":
+                    #     payload = {}
+                    #     payload['buyerMobile'] = request.data.get('paid_by', None)
+                    #     payload['creditAmount'] = paid_amount
+                    #     payload['comments'] = "overdraft payment"
+                    #     status, message = overdraft_payment(payload)
+                    #     if status == False:
+                    #         raise ValidationError(message)
 
                     # create payment
                     payment = Payment.objects.create(
@@ -290,3 +295,121 @@ class CashPaymentView(DataWrapperViewSet):
         if hasattr(self, 'action'):
             return serializer_action_classes.get(self.action, self.serializer_class)
         return self.serializer_class        
+
+
+# class OrderPaymentView(DataWrapperViewSet):
+class OrderPaymentView(viewsets.ModelViewSet):
+    '''
+    This class handles all operation of ordered product mapping
+    '''
+    # permission_classes = (AllowAny,)
+    model = OrderPayment
+    serializer_class = OrderPaymentSerializer
+    queryset = OrderPayment.objects.all()
+    parser_classes = (FormParser, MultiPartParser)
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    # filter_backends = (filters.DjangoFilterBackend,)
+    # filter_class = OrderPaymentFilter
+
+    def get_serializer_class(self):
+        '''
+        Returns the serializer according to action of viewset
+        '''
+        serializer_action_classes = {
+            'retrieve': OrderPaymentSerializer1,
+            'list':OrderPaymentSerializer1,
+            'create':OrderPaymentSerializer,
+            'update':OrderPaymentSerializer
+        }
+        if hasattr(self, 'action'):
+            return serializer_action_classes.get(self.action, self.serializer_class)
+        return self.serializer_class
+
+    def create(self, request, *args, **kwargs):
+        try:
+            order = request.data.get('order', None)
+            paid_by = request.data.get('paid_by', None)
+            if not Order.objects.filter(pk=order).exists():
+                msg = {'is_success': False,
+                                'message': "Order not found",
+                                'response_data': None }
+                return Response(msg,
+                                status=status.HTTP_406_NOT_ACCEPTABLE)
+
+            if not UserWithName.objects.filter(phone_number=paid_by).exists():
+                msg = {'is_success': False,
+                                'message': "Paid by user not found",
+                                'response_data': None }
+                return Response(msg,
+                                status=status.HTTP_406_NOT_ACCEPTABLE)
+
+            serializer = self.get_serializer(data=request.data.get('payment_data'), many=True)
+            if not serializer.is_valid():
+                msg = {'is_success': False,
+                    'message': serializer.errors,
+                    'response_data': None }
+                return Response(msg,
+                                status=status.HTTP_406_NOT_ACCEPTABLE)
+
+            order = request.data.get('order', None)
+            order = Order.objects.get(pk=order)
+
+            paid_by = request.data.get('paid_by', None)
+            paid_by = UserWithName.objects.get(phone_number=paid_by)
+
+            with transaction.atomic():
+                for item in request.data.get('payment_data'):
+                    # serializer = self.get_serializer(data=item)
+                    # if serializer.is_valid():
+                    paid_amount = item.get('paid_amount', None)
+                    payment_mode_name = item.get('payment_mode_name', None)
+                    payment_screenshot = item.get('payment_screenshot', None)
+                    reference_no = item.get('reference_no', None)
+                    online_payment_type = item.get('online_payment_type', None)
+                    description = item.get('description', None)
+
+                    # create payment
+                    payment = Payment.objects.create(
+                        paid_amount = paid_amount,
+                        payment_mode_name = payment_mode_name,
+                        paid_by = paid_by,
+                        payment_screenshot = payment_screenshot,
+                        )
+                    if payment_mode_name == "online_payment":
+                        payment.reference_no = reference_no
+                        payment.online_payment_type = online_payment_type
+                    payment.save()
+
+                    # create order payment
+                    order_payment = OrderPayment.objects.create(
+                        paid_amount = paid_amount,
+                        parent_payment = payment,
+                        order = order
+                        )
+
+                msg = {'is_success': True,
+                        'message': ["Payment created successfully"],
+                        'response_data': None}
+                return Response(msg,
+                        status=status.HTTP_200_OK)
+
+        except Exception as e:
+            # msg = {'is_success': False,
+            #         'message': str(e), #[error for error in errors],
+            #         'response_data': None }
+            errors = []
+            for field in e: #serializer.errors:
+                for error in e[field]:#serializer.errors[field]:
+                    if 'non_field_errors' in field:
+                        result = error
+                    else:
+                        result = ''.join('{} : {}'.format(field,error))
+                    errors.append(result)
+            msg = {'is_success': False,
+                    'message': errors, #[error for error in errors],
+                    'response_data': None }
+            return Response(msg,
+                            status=status.HTTP_406_NOT_ACCEPTABLE)
+
+
