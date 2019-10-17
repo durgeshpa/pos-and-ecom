@@ -12,7 +12,7 @@ python manage.py migrate --fake
 pip install -r requirements.txt
 
 python manage.py makemigrations
-python manage.py makemigrations offer
+python manage.py makemigrations coupon
 python manage.py migrate
 
 python manage.py collectstatic --noinput --no-post-process
