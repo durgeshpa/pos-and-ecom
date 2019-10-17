@@ -238,20 +238,25 @@ class Cart(models.Model):
                                     offers_list.append({'type':'discount', 'sub_type':'discount_on_product', 'coupon_id':o.id, 'coupon':o.coupon_name, 'coupon_code':o.coupon_code, 'item':m.cart_product.product_name, 'item_sku':m.cart_product.product_sku, 'item_id':m.cart_product.id, 'discount_value':discount_value, 'discount_total_sku':discount_sum_sku, 'coupon_type':'catalog', 'discounted_product_subtotal':discounted_product_subtotal, 'discounted_product_subtotal_after_sku_discount':discounted_product_subtotal, 'brand_id':m.cart_product.product_brand.id})
                 if not any(d['item_id'] == m.cart_product.id for d in offers_list):
                     offers_list.append({'type':'no offer', 'sub_type':'no offer', 'item':m.cart_product.product_name, 'item_sku':m.cart_product.product_sku, 'item_id':m.cart_product.id, 'discount_value':0, 'discount_total_sku':discount_sum_sku, 'coupon_type':'catalog', 'discounted_product_subtotal':round((sku_ptr * sku_no_of_pieces), 2), 'discounted_product_subtotal_after_sku_discount':round((sku_ptr * sku_no_of_pieces), 2), 'brand_id':m.cart_product.product_brand.id})
-            brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date)
+            brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date).order_by('-rule__cart_qualifying_min_sku_value')
             array = list(filter(lambda d: d['coupon_type'] in 'catalog', offers_list))
             discount_value_brand = 0
+            brands_specific_list = []
             for brand_coupon in brand_coupons:
                 brands_list = []
                 brand_product_subtotals= 0
                 for brand in brand_coupon.rule.brand_ruleset.filter(rule__is_active = True, rule__expiry_date__gte = date ):
                     offer_brand = brand.brand
                     offer_brand_id = brand.brand.id
+                    if offer_brand_id in brands_specific_list:
+                        continue
                     brands_list.append(offer_brand_id)
+                    brands_specific_list.append(offer_brand_id)
                     sub_brands_list = Brand.objects.filter(brand_parent_id = offer_brand_id)
                     if sub_brands_list:
                         for sub_brands in sub_brands_list:
                             brands_list.append(sub_brands.id)
+                            brands_specific_list.append(sub_brands.id)
                     for i in array:
                         if i['brand_id'] in brands_list:
                             brand_product_subtotals += int(i['discounted_product_subtotal'])
@@ -329,6 +334,7 @@ class Cart(models.Model):
                     for i in array:
                         if product.cart_product.id == i['item_id']:
                             discounted_price_subtotal = round(((i['discounted_product_subtotal'] / cart_value) * discount_value_cart), 2)
+                            i.update({'cart_or_brand_level_discount':discounted_price_subtotal})
                             discounted_product_subtotal = round(i['discounted_product_subtotal'] - discounted_price_subtotal, 2)
                             i.update({'discounted_product_subtotal':discounted_product_subtotal})
                             offers_list[:] = [coupon for coupon in offers_list if coupon.get('coupon_type') != 'brand']
@@ -338,6 +344,7 @@ class Cart(models.Model):
                         for j in array1:
                             if product.cart_product.id == i['item_id'] and product.cart_product.product_brand.id == j['brand_id']:
                                 discounted_price_subtotal = round(((i['discounted_product_subtotal'] / j['brand_product_subtotals']) * j['discount_value']), 2)
+                                i.update({'cart_or_brand_level_discount':discounted_price_subtotal})
                                 discounted_product_subtotal = round(i['discounted_product_subtotal'] - discounted_price_subtotal, 2)
                                 i.update({'discounted_product_subtotal':discounted_product_subtotal})
                                 offers_list[:] = [coupon for coupon in offers_list if coupon.get('coupon_type') != 'cart']
