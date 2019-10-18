@@ -22,8 +22,7 @@ from django.http import HttpResponse
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import ugettext_lazy as _
-from django_admin_listfilter_dropdown.filters import (ChoiceDropdownFilter,
-                                                      DropdownFilter)
+from django_admin_listfilter_dropdown.filters import (ChoiceDropdownFilter, RelatedDropdownFilter, DropdownFilter)
 from django_select2.forms import ModelSelect2Widget, Select2MultipleWidget
 from django.utils.safestring import mark_safe
 
@@ -462,7 +461,7 @@ class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
-        list_display = ['order_no', 'seller_shop', 'buyer_shop', 'pincode', 'total_final_amount',
+        list_display = ['order_no', 'seller_shop', 'buyer_shop_with_mobile', 'pincode','city', 'total_final_amount',
                         'order_status', 'created_at', 'payment_mode', 'paid_amount',
                         'total_paid_amount', 'shipment_status', 'shipment_status_reason','order_shipment_amount', 'order_shipment_details',
                         'picking_status', 'picker_boy', 'picklist_id',]
@@ -726,8 +725,8 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         'seller_shop','buyer_shop', 'ordered_cart'
         )
     list_display = (
-                    'order_no', 'download_pick_list', 'seller_shop', 'buyer_shop',
-                    'pincode','total_final_amount', 'order_status', 'created_at',
+                    'order_no', 'download_pick_list', 'seller_shop', 'buyer_shop_with_mobile',
+                    'pincode', 'city', 'total_final_amount', 'order_status', 'created_at',
                     'payment_mode', 'invoice_no', 'shipment_date', 'invoice_amount', 'shipment_status',
                     'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
                     'picking_status', 'picklist_id', 'picker_boy',#'damaged_amount',
@@ -740,7 +739,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                        'total_mrp', 'total_discount_amount',
                        'total_tax_amount', 'total_final_amount', 'total_mrp_amount')
     list_filter = [PhoneNumberFilter,SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
-        ('created_at', DateTimeRangeFilter), Pincode]
+        ('created_at', DateTimeRangeFilter), Pincode, ('shipping_address__city', RelatedDropdownFilter)]
 
     # class Media:
     #     js = ('admin/js/dynamic_input_box.js', )
