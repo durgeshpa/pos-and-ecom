@@ -28,7 +28,7 @@ def convert_hash_using_hmac_sha256(payload):
 	# order with separator as |
 
 	message = sorted(payload.iteritems(), key = lambda x : x[1])
-	message = generate_message(a.values()) #'|'.join(message.values())
+	message = generate_message(message.values()) #'|'.join(message.values())
 	signature = hmac.new(bytes(API_SECRET , 'latin-1'), msg = bytes(message , 'latin-1'), digestmod = hashlib.sha256).hexdigest().upper()
 	print(signature)
 	return signature

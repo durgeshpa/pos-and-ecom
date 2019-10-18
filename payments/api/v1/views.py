@@ -2,6 +2,8 @@ import requests
 import datetime
 import traceback
 import sys
+import logging
+import json
 
 from django.shortcuts import render
 from django.shortcuts import redirect
@@ -33,6 +35,7 @@ from payments.models import ShipmentPayment, CashPayment, OnlinePayment, Payment
 from common.common_utils import convert_hash_using_hmac_sha256
 
 BHARATPE_BASE_URL = "http://api.bharatpe.io:8080"
+BHARATPE_PRODUCTION_BASE_URL = "https://api.bharatpe.in"
 
 # ask front end to send request to shipment-payment/ order payment api if it succeeds
 class SendCreditRequestAPI(APIView):
@@ -44,8 +47,8 @@ class SendCreditRequestAPI(APIView):
         try:
             headers = {'Content-Type': 'application/json', 
                         'Accept':'application/json',
-                        'hash': convert_hash_using_hmac_sha256(payload)}
-            resp = requests.post(BHARATPE_BASE_URL+"/create_invoice", data = json.dumps(request.POST), headers=headers)        
+                        'hash': convert_hash_using_hmac_sha256(request.data)}
+            resp = requests.post(BHARATPE_BASE_URL+"/create_invoice/", data = json.dumps(request.POST), headers=headers)        
             data = json.loads(resp.content)         
             msg = {'is_success': True,
                    'message': [],
