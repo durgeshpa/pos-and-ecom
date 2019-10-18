@@ -268,15 +268,15 @@ class Cart(models.Model):
                         if brand_product_subtotals >= brand_coupon.rule.cart_qualifying_min_sku_value:
                             if brand_coupon.rule.discount.is_percentage == False:
                                 discount_value_brand = brand_coupon.rule.discount.discount_value
-                                discount_sum_brand+= brand_coupon.rule.discount.discount_value
+                                discount_sum_brand+= round(brand_coupon.rule.discount.discount_value, 2)
                                 offers_list.append({'type':'discount', 'sub_type':'discount_on_brand', 'coupon_id':brand_coupon.id, 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'brand_id':offer_brand.id, 'discount_value':discount_value_brand, 'coupon_type':'brand', 'brand_product_subtotals':brand_product_subtotals, 'discount_sum_brand':discount_sum_brand})
                             elif brand_coupon.rule.discount.is_percentage == True and (brand_coupon.rule.discount.max_discount == 0):
                                 discount_value_brand = round((brand_coupon.rule.discount.discount_value/100)* brand_product_subtotals, 2)
-                                discount_sum_brand+= discount_value_brand
+                                discount_sum_brand+= round(discount_value_brand, 2)
                                 offers_list.append({'type':'discount', 'sub_type':'discount_on_brand', 'coupon_id':brand_coupon.id, 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'brand_id':offer_brand.id, 'discount_value':discount_value_brand, 'coupon_type':'brand', 'brand_product_subtotals':brand_product_subtotals, 'discount_sum_brand':discount_sum_brand})
                             elif brand_coupon.rule.discount.is_percentage == True and (brand_coupon.rule.discount.max_discount < ((brand_coupon.rule.discount.discount_value/100)* brand_product_subtotals)) :
                                 discount_value_brand = brand_coupon.rule.discount.max_discount
-                                discount_sum_brand+= brand_coupon.rule.discount.max_discount
+                                discount_sum_brand+= round(brand_coupon.rule.discount.max_discount, 2)
                                 offers_list.append({'type':'discount', 'sub_type':'discount_on_brand', 'coupon_id':brand_coupon.id, 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'brand_id':offer_brand.id, 'discount_value':discount_value_brand, 'coupon_type':'brand', 'brand_product_subtotals':brand_product_subtotals, 'discount_sum_brand':discount_sum_brand})
                         else:
                             brands_specific_list.clear()
