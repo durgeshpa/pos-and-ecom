@@ -263,7 +263,7 @@ class Cart(models.Model):
                             brands_specific_list.append(sub_brands.id)
                     for i in array:
                         if i['brand_id'] in brands_list:
-                            brand_product_subtotals += int(i['discounted_product_subtotal'])
+                            brand_product_subtotals += i['discounted_product_subtotal']
                     if brand_coupon.rule.cart_qualifying_min_sku_value and not brand_coupon.rule.cart_qualifying_min_sku_item:
                         if brand_product_subtotals >= brand_coupon.rule.cart_qualifying_min_sku_value:
                             if brand_coupon.rule.discount.is_percentage == False:
