@@ -102,7 +102,7 @@ class BuyerShopFilter(AutocompleteFilter):
 
 class ProductFilter(AutocompleteFilter):
     title = 'Product' # display title
-    field_name = 'product' # name of the foreign key field    
+    field_name = 'product' # name of the foreign key field
 
 
 class FavouriteProductAdmin(admin.ModelAdmin, ExportCsvMixin):
@@ -199,7 +199,7 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
         'shop_mapped_product','imei_no',
         )
     filter_horizontal = ('related_users',)
-    list_filter = (ShopCityFilter,ServicePartnerFilter,ShopNameSearch,ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,'status',('created_at', DateTimeRangeFilter))
+    list_filter = (ShopCityFilter,ServicePartnerFilter,ShopNameSearch,ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch, 'approval_status','status',('created_at', DateTimeRangeFilter))
     search_fields = ('shop_name', )
     list_per_page = 50
 
@@ -254,19 +254,6 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
         ] + urls
         return urls
 
-
-    def get_queryset(self, request):
-        qs = super(ShopAdmin, self).get_queryset(request)
-        if request.user.is_superuser:
-            return qs
-        qs = qs.exclude(approval_status=Shop.DISAPPROVED)
-        if request.user.has_perm('shops.can_see_all_shops'):
-            return qs
-
-        return qs.filter(
-            Q(related_users=request.user) |
-            Q(shop_owner=request.user)
-        )
 
     def get_fields(self, request, obj=None):
         if request.user.is_superuser:

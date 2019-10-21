@@ -270,7 +270,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
 
     # def __init__(self, *args, **kwargs):
     #     super().__init__()
-        
+
     def is_available_dt(self,obj):
         ordered_product_sum = OrderedProductMapping.objects.filter(product=obj.cart_product).aggregate(available_qty_sum=Sum('available_qty'))
         self.is_available = True if ordered_product_sum['available_qty_sum'] and int(ordered_product_sum['available_qty_sum'])>0 else False
