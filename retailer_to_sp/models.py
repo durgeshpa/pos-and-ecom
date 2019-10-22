@@ -438,7 +438,7 @@ class CartProductMapping(models.Model):
                 item_effective_price = float(self.cart_product_price.selling_price)
         except:
             logger.exception("Cart product price not found")
-        return round(item_effective_price, 2)
+        return item_effective_price
 
 
     def set_cart_product_price(self, seller_shop_id, buyer_shop_id):
@@ -1011,7 +1011,7 @@ class OrderedProduct(models.Model): #Shipment
             product_price_map = {i.cart_product.id:(i.item_effective_prices, i.qty) for i in cart_product_map}
             for product, shipment_details in shipment_map.items():
                 try:
-                    product_price = round(product_price_map[product][0], 2)
+                    product_price = product_price_map[product][0]
                     shipped_qty, returned_qty, damaged_qty = shipment_details
                     self._invoice_amount += product_price * shipped_qty
                     self._cn_amount += (returned_qty+damaged_qty) * product_price

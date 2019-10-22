@@ -946,7 +946,7 @@ class DownloadInvoiceSP(APIView):
                 order_obj.order.ordered_cart.seller_shop,
                 order_obj.order.ordered_cart.buyer_shop)
 
-            product_pro_price_ptr = round(cart_product_map.item_effective_prices, 2)
+            product_pro_price_ptr = cart_product_map.item_effective_prices
             product_pro_price_mrp = round(product_price.mrp,2)
 
             no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
@@ -971,7 +971,7 @@ class DownloadInvoiceSP(APIView):
                 "product_no_of_pices": int(m.shipped_qty),
                 "basic_rate": basic_rate,
                 "basic_amount": float(m.shipped_qty) * float(basic_rate),
-                "price_to_retailer": product_pro_price_ptr,
+                "price_to_retailer": round(product_pro_price_ptr, 2),
                 "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr),
                 "product_tax_amount": product_tax_amount
                 }
