@@ -280,7 +280,7 @@ class Cart(models.Model):
                                 discount_sum_brand+= round(brand_coupon.rule.discount.max_discount, 2)
                                 offers_list.append({'type':'discount', 'sub_type':'discount_on_brand', 'coupon_id':brand_coupon.id, 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'brand_id':offer_brand.id, 'discount_value':discount_value_brand, 'coupon_type':'brand', 'brand_product_subtotals':brand_product_subtotals, 'discount_sum_brand':discount_sum_brand})
                         else:
-                            brands_specific_list.clear()
+                            brands_specific_list.pop()
             array1 = list(filter(lambda d: d['coupon_type'] in 'brand', offers_list))
             discount_value_cart = 0
             cart_coupons = Coupon.objects.filter(coupon_type = 'cart', is_active = True, expiry_date__gte = date).order_by('-rule__cart_qualifying_min_sku_value')
