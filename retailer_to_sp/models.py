@@ -1003,7 +1003,7 @@ class OrderedProduct(models.Model): #Shipment
             product_price_map = {i.cart_product.id:(i.item_effective_prices, i.qty) for i in cart_product_map}
             for product, shipment_details in shipment_map.items():
                 try:
-                    product_price = round(product_price_map[product][0], 2)
+                    product_price = product_price_map[product][0]
                     shipped_qty, returned_qty, damaged_qty = shipment_details
                     self._invoice_amount += product_price * shipped_qty
                     self._cn_amount += (returned_qty+damaged_qty) * product_price
