@@ -264,7 +264,6 @@ class Cart(models.Model):
                     for i in array:
                         if i['brand_id'] in brands_list:
                             brand_product_subtotals += i['discounted_product_subtotal']
-                            import pdb; pdb.set_trace()
                     if brand_coupon.rule.cart_qualifying_min_sku_value and not brand_coupon.rule.cart_qualifying_min_sku_item:
                         if brand_product_subtotals >= brand_coupon.rule.cart_qualifying_min_sku_value:
                             if brand_coupon.rule.discount.is_percentage == False:
