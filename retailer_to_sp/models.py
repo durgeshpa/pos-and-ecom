@@ -207,7 +207,8 @@ class Cart(models.Model):
         buyer_shop = self.buyer_shop
         if cart_products:
             for m in cart_products:
-                brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date, rule__brand_ruleset__brand = m.cart_product.product_brand.id).order_by('rule__cart_qualifying_min_sku_value')
+                parent_brand = m.cart_product.product_brand.brand_parent.id if m.cart_product.product_brand.brand_parent else None
+                brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date).filter(Q(rule__brand_ruleset__brand = m.cart_product.product_brand.id)| Q(rule__brand_ruleset__brand = parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
                 b_list  =  [x.coupon_name for x in brand_coupons]
                 cart_coupons = Coupon.objects.filter(coupon_type = 'cart', is_active = True, expiry_date__gte = date).order_by('rule__cart_qualifying_min_sku_value')
                 c_list = [x.coupon_name for x in cart_coupons]
@@ -279,7 +280,7 @@ class Cart(models.Model):
                                 discount_sum_brand+= round(brand_coupon.rule.discount.max_discount, 2)
                                 offers_list.append({'type':'discount', 'sub_type':'discount_on_brand', 'coupon_id':brand_coupon.id, 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'brand_id':offer_brand.id, 'discount_value':discount_value_brand, 'coupon_type':'brand', 'brand_product_subtotals':brand_product_subtotals, 'discount_sum_brand':discount_sum_brand})
                         else:
-                            brands_specific_list.clear()
+                            brands_specific_list.pop()
             array1 = list(filter(lambda d: d['coupon_type'] in 'brand', offers_list))
             discount_value_cart = 0
             cart_coupons = Coupon.objects.filter(coupon_type = 'cart', is_active = True, expiry_date__gte = date).order_by('-rule__cart_qualifying_min_sku_value')
@@ -348,7 +349,8 @@ class Cart(models.Model):
                 for product in cart_products:
                     for i in array:
                         for j in array1:
-                            if product.cart_product.id == i['item_id'] and product.cart_product.product_brand.id == j['brand_id']:
+                            brand_parent = product.cart_product.product_brand.brand_parent.id if product.cart_product.product_brand.brand_parent else None
+                            if product.cart_product.id == i['item_id'] and product.cart_product.product_brand.id == j['brand_id'] or product.cart_product.id == i['item_id'] and brand_parent == j['brand_id']:
                                 discounted_price_subtotal = round(((i['discounted_product_subtotal'] / j['brand_product_subtotals']) * j['discount_value']), 2)
                                 i.update({'cart_or_brand_level_discount':discounted_price_subtotal})
                                 discounted_product_subtotal = round(i['discounted_product_subtotal'] - discounted_price_subtotal, 2)
