@@ -349,7 +349,7 @@ class Cart(models.Model):
                 for product in cart_products:
                     for i in array:
                         for j in array1:
-                            brand_parent = product.cart_product.product_brand.brand_parent.id if product.cart_product.product_brand.brand_parent.id else None
+                            brand_parent = product.cart_product.product_brand.brand_parent.id if product.cart_product.product_brand.brand_parent else None
                             if product.cart_product.id == i['item_id'] and product.cart_product.product_brand.id == j['brand_id'] or product.cart_product.id == i['item_id'] and brand_parent == j['brand_id']:
                                 discounted_price_subtotal = round(((i['discounted_product_subtotal'] / j['brand_product_subtotals']) * j['discount_value']), 2)
                                 i.update({'cart_or_brand_level_discount':discounted_price_subtotal})
