@@ -31,3 +31,13 @@ def amount(value, *args, **kwargs):
     p = inflect.engine()
     q= p.number_to_words(value)
     return q
+
+@register.simple_tag(name='multiply')
+def multiply(qty, unit_price, *args, **kwargs):
+    # you would need to do any localization of the result here
+    return round((qty * unit_price),2)
+
+@register.simple_tag(name='addition')
+def addition(qty, unit_price, *args, **kwargs):
+    # you would need to do any localization of the result here
+    return (qty  + unit_price)

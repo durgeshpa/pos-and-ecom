@@ -84,15 +84,19 @@ class DownloadCreditNote(APIView):
     """
     filename = 'credit_note.pdf'
     template_name = 'admin/credit_note/credit_note.html'
-
     def get(self, request, *args, **kwargs):
         order_obj = get_object_or_404(Note, pk=self.kwargs.get('pk'))
         pk = self.kwargs.get('pk')
         a = Note.objects.get(pk=pk)
         shop = a
-        shop1 = OrderedProduct.objects.get(pk=pk)
-        products = OrderedProductMapping.objects.filter(ordered_product=a.shipment.id)
-        order_id = a.shipment.invoice_no
+        amount = a.amount
+        pp = OrderedProductMapping.objects.filter(ordered_product=a.shipment.id)
+        products = []
+        for i in pp:
+            if(i.returned_qty + i.damaged_qty)!=0:
+                products.append(i)
+
+        order_id = a.shipment.order.order_no
         sum_qty = 0
         sum_amount = 0
         tax_inline = 0
@@ -100,7 +104,7 @@ class DownloadCreditNote(APIView):
         gst_tax_list = []
         cess_tax_list = []
         surcharge_tax_list = []
-        for z in shop.shipment.order.seller_shop. \
+        for z in shop.shipment.order.seller_shop.\
                 shop_name_address_mapping.all():
             shop_name_gram = z.shop_name
             nick_name_gram = z.nick_name
@@ -111,24 +115,21 @@ class DownloadCreditNote(APIView):
 
         for m in products:
             sum_qty = sum_qty + (
-                    int(m.product.product_inner_case_size) *
-                    int(m.returned_qty)
+                int(m.returned_qty + m.damaged_qty)
             )
 
-            h = m.get_shop_specific_products_prices_sp()
+            # h = m.price_to_retailer
             sum_amount = sum_amount + (
-                    int(m.product.product_inner_case_size) *
-                    int(m.returned_qty) *
-                    h.selling_price
+                int(m.returned_qty + m.damaged_qty) *
+                    (m.price_to_retailer)
             )
             inline_sum_amount = (
-                    int(m.product.product_inner_case_size) *
-                    int(m.returned_qty) *
-                    h.selling_price
+                int(m.returned_qty + m.damaged_qty) *
+                    (m.price_to_retailer)
             )
             for n in m.get_products_gst_tax():
-                divisor = (1 + (n.tax.tax_percentage / 100))
-                original_amount = (inline_sum_amount / divisor)
+                divisor = (1+(n.tax.tax_percentage/100))
+                original_amount = (inline_sum_amount/divisor)
                 tax_amount = inline_sum_amount - original_amount
                 if n.tax.tax_type == 'gst':
                     gst_tax_list.append(tax_amount)
@@ -139,13 +140,14 @@ class DownloadCreditNote(APIView):
 
                 taxes_list.append(tax_amount)
                 igst = sum(gst_tax_list)
-                cgst = (sum(gst_tax_list)) / 2
-                sgst = (sum(gst_tax_list)) / 2
+                cgst = (sum(gst_tax_list))/2
+                sgst = (sum(gst_tax_list))/2
                 cess = sum(cess_tax_list)
                 surcharge = sum(surcharge_tax_list)
 
         total_amount = sum_amount
         total_amount_int = int(total_amount)
+
 
         data = {
             "object": order_obj,
@@ -153,7 +155,7 @@ class DownloadCreditNote(APIView):
             "shop": shop,
             "total_amount_int": total_amount_int,
             "sum_qty": sum_qty,
-            "sum_amount": sum_amount,
+            "sum_amount": round(sum_amount,2),
             "url": request.get_host(),
             "scheme": request.is_secure() and "https" or "http",
             "igst": igst,
@@ -161,7 +163,7 @@ class DownloadCreditNote(APIView):
             "sgst": sgst,
             "cess": cess,
             "surcharge": surcharge,
-            "total_amount": total_amount,
+            "total_amount": round(total_amount,2),
             "order_id": order_id,
             "shop_name_gram": shop_name_gram,
             "nick_name_gram": nick_name_gram,
@@ -169,7 +171,7 @@ class DownloadCreditNote(APIView):
             "address_line1_gram": address_line1_gram,
             "pincode_gram": pincode_gram,
             "state_gram": state_gram,
-            "shop1": shop1
+            "amount":amount,
         }
 
         cmd_option = {
