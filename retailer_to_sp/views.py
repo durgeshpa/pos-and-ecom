@@ -121,11 +121,11 @@ class DownloadCreditNote(APIView):
             # h = m.price_to_retailer
             sum_amount = sum_amount + (
                 int(m.returned_qty + m.damaged_qty) *
-                    (m.price_to_retailer)
+                    (m.selling_price)
             )
             inline_sum_amount = (
                 int(m.returned_qty + m.damaged_qty) *
-                    (m.price_to_retailer)
+                    (m.selling_price)
             )
             for n in m.get_products_gst_tax():
                 divisor = (1+(n.tax.tax_percentage/100))
