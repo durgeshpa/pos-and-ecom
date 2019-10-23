@@ -85,6 +85,7 @@ class DownloadCreditNote(APIView):
     filename = 'credit_note.pdf'
     template_name = 'admin/credit_note/credit_note.html'
     def get(self, request, *args, **kwargs):
+        import pdb;pdb.set_trace()
         order_obj = get_object_or_404(Note, pk=self.kwargs.get('pk'))
         pk = self.kwargs.get('pk')
         a = Note.objects.get(pk=pk)
@@ -121,11 +122,11 @@ class DownloadCreditNote(APIView):
             # h = m.price_to_retailer
             sum_amount = sum_amount + (
                 int(m.returned_qty + m.damaged_qty) *
-                    (m.selling_price)
+                    (m.price_to_retailer)
             )
             inline_sum_amount = (
                 int(m.returned_qty + m.damaged_qty) *
-                    (m.selling_price)
+                    (m.price_to_retailer)
             )
             for n in m.get_products_gst_tax():
                 divisor = (1+(n.tax.tax_percentage/100))
