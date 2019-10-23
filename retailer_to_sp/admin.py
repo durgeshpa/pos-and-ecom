@@ -1127,11 +1127,10 @@ class TripAdmin(ExportCsvMixin, admin.ModelAdmin):
     actions = ["export_as_csv_trip",]
     list_display = (
         'dispathces', 'total_trip_shipments', 'total_trip_amount', 'delivery_boy', 'seller_shop', 'vehicle_no',
-        'trip_status', 'starts_at', 'completed_at', 'download_trip_pdf'
+        'trip_status', 'starts_at', 'completed_at', 'download_trip_pdf','trip_weight'
     )
     readonly_fields = ('dispathces',)
     autocomplete_fields = ('seller_shop',)
-
     search_fields = [
         'delivery_boy__first_name', 'delivery_boy__last_name', 'delivery_boy__phone_number',
         'vehicle_no', 'dispatch_no', 'seller_shop__shop_name'
@@ -1153,6 +1152,10 @@ class TripAdmin(ExportCsvMixin, admin.ModelAdmin):
             Q(seller_shop__related_users=request.user) |
             Q(seller_shop__shop_owner=request.user)
                 )
+
+    def trip_weight(self, obj):
+        return obj.trip_weight
+    trip_weight.short_description = 'Trip Weight'
 
     def download_trip_pdf(self, obj):
         return format_html("<a href= '%s' >Download Trip PDF</a>"%(reverse('download_trip_pdf', args=[obj.pk])))

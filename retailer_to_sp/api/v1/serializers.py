@@ -788,14 +788,19 @@ class DispatchSerializer(serializers.ModelSerializer):
     shipment_status = serializers.CharField(
                                         source='get_shipment_status_display')
     order = serializers.SlugRelatedField(read_only=True, slug_field='order_no')
+    shipment_weight = serializers.SerializerMethodField()
     created_at = serializers.DateTimeField()
+
+    def shipment_weight(self, obj):
+        return obj.shipment_weight
 
     class Meta:
         model = Dispatch
         fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
                   'shipment_address', 'invoice_city', 'invoice_amount',
-                  'created_at')
-        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount')
+                  'created_at', 'shipment_weight')
+        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount',
+            'shipment_weight')
 
 
 class CommercialShipmentSerializer(serializers.ModelSerializer):
@@ -803,7 +808,11 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
                                         source='get_shipment_status_display')
     order = serializers.SlugRelatedField(read_only=True, slug_field='order_no')
     cash_to_be_collected = serializers.SerializerMethodField()
+    shipment_weight = serializers.SerializerMethodField()
     created_at = serializers.DateTimeField()
+
+    def shipment_weight(self, obj):
+        return obj.shipment_weight
 
     def get_cash_to_be_collected(self, obj):
         return obj.cash_to_be_collected()
@@ -812,8 +821,9 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
         model = OrderedProduct
         fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
                   'shipment_address', 'invoice_city', 'invoice_amount',
-                  'created_at', 'cash_to_be_collected')
-        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 'cash_to_be_collected')
+                  'created_at', 'cash_to_be_collected', 'shipment_weight')
+        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 
+            'shipment_weight','cash_to_be_collected')
 
 class FeedBackSerializer(serializers.ModelSerializer):
 

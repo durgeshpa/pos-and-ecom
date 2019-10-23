@@ -1134,8 +1134,12 @@ class OrderedProductMapping(models.Model):
     @property
     def product_weight(self):
         # sum_a = sum([item.column for item in queryset]) # Definitely takes more memory.
-        weight = self.product.weight_value*self.shipped_qty
-        return weight
+        #import pdb; pdb.set_trace()
+        if self.product.weight_value:
+            weight = self.product.weight_value*self.shipped_qty
+            return weight
+        else:
+            return 0
 
     @property
     def ordered_qty(self):

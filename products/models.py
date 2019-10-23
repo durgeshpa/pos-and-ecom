@@ -26,10 +26,10 @@ SIZE_UNIT_CHOICES = (
 
 WEIGHT_UNIT_CHOICES = (
         ('kg', 'Kilogram'),
-        ('gm', 'Gram'),
-        ('mg', 'Milligram'),
-        ('l', 'Litre'),
-        ('ml', 'Milliliter'),
+        # ('gm', 'Gram'),
+        # ('mg', 'Milligram'),
+        # ('l', 'Litre'),
+        # ('ml', 'Milliliter'),
     )
 
 class Size(models.Model):
