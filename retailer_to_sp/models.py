@@ -261,7 +261,6 @@ class Cart(models.Model):
                     if sub_brands_list:
                         for sub_brands in sub_brands_list:
                             brands_list.append(sub_brands.id)
-                            brands_specific_list.append(sub_brands.id)
                     for i in array:
                         if i['brand_id'] in brands_list:
                             brand_product_subtotals += i['discounted_product_subtotal']
