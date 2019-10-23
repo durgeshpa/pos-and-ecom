@@ -25,7 +25,8 @@ class SalesReport(APIView):
 
     def get_sales_report(self, shop_id, start_date, end_date):
         seller_shop = Shop.objects.get(pk=shop_id)
-        orders = Order.objects.using('readonly').filter(seller_shop = seller_shop).select_related('ordered_cart').prefetch_related('ordered_cart__rt_cart_list')
+        orders = Order.objects.using('readonly').filter(seller_shop=seller_shop).exclude(order_status__in=['CANCELLED', 'DENIED'])\
+            .select_related('ordered_cart').prefetch_related('ordered_cart__rt_cart_list')
         if start_date:
             orders = orders.using('readonly').filter(created_at__gte = start_date)
         if end_date:
