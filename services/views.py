@@ -50,7 +50,7 @@ class SalesReport(APIView):
                 product_shipments = product_shipments.aggregate(Sum('delivered_qty'))['delivered_qty__sum']
                 if not product_shipments:
                     product_shipments = 0
-                tax_sum = 0
+                tax_sum, get_tax_val = 0, 0
                 if all_tax_list.exists():
                     for tax in all_tax_list.using('readonly').all():
                         tax_sum = float(tax_sum) + float(tax.tax.tax_percentage)
