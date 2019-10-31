@@ -1135,8 +1135,6 @@ class TripAdmin(ExportCsvMixin, admin.ModelAdmin):
         'delivery_boy__first_name', 'delivery_boy__last_name', 'delivery_boy__phone_number',
         'vehicle_no', 'dispatch_no', 'seller_shop__shop_name'
     ]
-
-
     list_filter = [
         'trip_status', ('created_at', DateTimeRangeFilter), ('starts_at', DateTimeRangeFilter),
         ('completed_at', DateTimeRangeFilter), DeliveryBoySearch, VehicleNoSearch, DispatchNoSearch
