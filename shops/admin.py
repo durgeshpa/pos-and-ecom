@@ -95,6 +95,19 @@ class ShopOwnerSearch(InputFilter):
                 return
             return queryset.filter(shop_owner__phone_number__icontains=shop_owner_number)
 
+
+class ShopOwnerSearch1(InputFilter):
+    parameter_name = 'shop_owner'
+    title = 'Shop Owner'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            shop_owner_number = self.value()
+            if shop_owner_number is None:
+                return
+            return queryset.filter(shop__shop_owner__phone_number__icontains=shop_owner_number)
+
+
 class BuyerShopFilter(AutocompleteFilter):
     title = 'Shop' # display title
     field_name = 'buyer_shop' # name of the foreign key field
@@ -335,7 +348,7 @@ class ShopRequestBrandAdmin(admin.ModelAdmin):
     #change_list_template = 'admin/shops/shop/change_list.html'
     #form = ShopRequestBrandForm
     list_display = ('shop', 'brand_name', 'product_sku', 'request_count','created_at',)
-    list_filter = (ShopFilter, ProductSKUFilter, BrandNameFilter, ('created_at', DateTimeRangeFilter))
+    list_filter = (ShopFilter, ShopOwnerSearch1, ProductSKUFilter, BrandNameFilter, ('created_at', DateTimeRangeFilter))
     raw_id_fields = ('shop',)
 
     class Media:
