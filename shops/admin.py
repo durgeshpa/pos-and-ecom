@@ -96,7 +96,7 @@ class ShopOwnerSearch(InputFilter):
             return queryset.filter(shop_owner__phone_number__icontains=shop_owner_number)
 
 
-class ShopOwnerSearch1(InputFilter):
+class ShopSearchByOwner(InputFilter):
     parameter_name = 'shop_owner'
     title = 'Shop Owner'
 
@@ -348,7 +348,7 @@ class ShopRequestBrandAdmin(admin.ModelAdmin):
     #change_list_template = 'admin/shops/shop/change_list.html'
     #form = ShopRequestBrandForm
     list_display = ('shop', 'brand_name', 'product_sku', 'request_count','created_at',)
-    list_filter = (ShopFilter, ShopOwnerSearch1, ProductSKUFilter, BrandNameFilter, ('created_at', DateTimeRangeFilter))
+    list_filter = (ShopFilter, ShopSearchByOwner, ProductSKUFilter, BrandNameFilter, ('created_at', DateTimeRangeFilter))
     raw_id_fields = ('shop',)
 
     class Media:
