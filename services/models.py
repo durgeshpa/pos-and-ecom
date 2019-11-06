@@ -177,3 +177,10 @@ class CategoryProductReports(models.Model):
 
     def __str__(self):
         return  "%s"%(self.product_name)
+
+class ShopStock(models.Model):
+    product_id = models.CharField(max_length=255, null=True)
+    available_qty = models.CharField(max_length=255, null=True)
+    damage_qty = models.CharField(max_length=255, null=True)
+    shop_id = models.CharField(max_length=255, null=True)
+    created_at = models.CharField(max_length=255, null=True)
