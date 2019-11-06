@@ -96,7 +96,8 @@ INSTALLED_APPS = [
     'django_celery_results',
     'coupon',
     'offer',
-    'celerybeat_status'
+    'celerybeat_status',
+    'django_elasticsearch_dsl',
 ]
 
 FCM_APIKEY = config('FCM_APIKEY')
@@ -322,7 +323,7 @@ REDIS_DB_CHOICE = {
     'staging': '2',
     'qa': '7',
     'qa1': '9',
-    'local-raj':'5',
+    'local':'5',
     'qa3':'6',
     'qa2':'8',
 }
@@ -373,3 +374,45 @@ CELERY_TIMEZONE = TIME_ZONE
 
 # ElasticSearch
 ELASTICSEARCH_PREFIX = config('ELASTICSEARCH_PREFIX')
+ELASTICSEARCH_DSL={
+    'default': {
+        'hosts': ':9200'
+    },
+}
+LOGGING = {
+  'version': 1,
+  'disable_existing_loggers': False,
+  'formatters': {
+      'simple': {
+            'format': 'velname)s %(message)s'
+        },
+  },
+  'handlers': {
+        'console': {
+            'level': 'ERROR',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple'
+        },
+        'logstash': {
+            'level': 'WARNING',
+            'class': 'logstash.TCPLogstashHandler',
+            'host': 'http://35.154.13.198',
+            'port': 5010, # Default value: 5959
+            'version': 1, # Version of logstash event schema. Default value: 0 (for backward compatibility of the library)
+            'message_type': 'django',  # 'type' field in logstash message. Default value: 'logstash'.
+            'fqdn': False, # Fully qualified domain name. Default value: false.
+            'tags': ['django.request'], # list of tags. Default: None.
+        },
+  },
+  'loggers': {
+        'django.request': {
+            'handlers': ['logstash'],
+            'level': 'WARNING',
+            'propagate': True,
+        },
+        'django': {
+            'handlers': ['console'],
+            'propagate': True,
+        },
+    }
+}
