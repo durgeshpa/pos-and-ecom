@@ -755,9 +755,13 @@ class Trip(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
+        if self.delivery_boy:
+            delivery_boy_identifier = self.delivery_boy.first_name if self.delivery_boy.first_name else self.delivery_boy.phone_number
+        else:
+            delivery_boy_identifier = "--"
         return "{} -> {}".format(
             self.dispatch_no,
-            self.delivery_boy.first_name if self.delivery_boy.first_name else self.delivery_boy.phone_number
+            delivery_boy_identifier
         )
 
     @property
