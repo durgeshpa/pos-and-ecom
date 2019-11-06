@@ -84,7 +84,9 @@ class OrderedProductMappingSerializer(serializers.ModelSerializer):
         return self.product_price
 
     def get_product_total_price(self, obj):
-        self.product_total_price = round(self.product_price,2) * obj.shipped_qty
+        cart_product_mapping = CartProductMapping.objects.get(cart_product=obj.product, cart=obj.ordered_product.order.ordered_cart)
+        product_price = cart_product_mapping.item_effective_prices
+        self.product_total_price = product_price * obj.shipped_qty
         return round(self.product_total_price,2)
 
     class Meta:
@@ -270,7 +272,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
 
     # def __init__(self, *args, **kwargs):
     #     super().__init__()
-        
+
     def is_available_dt(self,obj):
         ordered_product_sum = OrderedProductMapping.objects.filter(product=obj.cart_product).aggregate(available_qty_sum=Sum('available_qty'))
         self.is_available = True if ordered_product_sum['available_qty_sum'] and int(ordered_product_sum['available_qty_sum'])>0 else False

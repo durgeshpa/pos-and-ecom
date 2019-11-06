@@ -78,7 +78,17 @@ class Shop(models.Model):
     #last_login_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return "%s"%(self.shop_name) #,self.shop_owner)
+        #return "%s-%s"%(self.shop_name, self.shop_owner)
+        if self.shop_owner.first_name and self.shop_owner.last_name:
+            return "%s - %s - %s %s" % (self.shop_name,
+                str(self.shop_owner.phone_number), self.shop_owner.first_name, self.shop_owner.last_name
+            )
+
+        elif self.shop_owner.first_name:
+            return "%s - %s - %s" % (self.shop_name, str(self.shop_owner.phone_number), self.shop_owner.first_name)
+
+        return "%s - %s" % (self.shop_name, str(self.shop_owner.phone_number))
+
 
     def __init__(self, *args, **kwargs):
         super(Shop, self).__init__(*args, **kwargs)
