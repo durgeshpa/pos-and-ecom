@@ -325,6 +325,7 @@ REDIS_DB_CHOICE = {
     'local-raj':'5',
     'qa3':'6',
     'qa2':'8',
+    'local':'11',
 }
 
 # JET_THEMES = [
