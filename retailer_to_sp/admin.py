@@ -461,7 +461,7 @@ class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
-        list_display = ['order_no', 'seller_shop', 'buyer_shop', 'pincode', 'total_final_amount',
+        list_display = ['order_no', 'seller_shop', 'buyer_shop_with_mobile', 'pincode','city', 'total_final_amount',
                         'order_status', 'created_at', 'payment_mode', 'paid_amount',
                         'total_paid_amount', 'shipment_status', 'shipment_status_reason','order_shipment_amount', 'order_shipment_details',
                         'picking_status', 'picker_boy', 'picklist_id',]
@@ -760,12 +760,6 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                 (reverse('download_pick_list_sp', args=[obj.pk]))
             )
     download_pick_list.short_description = 'Download Pick List'
-
-    def buyer_shop_with_mobile(self,obj):
-        if obj.buyer_shop:
-            return "%s - %s"%(obj.buyer_shop, obj.buyer_shop.shop_owner.phone_number)
-        return "-"
-    buyer_shop_with_mobile.short_description = 'Buyer Shop'
 
     def order_products(self, obj):
         p=[]

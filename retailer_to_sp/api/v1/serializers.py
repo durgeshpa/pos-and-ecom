@@ -844,6 +844,7 @@ class CancelOrderSerializer(serializers.ModelSerializer):
         fields = ('order_id', 'order_status')
 
     def validate(self, data):
+        raise serializers.ValidationError(_('Sorry! This order cannot be cancelled'),)
         order = self.context.get('order')
         if order.order_status == 'CANCELLED':
             raise serializers.ValidationError(_('This order is already cancelled!'),)
