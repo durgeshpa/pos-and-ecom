@@ -261,7 +261,6 @@ class Cart(models.Model):
                     if sub_brands_list:
                         for sub_brands in sub_brands_list:
                             brands_list.append(sub_brands.id)
-                            brands_specific_list.append(sub_brands.id)
                     for i in array:
                         if i['brand_id'] in brands_list:
                             brand_product_subtotals += i['discounted_product_subtotal']
@@ -280,7 +279,7 @@ class Cart(models.Model):
                                 discount_sum_brand+= round(brand_coupon.rule.discount.max_discount, 2)
                                 offers_list.append({'type':'discount', 'sub_type':'discount_on_brand', 'coupon_id':brand_coupon.id, 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'brand_id':offer_brand.id, 'discount_value':discount_value_brand, 'coupon_type':'brand', 'brand_product_subtotals':brand_product_subtotals, 'discount_sum_brand':discount_sum_brand})
                         else:
-                            brands_specific_list.clear()
+                            brands_specific_list.pop()
             array1 = list(filter(lambda d: d['coupon_type'] in 'brand', offers_list))
             discount_value_cart = 0
             cart_coupons = Coupon.objects.filter(coupon_type = 'cart', is_active = True, expiry_date__gte = date).order_by('-rule__cart_qualifying_min_sku_value')
@@ -756,9 +755,13 @@ class Trip(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
+        if self.delivery_boy:
+            delivery_boy_identifier = self.delivery_boy.first_name if self.delivery_boy.first_name else self.delivery_boy.phone_number
+        else:
+            delivery_boy_identifier = "--"
         return "{} -> {}".format(
             self.dispatch_no,
-            self.delivery_boy.first_name if self.delivery_boy.first_name else self.delivery_boy.phone_number
+            delivery_boy_identifier
         )
 
     @property
