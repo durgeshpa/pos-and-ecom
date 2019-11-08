@@ -547,8 +547,6 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                         BrandNote, 'brand_note_id', None, instance.grn_order.order.ordered_cart.gf_billing_address_id),
                 grn_order = instance.grn_order, amount = instance.returned_qty * instance.po_product_price, status=True)
 
-        instance.available_qty = instance.delivered_qty
-        instance.save()
         # SP auto ordered product creation
         connected_shops = ParentRetailerMapping.objects.filter(
             parent=instance.grn_order.order.ordered_cart.gf_shipping_address.shop_name,
@@ -597,12 +595,11 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                     manufacture_date=instance.manufacture_date,
                     expiry_date=instance.expiry_date,
                     shipped_qty=instance.delivered_qty,
-                    available_qty=instance.available_qty,
-                    ordered_qty=instance.grn_order.order.ordered_cart.\
-                        cart_list.filter(cart_product=instance.product).last().qty,
+                    available_qty=instance.delivered_qty,
+                    ordered_qty=instance.delivered_qty,
                     delivered_qty=instance.delivered_qty,
-                    returned_qty=instance.returned_qty,
-                    damaged_qty=instance.damaged_qty
+                    returned_qty=0,
+                    damaged_qty=0
                 )
         # ends here
         instance.available_qty = 0
