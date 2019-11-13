@@ -169,7 +169,7 @@ class ShipmentPaymentSerializer1(serializers.ModelSerializer):
         if self.get_payment_mode_name(obj) == "online_payment":
             parent_payment = obj.parent_order_payment.parent_payment
             return parent_payment.reference_no, parent_payment.online_payment_type,\
-                parent_payment.payment_screenshot.url
+                parent_payment.payment_screenshot
 
     def get_reference_no(self, obj):
         if self.get_payment_mode_name(obj) == "online_payment":
@@ -180,7 +180,8 @@ class ShipmentPaymentSerializer1(serializers.ModelSerializer):
     def get_payment_screenshot(self, obj):
         if self.get_payment_mode_name(obj) == "online_payment":
             payment_data = self.get_online_payment_data(obj)
-            return payment_data[2]            
+            if payment_data[2]:
+                return payment_data[2].url
 
     def get_online_payment_type(self, obj):
         if self.get_payment_mode_name(obj) == "online_payment":
