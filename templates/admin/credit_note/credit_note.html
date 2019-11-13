@@ -168,14 +168,14 @@ table tr td,th,h4,span,address{
                     {% for m in products %}
     								<td><strong>{{forloop.counter}}</strong></td>
 										<td class="text-center">{{ m.product.product_sku}}</td>
-    								<td class="text-center">{{ m.product.product_short_description}}</td>
+											<td class="text-center">{{ m.product.product_short_description}}</td>
     								<td class="text-center">{{ m.product.product_hsn}}</td>
                     {% if m.get_products_gst_cess %}
                    <td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage |add:m.get_products_gst_cess.last.tax.tax_percentage }}%</strong></td>
                     {% else %}
                     <td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage}}%</strong></td>
                     {% endif %}
-                        <td class="text-center"><strong>GST Amount</strong></td>
+							<td class="text-center"><strong>GST Amount</strong></td>
 									<td class="text-center"></td>
 
 
@@ -189,7 +189,7 @@ table tr td,th,h4,span,address{
 										   <div style="display:none"> {{m.returned_qty | total_returned_qty }}</div>
                        <div style="display:none"> {{m.product.product_inner_case_size | total_returned_qty}}</div>
 <!--                    {% with h=m.price_to_retailer %}-->
-    								<td class="text-right">{% multiply m.price_to_retailer sum_qty %}/</td>
+    								<td class="text-right">{% multiply m.price_to_retailer sum_amount %}/</td>
 <!--										{% endwith %}-->
     							</tr>
 									{% endfor %}
