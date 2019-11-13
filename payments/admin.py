@@ -192,7 +192,7 @@ class ShipmentPaymentDataAdmin(admin.ModelAdmin):
     list_display = (
         'order', 'trip','invoice_no', 'invoice_amount', 'total_paid_amount','invoice_city'
         )
-    list_per_page = 50
+    list_per_page = 5
     fields = ['order', 'trip', 'trip_status', 'invoice_no', 'invoice_amount', 'total_paid_amount', 'shipment_address', 'invoice_city',
         'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
     readonly_fields = ['order', 'trip', 'trip_status', 'invoice_no', 'invoice_amount', 'total_paid_amount', 'shipment_address', 'invoice_city',

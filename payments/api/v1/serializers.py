@@ -149,17 +149,18 @@ class ShipmentPaymentSerializer1(serializers.ModelSerializer):
     #parent_order_payment = OrderPaymentSerializer()
     payment_mode_name = serializers.SerializerMethodField()
     reference_no = serializers.SerializerMethodField()
+    payment_screenshot = serializers.SerializerMethodField()
     online_payment_type = serializers.SerializerMethodField()
     paid_by = serializers.SerializerMethodField()
 
     class Meta:
         model = ShipmentPayment
         fields = ['description', 'paid_amount', 'payment_mode_name', 'reference_no', 
-            'shipment', 'online_payment_type', 'paid_by'
+            'shipment', 'online_payment_type', 'payment_screenshot', 'paid_by'
             ] 
 
     def get_paid_by(self, obj):
-        return obj.parent_order_payment.parent_payment.paid_by
+        return obj.parent_order_payment.parent_payment.paid_by.__str__()
 
     def get_payment_mode_name(self, obj):
         return obj.parent_order_payment.parent_payment.payment_mode_name
@@ -167,18 +168,24 @@ class ShipmentPaymentSerializer1(serializers.ModelSerializer):
     def get_online_payment_data(self, obj):
         if self.get_payment_mode_name(obj) == "online_payment":
             parent_payment = obj.parent_order_payment.parent_payment
-            return parent_payment.reference_no, parent_payment.online_payment_type
+            return parent_payment.reference_no, parent_payment.online_payment_type,\
+                parent_payment.payment_screenshot.url
 
     def get_reference_no(self, obj):
         if self.get_payment_mode_name(obj) == "online_payment":
-            reference_no, _ = self.get_online_payment_data(obj)
-            return reference_no
+            payment_data = self.get_online_payment_data(obj)
+            return payment_data[0]
             #return obj.parent_order_payment.parent_payment.reference_no
+
+    def get_payment_screenshot(self, obj):
+        if self.get_payment_mode_name(obj) == "online_payment":
+            payment_data = self.get_online_payment_data(obj)
+            return payment_data[2]            
 
     def get_online_payment_type(self, obj):
         if self.get_payment_mode_name(obj) == "online_payment":
-            _, online_payment_type = self.get_online_payment_data(obj)
-            return online_payment_type
+            payment_data = self.get_online_payment_data(obj)
+            return payment_data[1]
             #return obj.parent_order_payment.parent_payment.online_payment_type
          
     # def validate(self, data):
