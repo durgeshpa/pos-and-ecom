@@ -12,7 +12,9 @@ from admin_numeric_filter.admin import NumericFilterModelAdmin, SingleNumericFil
     SliderNumericFilter
 from dal_admin_filters import AutocompleteFilter
 from retailer_backend.admin import InputFilter
+from retailer_backend.filters import ProductFilter
 from django.db.models import Q
+from django_admin_listfilter_dropdown.filters import (ChoiceDropdownFilter, RelatedDropdownFilter, DropdownFilter)
 
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
@@ -58,7 +60,6 @@ class CartAdmin(NumericFilterModelAdmin,admin.ModelAdmin):
         js = ('/static/admin/js/sp_po_generation_form.js',)
         pass
 
-admin.site.register(Cart,CartAdmin)
 
 class OrderIdSearch(InputFilter):
     parameter_name = 'order_no'
@@ -77,7 +78,6 @@ class OrderAdmin(admin.ModelAdmin):
     list_display = ('order_no','order_status',)
     list_filter = (OrderIdSearch,'order_status',)
 
-admin.site.register(Order,OrderAdmin)
 
 class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping
@@ -128,13 +128,14 @@ class OrderedProductAdmin(admin.ModelAdmin):
             instance.save()
         formset.save_m2m()
 
-admin.site.register(OrderedProduct,OrderedProductAdmin)
 
 class OrderedProductMappingAdmin2(admin.ModelAdmin):
     list_display = ('ordered_product','product','ordered_qty','available_qty',)
     readonly_fields = ('shop', 'ordered_product', 'product','last_modified_by')
+    list_filter = (ProductFilter, ('ordered_product__status', ChoiceDropdownFilter),)
 
-admin.site.register(OrderedProductMapping,OrderedProductMappingAdmin2)
+    class Media:
+        pass
 
 
 class OrderedProductReservedAdmin(admin.ModelAdmin):
@@ -153,6 +154,13 @@ class OrderedProductReservedAdmin(admin.ModelAdmin):
         return format_html(link)
     grn_product_link.short_description = 'GRN Product'
 
-admin.site.register(OrderedProductReserved,OrderedProductReservedAdmin)
+
+admin.site.register(Cart,CartAdmin)
 admin.site.register(StockAdjustment)
+admin.site.register(Order,OrderAdmin)
 admin.site.register(StockAdjustmentMapping)
+admin.site.register(OrderedProduct,OrderedProductAdmin)
+admin.site.register(OrderedProductMapping,OrderedProductMappingAdmin2)
+admin.site.register(OrderedProductReserved,OrderedProductReservedAdmin)
+
+
