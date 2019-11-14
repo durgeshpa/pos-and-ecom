@@ -143,7 +143,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
     model = ShipmentPayment
     serializer_class = ShipmentPaymentSerializer
     queryset = ShipmentPayment.objects.all()
-    parser_classes = (FormParser, MultiPartParser)
+    #parser_classes = (FormParser, MultiPartParser)
     # authentication_classes = (authentication.TokenAuthentication,)
     # permission_classes = (permissions.IsAuthenticated,)
     # filter_backends = (filters.DjangoFilterBackend,)
@@ -164,6 +164,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
         return self.serializer_class
 
     def create(self, request, *args, **kwargs):
+        #import pdb; pdb.set_trace()
         try:
             shipment = request.data.get('shipment', None)
             paid_by = request.data.get('paid_by', None)
@@ -196,6 +197,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
             paid_by = UserWithName.objects.get(phone_number=paid_by)
 
             with transaction.atomic():
+                count = 0
                 for item in request.data.get('payment_data'):
                     # serializer = self.get_serializer(data=item)
                     # if serializer.is_valid():
@@ -205,7 +207,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                     reference_no = item.get('reference_no', None)
                     online_payment_type = item.get('online_payment_type', None)
                     description = item.get('description', None)
-
+                    count += 1
                     # if payment_mode_name == "credit_payment":
                     #     payload = {}
                     #     payload['buyerMobile'] = request.data.get('paid_by', None)
@@ -254,9 +256,9 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                         status=status.HTTP_200_OK)
 
         except Exception as e:
-            # msg = {'is_success': False,
-            #         'message': str(e), #[error for error in errors],
-            #         'response_data': None }
+            msg = {'is_success': False,
+                    'message': str(e), #[error for error in errors],
+                    'response_data': None }
             errors = []
             for field in e: #serializer.errors:
                 for error in e[field]:#serializer.errors[field]:
@@ -265,9 +267,9 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                     else:
                         result = ''.join('{} : {}'.format(field,error))
                     errors.append(result)
-            msg = {'is_success': False,
-                    'message': errors, #[error for error in errors],
-                    'response_data': None }
+            # msg = {'is_success': False,
+            #         'message': errors, #[error for error in errors],
+            #         'response_data': None }
             return Response(msg,
                             status=status.HTTP_406_NOT_ACCEPTABLE)
 
