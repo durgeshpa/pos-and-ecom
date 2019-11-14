@@ -41,3 +41,7 @@ def multiply(qty, unit_price, *args, **kwargs):
 def addition(qty, unit_price, *args, **kwargs):
     # you would need to do any localization of the result here
     return (qty  + unit_price)
+
+@register.simple_tag(name='addMultiplication')
+def addMultiplication(qty, unit_price, newqty, *args, **kwargs):
+    return round(qty * int(unit_price + newqty),2)
