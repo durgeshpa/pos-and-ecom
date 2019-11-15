@@ -550,29 +550,29 @@ def products_csv_upload_view(request):
                                 'admin/products/productscsvupload.html',
                                 {'form': form}
                             )
-                try:
-                    productoptions, _ = ProductOption.objects.get_or_create(
-                        product=product
-                    )
-                    productoptions.size_id = row[8] if row[8] else None
-                    productoptions.color_id = row[9] if row[9] else None
-                    productoptions.fragrance_id = row[10] if row[10] else None
-                    productoptions.flavor_id = row[11] if row[11] else None
-                    productoptions.weight_id = row[12] if row[12] else None
-                    productoptions.package_size_id = row[13] if row[13] else None
-                    productoptions.save()
-                except Exception as e:
-                    logger.exception("Unable to create Product Options")
-                    messages.error(
-                        request,
-                        "Unable to create Product options "
-                        "for {}".format(row[1])
-                    )
-                    return render(
-                        request,
-                        'admin/products/productscsvupload.html',
-                        {'form': form}
-                    )
+                # try:
+                #     productoptions, _ = ProductOption.objects.get_or_create(
+                #         product=product
+                #     )
+                #     productoptions.size_id = row[8] if row[8] else None
+                #     productoptions.color_id = row[9] if row[9] else None
+                #     productoptions.fragrance_id = row[10] if row[10] else None
+                #     productoptions.flavor_id = row[11] if row[11] else None
+                #     productoptions.weight_id = row[12] if row[12] else None
+                #     productoptions.package_size_id = row[13] if row[13] else None
+                #     productoptions.save()
+                # except Exception as e:
+                #     logger.exception("Unable to create Product Options")
+                #     messages.error(
+                #         request,
+                #         "Unable to create Product options "
+                #         "for {}".format(row[1])
+                #     )
+                #     return render(
+                #         request,
+                #         'admin/products/productscsvupload.html',
+                #         {'form': form}
+                #     )
                 for t in row[7].split(','):
                     if t is not '':
                         try:
