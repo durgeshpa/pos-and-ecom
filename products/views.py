@@ -514,6 +514,7 @@ def products_csv_upload_view(request):
                     product.product_inner_case_size = row[14]
                     product.product_hsn = product_hsn_dt
                     product.product_case_size = row[15]
+                    product.product_weight = row[12]
                 try:
                     product.save()
                 except Exception as e:
