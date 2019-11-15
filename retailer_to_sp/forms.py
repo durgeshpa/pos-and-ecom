@@ -419,6 +419,7 @@ class TripForm(forms.ModelForm):
     total_crates_collected = forms.IntegerField(required=False)
     total_packets_collected = forms.IntegerField(required=False)
     total_sacks_collected = forms.IntegerField(required=False)
+    trip_weight = forms.DecimalField(required=False)
     selected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
     unselected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
 
@@ -426,7 +427,7 @@ class TripForm(forms.ModelForm):
         model = Trip
         fields = ['seller_shop', 'delivery_boy', 'vehicle_no', 'trip_status',
                   'e_way_bill_no', 'search_by_area', 'search_by_pincode', 'Invoice_No', 'selected_id',
-                  'unselected_id']
+                  'unselected_id', 'trip_weight']
 
     class Media:
         js = ('admin/js/select2.min.js',)
@@ -448,7 +449,8 @@ class TripForm(forms.ModelForm):
         self.fields['total_crates_shipped'].initial = instance.total_crates_shipped
         self.fields['total_packets_shipped'].initial = instance.total_packets_shipped
         self.fields['total_sacks_shipped'].initial = instance.total_sacks_shipped
-
+        self.fields['trip_weight'].initial = instance.trip_weight
+        self.fields['trip_weight'].disabled = True
 
         trip = instance.pk
         if trip:
