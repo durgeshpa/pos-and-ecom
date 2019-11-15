@@ -863,6 +863,14 @@ class Trip(models.Model):
     def total_trip_amount_value(self):
         return self.total_trip_amount()
 
+    @property
+    def trip_weight(self):
+        queryset = self.rt_invoice_trip.all()
+        weight = sum([item.shipment_weight for item in queryset]) # Definitely takes more memory.
+        #weight = self.rt_order_product_order_product_mapping.all().aggregate(Sum('product.weight_value'))['weight_value__sum']
+        weight = round(weight,2)        
+        return weight
+
     __trip_status = None
 
     def __init__(self, *args, **kwargs):
@@ -1035,6 +1043,13 @@ class OrderedProduct(models.Model): #Shipment
                 raise ValidationError(_("The number of crates must be equal to the number of crates shipped during shipment"))
 
     @property
+    def shipment_weight(self):
+        queryset = self.rt_order_product_order_product_mapping.all()
+        weight = sum([item.product_weight for item in queryset]) # Definitely takes more memory.
+        #weight = self.rt_order_product_order_product_mapping.all().aggregate(Sum('product.weight_value'))['weight_value__sum']
+        return weight
+
+    @property
     def shipment_address(self):
         if self.order:
             address = self.order.shipping_address
@@ -1168,6 +1183,16 @@ class OrderedProductMapping(models.Model):
                     _('Sum of returned and damaged pieces should be '
                       'less than no. of pieces to ship'),
                 )
+
+    @property
+    def product_weight(self):
+        # sum_a = sum([item.column for item in queryset]) # Definitely takes more memory.
+        #import pdb; pdb.set_trace()
+        if self.product.weight_value:
+            weight = self.product.weight_value*self.shipped_qty
+            return weight
+        else:
+            return 0
 
     @property
     def ordered_qty(self):
