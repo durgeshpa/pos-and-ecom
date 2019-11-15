@@ -139,13 +139,13 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
     '''
     This class handles all operation of ordered product mapping
     '''
-    #permission_classes = (AllowAny,)
+    permission_classes = (AllowAny,)
     model = ShipmentPayment
     serializer_class = ShipmentPaymentSerializer
     queryset = ShipmentPayment.objects.all()
     #parser_classes = (FormParser, MultiPartParser)
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
+    # authentication_classes = (authentication.TokenAuthentication,)
+    # permission_classes = (permissions.IsAuthenticated,)
     # filter_backends = (filters.DjangoFilterBackend,)
     # filter_class = ShipmentPaymentFilter
 
@@ -167,7 +167,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
         #import pdb; pdb.set_trace()
         try:
             shipment = request.data.get('shipment', None)
-            paid_by = request.data.get('paid_by', None)
+            # paid_by = request.data.get('paid_by', None)
             if not OrderedProduct.objects.filter(pk=shipment).exists():
                 msg = {'is_success': False,
                                 'message': "Shipment not found",
@@ -175,12 +175,12 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                 return Response(msg,
                                 status=status.HTTP_406_NOT_ACCEPTABLE)
 
-            if not UserWithName.objects.filter(phone_number=paid_by).exists():
-                msg = {'is_success': False,
-                                'message': "Paid by user not found",
-                                'response_data': None }
-                return Response(msg,
-                                status=status.HTTP_406_NOT_ACCEPTABLE)
+            # if not UserWithName.objects.filter(phone_number=paid_by).exists():
+            #     msg = {'is_success': False,
+            #                     'message': "Paid by user not found",
+            #                     'response_data': None }
+            #     return Response(msg,
+            #                     status=status.HTTP_406_NOT_ACCEPTABLE)
 
             serializer = self.get_serializer(data=request.data.get('payment_data'), many=True)
             if not serializer.is_valid():
@@ -192,9 +192,10 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
 
             shipment = request.data.get('shipment', None)
             shipment = OrderedProduct.objects.get(pk=shipment)
-
-            paid_by = request.data.get('paid_by', None)
-            paid_by = UserWithName.objects.get(phone_number=paid_by)
+            if shipment:
+                paid_by = shipment.order.buyer_shop.shop_owner          
+            # paid_by = request.data.get('paid_by', None)
+            # paid_by = UserWithName.objects.get(phone_number=paid_by)
 
             with transaction.atomic():
                 count = 0
