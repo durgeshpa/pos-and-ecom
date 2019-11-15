@@ -245,7 +245,6 @@ class ProductTaxMappingAdmin(admin.TabularInline):
 class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductResource
     form = ProductForm
-    max_per_page = 5
 
     class Media:
             pass
