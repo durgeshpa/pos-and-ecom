@@ -1136,7 +1136,7 @@ class TripAdmin(ExportCsvMixin, admin.ModelAdmin):
     actions = ["export_as_csv_trip",]
     list_display = (
         'dispathces', 'total_trip_shipments', 'total_trip_amount', 'delivery_boy', 'seller_shop', 'vehicle_no',
-        'trip_status', 'starts_at', 'completed_at', 'download_trip_pdf','trip_weight'
+        'trip_status', 'starts_at', 'completed_at', 'download_trip_pdf'
     )
     readonly_fields = ('dispathces',)
     autocomplete_fields = ('seller_shop',)
