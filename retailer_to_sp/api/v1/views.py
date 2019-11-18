@@ -342,13 +342,11 @@ class GramGRNProductsList(APIView):
                                     discounted_product_subtotal = i['discounted_product_subtotal']
                                     p["_source"]["discounted_product_subtotal"] = discounted_product_subtotal
                                     p["_source"]["margin"] = (((float(check_price.mrp) - c_p.item_effective_prices) / float(check_price.mrp)) * 100)
-                                    for j in coupons: j['is_applied'] = True
-                            # import pdb; pdb.set_trace()
-                            # array3 = list(filter(lambda d: d['sub_type'] in keyValList3, exampleSet2))
-                            # for i in array3:
-                            #     for j in coupons:
-                            #         if j['coupon_type'] == 'brand'  in exampleSet2:
-                            #             j['is_applied'] = True
+                            array3 = list(filter(lambda d: d['sub_type'] in keyValList3, exampleSet2))
+                            for j in coupons:
+                                for i in (array3 + array2):
+                                    if j['coupon_code'] == i['coupon_code']:
+                                        j['is_applied'] = True
                         user_selected_qty = c_p.qty
                         no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
                         p["_source"]["user_selected_qty"] = user_selected_qty
