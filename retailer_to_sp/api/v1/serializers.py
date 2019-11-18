@@ -311,6 +311,18 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
                     for i in coupons: i['is_applied'] = True
             return coupons
 
+    def margin_dt(self, obj):
+        keyValList2 = ['discount_on_product']
+        if obj.cart.offers:
+            exampleSet2 = obj.cart.offers
+            array2 = list(filter(lambda d: d['sub_type'] in keyValList2, exampleSet2))
+            for i in array2:
+                if i['item_sku']== c_p.cart_product.product_sku:
+                    margin = (((float(obj.cart_product.mrp) - obj.cart_product.item_effective_prices) / float(obj.cart_product.mrp)) * 100)
+        else:
+            margin = (((self.product_mrp - self.product_price) / self.product_mrp) * 100)
+        return margin
+
     class Meta:
         model = CartProductMapping
         fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg', 'is_available','no_of_pieces','product_sub_total', 'product_coupons')

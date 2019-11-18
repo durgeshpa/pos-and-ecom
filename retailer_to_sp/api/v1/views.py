@@ -316,7 +316,9 @@ class GramGRNProductsList(APIView):
                         for product_coupon in coupon.rule.product_ruleset.filter(purchased_product = product):
                             if product_coupon.max_qty_per_use > 0:
                                 max_qty = product_coupon.max_qty_per_use
-                                for i in coupons: i['max_qty'] = max_qty
+                                for i in coupons:
+                                    if i['coupon_type'] == 'catalog':
+                                        i['max_qty'] = max_qty
 
                 # product = Product.objects.get(id=p["_source"]["id"])
                 check_price = product.get_current_shop_price(parent_mapping.parent.id, shop_id)
@@ -331,6 +333,7 @@ class GramGRNProductsList(APIView):
                 for c_p in cart_products:
                     if c_p.cart_product_id == p["_source"]["id"]:
                         keyValList2 = ['discount_on_product']
+                        keyValList3 = ['discount_on_brand']
                         if cart.offers:
                             exampleSet2 = cart.offers
                             array2 = list(filter(lambda d: d['sub_type'] in keyValList2, exampleSet2))
@@ -340,6 +343,12 @@ class GramGRNProductsList(APIView):
                                     p["_source"]["discounted_product_subtotal"] = discounted_product_subtotal
                                     p["_source"]["margin"] = (((float(check_price.mrp) - c_p.item_effective_prices) / float(check_price.mrp)) * 100)
                                     for j in coupons: j['is_applied'] = True
+                            # import pdb; pdb.set_trace()
+                            # array3 = list(filter(lambda d: d['sub_type'] in keyValList3, exampleSet2))
+                            # for i in array3:
+                            #     for j in coupons:
+                            #         if j['coupon_type'] == 'brand'  in exampleSet2:
+                            #             j['is_applied'] = True
                         user_selected_qty = c_p.qty
                         no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
                         p["_source"]["user_selected_qty"] = user_selected_qty

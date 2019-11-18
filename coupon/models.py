@@ -2,7 +2,6 @@ from django.db import models
 from accounts.models import User
 from brand.models import Brand
 from categories.models import Category
-from products.models import Product
 from shops.models import Shop
 from addresses.models import City
 from django.db.models import F, FloatField, Sum
@@ -85,7 +84,7 @@ class CusotmerCouponUsage(models.Model):
     coupon = models.ForeignKey(Coupon, related_name ='customer_coupon', on_delete=models.CASCADE, null= True)
     cart = models.ForeignKey("retailer_to_sp.Cart", related_name ='customer_coupon', on_delete=models.CASCADE, null=True)
     shop = models.ForeignKey(Shop, related_name='customer_coupon_usage', on_delete=models.CASCADE, null=True, blank=True)
-    product = models.ForeignKey(Product, related_name='customer_coupon_product', on_delete=models.CASCADE, null=True, blank=True)
+    product = models.ForeignKey("products.Product", related_name='customer_coupon_product', on_delete=models.CASCADE, null=True, blank=True)
     times_used = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -95,8 +94,8 @@ class CusotmerCouponUsage(models.Model):
 
 class RuleSetProductMapping(models.Model):
     rule = models.ForeignKey(CouponRuleSet, related_name ='product_ruleset', on_delete=models.CASCADE)
-    purchased_product = models.ForeignKey(Product, related_name ='purchased_product_coupon', on_delete=models.CASCADE, null=True)
-    free_product = models.ForeignKey(Product, related_name ='free_product_coupon', on_delete=models.CASCADE, null=True, blank=True)
+    purchased_product = models.ForeignKey("products.Product", related_name ='purchased_product_coupon', on_delete=models.CASCADE, null=True)
+    free_product = models.ForeignKey("products.Product", related_name ='free_product_coupon', on_delete=models.CASCADE, null=True, blank=True)
     max_qty_per_use = models.PositiveIntegerField(default=0, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
