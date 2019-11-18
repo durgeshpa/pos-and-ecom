@@ -565,7 +565,7 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                               ordered_cart.cart_list.filter
                               (
                               cart_product=instance.product
-                          ).last().number_of_cases,
+                          ).last().no_of_cases,
                     qty=int(instance.delivered_qty),
                     #scheme=item.scheme,
                     price=instance.grn_order.order.\
