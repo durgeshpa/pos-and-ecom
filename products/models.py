@@ -209,10 +209,6 @@ from celery.task import task
 #     print("-------------------------------------------------------------------call post signal")
 #     call_analytic_product_update.delay(instance.id)
 
-post_save.connect(get_category_product_report1, sender = Product)
-
-
-
 class ProductSKUGenerator(models.Model):
     parent_cat_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
     cat_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
@@ -526,5 +522,6 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
         product.product_sku="%s%s%s%s"%(cat_sku_code,parent_cat_sku_code,brand_sku_code,last_sku_increment)
         product.save()
 
+# post_save.connect(get_category_product_report1, sender = Product)
 post_save.connect(get_category_product_report3, sender=ProductPrice)
 

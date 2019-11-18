@@ -28,9 +28,6 @@ class CategoryProductReport(CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             #print(Product.objects.filter(product_name__icontains='dfgdgdfg')[0].id)
-            print(request.data.get("id"))
-            print(request.POST.get("id"))
-            print(Product.objects.filter(id=int(request.data.get("id"))))
             product = Product.objects.get(id=int(request.data.get("id")))
             for cat in product.product_pro_category.all():
                 product_id = product.id
