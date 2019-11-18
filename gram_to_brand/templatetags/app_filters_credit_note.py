@@ -44,4 +44,4 @@ def addition(qty, unit_price, *args, **kwargs):
 
 @register.simple_tag(name='addMultiplication')
 def addMultiplication(qty, unit_price, newqty, *args, **kwargs):
-    return round(int(qty) * int(unit_price + newqty),2)
+    return round(float(qty) * int(unit_price + newqty),2)
