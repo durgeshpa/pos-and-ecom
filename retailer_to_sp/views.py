@@ -93,7 +93,6 @@ class DownloadCreditNote(APIView):
         pp = OrderedProductMapping.objects.filter(ordered_product=a.shipment.id)
         products = []
         for i in pp:
-            import pdb;pdb.set_trace()
             if(i.returned_qty + i.damaged_qty)!=0:
                 products.append(i)
 
