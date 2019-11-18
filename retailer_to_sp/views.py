@@ -129,7 +129,7 @@ class DownloadCreditNote(APIView):
                     (m.price_to_retailer)
             )
             for n in m.get_products_gst_tax():
-                divisor = (1+(n.tax.tax_percentage/100))
+                divisor = Decimal(1+(n.tax.tax_percentage/100))
                 original_amount = (inline_sum_amount/divisor)
                 tax_amount = inline_sum_amount - original_amount
                 if n.tax.tax_type == 'gst':
