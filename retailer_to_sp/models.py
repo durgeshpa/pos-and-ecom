@@ -868,8 +868,10 @@ class Trip(models.Model):
         queryset = self.rt_invoice_trip.all()
         weight = sum([item.shipment_weight for item in queryset]) # Definitely takes more memory.
         #weight = self.rt_order_product_order_product_mapping.all().aggregate(Sum('product.weight_value'))['weight_value__sum']
+        if weight != 0:
+            weight /= 1000
         weight = round(weight,2)        
-        return weight
+        return str(weight) + " Kg" 
 
     __trip_status = None
 
