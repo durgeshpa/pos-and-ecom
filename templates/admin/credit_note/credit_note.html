@@ -181,7 +181,7 @@ table tr td,th,h4,span,address{
 
 									<td class="text-center">{% addition m.returned_qty m.damaged_qty %}</td>
 									<div style="display:none"> {{m.returned_qty | total_returned_qty }}</div>
-									<td class="text-center">{{m.product.product_inner_case_size | inner_case_size}}</td>
+									<td class="text-center">{% addMultiplication m.product.product_inner_case_size m.returned_qty m.damaged_qty %}</td>
 <!--									{% with h=m.price_to_retailer %}-->
     								<td class="text-center">{{m.price_to_retailer}}</td>
 <!--										{% endwith %}-->
