@@ -162,13 +162,13 @@ DATABASES = {
         'HOST': config('DB_HOST_READ'),
         'PORT': config('DB_PORT'),
     },
-    'data': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'data',
-        'USER': config('DB_USER'),
-        'PASSWORD': config('DB_PASSWORD'),
-        'HOST': config('DB_HOST'),
-        'PORT': config('DB_PORT'),
+    'dataanalytics': {
+        'ENGINE': 'django_redshift_backend',
+        'NAME': 'dataanalytics',
+        'USER': 'gfadmin',
+        'PASSWORD': 'GF_admin2105',
+        'HOST': 'gf-prod-redshift.c168txhqczdw.ap-south-1.redshift.amazonaws.com',
+        'PORT': '5439',
 	}
 }
 

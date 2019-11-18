@@ -10,7 +10,7 @@ class AnalyticsRouter:
         Attempts to read auth models go to gfanalytics.
         """
         if model._meta.app_label == 'services':
-            return 'data'
+            return 'dataanalytics'
         return None
 
     def db_for_write(self, model, **hints):
@@ -18,7 +18,7 @@ class AnalyticsRouter:
         Attempts to write services models go to gfanalytics.
         """
         if model._meta.app_label == 'services':
-            return 'data'
+            return 'dataanalytics'
         return None
 
     def allow_relation(self, obj1, obj2, **hints):
@@ -36,5 +36,5 @@ class AnalyticsRouter:
         database.
         """
         if app_label == 'services':
-            return db == 'data'
+            return db == 'dataanalytics'
         return None
