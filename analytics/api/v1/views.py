@@ -1,4 +1,7 @@
 from django.shortcuts import render
+import datetime
+import json
+from celery.task import task
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.generics import CreateAPIView, DestroyAPIView, ListAPIView, RetrieveAPIView, UpdateAPIView
 from rest_framework.generics import ListCreateAPIView,RetrieveUpdateDestroyAPIView
@@ -24,7 +27,11 @@ class CategoryProductReport(CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            product = Product.objects.get(id=request.data.get("id"))
+            #print(Product.objects.filter(product_name__icontains='dfgdgdfg')[0].id)
+            print(request.data.get("id"))
+            print(request.POST.get("id"))
+            print(Product.objects.filter(id=int(request.data.get("id"))))
+            product = Product.objects.get(id=int(request.data.get("id")))
             for cat in product.product_pro_category.all():
                 product_id = product.id
                 product_name = product.product_name
@@ -33,7 +40,7 @@ class CategoryProductReport(CreateAPIView):
                 category_id = cat.category.id
                 category = cat.category
                 category_name = cat.category.category_name
-                CategoryProductReports.objects.using('gfanalytics').create(product_id = product_id,
+                CategoryProductReports.objects.using('data').create(product_id = product_id,
                 product_name = product_name, product_short_description=product_short_description, product_created_at=product_created_at,
                 category_id=category_id, category=category, category_name=category_name)
             return Response({"message": [""], "response_data": '', "is_success": True})
@@ -103,7 +110,7 @@ class GRNReport(APIView):
                     returned_sku_pieces = grns.grn_order_grn_order_product.get(product = products.product).returned_qty if products.product else ''
                     dn_number = ''
                     dn_value_basic = ''
-                    GRNReports.objects.using('gfanalytics').create(po_no = po_no, po_date = po_date, po_status = po_status,
+                    GRNReports.objects.using('data').create(po_no = po_no, po_date = po_date, po_status = po_status,
                         vendor_name = vendor_name,  vendor_id = vendor_id, buyer_shop=buyer_shop, shipping_address = shipping_address,
                         category_manager = category_manager, product_id = product_id, product_name = product_name, product_brand = product_brand,
                         manufacture_date = manufacture_date, expiry_date = expiry_date, po_sku_pieces = po_sku_pieces, product_mrp = product_mrp,
@@ -156,7 +163,7 @@ class MasterReport(APIView):
             short_description = products.product.product_short_description
             long_description = products.product.product_long_description
             created_at = products.product.created_at
-            MasterReports.objects.using('gfanalytics').create(product = product, service_partner = service_partner, mrp = mrp, price_to_retailer = price_to_retailer, product_gf_code = product_gf_code,  product_brand = product_brand, product_subbrand = product_subbrand, product_category = product_category, tax_gst_percentage = tax_gst_percentage, tax_cess_percentage = tax_cess_percentage, tax_surcharge_percentage = tax_surcharge_percentage, pack_size = pack_size, case_size = case_size, hsn_code = hsn_code, product_id = product_id, sku_code = sku_code,  short_description = short_description, long_description = long_description, created_at = created_at)
+            MasterReports.objects.using('data').create(product = product, service_partner = service_partner, mrp = mrp, price_to_retailer = price_to_retailer, product_gf_code = product_gf_code,  product_brand = product_brand, product_subbrand = product_subbrand, product_category = product_category, tax_gst_percentage = tax_gst_percentage, tax_cess_percentage = tax_cess_percentage, tax_surcharge_percentage = tax_surcharge_percentage, pack_size = pack_size, case_size = case_size, hsn_code = hsn_code, product_id = product_id, sku_code = sku_code,  short_description = short_description, long_description = long_description, created_at = created_at)
 
             products_list[i] = {'product':product, 'service_partner':service_partner, 'mrp':mrp, 'price_to_retailer':price_to_retailer, 'product_gf_code':product_gf_code, 'product_brand':product_brand, 'product_subbrand':product_subbrand, 'product_category':product_category, 'tax_gst_percentage':tax_gst_percentage, 'tax_cess_percentage':tax_cess_percentage, 'tax_surcharge_percentage':tax_surcharge_percentage, 'pack_size':pack_size, 'case_size':case_size, 'hsn_code':hsn_code, 'product_id':product_id, 'sku_code':sku_code, 'short_description':short_description, 'long_description':long_description}
         data = products_list
@@ -213,7 +220,7 @@ class OrderReport(APIView):
                 order_type =''
                 campaign_name =''
                 discount = ''
-                OrderDetailReports.objects.using('gfanalytics').create(invoice_id = invoice_id, order_invoice = order_invoice,
+                OrderDetailReports.objects.using('data').create(invoice_id = invoice_id, order_invoice = order_invoice,
                 invoice_date = invoice_date, invoice_modified_at = invoice_modified_at, invoice_last_modified_by = shipment_last_modified_by,
                 invoice_status = invoice_status, order_id = order_id, seller_shop = seller_shop,  order_status = order_status,
                 order_date = order_date, order_modified_at = order_modified_at,  order_by = order_by, retailer_id = retailer_id,
@@ -258,7 +265,7 @@ class RetailerProfileReport(APIView):
             service_partner = retailer.parent.shop_name
             service_partner_id = retailer.parent.id or ''
             service_partner_contact = retailer.parent.shop_owner.phone_number if retailer.parent else ''
-            RetailerReports.objects.using('gfanalytics').create(retailer_id=retailer_id, retailer_name=retailer_name,
+            RetailerReports.objects.using('data').create(retailer_id=retailer_id, retailer_name=retailer_name,
                                                                 retailer_type=retailer_type,
                                                                 retailer_phone_number=retailer_phone_number,
                                                                 created_at=created_at, service_partner=service_partner,

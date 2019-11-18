@@ -36,6 +36,8 @@ from sp_to_gram.models import (
 )
 from base.models import (BaseOrder, BaseCart, BaseShipment)
 #from gram_to_brand.forms import GRNOrderProductForm
+from analytics.post_save_signal import get_category_product_report2
+
 
 ITEM_STATUS = (
     ("partially_delivered", "Partially Delivered"),
@@ -660,3 +662,5 @@ class PickListItems(models.Model):
     damage_qty = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+post_save.connect(get_category_product_report2, sender=GRNOrder)
