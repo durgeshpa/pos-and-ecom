@@ -202,3 +202,8 @@ class ProductCategoryFilter(SimpleListFilter):
         if self.value():
             return queryset.filter(product__product_pro_category__category_id=self.value())
 
+class ProductFilter(AutocompleteFilter):
+    title = 'Product'
+    field_name = 'product'
+    autocomplete_url = 'admin:product_autocomplete'
+

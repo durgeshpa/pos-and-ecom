@@ -207,7 +207,8 @@ class Cart(models.Model):
         buyer_shop = self.buyer_shop
         if cart_products:
             for m in cart_products:
-                brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date, rule__brand_ruleset__brand = m.cart_product.product_brand.id).order_by('rule__cart_qualifying_min_sku_value')
+                parent_brand = m.cart_product.product_brand.brand_parent.id if m.cart_product.product_brand.brand_parent else None
+                brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date).filter(Q(rule__brand_ruleset__brand = m.cart_product.product_brand.id)| Q(rule__brand_ruleset__brand = parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
                 b_list  =  [x.coupon_name for x in brand_coupons]
                 cart_coupons = Coupon.objects.filter(coupon_type = 'cart', is_active = True, expiry_date__gte = date).order_by('rule__cart_qualifying_min_sku_value')
                 c_list = [x.coupon_name for x in cart_coupons]
@@ -260,7 +261,6 @@ class Cart(models.Model):
                     if sub_brands_list:
                         for sub_brands in sub_brands_list:
                             brands_list.append(sub_brands.id)
-                            brands_specific_list.append(sub_brands.id)
                     for i in array:
                         if i['brand_id'] in brands_list:
                             brand_product_subtotals += i['discounted_product_subtotal']
@@ -279,7 +279,7 @@ class Cart(models.Model):
                                 discount_sum_brand+= round(brand_coupon.rule.discount.max_discount, 2)
                                 offers_list.append({'type':'discount', 'sub_type':'discount_on_brand', 'coupon_id':brand_coupon.id, 'coupon':brand_coupon.coupon_name, 'coupon_code':brand_coupon.coupon_code, 'brand_name':offer_brand.brand_name, 'brand_id':offer_brand.id, 'discount_value':discount_value_brand, 'coupon_type':'brand', 'brand_product_subtotals':brand_product_subtotals, 'discount_sum_brand':discount_sum_brand})
                         else:
-                            brands_specific_list.clear()
+                            brands_specific_list.pop()
             array1 = list(filter(lambda d: d['coupon_type'] in 'brand', offers_list))
             discount_value_cart = 0
             cart_coupons = Coupon.objects.filter(coupon_type = 'cart', is_active = True, expiry_date__gte = date).order_by('-rule__cart_qualifying_min_sku_value')
@@ -348,7 +348,8 @@ class Cart(models.Model):
                 for product in cart_products:
                     for i in array:
                         for j in array1:
-                            if product.cart_product.id == i['item_id'] and product.cart_product.product_brand.id == j['brand_id']:
+                            brand_parent = product.cart_product.product_brand.brand_parent.id if product.cart_product.product_brand.brand_parent else None
+                            if product.cart_product.id == i['item_id'] and product.cart_product.product_brand.id == j['brand_id'] or product.cart_product.id == i['item_id'] and brand_parent == j['brand_id']:
                                 discounted_price_subtotal = round(((i['discounted_product_subtotal'] / j['brand_product_subtotals']) * j['discount_value']), 2)
                                 i.update({'cart_or_brand_level_discount':discounted_price_subtotal})
                                 discounted_product_subtotal = round(i['discounted_product_subtotal'] - discounted_price_subtotal, 2)
@@ -438,7 +439,7 @@ class CartProductMapping(models.Model):
                 item_effective_price = float(self.cart_product_price.selling_price)
         except:
             logger.exception("Cart product price not found")
-        return round(item_effective_price, 2)
+        return item_effective_price
 
 
     def set_cart_product_price(self, seller_shop_id, buyer_shop_id):
@@ -709,6 +710,7 @@ class Order(models.Model):
     def pincode(self):
         return self.shipping_address.pincode if self.shipping_address else '-'
 
+    @property
     def city(self):
         return self.shipping_address.city.city_name if self.shipping_address else '-'
 
@@ -721,6 +723,13 @@ class Order(models.Model):
         for s in self.shipments():
             invoice_amount += s.invoice_amount
         return invoice_amount
+
+    @property
+    def buyer_shop_with_mobile(self):
+        if self.buyer_shop:
+            return "%s - %s" % (self.buyer_shop, self.buyer_shop.shop_owner.phone_number)
+        return "-"
+
 
 
 class Trip(models.Model):
@@ -746,9 +755,13 @@ class Trip(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
+        if self.delivery_boy:
+            delivery_boy_identifier = self.delivery_boy.first_name if self.delivery_boy.first_name else self.delivery_boy.phone_number
+        else:
+            delivery_boy_identifier = "--"
         return "{} -> {}".format(
             self.dispatch_no,
-            self.delivery_boy.first_name if self.delivery_boy.first_name else self.delivery_boy.phone_number
+            delivery_boy_identifier
         )
 
     @property
@@ -849,6 +862,14 @@ class Trip(models.Model):
     @property
     def total_trip_amount_value(self):
         return self.total_trip_amount()
+
+    @property
+    def trip_weight(self):
+        queryset = self.rt_invoice_trip.all()
+        weight = sum([item.shipment_weight for item in queryset]) # Definitely takes more memory.
+        #weight = self.rt_order_product_order_product_mapping.all().aggregate(Sum('product.weight_value'))['weight_value__sum']
+        weight = round(weight,2)        
+        return weight
 
     __trip_status = None
 
@@ -1003,7 +1024,7 @@ class OrderedProduct(models.Model): #Shipment
             product_price_map = {i.cart_product.id:(i.item_effective_prices, i.qty) for i in cart_product_map}
             for product, shipment_details in shipment_map.items():
                 try:
-                    product_price = round(product_price_map[product][0], 2)
+                    product_price = product_price_map[product][0]
                     shipped_qty, returned_qty, damaged_qty = shipment_details
                     self._invoice_amount += product_price * shipped_qty
                     self._cn_amount += (returned_qty+damaged_qty) * product_price
@@ -1020,6 +1041,13 @@ class OrderedProduct(models.Model): #Shipment
         if self.no_of_crates_check:
             if self.no_of_crates_check != self.no_of_crates:
                 raise ValidationError(_("The number of crates must be equal to the number of crates shipped during shipment"))
+
+    @property
+    def shipment_weight(self):
+        queryset = self.rt_order_product_order_product_mapping.all()
+        weight = sum([item.product_weight for item in queryset]) # Definitely takes more memory.
+        #weight = self.rt_order_product_order_product_mapping.all().aggregate(Sum('product.weight_value'))['weight_value__sum']
+        return weight
 
     @property
     def shipment_address(self):
@@ -1155,6 +1183,16 @@ class OrderedProductMapping(models.Model):
                     _('Sum of returned and damaged pieces should be '
                       'less than no. of pieces to ship'),
                 )
+
+    @property
+    def product_weight(self):
+        # sum_a = sum([item.column for item in queryset]) # Definitely takes more memory.
+        #import pdb; pdb.set_trace()
+        if self.product.weight_value:
+            weight = self.product.weight_value*self.shipped_qty
+            return weight
+        else:
+            return 0
 
     @property
     def ordered_qty(self):

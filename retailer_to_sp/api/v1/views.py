@@ -575,7 +575,7 @@ class ReservedOrder(generics.ListAPIView):
         shop_id = self.request.POST.get('shop_id')
         msg = {'is_success': False,
                'message': ['No any product available in this cart'],
-               'response_data': None}
+               'response_data': None, 'is_shop_time_entered':False}
 
         if checkNotShopAndMapping(shop_id):
             return Response(msg, status=status.HTTP_200_OK)
@@ -604,7 +604,8 @@ class ReservedOrder(generics.ListAPIView):
                 if cart_products.count() <= 0:
                     msg = {'is_success': False,
                            'message': ['No product is available in cart'],
-                           'response_data': None}
+                           'response_data': None,
+                           'is_shop_time_entered':False}
                     return Response(msg, status=status.HTTP_200_OK)
 
                 cart_products.update(qty_error_msg='')
@@ -647,7 +648,8 @@ class ReservedOrder(generics.ListAPIView):
                         })
                     msg = {'is_success': True,
                            'message': [''],
-                           'response_data': serializer.data}
+                           'response_data': serializer.data,
+                           'is_shop_time_entered':False}
                     return Response(msg, status=status.HTTP_200_OK)
                 else:
                     reserved_args = json.dumps({
@@ -662,12 +664,13 @@ class ReservedOrder(generics.ListAPIView):
             msg = {
                     'is_success': True,
                     'message': [''],
-                    'response_data': serializer.data
+                    'response_data': serializer.data,
+                    'is_shop_time_entered': hasattr(parent_mapping.retailer, 'shop_timing'),
                 }
             return Response(msg, status=status.HTTP_200_OK)
         else:
             msg = {'is_success': False, 'message': ['Sorry shop is not associated with any Gramfactory or any SP'],
-                   'response_data': None}
+                   'response_data': None, 'is_shop_time_entered': False}
             return Response(msg, status=status.HTTP_200_OK)
         return Response(msg, status=status.HTTP_200_OK)
 
@@ -946,7 +949,7 @@ class DownloadInvoiceSP(APIView):
                 order_obj.order.ordered_cart.seller_shop,
                 order_obj.order.ordered_cart.buyer_shop)
 
-            product_pro_price_ptr = round(cart_product_map.item_effective_prices, 2)
+            product_pro_price_ptr = cart_product_map.item_effective_prices
             product_pro_price_mrp = round(product_price.mrp,2)
 
             no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
@@ -971,7 +974,7 @@ class DownloadInvoiceSP(APIView):
                 "product_no_of_pices": int(m.shipped_qty),
                 "basic_rate": basic_rate,
                 "basic_amount": float(m.shipped_qty) * float(basic_rate),
-                "price_to_retailer": product_pro_price_ptr,
+                "price_to_retailer": round(product_pro_price_ptr, 2),
                 "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr),
                 "product_tax_amount": product_tax_amount
                 }

@@ -84,7 +84,9 @@ class OrderedProductMappingSerializer(serializers.ModelSerializer):
         return self.product_price
 
     def get_product_total_price(self, obj):
-        self.product_total_price = round(self.product_price,2) * obj.shipped_qty
+        cart_product_mapping = CartProductMapping.objects.get(cart_product=obj.product, cart=obj.ordered_product.order.ordered_cart)
+        product_price = cart_product_mapping.item_effective_prices
+        self.product_total_price = product_price * obj.shipped_qty
         return round(self.product_total_price,2)
 
     class Meta:
@@ -788,14 +790,19 @@ class DispatchSerializer(serializers.ModelSerializer):
     shipment_status = serializers.CharField(
                                         source='get_shipment_status_display')
     order = serializers.SlugRelatedField(read_only=True, slug_field='order_no')
+    shipment_weight = serializers.SerializerMethodField()
     created_at = serializers.DateTimeField()
+
+    def shipment_weight(self, obj):
+        return obj.shipment_weight
 
     class Meta:
         model = Dispatch
         fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
                   'shipment_address', 'invoice_city', 'invoice_amount',
-                  'created_at')
-        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount')
+                  'created_at', 'shipment_weight')
+        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount',
+            'shipment_weight')
 
 
 class CommercialShipmentSerializer(serializers.ModelSerializer):
@@ -803,7 +810,11 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
                                         source='get_shipment_status_display')
     order = serializers.SlugRelatedField(read_only=True, slug_field='order_no')
     cash_to_be_collected = serializers.SerializerMethodField()
+    shipment_weight = serializers.SerializerMethodField()
     created_at = serializers.DateTimeField()
+
+    def shipment_weight(self, obj):
+        return obj.shipment_weight
 
     def get_cash_to_be_collected(self, obj):
         return obj.cash_to_be_collected()
@@ -812,8 +823,9 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
         model = OrderedProduct
         fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
                   'shipment_address', 'invoice_city', 'invoice_amount',
-                  'created_at', 'cash_to_be_collected')
-        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 'cash_to_be_collected')
+                  'created_at', 'cash_to_be_collected', 'shipment_weight')
+        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 
+            'shipment_weight','cash_to_be_collected')
 
 class FeedBackSerializer(serializers.ModelSerializer):
 
@@ -832,6 +844,7 @@ class CancelOrderSerializer(serializers.ModelSerializer):
         fields = ('order_id', 'order_status')
 
     def validate(self, data):
+        raise serializers.ValidationError(_('Sorry! This order cannot be cancelled'),)
         order = self.context.get('order')
         if order.order_status == 'CANCELLED':
             raise serializers.ValidationError(_('This order is already cancelled!'),)
