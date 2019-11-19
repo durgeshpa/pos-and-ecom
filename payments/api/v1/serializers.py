@@ -64,10 +64,10 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Payment mode name is required!")
             if item['payment_mode_name'] == "online_payment":
                 if item.get('reference_no') is None:
-                    raise serializers.ValidationError("Reference number is required!!!!")
+                    raise serializers.ValidationError("Reference number is required!")
                     # raise ValidationError("Reference number is required") 
                 if item.get('online_payment_type') is None:
-                    raise serializers.ValidationError("Online payment type is required!!!!")
+                    raise serializers.ValidationError("Online payment type is required!")
 
         # reference_no = initial_data.get('reference_no', None)#['reference_no']
         # if reference_no:
