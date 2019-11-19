@@ -58,6 +58,8 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
         #import pdb; pdb.set_trace()
 
         for item in initial_data:
+            if item.get('paid_amount') is None:
+                raise serializers.ValidationError("Paid amount is required!")
             if item.get('payment_mode_name') is None:
                 raise serializers.ValidationError("Payment mode name is required!")
             if item['payment_mode_name'] == "online_payment":
