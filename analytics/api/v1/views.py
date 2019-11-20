@@ -55,7 +55,7 @@ class CategoryProductReport(CreateAPIView):
                     'response_data': None }
             return Response(msg,status=status.HTTP_406_NOT_ACCEPTABLE)
 
-class GRNReport(APIView):
+class GRNReport(CreateAPIView):
     permission_classes = (AllowAny,)
 
     def create(self, request, *args, **kwargs):
@@ -123,7 +123,7 @@ class GRNReport(APIView):
         #data = grn_details
         return ''
 
-class MasterReport(APIView):
+class MasterReport(CreateAPIView):
     permission_classes = (AllowAny,)
 
     def create(self, request, *args, **kwargs):
@@ -166,7 +166,7 @@ class MasterReport(APIView):
         data = products_list
         return data
 
-class OrderReport(APIView):
+class OrderReport(CreateAPIView):
     permission_classes = (AllowAny,)
 
     def create(self, request, *args, **kwargs):
@@ -231,7 +231,7 @@ class OrderReport(APIView):
         return ''
 
 
-class RetailerProfileReport(APIView):
+class RetailerProfileReport(CreateAPIView):
     permission_classes = (AllowAny,)
 
     # def get_unmapped_shops(self):
