@@ -37,6 +37,7 @@ PAYMENT_MODE_NAME = (
     ('wallet_payment', 'Wallet Payment')
   )
 
+#default is initiated
 PAYMENT_STATUS_CHOICES = (
     ('not_initiated', 'not_initiated'),
     ('initiated', 'initiated'),
@@ -44,6 +45,7 @@ PAYMENT_STATUS_CHOICES = (
     ('cancelled', 'cancelled'),
     ('failure', 'failure'),
     ('completed', 'completed'), #successful
+    #('refunded', 'refunded') # add this one.
   )
 
 PAYMENT_APPROVAL_STATUS_CHOICES = (
