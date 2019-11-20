@@ -25,7 +25,8 @@ class SalesReport(APIView):
 
     def get_sales_report(self, shop_id, start_date, end_date):
         seller_shop = Shop.objects.get(pk=shop_id)
-        orders = Order.objects.using('readonly').filter(seller_shop = seller_shop).select_related('ordered_cart').prefetch_related('ordered_cart__rt_cart_list')
+        orders = Order.objects.using('readonly').filter(seller_shop=seller_shop).exclude(order_status__in=['CANCELLED', 'DENIED'])\
+            .select_related('ordered_cart').prefetch_related('ordered_cart__rt_cart_list')
         if start_date:
             orders = orders.using('readonly').filter(created_at__gte = start_date)
         if end_date:
@@ -49,7 +50,7 @@ class SalesReport(APIView):
                 product_shipments = product_shipments.aggregate(Sum('delivered_qty'))['delivered_qty__sum']
                 if not product_shipments:
                     product_shipments = 0
-                tax_sum = 0
+                tax_sum, get_tax_val = 0, 0
                 if all_tax_list.exists():
                     for tax in all_tax_list.using('readonly').all():
                         tax_sum = float(tax_sum) + float(tax.tax.tax_percentage)

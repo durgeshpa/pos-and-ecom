@@ -8,9 +8,9 @@ from addresses.models import City
 from django.db.models import F, FloatField, Sum
 # Create your models here.
 class DiscountValue(models.Model):
-    discount_value = models.PositiveIntegerField(default=0, null=True, blank=True)
+    discount_value = models.FloatField(default = 0, null=True, blank=True)
     is_percentage = models.BooleanField(default=False)
-    max_discount = models.PositiveIntegerField(default=0, null=True, blank=True)
+    max_discount = models.FloatField(default = 0, null=True, blank=True)
 
     def __str__(self):
         return str(self.discount_value)
@@ -103,11 +103,11 @@ class RuleSetProductMapping(models.Model):
     def __str__(self):
         return  "%s->%s"%(self.purchased_product, self.free_product)
 
-# class RuleSetBrandMapping(models.Model):
-#     rule = models.ForeignKey(CouponRuleSet, related_name ='brand_ruleset', on_delete=models.CASCADE)
-#     brand = models.ForeignKey(Brand, related_name ='brand_coupon', on_delete=models.CASCADE)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#
+class RuleSetBrandMapping(models.Model):
+    rule = models.ForeignKey(CouponRuleSet, related_name ='brand_ruleset', on_delete=models.CASCADE)
+    brand = models.ForeignKey(Brand, related_name ='brand_coupon', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
 # class RuleSetCategoryMapping(models.Model):
 #     rule = models.ForeignKey(CouponRuleSet, related_name ='category_ruleset', on_delete=models.CASCADE)
 #     category = models.ForeignKey(Category, related_name ='category_coupon', on_delete=models.CASCADE)
