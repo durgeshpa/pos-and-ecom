@@ -32,6 +32,9 @@ from retailer_to_sp.models import OrderedProduct
 from payments.models import ShipmentPayment, CashPayment, OnlinePayment, PaymentMode, \
     Payment, OrderPayment
 
+from retailer_to_sp.views import update_order_status, update_shipment_status_with_id
+from retailer_to_sp.api.v1.views import update_trip_status    
+
 from common.common_utils import convert_hash_using_hmac_sha256
 
 BHARATPE_BASE_URL = "http://api.bharatpe.io:8080"
@@ -167,6 +170,10 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
         #import pdb; pdb.set_trace()
         try:
             shipment = request.data.get('shipment', None)
+            cash_collected = request.data.get('cash_collected')
+            trip = request.data.get('trip')
+            shipment = OrderedProduct.objects.get(id=shipment_id)
+
             # paid_by = request.data.get('paid_by', None)
             if not OrderedProduct.objects.filter(pk=int(shipment)).exists():
                 msg = {'is_success': False,
@@ -174,13 +181,6 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                                 'response_data': None }
                 return Response(msg,
                                 status=status.HTTP_406_NOT_ACCEPTABLE)
-
-            # if not UserWithName.objects.filter(phone_number=paid_by).exists():
-            #     msg = {'is_success': False,
-            #                     'message': "Paid by user not found",
-            #                     'response_data': None }
-            #     return Response(msg,
-            #                     status=status.HTTP_406_NOT_ACCEPTABLE)
 
             serializer = self.get_serializer(data=request.data.get('payment_data'), many=True)
             if not serializer.is_valid():
@@ -198,6 +198,11 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
             # paid_by = UserWithName.objects.get(phone_number=paid_by)
 
             with transaction.atomic():
+
+                if float(cash_collected) == float(shipment.cash_to_be_collected()):
+                    update_shipment_status_with_id(shipment)
+                    update_trip_status(trip)
+
                 count = 0
                 for item in request.data.get('payment_data'):
                     # serializer = self.get_serializer(data=item)
