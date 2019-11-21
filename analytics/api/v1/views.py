@@ -26,9 +26,11 @@ class CategoryProductReport(CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
+        print(serializer)
         if serializer.is_valid():
+            print(request.data)
             #print(Product.objects.filter(product_name__icontains='dfgdgdfg')[0].id)
-            product = Product.objects.get(id=int(request.data.get("id")))
+            product = Product.objects.get(id=request.data.get("id"))
             for cat in product.product_pro_category.all():
                 product_id = product.id
                 product_name = product.product_name
@@ -125,13 +127,17 @@ class GRNReport(CreateAPIView):
 
 class MasterReport(CreateAPIView):
     permission_classes = (AllowAny,)
-    serializer_class = ProductSerializer
+    serializer_class = ProductPriceSerializer
     authentication_classes = (authentication.TokenAuthentication,)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
+        print(serializer)
         if serializer.is_valid():
-            product_prices = ProductPrice.objects.filter(seller_shop_id=request.data.get("seller_shop_id"), approval_status=ProductPrice.APPROVED)
+            print("hello")
+            product_prices = ProductPrice.objects.filter(seller_shop_id=119, approval_status=ProductPrice.APPROVED)
+            print(product_prices)
+            print(request.method)
             products_list = {}
             i=0
             for products in product_prices:
@@ -154,7 +160,7 @@ class MasterReport(CreateAPIView):
                         tax_cess_percentage = tax.tax.tax_percentage
                     elif tax.tax.tax_type == 'surcharge':
                         tax_surcharge_percentage = tax.tax.tax_percentage
-                service_partner = products.shop
+                service_partner = products.seller_shop
                 pack_size = products.product.product_inner_case_size
                 case_size = products.product.product_case_size
                 hsn_code = products.product.product_hsn

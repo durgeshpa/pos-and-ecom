@@ -30,7 +30,7 @@ def get_category_product_report2(sender, instance=None, created=False, **kwargs)
 
 def get_category_product_report3(sender, instance=None, created=False, **kwargs):
     def on_commit3():
-        requests.post(config('REDSHIFT_URL')+'/analytics/api/v1/master-report/', data={'shop_id':instance.seller_shop.id})
+        requests.post(config('REDSHIFT_URL')+'/analytics/api/v1/master-report/', data={'seller_shop_id':instance.seller_shop_id})
     transaction.on_commit(on_commit3)
 
 def get_category_product_report4(sender, instance=None, created=False, **kwargs):
