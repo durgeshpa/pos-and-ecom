@@ -474,7 +474,7 @@ def create_credit_note(instance=None, created=False, **kwargs):
         credit_grn.save()
 
         manufacture_date = datetime.date.today() - relativedelta(months=+1)
-        expiry_date = datetime.date.today() - relativedelta(months=+6)
+        expiry_date = datetime.date.today() + relativedelta(months=+6)
 
         for item in instance.rt_order_product_order_product_mapping.all():
             reserved_order = OrderedProductReserved.objects.filter(cart=instance.order.ordered_cart,
