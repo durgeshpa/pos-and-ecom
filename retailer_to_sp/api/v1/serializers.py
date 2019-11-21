@@ -325,6 +325,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
             get_current_shop_price(self.context.get('parent_mapping_id'),
                              self.context.get('buyer_shop_id'))
         keyValList2 = ['discount_on_product']
+        margin = 0
         if obj.cart.offers:
             exampleSet2 = obj.cart.offers
             array2 = list(filter(lambda d: d['sub_type'] in keyValList2, exampleSet2))
