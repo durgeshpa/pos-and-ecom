@@ -24,6 +24,7 @@ from retailer_backend.common_function import (
 )
 from sp_to_gram.tasks import update_shop_product_es
 logger = logging.getLogger(__name__)
+from dateutil.relativedelta import relativedelta
 
 
 ORDER_STATUS = (
@@ -472,6 +473,9 @@ def create_credit_note(instance=None, created=False, **kwargs):
         credit_grn = OrderedProduct.objects.create(credit_note=credit_note)
         credit_grn.save()
 
+        manufacture_date = datetime.date.today() - relativedelta(months=+1)
+        expiry_date = datetime.date.today() + relativedelta(months=+6)
+
         for item in instance.rt_order_product_order_product_mapping.all():
             reserved_order = OrderedProductReserved.objects.filter(cart=instance.order.ordered_cart,
                                                                  product=item.product, reserve_status=OrderedProductReserved.ORDERED).last()
@@ -484,8 +488,8 @@ def create_credit_note(instance=None, created=False, **kwargs):
                 damaged_qty=item.damaged_qty,
                 ordered_qty = item.returned_qty,
                 delivered_qty = item.returned_qty,
-                manufacture_date= reserved_order.order_product_reserved.manufacture_date,
-                expiry_date= reserved_order.order_product_reserved.expiry_date,
+                manufacture_date= reserved_order.order_product_reserved.manufacture_date if reserved_order else manufacture_date,
+                expiry_date= reserved_order.order_product_reserved.expiry_date if reserved_order else expiry_date,
                 )
             grn_item.save()
             try:
