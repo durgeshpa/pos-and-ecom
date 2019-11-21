@@ -270,7 +270,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
     no_of_pieces = serializers.SerializerMethodField('no_pieces_dt')
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
     product_coupons = serializers.SerializerMethodField('product_coupons_dt')
-    # margin = serializers.SerializerMethodField('margin_dt')
+    margin = serializers.SerializerMethodField('margin_dt')
 
     # def __init__(self, *args, **kwargs):
     #     super().__init__()
@@ -320,21 +320,24 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
                         j['is_applied'] = True
             return coupons
 
-    # def margin_dt(self, obj):
-    #     keyValList2 = ['discount_on_product']
-    #     if obj.cart.offers:
-    #         exampleSet2 = obj.cart.offers
-    #         array2 = list(filter(lambda d: d['sub_type'] in keyValList2, exampleSet2))
-    #         for i in array2:
-    #             if i['item_sku']== obj.cart_product.product_sku:
-    #                 margin = (((float(obj.cart_product.mrp) - obj.cart_product.item_effective_prices) / float(obj.cart_product.mrp)) * 100)
-    #     else:
-    #         margin = (((obj.cart_product.product_mrp - obj.cart_product.product_price) / obj.cart_product.product_mrp) * 100)
-    #     return margin
+    def margin_dt(self, obj):
+        product_price = obj.cart_product.\
+            get_current_shop_price(self.context.get('parent_mapping_id'),
+                             self.context.get('buyer_shop_id'))
+        keyValList2 = ['discount_on_product']
+        if obj.cart.offers:
+            exampleSet2 = obj.cart.offers
+            array2 = list(filter(lambda d: d['sub_type'] in keyValList2, exampleSet2))
+            for i in array2:
+                if i['item_sku']== obj.cart_product.product_sku:
+                    margin = (((float(product_price.mrp) - obj.item_effective_prices) / float(product_price.mrp)) * 100)
+        else:
+            margin = (((product_price.product_mrp - product_price.selling_price) / product_price.product_mrp) * 100)
+        return margin
 
     class Meta:
         model = CartProductMapping
-        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg', 'is_available','no_of_pieces','product_sub_total', 'product_coupons')
+        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg', 'is_available','no_of_pieces','product_sub_total', 'product_coupons', 'margin')
 
 
 class CartSerializer(serializers.ModelSerializer):
