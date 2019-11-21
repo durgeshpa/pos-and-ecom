@@ -325,15 +325,13 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
             get_current_shop_price(self.context.get('parent_mapping_id'),
                              self.context.get('buyer_shop_id'))
         keyValList2 = ['discount_on_product']
-        margin = 0
+        margin = (((product_price.mrp - product_price.selling_price) / product_price.mrp) * 100)
         if obj.cart.offers:
             exampleSet2 = obj.cart.offers
             array2 = list(filter(lambda d: d['sub_type'] in keyValList2, exampleSet2))
             for i in array2:
                 if i['item_sku']== obj.cart_product.product_sku:
                     margin = (((float(product_price.mrp) - obj.item_effective_prices) / float(product_price.mrp)) * 100)
-        else:
-            margin = (((product_price.product_mrp - product_price.selling_price) / product_price.product_mrp) * 100)
         return margin
 
     class Meta:
