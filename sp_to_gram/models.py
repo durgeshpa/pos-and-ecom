@@ -488,8 +488,8 @@ def create_credit_note(instance=None, created=False, **kwargs):
                 damaged_qty=item.damaged_qty,
                 ordered_qty = item.returned_qty,
                 delivered_qty = item.returned_qty,
-                manufacture_date= reserved_order.order_product_reserved.manufacture_date if hasattr(reserved_order, 'order_product_reserved') else manufacture_date,
-                expiry_date= reserved_order.order_product_reserved.expiry_date if hasattr(reserved_order, 'order_product_reserved') else expiry_date,
+                manufacture_date= reserved_order.order_product_reserved.manufacture_date if reserved_order else manufacture_date,
+                expiry_date= reserved_order.order_product_reserved.expiry_date if reserved_order else expiry_date,
                 )
             grn_item.save()
             try:
