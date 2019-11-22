@@ -341,7 +341,7 @@ class GramGRNProductsList(APIView):
                                 if i['item_sku']== c_p.cart_product.product_sku:
                                     discounted_product_subtotal = i['discounted_product_subtotal']
                                     p["_source"]["discounted_product_subtotal"] = discounted_product_subtotal
-                                    p["_source"]["margin"] = (((float(check_price.mrp) - c_p.item_effective_prices) / float(check_price.mrp)) * 100)
+                            p["_source"]["margin"] = (((float(check_price.mrp) - c_p.item_effective_prices) / float(check_price.mrp)) * 100)
                             array3 = list(filter(lambda d: d['sub_type'] in keyValList3, exampleSet2))
                             for j in coupons:
                                 for i in (array3 + array2):
