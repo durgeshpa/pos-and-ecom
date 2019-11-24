@@ -35,6 +35,8 @@ from payments.models import ShipmentPayment, CashPayment, OnlinePayment, Payment
 from retailer_to_sp.views import update_order_status, update_shipment_status_with_id
 from retailer_to_sp.api.v1.views import update_trip_status    
 
+from sp_to_gram.models import create_credit_note
+
 from common.common_utils import convert_hash_using_hmac_sha256
 
 BHARATPE_BASE_URL = "http://api.bharatpe.io:8080"
@@ -172,7 +174,8 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
             shipment = request.data.get('shipment', None)
             cash_collected = request.data.get('cash_collected')
             trip = request.data.get('trip')
-            shipment = OrderedProduct.objects.get(id=shipment_id)
+            return_reason = request.data.get('return_reason')
+            #shipment = OrderedProduct.objects.get(id=shipment_id)
 
             # paid_by = request.data.get('paid_by', None)
             if not OrderedProduct.objects.filter(pk=int(shipment)).exists():
@@ -202,6 +205,10 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                 if float(cash_collected) == float(shipment.cash_to_be_collected()):
                     update_shipment_status_with_id(shipment)
                     update_trip_status(trip)
+
+                    shipment.return_reason = return_reason
+                    shipment.save() 
+                    create_credit_note(shipment)
 
                 count = 0
                 for item in request.data.get('payment_data'):
