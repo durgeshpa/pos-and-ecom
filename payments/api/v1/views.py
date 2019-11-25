@@ -172,7 +172,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
         #import pdb; pdb.set_trace()
         try:
             shipment = request.data.get('shipment', None)
-            cash_collected = request.data.get('cash_collected')
+            cash_collected = request.data.get('amount_collected')
             trip = request.data.get('trip')
             return_reason = request.data.get('return_reason', None)
             #shipment = OrderedProduct.objects.get(id=shipment_id)
