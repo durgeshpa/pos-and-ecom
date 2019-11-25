@@ -174,7 +174,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
             shipment = request.data.get('shipment', None)
             cash_collected = request.data.get('cash_collected')
             trip = request.data.get('trip')
-            return_reason = request.data.get('return_reason')
+            return_reason = request.data.get('return_reason', None)
             #shipment = OrderedProduct.objects.get(id=shipment_id)
 
             # paid_by = request.data.get('paid_by', None)
@@ -206,6 +206,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                     update_shipment_status_with_id(shipment)
                     update_trip_status(trip)
 
+                if return_reason:
                     shipment.return_reason = return_reason
                     shipment.save() 
                     create_credit_note(shipment)
