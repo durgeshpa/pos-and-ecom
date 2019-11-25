@@ -363,6 +363,16 @@ class Cart(models.Model):
         if self.cart_status == self.ORDERED:
             for cart_product in self.rt_cart_list.all():
                 cart_product.get_cart_product_price(self.seller_shop.id, self.buyer_shop.id)
+                keyValList3 = ['discount_on_product']
+                exampleSet3 = self.cart.offers
+                array3 = list(filter(lambda d: d['sub_type'] in keyValList3, exampleSet3))
+                for i in array3:
+                    if i['item_sku']== cart_product.cart_product.product_sku:
+                        cart_product.item_catalog_discount = i['discount_value']
+                        if i['coupon_type'] == 'cart' in exampleSet3:
+                            cart_product.item_cart_discount = i['cart_or_brand_level_discount']
+                        else:
+                            cart_product.item_brand_discount = i['cart_or_brand_level_discount']
         super().save(*args, **kwargs)
 
     @property
@@ -461,19 +471,6 @@ class CartProductMapping(models.Model):
         else:
             return self.cart_product.get_current_shop_price(seller_shop_id, buyer_shop_id).mrp
 
-    def save(self, *args, **kwargs):
-        if self.cart.cart_status == 'ordered':
-            keyValList3 = ['discount_on_product']
-            exampleSet3 = self.cart.offers
-            array3 = list(filter(lambda d: d['sub_type'] in keyValList3, exampleSet3))
-            for i in array3:
-                if i['item_sku']== self.cart_product.product_sku:
-                    self.item_catalog_discount = i['discount_value']
-                    if i['coupon_type'] == 'cart' in exampleSet3:
-                        self.item_cart_discount = i['cart_or_brand_level_discount']
-                    else:
-                        self.item_brand_discount = i['cart_or_brand_level_discount']
-        super().save(*args, **kwargs)
 
 class Order(models.Model):
     ACTIVE = 'active'
