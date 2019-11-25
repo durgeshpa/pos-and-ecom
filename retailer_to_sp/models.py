@@ -730,6 +730,12 @@ class Order(models.Model):
             return "%s - %s" % (self.buyer_shop, self.buyer_shop.shop_owner.phone_number)
         return "-"
 
+    @property
+    def shop_id(self):
+        if self.seller_shop:
+            return self.seller_shop.id
+        return "-"
+
 
 
 class Trip(models.Model):
