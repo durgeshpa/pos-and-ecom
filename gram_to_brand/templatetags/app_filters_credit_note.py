@@ -33,9 +33,9 @@ def amount(value, *args, **kwargs):
     return q
 
 @register.simple_tag(name='multiply')
-def multiply(qty, unit_price, *args, **kwargs):
+def multiply(qty, unit_price,num1,num2, *args, **kwargs):
     # you would need to do any localization of the result here
-    return round((qty * unit_price),2)
+    return round((qty/float(100) * float(unit_price))*float(num1 + num2),2)
 
 @register.simple_tag(name='addition')
 def addition(qty, unit_price, *args, **kwargs):

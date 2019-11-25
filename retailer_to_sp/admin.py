@@ -1252,7 +1252,7 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
 
 
 class NoteAdmin(admin.ModelAdmin):
-    list_display = ('credit_note_id', 'shipment', 'shop', 'amount','download_credit_note')
+    list_display = ('credit_note_id', 'shipment', 'shop', 'note_amount','download_credit_note','created_at')
     fields = ('credit_note_id', 'shop', 'shipment', 'note_type', 'amount',
               'invoice_no', 'status')
     readonly_fields = ('credit_note_id', 'shop', 'shipment', 'note_type',
