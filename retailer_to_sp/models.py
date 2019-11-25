@@ -1709,7 +1709,6 @@ class ReturnProductMapping(models.Model):
             tax__tax_type='cess'
         )
 
-
 class Note(models.Model):
     shop = models.ForeignKey(Shop, related_name='credit_notes', null=True, blank=True, on_delete=models.SET_NULL)
     credit_note_id = models.CharField(max_length=255, null=True, blank=True)
@@ -1737,6 +1736,17 @@ class Note(models.Model):
     def invoice_no(self):
         if self.shipment:
             return self.shipment.invoice_no
+
+    @property
+    def note_amount(self):
+        sum=0
+        for i in self.shipment.rt_order_product_order_product_mapping.all():
+            sum +=(i.returned_qty + i.damaged_qty)*i.price_to_retailer
+        return sum
+
+
+
+
 
 
 class Feedback(models.Model):
