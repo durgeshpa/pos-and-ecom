@@ -208,7 +208,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                     update_trip_status(trip)
                 else:
                     msg = {'is_success': False,
-                        'message': "Maximum difference in amount collected and amount to be collected can be INR 2.",
+                        'message': ["Maximum difference in amount collected and amount to be collected can be INR 2."],
                         'response_data': None }
                     return Response(msg,
                             status=status.HTTP_406_NOT_ACCEPTABLE)
