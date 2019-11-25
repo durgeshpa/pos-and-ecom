@@ -226,7 +226,7 @@ class Cart(models.Model):
                                     discount_qty_step_multiple = int((sku_qty)/n.rule.discount_qty_step)
                                     free_item_amount = int((n.rule.discount_qty_amount) * discount_qty_step_multiple)
                                     sum += (sku_ptr * sku_no_of_pieces)
-                                    offers_list.append({'type':'free', 'sub_type':'discount_on_product', 'coupon_id':o.id, 'coupon':o.coupon_name, 'coupon_code':o.coupon_code, 'item':m.cart_product.product_name, 'item_sku':m.cart_product.product_sku, 'item_id':m.cart_product.id, 'free_item':free_item, 'free_item_amount':free_item_amount, 'coupon_type':'catalog', 'discounted_product_subtotal':(sku_ptr * sku_no_of_pieces), 'discounted_product_subtotal_after_sku_discount':(sku_ptr * sku_no_of_pieces), 'brand_id':m.cart_product.product_brand.id, 'applicable_brand_coupons':b_list, 'applicable_cart_coupons':c_list})
+                                    offers_list.append({'type':'free', 'sub_type':'discount_on_product', 'coupon_id':o.id, 'coupon':o.coupon_name, 'discount_value':0, 'coupon_code':o.coupon_code, 'item':m.cart_product.product_name, 'item_sku':m.cart_product.product_sku, 'item_id':m.cart_product.id, 'free_item':free_item, 'free_item_amount':free_item_amount, 'coupon_type':'catalog', 'discounted_product_subtotal':(sku_ptr * sku_no_of_pieces), 'discounted_product_subtotal_after_sku_discount':(sku_ptr * sku_no_of_pieces), 'brand_id':m.cart_product.product_brand.id, 'applicable_brand_coupons':b_list, 'applicable_cart_coupons':c_list})
                             elif (n.rule.discount_qty_step >=1) and (n.rule.discount != None):
                                 if sku_qty >= n.rule.discount_qty_step:
                                     if n.rule.discount.is_percentage == False:
@@ -411,6 +411,9 @@ class CartProductMapping(models.Model):
         max_length=255, null=True,
         blank=True, editable=False
     )
+    item_catalog_discount = models.FloatField(default=0, blank=True, null=True)
+    item_brand_discount = models.FloatField(default=0, blank=True, null=True)
+    item_cart_discount = models.FloatField(default=0, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
@@ -457,6 +460,20 @@ class CartProductMapping(models.Model):
             return self.cart_product_price.mrp
         else:
             return self.cart_product.get_current_shop_price(seller_shop_id, buyer_shop_id).mrp
+
+    def save(self, *args, **kwargs):
+        if self.cart.cart_status == 'ordered':
+            keyValList3 = ['discount_on_product']
+            exampleSet3 = self.cart.offers
+            array3 = list(filter(lambda d: d['sub_type'] in keyValList3, exampleSet3))
+            for i in array3:
+                if i['item_sku']== self.cart_product.product_sku:
+                    self.item_catalog_discount = i['discount_value']
+                    if i['coupon_type'] == 'cart' in exampleSet3:
+                        self.item_cart_discount = i['cart_or_brand_level_discount']
+                    else:
+                        self.item_brand_discount = i['cart_or_brand_level_discount']
+        super().save(*args, **kwargs)
 
 class Order(models.Model):
     ACTIVE = 'active'

@@ -816,12 +816,12 @@ def update_order_status(close_order_checked, shipment_id):
             damaged_qty = Sum('rt_order_product_order_product_mapping__damaged_qty'),
 
         )
-    cart_products_dict = order.ordered_cart.rt_cart_list.aggregate(total_no_of_pieces = Sum('no_of_pieces')) 
+    cart_products_dict = order.ordered_cart.rt_cart_list.aggregate(total_no_of_pieces = Sum('no_of_pieces'))
 
     total_delivered_qty = shipment_products_dict.get('delivered_qty')
-                               
+
     total_shipped_qty = shipment_products_dict.get('shipped_qty')
-                            
+
     total_returned_qty = shipment_products_dict.get('returned_qty')
 
     total_damaged_qty = shipment_products_dict.get('damaged_qty')
