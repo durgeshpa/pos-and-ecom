@@ -731,9 +731,9 @@ class Order(models.Model):
         return "-"
 
     @property
-    def shop_id(self):
+    def buyer_shop_id(self):
         if self.seller_shop:
-            return self.seller_shop.id
+            return self.buyer_shop.id
         return "-"
 
 
