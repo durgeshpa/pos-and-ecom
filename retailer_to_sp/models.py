@@ -730,14 +730,6 @@ class Order(models.Model):
             return "%s - %s" % (self.buyer_shop, self.buyer_shop.shop_owner.phone_number)
         return "-"
 
-    @property
-    def customer_shop_id(self):
-        if self.seller_shop:
-            return self.buyer_shop.id
-        return "-"
-
-
-
 class Trip(models.Model):
     seller_shop = models.ForeignKey(
         Shop, related_name='trip_seller_shop', null=True,
