@@ -277,9 +277,9 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                         status=status.HTTP_200_OK)
 
         except Exception as e:
-            msg = {'is_success': False,
-                    'message': str(e), #[error for error in errors],
-                    'response_data': None }
+            # msg = {'is_success': False,
+            #         'message': str(e), #[error for error in errors],
+            #         'response_data': None }
             errors = []
             for field in e: #serializer.errors:
                 for error in e[field]:#serializer.errors[field]:
@@ -288,9 +288,9 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                     else:
                         result = ''.join('{} : {}'.format(field,error))
                     errors.append(result)
-            # msg = {'is_success': False,
-            #         'message': errors, #[error for error in errors],
-            #         'response_data': None }
+            msg = {'is_success': False,
+                    'message': errors, #[error for error in errors],
+                    'response_data': None }
             return Response(msg,
                             status=status.HTTP_406_NOT_ACCEPTABLE)
 
