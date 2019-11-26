@@ -334,7 +334,7 @@ class CartProductMappingAdmin(admin.TabularInline):
     form = CartProductMappingForm
     formset = AtLeastOneFormSet
     fields = ('cart', 'cart_product', 'cart_product_price', 'qty',
-              'no_of_pieces', 'product_case_size', 'product_inner_case_size', 'item_effective_prices', 'item_catalog_discount', 'item_brand_discount', 'item_cart_discount')
+              'no_of_pieces', 'product_case_size', 'product_inner_case_size', 'item_effective_prices')
     autocomplete_fields = ('cart_product', 'cart_product_price')
     extra = 0
 
@@ -445,9 +445,9 @@ class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
         return readonly_fields
 
     def save_related(self, request, form, formsets, change):
-        super(CartAdmin, self).save_related(request, form, formsets, change)
         add_cart_user(form, request)
         create_order_from_cart(form, formsets, request, Order)
+        super(CartAdmin, self).save_related(request, form, formsets, change)
 
         reserve_order = ReservedOrder(
             form.cleaned_data.get('seller_shop'),
