@@ -38,6 +38,7 @@ from retailer_to_sp.api.v1.views import update_trip_status
 from sp_to_gram.models import create_credit_note
 
 from common.common_utils import convert_hash_using_hmac_sha256
+from common.data_wrapper import format_serializer_errors
 
 BHARATPE_BASE_URL = "http://api.bharatpe.io:8080"
 BHARATPE_PRODUCTION_BASE_URL = "https://api.bharatpe.in"
@@ -138,6 +139,16 @@ def callback_url(self, request):
         print (str(e))
         
 
+def format_serializer_error(e):
+    errors = []
+    for field in e: #serializer.errors:
+        for error in e[field]:#serializer.errors[field]:
+            if 'non_field_errors' in field:
+                result = error
+            else:
+                result = ''.join('{} : {}'.format(field,error))
+            errors.append(result)
+    return errors
 
 # class ShipmentPaymentView(DataWrapperViewSet):
 class ShipmentPaymentView(viewsets.ModelViewSet):
@@ -180,15 +191,17 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
             # paid_by = request.data.get('paid_by', None)
             if not OrderedProduct.objects.filter(pk=int(shipment)).exists():
                 msg = {'is_success': False,
-                                'message': "Shipment not found",
+                                'message': ["Shipment not found"],
                                 'response_data': None }
                 return Response(msg,
                                 status=status.HTTP_406_NOT_ACCEPTABLE)
 
             serializer = self.get_serializer(data=request.data.get('payment_data'), many=True)
             if not serializer.is_valid():
+                # format_serializer_errors(serializer.errors)
+                #errors = format_serializer_error(serializer.errors)
                 msg = {'is_success': False,
-                    'message': serializer.errors,
+                    'message': serializer.errors,#error for error in errors],
                     'response_data': None }
                 return Response(msg,
                                 status=status.HTTP_406_NOT_ACCEPTABLE)
@@ -229,14 +242,6 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                     online_payment_type = item.get('online_payment_type', None)
                     description = item.get('description', None)
                     count += 1
-                    # if payment_mode_name == "credit_payment":
-                    #     payload = {}
-                    #     payload['buyerMobile'] = request.data.get('paid_by', None)
-                    #     payload['creditAmount'] = paid_amount
-                    #     payload['comments'] = "overdraft payment"
-                    #     status, message = overdraft_payment(payload)
-                    #     if status == False:
-                    #         raise ValidationError(message)
 
                     # create payment
                     payment = Payment.objects.create(
@@ -277,20 +282,20 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                         status=status.HTTP_200_OK)
 
         except Exception as e:
-            # msg = {'is_success': False,
-            #         'message': str(e), #[error for error in errors],
-            #         'response_data': None }
-            errors = []
-            for field in e: #serializer.errors:
-                for error in e[field]:#serializer.errors[field]:
-                    if 'non_field_errors' in field:
-                        result = error
-                    else:
-                        result = ''.join('{} : {}'.format(field,error))
-                    errors.append(result)
             msg = {'is_success': False,
-                    'message': errors, #[error for error in errors],
+                    'message': [str(e)], #[error for error in errors],
                     'response_data': None }
+            # errors = []
+            # for field in e: #serializer.errors:
+            #     for error in e[field]:#serializer.errors[field]:
+            #         if 'non_field_errors' in field:
+            #             result = error
+            #         else:
+            #             result = ''.join('{} : {}'.format(field,error))
+            #         errors.append(result)
+            # msg = {'is_success': False,
+            #         'message': errors, #[error for error in errors],
+            #         'response_data': None }
             return Response(msg,
                             status=status.HTTP_406_NOT_ACCEPTABLE)
 
