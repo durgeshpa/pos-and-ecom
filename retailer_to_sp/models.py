@@ -1740,9 +1740,11 @@ class Note(models.Model):
     @property
     def note_amount(self):
         sum=0
-        for products in self.shipment.rt_order_product_order_product_mapping.all():
-            sum +=(products.returned_qty + products.damaged_qty)*products.price_to_retailer
-        return sum
+        if self.shipment:
+            for i in self.shipment.rt_order_product_order_product_mapping.all():
+                sum +=(i.returned_qty + i.damaged_qty)*i.price_to_retailer
+            return sum
+        return None
 
 
 class Feedback(models.Model):
