@@ -1739,7 +1739,7 @@ class Note(models.Model):
 
     @property
     def note_amount(self):
-        return self.shipment._cn_amount
+        return round(self.shipment._cn_amount,2)
 
 
 class Feedback(models.Model):
