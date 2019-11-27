@@ -1300,3 +1300,12 @@ class SellerAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(shop_name__icontains=self.q)
         return qs
+
+class ShipmentOrdersAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qc_pending_orders = OrderedProduct.objects.filter(shipment_status="SHIPMENT_CREATED").values('order')
+        qs = Order.objects.filter(order_status__in=[Order.OPDP, 'ordered', 'PARTIALLY_SHIPPED', 'DISPATCH_PENDING'],
+                                        order_closed=False).exclude(id__in=qc_pending_orders)
+        if self.q:
+            qs = qs.filter(order_no__icontains=self.q)
+        return qs

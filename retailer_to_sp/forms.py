@@ -128,40 +128,17 @@ class ReturnProductMappingForm(forms.ModelForm):
 
 class OrderedProductForm(forms.ModelForm):
     order = forms.ModelChoiceField(queryset=Order.objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:ShipmentOrdersAutocomplete',),
                                    required=True)
-
-    # order = forms.ModelChoiceField(queryset=Order.objects.filter(
-    #     order_status__in=[Order.OPDP, 'ordered',
-    #                       'PARTIALLY_SHIPPED', 'DISPATCH_PENDING'],
-    #     order_closed=False),
-    #     required=True)
 
     class Meta:
         model = OrderedProduct
         fields = ['order', 'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
 
-    class Media:
-        js = (
-            'https://cdnjs.cloudflare.com/ajax/libs/select2/'
-            '4.0.6-rc.0/js/select2.min.js',
-            'admin/js/orderedproduct.js'
-        )
-        css = {
-            'all': (
-                'https://cdnjs.cloudflare.com/ajax/libs/select2/'
-                '4.0.6-rc.0/css/select2.min.css',
-            )
-        }
 
     def __init__(self, *args, **kwargs):
         super(OrderedProductForm, self).__init__(*args, **kwargs)
         self.fields['shipment_status'].choices = OrderedProduct.SHIPMENT_STATUS[:2]
-        ordered_product = getattr(self, 'instance', None)
-        # if ordered_product is None:
-        qc_pending_orders = OrderedProduct.objects.filter(shipment_status="SHIPMENT_CREATED").values('order')
-        self.fields['order'].queryset = Order.objects.filter(order_status__in=[Order.OPDP, 'ordered',
-                                                                               'PARTIALLY_SHIPPED', 'DISPATCH_PENDING'],
-                                                             order_closed=False).exclude(id__in=qc_pending_orders)
 
     def clean(self):
         data = self.cleaned_data

@@ -33,9 +33,9 @@
 
     </style>
 
-  <script
-    src="https://code.jquery.com/jquery-2.1.1.js"></script>  {{ form.media }}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/css/select2.min.css">
+       {{ ordered_form.media }}
+
+
 <!--<script type="text/javascript" src="/admin/jsi18n/"></script>-->
 <!--<script type="text/javascript" src="/static/admin/js/vendor/jquery/jquery.js"></script>-->
 <!--<script type="text/javascript" src="/static/admin/js/jquery.init.js"></script>-->
@@ -324,12 +324,13 @@
     </div>
     <!-- END Content -->
 
-    <div id="footer"></div>
+    <div id="footer">
+
+    </div>
 </div>
 <!-- END Container -->
 
 </body>
-<script src='https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/js/select2.min.js'></script>
 <script>
 $(document).ready(function(){
 
@@ -358,13 +359,13 @@ $('#reload_page').click(function(){
 //   $("input[id$='ordered_qty']").attr("readOnly", true);
 //   $("input[id$='already_shipped_qty']").attr("readOnly", true);
 
-  $('select#id_order').select2({width: '50%'});
+  // $('select#id_order').select2({width: '50%'});
      // $('select#id_shipment_status').val("PLANNING").attr("disabled", true);
   //   $('select#id_shipment_status').select2({width: '50%'});
 
   // $("select[id$='product']").attr("disabled", true);
 
-    $("select#id_order").change(function(){
+    $("select#id_order").on("change", function(e) {
         $("#submitbutton").hide();
         $("table").html('Loading! Please wait...');
          var selectedOrder= $(this).children("option:selected").val();

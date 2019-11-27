@@ -1,6 +1,6 @@
 $(document).ready(function(){
 
-  $('select#id_order').select2();
+  //$('select#id_order').select2();
 
     $("select#id_order").change(function(){
       $("#orderedproductmapping_set-group").html('Loading! Please wait...');
