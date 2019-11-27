@@ -302,7 +302,9 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
         for x in brand_coupons:
             product_coupons.append(x.coupon_code)
         if product_coupons:
-            coupons_queryset = Coupon.objects.filter(coupon_code__in = product_coupons)
+            coupons_queryset1 = Coupon.objects.filter(coupon_code__in = product_coupons, coupon_type='catalog')
+            coupons_queryset2 = Coupon.objects.filter(coupon_code__in = product_coupons, coupon_type='brand').order_by('rule__cart_qualifying_min_sku_value')
+            coupons_queryset = coupons_queryset1 | coupons_queryset2
             coupons = CouponSerializer(coupons_queryset, many=True).data
             for coupon in coupons_queryset:
                 for product_coupon in coupon.rule.product_ruleset.filter(purchased_product = obj.cart_product):
