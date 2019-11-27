@@ -445,9 +445,9 @@ class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
         return readonly_fields
 
     def save_related(self, request, form, formsets, change):
-        super(CartAdmin, self).save_related(request, form, formsets, change)
         add_cart_user(form, request)
         create_order_from_cart(form, formsets, request, Order)
+        super(CartAdmin, self).save_related(request, form, formsets, change)
 
         reserve_order = ReservedOrder(
             form.cleaned_data.get('seller_shop'),

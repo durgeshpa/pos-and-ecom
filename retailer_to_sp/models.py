@@ -226,7 +226,7 @@ class Cart(models.Model):
                                     discount_qty_step_multiple = int((sku_qty)/n.rule.discount_qty_step)
                                     free_item_amount = int((n.rule.discount_qty_amount) * discount_qty_step_multiple)
                                     sum += (sku_ptr * sku_no_of_pieces)
-                                    offers_list.append({'type':'free', 'sub_type':'discount_on_product', 'coupon_id':o.id, 'coupon':o.coupon_name, 'coupon_code':o.coupon_code, 'item':m.cart_product.product_name, 'item_sku':m.cart_product.product_sku, 'item_id':m.cart_product.id, 'free_item':free_item, 'free_item_amount':free_item_amount, 'coupon_type':'catalog', 'discounted_product_subtotal':(sku_ptr * sku_no_of_pieces), 'discounted_product_subtotal_after_sku_discount':(sku_ptr * sku_no_of_pieces), 'brand_id':m.cart_product.product_brand.id, 'applicable_brand_coupons':b_list, 'applicable_cart_coupons':c_list})
+                                    offers_list.append({'type':'free', 'sub_type':'discount_on_product', 'coupon_id':o.id, 'coupon':o.coupon_name, 'discount_value':0, 'coupon_code':o.coupon_code, 'item':m.cart_product.product_name, 'item_sku':m.cart_product.product_sku, 'item_id':m.cart_product.id, 'free_item':free_item, 'free_item_amount':free_item_amount, 'coupon_type':'catalog', 'discounted_product_subtotal':(sku_ptr * sku_no_of_pieces), 'discounted_product_subtotal_after_sku_discount':(sku_ptr * sku_no_of_pieces), 'brand_id':m.cart_product.product_brand.id, 'applicable_brand_coupons':b_list, 'applicable_cart_coupons':c_list})
                             elif (n.rule.discount_qty_step >=1) and (n.rule.discount != None):
                                 if sku_qty >= n.rule.discount_qty_step:
                                     if n.rule.discount.is_percentage == False:
@@ -363,6 +363,7 @@ class Cart(models.Model):
         if self.cart_status == self.ORDERED:
             for cart_product in self.rt_cart_list.all():
                 cart_product.get_cart_product_price(self.seller_shop.id, self.buyer_shop.id)
+
         super().save(*args, **kwargs)
 
     @property
@@ -457,6 +458,10 @@ class CartProductMapping(models.Model):
             return self.cart_product_price.mrp
         else:
             return self.cart_product.get_current_shop_price(seller_shop_id, buyer_shop_id).mrp
+
+    # def save(self, *args, **kwargs):
+    #
+    #     super().save(*args, **kwargs)
 
 class Order(models.Model):
     ACTIVE = 'active'
