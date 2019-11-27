@@ -31,3 +31,18 @@ def amount(value, *args, **kwargs):
     p = inflect.engine()
     q= p.number_to_words(value)
     return q
+
+@register.simple_tag(name='findTax')
+def findTax(r, per, *args, **kwargs):
+    # you would need to do any localization of the result here
+    return round(((float(r*100)/(100+per)*per)/100),2)
+
+
+@register.simple_tag(name='addition')
+def addition(qty, unit_price, *args, **kwargs):
+    # you would need to do any localization of the result here
+    return (qty  + unit_price)
+
+@register.simple_tag(name='addMultiplication')
+def addMultiplication(qty, unit_price, newqty, *args, **kwargs):
+    return round(float(qty) * int(unit_price + newqty),2)
