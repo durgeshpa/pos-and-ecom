@@ -448,8 +448,9 @@ class ProductPriceAddPerm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['start_date'].required = True
-        self.fields['end_date'].required = True
+        if 'start_date' in self.fields and 'end_date' in self.fields:
+            self.fields['start_date'].required = True
+            self.fields['end_date'].required = True
         if 'approval_status' in self.fields:
             self.fields['approval_status'].initial = ProductPrice.APPROVAL_PENDING
             self.fields['approval_status'].widget = forms.HiddenInput()

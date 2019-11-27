@@ -53,7 +53,7 @@ urlpatterns = [
     url(r'^fcm/', include('fcm.urls')),
     url(r'^notification-center/', include('notification_center.urls')),
     url(r'^admin/shops/shop-mapped/(?P<pk>\d+)/product/$', ShopMappedProduct.as_view(), name='shop_mapped_product'),
-
+    url(r'^admin/statuscheck/', include('celerybeat_status.urls')),
     url('^delete-ordered-product-reserved/$', CronToDeleteOrderedProductReserved.as_view(), name='delete_ordered_product_reserved'),
     url('^terms-and-conditions/$', terms_and_conditions, name='terms_and_conditions'),
     url('^privacy-policy/$', privacy_policy, name='privacy_policy'),

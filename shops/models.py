@@ -53,6 +53,14 @@ class ShopType(models.Model):
 
 
 class Shop(models.Model):
+    APPROVAL_AWAITING = 1
+    APPROVED = 2
+    DISAPPROVED = 0
+    APPROVAL_STATUS_CHOICES = (
+        (APPROVAL_AWAITING, 'Awaiting Approval'),
+        (APPROVED, 'Approved'),
+        (DISAPPROVED, 'Disapproved'),
+        )
     shop_name = models.CharField(max_length=255)
     shop_owner = models.ForeignKey(get_user_model(), related_name='shop_owner_shop',on_delete=models.CASCADE)
     shop_type = models.ForeignKey(ShopType,related_name='shop_type_shop',on_delete=models.CASCADE)
@@ -64,12 +72,13 @@ class Shop(models.Model):
     favourite_products = models.ManyToManyField(Product, through='shops.FavouriteProduct')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    approval_status = models.IntegerField(choices=APPROVAL_STATUS_CHOICES, default=1)
     status = models.BooleanField(default=False)
     #last_order_at = models.DateTimeField(auto_now_add=True)
     #last_login_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return "%s - %s"%(self.shop_name,self.shop_owner)
+        return "%s"%(self.shop_name) #,self.shop_owner)
 
     def __init__(self, *args, **kwargs):
         super(Shop, self).__init__(*args, **kwargs)
@@ -113,7 +122,7 @@ class Shop(models.Model):
 
     @property
     def shop_approved(self):
-        return True if self.status==True and self.retiler_mapping.exists() else False
+        return True if self.status==True and self.retiler_mapping.filter(status=True).exists() and self.approval_status==self.APPROVED else False
 
     @property
     def shipping_address(self):

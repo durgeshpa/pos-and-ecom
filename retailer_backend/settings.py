@@ -94,13 +94,15 @@ INSTALLED_APPS = [
     'fcm',
     'django_celery_beat',
     'django_celery_results',
+    'coupon',
     'offer',
+    'celerybeat_status'
 ]
 
 FCM_APIKEY = config('FCM_APIKEY')
 
 FCM_DEVICE_MODEL = 'notification_center.FCMDevice'
-
+IMPORT_EXPORT_USE_TRANSACTIONS = True
 SITE_ID = 1
 if DEBUG:
     MIDDLEWARE = [
@@ -120,7 +122,7 @@ MIDDLEWARE += [
 ]
 
 ROOT_URLCONF = 'retailer_backend.urls'
-STATICFILES_STORAGE = "retailer_backend.storage.ExtendedManifestStaticFilesStorage"
+# STATICFILES_STORAGE = "retailer_backend.storage.ExtendedManifestStaticFilesStorage"
 
 TEMPLATES = [
     {
@@ -260,7 +262,7 @@ INVOICE_STARTS_WITH = 'ORD'
 EMAIL_BACKEND = 'django_ses.SESBackend' #"smtp.sendgrid.net" #
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587
-# EMAIL_HOST_USER = config('EMAIL_HOST_USER') 
+# EMAIL_HOST_USER = config('EMAIL_HOST_USER')
 # EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 # FROM_EMAIL = config('FROM_EMAIL')
 
@@ -369,6 +371,7 @@ REDIS_DB_CHOICE = {
 # ]
 # JET_SIDE_MENU_COMPACT = True
 
+FCM_MAX_RECIPIENTS = 1000
 
 REDIS_URL = "{}/{}".format(config('CACHE_HOST'), REDIS_DB_CHOICE[ENVIRONMENT.lower()])
 CELERY_BROKER_URL = REDIS_URL

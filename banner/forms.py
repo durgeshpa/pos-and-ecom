@@ -7,6 +7,7 @@ from categories.models import Category
 from .models import Banner , BannerPosition, BannerData
 from shops.models import Shop
 from products.models import Product
+from addresses.models import Pincode, City
 
 class BannerForm(forms.ModelForm):
     category = forms.ModelChoiceField(required=False,
@@ -64,6 +65,21 @@ class BannerPositionForm(forms.ModelForm):
     shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type__in=['sp',]),
         widget=autocomplete.ModelSelect2(url='banner-shop-autocomplete', ),
+        required=False
+    )
+    buyer_shop = forms.ModelMultipleChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='r'),
+        widget=autocomplete.ModelSelect2Multiple(url='admin:retailer-shop-autocomplete', ),
+        required=False
+    )
+    pincode = forms.ModelMultipleChoiceField(
+        queryset=Pincode.objects.all(),
+        widget=autocomplete.ModelSelect2Multiple(url='admin:pincode-autocomplete', ),
+        required=False
+    )
+    city = forms.ModelMultipleChoiceField(
+        queryset=City.objects.all(),
+        widget=autocomplete.ModelSelect2Multiple(url='admin:city-autocomplete', ),
         required=False
     )
 
