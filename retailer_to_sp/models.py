@@ -730,8 +730,6 @@ class Order(models.Model):
             return "%s - %s" % (self.buyer_shop, self.buyer_shop.shop_owner.phone_number)
         return "-"
 
-
-
 class Trip(models.Model):
     seller_shop = models.ForeignKey(
         Shop, related_name='trip_seller_shop', null=True,
