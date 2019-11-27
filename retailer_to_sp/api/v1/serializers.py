@@ -31,6 +31,7 @@ from django.contrib.auth import get_user_model
 from coupon.serializers import CouponSerializer
 import datetime
 from coupon.models import Coupon
+from django.db.models import F,Sum, Q
 
 User = get_user_model()
 
@@ -269,6 +270,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
     no_of_pieces = serializers.SerializerMethodField('no_pieces_dt')
     product_sub_total = serializers.SerializerMethodField('product_sub_total_dt')
     product_coupons = serializers.SerializerMethodField('product_coupons_dt')
+    margin = serializers.SerializerMethodField('margin_dt')
 
     # def __init__(self, *args, **kwargs):
     #     super().__init__()
@@ -295,25 +297,46 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
         for rules in obj.cart_product.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date):
             for rule in rules.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte = date):
                 product_coupons.append(rule.coupon_code)
+        parent_brand = obj.cart_product.product_brand.brand_parent.id if obj.cart_product.product_brand.brand_parent else None
+        brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date).filter(Q(rule__brand_ruleset__brand = obj.cart_product.product_brand.id)| Q(rule__brand_ruleset__brand = parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
+        for x in brand_coupons:
+            product_coupons.append(x.coupon_code)
         if product_coupons:
-            coupons_queryset = Coupon.objects.filter(coupon_code__in = product_coupons)
+            coupons_queryset1 = Coupon.objects.filter(coupon_code__in = product_coupons, coupon_type='catalog')
+            coupons_queryset2 = Coupon.objects.filter(coupon_code__in = product_coupons, coupon_type='brand').order_by('rule__cart_qualifying_min_sku_value')
+            coupons_queryset = coupons_queryset1 | coupons_queryset2
             coupons = CouponSerializer(coupons_queryset, many=True).data
             for coupon in coupons_queryset:
                 for product_coupon in coupon.rule.product_ruleset.filter(purchased_product = obj.cart_product):
                     if product_coupon.max_qty_per_use > 0:
                         max_qty = product_coupon.max_qty_per_use
-                        for i in coupons: i['max_qty'] = max_qty
+                        for i in coupons:
+                            if i['coupon_type'] == 'catalog':
+                                i['max_qty'] = max_qty
             keyValList3 = ['discount_on_product']
+            keyValList2 = ['discount_on_brand']
             exampleSet3 = obj.cart.offers
             array3 = list(filter(lambda d: d['sub_type'] in keyValList3, exampleSet3))
-            for i in array3:
-                if i['item_sku']== obj.cart_product.product_sku:
-                    for i in coupons: i['is_applied'] = True
+            array2 = list(filter(lambda d: d['sub_type'] in keyValList2, exampleSet3))
+            for j in coupons:
+                for i in (array3 + array2):
+                    if j['coupon_code'] == i['coupon_code']:
+                        j['is_applied'] = True
             return coupons
+
+    def margin_dt(self, obj):
+        product_price = obj.cart_product.\
+            get_current_shop_price(self.context.get('parent_mapping_id'),
+                             self.context.get('buyer_shop_id'))
+        keyValList2 = ['discount_on_product']
+        margin = (((product_price.mrp - product_price.selling_price) / product_price.mrp) * 100)
+        if obj.cart.offers:
+            margin = (((float(product_price.mrp) - obj.item_effective_prices) / float(product_price.mrp)) * 100)
+        return margin
 
     class Meta:
         model = CartProductMapping
-        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg', 'is_available','no_of_pieces','product_sub_total', 'product_coupons')
+        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg', 'is_available','no_of_pieces','product_sub_total', 'product_coupons', 'margin')
 
 
 class CartSerializer(serializers.ModelSerializer):
