@@ -32,10 +32,11 @@ def amount(value, *args, **kwargs):
     q= p.number_to_words(value)
     return q
 
-@register.simple_tag(name='multiply')
-def multiply(qty, unit_price,num1,num2, *args, **kwargs):
+@register.simple_tag(name='findTax')
+def findTax(r, per, *args, **kwargs):
     # you would need to do any localization of the result here
-    return round((qty/float(100) * float(unit_price))*float(num1 + num2),2)
+    return round(((float(r*100)/(100+per)*per)/100),2)
+
 
 @register.simple_tag(name='addition')
 def addition(qty, unit_price, *args, **kwargs):

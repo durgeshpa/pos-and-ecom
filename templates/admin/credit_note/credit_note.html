@@ -172,7 +172,7 @@ table tr td,th,h4,span,address{
                     {% else %}
                     <td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage}}%</strong></td>
                     {% endif %}
-							<td class="text-center"><strong>{% multiply m.get_products_gst_tax.last.tax.tax_percentage m.price_to_retailer m.returned_qty m.damaged_qty %}</strong></td>
+							<td class="text-center"><strong>{% findTax m.price_to_retailer m.get_products_gst_tax.last.tax.tax_percentage %}</strong></td>
 									<td class="text-center"></td>
 
 
