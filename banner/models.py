@@ -80,9 +80,9 @@ class BannerSlot(models.Model):
 
 
 class BannerPosition(SortableMixin):
-    shop = models.ForeignKey(Shop,blank=True, on_delete=models.SET_NULL, null=True, verbose_name='Seller Shop')
+    shop = models.ForeignKey(Shop,blank=True, on_delete=models.DO_NOTHING, null=True, verbose_name='Seller Shop')
     page = models.ForeignKey(Page,on_delete=models.CASCADE, null=True)
-    bannerslot = models.ForeignKey(BannerSlot,max_length=255, null=True, on_delete=models.SET_NULL)
+    bannerslot = models.ForeignKey(BannerSlot,max_length=255, null=True, on_delete=models.DO_NOTHING)
     city = models.ManyToManyField(City, related_name='city_banner', blank=True)
     pincode = models.ManyToManyField(Pincode, related_name='pincode_banner', blank=True)
     buyer_shop = models.ManyToManyField(Shop, related_name='buyer_shop_banner', blank=True)
