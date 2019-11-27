@@ -1180,7 +1180,7 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
     #change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
     actions = ["change_trip_status", "export_as_csv_commercial",]
     list_display = (
-        'dispatch_no', 'trip_amount', 'received_amount',
+        'dispatch_no', 'total_trip_amount', 'received_amount',
         'cash_to_be_collected', 'download_trip_pdf', 'delivery_boy',
         'vehicle_no', 'trip_status', 'starts_at', 'completed_at',
         'seller_shop',)
@@ -1189,7 +1189,7 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
     list_max_show_all = 100
     list_select_related = ('delivery_boy', 'seller_shop')
     readonly_fields = ('dispatch_no', 'delivery_boy', 'seller_shop',
-                       'vehicle_no', 'starts_at', 'trip_amount',
+                       'vehicle_no', 'starts_at', 'total_trip_amount',
                        'completed_at', 'e_way_bill_no', 'cash_to_be_collected')
     autocomplete_fields = ('seller_shop',)
     search_fields = [
@@ -1197,7 +1197,7 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
         'delivery_boy__phone_number', 'vehicle_no', 'dispatch_no',
         'seller_shop__shop_name'
     ]
-    fields = ['trip_status', 'trip_amount', 'cash_to_be_collected',
+    fields = ['trip_status', 'total_trip_amount', 'cash_to_be_collected',
               'received_amount', 'dispatch_no', 'delivery_boy', 'seller_shop',
               'starts_at', 'completed_at', 'e_way_bill_no', 'vehicle_no']
     list_filter = ['trip_status', ('created_at', DateTimeRangeFilter),
