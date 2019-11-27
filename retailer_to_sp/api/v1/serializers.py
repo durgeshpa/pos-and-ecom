@@ -310,7 +310,9 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
                 for product_coupon in coupon.rule.product_ruleset.filter(purchased_product = obj.cart_product):
                     if product_coupon.max_qty_per_use > 0:
                         max_qty = product_coupon.max_qty_per_use
-                        for i in coupons: i['max_qty'] = max_qty
+                        for i in coupons:
+                            if i['coupon_type'] == 'catalog':
+                                i['max_qty'] = max_qty
             keyValList3 = ['discount_on_product']
             keyValList2 = ['discount_on_brand']
             exampleSet3 = obj.cart.offers
