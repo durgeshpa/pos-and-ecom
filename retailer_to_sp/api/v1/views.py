@@ -639,7 +639,6 @@ class ReservedOrder(generics.ListAPIView):
                         products_unavailable.append(cart_product.id)
 
                 if products_unavailable:
-                    logger.exception("products unavailable")
                     serializer = CartSerializer(
                         cart,
                         context={

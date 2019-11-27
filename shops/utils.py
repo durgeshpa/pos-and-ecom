@@ -10,29 +10,16 @@ def create_shops_excel(queryset):
     cities_list = City.objects.values_list('city_name', flat=True)
     states_list = State.objects.values_list('state_name', flat=True)
     output = io.BytesIO()
-    data = Shop.objects.values_list(
-        'id', 'shop_name', 'shop_type__shop_type',
-        'shop_owner__phone_number', 'status', 'shop_name_address_mapping__id',
-        'shop_name_address_mapping__nick_name', 'shop_name_address_mapping__address_line1',
-        'shop_name_address_mapping__address_contact_name', 'shop_name_address_mapping__address_contact_number',
-        'shop_name_address_mapping__pincode', 'shop_name_address_mapping__state__state_name',
-        'shop_name_address_mapping__city__city_name', 'shop_name_address_mapping__address_type'
-    ).filter(id__in=queryset)
-
-    items = Address.objects.filter(shop_name__in=queryset)
-    data = []
-    for item in items:
-        _data = [item.shop_name.id, item.shop_name.shop_name,
-            item.shop_name.shop_type.shop_type,
-            item.shop_name.shop_owner.phone_number,
-            item.shop_name.status, item.id, item.nick_name, item.address_line1,
-            item.address_contact_name, item.address_contact_number, item.pincode,
-            item.state.state_name, item.city.city_name, item.address_type,
-            item.shop_name.imei_no, item.shop_name.parent_shop]
-        data.append(_data)
-
-    data_rows = len(data)#data.count()
-    workbook = xlsxwriter.Workbook(output)
+    data = Address.objects.values_list(
+        'shop_name__id', 'shop_name__shop_name', 'shop_name__shop_type__shop_type',
+        'shop_name__shop_owner__phone_number', 'shop_name__status', 'id', 'nick_name',
+        'address_line1', 'address_contact_name', 'address_contact_number',
+        'pincode_link__pincode', 'state__state_name', 'city__city_name', 'address_type',
+        'shop_name__imei_no', 'shop_name__retiler_mapping__parent__shop_name',
+        'shop_name__created_at').filter(shop_name__in=queryset, shop_name__retiler_mapping__status=True)
+    data_rows = data.count()
+    workbook = xlsxwriter.Workbook(output, {'default_date_format':
+                                            'dd/mm/yy hh:mm:ss'})
     worksheet = workbook.add_worksheet()
     unlocked = workbook.add_format({'locked': 0})
 
@@ -64,7 +51,8 @@ def create_shops_excel(queryset):
     worksheet.set_column('M:M', 20)
     worksheet.set_column('N:N', 10)
     worksheet.set_column('O:O', 20)
-    worksheet.set_column('P:P', 10)
+    worksheet.set_column('P:P', 40)
+    worksheet.set_column('Q:Q', 20)
 
     # to set the hieght of row
     worksheet.set_row(0, 36)
@@ -86,10 +74,17 @@ def create_shops_excel(queryset):
     worksheet.write('N1', 'Address Type', header_format)
     worksheet.write('O1', 'IMEI', header_format)
     worksheet.write('P1', 'Parent Shop Name', header_format)
+    worksheet.write('Q1', 'Shop created at', header_format)
+
 
     for row_num, columns in enumerate(data):
         for col_num, cell_data in enumerate(columns):
-            worksheet.write(row_num + 1, col_num, cell_data)
+            if cell_data and col_num == 16:
+                worksheet.write_datetime(row_num + 1, col_num, cell_data)
+            elif cell_data and col_num == 4:
+                worksheet.write_boolean(row_num + 1, col_num, cell_data)
+            else:
+                worksheet.write(row_num + 1, col_num, cell_data)
 
     worksheet.data_validation(
         'L2:L{}'.format(data_rows + 1),
