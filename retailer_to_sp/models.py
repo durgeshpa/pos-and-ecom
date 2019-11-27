@@ -863,7 +863,7 @@ class Trip(models.Model):
     def total_trip_amount_value(self):
         return self.total_trip_amount()
 
-    @property
+    # @property
     def trip_weight(self):
         queryset = self.rt_invoice_trip.all()
         weight = sum([item.shipment_weight for item in queryset]) # Definitely takes more memory.
