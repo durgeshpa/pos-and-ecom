@@ -944,10 +944,16 @@ class ShipmentOrderSerializer(serializers.ModelSerializer):
 
 class ShipmentSerializer(serializers.ModelSerializer):
     shipment_id = serializers.ReadOnlyField()
+    total_paid_amount = serializers.SerializerMethodField()    
     order = ShipmentOrderSerializer()
+
+    def get_total_paid_amount(self, obj):
+        return obj.total_paid_amount
+            
     class Meta:
         model = OrderedProduct
-        fields = ('shipment_id', 'invoice_no', 'shipment_status', 'payment_mode', 'invoice_amount', 'order')
+        fields = ('shipment_id', 'invoice_no', 'shipment_status', 'payment_mode', 'invoice_amount', 'order',
+            'total_paid_amount')
 
 
 class ShipmentStatusSerializer(serializers.ModelSerializer):
