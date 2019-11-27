@@ -238,7 +238,7 @@ class OrderDetailReportsData(models.Model):
     delivery_boy = models.CharField(max_length=255, null=True)
     trip_created_at = models.CharField(max_length=255, null=True)
     selling_price = models.CharField(max_length=255, null=True)
-    effective_price = models.CharField(max_length=255, null=True)
+    item_effective_price = models.CharField(max_length=255, null=True)
 
     def __str__(self):
         return  "%s"%(self.order_invoice)

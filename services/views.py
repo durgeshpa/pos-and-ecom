@@ -685,6 +685,7 @@ class OrderReportData(APIView):
                     product_value_tax_included = products.product.getRetailerPrice(seller_shop.id,order.buyer_shop.id)
                     for price in order.ordered_cart.rt_cart_list.all():
                         selling_price = price.cart_product_price.selling_price
+                        item_effective_price=price.item_effective_prices
 
                     if products.product.product_pro_tax.filter(tax__tax_type ='gst').exists():
                         product_gst = products.product.product_pro_tax.filter(tax__tax_type ='gst').last()
@@ -730,9 +731,9 @@ class OrderReportData(APIView):
                     delivery_boy=shipment.trip.delivery_boy
                     trip_created_at=shipment.trip.created_at
                     OrderDetailReportsData.objects.using('gfanalytics').create(invoice_id = invoice_id, order_invoice = order_invoice, invoice_date = invoice_date, invoice_modified_at = invoice_modified_at, invoice_last_modified_by = shipment_last_modified_by, invoice_status = invoice_status, order_id = order_id, seller_shop = seller_shop,  order_status = order_status, order_date = order_date, order_modified_at = order_modified_at,  order_by = order_by, retailer_id = retailer_id, retailer_name =retailer_name, pin_code = pin_code, product_id = product_id, product_name = product_name, product_brand = product_brand, product_mrp = product_mrp, product_value_tax_included = product_value_tax_included, ordered_sku_pieces = ordered_sku_pieces,  shipped_sku_pieces = shipped_sku_pieces, delivered_sku_pieces = delivered_sku_pieces, returned_sku_pieces = returned_sku_pieces, damaged_sku_pieces = damaged_sku_pieces, product_cgst = product_cgst, product_sgst = product_sgst, product_igst = product_igst, product_cess = product_cess, sales_person_name = sales_person_name, order_type = order_type, campaign_name = campaign_name, discount = discount, trip=trip,
-                                                                            trip_id=trip_id,trip_status=trip_status,delivery_boy=delivery_boy, trip_created_at=trip_created_at,selling_price=selling_price )
+                                                                            trip_id=trip_id,trip_status=trip_status,delivery_boy=delivery_boy, trip_created_at=trip_created_at,selling_price=selling_price, item_effective_price=item_effective_price)
                     order_details[i] = {'invoice_id':invoice_id, 'order_invoice':order_invoice, 'invoice_date':invoice_date, 'invoice_modified_at':invoice_modified_at, 'shipment_last_modified_by':shipment_last_modified_by, 'invoice_status':invoice_status, 'order_id':order_id, 'seller_shop':seller_shop,  'order_status':order_status, 'order_date':order_date, 'order_modified_at':order_modified_at, 'order_by':order_by, 'retailer_id':retailer_id, 'retailer_name':retailer_name, 'pin_code':pin_code, 'product_id':product_id, 'product_name':product_name, 'product_brand':product_brand, 'product_mrp':product_mrp, 'product_value_tax_included':product_value_tax_included, 'ordered_sku_pieces':ordered_sku_pieces, 'shipped_sku_pieces':shipped_sku_pieces, 'delivered_sku_pieces':delivered_sku_pieces, 'returned_sku_pieces':returned_sku_pieces, 'damaged_sku_pieces':damaged_sku_pieces, 'product_cgst':product_cgst, 'product_sgst':product_sgst, 'product_igst':product_igst, 'product_cess':product_cess, 'sales_person_name':sales_person_name, 'order_type':order_type, 'campaign_name':campaign_name, 'discount':discount,
-                                        'trip':trip,'trip_id':trip_id, 'trip_status':trip_status,'delivery_boy':delivery_boy,'trip_created_at':trip_created_at, 'selling_price':selling_price }
+                                        'trip':trip,'trip_id':trip_id, 'trip_status':trip_status,'delivery_boy':delivery_boy,'trip_created_at':trip_created_at, 'selling_price':selling_price, 'item_effective_price':item_effective_price}
 
         data = order_details
         return data
