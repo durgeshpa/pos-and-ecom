@@ -883,11 +883,11 @@ class DispatchProductMappingAdmin(admin.TabularInline):
     model = DispatchProductMapping
     fields = (
         'product', 'gf_code', 'ordered_qty_no_of_pieces',
-        'shipped_qty_no_of_pieces'
+        'shipped_qty_no_of_pieces', 'product_weight'
     )
     readonly_fields = (
         'product', 'gf_code', 'ordered_qty_no_of_pieces',
-        'shipped_qty_no_of_pieces'
+        'shipped_qty_no_of_pieces', 'product_weight'
     )
     extra = 0
     max_num = 0
@@ -899,6 +899,11 @@ class DispatchProductMappingAdmin(admin.TabularInline):
     def shipped_qty_no_of_pieces(self, obj):
         return obj.shipped_qty
     shipped_qty_no_of_pieces.short_description = 'No. of Pieces to Ship'
+
+    def product_weight(self, obj):
+        return obj.product_weight
+    product_weight.short_description = 'Product Weight'
+
 
     def has_delete_permission(self, request, obj=None):
         return False
@@ -914,8 +919,8 @@ class DispatchAdmin(admin.ModelAdmin):
     list_filter = [
         ('created_at', DateTimeRangeFilter), 'shipment_status',
     ]
-    fields = ['order', 'invoice_no', 'invoice_amount','trip', 'shipment_address', 'invoice_city', 'shipment_status']
-    readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city']
+    fields = ['order', 'invoice_no', 'invoice_amount','trip', 'shipment_address', 'invoice_city', 'shipment_weight','shipment_status']
+    readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city', 'shipment_weight']
 
     def get_queryset(self, request):
         qs = super(DispatchAdmin, self).get_queryset(request)
@@ -940,6 +945,10 @@ class DispatchAdmin(admin.ModelAdmin):
         Return empty perms dict thus hiding the model from admin index.
         """
         return {}
+
+    def shipment_weight(self, obj):
+        return obj.shipment_weight
+    shipment_weight.short_description = 'Shipment Weight'
 
     def get_queryset(self, request):
         qs = super(DispatchAdmin, self).get_queryset(request)
@@ -1131,12 +1140,10 @@ class TripAdmin(ExportCsvMixin, admin.ModelAdmin):
     )
     readonly_fields = ('dispathces',)
     autocomplete_fields = ('seller_shop',)
-
     search_fields = [
         'delivery_boy__first_name', 'delivery_boy__last_name', 'delivery_boy__phone_number',
         'vehicle_no', 'dispatch_no', 'seller_shop__shop_name'
     ]
-
     list_filter = [
         'trip_status', ('created_at', DateTimeRangeFilter), ('starts_at', DateTimeRangeFilter),
         ('completed_at', DateTimeRangeFilter), DeliveryBoySearch, VehicleNoSearch, DispatchNoSearch
@@ -1153,6 +1160,10 @@ class TripAdmin(ExportCsvMixin, admin.ModelAdmin):
             Q(seller_shop__related_users=request.user) |
             Q(seller_shop__shop_owner=request.user)
                 )
+
+    def trip_weight(self, obj):
+        return obj.trip_weight
+    trip_weight.short_description = 'Trip Weight'
 
     def download_trip_pdf(self, obj):
         return format_html("<a href= '%s' >Download Trip PDF</a>"%(reverse('download_trip_pdf', args=[obj.pk])))
