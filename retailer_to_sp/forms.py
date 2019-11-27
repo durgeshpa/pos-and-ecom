@@ -419,7 +419,7 @@ class TripForm(forms.ModelForm):
     total_crates_collected = forms.IntegerField(required=False)
     total_packets_collected = forms.IntegerField(required=False)
     total_sacks_collected = forms.IntegerField(required=False)
-    trip_weight = forms.DecimalField(required=False)
+    trip_weight = forms.CharField(required=False)
     selected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
     unselected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
 
