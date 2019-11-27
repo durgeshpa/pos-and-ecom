@@ -1707,7 +1707,6 @@ class ReturnProductMapping(models.Model):
             tax__tax_type='cess'
         )
 
-
 class Note(models.Model):
     shop = models.ForeignKey(Shop, related_name='credit_notes', null=True, blank=True, on_delete=models.DO_NOTHING)
     credit_note_id = models.CharField(max_length=255, null=True, blank=True)
@@ -1735,6 +1734,11 @@ class Note(models.Model):
     def invoice_no(self):
         if self.shipment:
             return self.shipment.invoice_no
+
+    @property
+    def note_amount(self):
+        if self.shipment:
+            return round(self.shipment._cn_amount,2)
 
 
 class Feedback(models.Model):

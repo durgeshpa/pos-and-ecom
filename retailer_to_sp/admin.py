@@ -1252,14 +1252,27 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
 
 
 class NoteAdmin(admin.ModelAdmin):
-    list_display = ('credit_note_id', 'shipment', 'shop', 'amount')
-    fields = ('credit_note_id', 'shop', 'shipment', 'note_type', 'amount',
+    list_display = ('credit_note_id', 'shipment', 'shop', 'note_amount','download_credit_note','created_at')
+    fields = ('credit_note_id', 'shop', 'shipment', 'note_type', 'note_amount',
               'invoice_no', 'status')
     readonly_fields = ('credit_note_id', 'shop', 'shipment', 'note_type',
-                       'amount', 'invoice_no', 'status')
+                       'note_amount', 'invoice_no', 'status')
 
     class Media:
         pass
+
+    def download_credit_note(self, obj):
+    # if (
+
+    # obj.Note_credit_note.count() > 0
+    # and obj.return_credit_note.filter(status=True)
+    # ):
+        return format_html(
+                    "<a href= '%s' >Download Credit Note</a>" %
+                       (reverse('download_credit_note', args=[obj.pk]))
+        )
+
+    download_credit_note.short_description = 'Download Credit Note'
 
 
 class ExportCsvMixin:
