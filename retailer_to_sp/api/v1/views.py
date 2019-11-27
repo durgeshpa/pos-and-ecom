@@ -307,7 +307,9 @@ class GramGRNProductsList(APIView):
             if is_store_active:
                 product = Product.objects.get(id=p["_source"]["id"])
                 product_coupons = product.getProductCoupons()
-                coupons_queryset = Coupon.objects.filter(coupon_code__in = product_coupons)
+                coupons_queryset1 = Coupon.objects.filter(coupon_code__in = product_coupons, coupon_type='catalog')
+                coupons_queryset2 = Coupon.objects.filter(coupon_code__in = product_coupons, coupon_type='brand').order_by('rule__cart_qualifying_min_sku_value')
+                coupons_queryset = coupons_queryset1 | coupons_queryset2
                 coupons = CouponSerializer(coupons_queryset, many=True).data
                 p["_source"]["coupon"] = coupons
                 # check in case of multiple coupons
