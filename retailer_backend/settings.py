@@ -376,7 +376,7 @@ CELERY_TIMEZONE = TIME_ZONE
 ELASTICSEARCH_PREFIX = config('ELASTICSEARCH_PREFIX')
 ELASTICSEARCH_DSL={
     'default': {
-        'hosts': ':9200'
+        'hosts': '35.154.13.198:9200'
     },
 }
 LOGGING = {
@@ -411,7 +411,7 @@ LOGGING = {
             'propagate': True,
         },
         'django': {
-            'handlers': ['console'],
+            'handlers': ['logstash'],
             'propagate': True,
         },
     }
