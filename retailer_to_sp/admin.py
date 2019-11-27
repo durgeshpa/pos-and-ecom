@@ -359,7 +359,7 @@ class CartProductMappingAdmin(admin.TabularInline):
 class ExportCsvMixin:
     def export_as_csv_cart(self, request, queryset):
         meta = self.model._meta
-        list_display = ('order_id', 'seller_shop', 'buyer_shop', 'cart_status', 'date', 'time', 'seller_contact_no', 'buyer_contact_no')
+        list_display = ('order_id','seller_shop', 'buyer_shop', 'cart_status', 'date', 'time', 'seller_contact_no', 'buyer_contact_no')
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
@@ -461,7 +461,7 @@ class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
-        list_display = ['order_no', 'seller_shop', 'buyer_shop_with_mobile', 'pincode','city', 'total_final_amount',
+        list_display = ['order_no','seller_shop','buyer_shop_id', 'buyer_shop_with_mobile', 'pincode','city', 'total_final_amount',
                         'order_status', 'created_at', 'payment_mode', 'paid_amount',
                         'total_paid_amount', 'shipment_status', 'shipment_status_reason','order_shipment_amount', 'order_shipment_details',
                         'picking_status', 'picker_boy', 'picklist_id',]
@@ -725,7 +725,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         'seller_shop','buyer_shop', 'ordered_cart'
         )
     list_display = (
-                    'order_no', 'download_pick_list', 'seller_shop', 'buyer_shop_with_mobile',
+                    'order_no', 'download_pick_list', 'seller_shop','buyer_shop_id', 'buyer_shop_with_mobile',
                     'pincode', 'city', 'total_final_amount', 'order_status', 'created_at',
                     'payment_mode', 'invoice_no', 'shipment_date', 'invoice_amount', 'shipment_status',
                     'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
@@ -1191,7 +1191,7 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
     #change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
     actions = ["change_trip_status", "export_as_csv_commercial",]
     list_display = (
-        'dispatch_no', 'trip_amount', 'received_amount',
+        'dispatch_no', 'total_trip_amount', 'received_amount',
         'cash_to_be_collected', 'download_trip_pdf', 'delivery_boy',
         'vehicle_no', 'trip_status', 'starts_at', 'completed_at',
         'seller_shop',)
@@ -1200,7 +1200,7 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
     list_max_show_all = 100
     list_select_related = ('delivery_boy', 'seller_shop')
     readonly_fields = ('dispatch_no', 'delivery_boy', 'seller_shop',
-                       'vehicle_no', 'starts_at', 'trip_amount',
+                       'vehicle_no', 'starts_at', 'total_trip_amount',
                        'completed_at', 'e_way_bill_no', 'cash_to_be_collected')
     autocomplete_fields = ('seller_shop',)
     search_fields = [
@@ -1208,7 +1208,7 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
         'delivery_boy__phone_number', 'vehicle_no', 'dispatch_no',
         'seller_shop__shop_name'
     ]
-    fields = ['trip_status', 'trip_amount', 'cash_to_be_collected',
+    fields = ['trip_status', 'total_trip_amount', 'cash_to_be_collected',
               'received_amount', 'dispatch_no', 'delivery_boy', 'seller_shop',
               'starts_at', 'completed_at', 'e_way_bill_no', 'vehicle_no']
     list_filter = ['trip_status', ('created_at', DateTimeRangeFilter),
