@@ -9,6 +9,7 @@ from brand.models import Brand
 from products.models import Product
 from django.core.exceptions import ValidationError
 from shops.models import Shop
+import datetime
 
 # Create your models here.
 
@@ -104,8 +105,14 @@ class OfferBannerData(SortableMixin):
         ordering = ['offer_banner_data_order']
 
 class TopSKU(models.Model):
-    shop = models.ForeignKey(Shop,blank=True, on_delete=models.CASCADE, null=True)
-    product = models.ForeignKey(Product, blank=True, null=True, on_delete=models.CASCADE)
-    start_date = models.DateTimeField(blank=True, null=True)
-    end_date = models.DateTimeField(blank=True, null=True)
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, null=True)
+    product = models.ForeignKey(Product, null=True, on_delete=models.CASCADE)
+    start_date = models.DateTimeField(blank=False, null=True)
+    end_date = models.DateTimeField(blank=False, null=True)
     status = models.BooleanField(('Status'),help_text=('Designates whether the product is to be displayed or not.'),default=False)
+
+    def save(self, *args, **kwargs):
+        if self.status == True:
+            TopSKU.objects.filter(shop = self.shop, product = self.product, status=True).update(status=False)
+            self.status = True
+        super().save(*args, **kwargs)
