@@ -38,7 +38,7 @@ from retailer_to_sp.views import (
     trip_planning, trip_planning_change, update_delivered_qty,
     update_order_status, update_shipment_status, reshedule_update_shipment,
     RetailerCart, assign_picker, assign_picker_change, assign_picker_data,
-    UserWithNameAutocomplete,  SellerAutocomplete
+    UserWithNameAutocomplete,  SellerAutocomplete, ShipmentOrdersAutocomplete
 )
 from shops.models import ParentRetailerMapping, Shop
 from sp_to_gram.models import (
@@ -434,6 +434,10 @@ class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
             url(r'^seller-autocomplete/$',
                 self.admin_site.admin_view( SellerAutocomplete.as_view()),
                 name='seller-autocomplete'
+                ),
+            url(r'^plan-shipment-orders-autocomplete/$',
+                self.admin_site.admin_view(ShipmentOrdersAutocomplete.as_view()),
+                name='ShipmentOrdersAutocomplete'
                 ),
         ] + urls
         return urls
