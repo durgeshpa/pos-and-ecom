@@ -449,7 +449,7 @@ class TripForm(forms.ModelForm):
         self.fields['total_crates_shipped'].initial = instance.total_crates_shipped
         self.fields['total_packets_shipped'].initial = instance.total_packets_shipped
         self.fields['total_sacks_shipped'].initial = instance.total_sacks_shipped
-        self.fields['trip_weight'].initial = instance.trip_weight
+        self.fields['trip_weight'].initial = instance.trip_weight()
         self.fields['trip_weight'].disabled = True
 
         trip = instance.pk
