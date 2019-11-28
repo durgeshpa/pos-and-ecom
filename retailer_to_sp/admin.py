@@ -1161,9 +1161,9 @@ class TripAdmin(ExportCsvMixin, admin.ModelAdmin):
             Q(seller_shop__shop_owner=request.user)
                 )
 
-    def trip_weight(self, obj):
-        return obj.trip_weight
-    trip_weight.short_description = 'Trip Weight (Kg)'
+    # def trip_weight(self, obj):
+    #     return obj.trip_weight()
+    # trip_weight.short_description = 'Trip Weight (Kg)'
 
     def download_trip_pdf(self, obj):
         return format_html("<a href= '%s' >Download Trip PDF</a>"%(reverse('download_trip_pdf', args=[obj.pk])))
