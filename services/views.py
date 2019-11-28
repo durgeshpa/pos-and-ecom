@@ -11,7 +11,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.http import HttpResponse, Http404
 from django.conf import settings
-from retailer_to_sp.models import Order, OrderedProductMapping, Trip, OrderedProduct
+from retailer_to_sp.models import Order, OrderedProductMapping, Trip, OrderedProduct, CartProductMapping
 from shops.models import Shop, ParentRetailerMapping
 from django.db.models import Sum
 from shops.models import Shop
@@ -22,7 +22,7 @@ from rest_framework import permissions, authentication
 from .forms import SalesReportForm, OrderReportForm, GRNReportForm, MasterReportForm, OrderGrnForm
 from django.views import View
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping, Tax
-from .models import RetailerReports, OrderReports,GRNReports, MasterReports, OrderGrnReports, OrderDetailReports, CategoryProductReports, OrderDetailReportsData
+from .models import RetailerReports, OrderReports,GRNReports, MasterReports, OrderGrnReports, OrderDetailReports, CategoryProductReports, OrderDetailReportsData, CartProductMappingData
 from gram_to_brand.models import Order as PurchaseOrder
 from datetime import timedelta
 from categories.models import Category
@@ -657,12 +657,12 @@ class OrderReportData(APIView):
     permission_classes = (AllowAny,)
     def get_order_report(self, shop_id, start_date, end_date):
         seller_shop = Shop.objects.get(pk=shop_id)
-        last_modified_entry = OrderDetailReportsData.objects.filter(seller_shop=seller_shop_map[str(shop_id)]).latest('order_modified_at')
+        # last_modified_entry = OrderDetailReportsData.objects.filter(seller_shop=seller_shop_map[str(shop_id)]).latest('order_modified_at')
         first_modified_entry = OrderDetailReportsData.objects.filter(seller_shop=seller_shop_map[str(shop_id)]).order_by('order_modified_at').first()
         # start_date = datetime.datetime.today()-datetime.timedelta(50)
-        start_date = last_modified_entry.order_modified_at
-        end_date = first_modified_entry.order_modified_at
-        print(start_date)
+        # start_date = last_modified_entry.order_modified_at
+        # end_date = first_modified_entry.order_modified_at
+        # print(start_date)
         #print(end_date)
         orders = Order.objects.filter(seller_shop = seller_shop)
         if start_date:
@@ -681,8 +681,8 @@ class OrderReportData(APIView):
                     #product_mrp = products.product.product_pro_price.get(status=True, shop = seller_shop).mrp
                     #product_value_tax_included = products.product.product_pro_price.get(status=True, shop = seller_shop).price_to_retailer
                     # New Price Logic
-                    product_mrp = products.product.getMRP(seller_shop.id,order.buyer_shop.id)
-                    product_value_tax_included = products.product.getRetailerPrice(seller_shop.id,order.buyer_shop.id)
+                    product_mrp = products.product.product_pro_price.filter(status=True, seller_shop = seller_shop).last().mrp
+                    product_value_tax_included = products.product.product_pro_price.filter(status=True, seller_shop = seller_shop).last().price_to_retailer
                     for price in order.ordered_cart.rt_cart_list.all():
                         selling_price = price.cart_product_price.selling_price
                         item_effective_price=price.item_effective_prices
@@ -725,11 +725,17 @@ class OrderReportData(APIView):
                     order_type =''
                     campaign_name =''
                     discount = ''
-                    trip=shipment.trip.dispatch_no
-                    trip_id=shipment.trip.id
-                    trip_status=shipment.trip_status
-                    delivery_boy=shipment.trip.delivery_boy
-                    trip_created_at=shipment.trip.created_at
+                    trip = ''
+                    trip_id = ''
+                    trip_status = ''
+                    delivery_boy = ''
+                    trip_created_at = None
+                    if shipment and shipment.trip:
+                        trip=shipment.trip.dispatch_no
+                        trip_id=shipment.trip.id
+                        trip_status=shipment.trip_status
+                        delivery_boy=shipment.trip.delivery_boy
+                        trip_created_at=shipment.trip.created_at
                     OrderDetailReportsData.objects.using('gfanalytics').create(invoice_id = invoice_id, order_invoice = order_invoice, invoice_date = invoice_date, invoice_modified_at = invoice_modified_at, invoice_last_modified_by = shipment_last_modified_by, invoice_status = invoice_status, order_id = order_id, seller_shop = seller_shop,  order_status = order_status, order_date = order_date, order_modified_at = order_modified_at,  order_by = order_by, retailer_id = retailer_id, retailer_name =retailer_name, pin_code = pin_code, product_id = product_id, product_name = product_name, product_brand = product_brand, product_mrp = product_mrp, product_value_tax_included = product_value_tax_included, ordered_sku_pieces = ordered_sku_pieces,  shipped_sku_pieces = shipped_sku_pieces, delivered_sku_pieces = delivered_sku_pieces, returned_sku_pieces = returned_sku_pieces, damaged_sku_pieces = damaged_sku_pieces, product_cgst = product_cgst, product_sgst = product_sgst, product_igst = product_igst, product_cess = product_cess, sales_person_name = sales_person_name, order_type = order_type, campaign_name = campaign_name, discount = discount, trip=trip,
                                                                             trip_id=trip_id,trip_status=trip_status,delivery_boy=delivery_boy, trip_created_at=trip_created_at,selling_price=selling_price, item_effective_price=item_effective_price)
                     order_details[i] = {'invoice_id':invoice_id, 'order_invoice':order_invoice, 'invoice_date':invoice_date, 'invoice_modified_at':invoice_modified_at, 'shipment_last_modified_by':shipment_last_modified_by, 'invoice_status':invoice_status, 'order_id':order_id, 'seller_shop':seller_shop,  'order_status':order_status, 'order_date':order_date, 'order_modified_at':order_modified_at, 'order_by':order_by, 'retailer_id':retailer_id, 'retailer_name':retailer_name, 'pin_code':pin_code, 'product_id':product_id, 'product_name':product_name, 'product_brand':product_brand, 'product_mrp':product_mrp, 'product_value_tax_included':product_value_tax_included, 'ordered_sku_pieces':ordered_sku_pieces, 'shipped_sku_pieces':shipped_sku_pieces, 'delivered_sku_pieces':delivered_sku_pieces, 'returned_sku_pieces':returned_sku_pieces, 'damaged_sku_pieces':damaged_sku_pieces, 'product_cgst':product_cgst, 'product_sgst':product_sgst, 'product_igst':product_igst, 'product_cess':product_cess, 'sales_person_name':sales_person_name, 'order_type':order_type, 'campaign_name':campaign_name, 'discount':discount,
@@ -739,6 +745,38 @@ class OrderReportData(APIView):
         return data
 
 
+class CartProductMappingReport(APIView):
+    permission_classes=(AllowAny,)
 
+    def cart_product_mapping_report(self, id):
+        cpm  = CartProductMapping.objects.filter(id=id)
+        # last_modified_entry = TripShipmentReport.objects.filter(seller_shop=seller_shop_map[str(id)]).latest('order_modified_at')
+        # first_modified_entry = TripShipmentReport.objects.filter(seller_shop=seller_shop_map[str(id)]).order_by('order_modified_at').first()
+        # start_date = first_modified_entry
+        # end_date=last_modified_entry
+        # shipment = OrderedProduct.objects.filter(id=id)
+        # if start_date:
+        #     shipment = OrderedProduct.orders.filter(modified_at__gte=start_date)
+        # if end_date:
+        #     shipment = OrderedProduct.orders.filter(modified_at__lte=end_date)
+        cartproductmapping_details = {}
+        i=0
+        for values in cpm:
+            i+=1
+            cart= values.cart.order_id
+            qty = values.qty
+            qty_error_msg= values.qty_error_msg
+            created_at = values.created_at
+            modified_at = values.modified_at
+            cart_product = values.cart_product.product_name
+            cart_product_price = values.cart_product_price.selling_price
+            no_of_pieces = values.no_of_pieces
+            status = values.status
+
+            CartProductMappingData.objects.using('gfanalytics').create(cart=cart,qty=qty,qty_error_msg=qty_error_msg,created_at=created_at,modified_at=modified_at, cart_product=cart_product, cart_product_price=cart_product_price,no_of_pieces=no_of_pieces,status=status )
+            cartproductmapping_details[i] = {'cart':cart, 'qty':qty, 'qty_error_msg':qty_error_msg, 'created_at':created_at, 'modified_at':modified_at, 'cart_product':cart_product, 'cart_product_price':cart_product_price,'no_of_pieces':no_of_pieces, 'status':status }
+
+        data = cartproductmapping_details
+        return data
 
 

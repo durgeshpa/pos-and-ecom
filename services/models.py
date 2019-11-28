@@ -242,3 +242,17 @@ class OrderDetailReportsData(models.Model):
 
     def __str__(self):
         return  "%s"%(self.order_invoice)
+
+class CartProductMappingData(models.Model):
+    qty = models.CharField(max_length=255, null=True)
+    qty_error_msg = models.CharField(max_length=255, null=True)
+    created_at = models.CharField(max_length=255, null=True)
+    modified_at = models.CharField(max_length=255, null=True)
+    cart = models.CharField(max_length=255, null=True)
+    cart_product = models.CharField(max_length=255, null=True)
+    cart_product_price = models.CharField(max_length=255, null=True)
+    no_of_pieces = models.CharField(max_length=255, null=True)
+    status = models.CharField(max_length=255, null=True)
+
+    def _str__(self):
+        return  "%s"%(self.cart)
