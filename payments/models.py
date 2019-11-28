@@ -1,6 +1,7 @@
 import sys
 import traceback
 import datetime, csv, codecs, re
+import uuid
 
 from django.db import models
 from django.core.exceptions import ValidationError
@@ -132,8 +133,8 @@ class Payment(AbstractDateTime):
     paid_amount = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')
     payment_mode_name = models.CharField(max_length=50, choices=PAYMENT_MODE_NAME, default="cash_payment")
     prepaid_or_postpaid = models.CharField(max_length=50, choices=PAYMENT_TYPE_CHOICES,null=True, blank=True)
-    payment_id = models.CharField(max_length=255, null=True, blank=True)
-
+    #payment_id = models.CharField(max_length=255, null=True, blank=True)
+    payment_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     # for finance team
     payment_approval_status = models.CharField(max_length=50, choices=PAYMENT_APPROVAL_STATUS_CHOICES, default="pending_approval",null=True, blank=True)
     payment_received = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')
@@ -169,39 +170,14 @@ class Payment(AbstractDateTime):
 
     def save(self, *args, **kwargs):
         #super().save(*args, **kwargs)
+        #import pdb; pdb.set_trace()
         if self.is_payment_approved:
-            if self.payment_received >= self.paid_amount:
-                self.payment_approval_status = "approved_and_verified"
-            elif self.payment_received == 0.0000:
-                self.payment_approval_status = "rejected"
-            elif self.payment_received < self.paid_amount:
-                self.payment_approval_status = "disputed"            
+            self.payment_approval_status = "approved_and_verified"
+        else:
+            self.payment_approval_status = "rejected"
 
-        # create entry to edit shipment payment
-        try:
-            if self.pk is None:
-                shop = Shop.objects.filter(shop_owner=self.paid_by)
-                if shop:
-                    shop=shop[0]
-                    shop_address = shop.shop_name_address_mapping.filter(address_type='billing')
-                    if shop_address.exists():
-                        shop_address_pk = shop_address.last().pk
-                    else:
-                        shop_address = shop.shop_name_address_mapping.all()
-                        shop_address_pk = shop_address.last().pk
-                    self.payment_id = payment_id_pattern(
-                                                Payment, 'payment_id', self.pk,
-                                                shop_address_pk)
-        except:
-            pass
         super().save(*args, **kwargs)
-        # assuming that a postpaid order payment has one shipment payment
-        # shipment_payment = ShipmentPayment.objects.filter(parent_payment=self) 
 
-        # if self.prepaid_or_postpaid == "postpaid" and shipment_payment.exists():
-        #     shipment_payment1 = shipment_payment[0]
-        #     shipment_payment1.paid_amount = self.paid_amount
-        #     shipment_payment1.save()
 
 class Error(Exception):
    """Base class for other exceptions"""

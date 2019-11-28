@@ -79,6 +79,7 @@ class PaymentApprovalAdmin(admin.ModelAdmin):# NoDeleteAdminMixin,
     model = PaymentApproval
     list_display = (
         "id", "reference_no", "payment_approval_status", "paid_amount",
+        "retailer", "payment_mode_name"
         #"payment_received"
     )
 
@@ -92,6 +93,7 @@ class PaymentApprovalAdmin(admin.ModelAdmin):# NoDeleteAdminMixin,
         "retailer", "processed_by", "paid_amount", "payment_mode_name", "reference_no", #"payment_approval_status",
     )
 
+    #list_filter = ['picking_status', PickerBoyFilter, PicklistIdFilter, OrderNumberSearch,('created_at', DateTimeRangeFilter),]
     # raw_id_fields = ("shipment",)
     def has_change_permission(self, request, obj=None):
         if request.user.has_perm("payments.change_payment"):
