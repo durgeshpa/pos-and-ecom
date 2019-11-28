@@ -841,7 +841,10 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
             return obj.trip.trip_status
 
     def get_paid_amount_shipment(self, obj):
-        return obj.total_paid_amount    
+        if obj.total_paid_amount:
+            return obj.total_paid_amount    
+        else:
+            return 0
 
     def get_shipment_payment(self, obj):
         return ""

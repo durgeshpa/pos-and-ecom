@@ -1237,7 +1237,10 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
     cash_to_be_collected.short_description = 'Amount to be Collected'
 
     def total_received_amount(self, obj):
-        return obj.total_received_amount
+        if obj.total_received_amount:
+            return obj.total_received_amount
+        else:
+            return 0
     total_received_amount.short_description = 'Total Received Amount'
 
     # def received_cash_amount(self, obj):

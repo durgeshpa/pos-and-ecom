@@ -1,6 +1,8 @@
 #from dal import autocomplete_light
 
 from django.contrib import admin
+from django.db.models import Case, CharField, Value, When, F, Sum, Q
+
 from .models import *
 from .forms import ShipmentPaymentForm, ShipmentPaymentInlineForm, OnlinePaymentInlineForm, \
     PaymentForm, OrderPaymentForm
@@ -32,7 +34,7 @@ class PaymentAdmin(admin.ModelAdmin):
 
     form  = PaymentForm
     list_display = (
-        "paid_by", "paid_amount", "payment_mode_name", "reference_no", "description",
+        "paid_by", "paid_amount", "payment_mode_name",  "online_payment_type", "reference_no", "description",
         "payment_id"            
         )
     fields = (
@@ -109,6 +111,14 @@ class PaymentApprovalAdmin(admin.ModelAdmin):# NoDeleteAdminMixin,
 
     def retailer(self, obj):
         return obj.paid_by
+
+    # def get_queryset(self, request):
+    #     #import pdb; pdb.set_trace()
+    #     qs = super(PaymentApprovalAdmin, self).get_queryset(request)
+    #     return qs.filter(
+    #         Q(payment_mode_name != "cash_payment") 
+    #             ).order_by('-created_at')
+
 
 # class PaymentEditAdmin(admin.TabularInline):# NoDeleteAdminMixin, 
 #     model = Payment   
