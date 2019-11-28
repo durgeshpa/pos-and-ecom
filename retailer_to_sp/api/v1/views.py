@@ -307,7 +307,9 @@ class GramGRNProductsList(APIView):
             if is_store_active:
                 product = Product.objects.get(id=p["_source"]["id"])
                 product_coupons = product.getProductCoupons()
-                coupons_queryset = Coupon.objects.filter(coupon_code__in = product_coupons)
+                coupons_queryset1 = Coupon.objects.filter(coupon_code__in = product_coupons, coupon_type='catalog')
+                coupons_queryset2 = Coupon.objects.filter(coupon_code__in = product_coupons, coupon_type='brand').order_by('rule__cart_qualifying_min_sku_value')
+                coupons_queryset = coupons_queryset1 | coupons_queryset2
                 coupons = CouponSerializer(coupons_queryset, many=True).data
                 p["_source"]["coupon"] = coupons
                 # check in case of multiple coupons
@@ -316,7 +318,9 @@ class GramGRNProductsList(APIView):
                         for product_coupon in coupon.rule.product_ruleset.filter(purchased_product = product):
                             if product_coupon.max_qty_per_use > 0:
                                 max_qty = product_coupon.max_qty_per_use
-                                for i in coupons: i['max_qty'] = max_qty
+                                for i in coupons:
+                                    if i['coupon_type'] == 'catalog':
+                                        i['max_qty'] = max_qty
 
                 # product = Product.objects.get(id=p["_source"]["id"])
                 check_price = product.get_current_shop_price(parent_mapping.parent.id, shop_id)
@@ -331,6 +335,7 @@ class GramGRNProductsList(APIView):
                 for c_p in cart_products:
                     if c_p.cart_product_id == p["_source"]["id"]:
                         keyValList2 = ['discount_on_product']
+                        keyValList3 = ['discount_on_brand']
                         if cart.offers:
                             exampleSet2 = cart.offers
                             array2 = list(filter(lambda d: d['sub_type'] in keyValList2, exampleSet2))
@@ -338,8 +343,12 @@ class GramGRNProductsList(APIView):
                                 if i['item_sku']== c_p.cart_product.product_sku:
                                     discounted_product_subtotal = i['discounted_product_subtotal']
                                     p["_source"]["discounted_product_subtotal"] = discounted_product_subtotal
-                                    p["_source"]["margin"] = (((float(check_price.mrp) - c_p.item_effective_prices) / float(check_price.mrp)) * 100)
-                                    for j in coupons: j['is_applied'] = True
+                            p["_source"]["margin"] = (((float(check_price.mrp) - c_p.item_effective_prices) / float(check_price.mrp)) * 100)
+                            array3 = list(filter(lambda d: d['sub_type'] in keyValList3, exampleSet2))
+                            for j in coupons:
+                                for i in (array3 + array2):
+                                    if j['coupon_code'] == i['coupon_code']:
+                                        j['is_applied'] = True
                         user_selected_qty = c_p.qty
                         no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
                         p["_source"]["user_selected_qty"] = user_selected_qty
@@ -575,7 +584,7 @@ class ReservedOrder(generics.ListAPIView):
         shop_id = self.request.POST.get('shop_id')
         msg = {'is_success': False,
                'message': ['No any product available in this cart'],
-               'response_data': None}
+               'response_data': None, 'is_shop_time_entered':False}
 
         if checkNotShopAndMapping(shop_id):
             return Response(msg, status=status.HTTP_200_OK)
@@ -604,7 +613,8 @@ class ReservedOrder(generics.ListAPIView):
                 if cart_products.count() <= 0:
                     msg = {'is_success': False,
                            'message': ['No product is available in cart'],
-                           'response_data': None}
+                           'response_data': None,
+                           'is_shop_time_entered':False}
                     return Response(msg, status=status.HTTP_200_OK)
 
                 cart_products.update(qty_error_msg='')
@@ -646,7 +656,8 @@ class ReservedOrder(generics.ListAPIView):
                         })
                     msg = {'is_success': True,
                            'message': [''],
-                           'response_data': serializer.data}
+                           'response_data': serializer.data,
+                           'is_shop_time_entered':False}
                     return Response(msg, status=status.HTTP_200_OK)
                 else:
                     reserved_args = json.dumps({
@@ -661,12 +672,13 @@ class ReservedOrder(generics.ListAPIView):
             msg = {
                     'is_success': True,
                     'message': [''],
-                    'response_data': serializer.data
+                    'response_data': serializer.data,
+                    'is_shop_time_entered': hasattr(parent_mapping.retailer, 'shop_timing'),
                 }
             return Response(msg, status=status.HTTP_200_OK)
         else:
             msg = {'is_success': False, 'message': ['Sorry shop is not associated with any Gramfactory or any SP'],
-                   'response_data': None}
+                   'response_data': None, 'is_shop_time_entered': False}
             return Response(msg, status=status.HTTP_200_OK)
         return Response(msg, status=status.HTTP_200_OK)
 
