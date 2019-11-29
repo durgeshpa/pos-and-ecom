@@ -842,21 +842,41 @@ class Trip(models.Model):
             cash_to_be_collected.append(
                 shipment.cash_to_be_collected())
         return round(sum(cash_to_be_collected), 2)
-
-    @property    
-    def total_received_amount(self):
+   
+    def total_paid_amount(self):
         from payments.models import ShipmentPayment
         trip_shipments = self.rt_invoice_trip.all()
+        total_amount  = cash_amount = online_amount = 0
         if trip_shipments.exists():
             shipment_payment_data = ShipmentPayment.objects.filter(shipment__in=trip_shipments)\
                 .aggregate(Sum('paid_amount')) 
-            if shipment_payment_data['paid_amount__sum']:
-                return round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
-            else:
-                return ""
-        else:
-            return ""
+            shipment_payment_cash = ShipmentPayment.objects.filter(shipment__in=trip_shipments, parent_order_payment__parent_payment__payment_mode_name="cash_payment")\
+                .aggregate(Sum('paid_amount')) 
+            shipment_payment_online = ShipmentPayment.objects.filter(shipment__in=trip_shipments, parent_order_payment__parent_payment__payment_mode_name="online_payment")\
+                .aggregate(Sum('paid_amount')) 
 
+            if shipment_payment_data['paid_amount__sum']:
+                total_amount = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
+            if shipment_payment_cash['paid_amount__sum']:
+                cash_amount = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount            
+            if shipment_payment_online['paid_amount__sum']:
+                online_amount = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
+        return total_amount, cash_amount, online_amount
+
+    @property
+    def total_received_amount(self):
+        total_payment, _c , _o = self.total_paid_amount()
+        return total_payment
+
+    @property
+    def received_cash_amount(self):
+        _t , cash_payment, _o = self.total_paid_amount()
+        return cash_payment
+
+    @property
+    def received_online_amount(self):
+        _t, _c, online_payment= self.total_paid_amount()
+        return online_payment
 
     @property
     def cash_to_be_collected_value(self):
@@ -1077,20 +1097,38 @@ class OrderedProduct(models.Model): #Shipment
                     self._payment_amount.append(float(payment['paid_amount']))
         return self._payment_mode, self._payment_amount
 
-    @property    
-    def total_paid_amount(self):
-        #import pdb; pdb.set_trace()
+    def total_payment(self):
         from payments.models import ShipmentPayment
         shipment_payment = self.shipment_payment.all()
+        total_payment = cash_payment = online_payment = 0
         if shipment_payment.exists():
             shipment_payment_data = shipment_payment.aggregate(Sum('paid_amount')) #annotate(sum_paid_amount=Sum('paid_amount')) 
+            shipment_payment_cash = shipment_payment.filter(parent_order_payment__parent_payment__payment_mode_name="cash_payment").aggregate(Sum('paid_amount'))
+            shipment_payment_online = shipment_payment.filter(parent_order_payment__parent_payment__payment_mode_name="online_payment").aggregate(Sum('paid_amount'))
         # shipment_payment = ShipmentPayment.objects.filter(shipment__in=trip_shipments).\
         #     annotate(sum_paid_amount=Sum('paid_amount'))
             if shipment_payment_data:
-                return round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
-        else:
-            return ""
+                total_payment = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
+            if shipment_payment_cash:
+                cash_payment = round(shipment_payment_cash['paid_amount__sum'], 2) #sum_paid_amount        
+            if shipment_payment_online:
+                online_payment = round(shipment_payment_online['paid_amount__sum'], 2) #sum_paid_amount  
+        return total_payment, cash_payment, online_payment
 
+    @property
+    def total_paid_amount(self):
+        total_payment, _c , _o = self.total_payment()
+        return total_payment
+
+    @property
+    def cash_payment(self):
+        _t , cash_payment, _o = self.total_payment()
+        return cash_payment
+
+    @property
+    def online_payment(self):
+        _t, _c, online_payment= self.total_payment()
+        return online_payment
 
     @property
     def payment_mode(self):
