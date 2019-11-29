@@ -112,12 +112,11 @@ class PaymentApprovalAdmin(admin.ModelAdmin):# NoDeleteAdminMixin,
     def retailer(self, obj):
         return obj.paid_by
 
-    # def get_queryset(self, request):
-    #     #import pdb; pdb.set_trace()
-    #     qs = super(PaymentApprovalAdmin, self).get_queryset(request)
-    #     return qs.filter(
-    #         Q(payment_mode_name != "cash_payment") 
-    #             ).order_by('-created_at')
+    def get_queryset(self, request):
+        qs = super(PaymentApprovalAdmin, self).get_queryset(request)
+        return qs.exclude(
+            Q(payment_mode_name = "cash_payment") 
+                ).order_by('-created_at')
 
 
 # class PaymentEditAdmin(admin.TabularInline):# NoDeleteAdminMixin, 
