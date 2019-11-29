@@ -12,7 +12,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework import permissions, authentication
 from products.models import Product, ProductPrice
 from services.models import RetailerReports, OrderReports,GRNReports, MasterReports, OrderGrnReports, OrderDetailReports, CategoryProductReports
-from .serializers import ProductSerializer, ProductPriceSerializer
+from .serializers import ProductSerializer, ProductPriceSerializer, OrderSerializer
 from rest_framework.response import Response
 from rest_framework import status
 from shops.models import Shop, ParentRetailerMapping
@@ -191,17 +191,26 @@ class MasterReport(CreateAPIView):
 
 class OrderReport(CreateAPIView):
     permission_classes = (AllowAny,)
+    serializer_class = OrderSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+
+
 
     def create(self, request, *args, **kwargs):
         order_details = {}
-        order = Order.objects.get(id=request.data.get("order_id"))
+        order = Order.objects.get(id=142)
+        seller_shop=order.seller_shop
         for shipment in order.rt_order_order_product.all():
             for products in shipment.rt_order_product_order_product_mapping.all():
                 product_id = products.product.id
                 product_name = products.product.product_name
                 product_brand = products.product.product_brand
-                product_mrp = products.product.product_pro_price.get(status=True, shop = seller_shop).mrp
-                product_value_tax_included = products.product.product_pro_price.get(status=True, shop = seller_shop).price_to_retailer
+                # product_mrp = products.product.product_pro_price.filter(status=True, seller_shop = seller_shop)
+                # for i in product_mrp:
+                #     mrp = i.mrp
+                # product_value_tax_included = products.product.product_pro_price.filter(status=True, seller_shop = seller_shop)
+                # for i in product_value_tax_included:
+                #     price_to_retailer=i.price_to_retailer
                 if products.product.product_pro_tax.filter(tax__tax_type ='gst').exists():
                     product_gst = products.product.product_pro_tax.filter(tax__tax_type ='gst').last()
                 if order.shipping_address.state == order.seller_shop.shop_name_address_mapping.filter(address_type='shipping').last().state:
@@ -245,13 +254,11 @@ class OrderReport(CreateAPIView):
                 invoice_status = invoice_status, order_id = order_id, seller_shop = seller_shop,  order_status = order_status,
                 order_date = order_date, order_modified_at = order_modified_at,  order_by = order_by, retailer_id = retailer_id,
                 retailer_name =retailer_name, pin_code = pin_code, product_id = product_id, product_name = product_name,
-                product_brand = product_brand, product_mrp = product_mrp, product_value_tax_included = product_value_tax_included,
-                ordered_sku_pieces = ordered_sku_pieces,  shipped_sku_pieces = shipped_sku_pieces, delivered_sku_pieces = delivered_sku_pieces,
+                product_brand = product_brand,ordered_sku_pieces = ordered_sku_pieces,  shipped_sku_pieces = shipped_sku_pieces, delivered_sku_pieces = delivered_sku_pieces,
                 returned_sku_pieces = returned_sku_pieces, damaged_sku_pieces = damaged_sku_pieces, product_cgst = product_cgst,
                 product_sgst = product_sgst, product_igst = product_igst, product_cess = product_cess, sales_person_name = sales_person_name,
                 order_type = order_type, campaign_name = campaign_name, discount = discount)
-
-        return ''
+            return Response({"message": [""], "response_data": '', "is_success": True})
 
 
 class RetailerProfileReport(CreateAPIView):
