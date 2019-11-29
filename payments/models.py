@@ -169,12 +169,8 @@ class Payment(AbstractDateTime):
         super(Payment, self).clean()
 
     def save(self, *args, **kwargs):
-        #super().save(*args, **kwargs)
-        #import pdb; pdb.set_trace()
         if self.is_payment_approved:
             self.payment_approval_status = "approved_and_verified"
-        else:
-            self.payment_approval_status = "rejected"
 
         super().save(*args, **kwargs)
 

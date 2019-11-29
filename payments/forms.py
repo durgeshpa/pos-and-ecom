@@ -18,7 +18,7 @@ from django.utils.html import format_html
 from accounts.middlewares import get_current_user
 from accounts.models import UserWithName
 from payments.models import Payment, ShipmentPayment, OnlinePayment,\
-    OrderPayment #, ShipmentPaymentApproval
+    OrderPayment, ShipmentPaymentApproval, PaymentApproval
 from retailer_to_sp.models import Order
 from shops.models import Shop
 
@@ -122,11 +122,19 @@ class ShipmentPaymentInlineForm(forms.ModelForm):
             #                                             order = order)                                            
 
 
-# class ShipmentPaymentApprovalForm(forms.ModelForm):
+class PaymentApprovalForm(forms.ModelForm):
 
-#     class Meta:
-#         model = ShipmentPaymentApproval
-#         fields = "__all__"
+    class Meta:
+        model = PaymentApproval
+        fields = "__all__"
+    
+    def __init__(self, *args, **kwargs):
+        super(PaymentApprovalForm, self).__init__(*args, **kwargs)
+
+        instance = getattr(self, 'instance', None)
+        if instance.is_payment_approved:   
+            self.fields['is_payment_approved'].disabled = True 
+
 
 class OnlinePaymentInlineForm(forms.ModelForm):
 

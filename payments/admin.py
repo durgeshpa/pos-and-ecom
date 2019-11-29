@@ -5,7 +5,7 @@ from django.db.models import Case, CharField, Value, When, F, Sum, Q
 
 from .models import *
 from .forms import ShipmentPaymentForm, ShipmentPaymentInlineForm, OnlinePaymentInlineForm, \
-    PaymentForm, OrderPaymentForm
+    PaymentForm, OrderPaymentForm, PaymentApprovalForm
 #from .forms import ShipmentPaymentApprovalForm
 from django.utils.safestring import mark_safe
 from django.forms.models import BaseInlineFormSet
@@ -78,6 +78,7 @@ class OnlinePaymentAdmin1(admin.ModelAdmin):
 
 
 class PaymentApprovalAdmin(admin.ModelAdmin):# NoDeleteAdminMixin, 
+    form = PaymentApprovalForm
     model = PaymentApproval
     list_display = (
         "id", "reference_no", "payment_approval_status", "paid_amount",
