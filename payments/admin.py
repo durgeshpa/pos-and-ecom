@@ -22,7 +22,7 @@ class OrderPaymentAdmin(admin.ModelAdmin):
     model = OrderPayment
     form  = OrderPaymentForm
     #autocomplete_fields = ('order', 'parent_payment', 'created_by', 'updated_by',)
-    search_fields = ('order', 'parent_payment')
+    search_fields = ('order__order_no', 'parent_payment__payment_id')
     readonly_fields = (
        "payment_id",
     )
@@ -31,7 +31,7 @@ class PaymentAdmin(admin.ModelAdmin):
     # inlines = [OnlinePaymentInlineAdmin]
     model = Payment
     autocomplete_fields = ('paid_by',)
-
+    search_fields = ('paid_amount', "paid_by__phone_number", "payment_id",)
     form  = PaymentForm
     list_display = (
         "paid_by", "paid_amount", "payment_mode_name",  "online_payment_type", "reference_no", "description",
@@ -39,9 +39,8 @@ class PaymentAdmin(admin.ModelAdmin):
         )
     fields = (
         "paid_by", "paid_amount", "payment_mode_name", "reference_no", "description",
-        "online_payment_type", "payment_id", "payment_screenshot"
+        "online_payment_type", "payment_id", "payment_screenshot", "processed_by"
     )
-    search_fields = ('order', 'parent_payment')
     readonly_fields = (
        "payment_id",
     )
@@ -61,6 +60,7 @@ class PaymentModeAdmin(admin.ModelAdmin):
 
 class ShipmentPaymentAdmin(admin.ModelAdmin):
     model = ShipmentPayment
+    search_fields = ('shipment__invoice_no', 'parent_order_payment__order__order_no',)
     #fields = ("shipment",) #, "is_payment_approved")
     raw_id_fields = ("shipment",)
     list_display = (

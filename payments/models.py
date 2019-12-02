@@ -171,6 +171,8 @@ class Payment(AbstractDateTime):
     def save(self, *args, **kwargs):
         if self.is_payment_approved:
             self.payment_approval_status = "approved_and_verified"
+        if self.payment_mode_name == "cash_payment":
+            self.payment_approval_status = "approved_and_verified"    
 
         super().save(*args, **kwargs)
 
@@ -239,7 +241,6 @@ class OrderPayment(AbstractDateTime):
             raise ValidationError(_(error_msg),)
         except:
             pass
-
 
 # create payment mode table shipment payment mapping
 class ShipmentPayment(AbstractDateTime):

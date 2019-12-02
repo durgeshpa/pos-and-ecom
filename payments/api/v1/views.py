@@ -180,14 +180,14 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
         return self.serializer_class
 
     def create(self, request, *args, **kwargs):
-        #import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         try:
             shipment = request.data.get('shipment', None)
             cash_collected = request.data.get('amount_collected')
             trip = request.data.get('trip')
             return_reason = request.data.get('return_reason', None)
             #shipment = OrderedProduct.objects.get(id=shipment_id)
-
+            processed_by = self.request.user #UserWithName.objects.get(id=self.request.user.id)
             # paid_by = request.data.get('paid_by', None)
             if not OrderedProduct.objects.filter(pk=int(shipment)).exists():
                 msg = {'is_success': False,
@@ -249,6 +249,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                         payment_mode_name = payment_mode_name,
                         paid_by = paid_by,
                         payment_screenshot = payment_screenshot,
+                        processed_by = processed_by
                         )
                     if payment_mode_name == "online_payment":
                         # if reference_no is None:
@@ -265,14 +266,18 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                     order_payment = OrderPayment.objects.create(
                         paid_amount = paid_amount,
                         parent_payment = payment,
-                        order = shipment.order
+                        order = shipment.order,
+                        created_by = processed_by,
+                        updated_by = processed_by
                         )
                     
                     # create shipment payment
                     shipment_payment = ShipmentPayment.objects.create(
                         paid_amount = paid_amount,
                         parent_order_payment = order_payment,
-                        shipment = shipment
+                        shipment = shipment,
+                        created_by = processed_by,
+                        updated_by = processed_by                        
                         )
 
                 msg = {'is_success': True,
