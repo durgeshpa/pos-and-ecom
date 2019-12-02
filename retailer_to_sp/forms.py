@@ -733,9 +733,9 @@ class CommercialForm(forms.ModelForm):
             if (instance.trip_status == 'TRANSFERRED' or
                     instance.trip_status == 'CLOSED'):
                 self.fields['trip_status'].choices = TRIP_STATUS[-3:]
-            #if instance.trip_status == 'TRANSFERRED':
-            for field_name in self.fields:
-                self.fields[field_name].disabled = True
+            if instance.trip_status == 'TRANSFERRED':
+                for field_name in self.fields:
+                    self.fields[field_name].disabled = True
 
     def clean_received_amount(self):
         trip_status = self.cleaned_data.get('trip_status')
@@ -752,8 +752,12 @@ class CommercialForm(forms.ModelForm):
         # setup check for transferred
         if data['trip_status'] == 'TRANSFERRED':
             # setup check for transferred
-
-            pass
+            # check if number of pending payment approval is 0
+            from payments.models import ShipmentPayment
+            trip_shipments = self.instance.rt_invoice_trip.all()
+            pending_payments_count = trip_shipments.filter(parent_order_payment__parent_payment__payment_approval_status="approval_pending").count()
+            if pending_payments_count:
+                raise forms.ValidationError(_("All shipment payments are not verified"),)
         return data
 
 
