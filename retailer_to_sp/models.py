@@ -251,6 +251,8 @@ class Cart(models.Model):
                 brands_list = []
                 brand_product_subtotals= 0
                 for brand in brand_coupon.rule.brand_ruleset.filter(rule__is_active = True, rule__expiry_date__gte = date ):
+                    brands_list = []
+                    brand_product_subtotals= 0
                     offer_brand = brand.brand
                     offer_brand_id = brand.brand.id
                     if offer_brand_id in brands_specific_list:
@@ -873,8 +875,8 @@ class Trip(models.Model):
         #weight = self.rt_order_product_order_product_mapping.all().aggregate(Sum('product.weight_value'))['weight_value__sum']
         if weight != 0:
             weight /= 1000
-        weight = round(weight,2)        
-        return str(weight) + " Kg" 
+        weight = round(weight,2)
+        return str(weight) + " Kg"
 
     __trip_status = None
 
