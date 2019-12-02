@@ -755,7 +755,8 @@ class CommercialForm(forms.ModelForm):
             # check if number of pending payment approval is 0
             from payments.models import ShipmentPayment
             trip_shipments = self.instance.rt_invoice_trip.all()
-            pending_payments_count = trip_shipments.filter(parent_order_payment__parent_payment__payment_approval_status="approval_pending").count()
+            #pending_payments_count = trip_shipments.filter(parent_order_payment__parent_payment__payment_approval_status="approval_pending").count()
+            pending_payments_count = ShipmentPayment.objects.filter(shipment__in=trip_shipments, parent_order_payment__parent_payment__payment_approval_status="pending_approval").count()
             if pending_payments_count:
                 raise forms.ValidationError(_("All shipment payments are not verified"),)
         return data
