@@ -726,7 +726,7 @@ class CommercialForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(CommercialForm, self).__init__(*args, **kwargs)
-        self.fields['trip_status'].choices = TRIP_STATUS[3:5]
+        self.fields['trip_status'].choices = TRIP_STATUS[3:]
         instance = getattr(self, 'instance', None)
         if instance.pk:
             # seperate screen for transferred: access only to finance team
