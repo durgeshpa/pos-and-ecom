@@ -729,11 +729,13 @@ class CommercialForm(forms.ModelForm):
         self.fields['trip_status'].choices = TRIP_STATUS[3:5]
         instance = getattr(self, 'instance', None)
         if instance.pk:
+            # seperate screen for transferred: access only to finance team
             if (instance.trip_status == 'TRANSFERRED' or
                     instance.trip_status == 'CLOSED'):
                 self.fields['trip_status'].choices = TRIP_STATUS[-3:]
-                for field_name in self.fields:
-                    self.fields[field_name].disabled = True
+            #if instance.trip_status == 'TRANSFERRED':
+            for field_name in self.fields:
+                self.fields[field_name].disabled = True
 
     def clean_received_amount(self):
         trip_status = self.cleaned_data.get('trip_status')
@@ -747,7 +749,11 @@ class CommercialForm(forms.ModelForm):
         if data['trip_status'] == 'CLOSED':
             if self.instance.received_cash_amount + self.instance.received_online_amount + int(self.instance.no_of_shipments)*2 < self.instance.cash_to_be_collected_value:
                 raise forms.ValidationError(_("Amount to be collected is less than sum of received cash amount and online amount"),)
+        # setup check for transferred
+        if data['trip_status'] == 'TRANSFERRED':
+            # setup check for transferred
 
+            pass
         return data
 
 

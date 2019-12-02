@@ -1107,11 +1107,11 @@ class OrderedProduct(models.Model): #Shipment
             shipment_payment_online = shipment_payment.filter(parent_order_payment__parent_payment__payment_mode_name="online_payment").aggregate(Sum('paid_amount'))
         # shipment_payment = ShipmentPayment.objects.filter(shipment__in=trip_shipments).\
         #     annotate(sum_paid_amount=Sum('paid_amount'))
-            if shipment_payment_data:
+            if shipment_payment_data['paid_amount__sum']:
                 total_payment = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
-            if shipment_payment_cash:
+            if shipment_payment_cash['paid_amount__sum']:
                 cash_payment = round(shipment_payment_cash['paid_amount__sum'], 2) #sum_paid_amount        
-            if shipment_payment_online:
+            if shipment_payment_online['paid_amount__sum']:
                 online_payment = round(shipment_payment_online['paid_amount__sum'], 2) #sum_paid_amount  
         return total_payment, cash_payment, online_payment
 
