@@ -35,7 +35,7 @@ class PaymentAdmin(admin.ModelAdmin):
     form  = PaymentForm
     list_display = (
         "paid_by", "paid_amount", "payment_mode_name",  "online_payment_type", "reference_no", "description",
-        "payment_id"            
+        "payment_id", "order_number", "invoice_number"            
         )
     fields = (
         "paid_by", "paid_amount", "payment_mode_name", "reference_no", "description",
@@ -44,6 +44,14 @@ class PaymentAdmin(admin.ModelAdmin):
     readonly_fields = (
        "payment_id",
     )
+
+    def order_number(self,obj):
+        return obj.orders()
+    order_number.short_description = 'Order Nos'
+
+    def invoice_number(self,obj):
+        return obj.shipments()
+    invoice_number.short_description = 'Invoice Nos'
 
     # def get_inline_instances(self, request, obj=None):
     #     if not obj or obj.payment_mode_name != "online_payment": return []

@@ -4,6 +4,7 @@ import datetime, csv, codecs, re
 import uuid
 
 from django.db import models
+from django.utils.html import format_html_join, format_html
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator 
 from django.dispatch import receiver
@@ -159,6 +160,26 @@ class Payment(AbstractDateTime):
             self.paid_amount
         )
 
+    def orders(self):
+        # if hasattr(self, 'order_objects'):
+        #     return self.order_objects
+        self.order_objects = self.parent_payment_order.all()
+        return format_html_join(
+                "","{}<br><br>",
+                        ((s.order.order_no,
+                        ) for s in self.order_objects)
+                )  
+
+    def shipments(self):
+        # if hasattr(self, 'order_objects'):
+        #     return self.order_objects
+        invoice_objects = ShipmentPayment.objects.filter(parent_order_payment__parent_payment__id=self.id)
+        return format_html_join(
+                "","{}<br><br>",
+                        ((s.shipment.invoice_no,
+                        ) for s in invoice_objects)
+                )          
+
     def clean(self):
         if self.payment_mode_name != "cash_payment" and not self.reference_no:
             raise ValidationError('Referece number is required.')
@@ -249,8 +270,8 @@ class ShipmentPayment(AbstractDateTime):
     shipment = models.ForeignKey(OrderedProduct, related_name='shipment_payment', on_delete=models.CASCADE) #shipment_id
     parent_order_payment = models.ForeignKey(OrderPayment, 
        related_name='shipment_order_payment', on_delete=models.CASCADE)
-    parent_payment = models.ForeignKey(Payment, 
-       related_name='shipment_payment', on_delete=models.CASCADE, null=True, blank=True)
+    #parent_payment = models.ForeignKey(Payment, 
+    #   related_name='shipment_payment', on_delete=models.CASCADE, null=True, blank=True)
     paid_amount = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')
     created_by = models.ForeignKey(User, related_name='payment_created_by', null=True, blank=True, on_delete=models.SET_NULL)
     updated_by = models.ForeignKey(User, related_name='payment_updated_by', null=True, blank=True, on_delete=models.SET_NULL)
