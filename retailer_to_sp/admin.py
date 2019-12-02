@@ -328,6 +328,44 @@ class OrderIDFilter(InputFilter):
                 Q(order_id__icontains=order_id)
             )
 
+class ShipmentSearch(InputFilter):
+    parameter_name = 'shipment_id'
+    title = 'Shipment'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            shipment_id = self.value()
+            if shipment_id is None:
+                return
+            return queryset.filter(
+                Q(shipment__invoice_no__icontains=shipment_id)
+            )
+
+class CreditNoteSearch(InputFilter):
+    parameter_name = 'credit_note_id'
+    title = 'Credit Note'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            credit_note_id = self.value()
+            if credit_note_id is None:
+                return
+            return queryset.filter(
+                Q(credit_note_id__icontains=credit_note_id)
+            )
+
+class ShopSearch(InputFilter):
+    parameter_name = 'shop_name'
+    title = 'Seller Shop'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            shop_name = self.value()
+            if shop_name is None:
+                return
+            return queryset.filter(
+                Q(shop__shop_name__icontains=shop_name)
+            )
 
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
@@ -1261,6 +1299,7 @@ class NoteAdmin(admin.ModelAdmin):
               'invoice_no', 'status')
     readonly_fields = ('credit_note_id', 'shop', 'shipment', 'note_type',
                        'note_amount', 'invoice_no', 'status')
+    list_filter = [('created_at', DateTimeRangeFilter),ShipmentSearch, CreditNoteSearch, ShopSearch]
 
     class Media:
         pass
