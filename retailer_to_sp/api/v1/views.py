@@ -414,6 +414,9 @@ class AddToCart(APIView):
             #  if shop mapped with SP
 
             if parent_mapping.parent.shop_type.shop_type == 'sp':
+                import pdb; pdb.set_trace()
+                product = Product.objects.get(id = cart_product)
+                capping = product.get_current_shop_capping(parent_mapping.parent, parent_mapping.retailer)
                 if Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
                                        cart_status__in=['active', 'pending']).exists():
                     cart = Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,

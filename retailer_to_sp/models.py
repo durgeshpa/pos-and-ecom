@@ -412,6 +412,10 @@ class CartProductMapping(models.Model):
         max_length=255, null=True,
         blank=True, editable=False
     )
+    capping_error_msg = models.CharField(
+        max_length=255, null=True,
+        blank=True, editable=False
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
@@ -873,8 +877,8 @@ class Trip(models.Model):
         #weight = self.rt_order_product_order_product_mapping.all().aggregate(Sum('product.weight_value'))['weight_value__sum']
         if weight != 0:
             weight /= 1000
-        weight = round(weight,2)        
-        return str(weight) + " Kg" 
+        weight = round(weight,2)
+        return str(weight) + " Kg"
 
     __trip_status = None
 

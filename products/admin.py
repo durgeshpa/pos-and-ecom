@@ -26,7 +26,7 @@ from .resources import (
     )
 
 from .forms import (ProductPriceNewForm, ProductPriceChangePerm,
-                    ProductPriceAddPerm, ProductVendorMappingForm, ProductForm)
+                    ProductPriceAddPerm, ProductVendorMappingForm, ProductForm, ProductCappingForm)
 
 from retailer_backend.filters import CityFilter, ProductCategoryFilter
 
@@ -532,6 +532,8 @@ class ProductHSNAdmin(admin.ModelAdmin, ExportCsvMixin):
     actions = ['export_as_csv']
     search_fields = ['product_hsn_code']
 
+class ProductCappingAdmin(admin.ModelAdmin):
+    form = ProductCappingForm
 
 admin.site.register(ProductImage, ProductImageMainAdmin)
 admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)
@@ -545,3 +547,4 @@ admin.site.register(Tax, TaxAdmin)
 admin.site.register(Product, ProductAdmin)
 admin.site.register(ProductPrice, ProductPriceAdmin)
 admin.site.register(ProductHSN, ProductHSNAdmin)
+admin.site.register(ProductCapping, ProductCappingAdmin)

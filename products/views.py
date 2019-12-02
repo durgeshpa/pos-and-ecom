@@ -705,7 +705,7 @@ def NameIDCSV(request):
 
 class ProductPriceAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        qs = Product.objects.none()
+        qs = Product.objects.all()
         if self.q:
             qs = Product.objects.filter(
                 Q(product_name__icontains=self.q) |
