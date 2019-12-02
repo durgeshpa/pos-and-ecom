@@ -2,6 +2,7 @@
 
 from django.contrib import admin
 from django.db.models import Case, CharField, Value, When, F, Sum, Q
+from retailer_backend.admin import InputFilter
 
 from .models import *
 from .forms import ShipmentPaymentForm, ShipmentPaymentInlineForm, OnlinePaymentInlineForm, \
@@ -18,6 +19,20 @@ class OnlinePaymentInlineAdmin(admin.TabularInline):
     form = OnlinePaymentInlineForm
 
 
+class OrderNoSearch(InputFilter):
+    parameter_name = 'order_no'
+    title = 'Order No.'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            order_no = self.value()
+            if order_no is None:
+                return
+            return queryset.filter(
+                Q(order__order_no__icontains=order_no)
+            )
+
+
 class OrderPaymentAdmin(admin.ModelAdmin):
     model = OrderPayment
     form  = OrderPaymentForm
@@ -26,6 +41,22 @@ class OrderPaymentAdmin(admin.ModelAdmin):
     readonly_fields = (
        "payment_id",
     )
+    list_filter = (OrderNoSearch,  'parent_payment__payment_mode_name', )
+
+
+class ReferenceNoSearch(InputFilter):
+    parameter_name = 'reference_no'
+    title = 'Reference No.'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            reference_no = self.value()
+            if reference_no is None:
+                return
+            return queryset.filter(
+                Q(reference_no__icontains=reference_no)
+            )
+
 
 class PaymentAdmin(admin.ModelAdmin):
     # inlines = [OnlinePaymentInlineAdmin]
@@ -41,6 +72,8 @@ class PaymentAdmin(admin.ModelAdmin):
         "paid_by", "paid_amount", "payment_mode_name", "reference_no", "description",
         "online_payment_type", "payment_id", "payment_screenshot", "processed_by"
     )
+    list_filter = ("payment_mode_name",  "online_payment_type", ReferenceNoSearch, )
+
     readonly_fields = (
        "payment_id",
     )
@@ -66,6 +99,48 @@ class PaymentModeAdmin(admin.ModelAdmin):
     model = PaymentMode
 
 
+class ShipmentOrderNoSearch(InputFilter):
+    parameter_name = 'order_no'
+    title = 'Order No.'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            order_no = self.value()
+            if order_no is None:
+                return
+            return queryset.filter(
+                Q(shipment__order__order_no__icontains=order_no)
+            )
+
+
+class InvoiceNoSearch(InputFilter):
+    parameter_name = 'invoice_no'
+    title = 'Invoice No.'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            invoice_no = self.value()
+            if invoice_no is None:
+                return
+            return queryset.filter(
+                Q(shipment__invoice_no__icontains=invoice_no)
+            )
+
+class DispatchNoSearch(InputFilter):
+    parameter_name = 'dispatch_no'
+    title = 'Dispatch No.'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            dispatch_no = self.value()
+            if dispatch_no is None:
+                return
+            return queryset.filter(
+                Q(shipment__trip__dispatch_no__icontains=invoice_no)
+            )
+
+
+
 class ShipmentPaymentAdmin(admin.ModelAdmin):
     model = ShipmentPayment
     search_fields = ('shipment__invoice_no', 'parent_order_payment__order__order_no',)
@@ -74,6 +149,10 @@ class ShipmentPaymentAdmin(admin.ModelAdmin):
     list_display = (
         "shipment", "parent_order_payment", "paid_amount",            
         )
+    list_select_related = ("shipment__trip",)
+    # - a)Order b)Trip c)Invoice No d)Invoice city
+    list_filter = (ShipmentOrderNoSearch,  InvoiceNoSearch, DispatchNoSearch, )
+
 
 
 class NoDeleteAdminMixin:
@@ -212,7 +291,7 @@ class ShipmentPaymentDataAdmin(admin.ModelAdmin):
     list_display = (
         'order', 'trip','invoice_no', 'invoice_amount', 'total_paid_amount','invoice_city'
         )
-    list_per_page = 5
+    list_per_page = 50
     fields = ['order', 'trip', 'trip_status', 'invoice_no', 'invoice_amount', 'total_paid_amount', 'shipment_address', 'invoice_city',
         'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
     readonly_fields = ['order', 'trip', 'trip_status', 'invoice_no', 'invoice_amount', 'total_paid_amount', 'shipment_address', 'invoice_city',
