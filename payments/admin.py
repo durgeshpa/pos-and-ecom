@@ -14,6 +14,28 @@ from django.forms.models import BaseInlineFormSet
 from retailer_to_sp.models import Shipment
 # Register your models here.
 
+
+class PermissionMixin:
+
+    def has_change_permission(self, request, obj=None):
+        if request.user.has_perm("payments.change_payment"):
+            return True
+        else:
+            return False
+
+    def has_add_permission(self, request):
+        if request.user.has_perm("payments.change_payment"):
+            return True
+        else:
+            return False
+
+    def has_delete_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        else:
+            return False
+
+
 class OnlinePaymentInlineAdmin(admin.TabularInline):
     model = OnlinePayment
     form = OnlinePaymentInlineForm
@@ -33,7 +55,7 @@ class OrderNoSearch(InputFilter):
             )
 
 
-class OrderPaymentAdmin(admin.ModelAdmin):
+class OrderPaymentAdmin(admin.ModelAdmin, PermissionMixin):
     model = OrderPayment
     form  = OrderPaymentForm
     #autocomplete_fields = ('order', 'parent_payment', 'created_by', 'updated_by',)
@@ -58,7 +80,7 @@ class ReferenceNoSearch(InputFilter):
             )
 
 
-class PaymentAdmin(admin.ModelAdmin):
+class PaymentAdmin(admin.ModelAdmin, PermissionMixin):
     # inlines = [OnlinePaymentInlineAdmin]
     model = Payment
     autocomplete_fields = ('paid_by',)
@@ -141,7 +163,7 @@ class DispatchNoSearch(InputFilter):
 
 
 
-class ShipmentPaymentAdmin(admin.ModelAdmin):
+class ShipmentPaymentAdmin(admin.ModelAdmin, PermissionMixin):
     model = ShipmentPayment
     search_fields = ('shipment__invoice_no', 'parent_order_payment__order__order_no',)
     #fields = ("shipment",) #, "is_payment_approved")
@@ -164,12 +186,12 @@ class OnlinePaymentAdmin1(admin.ModelAdmin):
     model = OnlinePayment
 
 
-class PaymentApprovalAdmin(admin.ModelAdmin):# NoDeleteAdminMixin, 
+class PaymentApprovalAdmin(admin.ModelAdmin, PermissionMixin):# NoDeleteAdminMixin, 
     form = PaymentApprovalForm
     model = PaymentApproval
     list_display = (
         "id", "reference_no", "payment_approval_status", "paid_amount",
-        "retailer", "payment_mode_name"
+        "retailer", "payment_mode_name", "order_number", "invoice_number" 
         #"payment_received"
     )
 
@@ -190,6 +212,14 @@ class PaymentApprovalAdmin(admin.ModelAdmin):# NoDeleteAdminMixin,
             return True
         else:
             return False
+
+    def order_number(self,obj):
+        return obj.orders()
+    order_number.short_description = 'Order Nos'
+
+    def invoice_number(self,obj):
+        return obj.shipments()
+    invoice_number.short_description = 'Invoice Nos'
 
     def order(self, obj):
         shipment_payment = ShipmentPayment.objects.get(parent_payment=obj)
@@ -290,7 +320,7 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline):
         return False
 
 
-class ShipmentPaymentDataAdmin(admin.ModelAdmin):
+class ShipmentPaymentDataAdmin(admin.ModelAdmin, PermissionMixin):
     inlines = [ShipmentPaymentInlineAdmin]
     model = ShipmentData
     list_display = (

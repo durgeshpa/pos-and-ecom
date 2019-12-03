@@ -216,12 +216,12 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
             with transaction.atomic():
 
                 #if float(cash_collected) == float(shipment.cash_to_be_collected()):
-                if float(cash_collected) + 2 >= float(shipment.cash_to_be_collected()):    
+                if int(cash_collected) == int(shipment.cash_to_be_collected()):    
                     update_shipment_status_with_id(shipment)
                     update_trip_status(trip)
                 else:
                     msg = {'is_success': False,
-                        'message': ["Maximum difference in amount collected and amount to be collected can be INR 2."],
+                        'message': ["Amount collected and amount to be collected must be equal."],
                         'response_data': None }
                     return Response(msg,
                             status=status.HTTP_406_NOT_ACCEPTABLE)
