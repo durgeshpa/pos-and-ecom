@@ -242,13 +242,13 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                     online_payment_type = item.get('online_payment_type', None)
                     description = item.get('description', None)
                     count += 1
-
                     # create payment
                     payment = Payment.objects.create(
                         paid_amount = paid_amount,
                         payment_mode_name = payment_mode_name,
                         paid_by = paid_by,
                         payment_screenshot = payment_screenshot,
+                        description = description,
                         processed_by = processed_by
                         )
                     if payment_mode_name == "online_payment":

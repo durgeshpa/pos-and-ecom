@@ -67,10 +67,10 @@ FINAL_PAYMENT_STATUS_CHOICES = (
 
 ONLINE_PAYMENT_TYPE_CHOICES = (
     #('paytm', 'paytm'),
-    ('upi', 'upi'),
-    ('neft', 'neft'),
-    ('imps', 'imps'),
-    ('rtgs', 'rtgs'),
+    ('UPI', 'UPI'),
+    ('NEFT', 'NEFT'),
+    ('IMPS', 'IMPS'),
+    ('RTGS', 'RTGS'),
   )
 
 ORDER_PAYMENT_STATUS_CHOICES = (
