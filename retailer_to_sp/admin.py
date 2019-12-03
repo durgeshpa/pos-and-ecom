@@ -344,14 +344,14 @@ class CartProductMappingAdmin(admin.TabularInline):
         return super(CartProductMappingAdmin, self).\
             formfield_for_foreignkey(db_field, request, **kwargs)
 
-    def get_readonly_fields(self, request, obj=None):
-        readonly_fields = super(CartProductMappingAdmin, self) \
-            .get_readonly_fields(request, obj)
-        if obj:
-            readonly_fields = readonly_fields + (
-                'cart_product', 'cart_product_price', 'qty', 'no_of_pieces', 'item_effective_prices'
-            )
-        return readonly_fields
+    # def get_readonly_fields(self, request, obj=None):
+    #     readonly_fields = super(CartProductMappingAdmin, self) \
+    #         .get_readonly_fields(request, obj)
+    #     if obj:
+    #         readonly_fields = readonly_fields + (
+    #             'cart_product', 'cart_product_price', 'item_effective_prices'
+    #         )
+    #     return readonly_fields
 
     def has_delete_permission(self, request, obj=None):
         return False
