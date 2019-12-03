@@ -284,7 +284,7 @@ order_gram_to_brand_group = 'gram_to_brand_order_group'
 grn_gram_to_brand_group = 'grn_brand_to_gram_group'
 BLOCKING_TIME_IN_MINUTS = config('BLOCKING_TIME_IN_MINUTS')
 
-WKHTMLTOPDF_CMD = '/usr/local/bin/wkhtmltopdf'
+WKHTMLTOPDF_CMD = '/usr/bin/wkhtmltopdf'
 WKHTMLTOPDF_CMD_OPTIONS = {
     'quiet': True,
 }
@@ -323,10 +323,10 @@ REDIS_DB_CHOICE = {
     'staging': '2',
     'qa': '7',
     'qa1': '9',
-    'local-raj':'5',
+    'local':'5',
     'qa3':'6',
     'qa2':'8',
-    'local':'10'
+    'local':'10',
 }
 
 # JET_THEMES = [
