@@ -230,8 +230,9 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline):
     form = ShipmentPaymentInlineForm
     formset = AtLeastOneFormSet
     #autocomplete_fields = ("parent_order_payment",)
-    fields = ("paid_amount", "parent_order_payment", "payment_mode_name", "reference_no", "description")
-    readonly_fields = ("payment_mode_name", "reference_no",)
+    fields = ("paid_amount", "parent_order_payment", "payment_mode_name", "reference_no", "description",
+        "payment_approval_status")
+    readonly_fields = ("payment_mode_name", "reference_no","payment_approval_status")
     extra = 0
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
@@ -268,6 +269,10 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline):
                 return True
         except: 
             return True
+
+    def payment_approval_status(self,obj):
+        return obj.parent_order_payment.parent_payment.payment_approval_status
+    payment_approval_status.short_description = 'Payment Approval Status'
 
     def payment_mode_name(self,obj):
         return obj.parent_order_payment.parent_payment.payment_mode_name

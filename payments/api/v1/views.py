@@ -252,12 +252,6 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                         processed_by = processed_by
                         )
                     if payment_mode_name == "online_payment":
-                        # if reference_no is None:
-                        #     raise serializers.ValidationError("Reference number is required!")
-                        #     # raise ValidationError("Reference number is required") 
-                        # if online_payment_type is None:
-                        #     raise serializers.ValidationError("Online payment type is required!")
-
                         payment.reference_no = reference_no
                         payment.online_payment_type = online_payment_type
                     payment.save()
@@ -290,17 +284,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
             msg = {'is_success': False,
                     'message': [str(e)], #[error for error in errors],
                     'response_data': None }
-            # errors = []
-            # for field in e: #serializer.errors:
-            #     for error in e[field]:#serializer.errors[field]:
-            #         if 'non_field_errors' in field:
-            #             result = error
-            #         else:
-            #             result = ''.join('{} : {}'.format(field,error))
-            #         errors.append(result)
-            # msg = {'is_success': False,
-            #         'message': errors, #[error for error in errors],
-            #         'response_data': None }
+
             return Response(msg,
                             status=status.HTTP_406_NOT_ACCEPTABLE)
 
