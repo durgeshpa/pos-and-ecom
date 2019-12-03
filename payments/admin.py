@@ -204,6 +204,7 @@ class PaymentApprovalAdmin(admin.ModelAdmin, PermissionMixin):# NoDeleteAdminMix
     readonly_fields = (
         "retailer", "processed_by", "paid_amount", "payment_mode_name", "reference_no", #"payment_approval_status",
     )
+    list_filter = ("payment_mode_name",  "online_payment_type", ReferenceNoSearch, )
 
     #list_filter = ['picking_status', PickerBoyFilter, PicklistIdFilter, OrderNumberSearch,('created_at', DateTimeRangeFilter),]
     # raw_id_fields = ("shipment",)
