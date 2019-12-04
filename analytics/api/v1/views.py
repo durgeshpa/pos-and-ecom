@@ -12,7 +12,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework import permissions, authentication
 from products.models import Product, ProductPrice
 from services.models import RetailerReports, OrderReports,GRNReports, MasterReports, OrderGrnReports, OrderDetailReports, CategoryProductReports
-from .serializers import ProductSerializer, ProductPriceSerializer, OrderedProductMappingSerializer, PurchaseOrderSerializer, ShopSerializer
+from .serializers import ProductSerializer, ProductPriceSerializer, OrderedProductMappingSerializer, PurchaseOrderSerializer, ShopSerializer, ParentRetailerSerializer
 from rest_framework.response import Response
 from rest_framework import status
 from shops.models import Shop, ParentRetailerMapping
@@ -264,6 +264,9 @@ class OrderReport(CreateAPIView):
 
 class RetailerProfileReport(CreateAPIView):
     permission_classes = (AllowAny,)
+    serializer_class = ParentRetailerSerializer
+    authentication_class = (authentication.TokenAuthentication,)
+
 
     # def get_unmapped_shops(self):
     #     retailers = ParentRetailerMapping.objects.filter(parent__isnull=True)
@@ -279,8 +282,9 @@ class RetailerProfileReport(CreateAPIView):
     #                                                             created_at=created_at)
 
     def create(self, request, *args, **kwargs):
-        shop = Shop.objects.get(pk=request.data.get("shop_id"))
-        retailers = ParentRetailerMapping.objects.filter(retailer_id=request.data.get("retailer_id"), status=True)
+        serializer = self.get_serializer(request.data)
+        # shop = Shop.objects.get(pk=request.data.get("shop_id"))
+        retailers = ParentRetailerMapping.objects.filter(retailer_id=request.data["retailer_id"], status=True)
         retailers_list = {}
         i = 0
         for retailer in retailers:

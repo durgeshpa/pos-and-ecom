@@ -7,5 +7,5 @@ urlpatterns = [
     url(r'^grn-report/$', GRNReport.as_view(), name='grn_report'),
     url(r'^master-report/$', MasterReport.as_view(), name='master_report'),
     url(r'^order-report/$', OrderReport.as_view(), name='order_report'),
-    url(r'^retailer-profile-report/$', RetailerProfileReport.as_view(), name='retailer_profile_report'),
+    url(r'^retailer-report/$', RetailerProfileReport.as_view(), name='retailer_profile_report'),
 ]
