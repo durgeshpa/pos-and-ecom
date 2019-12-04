@@ -1183,7 +1183,10 @@ class OrderedProductMapping(models.Model):
         super(OrderedProductMapping, self).clean()
         returned_qty = int(self.returned_qty)
         damaged_qty = int(self.damaged_qty)
-        if returned_qty > 0 or damaged_qty > 0:
+        
+        if self.shipped_qty != sum([self.delivered_qty, self.returned_qty, self.damaged_qty]):
+            raise ValidationError(_('delivered, returned, damaged qty sum mismatched with shipped_qty'))
+        if self.returned_qty > 0 or self.damaged_qty > 0:
             already_shipped_qty = int(self.shipped_qty)
             if sum([returned_qty, damaged_qty]) > already_shipped_qty:
                 raise ValidationError(
