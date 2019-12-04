@@ -1184,8 +1184,6 @@ class OrderedProductMapping(models.Model):
         returned_qty = int(self.returned_qty)
         damaged_qty = int(self.damaged_qty)
         
-        if self.shipped_qty != sum([self.delivered_qty, self.returned_qty, self.damaged_qty]):
-            raise ValidationError(_('delivered, returned, damaged qty sum mismatched with shipped_qty'))
         if self.returned_qty > 0 or self.damaged_qty > 0:
             already_shipped_qty = int(self.shipped_qty)
             if sum([returned_qty, damaged_qty]) > already_shipped_qty:
@@ -1342,8 +1340,10 @@ class OrderedProductMapping(models.Model):
             self.set_product_tax_json()
         return self.product_tax_json.get('tax_sum')
 
-    # def save(self, *args, **kwargs):
-    #     # super().save(*args, **kwargs)
+    def save(self, *args, **kwargs):
+        if self.shipped_qty != sum([self.delivered_qty, self.returned_qty, self.damaged_qty]):
+            raise ValidationError(_('delivered, returned, damaged qty sum mismatched with shipped_qty'))
+        super().save(*args, **kwargs)
     #     if self.product_tax_json:
     #         super().save(*args, **kwargs)
     #     else:
