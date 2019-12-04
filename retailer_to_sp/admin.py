@@ -1294,6 +1294,7 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
 
 
 class NoteAdmin(admin.ModelAdmin):
+    search_fields = ('credit_note_id','shipment', 'shop',)
     list_display = ('credit_note_id', 'shipment', 'shop', 'note_amount','download_credit_note','created_at')
     fields = ('credit_note_id', 'shop', 'shipment', 'note_type', 'note_amount',
               'invoice_no', 'status')
