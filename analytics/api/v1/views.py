@@ -150,12 +150,8 @@ class MasterReport(CreateAPIView):
     def create(self, request, *args, **kwargs):
         try:
             serializer = self.get_serializer(data=request.data)
-            print(serializer)
             if serializer.is_valid():
-                print("hello")
-                product_prices = ProductPrice.objects.filter(seller_shop_id=119, approval_status=ProductPrice.APPROVED)
-                print(product_prices)
-                print(request.method)
+                product_prices = ProductPrice.objects.filter(seller_shop_id=request.data['seller_shop_id'], approval_status=ProductPrice.APPROVED)
                 products_list = {}
                 i=0
                 for products in product_prices:
