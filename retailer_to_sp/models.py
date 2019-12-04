@@ -1814,7 +1814,7 @@ def assign_picklist(sender, instance=None, created=False, **kwargs):
             picklist_id= generate_picklist_id(pincode), #get_random_string(12).lower(), ##generate random string of 12 digits
             )
 
-post_save.connect(get_category_product_report4, sender=Order)
+post_save.connect(get_category_product_report4, sender=OrderedProductMapping)
 
 @receiver(post_save, sender=CartProductMapping)
 def create_offers(sender, instance=None, created=False, **kwargs):

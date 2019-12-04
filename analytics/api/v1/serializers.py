@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from products.models import Product, ProductPrice
 from retailer_to_sp.models import Order, OrderedProduct, OrderedProductMapping
+from gram_to_brand.models import Order as PurchaseOrder
+from shops.models import Shop
 
 
 class ProductSerializer(serializers.Serializer):
@@ -26,4 +28,14 @@ class OrderedProductSerializer(serializers.Serializer):
 class OrderedProductMappingSerializer(serializers.Serializer):
     class Meta:
         model = OrderedProductMapping
+        fields = '__all__'
+
+class PurchaseOrderSerializer(serializers.Serializer):
+    class Meta:
+        model=PurchaseOrder
+        fields = '__all__'
+
+class ShopSerializer(serializers.Serializer):
+    class Meta:
+        model = Shop
         fields = '__all__'
