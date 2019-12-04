@@ -69,10 +69,10 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
                 if item.get('online_payment_type') is None:
                     raise serializers.ValidationError("Online payment type is required!")
 
-        # reference_no = initial_data.get('reference_no', None)#['reference_no']
-        # if reference_no:
-        #     if not re.match("^[a-zA-Z0-9_]*$", reference_no):
-        #         raise serializers.ValidationError('Referece number can not have special character!')
+                reference_no = item.get('reference_no', None)#['reference_no']
+                if reference_no:
+                    if not re.match("^[a-zA-Z0-9_]*$", reference_no):
+                        raise serializers.ValidationError('Referece number can not have special character!')
         return data    
 
     # def create(self, validated_data):

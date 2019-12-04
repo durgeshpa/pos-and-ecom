@@ -28,6 +28,7 @@ from django.core.validators import RegexValidator
 from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ObjectDoesNotExist
 from shops.models import Shop
+from shops.models import ShopTiming
 
 from django.contrib.auth import get_user_model
 from coupon.serializers import CouponSerializer
@@ -948,14 +949,27 @@ class ShipmentSerializer(serializers.ModelSerializer):
     shipment_id = serializers.ReadOnlyField()
     total_paid_amount = serializers.SerializerMethodField()    
     order = ShipmentOrderSerializer()
+    shop_open_time = serializers.SerializerMethodField()
+    shop_close_time = serializers.SerializerMethodField()     
 
     def get_total_paid_amount(self, obj):
         return obj.total_paid_amount
-            
+    
+    def get_shop_open_time(self, obj):
+        shop_timing = ShopTiming.objects.filter(shop=obj.order.buyer_shop)
+        if shop_timing.exists():         
+            return shop_timing.last().open_timing
+
+
+    def get_shop_close_time(self, obj):
+        shop_timing = ShopTiming.objects.filter(shop=obj.order.buyer_shop)
+        if shop_timing.exists():         
+            return shop_timing.last().close_timing
+
     class Meta:
         model = OrderedProduct
         fields = ('shipment_id', 'invoice_no', 'shipment_status', 'payment_mode', 'invoice_amount', 'order',
-            'total_paid_amount')
+            'total_paid_amount', 'shop_open_time', 'shop_close_time')
 
 
 class ShipmentStatusSerializer(serializers.ModelSerializer):

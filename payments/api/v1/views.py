@@ -213,7 +213,6 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
             # paid_by = UserWithName.objects.get(phone_number=paid_by)
 
             with transaction.atomic():
-                #if float(cash_collected) == float(shipment.cash_to_be_collected()):
                 if int(float(cash_collected)) > int(float(shipment.cash_to_be_collected())):
                     msg = {'is_success': False,
                         'message': ["Amount to be collected is "+ str(shipment.cash_to_be_collected())],
@@ -235,7 +234,6 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                     shipment.save() 
                     create_credit_note(shipment)
 
-                count = 0
                 for item in request.data.get('payment_data'):
                     # serializer = self.get_serializer(data=item)
                     # if serializer.is_valid():
@@ -245,7 +243,6 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                     reference_no = item.get('reference_no', None)
                     online_payment_type = item.get('online_payment_type', None)
                     description = item.get('description', None)
-                    count += 1
                     # create payment
                     payment = Payment.objects.create(
                         paid_amount = paid_amount,
