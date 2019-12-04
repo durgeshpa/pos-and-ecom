@@ -964,7 +964,7 @@ class ShipmentSerializer(serializers.ModelSerializer):
     def get_shop_close_time(self, obj):
         shop_timing = ShopTiming.objects.filter(shop=obj.order.buyer_shop)
         if shop_timing.exists():         
-            return shop_timing.last().close_timing
+            return shop_timing.last().closing_timing
 
     class Meta:
         model = OrderedProduct
