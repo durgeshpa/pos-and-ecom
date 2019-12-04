@@ -53,7 +53,7 @@ PAYMENT_STATUS_CHOICES = (
 PAYMENT_APPROVAL_STATUS_CHOICES = (
     ('pending_approval', 'pending_approval'),
     ('approved_and_verified', 'approved_and_verified'),
-    ('disputed', 'disputed'),
+    #('disputed', 'disputed'),
     ('rejected', 'rejected'),
   )
 

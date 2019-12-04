@@ -180,7 +180,6 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
         return self.serializer_class
 
     def create(self, request, *args, **kwargs):
-        # import pdb; pdb.set_trace()
         try:
             shipment = request.data.get('shipment', None)
             cash_collected = request.data.get('amount_collected')
@@ -214,9 +213,14 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
             # paid_by = UserWithName.objects.get(phone_number=paid_by)
 
             with transaction.atomic():
-
                 #if float(cash_collected) == float(shipment.cash_to_be_collected()):
-                if int(cash_collected) == int(shipment.cash_to_be_collected()):    
+                if int(float(cash_collected)) > int(float(shipment.cash_to_be_collected())):
+                    msg = {'is_success': False,
+                        'message': ["Amount to be collected is "+ str(shipment.cash_to_be_collected())],
+                        'response_data': None }
+                    return Response(msg,
+                            status=status.HTTP_406_NOT_ACCEPTABLE)
+                elif int(float(cash_collected)) == int(float(shipment.cash_to_be_collected())):    
                     update_shipment_status_with_id(shipment)
                     update_trip_status(trip)
                 else:

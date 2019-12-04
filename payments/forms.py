@@ -132,8 +132,12 @@ class PaymentApprovalForm(forms.ModelForm):
         super(PaymentApprovalForm, self).__init__(*args, **kwargs)
 
         instance = getattr(self, 'instance', None)
+        self.fields['payment_approval_status'].disabled = True
         if instance.is_payment_approved:   
+            # for field_name in self.fields:
+            #     self.fields[field_name].disabled = True
             self.fields['is_payment_approved'].disabled = True 
+            # adding payment approval status
 
 
 class OnlinePaymentInlineForm(forms.ModelForm):
