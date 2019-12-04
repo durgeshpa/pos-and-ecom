@@ -1294,13 +1294,14 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
 
 
 class NoteAdmin(admin.ModelAdmin):
-    search_fields = ('credit_note_id','shipment', 'shop',)
     list_display = ('credit_note_id', 'shipment', 'shop', 'note_amount','download_credit_note','created_at')
     fields = ('credit_note_id', 'shop', 'shipment', 'note_type', 'note_amount',
               'invoice_no', 'status')
     readonly_fields = ('credit_note_id', 'shop', 'shipment', 'note_type',
                        'note_amount', 'invoice_no', 'status')
     list_filter = [('created_at', DateTimeRangeFilter),ShipmentSearch, CreditNoteSearch, ShopSearch]
+
+    search_fields = ('credit_note_id','shop__shop_name', 'shipment__invoice_no')
 
     class Media:
         pass
