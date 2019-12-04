@@ -121,7 +121,7 @@ class ShopForm(forms.ModelForm):
     class Meta:
         Model = Shop
         fields = (
-            'shop_name', 'shop_owner', 'shop_type',
+            'shop_name', 'shop_owner', 'shop_type', 'approval_status',
             'shop_code', 'warehouse_code','created_by', 'status')
 
     @classmethod

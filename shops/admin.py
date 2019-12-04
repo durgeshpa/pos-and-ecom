@@ -95,7 +95,20 @@ class ShopOwnerSearch(InputFilter):
                 return
             return queryset.filter(shop_owner__phone_number__icontains=shop_owner_number)
 
-class ShopFilter(AutocompleteFilter):
+
+class ShopSearchByOwner(InputFilter):
+    parameter_name = 'shop_owner'
+    title = 'Shop Owner'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            shop_owner_number = self.value()
+            if shop_owner_number is None:
+                return
+            return queryset.filter(shop__shop_owner__phone_number__icontains=shop_owner_number)
+
+
+class BuyerShopFilter(AutocompleteFilter):
     title = 'Shop' # display title
     field_name = 'buyer_shop' # name of the foreign key field
 
@@ -110,7 +123,7 @@ class FavouriteProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     actions = ["export_as_csv_fav_product"]
     list_display = ('buyer_shop', 'product', 'created_at', 'get_product_brand')#, 'get_product_sp')
     raw_id_fields = ['buyer_shop', 'product']
-    list_filter = (ShopFilter, ProductFilter)
+    list_filter = (BuyerShopFilter, ProductFilter)
 
     # def get_product_sp(self, obj):
     #     return obj.product.product_brand
@@ -186,15 +199,20 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     change_list_template = 'admin/shops/shop/change_list.html'
     resource_class = ShopResource
     form = ShopForm
-    fields = ['shop_name', 'shop_owner', 'shop_type', 'status']
-    actions = ["export_as_csv"]
+    fields = ['shop_name', 'shop_owner', 'shop_type', 'status', 'approval_status']
+    actions = ["export_as_csv","disable_shop"]
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin,
         AddressAdmin, ShopInvoicePatternAdmin,ShopParentRetailerMapping
     ]
     list_display = ('shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent','shop_owner','shop_type','created_at','status', 'get_shop_city','shop_mapped_product','imei_no',)
+    list_display = (
+        'shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent',
+        'shop_owner','shop_type','created_at','status', 'get_shop_city', 'approval_status',
+        'shop_mapped_product','imei_no',
+        )
     filter_horizontal = ('related_users',)
-    list_filter = (ShopCityFilter,ServicePartnerFilter,ShopNameSearch,ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch,'status',('created_at', DateTimeRangeFilter))
+    list_filter = (ShopCityFilter,ServicePartnerFilter,ShopNameSearch,ShopTypeSearch,ShopRelatedUserSearch,ShopOwnerSearch, 'approval_status','status',('created_at', DateTimeRangeFilter))
     search_fields = ('shop_name', )
     list_per_page = 50
 
@@ -302,18 +320,6 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     get_shop_pin_code.short_description = 'PinCode'
 
 
-    def get_queryset(self, request):
-        qs = super(ShopAdmin, self).get_queryset(request)
-        if request.user.is_superuser:
-            return qs
-        if request.user.has_perm('shops.can_see_all_shops'):
-            return qs
-
-        return qs.filter(
-            Q(related_users=request.user) |
-            Q(shop_owner=request.user)
-        )
-
     def get_fields(self, request, obj=None):
         if request.user.is_superuser:
             return self.fields + ['related_users','shop_code', 'warehouse_code','created_by']
@@ -321,39 +327,15 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
             return self.fields
         return self.fields + ['related_users','shop_code', 'warehouse_code','created_by']
 
-    # # def get_shop_pending_amount(self, obj):
-    # #     pending_amount_gf = 0
-    #    -  # pending_amount_sp = 0
-    #     -  # pending_amount_total=0
-    #     -  # if obj.shop_type.shop_type == 'r':
-    #     -  # #if obj.retiler_mapping.filter(status=True).last().parent.shop_type.shop_type=='gf':
-    #     -  # orders_to_gf = obj.rtg_buyer_shop_order.all()
-    #     -  # for order in orders_to_gf:
-    #     -  # if order.rt_payment.last().payment_status == 'payment_done_approval_pending' or order.rt_payment.last().payment_status == 'cash_collected':
-    #     -  # pending_amount_gf = pending_amount_gf + order.total_final_amount
-    #     -  # #return pending_amount
-    #     -  # #elif obj.retiler_mapping.filter(status=True).last().parent.shop_type.shop_type=='sp':
-    #     -  # orders_to_sp = obj.rt_buyer_shop_order.all()
-    #     -  # for order in orders_to_sp:
-    #     -  # if order.rt_payment.last().payment_status == 'payment_done_approval_pending' or order.rt_payment.last().payment_status == 'cash_collected':
-    #     -  # pending_amount_sp = pending_amount_sp + order.total_final_amount
-    #     -  # #return pending_amount
-    #     -  # pending_amount_total = pending_amount_gf + pending_amount_sp
-    #     -  # return pending_amount_total
-    #     -  # elif obj.shop_type.shop_type == 'sp':
-    #     -  # carts_to_gf = obj.sp_shop_cart.all()
-    #     -  # total_pending_amount = 0
-    #     -  # for cart in carts_to_gf:
-    #     -  # for order in cart.sp_order_cart_mapping.all():
-    #     #total_pending_amount = total_pending_amount + order.total_final_amount
-    #      #return total_pending_amount
-    #      # get_shop_pending_amount.short_description = 'Shop Pending Amount'
+    def disable_shop(modeladmin, request, queryset):
+        queryset.update(approval_status=0)
 
     def shop_mapped_product(self, obj):
         if obj.shop_type.shop_type in ['gf','sp']:
             return format_html("<a href = '/admin/shops/shop-mapped/%s/product/' class ='addlink' > Product List</a>"% (obj.id))
 
     shop_mapped_product.short_description = 'Product List with Qty'
+    disable_shop.short_description = "Disapprove shops"
 
 
     # def get_shop_pending_amount(self, obj):
@@ -457,7 +439,7 @@ class ShopRequestBrandAdmin(admin.ModelAdmin):
     #change_list_template = 'admin/shops/shop/change_list.html'
     #form = ShopRequestBrandForm
     list_display = ('shop', 'brand_name', 'product_sku', 'request_count','created_at',)
-    list_filter = (ShopFilter, ProductSKUFilter, BrandNameFilter, ('created_at', DateTimeRangeFilter))
+    list_filter = (ShopFilter, ShopSearchByOwner, ProductSKUFilter, BrandNameFilter, ('created_at', DateTimeRangeFilter))
     raw_id_fields = ('shop',)
 
     class Media:

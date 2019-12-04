@@ -338,6 +338,8 @@ class ProductsCSVUploadForm(forms.Form):
                     2]+":"+row[2]+" | Product long description required")
             if not row[3] or row[3].isspace():
                 raise ValidationError(_("PRODUCT_GF_CODE required at Row[%(value)s]."), params={'value': id+1},)
+            if not row[12] or row[12].isspace():
+                raise ValidationError(_("Product weight in gram required at Row[%(value)s]."), params={'value': id+1},)                
 #            if row[3]:
 #                product_gf = Product.objects.filter(product_gf_code=row[3])
 #                if product_gf:
@@ -406,13 +408,13 @@ class ProductsCSVUploadForm(forms.Form):
                 except:
                     raise ValidationError(_('No flavor found with given FLAVOR_ID at Row[%(value)s]'), params={'value': id+1},)
 
-            if row[12] and not re.match("^[\d\,]*$", row[12]):
-                raise ValidationError(_('INVALID_WEIGHT_ID at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
-            if row[12]:
-                try:
-                    Weight.objects.get(pk=row[12])
-                except:
-                    raise ValidationError(_('No weight found with given WEIGHT_ID at Row[%(value)s]'), params={'value': id+1},)
+            if row[12] and not re.match("^[\d+\.?\d]*$", row[12]): #"^[\d\,]*$",
+                raise ValidationError(_('INVALID WEIGHT at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
+            # if row[12]:
+            #     try:
+            #         Weight.objects.get(pk=row[12])
+            #     except:
+            #         raise ValidationError(_('No weight found with given WEIGHT_ID at Row[%(value)s]'), params={'value': id+1},)
 
             if row[13] and not re.match("^[\d\,]*$", row[13]):
                 raise ValidationError(_('INVALID_PACKAGE_SIZE_ID at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
@@ -448,8 +450,9 @@ class ProductPriceAddPerm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['start_date'].required = True
-        self.fields['end_date'].required = True
+        if 'start_date' in self.fields and 'end_date' in self.fields:
+            self.fields['start_date'].required = True
+            self.fields['end_date'].required = True
         if 'approval_status' in self.fields:
             self.fields['approval_status'].initial = ProductPrice.APPROVAL_PENDING
             self.fields['approval_status'].widget = forms.HiddenInput()

@@ -69,6 +69,8 @@ from django.contrib.auth import get_user_model
 from django.utils.translation import ugettext_lazy as _
 from common.data_wrapper import format_serializer_errors
 from sp_to_gram.tasks import es_search
+from coupon.serializers import CouponSerializer
+from coupon.models import Coupon, CusotmerCouponUsage
 
 
 User = get_user_model()
@@ -271,15 +273,16 @@ class GramGRNProductsList(APIView):
             is_store_active = False
         else:
             '''2nd Step
-                Check if shop fond then check weather it is sp 4th Step or retailer 5th Step
+                Check if shop found then check whether it is sp 4th Step or retailer 5th Step
             '''
-            try:
-                parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
-            except ObjectDoesNotExist:
+            if not shop.shop_approved:
                 message = "Shop Mapping Not Found"
                 is_store_active = False
+            # try:
+            #     parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
+            # except ObjectDoesNotExist:
             else:
-
+                parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
                 if parent_mapping.parent.shop_type.shop_type == 'sp':
                     '''4th Step
                         SP mapped data shown
@@ -300,10 +303,26 @@ class GramGRNProductsList(APIView):
                 "query":query,"_source":{"includes":["name", "product_images","pack_size","weight_unit","weight_value"]}
                 }
             products_list = es_search(index="all_products", body=body)
-
         for p in products_list['hits']['hits']:
             if is_store_active:
                 product = Product.objects.get(id=p["_source"]["id"])
+                product_coupons = product.getProductCoupons()
+                coupons_queryset1 = Coupon.objects.filter(coupon_code__in = product_coupons, coupon_type='catalog')
+                coupons_queryset2 = Coupon.objects.filter(coupon_code__in = product_coupons, coupon_type='brand').order_by('rule__cart_qualifying_min_sku_value')
+                coupons_queryset = coupons_queryset1 | coupons_queryset2
+                coupons = CouponSerializer(coupons_queryset, many=True).data
+                p["_source"]["coupon"] = coupons
+                # check in case of multiple coupons
+                if coupons_queryset:
+                    for coupon in coupons_queryset:
+                        for product_coupon in coupon.rule.product_ruleset.filter(purchased_product = product):
+                            if product_coupon.max_qty_per_use > 0:
+                                max_qty = product_coupon.max_qty_per_use
+                                for i in coupons:
+                                    if i['coupon_type'] == 'catalog':
+                                        i['max_qty'] = max_qty
+
+                # product = Product.objects.get(id=p["_source"]["id"])
                 check_price = product.get_current_shop_price(parent_mapping.parent.id, shop_id)
                 if not check_price:
                     continue
@@ -315,6 +334,21 @@ class GramGRNProductsList(APIView):
             if cart_check == True:
                 for c_p in cart_products:
                     if c_p.cart_product_id == p["_source"]["id"]:
+                        keyValList2 = ['discount_on_product']
+                        keyValList3 = ['discount_on_brand']
+                        if cart.offers:
+                            exampleSet2 = cart.offers
+                            array2 = list(filter(lambda d: d['sub_type'] in keyValList2, exampleSet2))
+                            for i in array2:
+                                if i['item_sku']== c_p.cart_product.product_sku:
+                                    discounted_product_subtotal = i['discounted_product_subtotal']
+                                    p["_source"]["discounted_product_subtotal"] = discounted_product_subtotal
+                            p["_source"]["margin"] = (((float(check_price.mrp) - c_p.item_effective_prices) / float(check_price.mrp)) * 100)
+                            array3 = list(filter(lambda d: d['sub_type'] in keyValList3, exampleSet2))
+                            for j in coupons:
+                                for i in (array3 + array2):
+                                    if j['coupon_code'] == i['coupon_code']:
+                                        j['is_applied'] = True
                         user_selected_qty = c_p.qty
                         no_of_pieces = int(c_p.qty) * int(c_p.cart_product.product_inner_case_size)
                         p["_source"]["user_selected_qty"] = user_selected_qty
@@ -361,7 +395,6 @@ class AddToCart(APIView):
         msg = {'is_success': False,'message': ['Sorry no any mapping with any shop!'],'response_data': None}
 
         if Shop.objects.filter(id=shop_id).exists():
-
             # get Product
             try:
                 product = Product.objects.get(id=cart_product)
@@ -375,7 +408,6 @@ class AddToCart(APIView):
             parent_mapping = getShopMapping(shop_id)
             if parent_mapping is None:
                 return Response(msg, status=status.HTTP_200_OK)
-
             if qty is None or qty=='':
                 msg['message'] = ["Qty not Found"]
                 return Response(msg, status=status.HTTP_200_OK)
@@ -459,6 +491,7 @@ class AddToCart(APIView):
 
     def gf_mapping_cart(self,qty,product):
         pass
+
 class CartDetail(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
@@ -494,6 +527,7 @@ class CartDetail(APIView):
             if Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer, cart_status__in=['active', 'pending']).exists():
                 cart = Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
                                            cart_status__in=['active', 'pending']).last()
+                Cart.objects.filter(id=cart.id).update(offers=cart.offers_applied())
                 if cart.rt_cart_list.count() <= 0:
                     msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
                            'response_data': None}
@@ -550,7 +584,7 @@ class ReservedOrder(generics.ListAPIView):
         shop_id = self.request.POST.get('shop_id')
         msg = {'is_success': False,
                'message': ['No any product available in this cart'],
-               'response_data': None}
+               'response_data': None, 'is_shop_time_entered':False}
 
         if checkNotShopAndMapping(shop_id):
             return Response(msg, status=status.HTTP_200_OK)
@@ -566,6 +600,10 @@ class ReservedOrder(generics.ListAPIView):
                                        cart_status__in=['active', 'pending'])
             if cart.exists():
                 cart = cart.last()
+                Cart.objects.filter(id=cart.id).update(offers=cart.offers_applied())
+                coupon_codes_list = []
+                array = list(filter(lambda d: d['sub_type'] in 'discount_on_product', cart.offers))
+
                 cart_products = CartProductMapping.objects.select_related(
                     'cart_product'
                 ).filter(
@@ -575,7 +613,8 @@ class ReservedOrder(generics.ListAPIView):
                 if cart_products.count() <= 0:
                     msg = {'is_success': False,
                            'message': ['No product is available in cart'],
-                           'response_data': None}
+                           'response_data': None,
+                           'is_shop_time_entered':False}
                     return Response(msg, status=status.HTTP_200_OK)
 
                 cart_products.update(qty_error_msg='')
@@ -586,6 +625,15 @@ class ReservedOrder(generics.ListAPIView):
                 products_available = {}
                 products_unavailable = []
                 for cart_product in cart_products:
+                    coupon_usage_count = 0
+                    for i in array:
+                        if cart_product.cart_product.id == i['item_id']:
+                            customer_coupon_usage = CusotmerCouponUsage(coupon_id = i['coupon_id'], cart=cart)
+                            customer_coupon_usage.shop = parent_mapping.retailer
+                            customer_coupon_usage.product = cart_product.cart_product
+                            customer_coupon_usage.times_used += coupon_usage_count + 1
+                            customer_coupon_usage.save()
+
                     product_availability = shop_products_dict.get(cart_product.cart_product.id, 0)
 
                     ordered_amount = (
@@ -600,7 +648,6 @@ class ReservedOrder(generics.ListAPIView):
                         products_unavailable.append(cart_product.id)
 
                 if products_unavailable:
-                    logger.exception("products unavailable")
                     serializer = CartSerializer(
                         cart,
                         context={
@@ -609,7 +656,8 @@ class ReservedOrder(generics.ListAPIView):
                         })
                     msg = {'is_success': True,
                            'message': [''],
-                           'response_data': serializer.data}
+                           'response_data': serializer.data,
+                           'is_shop_time_entered':False}
                     return Response(msg, status=status.HTTP_200_OK)
                 else:
                     reserved_args = json.dumps({
@@ -624,12 +672,13 @@ class ReservedOrder(generics.ListAPIView):
             msg = {
                     'is_success': True,
                     'message': [''],
-                    'response_data': serializer.data
+                    'response_data': serializer.data,
+                    'is_shop_time_entered': hasattr(parent_mapping.retailer, 'shop_timing'),
                 }
             return Response(msg, status=status.HTTP_200_OK)
         else:
             msg = {'is_success': False, 'message': ['Sorry shop is not associated with any Gramfactory or any SP'],
-                   'response_data': None}
+                   'response_data': None, 'is_shop_time_entered': False}
             return Response(msg, status=status.HTTP_200_OK)
         return Response(msg, status=status.HTTP_200_OK)
 
@@ -706,7 +755,7 @@ class CreateOrder(APIView):
                         ordered_reserve.reserve_status = OrderedProductReserved.ORDERED
                         ordered_reserve.save()
 
-                    serializer = OrderSerializer(order, 
+                    serializer = OrderSerializer(order,
                         context={'parent_mapping_id': parent_mapping.parent.id,
                                  'buyer_shop_id': shop_id,
                                  'current_url':current_url})
@@ -848,6 +897,7 @@ class DownloadInvoiceSP(APIView):
         pk=self.kwargs.get('pk')
         a = OrderedProduct.objects.get(pk=pk)
         shop=a
+        inv = a.invoice_no
         barcode = barcodeGen(a.invoice_no)
         payment_type=''
         products = a.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0)
@@ -907,8 +957,8 @@ class DownloadInvoiceSP(APIView):
                 order_obj.order.ordered_cart.seller_shop,
                 order_obj.order.ordered_cart.buyer_shop)
 
-            product_pro_price_ptr = product_price.selling_price
-            product_pro_price_mrp = product_price.mrp
+            product_pro_price_ptr = cart_product_map.item_effective_prices
+            product_pro_price_mrp = round(product_price.mrp,2)
 
             no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
             cart_qty = m.product.rt_cart_product_mapping.last().qty
@@ -919,7 +969,7 @@ class DownloadInvoiceSP(APIView):
             get_tax_val = tax_sum / 100
             basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
             base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
-            product_tax_amount = float(base_price) * float(get_tax_val)
+            product_tax_amount = round(float(base_price) * float(get_tax_val),2)
 
             ordered_prodcut = {
                 "product_sku": m.product.product_gf_code,
@@ -932,11 +982,10 @@ class DownloadInvoiceSP(APIView):
                 "product_no_of_pices": int(m.shipped_qty),
                 "basic_rate": basic_rate,
                 "basic_amount": float(m.shipped_qty) * float(basic_rate),
-                "price_to_retailer": product_pro_price_ptr,
+                "price_to_retailer": round(product_pro_price_ptr, 2),
                 "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr),
-                "product_tax_amount": round(product_tax_amount, 2),
-
-            }
+                "product_tax_amount": product_tax_amount
+                }
             total_tax_sum = total_tax_sum + product_tax_amount
             inline_sum_amount = inline_sum_amount + product_pro_price_ptr
             product_listing.append(ordered_prodcut)
@@ -947,7 +996,7 @@ class DownloadInvoiceSP(APIView):
             inline_sum_amount += int(m.shipped_qty) * product_pro_price_ptr
 
             for n in m.product.product_pro_tax.all():
-                divisor= Decimal(1+(n.tax.tax_percentage/100))
+                divisor= (1+(n.tax.tax_percentage/100))
                 original_amount= (inline_sum_amount/divisor)
                 tax_amount = inline_sum_amount - original_amount
                 if n.tax.tax_type=='gst':
@@ -977,7 +1026,7 @@ class DownloadInvoiceSP(APIView):
                 "payment_type":payment_type,"total_amount_int":total_amount_int,"product_listing":product_listing,
                 "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
                 "address_contact_number":address_contact_number,"sum_amount_tax":round(total_tax_sum, 2), "no_of_crates":no_of_crates,
-                "no_of_packets":no_of_packets, "no_of_sacks":no_of_sacks}
+                "no_of_packets":no_of_packets, "no_of_sacks":no_of_sacks, "inv":inv,}
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
@@ -1187,7 +1236,11 @@ class ReleaseBlocking(APIView):
                         ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
                     ordered_reserve.order_product_reserved.save()
                     ordered_reserve.delete()
+            if CusotmerCouponUsage.objects.filter(cart__id = cart_id, shop__id=shop_id).exists():
+                CusotmerCouponUsage.objects.filter(cart__id = cart_id, shop__id=shop_id).delete()
+
             msg = {'is_success': True, 'message': ['Blocking has released'], 'response_data': None}
+
         elif parent_mapping.parent.shop_type.shop_type == 'gf':
             if GramOrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved').exists():
                 for ordered_reserve in GramOrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved'):

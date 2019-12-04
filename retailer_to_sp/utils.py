@@ -65,7 +65,7 @@ def get_order_mrp_tax_discount_final_amount(formsets):
 		for form in forms:
 			product = form.cleaned_data.get('cart_product')
 			ordered_no_of_pieces = float(form.cleaned_data.get('no_of_pieces'))
-			ptr = float(form.cleaned_data.get('cart_product_price').price_to_retailer)
+			ptr = float(form.cleaned_data.get('cart_product_price').selling_price)
 			mrp = float(form.cleaned_data.get('cart_product_price').mrp)
 			tax_amount = get_product_tax_amount(product, ptr, ordered_no_of_pieces)
 

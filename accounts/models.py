@@ -150,8 +150,10 @@ def user_creation_notification(sender, instance=None, created=False, **kwargs):
         data = {}
         data['username'] = username
         data['phone_number'] = instance.phone_number
+        from notification_center.models import Template
+        template = Template.objects.get(type="ORDER_RECEIVED").id
         from notification_center.utils import SendNotification
-        SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()    
+        SendNotification(user_id=instance.id, activity_type=template, data=data).send()    
 #         message = SendSms(phone=instance.phone_number,
 #                           body = '''\
 #                                 Dear %s, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering.

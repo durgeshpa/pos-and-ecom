@@ -28,6 +28,8 @@ from .resources import (
 from .forms import (ProductPriceNewForm, ProductPriceChangePerm,
                     ProductPriceAddPerm, ProductVendorMappingForm, ProductForm)
 
+from retailer_backend.filters import CityFilter, ProductCategoryFilter
+
 class ProductFilter(AutocompleteFilter):
     title = 'Product Name' # display title
     field_name = 'product' # name of the foreign key field
@@ -386,7 +388,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
         'product_brand', 'product_gf_code','product_images'
     ]
     search_fields = ['product_name', 'id', 'product_gf_code']
-    list_filter = [BrandFilter, CategorySearch, ProductSearch]
+    list_filter = [BrandFilter, CategorySearch, ProductSearch, 'status']
     prepopulated_fields = {'product_slug': ('product_name',)}
     inlines = [
         ProductCategoryAdmin, ProductOptionAdmin,
@@ -437,7 +439,7 @@ class ExportCsvMixin:
 class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
     resource_class = ProductPriceResource
     form = ProductPriceNewForm
-    actions = ['export_as_csv_productprice', 'approve_product_price']
+    actions = ['export_as_csv_productprice', 'approve_product_price','disapprove_product_price']
     list_select_related = ('product', 'seller_shop', 'buyer_shop', 'city',
                            'pincode')
     list_display = [
@@ -453,7 +455,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
         'buyer_shop__shop_name'
     ]
     list_filter = [
-        ProductSKUSearch, ProductFilter, ShopFilter, MRPSearch,
+        ProductSKUSearch, ProductFilter, ShopFilter, MRPSearch, CityFilter, ProductCategoryFilter,
         ('start_date', DateRangeFilter), ('end_date', DateRangeFilter),
         'approval_status']
     fields = ('product', 'mrp', 'selling_price', 'seller_shop',
@@ -489,8 +491,15 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
             product.approval_status = ProductPrice.APPROVED
             product.save()
 
+    def disapprove_product_price(self, request, queryset):
+        for product in queryset:
+            product.approval_status = ProductPrice.DEACTIVATED
+            product.save()
+
     approve_product_price.short_description = "Approve Selected Products Prices"
     approve_product_price.allowed_permissions = ('change',)
+    disapprove_product_price.short_description = "Disapprove Selected Products Prices"
+    disapprove_product_price.allowed_permissions = ('change',)
 
     def has_delete_permission(self, request, obj=None):
         if request.user.is_superuser:
@@ -508,7 +517,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def get_queryset(self, request):
         qs = super(ProductPriceAdmin, self).get_queryset(request)
-        if request.user.is_superuser:
+        if request.user.is_superuser or request.user.has_perm('products.change_productprice'):
             return qs
         return qs.filter(
             Q(seller_shop__related_users=request.user) |

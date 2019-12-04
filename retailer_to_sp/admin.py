@@ -22,8 +22,7 @@ from django.http import HttpResponse
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import ugettext_lazy as _
-from django_admin_listfilter_dropdown.filters import (ChoiceDropdownFilter,
-                                                      DropdownFilter)
+from django_admin_listfilter_dropdown.filters import (ChoiceDropdownFilter, RelatedDropdownFilter, DropdownFilter)
 from django_select2.forms import ModelSelect2Widget, Select2MultipleWidget
 from django.utils.safestring import mark_safe
 
@@ -39,7 +38,7 @@ from retailer_to_sp.views import (
     trip_planning, trip_planning_change, update_delivered_qty,
     update_order_status, update_shipment_status, reshedule_update_shipment,
     RetailerCart, assign_picker, assign_picker_change, assign_picker_data,
-    UserWithNameAutocomplete,  SellerAutocomplete
+    UserWithNameAutocomplete,  SellerAutocomplete, ShipmentOrdersAutocomplete
 )
 from shops.models import ParentRetailerMapping, Shop
 from sp_to_gram.models import (
@@ -335,7 +334,7 @@ class CartProductMappingAdmin(admin.TabularInline):
     form = CartProductMappingForm
     formset = AtLeastOneFormSet
     fields = ('cart', 'cart_product', 'cart_product_price', 'qty',
-              'no_of_pieces', 'product_case_size', 'product_inner_case_size')
+              'no_of_pieces', 'product_case_size', 'product_inner_case_size', 'item_effective_prices')
     autocomplete_fields = ('cart_product', 'cart_product_price')
     extra = 0
 
@@ -350,7 +349,7 @@ class CartProductMappingAdmin(admin.TabularInline):
             .get_readonly_fields(request, obj)
         if obj:
             readonly_fields = readonly_fields + (
-                'cart_product', 'cart_product_price', 'qty', 'no_of_pieces'
+                'cart_product', 'cart_product_price', 'qty', 'no_of_pieces', 'item_effective_prices'
             )
         return readonly_fields
 
@@ -360,7 +359,7 @@ class CartProductMappingAdmin(admin.TabularInline):
 class ExportCsvMixin:
     def export_as_csv_cart(self, request, queryset):
         meta = self.model._meta
-        list_display = ('order_id', 'seller_shop', 'buyer_shop', 'cart_status', 'date', 'time', 'seller_contact_no', 'buyer_contact_no')
+        list_display = ('order_id','seller_shop', 'buyer_shop', 'cart_status', 'date', 'time', 'seller_contact_no', 'buyer_contact_no')
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
@@ -374,7 +373,7 @@ class ExportCsvMixin:
 
 class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
-    fields = ('seller_shop', 'buyer_shop')
+    fields = ('seller_shop', 'buyer_shop', 'offers')
     actions = ["export_as_csv_cart", ]
     form = CartForm
     list_display = ('order_id', 'seller_shop','buyer_shop','cart_status','created_at',)
@@ -436,6 +435,10 @@ class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
                 self.admin_site.admin_view( SellerAutocomplete.as_view()),
                 name='seller-autocomplete'
                 ),
+            url(r'^plan-shipment-orders-autocomplete/$',
+                self.admin_site.admin_view(ShipmentOrdersAutocomplete.as_view()),
+                name='ShipmentOrdersAutocomplete'
+                ),
         ] + urls
         return urls
 
@@ -446,9 +449,9 @@ class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
         return readonly_fields
 
     def save_related(self, request, form, formsets, change):
-        super(CartAdmin, self).save_related(request, form, formsets, change)
         add_cart_user(form, request)
         create_order_from_cart(form, formsets, request, Order)
+        super(CartAdmin, self).save_related(request, form, formsets, change)
 
         reserve_order = ReservedOrder(
             form.cleaned_data.get('seller_shop'),
@@ -462,7 +465,7 @@ class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
         meta = self.model._meta
-        list_display = ['order_no', 'seller_shop', 'buyer_shop', 'pincode', 'total_final_amount',
+        list_display = ['order_no','seller_shop','buyer_shop_id', 'buyer_shop_with_mobile', 'pincode','city', 'total_final_amount',
                         'order_status', 'created_at', 'payment_mode', 'paid_amount',
                         'total_paid_amount', 'shipment_status', 'shipment_status_reason','order_shipment_amount', 'order_shipment_details',
                         'picking_status', 'picker_boy', 'picklist_id',]
@@ -726,8 +729,8 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         'seller_shop','buyer_shop', 'ordered_cart'
         )
     list_display = (
-                    'order_no', 'download_pick_list', 'seller_shop', 'buyer_shop',
-                    'pincode','total_final_amount', 'order_status', 'created_at',
+                    'order_no', 'download_pick_list', 'seller_shop','buyer_shop_id', 'buyer_shop_with_mobile',
+                    'pincode', 'city', 'total_final_amount', 'order_status', 'created_at',
                     'payment_mode', 'invoice_no', 'shipment_date', 'invoice_amount', 'shipment_status',
                     'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
                     'picking_status', 'picklist_id', 'picker_boy',#'damaged_amount',
@@ -740,7 +743,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                        'total_mrp', 'total_discount_amount',
                        'total_tax_amount', 'total_final_amount', 'total_mrp_amount')
     list_filter = [PhoneNumberFilter,SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
-        ('created_at', DateTimeRangeFilter), Pincode]
+        ('created_at', DateTimeRangeFilter), Pincode, ('shipping_address__city', RelatedDropdownFilter)]
 
     # class Media:
     #     js = ('admin/js/dynamic_input_box.js', )
@@ -884,11 +887,11 @@ class DispatchProductMappingAdmin(admin.TabularInline):
     model = DispatchProductMapping
     fields = (
         'product', 'gf_code', 'ordered_qty_no_of_pieces',
-        'shipped_qty_no_of_pieces'
+        'shipped_qty_no_of_pieces', 'product_weight'
     )
     readonly_fields = (
         'product', 'gf_code', 'ordered_qty_no_of_pieces',
-        'shipped_qty_no_of_pieces'
+        'shipped_qty_no_of_pieces', 'product_weight'
     )
     extra = 0
     max_num = 0
@@ -900,6 +903,11 @@ class DispatchProductMappingAdmin(admin.TabularInline):
     def shipped_qty_no_of_pieces(self, obj):
         return obj.shipped_qty
     shipped_qty_no_of_pieces.short_description = 'No. of Pieces to Ship'
+
+    def product_weight(self, obj):
+        return obj.product_weight
+    product_weight.short_description = 'Product Weight'
+
 
     def has_delete_permission(self, request, obj=None):
         return False
@@ -915,8 +923,8 @@ class DispatchAdmin(admin.ModelAdmin):
     list_filter = [
         ('created_at', DateTimeRangeFilter), 'shipment_status',
     ]
-    fields = ['order', 'invoice_no', 'invoice_amount','trip', 'shipment_address', 'invoice_city', 'shipment_status']
-    readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city']
+    fields = ['order', 'invoice_no', 'invoice_amount','trip', 'shipment_address', 'invoice_city', 'shipment_weight','shipment_status']
+    readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city', 'shipment_weight']
 
     def get_queryset(self, request):
         qs = super(DispatchAdmin, self).get_queryset(request)
@@ -941,6 +949,10 @@ class DispatchAdmin(admin.ModelAdmin):
         Return empty perms dict thus hiding the model from admin index.
         """
         return {}
+
+    def shipment_weight(self, obj):
+        return obj.shipment_weight
+    shipment_weight.short_description = 'Shipment Weight'
 
     def get_queryset(self, request):
         qs = super(DispatchAdmin, self).get_queryset(request)
@@ -1127,17 +1139,15 @@ class TripAdmin(ExportCsvMixin, admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
     actions = ["export_as_csv_trip",]
     list_display = (
-        'dispathces', 'total_trip_shipments', 'total_trip_amount', 'delivery_boy', 'seller_shop', 'vehicle_no',
+        'dispathces', 'total_trip_shipments', 'delivery_boy', 'seller_shop', 'vehicle_no',
         'trip_status', 'starts_at', 'completed_at', 'download_trip_pdf'
     )
     readonly_fields = ('dispathces',)
     autocomplete_fields = ('seller_shop',)
-
     search_fields = [
         'delivery_boy__first_name', 'delivery_boy__last_name', 'delivery_boy__phone_number',
         'vehicle_no', 'dispatch_no', 'seller_shop__shop_name'
     ]
-
     list_filter = [
         'trip_status', ('created_at', DateTimeRangeFilter), ('starts_at', DateTimeRangeFilter),
         ('completed_at', DateTimeRangeFilter), DeliveryBoySearch, VehicleNoSearch, DispatchNoSearch
@@ -1154,6 +1164,10 @@ class TripAdmin(ExportCsvMixin, admin.ModelAdmin):
             Q(seller_shop__related_users=request.user) |
             Q(seller_shop__shop_owner=request.user)
                 )
+
+    # def trip_weight(self, obj):
+    #     return obj.trip_weight()
+    # trip_weight.short_description = 'Trip Weight (Kg)'
 
     def download_trip_pdf(self, obj):
         return format_html("<a href= '%s' >Download Trip PDF</a>"%(reverse('download_trip_pdf', args=[obj.pk])))
@@ -1181,7 +1195,7 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
     #change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
     actions = ["change_trip_status", "export_as_csv_commercial",]
     list_display = (
-        'dispatch_no', 'trip_amount', 'received_amount',
+        'dispatch_no', 'total_trip_amount', 'received_amount',
         'cash_to_be_collected', 'download_trip_pdf', 'delivery_boy',
         'vehicle_no', 'trip_status', 'starts_at', 'completed_at',
         'seller_shop',)
@@ -1190,7 +1204,7 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
     list_max_show_all = 100
     list_select_related = ('delivery_boy', 'seller_shop')
     readonly_fields = ('dispatch_no', 'delivery_boy', 'seller_shop',
-                       'vehicle_no', 'starts_at', 'trip_amount',
+                       'vehicle_no', 'starts_at', 'total_trip_amount',
                        'completed_at', 'e_way_bill_no', 'cash_to_be_collected')
     autocomplete_fields = ('seller_shop',)
     search_fields = [
@@ -1198,7 +1212,7 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
         'delivery_boy__phone_number', 'vehicle_no', 'dispatch_no',
         'seller_shop__shop_name'
     ]
-    fields = ['trip_status', 'trip_amount', 'cash_to_be_collected',
+    fields = ['trip_status', 'total_trip_amount', 'cash_to_be_collected',
               'received_amount', 'dispatch_no', 'delivery_boy', 'seller_shop',
               'starts_at', 'completed_at', 'e_way_bill_no', 'vehicle_no']
     list_filter = ['trip_status', ('created_at', DateTimeRangeFilter),
@@ -1242,14 +1256,27 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
 
 
 class NoteAdmin(admin.ModelAdmin):
-    list_display = ('credit_note_id', 'shipment', 'shop', 'amount')
-    fields = ('credit_note_id', 'shop', 'shipment', 'note_type', 'amount',
+    list_display = ('credit_note_id', 'shipment', 'shop', 'note_amount','download_credit_note','created_at')
+    fields = ('credit_note_id', 'shop', 'shipment', 'note_type', 'note_amount',
               'invoice_no', 'status')
     readonly_fields = ('credit_note_id', 'shop', 'shipment', 'note_type',
-                       'amount', 'invoice_no', 'status')
+                       'note_amount', 'invoice_no', 'status')
 
     class Media:
         pass
+
+    def download_credit_note(self, obj):
+    # if (
+
+    # obj.Note_credit_note.count() > 0
+    # and obj.return_credit_note.filter(status=True)
+    # ):
+        return format_html(
+                    "<a href= '%s' >Download Credit Note</a>" %
+                       (reverse('download_credit_note', args=[obj.pk]))
+        )
+
+    download_credit_note.short_description = 'Download Credit Note'
 
 
 class ExportCsvMixin:
