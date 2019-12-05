@@ -12,12 +12,12 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework import permissions, authentication
 from products.models import Product, ProductPrice
 from services.models import RetailerReports, OrderReports,GRNReports, MasterReports, OrderGrnReports, OrderDetailReports, CategoryProductReports
-from .serializers import ProductSerializer, ProductPriceSerializer, OrderedProductMappingSerializer, PurchaseOrderSerializer, ShopSerializer, ParentRetailerSerializer
+from .serializers import ProductSerializer, ProductPriceSerializer, OrderSerializer, PurchaseOrderSerializer, ShopSerializer, ParentRetailerSerializer
 from rest_framework.response import Response
 from rest_framework import status
 from shops.models import Shop, ParentRetailerMapping
 from gram_to_brand.models import Order as PurchaseOrder
-from retailer_to_sp.models import OrderedProductMapping
+from retailer_to_sp.models import Order
 
 class CategoryProductReport(CreateAPIView):
     permission_classes = (AllowAny,)
@@ -191,14 +191,14 @@ class MasterReport(CreateAPIView):
 
 class OrderReport(CreateAPIView):
     permission_classes = (AllowAny,)
-    serializer_class = OrderedProductMappingSerializer
+    serializer_class = OrderSerializer
     authentication_classes = (authentication.TokenAuthentication,)
 
     def create(self, request, *args, **kwargs):
-            serializer = self.get_serializer(request.data)
+            serializer = self.get_serializer(data=request.data)
             if serializer.is_valid():
                 order_details = {}
-                order = OrderedProductMapping.objects.filter(id=request.data['order_id']).last()
+                order = Order.objects.filter(id=request.data['order_id']).last()
                 seller_shop=order.seller_shop
                 for shipment in order.rt_order_order_product.all():
                     for products in shipment.rt_order_product_order_product_mapping.all():
@@ -210,7 +210,7 @@ class OrderReport(CreateAPIView):
                         #     mrp = i.mrp
                         # product_value_tax_included = products.product.product_pro_price.filter(status=True, seller_shop = seller_shop)
                         # for i in product_value_tax_included:
-                        #     price_to_retailer=i.price_to_retailer
+                        #     price_to_retailer=i.price _to_retailer
                         if products.product.product_pro_tax.filter(tax__tax_type ='gst').exists():
                             product_gst = products.product.product_pro_tax.filter(tax__tax_type ='gst').last()
                         if order.shipping_address.state == order.seller_shop.shop_name_address_mapping.filter(address_type='shipping').last().state:
