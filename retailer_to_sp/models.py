@@ -251,6 +251,8 @@ class Cart(models.Model):
                 brands_list = []
                 brand_product_subtotals= 0
                 for brand in brand_coupon.rule.brand_ruleset.filter(rule__is_active = True, rule__expiry_date__gte = date ):
+                    brands_list = []
+                    brand_product_subtotals= 0
                     offer_brand = brand.brand
                     offer_brand_id = brand.brand.id
                     if offer_brand_id in brands_specific_list:
@@ -873,8 +875,8 @@ class Trip(models.Model):
         #weight = self.rt_order_product_order_product_mapping.all().aggregate(Sum('product.weight_value'))['weight_value__sum']
         if weight != 0:
             weight /= 1000
-        weight = round(weight,2)        
-        return str(weight) + " Kg" 
+        weight = round(weight,2)
+        return str(weight) + " Kg"
 
     __trip_status = None
 
@@ -1181,7 +1183,8 @@ class OrderedProductMapping(models.Model):
         super(OrderedProductMapping, self).clean()
         returned_qty = int(self.returned_qty)
         damaged_qty = int(self.damaged_qty)
-        if returned_qty > 0 or damaged_qty > 0:
+        
+        if self.returned_qty > 0 or self.damaged_qty > 0:
             already_shipped_qty = int(self.shipped_qty)
             if sum([returned_qty, damaged_qty]) > already_shipped_qty:
                 raise ValidationError(
@@ -1240,10 +1243,10 @@ class OrderedProductMapping(models.Model):
             product=self.product)
         to_be_shipped_qty = qty.aggregate(
             Sum('shipped_qty')).get('shipped_qty__sum', 0)
-        returned_qty = qty.aggregate(
-            Sum('returned_qty')).get('returned_qty__sum', 0)
+        # returned_qty = qty.aggregate(
+        #     Sum('returned_qty')).get('returned_qty__sum', 0)
         to_be_shipped_qty = to_be_shipped_qty if to_be_shipped_qty else 0
-        to_be_shipped_qty = to_be_shipped_qty - returned_qty
+        # to_be_shipped_qty = to_be_shipped_qty - returned_qty
         return to_be_shipped_qty
     to_be_shipped_qty.fget.short_description = "Already Shipped Qty"
 
@@ -1337,8 +1340,12 @@ class OrderedProductMapping(models.Model):
             self.set_product_tax_json()
         return self.product_tax_json.get('tax_sum')
 
-    # def save(self, *args, **kwargs):
-    #     # super().save(*args, **kwargs)
+    def save(self, *args, **kwargs):
+
+        if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.shipped_qty != sum([self.delivered_qty, self.returned_qty, self.damaged_qty]):
+            raise ValidationError(_('delivered, returned, damaged qty sum mismatched with shipped_qty'))
+        else:
+            super().save(*args, **kwargs)
     #     if self.product_tax_json:
     #         super().save(*args, **kwargs)
     #     else:
