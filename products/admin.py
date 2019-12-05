@@ -388,7 +388,7 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
         'product_brand', 'product_gf_code','product_images'
     ]
     search_fields = ['product_name', 'id', 'product_gf_code']
-    list_filter = [BrandFilter, CategorySearch, ProductSearch]
+    list_filter = [BrandFilter, CategorySearch, ProductSearch, 'status']
     prepopulated_fields = {'product_slug': ('product_name',)}
     inlines = [
         ProductCategoryAdmin, ProductOptionAdmin,
