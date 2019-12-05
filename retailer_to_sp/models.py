@@ -1242,10 +1242,10 @@ class OrderedProductMapping(models.Model):
             product=self.product)
         to_be_shipped_qty = qty.aggregate(
             Sum('shipped_qty')).get('shipped_qty__sum', 0)
-        returned_qty = qty.aggregate(
-            Sum('returned_qty')).get('returned_qty__sum', 0)
+        # returned_qty = qty.aggregate(
+        #     Sum('returned_qty')).get('returned_qty__sum', 0)
         to_be_shipped_qty = to_be_shipped_qty if to_be_shipped_qty else 0
-        to_be_shipped_qty = to_be_shipped_qty - returned_qty
+        # to_be_shipped_qty = to_be_shipped_qty - returned_qty
         return to_be_shipped_qty
     to_be_shipped_qty.fget.short_description = "Already Shipped Qty"
 
