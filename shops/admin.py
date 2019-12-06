@@ -357,7 +357,7 @@ class ExportCsvMixin:
             row = writer.writerow([getattr(obj, field) for field in list_display])
         return response
 
-    export_as_csv_shop_request_brand.short_description = "Download CSV of Selected Orders"
+    export_as_csv_shop_request_brand.short_description = "Download CSV of Shop Request Brand"
 
 class ShopRequestBrandAdmin(ExportCsvMixin, admin.ModelAdmin):
     #change_list_template = 'admin/shops/shop/change_list.html'
