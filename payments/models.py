@@ -128,7 +128,7 @@ class PaymentImage(models.Model):
     user = models.ForeignKey(User, related_name='payment_screenshot', on_delete=models.SET_NULL,
         null=True, blank=True)
     user_document_type = models.CharField(max_length=100, choices=USER_DOCUMENTS_TYPE_CHOICES, default='payment_screenshot')
-    reference_number = models.CharField(max_length=100)
+    reference_number = models.CharField(max_length=100, unique=True)
     reference_image = models.FileField(upload_to='payment/screenshot/')
 
     def reference_image_thumbnail(self):
