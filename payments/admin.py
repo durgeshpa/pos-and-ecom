@@ -80,6 +80,11 @@ class ReferenceNoSearch(InputFilter):
             )
 
 
+class PaymentImageAdmin(admin.ModelAdmin, PermissionMixin):
+    # inlines = [OnlinePaymentInlineAdmin]
+    model = PaymentImage
+
+
 class PaymentAdmin(admin.ModelAdmin, PermissionMixin):
     # inlines = [OnlinePaymentInlineAdmin]
     model = Payment
@@ -426,4 +431,5 @@ admin.site.register(ShipmentPayment,ShipmentPaymentAdmin)
 admin.site.register(PaymentApproval,PaymentApprovalAdmin)
 # admin.site.register(PaymentEdit,PaymentEditAdmin)
 admin.site.register(ShipmentData,ShipmentPaymentDataAdmin)
+admin.site.register(PaymentImage,PaymentImageAdmin)
 #autocomplete_light.register(Payment, add_another_url_name='admin:payments_payment_add')

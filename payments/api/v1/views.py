@@ -241,6 +241,8 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                     paid_amount = item.get('paid_amount', None)
                     payment_mode_name = item.get('payment_mode_name', None)
                     payment_screenshot = item.get('payment_screenshot', None)
+                    if payment_screenshot:
+                        payment_screenshot = PaymentImage.objects.get(id=int(payment_screenshot))
                     reference_no = item.get('reference_no', None)
                     online_payment_type = item.get('online_payment_type', None)
                     description = item.get('description', None)
@@ -441,17 +443,21 @@ class PaymentImageUploadView(ListCreateAPIView):
     permission_classes = (permissions.IsAuthenticated,)
     parser_classes = (FormParser, MultiPartParser)
 
-
     def get_queryset(self):
         queryset = PaymentImage.objects.filter(user=self.request.user)
         return queryset
 
     def create(self, request, *args, **kwargs):
+        #import pdb; pdb.set_trace()
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
+            # payment_image, created = PaymentImage.objects.update_or_create(
+            #     reference_image=request.data['reference_image'],
+            #     defaults={'user': self.request.user, 'reference_number':reference_number})
+            
             serializer.save(user=self.request.user)
             msg = {'is_success': True,
-                    'message': ["Images uploaded successfully"],
+                    'message': [{'payment_image_id':serializer.data['id']}],
                     'response_data': None}
             return Response(msg,
                             status=status.HTTP_200_OK)

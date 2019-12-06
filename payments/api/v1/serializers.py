@@ -20,7 +20,7 @@ class PaymentSerializer(serializers.ModelSerializer):
 class PaymentImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaymentImage
-        fields = ('reference_number','reference_image',)
+        fields = ('id','reference_image',)
         extra_kwargs = {
             'user_document_type': {'required': True},
             }
@@ -52,7 +52,7 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
     reference_no = serializers.CharField(required=False)
     online_payment_type = serializers.CharField(required=False)
     paid_by = serializers.CharField(source='parent_order_payment.parent_payment.paid_by.phone_number', required=False)
-    payment_screenshot = serializers.FileField(source='parent_order_payment.parent_payment.payment_screenshot', required=False)
+    payment_screenshot = serializers.IntegerField()#source='parent_order_payment.parent_payment.payment_screenshot', required=False)
     #cash_payment = CashPaymentSerializer(fields=['paid_amount'])
     #online_payment = OnlinePaymentSerializer()
     class Meta:

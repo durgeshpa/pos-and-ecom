@@ -128,14 +128,14 @@ class PaymentImage(models.Model):
     user = models.ForeignKey(User, related_name='payment_screenshot', on_delete=models.SET_NULL,
         null=True, blank=True)
     user_document_type = models.CharField(max_length=100, choices=USER_DOCUMENTS_TYPE_CHOICES, default='payment_screenshot')
-    reference_number = models.CharField(max_length=100, unique=True)
+    #reference_number = models.CharField(max_length=100)
     reference_image = models.FileField(upload_to='payment/screenshot/')
 
     def reference_image_thumbnail(self):
         return mark_safe('<img alt="%s" src="%s" />' % (self.user, self.reference_image.url))
 
     def __str__(self):
-        return "%s - %s"%(self.user, self.reference_number)
+        return "%s - %s"%(self.user, self.reference_image.url)
 
     class Meta:
         verbose_name = "Payment Screenshot"
@@ -149,8 +149,8 @@ class Payment(AbstractDateTime):
     # payment description
     description = models.CharField(max_length=100, null=True, blank=True)
     reference_no = models.CharField(max_length=50, null=True, blank=True)
-    payment_screenshot = models.ImageField(upload_to='payment_screenshot/', null=True, blank=True)
-
+    #payment_screenshot = models.ImageField(upload_to='payment_screenshot/', null=True, blank=True)
+    payment_screenshot = models.ForeignKey(PaymentImage, null=True, blank=True, on_delete = models.SET_NULL)
     paid_amount = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')
     payment_mode_name = models.CharField(max_length=50, choices=PAYMENT_MODE_NAME, default="cash_payment")
     prepaid_or_postpaid = models.CharField(max_length=50, choices=PAYMENT_TYPE_CHOICES,null=True, blank=True)
