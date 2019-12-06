@@ -67,7 +67,7 @@ def get_shop_warehouse_state_code(address):
 def get_last_no_to_increment(model, field, instance_id, starts_with):
     from_date = datetime.datetime.today() - datetime.timedelta(days=5)
     instance_with_current_pattern = model.objects.filter(created_at__gte=from_date).filter(
-                                        **{field+'__icontains': starts_with}).exclude(id=instance_id)
+                                        **{field+'__icontains': starts_with})
 
     if instance_with_current_pattern:
         last_instance_no = instance_with_current_pattern.order_by(field).last()
