@@ -43,7 +43,7 @@ def get_warehouse_stock(shop_id=None):
 		try:
 			margin = (((p.mrp - p.selling_price) / p.mrp) * 100)
 		except:
-			margin = 0 
+			margin = 0
 
 		status = p.product.status
 		product_opt = p.product.product_opt_product.all()
@@ -74,7 +74,7 @@ def get_warehouse_stock(shop_id=None):
 		                    for p_i in product_img
 		                ]
 		category = [str(c.category) for c in p.product.product_pro_category.filter(status=True)]
-		product_details = {"name":p.product.product_name,"brand":str(p.product.product_brand),"category": category, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "id":p.product_id, 
+		product_details = {"name":p.product.product_name,"name_lower":p.product.product_name.lower(),"brand":str(p.product.product_brand),"brand_lower":str(p.product.product_brand).lower(),"category": category, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "id":p.product_id,
 		                "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":user_selected_qty, "pack_size":pack_size,
 		               "margin":margin ,"no_of_pieces":no_of_pieces, "sub_total":sub_total}
 		if grn_dict:
@@ -93,10 +93,9 @@ def upload_shop_stock(shop=None):
 @task
 def update_shop_product_es(shop, product_id,**kwargs):
 	try:
-		es.update(index=create_es_index(shop),id=product_id,body={"doc":kwargs},doc_type='product')	
+		es.update(index=create_es_index(shop),id=product_id,body={"doc":kwargs},doc_type='product')
 	except Exception as e:
 		upload_shop_stock(shop)
 
 def es_search(index, body):
 	return es.search(index=create_es_index(index), body=body)
-

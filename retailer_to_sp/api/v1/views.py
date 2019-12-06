@@ -302,6 +302,7 @@ class GramGRNProductsList(APIView):
                 "size" : page_size,
                 "query":query,"_source":{"includes":["name", "product_images","pack_size","weight_unit","weight_value"]}
                 }
+            import pdb; pdb.set_trace()
             products_list = es_search(index="all_products", body=body)
         for p in products_list['hits']['hits']:
             if is_store_active:
@@ -368,6 +369,34 @@ class GramGRNProductsList(APIView):
         return Response(msg,
                          status=200)
 
+class AutoSuggest(APIView):
+    permission_classes = (AllowAny,)
+
+    def search_query(self, keyword):
+        filter_list = [{"term":{"status":True}}]
+        query = {"bool":{"filter":filter_list}}
+        q = {
+        "match":{
+            "name":{"query":keyword, "fuzziness":"AUTO", "operator":"and"}
+            }
+        }
+        filter_list.append(q)
+        return query
+
+    def get(self, request, *args,**kwargs):
+        search_keyword = request.GET.get('keyword')
+        offset = 0
+        page_size = 5
+        query = self.search_query(search_keyword)
+        body = {
+            "from" : offset,
+            "size" : page_size,
+            "query":query,"_source":{"includes":["name", "product_images"]}
+            }
+        products_list = es_search(index="all_products", body=body)
+        response_data = {"suggestions":products_list['hits']['hits']}
+        return Response({"message":['suggested products'], "response_data": response_data,"is_success": True})
+
 
 class ProductDetail(APIView):
 
@@ -414,6 +443,13 @@ class AddToCart(APIView):
             #  if shop mapped with SP
 
             if parent_mapping.parent.shop_type.shop_type == 'sp':
+                import pdb; pdb.set_trace()
+                product = Product.objects.get(id = cart_product)
+                capping = product.get_current_shop_capping(parent_mapping.parent, parent_mapping.retailer)
+                capping_start_date = capping.starts_date
+                capping_end_date = capping.end_date
+                capping_range_orders = Order.objects.filter(created_at__date__gte = capping_start_date, created_at__date__lte = capping_end_date)
+                capping_product_qty = Order.objects.filter(created_at__date__gte = capping_start_date, created_at__date__lte = capping_end_date)
                 if Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
                                        cart_status__in=['active', 'pending']).exists():
                     cart = Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
@@ -1298,11 +1334,9 @@ class ShipmentDetail(APIView):
         product = self.request.POST.get('product')
         returned_qty = self.request.POST.get('returned_qty')
         damaged_qty = self.request.POST.get('damaged_qty')
-        shipped_qty = int(ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product).shipped_qty)
-        if  shipped_qty >= int(returned_qty) + int(damaged_qty):
-            delivered_qty = shipped_qty - (int(returned_qty) + int(damaged_qty))
-            ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(
-                returned_qty=returned_qty, damaged_qty=damaged_qty, delivered_qty=delivered_qty)
+
+        if int(ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product).shipped_qty) >= int(returned_qty) + int(damaged_qty):
+            ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(returned_qty=returned_qty, damaged_qty=damaged_qty)
             #shipment_product_details = ShipmentDetailSerializer(shipment, many=True)
             cash_to_be_collected = shipment.last().ordered_product.cash_to_be_collected()
             msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': None,
