@@ -26,11 +26,12 @@ from django.db.models import Q
 from common.data_wrapper_view import DataWrapperViewSet
 
 from .serializers import ShipmentPaymentSerializer, CashPaymentSerializer, \
-    ShipmentPaymentSerializer1, ShipmentPaymentSerializer2, OrderPaymentSerializer
+    ShipmentPaymentSerializer1, ShipmentPaymentSerializer2, OrderPaymentSerializer, \
+    PaymentImageSerializer
 from accounts.models import UserWithName
 from retailer_to_sp.models import OrderedProduct
 from payments.models import ShipmentPayment, CashPayment, OnlinePayment, PaymentMode, \
-    Payment, OrderPayment
+    Payment, OrderPayment, PaymentImage
 
 from retailer_to_sp.views import update_order_status, update_shipment_status_with_id
 from retailer_to_sp.api.v1.views import update_trip_status    
@@ -434,3 +435,46 @@ class OrderPaymentView(viewsets.ModelViewSet):
                             status=status.HTTP_406_NOT_ACCEPTABLE)
 
 
+class PaymentImageUploadView(ListCreateAPIView):
+    serializer_class = PaymentImageSerializer
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    parser_classes = (FormParser, MultiPartParser)
+
+
+    def get_queryset(self):
+        queryset = PaymentImage.objects.filter(user=self.request.user)
+        return queryset
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user=self.request.user)
+            msg = {'is_success': True,
+                    'message': ["Images uploaded successfully"],
+                    'response_data': None}
+            return Response(msg,
+                            status=status.HTTP_200_OK)
+        else:
+            errors = []
+            for field in serializer.errors:
+                for error in serializer.errors[field]:
+                    if 'non_field_errors' in field:
+                        result = error
+                    else:
+                        result = ''.join('{} : {}'.format(field,error))
+                    errors.append(result)
+            msg = {'is_success': False,
+                    'message': [error for error in errors],
+                    'response_data': None }
+            return Response(msg,
+                            status=status.HTTP_406_NOT_ACCEPTABLE)
+
+    def list(self, request):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        msg = {'is_success': True,
+                'message': ["%s objects found" % (queryset.count())],
+                'response_data': serializer.data}
+        return Response(msg,
+                        status=status.HTTP_200_OK)

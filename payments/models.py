@@ -64,6 +64,9 @@ FINAL_PAYMENT_STATUS_CHOICES = (
     ('PAID', 'Paid'),
 )
 
+USER_DOCUMENTS_TYPE_CHOICES = (
+    ("payment_screenshot", "payment_screenshot"),
+)
 
 ONLINE_PAYMENT_TYPE_CHOICES = (
     #('paytm', 'paytm'),
@@ -119,6 +122,23 @@ class AbstractDateTime(models.Model):
 
     class Meta:
         abstract = True
+
+
+class PaymentImage(models.Model):
+    user = models.ForeignKey(User, related_name='payment_screenshot', on_delete=models.SET_NULL,
+        null=True, blank=True)
+    user_document_type = models.CharField(max_length=100, choices=USER_DOCUMENTS_TYPE_CHOICES, default='payment_screenshot')
+    reference_number = models.CharField(max_length=100)
+    reference_image = models.FileField(upload_to='payment/screenshot/')
+
+    def reference_image_thumbnail(self):
+        return mark_safe('<img alt="%s" src="%s" />' % (self.user, self.reference_image.url))
+
+    def __str__(self):
+        return "%s - %s"%(self.user, self.reference_number)
+
+    class Meta:
+        verbose_name = "Payment Screenshot"
 
 
 #if prepaid then its against order, else shipment

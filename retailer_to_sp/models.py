@@ -1129,7 +1129,7 @@ class OrderedProduct(models.Model): #Shipment
         payments = self.shipment_payment.all()
         data = ""
         for payment in payments:
-            reference_number = payment.parent_order_payment.parent_payment.payment_approval_status
+            reference_number = payment.parent_order_payment.parent_payment.reference_number
             payment_status = payment.parent_order_payment.parent_payment.payment_approval_status
             if reference_number:
                 data += reference_number + " " + payment_status + "\n"

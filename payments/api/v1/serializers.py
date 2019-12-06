@@ -7,7 +7,7 @@ from rest_framework import serializers
 
 from retailer_to_sp.models import OrderedProduct
 from payments.models import ShipmentPayment, CashPayment, OnlinePayment, PaymentMode, \
-    Payment, OrderPayment
+    Payment, OrderPayment, PaymentImage
 
 
 
@@ -16,6 +16,14 @@ class PaymentSerializer(serializers.ModelSerializer):
         model = Payment
         fields = "__all__"  
 
+
+class PaymentImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PaymentImage
+        fields = ('reference_number','reference_image',)
+        extra_kwargs = {
+            'user_document_type': {'required': True},
+            }
 
 # class OrderPaymentSerializer(serializers.ModelSerializer):
 #     parent_payment = PaymentSerializer()
