@@ -824,6 +824,9 @@ class DispatchSerializer(serializers.ModelSerializer):
                                         source='get_shipment_status_display')
     order = serializers.SlugRelatedField(read_only=True, slug_field='order_no')
     shipment_weight = serializers.SerializerMethodField()
+    payment_approval_status = serializers.SerializerMethodField()    
+    online_payment_approval_status = serializers.SerializerMethodField()    
+
     created_at = serializers.DateTimeField()
     shipment_payment = serializers.SerializerMethodField()
     trip_status = serializers.SerializerMethodField()
@@ -831,6 +834,13 @@ class DispatchSerializer(serializers.ModelSerializer):
     def get_trip_status(self, obj):
         if obj.trip:
             return obj.trip.trip_status
+
+    def get_payment_approval_status(self, obj):
+        return obj.payment_approval_status()
+
+    def get_online_payment_approval_status(self, obj):
+        return obj.online_payment_approval_status()
+
 
     def get_shipment_payment(self, obj):
         return ""
@@ -849,9 +859,11 @@ class DispatchSerializer(serializers.ModelSerializer):
         model = Dispatch
         fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
                   'shipment_address', 'invoice_city', 'invoice_amount',
-                  'created_at', 'shipment_weight','shipment_payment', 'trip_status')
+                  'created_at', 'shipment_weight','shipment_payment', 'trip_status',
+                  'payment_approval_status', 'online_payment_approval_status')
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount',
-                 'shipment_payment', 'trip_status', 'shipment_weight')
+                 'shipment_payment', 'trip_status', 'shipment_weight', 
+                 'payment_approval_status', 'online_payment_approval_status')
 
 
 
@@ -863,6 +875,8 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
     shipment_weight = serializers.SerializerMethodField()
     created_at = serializers.DateTimeField()
     shipment_payment = serializers.SerializerMethodField()
+    payment_approval_status = serializers.SerializerMethodField()
+    online_payment_approval_status = serializers.SerializerMethodField()        
     trip_status = serializers.SerializerMethodField()
     paid_amount_shipment = serializers.SerializerMethodField()
 
@@ -875,6 +889,12 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
             return obj.total_paid_amount    
         else:
             return 0
+
+    def get_payment_approval_status(self, obj):
+        return obj.payment_approval_status()
+
+    def get_online_payment_approval_status(self, obj):
+        return obj.online_payment_approval_status()
 
     def get_shipment_payment(self, obj):
         return ""
@@ -890,10 +910,12 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
         fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
                   'shipment_address', 'invoice_city', 'invoice_amount',
                   'created_at', 'cash_to_be_collected', 'shipment_payment',
-                   'trip_status', 'paid_amount_shipment', 'shipment_weight')
+                   'trip_status', 'paid_amount_shipment', 'shipment_weight',
+                   'payment_approval_status', 'online_payment_approval_status')
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 
                     'cash_to_be_collected', 'shipment_payment', 'trip_status',
-                     'paid_amount_shipment', 'shipment_weight')
+                     'paid_amount_shipment', 'shipment_weight', 'payment_approval_status',
+                     'online_payment_approval_status')
 
 
 class FeedBackSerializer(serializers.ModelSerializer):

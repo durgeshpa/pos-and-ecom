@@ -181,6 +181,12 @@ class Payment(AbstractDateTime):
                 )          
 
     def clean(self):
+        if self.reference_no:
+            payment = Payment.objects.filter(reference_no = self.reference_no)
+            if self.id:
+                payment = payment.exclude(id=self.id)
+            if payment.exists():
+                raise ValidationError('This referece number already exists.')       
         if self.payment_mode_name != "cash_payment" and not self.reference_no:
             raise ValidationError('Referece number is required.')
         if self.reference_no and not re.match("^[a-zA-Z0-9_]*$", self.reference_no):
@@ -340,6 +346,16 @@ class ShipmentPaymentStatus(AbstractDateTime):
 
     def __str__(self):
         return str(self.shipment.id), str(self.payment_status)
+
+    @property
+    def payment_approval_status(self):
+        payments = self.shipment.shipment_payment.all()
+        for payment in payments:
+            payment_status = payment.parent_order_payment.parent_payment.payment_approval_status
+            if payment_status == "pending_approval":
+                return "pending_approval"
+        else:
+            return  "approved_and_verified"
 
 
 class PaymentMode(models.Model):

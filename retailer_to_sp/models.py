@@ -1116,6 +1116,28 @@ class OrderedProduct(models.Model): #Shipment
             return str("%s, %s(%s)") % (shop_name, address_line, contact)
         return str("-")
 
+    def payment_approval_status(self):
+        payments = self.shipment_payment.all()
+        for payment in payments:
+            payment_status = payment.parent_order_payment.parent_payment.payment_approval_status
+            if payment_status == "pending_approval":
+                return "pending_approval"
+        else:
+            return  "approved_and_verified"
+
+    def online_payment_approval_status(self):
+        payments = self.shipment_payment.all()
+        data = ""
+        for payment in payments:
+            reference_number = payment.parent_order_payment.parent_payment.payment_approval_status
+            payment_status = payment.parent_order_payment.parent_payment.payment_approval_status
+            if reference_number:
+                data += reference_number + " " + payment_status + "\n"
+        if data:
+            return data
+        else:
+            return "-"
+
     def payments(self):
         if hasattr(self, '_payment_mode'):
             return self._payment_mode, self._payment_amount
@@ -1173,6 +1195,7 @@ class OrderedProduct(models.Model): #Shipment
         return str(city)
 
     def cash_to_be_collected(self):
+        # fetch the amount to be collected
         if self.order.rt_payment.filter(payment_choice='cash_on_delivery').exists():
             return round((self._invoice_amount - self._cn_amount),2)
         return 0

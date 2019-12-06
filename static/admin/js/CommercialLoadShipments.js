@@ -91,6 +91,8 @@ function CreateResponseTable(data){
       var trip = data['response_data'][i]['trip'];
       var order = "<td>" + data['response_data'][i]['order'] + "</td>";
       var shipment_status = "<td>" + data['response_data'][i]['shipment_status'] + "</td>";
+      var payment_approval_status = "<td>" + data['response_data'][i]['payment_approval_status'] + "</td>";      
+      var online_payment_approval_status = "<td>" + data['response_data'][i]['online_payment_approval_status'] + "</td>";      
       //var invoice_no = "<td><a href='/admin/retailer_to_sp/cart/commercial/"+pk+"/shipment-details/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
       var invoice_no = "<td><a href='/admin/payments/shipmentdata/"+pk+"/change/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
      
@@ -109,8 +111,8 @@ function CreateResponseTable(data){
       var created_at = "<td>" + data['response_data'][i]['created_at'] + "</td>";
       //var submit_payment_button = "<td><form class='"+ shipment_payment +"' action=''><button class='shipment-payments-submit' type='button' data-id='"+ shipment_payment_id +"' data-total='"+ total_amount +"'>Submit!</button></form></td>";    
 
-      var append_data = "<tr class="+ row +"><td class='original'></td>" + invoice_no + invoice_amount + cash_to_be_collected + paid_amount_shipment + shipment_status + 
-      invoice_city + created_at + order + shipment_address + "</tr>";
+      var append_data = "<tr class="+ row +"><td class='original'></td>" + invoice_no + invoice_amount + cash_to_be_collected + paid_amount_shipment + shipment_status +
+      payment_approval_status + online_payment_approval_status +invoice_city + created_at + order + shipment_address + "</tr>";
   
       /*var append_data = "<tr class="+ row +"><td class='original'></td>" + invoice_no + invoice_amount + cash_to_be_collected + cash_payment 
       + online_payment_mode + online_payment + reference_no + description +shipment_status + 
