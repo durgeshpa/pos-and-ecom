@@ -417,6 +417,9 @@ class AddToCart(APIView):
                 import pdb; pdb.set_trace()
                 product = Product.objects.get(id = cart_product)
                 capping = product.get_current_shop_capping(parent_mapping.parent, parent_mapping.retailer)
+                capping_start_date = capping.starts_date
+                capping_end_date = capping.end_date
+                capping_range_orders = Order.objects.filter(created_at__date__gte = capping_start_date, created_at__date__lte = capping_end_date)
                 if Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
                                        cart_status__in=['active', 'pending']).exists():
                     cart = Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,

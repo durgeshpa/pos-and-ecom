@@ -575,8 +575,7 @@ class ProductCappingForm(forms.ModelForm):
     )
     seller_shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type='sp'),
-        widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete'),
-        required=False
+        widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete')
     )
     buyer_shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type='r'),
