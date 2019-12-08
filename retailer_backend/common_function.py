@@ -71,7 +71,7 @@ def get_last_no_to_increment(model, field, instance_id, starts_with):
 
     if instance_with_current_pattern.exists():
         last_instance_no = instance_with_current_pattern.latest(field)
-        return int(getattr(instance_with_current_pattern, field)[-7:])
+        return int(getattr(last_instance_no, field)[-7:])
 
     else:
         return 0
