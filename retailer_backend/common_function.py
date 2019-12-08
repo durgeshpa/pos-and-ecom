@@ -69,9 +69,9 @@ def get_last_no_to_increment(model, field, instance_id, starts_with):
     instance_with_current_pattern = model.objects.filter(created_at__gte=from_date).filter(
                                         **{field+'__icontains': starts_with})
 
-    if instance_with_current_pattern:
-        last_instance_no = instance_with_current_pattern.order_by(field).last()
-        return int(getattr(last_instance_no, field)[-7:])
+    if instance_with_current_pattern.exists():
+        last_instance_no = instance_with_current_pattern.latest(field)
+        return int(getattr(instance_with_current_pattern, field)[-7:])
 
     else:
         return 0
