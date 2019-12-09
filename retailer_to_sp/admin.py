@@ -1016,10 +1016,12 @@ class ShipmentAdmin(admin.ModelAdmin):
     download_invoice.short_description = 'Download Invoice'
 
     def pincode(self, obj):
-        return  obj.order.shipping_address.pincode
+        if obj.order:
+            return obj.order.shipping_address.pincode
 
     def seller_shop(self, obj):
-        return obj.order.seller_shop.shop_name
+        if obj.order:
+            return obj.order.seller_shop.shop_name
 
     def shipment_address(self, obj):
         if obj.order:
