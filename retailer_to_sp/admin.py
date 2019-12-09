@@ -1032,12 +1032,14 @@ class ShipmentAdmin(admin.ModelAdmin):
             return str("%s, %s(%s)") % (shop_name, address_line, contact)
 
     def invoice_city(self, obj):
-        city = obj.order.shipping_address.city
-        return str(city)
+        if obj.order:
+            city = obj.order.shipping_address.city
+            return str(city)
 
     def invoice(self,obj):
-        return obj.invoice_no if obj.invoice_no else format_html(
-            "<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Start QC</a>" %(obj.id))
+        if obj.invoice_no:
+            return obj.invoice_no if obj.invoice_no else format_html(
+                "<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Start QC</a>" %(obj.id))
     invoice.short_description = 'Invoice No'
 
 
