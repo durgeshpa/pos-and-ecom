@@ -457,8 +457,8 @@ class PaymentImageUploadView(ListCreateAPIView):
             
             serializer.save(user=self.request.user)
             msg = {'is_success': True,
-                    'message': [{'payment_image_id':serializer.data['id']}],
-                    'response_data': None}
+                    'message': ["Image uploaded successfully!"],
+                    'response_data': {'payment_image_id':serializer.data['id']}}
             return Response(msg,
                             status=status.HTTP_200_OK)
         else:

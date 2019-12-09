@@ -399,6 +399,7 @@ class TripForm(forms.ModelForm):
     total_packets_collected = forms.IntegerField(required=False)
     total_sacks_collected = forms.IntegerField(required=False)
     trip_weight = forms.CharField(required=False)
+    total_trip_amount_value = forms.CharField(required=False)
     selected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
     unselected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
 
@@ -430,6 +431,8 @@ class TripForm(forms.ModelForm):
         self.fields['total_sacks_shipped'].initial = instance.total_sacks_shipped
         self.fields['trip_weight'].initial = instance.trip_weight()
         self.fields['trip_weight'].disabled = True
+        self.fields['total_trip_amount_value'].initial = instance.total_trip_amount_value
+        self.fields['total_trip_amount_value'].disabled = True        
 
         trip = instance.pk
         if trip:
