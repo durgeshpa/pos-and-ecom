@@ -253,6 +253,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                         paid_by = paid_by,
                         payment_screenshot = payment_screenshot,
                         description = description,
+                        #reference_no = reference_no,
                         processed_by = processed_by
                         )
                     if payment_mode_name == "online_payment":

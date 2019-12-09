@@ -74,6 +74,11 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
                 if item.get('reference_no') is None:
                     raise serializers.ValidationError("Reference number is required!")
                     # raise ValidationError("Reference number is required") 
+                else:
+                    payment = Payment.objects.filter(reference_no = item['reference_no'])
+                    if payment.exists():
+                        raise serializers.ValidationError('This referece number already exists.') 
+
                 if item.get('online_payment_type') is None:
                     raise serializers.ValidationError("Online payment type is required!")
 
