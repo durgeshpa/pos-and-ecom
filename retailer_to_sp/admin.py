@@ -1016,15 +1016,12 @@ class ShipmentAdmin(admin.ModelAdmin):
     download_invoice.short_description = 'Download Invoice'
 
     def pincode(self, obj):
-        if obj.order:
             return obj.order.shipping_address.pincode
 
     def seller_shop(self, obj):
-        if obj.order:
             return obj.order.seller_shop.shop_name
 
     def shipment_address(self, obj):
-        if obj.order:
             address = obj.order.shipping_address
             address_line = address.address_line1
             contact = address.address_contact_number
@@ -1032,12 +1029,10 @@ class ShipmentAdmin(admin.ModelAdmin):
             return str("%s, %s(%s)") % (shop_name, address_line, contact)
 
     def invoice_city(self, obj):
-        if obj.order:
             city = obj.order.shipping_address.city
             return str(city)
 
     def invoice(self,obj):
-        if obj.invoice_no:
             return obj.invoice_no if obj.invoice_no else format_html(
                 "<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Start QC</a>" %(obj.id))
     invoice.short_description = 'Invoice No'
