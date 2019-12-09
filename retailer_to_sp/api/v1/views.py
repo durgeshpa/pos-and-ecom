@@ -302,7 +302,6 @@ class GramGRNProductsList(APIView):
                 "size" : page_size,
                 "query":query,"_source":{"includes":["name", "product_images","pack_size","weight_unit","weight_value"]}
                 }
-            import pdb; pdb.set_trace()
             products_list = es_search(index="all_products", body=body)
         for p in products_list['hits']['hits']:
             if is_store_active:
@@ -377,7 +376,7 @@ class AutoSuggest(APIView):
         query = {"bool":{"filter":filter_list}}
         q = {
         "match":{
-            "name":{"query":keyword, "fuzziness":"AUTO", "operator":"and"}
+            "name":{"query":keyword, "fuzziness":"AUTO", "operator":"or", "minimum_should_match":"2"}
             }
         }
         filter_list.append(q)
@@ -394,8 +393,10 @@ class AutoSuggest(APIView):
             "query":query,"_source":{"includes":["name", "product_images"]}
             }
         products_list = es_search(index="all_products", body=body)
-        response_data = {"suggestions":products_list['hits']['hits']}
-        return Response({"message":['suggested products'], "response_data": response_data,"is_success": True})
+        p_list = []
+        for p in products_list['hits']['hits']:
+            p_list.append(p["_source"])
+        return Response({"message":['suggested products'], "response_data": p_list,"is_success": True})
 
 
 class ProductDetail(APIView):
