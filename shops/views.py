@@ -19,7 +19,7 @@ import csv
 import codecs
 import datetime
 from django.db import transaction
-from addresses.models import Address, State, City
+from addresses.models import Address, State, City, Pincode
 from django.contrib.auth import get_user_model
 from shops.models import ShopUserMapping
 from rest_framework.views import APIView
@@ -242,11 +242,14 @@ def bulk_shop_updation(request):
                                 state_name=row[11]).id
                             city_id = City.objects.get(
                                 city_name=row[12]).id
+                            pincode_id = Pincode.objects.get(
+                                pincode=int(row[10]),
+                                city_id=city_id).id
                             address.update(nick_name=row[6],
                                            address_line1=row[7],
                                            address_contact_name=row[8],
                                            address_contact_number=int(row[9]),
-                                           pincode=str(int(row[10])),
+                                           pincode_link_id=pincode_id,
                                            state_id=state_id,
                                            city_id=city_id,
                                            address_type=row[13])
@@ -281,7 +284,7 @@ class ShopAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qs = Shop.objects.none
         if self.q:
-            qs = Shop.objects.filter(shop_name__icontains=self.q)
+            qs = Shop.objects.filter(Q(shop_name__icontains=self.q) | Q(shop_owner__phone_number__icontains=self.q))
         return qs
 
 class UserAutocomplete(autocomplete.Select2QuerySetView):

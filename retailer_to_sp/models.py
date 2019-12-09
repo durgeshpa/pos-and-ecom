@@ -126,11 +126,11 @@ class Cart(models.Model):
     order_id = models.CharField(max_length=255, null=True, blank=True)
     seller_shop = models.ForeignKey(
         Shop, related_name='rt_seller_shop_cart',
-        null=True, blank=True, on_delete=models.SET_NULL
+        null=True, blank=True, on_delete=models.DO_NOTHING
     )
     buyer_shop = models.ForeignKey(
         Shop, related_name='rt_buyer_shop_cart',
-        null=True, blank=True, on_delete=models.SET_NULL
+        null=True, blank=True, on_delete=models.DO_NOTHING
     )
     cart_status = models.CharField(
         max_length=200, choices=CART_STATUS,
@@ -138,7 +138,7 @@ class Cart(models.Model):
     )
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_cart',
-        null=True, blank=True, on_delete=models.SET_NULL
+        null=True, blank=True, on_delete=models.DO_NOTHING
     )
     offers = JSONField(null=True,blank=True)
     # cart_coupon_error_msg = models.CharField(
@@ -226,7 +226,7 @@ class Cart(models.Model):
                                     discount_qty_step_multiple = int((sku_qty)/n.rule.discount_qty_step)
                                     free_item_amount = int((n.rule.discount_qty_amount) * discount_qty_step_multiple)
                                     sum += (sku_ptr * sku_no_of_pieces)
-                                    offers_list.append({'type':'free', 'sub_type':'discount_on_product', 'coupon_id':o.id, 'coupon':o.coupon_name, 'coupon_code':o.coupon_code, 'item':m.cart_product.product_name, 'item_sku':m.cart_product.product_sku, 'item_id':m.cart_product.id, 'free_item':free_item, 'free_item_amount':free_item_amount, 'coupon_type':'catalog', 'discounted_product_subtotal':(sku_ptr * sku_no_of_pieces), 'discounted_product_subtotal_after_sku_discount':(sku_ptr * sku_no_of_pieces), 'brand_id':m.cart_product.product_brand.id, 'applicable_brand_coupons':b_list, 'applicable_cart_coupons':c_list})
+                                    offers_list.append({'type':'free', 'sub_type':'discount_on_product', 'coupon_id':o.id, 'coupon':o.coupon_name, 'discount_value':0, 'coupon_code':o.coupon_code, 'item':m.cart_product.product_name, 'item_sku':m.cart_product.product_sku, 'item_id':m.cart_product.id, 'free_item':free_item, 'free_item_amount':free_item_amount, 'coupon_type':'catalog', 'discounted_product_subtotal':(sku_ptr * sku_no_of_pieces), 'discounted_product_subtotal_after_sku_discount':(sku_ptr * sku_no_of_pieces), 'brand_id':m.cart_product.product_brand.id, 'applicable_brand_coupons':b_list, 'applicable_cart_coupons':c_list})
                             elif (n.rule.discount_qty_step >=1) and (n.rule.discount != None):
                                 if sku_qty >= n.rule.discount_qty_step:
                                     if n.rule.discount.is_percentage == False:
@@ -251,6 +251,8 @@ class Cart(models.Model):
                 brands_list = []
                 brand_product_subtotals= 0
                 for brand in brand_coupon.rule.brand_ruleset.filter(rule__is_active = True, rule__expiry_date__gte = date ):
+                    brands_list = []
+                    brand_product_subtotals= 0
                     offer_brand = brand.brand
                     offer_brand_id = brand.brand.id
                     if offer_brand_id in brands_specific_list:
@@ -363,6 +365,7 @@ class Cart(models.Model):
         if self.cart_status == self.ORDERED:
             for cart_product in self.rt_cart_list.all():
                 cart_product.get_cart_product_price(self.seller_shop.id, self.buyer_shop.id)
+
         super().save(*args, **kwargs)
 
     @property
@@ -395,15 +398,15 @@ def create_order_id(sender, instance=None, created=False, **kwargs):
 
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart, related_name='rt_cart_list',null=True,
-                             on_delete=models.SET_NULL
+                             on_delete=models.DO_NOTHING
     )
     cart_product = models.ForeignKey(
         Product, related_name='rt_cart_product_mapping',null=True,
-        on_delete=models.SET_NULL
+        on_delete=models.DO_NOTHING
     )
     cart_product_price = models.ForeignKey(
         ProductPrice, related_name='rt_cart_product_price_mapping',
-        on_delete=models.SET_NULL, null=True, blank=True
+        on_delete=models.DO_NOTHING, null=True, blank=True
     )
     qty = models.PositiveIntegerField(default=0)
     no_of_pieces = models.PositiveIntegerField(default=0)
@@ -457,6 +460,10 @@ class CartProductMapping(models.Model):
             return self.cart_product_price.mrp
         else:
             return self.cart_product.get_current_shop_price(seller_shop_id, buyer_shop_id).mrp
+
+    # def save(self, *args, **kwargs):
+    #
+    #     super().save(*args, **kwargs)
 
 class Order(models.Model):
     ACTIVE = 'active'
@@ -539,25 +546,25 @@ class Order(models.Model):
     #Todo Remove
     seller_shop = models.ForeignKey(
         Shop, related_name='rt_seller_shop_order',
-        null=True, blank=True, on_delete=models.SET_NULL
+        null=True, blank=True, on_delete=models.DO_NOTHING
     )
     #Todo Remove
     buyer_shop = models.ForeignKey(
         Shop, related_name='rt_buyer_shop_order',
-        null=True, blank=True, on_delete=models.SET_NULL
+        null=True, blank=True, on_delete=models.DO_NOTHING
     )
     ordered_cart = models.OneToOneField(
         Cart, related_name='rt_order_cart_mapping',null=True,
-        on_delete=models.SET_NULL
+        on_delete=models.DO_NOTHING
     )
     order_no = models.CharField(max_length=255, null=True, blank=True)
     billing_address = models.ForeignKey(
         Address, related_name='rt_billing_address_order',
-        null=True, blank=True, on_delete=models.SET_NULL
+        null=True, blank=True, on_delete=models.DO_NOTHING
     )
     shipping_address = models.ForeignKey(
         Address, related_name='rt_shipping_address_order',
-        null=True, blank=True, on_delete=models.SET_NULL
+        null=True, blank=True, on_delete=models.DO_NOTHING
     )
     total_mrp = models.FloatField(default=0)
     total_discount_amount = models.FloatField(default=0)
@@ -570,15 +577,15 @@ class Order(models.Model):
     order_closed = models.BooleanField(default=False, null=True, blank=True)
     ordered_by = models.ForeignKey(
         get_user_model(), related_name='rt_ordered_by_user',
-        null=True, blank=True, on_delete=models.SET_NULL
+        null=True, blank=True, on_delete=models.DO_NOTHING
     )
     received_by = models.ForeignKey(
         get_user_model(), related_name='rt_received_by_user',
-        null=True, blank=True, on_delete=models.SET_NULL
+        null=True, blank=True, on_delete=models.DO_NOTHING
     )
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_order_modified_user',
-        null=True, blank=True, on_delete=models.SET_NULL
+        null=True, blank=True, on_delete=models.DO_NOTHING
     )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -730,17 +737,15 @@ class Order(models.Model):
             return "%s - %s" % (self.buyer_shop, self.buyer_shop.shop_owner.phone_number)
         return "-"
 
-
-
 class Trip(models.Model):
     seller_shop = models.ForeignKey(
         Shop, related_name='trip_seller_shop', null=True,
-        on_delete=models.SET_NULL
+        on_delete=models.DO_NOTHING
     )
     dispatch_no = models.CharField(max_length=50, unique=True)
     delivery_boy = models.ForeignKey(
         UserWithName, related_name='order_delivered_by_user', null=True,
-        on_delete=models.SET_NULL, verbose_name='Delivery Boy'
+        on_delete=models.DO_NOTHING, verbose_name='Delivery Boy'
     )
     vehicle_no = models.CharField(max_length=50)
     trip_status = models.CharField(max_length=100, choices=TRIP_STATUS)
@@ -863,6 +868,16 @@ class Trip(models.Model):
     def total_trip_amount_value(self):
         return self.total_trip_amount()
 
+    # @property
+    def trip_weight(self):
+        queryset = self.rt_invoice_trip.all()
+        weight = sum([item.shipment_weight for item in queryset]) # Definitely takes more memory.
+        #weight = self.rt_order_product_order_product_mapping.all().aggregate(Sum('product.weight_value'))['weight_value__sum']
+        if weight != 0:
+            weight /= 1000
+        weight = round(weight,2)
+        return str(weight) + " Kg"
+
     __trip_status = None
 
     def __init__(self, *args, **kwargs):
@@ -966,7 +981,7 @@ class OrderedProduct(models.Model): #Shipment
 
     order = models.ForeignKey(
         Order, related_name='rt_order_order_product',
-        on_delete=models.SET_NULL, null=True, blank=True
+        on_delete=models.DO_NOTHING, null=True, blank=True
     )
     shipment_status = models.CharField(
         max_length=50, choices=SHIPMENT_STATUS,
@@ -980,15 +995,15 @@ class OrderedProduct(models.Model): #Shipment
     invoice_no = models.CharField(max_length=255, null=True, blank=True)
     trip = models.ForeignKey(
         Trip, related_name="rt_invoice_trip",
-        null=True, blank=True, on_delete=models.SET_NULL,
+        null=True, blank=True, on_delete=models.DO_NOTHING,
     )
     received_by = models.ForeignKey(
         get_user_model(), related_name='rt_ordered_product_received_by_user',
-        null=True, blank=True, on_delete=models.SET_NULL
+        null=True, blank=True, on_delete=models.DO_NOTHING
     )
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_order',
-        null=True, blank=True, on_delete=models.SET_NULL
+        null=True, blank=True, on_delete=models.DO_NOTHING
     )
     no_of_crates = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Crates Shipped")
     no_of_packets = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Packets Shipped")
@@ -1033,6 +1048,13 @@ class OrderedProduct(models.Model): #Shipment
         if self.no_of_crates_check:
             if self.no_of_crates_check != self.no_of_crates:
                 raise ValidationError(_("The number of crates must be equal to the number of crates shipped during shipment"))
+
+    @property
+    def shipment_weight(self):
+        queryset = self.rt_order_product_order_product_mapping.all()
+        weight = sum([item.product_weight for item in queryset]) # Definitely takes more memory.
+        #weight = self.rt_order_product_order_product_mapping.all().aggregate(Sum('product.weight_value'))['weight_value__sum']
+        return weight
 
     @property
     def shipment_address(self):
@@ -1115,13 +1137,13 @@ class PickerDashboard(models.Model):
     order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE)
     shipment = models.ForeignKey(
         OrderedProduct, related_name="picker_shipment",
-        on_delete=models.SET_NULL, null=True, blank=True)
+        on_delete=models.DO_NOTHING, null=True, blank=True)
     picking_status = models.CharField(max_length=50,choices=PICKING_STATUS, default='picking_pending')
     #make unique to picklist id
     picklist_id = models.CharField(max_length=255, null=True, blank=True)#unique=True)
     picker_boy = models.ForeignKey(
         UserWithName, related_name='picker_user',
-        on_delete=models.SET_NULL, verbose_name='Picker Boy',
+        on_delete=models.DO_NOTHING, verbose_name='Picker Boy',
         null=True, blank=True
     )
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1139,11 +1161,11 @@ class PickerDashboard(models.Model):
 class OrderedProductMapping(models.Model):
     ordered_product = models.ForeignKey(
         OrderedProduct, related_name='rt_order_product_order_product_mapping',
-        null=True, on_delete=models.SET_NULL
+        null=True, on_delete=models.DO_NOTHING
     )
     product = models.ForeignKey(
         Product, related_name='rt_product_order_product',
-        null=True, on_delete=models.SET_NULL
+        null=True, on_delete=models.DO_NOTHING
     )
     shipped_qty = models.PositiveIntegerField(default=0, verbose_name="Shipped Pieces")
     delivered_qty = models.PositiveIntegerField(default=0, verbose_name="Delivered Pieces")
@@ -1151,7 +1173,7 @@ class OrderedProductMapping(models.Model):
     damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Pieces")
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_order_product',
-        null=True, on_delete=models.SET_NULL
+        null=True, on_delete=models.DO_NOTHING
     )
     product_tax_json = JSONField(null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1168,6 +1190,16 @@ class OrderedProductMapping(models.Model):
                     _('Sum of returned and damaged pieces should be '
                       'less than no. of pieces to ship'),
                 )
+
+    @property
+    def product_weight(self):
+        # sum_a = sum([item.column for item in queryset]) # Definitely takes more memory.
+        #import pdb; pdb.set_trace()
+        if self.product.weight_value:
+            weight = self.product.weight_value*self.shipped_qty
+            return weight
+        else:
+            return 0
 
     @property
     def ordered_qty(self):
@@ -1379,7 +1411,7 @@ class ShipmentRescheduling(models.Model):
 
     shipment = models.ForeignKey(
         OrderedProduct, related_name='rescheduling_shipment',
-        blank=False, null=True, on_delete=models.SET_NULL
+        blank=False, null=True, on_delete=models.DO_NOTHING
     )
     rescheduling_reason = models.CharField(
         max_length=50, choices=RESCHEDULING_REASON,
@@ -1389,7 +1421,7 @@ class ShipmentRescheduling(models.Model):
     created_by = models.ForeignKey(
         get_user_model(),
         related_name='rescheduled_by',
-        null=True, blank=True, on_delete=models.SET_NULL
+        null=True, blank=True, on_delete=models.DO_NOTHING
     )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -1445,7 +1477,7 @@ class Commercial(Trip):
 
 class CustomerCare(models.Model):
     order_id = models.ForeignKey(
-        Order, on_delete=models.SET_NULL, null=True, blank=True
+        Order, on_delete=models.DO_NOTHING, null=True, blank=True
     )
     phone_number = models.CharField( max_length=10, blank=True, null=True)
     complaint_id = models.CharField(max_length=255, null=True, blank=True)
@@ -1515,7 +1547,7 @@ class CustomerCare(models.Model):
         super(CustomerCare, self).save()
 
 class ResponseComment(models.Model):
-    customer_care = models.ForeignKey(CustomerCare,related_name='customer_care_comments', null=True, blank=True, on_delete=models.SET_NULL)
+    customer_care = models.ForeignKey(CustomerCare,related_name='customer_care_comments', null=True, blank=True, on_delete=models.DO_NOTHING)
     comment = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(
         auto_now_add=True, verbose_name="Comment Date")
@@ -1535,7 +1567,7 @@ class Payment(models.Model):
 
     order_id = models.ForeignKey(
         Order, related_name='rt_payment',
-        on_delete=models.SET_NULL, null=True
+        on_delete=models.DO_NOTHING, null=True
     )
     name = models.CharField(max_length=255, null=True, blank=True)
     paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')
@@ -1605,23 +1637,23 @@ def order_notification(sender, instance=None, created=False, **kwargs):
 
 class Return(models.Model):
     invoice_no = models.ForeignKey(
-        OrderedProduct, on_delete=models.SET_NULL,
+        OrderedProduct, on_delete=models.DO_NOTHING,
         null=True, verbose_name='Shipment Id'
     )
     name = models.CharField(max_length=255, null=True, blank=True)
     shipped_by = models.ForeignKey(
         get_user_model(),
         related_name='return_shipped_product_ordered_by_user',
-        null=True, blank=True, on_delete=models.SET_NULL
+        null=True, blank=True, on_delete=models.DO_NOTHING
     )
     received_by = models.ForeignKey(
         get_user_model(),
         related_name='return_ordered_product_received_by_user',
-        null=True, blank=True, on_delete=models.SET_NULL
+        null=True, blank=True, on_delete=models.DO_NOTHING
     )
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='return_last_modified_user_order',
-        null=True, blank=True, on_delete=models.SET_NULL
+        null=True, blank=True, on_delete=models.DO_NOTHING
     )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -1638,11 +1670,11 @@ class Return(models.Model):
 class ReturnProductMapping(models.Model):
     return_id = models.ForeignKey(
         Return, related_name='rt_product_return_product_mapping',
-        null=True, blank=True, on_delete=models.SET_NULL
+        null=True, blank=True, on_delete=models.DO_NOTHING
     )
     returned_product = models.ForeignKey(
         Product, related_name='rt_product_return_product',
-        null=True, blank=True, on_delete=models.SET_NULL
+        null=True, blank=True, on_delete=models.DO_NOTHING
     )
     total_returned_qty = models.PositiveIntegerField(default=0)
     reusable_qty = models.PositiveIntegerField(default=0)
@@ -1650,7 +1682,7 @@ class ReturnProductMapping(models.Model):
     last_modified_by = models.ForeignKey(
         get_user_model(),
         related_name='return_last_modified_user_return_product',
-        null=True, blank=True, on_delete=models.SET_NULL
+        null=True, blank=True, on_delete=models.DO_NOTHING
     )
     manufacture_date = models.DateField()
     expiry_date = models.DateField()
@@ -1684,18 +1716,17 @@ class ReturnProductMapping(models.Model):
             tax__tax_type='cess'
         )
 
-
 class Note(models.Model):
-    shop = models.ForeignKey(Shop, related_name='credit_notes', null=True, blank=True, on_delete=models.SET_NULL)
+    shop = models.ForeignKey(Shop, related_name='credit_notes', null=True, blank=True, on_delete=models.DO_NOTHING)
     credit_note_id = models.CharField(max_length=255, null=True, blank=True)
-    shipment = models.ForeignKey(OrderedProduct, null=True, blank=True, on_delete=models.SET_NULL, related_name='credit_note')
+    shipment = models.ForeignKey(OrderedProduct, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='credit_note')
     note_type = models.CharField(
         max_length=255, choices=NOTE_TYPE_CHOICES, default='credit_note'
     )
     amount = models.FloatField(default=0)
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_note',
-        null=True, blank=True, on_delete=models.SET_NULL
+        null=True, blank=True, on_delete=models.DO_NOTHING
     )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -1712,6 +1743,11 @@ class Note(models.Model):
     def invoice_no(self):
         if self.shipment:
             return self.shipment.invoice_no
+
+    @property
+    def note_amount(self):
+        if self.shipment:
+            return round(self.shipment._cn_amount,2)
 
 
 class Feedback(models.Model):

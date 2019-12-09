@@ -65,7 +65,7 @@ class Shop(models.Model):
     shop_owner = models.ForeignKey(get_user_model(), related_name='shop_owner_shop',on_delete=models.CASCADE)
     shop_type = models.ForeignKey(ShopType,related_name='shop_type_shop',on_delete=models.CASCADE)
     related_users = models.ManyToManyField(get_user_model(),blank=True, related_name='related_shop_user')
-    created_by = models.ForeignKey(get_user_model(), related_name='shop_created_by',null=True,blank=True, on_delete=models.SET_NULL)
+    created_by = models.ForeignKey(get_user_model(), related_name='shop_created_by',null=True,blank=True, on_delete=models.DO_NOTHING)
     shop_code = models.CharField(max_length=1, blank=True, null=True)
     warehouse_code = models.CharField(max_length=2, blank=True, null=True)
     imei_no = models.CharField(max_length=20, null=True, blank=True)
@@ -78,7 +78,17 @@ class Shop(models.Model):
     #last_login_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return "%s"%(self.shop_name) #,self.shop_owner)
+        #return "%s-%s"%(self.shop_name, self.shop_owner)
+        if self.shop_owner.first_name and self.shop_owner.last_name:
+            return "%s - %s - %s %s" % (self.shop_name,
+                str(self.shop_owner.phone_number), self.shop_owner.first_name, self.shop_owner.last_name
+            )
+
+        elif self.shop_owner.first_name:
+            return "%s - %s - %s" % (self.shop_name, str(self.shop_owner.phone_number), self.shop_owner.first_name)
+
+        return "%s - %s" % (self.shop_name, str(self.shop_owner.phone_number))
+
 
     def __init__(self, *args, **kwargs):
         super(Shop, self).__init__(*args, **kwargs)
@@ -353,7 +363,7 @@ class ShopRequestBrand(models.Model):
 
 class ShopUserMapping(models.Model):
     shop = models.ForeignKey(Shop, related_name='shop_user', on_delete=models.CASCADE)
-    manager = models.ForeignKey('self', null=True, blank=True, related_name='employee_list', on_delete=models.SET_NULL,
+    manager = models.ForeignKey('self', null=True, blank=True, related_name='employee_list', on_delete=models.DO_NOTHING,
                                 limit_choices_to={'manager': None,'status':True, 'employee_group__permissions__codename':'can_sales_manager_add_shop'},)
     employee = models.ForeignKey(get_user_model(), related_name='shop_employee', on_delete=models.CASCADE)
     employee_group = models.ForeignKey(Group, related_name='shop_user_group',default='1', on_delete=models.SET_DEFAULT)
@@ -406,7 +416,7 @@ class ShopTiming(models.Model):
         (FRI, 'FRI'),
         (SAT, 'FRI'),
     )
-    shop = models.OneToOneField(Shop, related_name='shop_timing',null=True,blank=True, on_delete=models.SET_NULL)
+    shop = models.OneToOneField(Shop, related_name='shop_timing',null=True,blank=True, on_delete=models.DO_NOTHING)
     open_timing = models.TimeField()
     closing_timing = models.TimeField()
     break_start_time = models.TimeField(null=True, blank=True)

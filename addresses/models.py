@@ -87,7 +87,7 @@ class Address(models.Model):
     pincode = models.CharField(validators=[PinCodeValidator], max_length=6, blank=True)
     pincode_link = models.ForeignKey(Pincode, related_name='pincode_address',
                                      null=True, blank=True,
-                                     on_delete=models.SET_NULL)
+                                     on_delete=models.DO_NOTHING)
     state = models.ForeignKey(State, related_name='state_address', on_delete=models.CASCADE, blank=True, null=True)
     city = models.ForeignKey(City, related_name='city_address', on_delete=models.CASCADE)
     address_type = models.CharField(max_length=255,choices=address_type_choices,default='shipping')

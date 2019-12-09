@@ -128,40 +128,17 @@ class ReturnProductMappingForm(forms.ModelForm):
 
 class OrderedProductForm(forms.ModelForm):
     order = forms.ModelChoiceField(queryset=Order.objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:ShipmentOrdersAutocomplete',),
                                    required=True)
-
-    # order = forms.ModelChoiceField(queryset=Order.objects.filter(
-    #     order_status__in=[Order.OPDP, 'ordered',
-    #                       'PARTIALLY_SHIPPED', 'DISPATCH_PENDING'],
-    #     order_closed=False),
-    #     required=True)
 
     class Meta:
         model = OrderedProduct
         fields = ['order', 'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
 
-    class Media:
-        js = (
-            'https://cdnjs.cloudflare.com/ajax/libs/select2/'
-            '4.0.6-rc.0/js/select2.min.js',
-            'admin/js/orderedproduct.js'
-        )
-        css = {
-            'all': (
-                'https://cdnjs.cloudflare.com/ajax/libs/select2/'
-                '4.0.6-rc.0/css/select2.min.css',
-            )
-        }
 
     def __init__(self, *args, **kwargs):
         super(OrderedProductForm, self).__init__(*args, **kwargs)
         self.fields['shipment_status'].choices = OrderedProduct.SHIPMENT_STATUS[:2]
-        ordered_product = getattr(self, 'instance', None)
-        # if ordered_product is None:
-        qc_pending_orders = OrderedProduct.objects.filter(shipment_status="SHIPMENT_CREATED").values('order')
-        self.fields['order'].queryset = Order.objects.filter(order_status__in=[Order.OPDP, 'ordered',
-                                                                               'PARTIALLY_SHIPPED', 'DISPATCH_PENDING'],
-                                                             order_closed=False).exclude(id__in=qc_pending_orders)
 
     def clean(self):
         data = self.cleaned_data
@@ -419,6 +396,8 @@ class TripForm(forms.ModelForm):
     total_crates_collected = forms.IntegerField(required=False)
     total_packets_collected = forms.IntegerField(required=False)
     total_sacks_collected = forms.IntegerField(required=False)
+    trip_weight = forms.CharField(required=False)
+    total_trip_amount_value = forms.CharField(required=False)
     selected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
     unselected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
 
@@ -426,7 +405,7 @@ class TripForm(forms.ModelForm):
         model = Trip
         fields = ['seller_shop', 'delivery_boy', 'vehicle_no', 'trip_status',
                   'e_way_bill_no', 'search_by_area', 'search_by_pincode', 'Invoice_No', 'selected_id',
-                  'unselected_id']
+                  'unselected_id', 'trip_weight']
 
     class Media:
         js = ('admin/js/select2.min.js',)
@@ -448,7 +427,10 @@ class TripForm(forms.ModelForm):
         self.fields['total_crates_shipped'].initial = instance.total_crates_shipped
         self.fields['total_packets_shipped'].initial = instance.total_packets_shipped
         self.fields['total_sacks_shipped'].initial = instance.total_sacks_shipped
-
+        self.fields['trip_weight'].initial = instance.trip_weight()
+        self.fields['trip_weight'].disabled = True
+        self.fields['total_trip_amount_value'].initial = instance.total_trip_amount_value
+        self.fields['total_trip_amount_value'].disabled = True        
 
         trip = instance.pk
         if trip:
@@ -718,7 +700,7 @@ class CommercialForm(forms.ModelForm):
         model = Trip
         fields = ['dispatch_no', 'delivery_boy', 'seller_shop', 'trip_status',
                   'starts_at', 'completed_at', 'e_way_bill_no', 'vehicle_no',
-                  'trip_amount', 'received_amount']
+                  'received_amount']
 
     class Media:
         js = ('admin/js/CommercialLoadShipments.js',)

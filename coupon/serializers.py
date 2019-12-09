@@ -7,7 +7,7 @@ class CouponSerializer(serializers.ModelSerializer):
     max_qty = serializers.SerializerMethodField()
     class Meta:
         model = Coupon
-        fields = ('coupon_name', 'coupon_code', 'is_applied', 'max_qty')
+        fields = ('coupon_name', 'coupon_code', 'coupon_type', 'is_applied', 'max_qty')
 
     def get_is_applied(self, obj):
         status = False
