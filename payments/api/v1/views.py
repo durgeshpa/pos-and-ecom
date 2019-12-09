@@ -4,6 +4,7 @@ import traceback
 import sys
 import logging
 import json
+import re
 
 from django.shortcuts import render
 from django.shortcuts import redirect
@@ -212,6 +213,37 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                 paid_by = shipment.order.buyer_shop.shop_owner          
             # paid_by = request.data.get('paid_by', None)
             # paid_by = UserWithName.objects.get(phone_number=paid_by)
+
+            error_msg = ""
+            for item in request.data.get('payment_data'):
+                    if item.get('paid_amount') is None:
+                        error_msg += "Paid amount is required! "
+                    if item.get('payment_mode_name') is None:
+                        error_msg += "Payment mode name is required! "
+                    if item['payment_mode_name'] == "online_payment":
+                        if item.get('reference_no') is None:
+
+                            error_msg += "Reference number is required! "
+                        else:
+                            payment = Payment.objects.filter(reference_no = item['reference_no'])
+                            if payment.exists():
+                                error_msg += 'This referece number already exists. '
+
+                        if item.get('online_payment_type') is None:
+                            error_msg += "Online payment type is required! "
+
+                        reference_no = item.get('reference_no', None)#['reference_no']
+                        if reference_no:
+                            if not re.match("^[a-zA-Z0-9_]*$", reference_no):
+                                error_msg += 'Referece number can not have special character! '
+
+            if error_msg:
+                msg = {'is_success': False,
+                    'message': error_msg,
+                    'response_data': None }
+                return Response(msg,
+                                status=status.HTTP_406_NOT_ACCEPTABLE)
+
 
             with transaction.atomic():
                 if int(float(cash_collected)) > int(float(shipment.cash_to_be_collected())):

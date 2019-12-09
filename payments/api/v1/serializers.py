@@ -61,32 +61,32 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
             'online_payment_type', 'paid_by', 'payment_screenshot'
             ]  #"__all__"
 
-    def validate(self, data):
-        initial_data = self.initial_data
-        #import pdb; pdb.set_trace()
+    # def validate(self, data):
+    #     initial_data = self.initial_data
+    #     #import pdb; pdb.set_trace()
 
-        for item in initial_data:
-            if item.get('paid_amount') is None:
-                raise serializers.ValidationError("Paid amount is required!")
-            if item.get('payment_mode_name') is None:
-                raise serializers.ValidationError("Payment mode name is required!")
-            if item['payment_mode_name'] == "online_payment":
-                if item.get('reference_no') is None:
-                    raise serializers.ValidationError("Reference number is required!")
-                    # raise ValidationError("Reference number is required") 
-                else:
-                    payment = Payment.objects.filter(reference_no = item['reference_no'])
-                    if payment.exists():
-                        raise serializers.ValidationError('This referece number already exists.') 
+    #     for item in initial_data:
+    #         if item.get('paid_amount') is None:
+    #             raise serializers.ValidationError("Paid amount is required!")
+    #         if item.get('payment_mode_name') is None:
+    #             raise serializers.ValidationError("Payment mode name is required!")
+    #         if item['payment_mode_name'] == "online_payment":
+    #             if item.get('reference_no') is None:
+    #                 raise serializers.ValidationError("Reference number is required!")
+    #                 # raise ValidationError("Reference number is required") 
+    #             else:
+    #                 payment = Payment.objects.filter(reference_no = item['reference_no'])
+    #                 if payment.exists():
+    #                     raise serializers.ValidationError('This referece number already exists.') 
 
-                if item.get('online_payment_type') is None:
-                    raise serializers.ValidationError("Online payment type is required!")
+    #             if item.get('online_payment_type') is None:
+    #                 raise serializers.ValidationError("Online payment type is required!")
 
-                reference_no = item.get('reference_no', None)#['reference_no']
-                if reference_no:
-                    if not re.match("^[a-zA-Z0-9_]*$", reference_no):
-                        raise serializers.ValidationError('Referece number can not have special character!')
-        return data    
+    #             reference_no = item.get('reference_no', None)#['reference_no']
+    #             if reference_no:
+    #                 if not re.match("^[a-zA-Z0-9_]*$", reference_no):
+    #                     raise serializers.ValidationError('Referece number can not have special character!')
+    #     return data    
 
     # def create(self, validated_data):
         
