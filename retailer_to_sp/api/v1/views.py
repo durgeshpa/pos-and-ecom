@@ -905,8 +905,12 @@ class DownloadInvoiceSP(APIView):
             payment_type = a.order.rt_payment.last().payment_choice
         order_id= a.order.order_no
         shop_id = shop.order.buyer_shop.id
-        open_time=shop.order.buyer_shop.shop_timing.open_timing
-        close_time = shop.order.buyer_shop.shop_timing.closing_timing
+        try:
+            open_time=shop.order.buyer_shop.shop_timing.open_timing
+            close_time = shop.order.buyer_shop.shop_timing.closing_timing
+        except:
+            open_time=None
+            close_time=None
         no_of_crates = a.no_of_crates
         no_of_packets = a.no_of_packets
         no_of_sacks = a.no_of_sacks
