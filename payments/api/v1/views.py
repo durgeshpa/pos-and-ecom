@@ -152,6 +152,11 @@ def format_serializer_error(e):
             errors.append(result)
     return errors
 
+
+class CustomError(Exception):
+    pass
+
+
 # class ShipmentPaymentView(DataWrapperViewSet):
 class ShipmentPaymentView(viewsets.ModelViewSet):
     '''
@@ -289,6 +294,10 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                         processed_by = processed_by
                         )
                     if payment_mode_name == "online_payment":
+
+                        payment_ = Payment.objects.filter(reference_no=reference_no)
+                        if payment_.exists():
+                            raise CustomError('Duplicate reference number not allowed!') 
                         payment.reference_no = reference_no
                         payment.online_payment_type = online_payment_type
                     payment.save()

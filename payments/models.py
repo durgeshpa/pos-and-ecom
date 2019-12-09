@@ -201,12 +201,6 @@ class Payment(AbstractDateTime):
                 )          
 
     def clean(self):
-        if self.reference_no:
-            payment = Payment.objects.filter(reference_no = self.reference_no)
-            if self.id:
-                payment = payment.exclude(id=self.id)
-            if payment.exists():
-                raise ValidationError('This referece number already exists.')       
         if self.payment_mode_name != "cash_payment" and not self.reference_no:
             raise ValidationError('Referece number is required.')
         if self.reference_no and not re.match("^[a-zA-Z0-9_]*$", self.reference_no):

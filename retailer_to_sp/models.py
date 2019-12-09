@@ -1120,32 +1120,25 @@ class OrderedProduct(models.Model): #Shipment
 
     def payment_approval_status(self):
         payments = self.shipment_payment.all()
+        status = "-"
         for payment in payments:
+            status = "approved_and_verified"
             payment_status = payment.parent_order_payment.parent_payment.payment_approval_status
             if payment_status == "pending_approval":
                 return "pending_approval"
         else:
-            return  "approved_and_verified"
+            return  status
 
     def online_payment_approval_status(self):
         payments = self.shipment_payment.all().exclude(parent_order_payment__parent_payment__payment_mode_name="cash_payment")
-        # data = ""
-        # for payment in payments:
-        #     reference_number = payment.parent_order_payment.parent_payment.reference_no
-        #     payment_status = payment.parent_order_payment.parent_payment.payment_approval_status
-        #     if reference_number:
-        #         data += reference_number + " " + payment_status + "\n"
-        # if data:
-        #     return data
-        # else:
-        #     return "-"
+        if not payments.exists():
+            return "-"
         return format_html_join(
                 "","{} - {}<br><br>",
                         ((s.parent_order_payment.parent_payment.reference_no,
                             s.parent_order_payment.parent_payment.payment_approval_status
                         ) for s in payments)
                 )  
-
 
 
     def payments(self):
