@@ -831,6 +831,7 @@ class OrderedProductAdmin(admin.ModelAdmin):
         'order', 'invoice_no', 'trip', 'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks'
     )
     form = OrderedProductReschedule
+    ordering = ['-created_at']
 
     def download_invoice(self, obj):
         if obj.shipment_status == 'SHIPMENT_CREATED':
@@ -1001,7 +1002,7 @@ class ShipmentAdmin(admin.ModelAdmin):
         'trip__vehicle_no', 'trip__delivery_boy__phone_number']
     readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
     list_per_page = 50
-
+    ordering = ['-created_at']
 
     def has_delete_permission(self, request, obj=None):
         return False
