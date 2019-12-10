@@ -16,6 +16,9 @@ from django.db.models.signals import pre_save, post_save
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES,ERROR_MESSAGES
+from analytics.post_save_signal import get_category_product_report1, get_category_product_report3
+
+
 from coupon.models import Coupon
 
 SIZE_UNIT_CHOICES = (
@@ -190,7 +193,21 @@ class Product(models.Model):
     def getLoyaltyIncentive(self, seller_shop_id, buyer_shop_id):
         return 0
 
-    def getProductCoupons(self):
+import requests
+from decouple import config
+from celery.task import task
+
+
+# @task
+# def call_analytic_product_update(id):
+#     requests.post('http://127.0.0.1:8000/analytics/api/v1/product-category-report/', {'id':id})
+
+# @receiver(post_save, sender=Product)
+# def get_category_product_report1(sender, instance=None, created=True, **kwargs):
+#     # import pdb; pdb.set_trace()
+#     print("-------------------------------------------------------------------call post signal")
+#     call_analytic_product_update.delay(instance.id)
+def getProductCoupons(self):
         product_coupons = []
         date = datetime.datetime.now()
         for rules in self.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date):
@@ -201,7 +218,6 @@ class Product(models.Model):
         for x in brand_coupons:
             product_coupons.append(x.coupon_code)
         return product_coupons
-
 
 class ProductSKUGenerator(models.Model):
     parent_cat_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
@@ -338,6 +354,10 @@ class ProductPrice(models.Model):
     @property
     def sku_code(self):
         return self.product.product_sku
+
+# @receiver(post_save, sender=ProductPrice)
+# def get_category_product_report3(sender, instance=None, created=False, **kwargs):
+#     requests.post(config('REDSHIFT_URL')+'/analytics/api/v1/master-report/', data={'shop_id':instance.seller_shop.id})
 
 
 class ProductCategory(models.Model):
@@ -511,3 +531,7 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
         ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code,brand_sku_code=brand_sku_code,last_auto_increment=last_sku_increment)
         product.product_sku="%s%s%s%s"%(cat_sku_code,parent_cat_sku_code,brand_sku_code,last_sku_increment)
         product.save()
+
+# post_save.connect(get_category_product_report1, sender = Product)
+post_save.connect(get_category_product_report3, sender=ProductPrice)
+

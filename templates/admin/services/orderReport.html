@@ -1,0 +1,34 @@
+{% load i18n %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>GramFactory</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.css">
+
+  <script
+    src="https://code.jquery.com/jquery-3.2.1.js"
+    integrity="sha256-DZAnKJ/6XZ9si04Hgrsxu/8s717jcIzLy3oi35EouyE="
+    crossorigin="anonymous"></script>  {{ form.media }}
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+  <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
+
+
+</head>
+<body>
+
+{% block content %}
+  <h2>ORDER REPORT API</h2>
+  <p><strong>{{ id }}</strong>.</p>
+<p><strong>{{ invoice_id }}</strong></p>
+  <p><strong>{{ order_invoice }}</strong></p>
+<p><strong>{{ invoice_date }}</strong></p>
+<p><strong>{{ invoice_modified_at }}</strong></p>
+<p><strong>{{ invoice_last_modified_by }}</strong></p>
+{% endblock %}
+
+  </body>
+
+
+</html>
