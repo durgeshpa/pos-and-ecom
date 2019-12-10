@@ -712,9 +712,11 @@ class CommercialForm(forms.ModelForm):
         instance = getattr(self, 'instance', None)
         if instance.pk:
             # seperate screen for transferred: access only to finance team
-            if (instance.trip_status == 'TRANSFERRED' or
-                    instance.trip_status == 'CLOSED'):
-                self.fields['trip_status'].choices = TRIP_STATUS[-3:]
+            if (instance.trip_status == 'CLOSED'):
+                self.fields['trip_status'].choices = TRIP_STATUS[-2:]
+
+            if (instance.trip_status == 'TRANSFERRED'):
+                self.fields['trip_status'].choices = TRIP_STATUS[-1:]
             if instance.trip_status == 'TRANSFERRED':
                 for field_name in self.fields:
                     self.fields[field_name].disabled = True

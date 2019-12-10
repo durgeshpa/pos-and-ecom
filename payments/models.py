@@ -8,7 +8,7 @@ from django.utils.html import format_html_join, format_html
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator 
 from django.dispatch import receiver
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.postgres.fields import JSONField
@@ -319,6 +319,11 @@ class ShipmentPayment(AbstractDateTime):
         # if self.payment_utilised_excluding_current + self.paid_amount > self.parent_order_payment.paid_amount:
         #     error_msg = "Maximum amount to be utilised from parent order payment is " + str(self.parent_order_payment.paid_amount - self.payment_utilised_excluding_current)
         #     raise ValidationError(_(error_msg),)
+        cash_to_be_collected = self.shipment.cash_to_be_collected()
+        if cash_to_be_collected < self.paid_amount:
+            error_msg = "Maximum amount to be collected is " + str(cash_to_be_collected)
+            raise ValidationError(_(error_msg),)
+
         try:
             if float(self.payment_utilised_excluding_current) + float(self.paid_amount) > float(self.parent_order_payment.paid_amount):
                 error_msg = "Maximum amount to be utilised from parent order payment is " + str(self.parent_order_payment.paid_amount - self.payment_utilised_excluding_current)
@@ -525,3 +530,10 @@ def create_payment_id(sender, instance=None, created=False, **kwargs):
             instance.save()
         except:
             pass
+
+# @receiver(pre_save, sender=ShipmentPayment)
+# def check_max_shipment_payment(sender, instance=None, created=False, **kwargs):
+#     cash_to_be_collected = instance.shipment.cash_to_be_collected()
+#     if cash_to_be_collected < instance.paid_amount:
+#         error_msg = "Maximum amount to be collected is " + str(cash_to_be_collected)
+#         raise ValidationError(_(error_msg),)
