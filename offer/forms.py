@@ -75,7 +75,7 @@ class TopSKUForm(forms.ModelForm):
     shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type__in=['sp',]),
         widget=autocomplete.ModelSelect2(url='banner-shop-autocomplete', ),
-        required=True
+        required=False
     )
 
     product = forms.ModelChoiceField(required=True,
