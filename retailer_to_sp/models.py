@@ -1120,11 +1120,11 @@ class OrderedProduct(models.Model): #Shipment
                                     shop_name_address_mapping.filter(
                                                     address_type='billing'
                                                     ).last().pk)
-        if self.no_of_crates == '':
+        if self.no_of_crates == None:
             self.no_of_crates = 0
-        if self.no_of_packets == '':
+        if self.no_of_packets == None:
             self.no_of_packets = 0
-        if self.no_of_sacks == '':
+        if self.no_of_sacks == None:
             self.no_of_sacks = 0
         super().save(*args, **kwargs)
                 # Update Product Tax Mapping End
