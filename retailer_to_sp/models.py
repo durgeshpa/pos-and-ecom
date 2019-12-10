@@ -1046,12 +1046,6 @@ class OrderedProduct(models.Model): #Shipment
         if self.no_of_crates_check:
             if self.no_of_crates_check != self.no_of_crates:
                 raise ValidationError(_("The number of crates must be equal to the number of crates shipped during shipment"))
-        if self.no_of_crates == '':
-            self.no_of_crates = 0
-        if self.no_of_packets == '':
-            self.no_of_packets = 0
-        if self.no_of_sacks == '':
-            self.no_of_sacks = 0
 
     @property
     def shipment_weight(self):
@@ -1126,6 +1120,12 @@ class OrderedProduct(models.Model): #Shipment
                                     shop_name_address_mapping.filter(
                                                     address_type='billing'
                                                     ).last().pk)
+        if self.no_of_crates == '':
+            self.no_of_crates = 0
+        if self.no_of_packets == '':
+            self.no_of_packets = 0
+        if self.no_of_sacks == '':
+            self.no_of_sacks = 0
         super().save(*args, **kwargs)
                 # Update Product Tax Mapping End
 
