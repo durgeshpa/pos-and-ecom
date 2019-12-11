@@ -908,9 +908,6 @@ class DownloadInvoiceSP(APIView):
         try:
             open_time=shop.order.buyer_shop.shop_timing.open_timing
             close_time = shop.order.buyer_shop.shop_timing.closing_timing
-            if open_time or close_time=='midnight':
-                open_time='-'
-                close_time='-'
         except:
             open_time='-'
             close_time='-'
