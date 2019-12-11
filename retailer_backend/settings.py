@@ -100,17 +100,18 @@ INSTALLED_APPS = [
     'celerybeat_status',
     'django_elasticsearch_dsl',
 ]
-ELASTIC_APM = {
-  # Set required service name. Allowed characters:
-  # a-z, A-Z, 0-9, -, _, and space
-  'SERVICE_NAME': 'gramfactory',
+if ENVIRONMENT.lower()=='production':
+    ELASTIC_APM = {
+      # Set required service name. Allowed characters:
+      # a-z, A-Z, 0-9, -, _, and space
+      'SERVICE_NAME': 'gramfactory',
 
-  # Use if APM Server requires a token
-  'SECRET_TOKEN': '',
+      # Use if APM Server requires a token
+      'SECRET_TOKEN': '',
 
-  # Set custom APM Server URL (default: http://localhost:8200)
-  'SERVER_URL': 'http://13.234.240.93:8001',
-}
+      # Set custom APM Server URL (default: http://localhost:8200)
+      'SERVER_URL': 'http://13.234.240.93:8001',
+    }
 
 FCM_APIKEY = config('FCM_APIKEY')
 
