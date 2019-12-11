@@ -11,6 +11,7 @@ def update_redshift_data(lst):
         for j in lst:
             orderP = OrderedProduct.objects.filter(invoice_no=j).last()
             orders = [orderP.order]
+            seller_shop = orderP.order.seller_shop.shop_name
             order_details = {}
             i = 0
             for order in orders:
