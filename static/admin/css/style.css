@@ -43,6 +43,10 @@ width: 100%;
 div.barcode{
 float:right;
 
+.validate_highlight {
+    border-color: #f70000 !important;
+ }
+
 margin-top:-90px;
 right:10px;
 }
