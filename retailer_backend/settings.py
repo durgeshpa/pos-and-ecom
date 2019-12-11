@@ -101,6 +101,7 @@ INSTALLED_APPS = [
     'celerybeat_status',
     'django_elasticsearch_dsl',
 ]
+
 if ENVIRONMENT.lower() in ["production","qa"]:
     service_name = "gramfactory-{}".format(ENVIRONMENT)
     ELASTIC_APM = {
