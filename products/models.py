@@ -192,16 +192,16 @@ class Product(models.Model):
         return 0
 
     def getProductCoupons(self):
-            product_coupons = []
-            date = datetime.datetime.now()
-            for rules in self.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date):
-                for rule in rules.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte = date):
-                    product_coupons.append(rule.coupon_code)
-            parent_brand = self.product_brand.brand_parent.id if self.product_brand.brand_parent else None
-            brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date).filter(Q(rule__brand_ruleset__brand = self.product_brand.id)| Q(rule__brand_ruleset__brand = parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
-            for x in brand_coupons:
-                product_coupons.append(x.coupon_code)
-            return product_coupons
+        product_coupons = []
+        date = datetime.datetime.now()
+        for rules in self.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date):
+            for rule in rules.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte = date):
+                product_coupons.append(rule.coupon_code)
+        parent_brand = self.product_brand.brand_parent.id if self.product_brand.brand_parent else None
+        brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date).filter(Q(rule__brand_ruleset__brand = self.product_brand.id)| Q(rule__brand_ruleset__brand = parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
+        for x in brand_coupons:
+            product_coupons.append(x.coupon_code)
+        return product_coupons
 
 class ProductSKUGenerator(models.Model):
     parent_cat_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
