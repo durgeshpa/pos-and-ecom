@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'allauth',
     'allauth.account',
     'rest_auth.registration',
+    'elasticapm.contrib.django',
     'accounts',
     'otp',
     'api',
@@ -99,6 +100,17 @@ INSTALLED_APPS = [
     'celerybeat_status',
     'django_elasticsearch_dsl',
 ]
+ELASTIC_APM = {
+  # Set required service name. Allowed characters:
+  # a-z, A-Z, 0-9, -, _, and space
+  'SERVICE_NAME': 'gramfactory',
+
+  # Use if APM Server requires a token
+  'SECRET_TOKEN': '',
+
+  # Set custom APM Server URL (default: http://localhost:8200)
+  'SERVER_URL': 'http://13.234.240.93:8001',
+}
 
 FCM_APIKEY = config('FCM_APIKEY')
 
@@ -120,6 +132,7 @@ MIDDLEWARE += [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'accounts.middlewares.RequestMiddleware',
+    'elasticapm.contrib.django.middleware.TracingMiddleware'
 ]
 
 ROOT_URLCONF = 'retailer_backend.urls'
@@ -397,8 +410,8 @@ LOGGING = {
         'logstash': {
             'level': 'ERROR',
             'class': 'logstash.TCPLogstashHandler',
-            'host': '35.154.13.198',
-            'port': 5010, # Default value: 5959
+            'host': '13.234.240.93',
+            'port': 8002, # Default value: 5959
             'version': 1, # Version of logstash event schema. Default value: 0 (for backward compatibility of the library)
             'message_type': 'django',  # 'type' field in logstash message. Default value: 'logstash'.
             'fqdn': False, # Fully qualified domain name. Default value: false.
