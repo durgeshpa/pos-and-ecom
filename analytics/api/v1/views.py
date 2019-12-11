@@ -211,6 +211,8 @@ class OrderReport(CreateAPIView):
                         # product_value_tax_included = products.product.product_pro_price.filter(status=True, seller_shop = seller_shop)
                         # for i in product_value_tax_included:
                         #     price_to_retailer=i.price _to_retailer
+                        product_mrp = products.product.getMRP(seller_shop.id, order.buyer_shop.id)
+                        product_value_tax_included = products.product.getRetailerPrice(seller_shop.id,order.buyer_shop.id)
                         if products.product.product_pro_tax.filter(tax__tax_type ='gst').exists():
                             product_gst = products.product.product_pro_tax.filter(tax__tax_type ='gst').last()
                         if order.shipping_address.state == order.seller_shop.shop_name_address_mapping.filter(address_type='shipping').last().state:
@@ -254,7 +256,7 @@ class OrderReport(CreateAPIView):
                         invoice_status = invoice_status, order_id = order_id, seller_shop = seller_shop,  order_status = order_status,
                         order_date = order_date, order_modified_at = order_modified_at,  order_by = order_by, retailer_id = retailer_id,
                         retailer_name =retailer_name, pin_code = pin_code, product_id = product_id, product_name = product_name,
-                        product_brand = product_brand,ordered_sku_pieces = ordered_sku_pieces,  shipped_sku_pieces = shipped_sku_pieces, delivered_sku_pieces = delivered_sku_pieces,
+                        product_brand = product_brand,product_mrp=product_mrp,product_value_tax_included=product_value_tax_included,ordered_sku_pieces = ordered_sku_pieces,  shipped_sku_pieces = shipped_sku_pieces, delivered_sku_pieces = delivered_sku_pieces,
                         returned_sku_pieces = returned_sku_pieces, damaged_sku_pieces = damaged_sku_pieces, product_cgst = product_cgst,
                         product_sgst = product_sgst, product_igst = product_igst, product_cess = product_cess, sales_person_name = sales_person_name,
                         order_type = order_type, campaign_name = campaign_name, discount = discount)
