@@ -27,7 +27,7 @@ from django.db.models import Q
 from common.data_wrapper_view import DataWrapperViewSet
 
 from .serializers import ShipmentPaymentSerializer, CashPaymentSerializer, \
-    ShipmentPaymentSerializer1, ShipmentPaymentSerializer2, OrderPaymentSerializer, \
+    ReadShipmentPaymentSerializer, ShipmentPaymentSerializer2, OrderPaymentSerializer, \
     PaymentImageSerializer
 from accounts.models import UserWithName
 from retailer_to_sp.models import OrderedProduct
@@ -177,8 +177,8 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
         Returns the serializer according to action of viewset
         '''
         serializer_action_classes = {
-            'retrieve': ShipmentPaymentSerializer1,
-            'list':ShipmentPaymentSerializer1,
+            'retrieve': ReadShipmentPaymentSerializer,
+            'list':ReadShipmentPaymentSerializer,
             'create':ShipmentPaymentSerializer,
             'update':ShipmentPaymentSerializer
         }
@@ -479,11 +479,12 @@ class OrderPaymentView(viewsets.ModelViewSet):
                             status=status.HTTP_406_NOT_ACCEPTABLE)
 
 
-class PaymentImageUploadView(ListCreateAPIView):
+class PaymentImageUploadView(ListCreateAPIView, RetrieveUpdateDestroyAPIView):
     serializer_class = PaymentImageSerializer
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
     parser_classes = (FormParser, MultiPartParser)
+    lookup_field = 'pk'
 
     def get_queryset(self):
         queryset = PaymentImage.objects.filter(user=self.request.user)
@@ -526,3 +527,27 @@ class PaymentImageUploadView(ListCreateAPIView):
                 'response_data': serializer.data}
         return Response(msg,
                         status=status.HTTP_200_OK)
+
+    def delete(self, request, *args, **kwargs):
+        
+      # return self.destroy(request, *args, **kwargs)
+
+        try:            
+            image = PaymentImage.objects.filter(pk=kwargs['pk'])
+            if image.exists():
+                image.delete()
+                text = "Image deleted successfully!"
+            else:
+                text = "Image not found"
+            msg = {'is_success': True,
+                    'message': [text],
+                    'response_data': None}
+            return Response(msg,
+                            status=status.HTTP_200_OK)
+
+        except Exception as e:
+            msg = {'is_success': False,
+                'message': [str(e)],
+                'response_data': None }
+            return Response(msg,
+                            status=status.HTTP_406_NOT_ACCEPTABLE)

@@ -61,83 +61,6 @@ class ShipmentPaymentSerializer(serializers.ModelSerializer):
             'online_payment_type', 'paid_by', 'payment_screenshot'
             ]  #"__all__"
 
-    # def validate(self, data):
-    #     initial_data = self.initial_data
-    #     #import pdb; pdb.set_trace()
-
-    #     for item in initial_data:
-    #         if item.get('paid_amount') is None:
-    #             raise serializers.ValidationError("Paid amount is required!")
-    #         if item.get('payment_mode_name') is None:
-    #             raise serializers.ValidationError("Payment mode name is required!")
-    #         if item['payment_mode_name'] == "online_payment":
-    #             if item.get('reference_no') is None:
-    #                 raise serializers.ValidationError("Reference number is required!")
-    #                 # raise ValidationError("Reference number is required") 
-    #             else:
-    #                 payment = Payment.objects.filter(reference_no = item['reference_no'])
-    #                 if payment.exists():
-    #                     raise serializers.ValidationError('This referece number already exists.') 
-
-    #             if item.get('online_payment_type') is None:
-    #                 raise serializers.ValidationError("Online payment type is required!")
-
-    #             reference_no = item.get('reference_no', None)#['reference_no']
-    #             if reference_no:
-    #                 if not re.match("^[a-zA-Z0-9_]*$", reference_no):
-    #                     raise serializers.ValidationError('Referece number can not have special character!')
-    #     return data    
-
-    # def create(self, validated_data):
-        
-    #     # try:
-    #     #with transaction.atomic():
-    #     #import pdb; pdb.set_trace()
-    #     shipment = validated_data.pop('shipment', None)
-    #     paid_amount = validated_data.pop('paid_amount', None)
-    #     payment_mode_name = validated_data.pop('payment_mode_name', None)
-        
-    #     reference_no = validated_data.pop('reference_no', None)
-    #     online_payment_type = validated_data.pop('online_payment_type', None)
-    #     description = validated_data.pop('description', None)
-
-    #     # create payment
-    #     payment = Payment.objects.create(
-    #         paid_amount = paid_amount,
-    #         payment_mode_name = payment_mode_name,
-    #         )
-    #     if payment_mode_name == "online_payment":
-    #         # if reference_no is None:
-    #         #     raise serializers.ValidationError("Reference number is required!")
-    #         #     # raise ValidationError("Reference number is required") 
-    #         # if online_payment_type is None:
-    #         #     raise serializers.ValidationError("Online payment type is required!")
-
-    #         payment.reference_no = reference_no
-    #         payment.online_payment_type = online_payment_type
-    #     payment.save()
-
-    #     # create order payment
-    #     shipment = OrderedProduct.objects.get(pk=shipment)
-    #     order_payment = OrderPayment.objects.create(
-    #         paid_amount = paid_amount,
-    #         parent_payment = payment,
-    #         order = shipment.order
-    #         )
-        
-    #     # create shipment payment
-    #     shipment_payment = ShipmentPayment.objects.create(
-    #         paid_amount = paid_amount,
-    #         parent_order_payment = order_payment,
-    #         shipment = shipment
-    #         )
-        
-    #     return shipment_payment
-    #     # except Exception as e:
-    #     #     print (traceback.format_exc(sys.exc_info()))
-    #     #     raise serializers.ValidationError(e.message)        
-    
-
 
 
 class ShipmentPaymentSerializer2(serializers.Serializer):
@@ -160,7 +83,7 @@ class ShipmentPaymentSerializer2(serializers.Serializer):
         s = ShipmentPaymentSerializer(initial_data=payment_data)
 
 
-class ShipmentPaymentSerializer1(serializers.ModelSerializer):
+class ReadShipmentPaymentSerializer(serializers.ModelSerializer):
     #parent_order_payment = OrderPaymentSerializer()
     payment_mode_name = serializers.SerializerMethodField()
     reference_no = serializers.SerializerMethodField()
@@ -204,35 +127,6 @@ class ShipmentPaymentSerializer1(serializers.ModelSerializer):
             return payment_data[1]
             #return obj.parent_order_payment.parent_payment.online_payment_type
          
-    # def validate(self, data):
-    #     initial_data = self.initial_data
-    #     reference_no = initial_data['reference_no']
-    #     if not re.match("^[a-zA-Z0-9_]*$", reference_no):
-    #         raise serializers.ValidationError('Referece number can not have special character!')
-    #     return initial_data  
-
-    # def create(self, validated_data):
-    #     # import pdb; pdb.set_trace()
-    #     parent_order_payment = validated_data.pop('parent_order_payment')
-    #     shipment = validated_data.pop('shipment')
-    #     paid_amount = validated_data.pop('paid_amount')
-    #     description = validated_data.pop('description')
-    #     try:
-    #         with transaction.atomic(): #for roll back if any exception occur
-    #             # if payment data contains id then update else create
-    #             parent_order_payment_inst, created = OrderPayment.objects.update_or_create(**parent_order_payment)
-    #             parent_order_payment_inst.save()
-    #             # create or update shipment payment instance
-    #             shipment_payment, created = ShipmentPayment.objects.update_or_create(
-    #                 parent_order_payment=parent_order_payment_inst,
-    #                 shipment = shipment)
-    #             shipment_payment.paid_amount = paid_amount
-    #             shipment_payment.description = description
-    #             shipment_payment.save()
-    #             return shipment_payment
-    #     except Exception as e:
-    #         raise serializers.ValidationError(str(e))
-
 
 class OrderPaymentSerializer(serializers.ModelSerializer):
     payment_mode_name = serializers.CharField(max_length=50)
