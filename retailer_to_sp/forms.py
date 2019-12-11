@@ -485,7 +485,13 @@ class TripForm(forms.ModelForm):
             else:
                 for field_name in self.fields:
                     self.fields[field_name].disabled = True
-                self.fields['trip_status'].choices = TRIP_STATUS[1:2]
+                if trip_status == 'CLOSED':
+                    self.fields['trip_status'].choices = TRIP_STATUS[4:5] #"CLOSED"
+                elif trip_status == 'TRANSFERRED':
+                    self.fields['trip_status'].choices = TRIP_STATUS[5:] #"CLOSED"    
+                else:                            
+                    self.fields['trip_status'].choices = TRIP_STATUS[1:2]
+                #self.fields['trip_status'].choices = TRIP_STATUS[1:2]
         else:
             self.fields['trip_status'].initial = 'READY'
             fields = ['trip_status', 'e_way_bill_no']
