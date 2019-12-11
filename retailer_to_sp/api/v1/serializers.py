@@ -336,7 +336,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CartProductMapping
-        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg', 'is_available','no_of_pieces','product_sub_total', 'product_coupons', 'margin')
+        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg', 'capping_error_msg', 'is_available','no_of_pieces','product_sub_total', 'product_coupons', 'margin')
 
 
 class CartSerializer(serializers.ModelSerializer):
@@ -847,7 +847,7 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
         fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
                   'shipment_address', 'invoice_city', 'invoice_amount',
                   'created_at', 'cash_to_be_collected', 'shipment_weight')
-        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 
+        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount',
             'shipment_weight','cash_to_be_collected')
 
 class FeedBackSerializer(serializers.ModelSerializer):

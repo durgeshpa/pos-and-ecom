@@ -414,15 +414,14 @@ class AddToCart(APIView):
             #  if shop mapped with SP
 
             if parent_mapping.parent.shop_type.shop_type == 'sp':
-                import pdb; pdb.set_trace()
                 ordered_qty = 0
                 product = Product.objects.get(id = cart_product)
                 capping = product.get_current_shop_capping(parent_mapping.parent, parent_mapping.retailer)
                 capping_start_date = capping.start_date
                 capping_end_date = capping.end_date
-                capping_range_orders = Order.objects.filter(buyer_shop = parent_mapping.retailer, created_at__date__gte = capping_start_date, created_at__date__lte = capping_end_date)
+                capping_range_orders = Order.objects.filter(buyer_shop = parent_mapping.retailer, created_at__gte = capping_start_date, created_at__lte = capping_end_date)
                 for order in capping_range_orders:
-                    ordered_qty += order.rt_cart_list.aggregate(value=Sum(F('qty')['value'])
+                    ordered_qty += order.rt_cart_list.filter(cart_product = product).aggregate(value=Sum(F('qty')['value']))
 
                 if Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
                                        cart_status__in=['active', 'pending']).exists():
@@ -438,14 +437,20 @@ class AddToCart(APIView):
                     cart.buyer_shop = parent_mapping.retailer
                     cart.save()
 
-                if int(qty) == 0:
-                    if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
-                        CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
+                if capping.capping_qty < ordered_qty:
+                    cart_product.update(capping_error_msg = '')
+                    if int(qty) == 0:
+                        if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
+                            CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
 
+                    else:
+                        cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
+                        cart_mapping.qty = qty
+                        cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
+                        cart_mapping.save()
                 else:
                     cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
-                    cart_mapping.qty = qty
-                    cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
+                    cart_mapping.capping_error_msg = 'Raj Shekhar Singh'
                     cart_mapping.save()
 
 
