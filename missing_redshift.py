@@ -78,7 +78,7 @@ def update_redshift_data(lst):
                     if shipment and shipment.trip:
                         trip = shipment.trip.dispatch_no
                         trip_id = shipment.trip.id
-                        trip_status = shipment.trip_status
+                        trip_status = shipment.trip.trip_status
                         delivery_boy = shipment.trip.delivery_boy
                         trip_created_at = shipment.trip.created_at
                     OrderDetailReportsData.objects.using('gfanalytics').create(invoice_id=invoice_id,
