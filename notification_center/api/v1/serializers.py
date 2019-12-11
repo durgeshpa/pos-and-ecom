@@ -32,7 +32,6 @@ class DeviceSerializer(serializers.ModelSerializer):
         return device
 
 
-
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
