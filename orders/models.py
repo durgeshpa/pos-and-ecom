@@ -32,8 +32,8 @@ class Cart(BaseModel):
 		(INCOMPLETE, "Incomplete"),
 		(ORDER_CREATED, "Order Created")
 	)
-	buyer = models.ForeignKey(Shop, related_name="shoping_cart", on_delete=models.SET_NULL)
-	supplier = models.ForeignKey(Shop, related_name="shoping_cart", on_delete=models.SET_NULL)
+	buyer = models.ForeignKey(Shop, related_name="shoping_cart", on_delete=models.DO_NOTHING)
+	supplier = models.ForeignKey(Shop, related_name="shoping_cart", on_delete=models.DO_NOTHING)
 	cart_item = models.ManyToManyField(Product, through='CartProductMapping')
 	cart_user = models.ForeignKey(get_user_model(), null=, blank=True, on_delete=models.CASCADE)
 	cart_status = models.CharField(max_length=3, choices=ORDER_STATUS,null=True,blank=True)
@@ -90,7 +90,7 @@ class Order(BaseModel):
 		(CANCELLED, "Order Cancelled"),
 	)
 	order_number = models.CharField(max_length=100, null=True, blank=True)
-	cart = models.ForeignKey(Cart, on_delete=models.SET_NULL)
+	cart = models.ForeignKey(Cart, on_delete=models.DO_NOTHING)
     order_status = models.CharField(max_length=200,choices=ORDER_STATUS,null=True,blank=True)
 
 

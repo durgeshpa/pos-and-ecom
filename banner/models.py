@@ -9,7 +9,7 @@ from brand.models import Brand
 from products.models import Product
 from django.core.exceptions import ValidationError
 from shops.models import Shop
-
+from addresses.models import City,Pincode
 # Create your models here.
 
 class Banner(models.Model):
@@ -80,9 +80,12 @@ class BannerSlot(models.Model):
 
 
 class BannerPosition(SortableMixin):
-    shop = models.ForeignKey(Shop,blank=True, on_delete=models.CASCADE, null=True)
+    shop = models.ForeignKey(Shop,blank=True, on_delete=models.DO_NOTHING, null=True, verbose_name='Seller Shop')
     page = models.ForeignKey(Page,on_delete=models.CASCADE, null=True)
-    bannerslot = models.ForeignKey(BannerSlot,max_length=255, null=True, on_delete=models.CASCADE)
+    bannerslot = models.ForeignKey(BannerSlot,max_length=255, null=True, on_delete=models.DO_NOTHING)
+    city = models.ManyToManyField(City, related_name='city_banner', blank=True)
+    pincode = models.ManyToManyField(Pincode, related_name='pincode_banner', blank=True)
+    buyer_shop = models.ManyToManyField(Shop, related_name='buyer_shop_banner', blank=True)
     banner_position_order = models.PositiveIntegerField(default=0,editable=False, db_index=True)
 
     def __str__(self):
@@ -92,6 +95,16 @@ class BannerPosition(SortableMixin):
         ordering = ['banner_position_order']
         verbose_name = _("Banner Position")
         verbose_name_plural = _("Banner Positions")
+
+    def city_list(self):
+        return ", ".join([c.city_name for c in self.city.all()])
+
+    def pincode_list(self):
+        return ", ".join([p.pincode for p in self.pincode.all()])
+
+    def buyer_shop_list(self):
+        return ", ".join([b.shop_name for b in self.buyer_shop.all()])
+
 
 class BannerData(SortableMixin):
     slot = SortableForeignKey(BannerPosition,related_name='ban_data',on_delete=models.CASCADE)

@@ -16,6 +16,8 @@ from django.db.models.signals import pre_save, post_save
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES,ERROR_MESSAGES
+from analytics.post_save_signal import get_category_product_report1, get_category_product_report3
+from coupon.models import Coupon
 
 SIZE_UNIT_CHOICES = (
         ('mm', 'Millimeter'),
@@ -25,11 +27,11 @@ SIZE_UNIT_CHOICES = (
     )
 
 WEIGHT_UNIT_CHOICES = (
-        ('kg', 'Kilogram'),
+        #('kg', 'Kilogram'),
         ('gm', 'Gram'),
-        ('mg', 'Milligram'),
-        ('l', 'Litre'),
-        ('ml', 'Milliliter'),
+        # ('mg', 'Milligram'),
+        # ('l', 'Litre'),
+        # ('ml', 'Milliliter'),
     )
 
 class Size(models.Model):
@@ -123,6 +125,8 @@ class Product(models.Model):
     product_brand = models.ForeignKey(Brand,related_name='prodcut_brand_product',blank=False,on_delete=models.CASCADE)
     product_inner_case_size = models.CharField(max_length=255,blank=False, default=1)
     product_case_size = models.CharField(max_length=255,blank=False)
+    weight_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    weight_unit = models.CharField(max_length=255, validators=[UnitNameValidator],choices=WEIGHT_UNIT_CHOICES, default = 'gm')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
@@ -164,6 +168,10 @@ class Product(models.Model):
         if product_price.count() > 1:
             product_price = product_price.filter(
                 buyer_shop_id=buyer_shop_id)
+        if not product_price:
+            product_price = self.product_pro_price.filter(seller_shop_id=seller_shop_id, approval_status=ProductPrice.APPROVED, start_date__lte=today, end_date__gte=today).order_by('start_date')
+        if not product_price:
+            return None
         return product_price.last()
 
     def getPriceByShopId(self, seller_shop_id, buyer_shop_id):
@@ -183,6 +191,17 @@ class Product(models.Model):
     def getLoyaltyIncentive(self, seller_shop_id, buyer_shop_id):
         return 0
 
+    def getProductCoupons(self):
+            product_coupons = []
+            date = datetime.datetime.now()
+            for rules in self.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date):
+                for rule in rules.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte = date):
+                    product_coupons.append(rule.coupon_code)
+            parent_brand = self.product_brand.brand_parent.id if self.product_brand.brand_parent else None
+            brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date).filter(Q(rule__brand_ruleset__brand = self.product_brand.id)| Q(rule__brand_ruleset__brand = parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
+            for x in brand_coupons:
+                product_coupons.append(x.coupon_code)
+            return product_coupons
 
 class ProductSKUGenerator(models.Model):
     parent_cat_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
@@ -251,7 +270,7 @@ class ProductPrice(models.Model):
         return "%s - %s" % (self.product.product_name, self.selling_price)
 
     def validate(self, exception_type):
-        if self.selling_price > self.mrp:
+        if self.selling_price and self.selling_price > self.mrp:
             raise exception_type(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
 
     def clean(self):
@@ -493,4 +512,6 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
         product.product_sku="%s%s%s%s"%(cat_sku_code,parent_cat_sku_code,brand_sku_code,last_sku_increment)
         product.save()
 
+# post_save.connect(get_category_product_report1, sender = Product)
+post_save.connect(get_category_product_report3, sender=ProductPrice)
 

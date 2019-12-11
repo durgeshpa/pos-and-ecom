@@ -9,7 +9,7 @@ from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Sum, Q
 import logging
 
@@ -24,6 +24,7 @@ from retailer_backend.common_function import (
 )
 from sp_to_gram.tasks import update_shop_product_es
 logger = logging.getLogger(__name__)
+from dateutil.relativedelta import relativedelta
 
 
 ORDER_STATUS = (
@@ -199,7 +200,7 @@ class OrderedProduct(models.Model): #GRN
         super(OrderedProduct, self).save()
 
 class OrderedProductMapping(models.Model): #GRN Product
-    shop = models.ForeignKey(Shop, related_name='shop_grn_list', null=True, blank=True, on_delete=models.SET_NULL)
+    shop = models.ForeignKey(Shop, related_name='shop_grn_list', null=True, blank=True, on_delete=models.DO_NOTHING)
     ordered_product = models.ForeignKey(OrderedProduct,related_name='sp_order_product_order_product_mapping',null=True,blank=True,on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='sp_product_order_product',null=True,blank=True, on_delete=models.CASCADE)
     manufacture_date = models.DateField(null=True, blank=True)
@@ -399,15 +400,16 @@ class StockAdjustmentMapping(models.Model):
 
 @receiver(post_save, sender=OrderedProductMapping)
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
-    db_available_products = instance.get_product_availability(instance.shop, instance.product)
-    products_available = db_available_products.aggregate(Sum('available_qty'))['available_qty__sum']
-    if products_available and products_available > int(instance.product.product_inner_case_size):
-        product_status = True
-    else:
-        product_status = False
-        products_available = 0
-    update_shop_product_es.delay(instance.shop.id, instance.product.id, available=products_available, status=product_status)
-
+    def start_updation():
+        db_available_products = instance.get_product_availability(instance.shop, instance.product)
+        products_available = db_available_products.aggregate(Sum('available_qty'))['available_qty__sum']
+        if products_available and products_available > int(instance.product.product_inner_case_size):
+            product_status = True
+        else:
+            product_status = False
+            products_available = 0
+        update_shop_product_es.delay(instance.shop.id, instance.product.id, available=products_available, status=product_status)
+    transaction.on_commit(start_updation)
 
 @receiver(pre_save, sender=SpNote)
 def create_brand_note_id(sender, instance=None, created=False, **kwargs):
@@ -436,8 +438,8 @@ def create_brand_note_id(sender, instance=None, created=False, **kwargs):
 def create_credit_note(instance=None, created=False, **kwargs):
     if created:
         return None
-    if(instance.rt_order_product_order_product_mapping.last() and 
-    instance.rt_order_product_order_product_mapping.all().aggregate(Sum('returned_qty')).get('returned_qty__sum') > 0 or 
+    if(instance.rt_order_product_order_product_mapping.last() and
+    instance.rt_order_product_order_product_mapping.all().aggregate(Sum('returned_qty')).get('returned_qty__sum') > 0 or
     instance.rt_order_product_order_product_mapping.all().aggregate(Sum('damaged_qty')).get('damaged_qty__sum')>0):
         invoice_prefix = instance.order.seller_shop.invoice_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
         last_credit_note = CreditNote.objects.filter(shop=instance.order.seller_shop, status=True).order_by('credit_note_id').last()
@@ -472,6 +474,9 @@ def create_credit_note(instance=None, created=False, **kwargs):
         credit_grn = OrderedProduct.objects.create(credit_note=credit_note)
         credit_grn.save()
 
+        manufacture_date = datetime.date.today() - relativedelta(months=+1)
+        expiry_date = datetime.date.today() + relativedelta(months=+6)
+
         for item in instance.rt_order_product_order_product_mapping.all():
             reserved_order = OrderedProductReserved.objects.filter(cart=instance.order.ordered_cart,
                                                                  product=item.product, reserve_status=OrderedProductReserved.ORDERED).last()
@@ -484,13 +489,13 @@ def create_credit_note(instance=None, created=False, **kwargs):
                 damaged_qty=item.damaged_qty,
                 ordered_qty = item.returned_qty,
                 delivered_qty = item.returned_qty,
-                manufacture_date= reserved_order.order_product_reserved.manufacture_date,
-                expiry_date= reserved_order.order_product_reserved.expiry_date,
+                manufacture_date= reserved_order.order_product_reserved.manufacture_date if reserved_order else manufacture_date,
+                expiry_date= reserved_order.order_product_reserved.expiry_date if reserved_order else expiry_date,
                 )
             grn_item.save()
             try:
                 cart_product_map = instance.order.ordered_cart.rt_cart_list.filter(cart_product=item.product).last()
-                credit_amount += (Decimal(item.returned_qty)+Decimal(item.damaged_qty)) * cart_product_map.get_cart_product_price(instance.order.seller_shop, instance.order.buyer_shop).selling_price
+                credit_amount += ((item.returned_qty + item.damaged_qty) * cart_product_map.item_effective_prices)
             except Exception as e:
                 logger.exception("Product price not found for {} -- {}".format(item.product, e))
                 credit_amount += Decimal(item.returned_qty) * item.product.product_pro_price.filter(

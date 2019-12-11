@@ -3,9 +3,11 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 
+from retailer_backend.validators import (NameValidator, AddressNameValidator,
+        MobileNumberValidator, PinCodeValidator)
 from fcm.models import AbstractDevice
 
-from addresses.models import City
+from addresses.models import City, Pincode
 
 #from accounts.models import User
 #from shops.models import Shop
@@ -54,7 +56,7 @@ class Template(models.Model):
         max_length=255
     )
     
-    notification_groups = models.ManyToManyField(Group) 
+    notification_groups = models.ManyToManyField(Group, blank=True) 
     # to be mapped to a order
     #location = models.ForeignKey(City)
 
@@ -117,6 +119,7 @@ class Template(models.Model):
 
     class Meta:
         ordering = ['name']
+        unique_together = (("name", "type"),)
 
     def __str__(self):
         return '%s-%s' % (self.name, self.get_type_display())
@@ -179,6 +182,7 @@ class Notification(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        unique_together = (("user", "template"),)
 
     def __str__(self):
         return '%s-%s' % (self.user, self.pk)
@@ -225,24 +229,17 @@ class NotificationScheduler(models.Model):
         return '%s-%s-%s' % (self.user, self.template, self.pk)
         
 
+
 class GroupNotificationScheduler(models.Model):
 
-    SELECTION_TYPE_CHOICES = (
-        ('shop', 'shop'),
-        ('user', 'user'),
-        ('last_login', 'last_login'),
-        ('last_order', 'last_order'),
-    )
-
-    selection_type = models.TextField(choices=SELECTION_TYPE_CHOICES, max_length=255, default='user')
-
-    # user = models.ManyToManyField()
-    # shop = models.ManyToManyField()
-
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
-    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, null=True, blank=True)
-    last_login = models.DateField(null=True, blank=True)
-    last_order = models.DateField(null=True, blank=True)
+    seller_shop = models.ForeignKey(Shop, related_name='notification_seller_shop', 
+                    on_delete=models.CASCADE, null=True, blank=True)
+    city = models.ForeignKey(City, related_name='notification_city', on_delete=models.CASCADE,
+                    null=True, blank=True)
+    pincode = models.ManyToManyField(Pincode, related_name='notification_pincodes',
+                    blank=True)
+    buyer_shops = models.ManyToManyField(Shop, related_name='notification_shops',
+                    blank=True)
 
     template = models.ForeignKey(
         Template,
@@ -250,7 +247,7 @@ class GroupNotificationScheduler(models.Model):
         on_delete=models.CASCADE,
     )
 
-    run_at = models.DateTimeField(db_index=True)
+    run_at = models.DateTimeField(db_index=True, null=True, blank=True)
 
     # Repeat choices are encoded as number of seconds
     # The repeat implementation is based on this encoding
@@ -276,7 +273,7 @@ class GroupNotificationScheduler(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return '%s-%s-%s' % (self.user, self.template, self.pk)
+        return '%s-%s' % (self.template, self.pk)
 
 
 
@@ -372,7 +369,7 @@ class EmailActivity(models.Model):
 
 
 class GCMActivity(models.Model):
-    notification = models.OneToOneField(
+    notification = models.ForeignKey(
         Notification,
         on_delete=models.CASCADE,
     )
@@ -388,7 +385,8 @@ class GCMActivity(models.Model):
         return '%s' % self.notification
 
     # adding extra field to show alert status from template
+    @property
     def gcm_alert(self):
         return self.notification.template.gcm_alert
     # for boolean into images
-    gcm_alert.boolean = True
+    # gcm_alert.boolean = True
