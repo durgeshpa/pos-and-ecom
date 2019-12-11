@@ -16,7 +16,6 @@ from django.db.models.signals import pre_save, post_save
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES,ERROR_MESSAGES
-from analytics.post_save_signal import get_category_product_report1, get_category_product_report3
 from coupon.models import Coupon
 
 SIZE_UNIT_CHOICES = (
@@ -202,6 +201,7 @@ class Product(models.Model):
         for x in brand_coupons:
             product_coupons.append(x.coupon_code)
         return product_coupons
+
 
 class ProductSKUGenerator(models.Model):
     parent_cat_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
@@ -511,7 +511,3 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
         ProductSKUGenerator.objects.create(cat_sku_code=cat_sku_code,parent_cat_sku_code=parent_cat_sku_code,brand_sku_code=brand_sku_code,last_auto_increment=last_sku_increment)
         product.product_sku="%s%s%s%s"%(cat_sku_code,parent_cat_sku_code,brand_sku_code,last_sku_increment)
         product.save()
-
-# post_save.connect(get_category_product_report1, sender = Product)
-post_save.connect(get_category_product_report3, sender=ProductPrice)
-
