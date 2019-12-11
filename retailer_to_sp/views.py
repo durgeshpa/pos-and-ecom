@@ -259,24 +259,24 @@ def ordered_product_mapping_shipment(request):
         form = OrderedProductForm(request.POST)
         if form.is_valid() and form_set.is_valid():
             try:
-                with transaction.atomic():
-                    shipment = form.save()
-                    # shipment.shipment_status = 'SHIPMENT_CREATED'
-                    # shipment.save()
-                    for forms in form_set:
-                        if forms.is_valid():
-                            to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
-                            product_name = forms.cleaned_data.get('product')
-                            if to_be_ship_qty:
-                                formset_data = forms.save(commit=False)
-                                formset_data.ordered_product = shipment
-                                max_pieces_allowed = int(formset_data.ordered_qty) - int(
-                                    formset_data.shipped_qty_exclude_current)
-                                if max_pieces_allowed < int(to_be_ship_qty):
-                                    raise Exception(
-                                        '{}: Max Qty allowed is {}'.format(product_name, max_pieces_allowed))
-                                formset_data.save()
-                    update_reserved_order.delay(json.dumps({'shipment_id': shipment.id}))
+                # with transaction.atomic():
+                shipment = form.save()
+                # shipment.shipment_status = 'SHIPMENT_CREATED'
+                # shipment.save()
+                for forms in form_set:
+                    if forms.is_valid():
+                        to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
+                        product_name = forms.cleaned_data.get('product')
+                        if to_be_ship_qty:
+                            formset_data = forms.save(commit=False)
+                            formset_data.ordered_product = shipment
+                            max_pieces_allowed = int(formset_data.ordered_qty) - int(
+                                formset_data.shipped_qty_exclude_current)
+                            if max_pieces_allowed < int(to_be_ship_qty):
+                                raise Exception(
+                                    '{}: Max Qty allowed is {}'.format(product_name, max_pieces_allowed))
+                            formset_data.save()
+                update_reserved_order.delay(json.dumps({'shipment_id': shipment.id}))
                 return redirect('/admin/retailer_to_sp/shipment/')
 
             except Exception as e:

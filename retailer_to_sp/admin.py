@@ -831,6 +831,7 @@ class OrderedProductAdmin(admin.ModelAdmin):
         'order', 'invoice_no', 'trip', 'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks'
     )
     form = OrderedProductReschedule
+    ordering = ['-created_at']
 
     def download_invoice(self, obj):
         if obj.shipment_status == 'SHIPMENT_CREATED':
@@ -1001,7 +1002,7 @@ class ShipmentAdmin(admin.ModelAdmin):
         'trip__vehicle_no', 'trip__delivery_boy__phone_number']
     readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
     list_per_page = 50
-
+    ordering = ['-created_at']
 
     def has_delete_permission(self, request, obj=None):
         return False
@@ -1139,7 +1140,7 @@ class TripAdmin(ExportCsvMixin, admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
     actions = ["export_as_csv_trip",]
     list_display = (
-        'dispathces', 'total_trip_shipments', 'delivery_boy', 'seller_shop', 'vehicle_no',
+        'dispathces', 'total_trip_shipments', 'total_trip_amount_value','delivery_boy', 'seller_shop', 'vehicle_no',
         'trip_status', 'starts_at', 'completed_at', 'download_trip_pdf'
     )
     readonly_fields = ('dispathces',)

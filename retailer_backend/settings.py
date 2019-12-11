@@ -97,6 +97,7 @@ INSTALLED_APPS = [
     'django_celery_results',
     'coupon',
     'offer',
+    'analytics',
     'celerybeat_status'
 ]
 
@@ -163,8 +164,18 @@ DATABASES = {
         'PASSWORD': config('DB_PASSWORD'),
         'HOST': config('DB_HOST_READ'),
         'PORT': config('DB_PORT'),
-    }
+    },
+    'dataanalytics': {
+        'ENGINE': 'django_redshift_backend',
+        'NAME': 'dataanalytics',
+        'USER': 'gfadmin',
+        'PASSWORD': 'GF_admin2105',
+        'HOST': 'gf-prod-redshift.c168txhqczdw.ap-south-1.redshift.amazonaws.com',
+        'PORT': '5439',
+	}
 }
+
+DATABASE_ROUTERS = ['services.routers.AnalyticsRouter', ]
 
 # Password validation
 # https://docs.djangoproject.com/en/2.1/ref/settings/#auth-password-validators
@@ -375,3 +386,4 @@ CELERY_TIMEZONE = TIME_ZONE
 
 # ElasticSearch
 ELASTICSEARCH_PREFIX = config('ELASTICSEARCH_PREFIX')
+REDSHIFT_URL = config('REDSHIFT_URL')
