@@ -10,7 +10,7 @@ def update_redshift_data(lst):
             lst.append(sheet.cell_value(k+1, 0))
         for j in lst:
             orderP = OrderedProduct.objects.filter(invoice_no=j).last()
-            orders = orderP.order
+            orders = [orderP.order.order_no]
             order_details = {}
             i = 0
             for order in orders:
