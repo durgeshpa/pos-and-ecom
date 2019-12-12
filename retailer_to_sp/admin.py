@@ -1055,25 +1055,25 @@ class ShipmentAdmin(admin.ModelAdmin):
     download_invoice.short_description = 'Download Invoice'
 
     def pincode(self, obj):
-        return  obj.order.shipping_address.pincode
+            return obj.order.shipping_address.pincode
 
     def seller_shop(self, obj):
-        return obj.order.seller_shop.shop_name
+            return obj.order.seller_shop.shop_name
 
     def shipment_address(self, obj):
-        address = obj.order.shipping_address
-        address_line = address.address_line1
-        contact = address.address_contact_number
-        shop_name = address.shop_name.shop_name
-        return str("%s, %s(%s)") % (shop_name, address_line, contact)
+            address = obj.order.shipping_address
+            address_line = address.address_line1
+            contact = address.address_contact_number
+            shop_name = address.shop_name.shop_name
+            return str("%s, %s(%s)") % (shop_name, address_line, contact)
 
     def invoice_city(self, obj):
-        city = obj.order.shipping_address.city
-        return str(city)
+            city = obj.order.shipping_address.city
+            return str(city)
 
     def invoice(self,obj):
-        return obj.invoice_no if obj.invoice_no else format_html(
-            "<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Start QC</a>" %(obj.id))
+            return obj.invoice_no if obj.invoice_no else format_html(
+                "<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Start QC</a>" %(obj.id))
     invoice.short_description = 'Invoice No'
 
 

@@ -905,6 +905,19 @@ class DownloadInvoiceSP(APIView):
             payment_type = a.order.rt_payment.last().payment_choice
         order_id= a.order.order_no
         shop_id = shop.order.buyer_shop.id
+        try:
+            if shop.order.buyer_shop.shop_timing:
+                open_time=shop.order.buyer_shop.shop_timing.open_timing
+                close_time=shop.order.buyer_shop.shop_timing.closing_timing
+                if open_time=='midnight' and close_time=='midnight':
+                    open_time='-'
+                    close_time='-'
+
+            else:
+                open_time='-'
+                close_time='-'
+        except Exception as e:
+            pass
         no_of_crates = a.no_of_crates
         no_of_packets = a.no_of_packets
         no_of_sacks = a.no_of_sacks
@@ -1026,7 +1039,7 @@ class DownloadInvoiceSP(APIView):
                 "payment_type":payment_type,"total_amount_int":total_amount_int,"product_listing":product_listing,
                 "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
                 "address_contact_number":address_contact_number,"sum_amount_tax":round(total_tax_sum, 2), "no_of_crates":no_of_crates,
-                "no_of_packets":no_of_packets, "no_of_sacks":no_of_sacks, "inv":inv,}
+                "no_of_packets":no_of_packets, "no_of_sacks":no_of_sacks, "inv":inv,"open_time":open_time, "close_time":close_time,}
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
