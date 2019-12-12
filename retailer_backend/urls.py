@@ -24,7 +24,6 @@ from django.conf import settings
 from retailer_backend.cron import CronToDeleteOrderedProductReserved,cron_to_delete_ordered_product_reserved
 from accounts.views import (terms_and_conditions, privacy_policy)
 from shops.views import ShopMappedProduct
-from services.views import OrderReportType
 
 from django_ses.views import handle_bounce
 from django.views.decorators.csrf import csrf_exempt
@@ -51,6 +50,7 @@ urlpatterns = [
     url(r'^gram/brand/', include('gram_to_brand.urls')),
     url(r'^retailer/gram/', include('retailer_to_gram.urls')),
     url(r'^services/', include('services.urls')),
+    url(r'^payments/', include('payments.urls')),
     url(r'^fcm/', include('fcm.urls')),
     url(r'^notification-center/', include('notification_center.urls')),
     url(r'^admin/shops/shop-mapped/(?P<pk>\d+)/product/$', ShopMappedProduct.as_view(), name='shop_mapped_product'),
@@ -64,7 +64,6 @@ urlpatterns = [
     # url(r'^jet/', include('jet.urls', 'jet')),
     path('admin/', admin.site.urls),
     url(r'^ses/bounce/$', csrf_exempt(handle_bounce)),
-    url(r'^analytics/', include('analytics.urls')),
 ]
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

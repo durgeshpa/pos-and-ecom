@@ -1,4 +1,7 @@
 from django.contrib import admin
+from retailer_backend.admin import InputFilter
+from admin_auto_filters.filters import AutocompleteFilter
+from daterange_filter.filter import DateRangeFilter
 
 # Register your models here.
 from adminsortable.admin import NonSortableParentAdmin, SortableStackedInline
@@ -40,11 +43,22 @@ class OfferPageAdmin(admin.ModelAdmin):
 
 admin.site.register(OfferPage,OfferPageAdmin)
 
+class ProductFilter(AutocompleteFilter):
+    title = 'Product Name' # display title
+    field_name = 'product' # name of the foreign key field
+
+class ShopFilter(AutocompleteFilter):
+    title = 'Service Partner' # display title
+    field_name = 'shop' # name of the foreign key field
+
 class TopSKUAdmin(admin.ModelAdmin):
     form=TopSKUForm
     fields = ('shop', 'product', 'start_date', 'end_date', 'status',)
-    list_display = ('product', 'start_date', 'end_date', 'status',)
-    list_filter = ('product', 'start_date', 'end_date', 'status',)
-    search_fields = ('product', 'start_date', 'end_date', 'status',)
+    list_display = ('product', 'shop', 'start_date', 'end_date', 'status',)
+    list_filter = [ProductFilter, ShopFilter, ('start_date', DateRangeFilter), ('end_date', DateRangeFilter)]
+    search_fields = ('product__product_name', 'shop__shop_name', 'start_date', 'end_date', 'status',)
+
+    class Media:
+        pass
 
 admin.site.register(TopSKU,TopSKUAdmin)

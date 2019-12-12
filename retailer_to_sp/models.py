@@ -47,6 +47,8 @@ from coupon.models import Coupon, CusotmerCouponUsage
 from django.db.models import Sum
 from django.db.models import Q
 
+
+
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
 
 logger = logging.getLogger(__name__)
@@ -64,6 +66,7 @@ NOTE_TYPE_CHOICES = (
 PAYMENT_MODE_CHOICES = (
     ("cash_on_delivery", "Cash On Delivery"),
     ("neft", "NEFT"),
+    ("credit", "credit")
 )
 
 MESSAGE_STATUS = (
@@ -86,6 +89,16 @@ TRIP_STATUS = (
     ('TRANSFERRED', 'Transferred')
 )
 
+PAYMENT_STATUS = (
+    ('PENDING', 'Pending'),
+    ('PARTIALLY_PAID', 'Partially_paid'),
+    ('PAID', 'Paid'),
+)
+
+PAYMENT_MODE = (
+    ('CREDIT', 'Credit'),
+    ('INSTANT_PAYMENT', 'Instant_payment'),
+)
 
 def generate_picklist_id(pincode):
 
@@ -845,6 +858,41 @@ class Trip(models.Model):
                 shipment.cash_to_be_collected())
         return round(sum(cash_to_be_collected), 2)
 
+    def total_paid_amount(self):
+        from payments.models import ShipmentPayment
+        trip_shipments = self.rt_invoice_trip.all()
+        total_amount  = cash_amount = online_amount = 0
+        if trip_shipments.exists():
+            shipment_payment_data = ShipmentPayment.objects.filter(shipment__in=trip_shipments)\
+                .aggregate(Sum('paid_amount'))
+            shipment_payment_cash = ShipmentPayment.objects.filter(shipment__in=trip_shipments, parent_order_payment__parent_payment__payment_mode_name="cash_payment")\
+                .aggregate(Sum('paid_amount'))
+            shipment_payment_online = ShipmentPayment.objects.filter(shipment__in=trip_shipments, parent_order_payment__parent_payment__payment_mode_name="online_payment")\
+                .aggregate(Sum('paid_amount'))
+
+            if shipment_payment_data['paid_amount__sum']:
+                total_amount = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
+            if shipment_payment_cash['paid_amount__sum']:
+                cash_amount = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
+            if shipment_payment_online['paid_amount__sum']:
+                online_amount = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
+        return total_amount, cash_amount, online_amount
+
+    @property
+    def total_received_amount(self):
+        total_payment, _c , _o = self.total_paid_amount()
+        return total_payment
+
+    @property
+    def received_cash_amount(self):
+        _t , cash_payment, _o = self.total_paid_amount()
+        return cash_payment
+
+    @property
+    def received_online_amount(self):
+        _t, _c, online_payment= self.total_paid_amount()
+        return online_payment
+
     @property
     def cash_to_be_collected_value(self):
         return self.cash_to_be_collected()
@@ -1065,6 +1113,29 @@ class OrderedProduct(models.Model): #Shipment
             return str("%s, %s(%s)") % (shop_name, address_line, contact)
         return str("-")
 
+    def payment_approval_status(self):
+        payments = self.shipment_payment.all()
+        status = "-"
+        for payment in payments:
+            status = "approved_and_verified"
+            payment_status = payment.parent_order_payment.parent_payment.payment_approval_status
+            if payment_status == "pending_approval":
+                return "pending_approval"
+        else:
+            return  status
+
+    def online_payment_approval_status(self):
+        payments = self.shipment_payment.all().exclude(parent_order_payment__parent_payment__payment_mode_name="cash_payment")
+        if not payments.exists():
+            return "-"
+        return format_html_join(
+                "","{} - {}<br><br>",
+                        ((s.parent_order_payment.parent_payment.reference_no,
+                            s.parent_order_payment.parent_payment.payment_approval_status
+                        ) for s in payments)
+                )
+
+
     def payments(self):
         if hasattr(self, '_payment_mode'):
             return self._payment_mode, self._payment_amount
@@ -1078,6 +1149,39 @@ class OrderedProduct(models.Model): #Shipment
                     self._payment_amount.append(float(payment['paid_amount']))
         return self._payment_mode, self._payment_amount
 
+    def total_payment(self):
+        from payments.models import ShipmentPayment
+        shipment_payment = self.shipment_payment.all()
+        total_payment = cash_payment = online_payment = 0
+        if shipment_payment.exists():
+            shipment_payment_data = shipment_payment.aggregate(Sum('paid_amount')) #annotate(sum_paid_amount=Sum('paid_amount'))
+            shipment_payment_cash = shipment_payment.filter(parent_order_payment__parent_payment__payment_mode_name="cash_payment").aggregate(Sum('paid_amount'))
+            shipment_payment_online = shipment_payment.filter(parent_order_payment__parent_payment__payment_mode_name="online_payment").aggregate(Sum('paid_amount'))
+        # shipment_payment = ShipmentPayment.objects.filter(shipment__in=trip_shipments).\
+        #     annotate(sum_paid_amount=Sum('paid_amount'))
+            if shipment_payment_data['paid_amount__sum']:
+                total_payment = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
+            if shipment_payment_cash['paid_amount__sum']:
+                cash_payment = round(shipment_payment_cash['paid_amount__sum'], 2) #sum_paid_amount
+            if shipment_payment_online['paid_amount__sum']:
+                online_payment = round(shipment_payment_online['paid_amount__sum'], 2) #sum_paid_amount
+        return total_payment, cash_payment, online_payment
+
+    @property
+    def total_paid_amount(self):
+        total_payment, _c , _o = self.total_payment()
+        return total_payment
+
+    @property
+    def cash_payment(self):
+        _t , cash_payment, _o = self.total_payment()
+        return cash_payment
+
+    @property
+    def online_payment(self):
+        _t, _c, online_payment= self.total_payment()
+        return online_payment
+
     @property
     def payment_mode(self):
         payment_mode, _ = self.payments()
@@ -1089,6 +1193,7 @@ class OrderedProduct(models.Model): #Shipment
         return str(city)
 
     def cash_to_be_collected(self):
+        # fetch the amount to be collected
         if self.order.rt_payment.filter(payment_choice='cash_on_delivery').exists():
             return round((self._invoice_amount - self._cn_amount),2)
         return 0
@@ -1121,6 +1226,12 @@ class OrderedProduct(models.Model): #Shipment
                                     shop_name_address_mapping.filter(
                                                     address_type='billing'
                                                     ).last().pk)
+        if self.no_of_crates == None:
+            self.no_of_crates = 0
+        if self.no_of_packets == None:
+            self.no_of_packets = 0
+        if self.no_of_sacks == None:
+            self.no_of_sacks = 0
         super().save(*args, **kwargs)
                 # Update Product Tax Mapping End
 
@@ -1194,7 +1305,6 @@ class OrderedProductMapping(models.Model):
     @property
     def product_weight(self):
         # sum_a = sum([item.column for item in queryset]) # Definitely takes more memory.
-        #import pdb; pdb.set_trace()
         if self.product.weight_value:
             weight = self.product.weight_value*self.shipped_qty
             return weight
@@ -1470,13 +1580,13 @@ class Commercial(Trip):
                     (int(self.received_amount) !=
                         int(self.cash_to_be_collected()))):
                     raise ValidationError(_("Received amount should be equal"
-                                            " to Cash to be Collected"
+                                            " to Amount to be Collected"
                                             ),)
             if (self.trip_status == 'COMPLETED' and
                     (int(self.received_amount) >
                         int(self.cash_to_be_collected()))):
                     raise ValidationError(_("Received amount should be less"
-                                            " than Cash to be Collected"
+                                            " than Amount to be Collected"
                                             ),)
 
 class CustomerCare(models.Model):

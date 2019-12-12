@@ -7,7 +7,6 @@ from django.db.models import F,Sum, Q
 # from gram_to_brand.models import Order as PurchaseOrder, GRNOrder
 import requests
 from decouple import config
-from  services.models import RetailerReports, OrderReports,GRNReports, MasterReports, OrderGrnReports, OrderDetailReports, CategoryProductReports
 # from products.models import Product, ProductPrice
 # from retailer_to_sp.models import Order, OrderedProductMapping
 # from shops.models import ParentRetailerMapping

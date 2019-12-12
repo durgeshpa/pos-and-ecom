@@ -205,6 +205,7 @@ def getProductCoupons(self):
             product_coupons.append(x.coupon_code)
         return product_coupons
 
+
 class ProductSKUGenerator(models.Model):
     parent_cat_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
     cat_sku_code = models.CharField(max_length=3,validators=[CapitalAlphabets],help_text="Please enter three characters for SKU")
@@ -340,10 +341,6 @@ class ProductPrice(models.Model):
     @property
     def sku_code(self):
         return self.product.product_sku
-
-# @receiver(post_save, sender=ProductPrice)
-# def get_category_product_report3(sender, instance=None, created=False, **kwargs):
-#     requests.post(config('REDSHIFT_URL')+'/analytics/api/v1/master-report/', data={'shop_id':instance.seller_shop.id})
 
 
 class ProductCategory(models.Model):

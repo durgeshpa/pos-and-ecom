@@ -22,7 +22,7 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
 def update_category_elasticsearch(sender, instance=None, created=False, **kwargs):
 	category = [str(c.category) for c in instance.product.product_pro_category.filter(status=True)]
 	for prod_price in instance.product.product_pro_price.filter(status=True).values('seller_shop', 'product'):
-		update_shop_product_es.dela1776y(prod_price['seller_shop'], prod_price['product'], category=category)
+		update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'], category=category)
 
 
 

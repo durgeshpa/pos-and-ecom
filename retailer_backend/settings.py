@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'allauth',
     'allauth.account',
     'rest_auth.registration',
+    'elasticapm.contrib.django',
     'accounts',
     'otp',
     'api',
@@ -84,6 +85,7 @@ INSTALLED_APPS = [
     'retailer_to_gram',
     'admin_auto_filters',
     'notification_center',
+    'payments',
     'django_ses',
     'services',
     'rangefilter',
@@ -96,9 +98,23 @@ INSTALLED_APPS = [
     'django_celery_results',
     'coupon',
     'offer',
-    'analytics',
-    'celerybeat_status'
+    'celerybeat_status',
+    'django_elasticsearch_dsl',
 ]
+
+if ENVIRONMENT.lower() in ["production","qa"]:
+    service_name = "gramfactory-{}".format(ENVIRONMENT)
+    ELASTIC_APM = {
+      # Set required service name. Allowed characters:
+      # a-z, A-Z, 0-9, -, _, and space
+      'SERVICE_NAME': service_name,
+
+      # Use if APM Server requires a token
+      'SECRET_TOKEN': '',
+
+      # Set custom APM Server URL (default: http://localhost:8200)
+      'SERVER_URL': 'http://13.234.240.93:8001',
+    }
 
 FCM_APIKEY = config('FCM_APIKEY')
 
@@ -120,6 +136,7 @@ MIDDLEWARE += [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'accounts.middlewares.RequestMiddleware',
+    'elasticapm.contrib.django.middleware.TracingMiddleware'
 ]
 
 ROOT_URLCONF = 'retailer_backend.urls'
@@ -163,18 +180,8 @@ DATABASES = {
         'PASSWORD': config('DB_PASSWORD'),
         'HOST': config('DB_HOST_READ'),
         'PORT': config('DB_PORT'),
-    },
-    'dataanalytics': {
-        'ENGINE': 'django_redshift_backend',
-        'NAME': 'dataanalytics',
-        'USER': 'gfadmin',
-        'PASSWORD': 'GF_admin2105',
-        'HOST': 'gf-prod-redshift.c168txhqczdw.ap-south-1.redshift.amazonaws.com',
-        'PORT': '5439',
-	}
+    }
 }
-
-DATABASE_ROUTERS = ['services.routers.AnalyticsRouter', ]
 
 # Password validation
 # https://docs.djangoproject.com/en/2.1/ref/settings/#auth-password-validators
@@ -385,4 +392,45 @@ CELERY_TIMEZONE = TIME_ZONE
 
 # ElasticSearch
 ELASTICSEARCH_PREFIX = config('ELASTICSEARCH_PREFIX')
-REDSHIFT_URL = config('REDSHIFT_URL')
+ELASTICSEARCH_DSL={
+    'default': {
+        'hosts': '35.154.13.198:9200'
+    },
+}
+# LOGGING = {
+#   'version': 1,
+#   'disable_existing_loggers': False,
+#   'formatters': {
+#       'simple': {
+#             'format': 'velname)s %(message)s'
+#         },
+#   },
+#   'handlers': {
+#         'console': {
+#             'level': 'ERROR',
+#             'class': 'logging.StreamHandler',
+#             'formatter': 'simple'
+#         },
+#         'logstash': {
+#             'level': 'ERROR',
+#             'class': 'logstash.TCPLogstashHandler',
+#             'host': '13.234.240.93',
+#             'port': 8002, # Default value: 5959
+#             'version': 1, # Version of logstash event schema. Default value: 0 (for backward compatibility of the library)
+#             'message_type': 'django',  # 'type' field in logstash message. Default value: 'logstash'.
+#             'fqdn': False, # Fully qualified domain name. Default value: false.
+#             'tags': ['django.request'], # list of tags. Default: None.
+#         },
+#   },
+#   'loggers': {
+#         'django.request': {
+#             'handlers': ['logstash'],
+#             'level': 'ERROR',
+#             'propagate': True,
+#         },
+#         'django': {
+#             'handlers': ['logstash'],
+#             'propagate': True,
+#         },
+#     }
+# }

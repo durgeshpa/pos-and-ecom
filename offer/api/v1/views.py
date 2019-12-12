@@ -145,16 +145,17 @@ class GetTopSKUListView(APIView):
 
         startdate = datetime.datetime.now()
         shop_id = self.request.GET.get('shop_id')
+        date = datetime.datetime.now()
 
         if shop_id and shop_id != '-1':
             if Shop.objects.get(id=shop_id).retiler_mapping.exists():
                 parent = ParentRetailerMapping.objects.get(retailer=shop_id, status=True).parent
-                data = TopSKU.objects.filter(status=True, shop=parent.id)
+                data = TopSKU.objects.filter(start_date__lte = date, end_date__gte = date, status=True, shop=parent.id)
                 is_success = True if data else False
                 message = "Top SKUs" if is_success else "No Top SKUs"
                 serializer = TopSKUSerializer(data,many=True)
             else:
-                data = TopSKU.objects.filter(status=True, shop=None)
+                data = TopSKU.objects.filter(start_date__lte = date, end_date__gte = date, status=True, shop=None)
                 is_success = True if data else False
                 message = "" if is_success else "No Top SKUs"
                 serializer = TopSKUSerializer(data,many=True)
@@ -162,7 +163,7 @@ class GetTopSKUListView(APIView):
             return Response({"message":[message], "response_data": serializer.data ,"is_success": is_success})
 
         else:
-            data = TopSKU.objects.filter(status=True, shop=None)
+            data = TopSKU.objects.filter(start_date__lte = date, end_date__gte = date, status=True, shop=None)
             is_success = True if data else False
             message = "" if is_success else "No Top SKUs"
             serializer = TopSKUSerializer(data,many=True)
