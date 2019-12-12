@@ -14,7 +14,7 @@ from retailer_backend.validators import *
 import datetime
 from django.core.validators import MinLengthValidator
 from django.contrib.auth.models import Group
-from analytics.post_save_signal import get_category_product_report5
+from analytics.post_save_signal import get_retailer_report
 
 Product = 'products.product'
 logger = logging.getLogger(__name__)
@@ -424,4 +424,5 @@ class ShopTiming(models.Model):
     break_end_time = models.TimeField(null=True, blank=True)
     off_day = ArrayField(models.CharField(max_length=25,choices=off_day_choices, null=True, blank=True), null=True, blank=True)
 
-post_save.connect(get_category_product_report5, sender = ParentRetailerMapping)
+
+post_save.connect(get_retailer_report, sender=ParentRetailerMapping)

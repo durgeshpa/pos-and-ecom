@@ -16,7 +16,7 @@ from django.db.models.signals import pre_save, post_save
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES,ERROR_MESSAGES
-from analytics.post_save_signal import get_category_product_report1, get_category_product_report3
+from analytics.post_save_signal import get_category_product_report, get_master_report
 
 
 from coupon.models import Coupon
@@ -518,6 +518,7 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
         product.product_sku="%s%s%s%s"%(cat_sku_code,parent_cat_sku_code,brand_sku_code,last_sku_increment)
         product.save()
 
-post_save.connect(get_category_product_report1, sender = Product)
-post_save.connect(get_category_product_report3, sender=ProductPrice)
+
+post_save.connect(get_category_product_report, sender=Product)
+post_save.connect(get_master_report, sender=ProductPrice)
 
