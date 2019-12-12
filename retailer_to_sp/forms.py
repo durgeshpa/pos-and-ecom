@@ -133,21 +133,19 @@ class OrderedProductForm(forms.ModelForm):
 
     class Meta:
         model = OrderedProduct
-        fields = ['order', 'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
+        fields = ['order', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
 
 
     def __init__(self, *args, **kwargs):
         super(OrderedProductForm, self).__init__(*args, **kwargs)
-        self.fields['shipment_status'].choices = OrderedProduct.SHIPMENT_STATUS[:2]
+        #self.fields['shipment_status'].choices = OrderedProduct.SHIPMENT_STATUS[:2]
 
     def clean(self):
         data = self.cleaned_data
         if not self.cleaned_data['order'].picker_order.all().exists():
             raise forms.ValidationError(_("Please assign picklist to the order"), )
-        if self.cleaned_data['shipment_status'] == 'SHIPMENT_CREATED' and \
-                self.cleaned_data['order'].picker_order.last().picking_status != "picking_assigned":
+        if self.cleaned_data['order'].picker_order.last().picking_status != "picking_assigned":
             raise forms.ValidationError(_("Please set the picking status in picker dashboard"), )
-
         return data
 
 
@@ -739,12 +737,14 @@ class OrderedProductReschedule(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if not get_current_user().is_superuser:
             instance = getattr(self, 'instance', None)
-            if instance.shipment_status == OrderedProduct.RESCHEDULED or instance.return_reason:
+            #if instance.shipment_status == OrderedProduct.RESCHEDULED or instance.return_reason:
+            if ((instance.shipment_status == OrderedProduct.RESCHEDULED) or
+                (instance.trip and instance.trip.trip_status == "CLOSED")):
                 self.fields['return_reason'].disabled = True
 
     def clean_return_reason(self):
         return_reason = self.cleaned_data.get('return_reason')
-        if not self.instance.shipment_status == OrderedProduct.RESCHEDULED and not self.instance.return_reason:
+        if not self.instance.shipment_status == OrderedProduct.RESCHEDULED:
             return_qty = 0
             damaged_qty = 0
             total_products = self.data.get(
@@ -803,7 +803,7 @@ class ShipmentReschedulingForm(forms.ModelForm):
         super(ShipmentReschedulingForm, self).__init__(*args, **kwargs)
         if not get_current_user().is_superuser:
             instance = getattr(self, 'instance', None)
-            if instance and instance.pk:
+            if instance and instance.pk or (instance.shipment and instance.shipment.trip and instance.shipment.trip.trip_status == "CLOSED"):
                 self.fields['rescheduling_reason'].disabled = True
                 self.fields['rescheduling_date'].disabled = True
 
@@ -819,7 +819,9 @@ class OrderedProductMappingRescheduleForm(forms.ModelForm):
         if not get_current_user().is_superuser:
             instance = getattr(self, 'instance', None)
             if instance and instance.pk:
-                if instance.ordered_product.shipment_status == OrderedProduct.RESCHEDULED or instance.ordered_product.return_reason:
+                #if instance.ordered_product.shipment_status == OrderedProduct.RESCHEDULED or instance.ordered_product.return_reason:
+                if (instance.ordered_product.shipment_status == OrderedProduct.RESCHEDULED) or (
+                    instance.ordered_product.trip and instance.ordered_product.trip.trip_status == "CLOSED"):
                     self.fields['returned_qty'].disabled = True
                     self.fields['damaged_qty'].disabled = True
 
