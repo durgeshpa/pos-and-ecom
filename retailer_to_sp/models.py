@@ -859,23 +859,23 @@ class Trip(models.Model):
             cash_to_be_collected.append(
                 shipment.cash_to_be_collected())
         return round(sum(cash_to_be_collected), 2)
-   
+
     def total_paid_amount(self):
         from payments.models import ShipmentPayment
         trip_shipments = self.rt_invoice_trip.all()
         total_amount  = cash_amount = online_amount = 0
         if trip_shipments.exists():
             shipment_payment_data = ShipmentPayment.objects.filter(shipment__in=trip_shipments)\
-                .aggregate(Sum('paid_amount')) 
+                .aggregate(Sum('paid_amount'))
             shipment_payment_cash = ShipmentPayment.objects.filter(shipment__in=trip_shipments, parent_order_payment__parent_payment__payment_mode_name="cash_payment")\
-                .aggregate(Sum('paid_amount')) 
+                .aggregate(Sum('paid_amount'))
             shipment_payment_online = ShipmentPayment.objects.filter(shipment__in=trip_shipments, parent_order_payment__parent_payment__payment_mode_name="online_payment")\
-                .aggregate(Sum('paid_amount')) 
+                .aggregate(Sum('paid_amount'))
 
             if shipment_payment_data['paid_amount__sum']:
                 total_amount = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
             if shipment_payment_cash['paid_amount__sum']:
-                cash_amount = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount            
+                cash_amount = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
             if shipment_payment_online['paid_amount__sum']:
                 online_amount = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
         return total_amount, cash_amount, online_amount
@@ -1138,7 +1138,7 @@ class OrderedProduct(models.Model): #Shipment
                         ((s.parent_order_payment.parent_payment.reference_no,
                             s.parent_order_payment.parent_payment.payment_approval_status
                         ) for s in payments)
-                )  
+                )
 
 
     def payments(self):
@@ -1159,7 +1159,7 @@ class OrderedProduct(models.Model): #Shipment
         shipment_payment = self.shipment_payment.all()
         total_payment = cash_payment = online_payment = 0
         if shipment_payment.exists():
-            shipment_payment_data = shipment_payment.aggregate(Sum('paid_amount')) #annotate(sum_paid_amount=Sum('paid_amount')) 
+            shipment_payment_data = shipment_payment.aggregate(Sum('paid_amount')) #annotate(sum_paid_amount=Sum('paid_amount'))
             shipment_payment_cash = shipment_payment.filter(parent_order_payment__parent_payment__payment_mode_name="cash_payment").aggregate(Sum('paid_amount'))
             shipment_payment_online = shipment_payment.filter(parent_order_payment__parent_payment__payment_mode_name="online_payment").aggregate(Sum('paid_amount'))
         # shipment_payment = ShipmentPayment.objects.filter(shipment__in=trip_shipments).\
@@ -1167,9 +1167,9 @@ class OrderedProduct(models.Model): #Shipment
             if shipment_payment_data['paid_amount__sum']:
                 total_payment = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
             if shipment_payment_cash['paid_amount__sum']:
-                cash_payment = round(shipment_payment_cash['paid_amount__sum'], 2) #sum_paid_amount        
+                cash_payment = round(shipment_payment_cash['paid_amount__sum'], 2) #sum_paid_amount
             if shipment_payment_online['paid_amount__sum']:
-                online_payment = round(shipment_payment_online['paid_amount__sum'], 2) #sum_paid_amount  
+                online_payment = round(shipment_payment_online['paid_amount__sum'], 2) #sum_paid_amount
         return total_payment, cash_payment, online_payment
 
     @property
@@ -1206,7 +1206,7 @@ class OrderedProduct(models.Model): #Shipment
     @property
     def invoice_amount(self):
         if self.order:
-            return round(self._invoice_amount, 2)
+            return round(self._invoice_amount)
         return str("-")
 
     @property
@@ -1298,7 +1298,7 @@ class OrderedProductMapping(models.Model):
         super(OrderedProductMapping, self).clean()
         returned_qty = int(self.returned_qty)
         damaged_qty = int(self.damaged_qty)
-        
+
         if self.returned_qty > 0 or self.damaged_qty > 0:
             already_shipped_qty = int(self.shipped_qty)
             if sum([returned_qty, damaged_qty]) > already_shipped_qty:
