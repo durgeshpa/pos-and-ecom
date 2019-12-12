@@ -193,20 +193,6 @@ class Product(models.Model):
     def getLoyaltyIncentive(self, seller_shop_id, buyer_shop_id):
         return 0
 
-import requests
-from decouple import config
-from celery.task import task
-
-
-# @task
-# def call_analytic_product_update(id):
-#     requests.post('http://127.0.0.1:8000/analytics/api/v1/product-category-report/', {'id':id})
-
-# @receiver(post_save, sender=Product)
-# def get_category_product_report1(sender, instance=None, created=True, **kwargs):
-#     # import pdb; pdb.set_trace()
-#     print("-------------------------------------------------------------------call post signal")
-#     call_analytic_product_update.delay(instance.id)
 def getProductCoupons(self):
         product_coupons = []
         date = datetime.datetime.now()
@@ -532,6 +518,6 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
         product.product_sku="%s%s%s%s"%(cat_sku_code,parent_cat_sku_code,brand_sku_code,last_sku_increment)
         product.save()
 
-# post_save.connect(get_category_product_report1, sender = Product)
+post_save.connect(get_category_product_report1, sender = Product)
 post_save.connect(get_category_product_report3, sender=ProductPrice)
 

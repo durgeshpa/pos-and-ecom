@@ -34,7 +34,6 @@ def get_category_product_report3(sender, instance=None, created=False, **kwargs)
     transaction.on_commit(on_commit3)
 
 def get_category_product_report4(sender, instance=None, created=False, **kwargs):
-    print("called")
     def on_commit4():
         requests.post(config('REDSHIFT_URL')+'/analytics/api/v1/order-report/', data={'order_id':instance.id})
     transaction.on_commit(on_commit4)
