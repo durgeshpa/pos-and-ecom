@@ -273,7 +273,6 @@ class OrderPayment(AbstractDateTime):
 
     def clean(self):
         #payment except current
-        # import pdb; pdb.set_trace()
         try:
             if float(self.payment_utilised_excluding_current) + float(self.paid_amount) > float(self.parent_payment.paid_amount):
                 error_msg = "Maximum amount to be utilised from parent payment is " + str(self.parent_payment.paid_amount - self.payment_utilised_excluding_current)
