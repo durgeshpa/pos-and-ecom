@@ -193,7 +193,7 @@ class Product(models.Model):
     def getLoyaltyIncentive(self, seller_shop_id, buyer_shop_id):
         return 0
 
-def getProductCoupons(self):
+    def getProductCoupons(self):
         product_coupons = []
         date = datetime.datetime.now()
         for rules in self.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date):
