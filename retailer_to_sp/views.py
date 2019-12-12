@@ -331,7 +331,6 @@ def assign_picker(request, shop_id=None):
 
 def assign_picker_data(request, shop_id):
     # update status to pick
-    # import pdb; pdb.set_trace()
     form = AssignPickerForm(request.user)
     # shop_id = request.GET.get('shop_id',None)
 
@@ -349,7 +348,6 @@ def assign_picker_change(request, pk):
     # save the changes
     picking_instance = PickerDashboard.objects.get(pk=pk)
     # picking_status = picking_instance.picking_status
-    # import pdb; pdb.set_trace()
 
     if request.method == 'POST':
         form = AssignPickerForm(request.user, request.POST, instance=picking_instance)

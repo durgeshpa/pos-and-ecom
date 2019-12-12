@@ -72,7 +72,6 @@ class ShipmentPaymentSerializer2(serializers.Serializer):
 
     def validate(self, data):
         initial_data = self.initial_data
-        #import pdb; pdb.set_trace() 
         shipment = initial_data.get('shipment', None)
         paid_by = initial_data.get('paid_by', None)
         if not OrderedProduct.objects.filter(pk=shipment).exists():

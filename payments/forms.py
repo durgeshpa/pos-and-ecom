@@ -40,7 +40,6 @@ class RelatedFieldWidgetCanAdd(widgets.Select):
         self.related_url = related_url
 
     def render(self, name, value, *args, **kwargs):
-        import pdb; pdb.set_trace()
         self.related_url = reverse(self.related_url)
         output = [super(RelatedFieldWidgetCanAdd, self).render(name, value, *args, **kwargs)]
         output.append('<a href="%s" class="related-widget-wrapper-link add-related" id="add_id_%s" \
@@ -92,7 +91,6 @@ class OrderPaymentForm(forms.ModelForm):
         super(OrderPaymentForm, self).__init__(*args, **kwargs)
         self.fields.get('parent_payment').required = True
         self.fields.get('paid_amount').required = True
-        #import pdb; pdb.set_trace()
         if kwargs.get('order') is not None:
             self.fields['order'].initial = order
 

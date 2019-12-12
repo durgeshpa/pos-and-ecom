@@ -314,7 +314,6 @@ class EditAssignPickerForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(EditAssignPickerForm, self).__init__(*args, **kwargs)
-        # import pdb; pdb.set_trace()
         instance = getattr(self, 'instance', None)
         shop = instance.order.seller_shop  # Shop.objects.get(related_users=user)
         # shop = Shop.objects.get(shop_name="TEST SP 1")
@@ -361,7 +360,6 @@ class AssignPickerForm(forms.ModelForm):
     def __init__(self, user, shop_id, *args, **kwargs):
         super(AssignPickerForm, self).__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
-        # import pdb; pdb.set_trace()
         # assign shop name as readonly with value for shop name for user
         self.fields['picker_boy'].queryset = User.objects.none()
         if user.is_superuser:
