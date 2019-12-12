@@ -50,6 +50,7 @@ urlpatterns = [
     url(r'^gram/brand/', include('gram_to_brand.urls')),
     url(r'^retailer/gram/', include('retailer_to_gram.urls')),
     url(r'^services/', include('services.urls')),
+    url(r'^payments/', include('payments.urls')),
     url(r'^fcm/', include('fcm.urls')),
     url(r'^notification-center/', include('notification_center.urls')),
     url(r'^admin/shops/shop-mapped/(?P<pk>\d+)/product/$', ShopMappedProduct.as_view(), name='shop_mapped_product'),

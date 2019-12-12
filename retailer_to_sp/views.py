@@ -331,7 +331,6 @@ def assign_picker(request, shop_id=None):
 
 def assign_picker_data(request, shop_id):
     # update status to pick
-    # import pdb; pdb.set_trace()
     form = AssignPickerForm(request.user)
     # shop_id = request.GET.get('shop_id',None)
 
@@ -349,7 +348,6 @@ def assign_picker_change(request, pk):
     # save the changes
     picking_instance = PickerDashboard.objects.get(pk=pk)
     # picking_status = picking_instance.picking_status
-    # import pdb; pdb.set_trace()
 
     if request.method == 'POST':
         form = AssignPickerForm(request.user, request.POST, instance=picking_instance)
@@ -1262,6 +1260,30 @@ class StatusChangedAfterAmountCollected(APIView):
         else:
             msg = {'is_success': False, 'message': ['Amount is different'], 'response_data': None}
         return Response(msg, status=status.HTTP_201_CREATED)
+
+
+def update_shipment_status_after_return(shipment_obj):
+    shipment_products_dict = OrderedProductMapping.objects.values('product').filter(ordered_product=shipment_obj). \
+        aggregate(delivered_qty_sum=Sum('delivered_qty'),shipped_qty_sum=Sum('shipped_qty'),returned_qty_sum=Sum('returned_qty'), damaged_qty_sum = Sum('damaged_qty'))
+
+    total_delivered_qty = shipment_products_dict['delivered_qty_sum']
+    total_shipped_qty = shipment_products_dict['shipped_qty_sum']
+    total_returned_qty = shipment_products_dict['returned_qty_sum']
+    total_damaged_qty = shipment_products_dict['damaged_qty_sum']
+
+
+    if total_shipped_qty == (total_returned_qty + total_damaged_qty):
+        shipment_obj.shipment_status = 'FULLY_RETURNED_AND_COMPLETED'
+        shipment_obj.save()
+        return "FULLY_RETURNED_AND_COMPLETED"
+    else:
+        return 0   
+    # elif (total_returned_qty + total_damaged_qty) == 0:
+    #     shipment_obj.shipment_status = 'FULLY_DELIVERED_AND_COMPLETED'
+
+    # elif total_shipped_qty >= (total_returned_qty + total_damaged_qty):
+    #     shipment_obj.shipment_status = 'PARTIALLY_DELIVERED_AND_COMPLETED'
+    # shipment_obj.save()
 
 
 def update_shipment_status_with_id(shipment_obj):

@@ -85,6 +85,7 @@ INSTALLED_APPS = [
     'retailer_to_gram',
     'admin_auto_filters',
     'notification_center',
+    'payments',
     'django_ses',
     'services',
     'rangefilter',
@@ -100,11 +101,13 @@ INSTALLED_APPS = [
     'celerybeat_status',
     'django_elasticsearch_dsl',
 ]
-if ENVIRONMENT.lower()=='production':
+
+if ENVIRONMENT.lower() in ["production","qa"]:
+    service_name = "gramfactory-{}".format(ENVIRONMENT)
     ELASTIC_APM = {
       # Set required service name. Allowed characters:
       # a-z, A-Z, 0-9, -, _, and space
-      'SERVICE_NAME': 'gramfactory',
+      'SERVICE_NAME': service_name,
 
       # Use if APM Server requires a token
       'SECRET_TOKEN': '',
