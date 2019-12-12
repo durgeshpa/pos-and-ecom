@@ -286,6 +286,7 @@ class EditAssignPickerForm(forms.ModelForm):
             UserWithName,
             related_url="admin:accounts_user_add"))
 
+
     class Meta:
         model = PickerDashboard
         fields = ['order', 'shipment', 'picking_status', 'picklist_id', 'picker_boy']
@@ -317,6 +318,7 @@ class EditAssignPickerForm(forms.ModelForm):
         instance = getattr(self, 'instance', None)
         shop = instance.order.seller_shop  # Shop.objects.get(related_users=user)
         # shop = Shop.objects.get(shop_name="TEST SP 1")
+
         # find all picker for the shop
         self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
         if instance.picking_status == "picking_pending":
@@ -483,7 +485,13 @@ class TripForm(forms.ModelForm):
             else:
                 for field_name in self.fields:
                     self.fields[field_name].disabled = True
-                self.fields['trip_status'].choices = TRIP_STATUS[1:2]
+                if trip_status == 'CLOSED':
+                    self.fields['trip_status'].choices = TRIP_STATUS[4:5] #"CLOSED"
+                elif trip_status == 'TRANSFERRED':
+                    self.fields['trip_status'].choices = TRIP_STATUS[5:] #"CLOSED"    
+                else:                            
+                    self.fields['trip_status'].choices = TRIP_STATUS[1:2]
+                #self.fields['trip_status'].choices = TRIP_STATUS[1:2]
         else:
             self.fields['trip_status'].initial = 'READY'
             fields = ['trip_status', 'e_way_bill_no']
@@ -616,7 +624,6 @@ class ShipmentForm(forms.ModelForm):
 
         if (data['close_order'] and
                 not data['shipment_status'] == OrderedProduct.READY_TO_SHIP):
-
                 raise forms.ValidationError(
                     _('You can only close the order in QC Passed state'),)
 
@@ -707,12 +714,16 @@ class CommercialForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(CommercialForm, self).__init__(*args, **kwargs)
-        self.fields['trip_status'].choices = TRIP_STATUS[3:5]
+        self.fields['trip_status'].choices = TRIP_STATUS[3:]
         instance = getattr(self, 'instance', None)
         if instance.pk:
-            if (instance.trip_status == 'TRANSFERRED' or
-                    instance.trip_status == 'CLOSED'):
-                self.fields['trip_status'].choices = TRIP_STATUS[-3:]
+            # seperate screen for transferred: access only to finance team
+            if (instance.trip_status == 'CLOSED'):
+                self.fields['trip_status'].choices = TRIP_STATUS[-2:]
+
+            if (instance.trip_status == 'TRANSFERRED'):
+                self.fields['trip_status'].choices = TRIP_STATUS[-1:]
+            if instance.trip_status == 'TRANSFERRED':
                 for field_name in self.fields:
                     self.fields[field_name].disabled = True
 
@@ -722,6 +733,23 @@ class CommercialForm(forms.ModelForm):
         if trip_status == 'CLOSED' and not received_amount:
             raise forms.ValidationError(('This field is required'), )
         return received_amount
+
+    def clean(self):
+        data = self.cleaned_data
+        if data['trip_status'] == 'CLOSED':
+            if self.instance.received_cash_amount + self.instance.received_online_amount < self.instance.cash_to_be_collected_value:
+                raise forms.ValidationError(_("Amount to be collected is less than sum of received cash amount and online amount"),)
+        # setup check for transferred
+        if data['trip_status'] == 'TRANSFERRED':
+            # setup check for transferred
+            # check if number of pending payment approval is 0
+            from payments.models import ShipmentPayment
+            trip_shipments = self.instance.rt_invoice_trip.all()
+            #pending_payments_count = trip_shipments.filter(parent_order_payment__parent_payment__payment_approval_status="approval_pending").count()
+            pending_payments_count = ShipmentPayment.objects.filter(shipment__in=trip_shipments, parent_order_payment__parent_payment__payment_approval_status="pending_approval").count()
+            if pending_payments_count:
+                raise forms.ValidationError(_("All shipment payments are not verified"),)
+        return data
 
 
 class OrderedProductReschedule(forms.ModelForm):

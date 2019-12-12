@@ -78,7 +78,7 @@ class TopSKUForm(forms.ModelForm):
         required=False
     )
 
-    product = forms.ModelChoiceField(required=False,
+    product = forms.ModelChoiceField(required=True,
         queryset=Product.objects.all(),
         widget=autocomplete.ModelSelect2(
             url='banner-product-autocomplete',

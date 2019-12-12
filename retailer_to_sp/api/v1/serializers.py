@@ -13,6 +13,8 @@ from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping 
     OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment
  )
 from addresses.models import Address,City,State,Country
+from payments.models import CashPayment, ShipmentPayment, OnlinePayment, PaymentMode
+
 from gram_to_brand.models import GRNOrderProductMapping
 
 from sp_to_gram.models import OrderedProductMapping
@@ -26,6 +28,7 @@ from django.core.validators import RegexValidator
 from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ObjectDoesNotExist
 from shops.models import Shop
+from shops.models import ShopTiming
 
 from django.contrib.auth import get_user_model
 from coupon.serializers import CouponSerializer
@@ -809,12 +812,45 @@ class GramMappedOrderSerializer(serializers.ModelSerializer):
                   'created_at','modified_at','rt_order_order_product')
 
 
+# class DispatchSerializer(serializers.ModelSerializer):
+
+
+#     class Meta:
+#         model = Dispatch
+#         fields = '__all__'
+
 class DispatchSerializer(serializers.ModelSerializer):
     shipment_status = serializers.CharField(
                                         source='get_shipment_status_display')
     order = serializers.SlugRelatedField(read_only=True, slug_field='order_no')
     shipment_weight = serializers.SerializerMethodField()
+    payment_approval_status = serializers.SerializerMethodField()    
+    online_payment_approval_status = serializers.SerializerMethodField()    
+
     created_at = serializers.DateTimeField()
+    shipment_payment = serializers.SerializerMethodField()
+    trip_status = serializers.SerializerMethodField()
+
+    def get_trip_status(self, obj):
+        if obj.trip:
+            return obj.trip.trip_status
+
+    def get_payment_approval_status(self, obj):
+        return obj.payment_approval_status()
+
+    def get_online_payment_approval_status(self, obj):
+        return obj.online_payment_approval_status()
+
+
+    def get_shipment_payment(self, obj):
+        return ""
+        # from payments.models import Payment as InvoicePayment
+        # payment_data = {}
+        # payment = InvoicePayment.objects.filter(shipment=obj)
+        # if payment.exists():
+        #     payment_data = payment.values('paid_amount', 'reference_no', 'description', 'payment_mode_name')
+
+        # return payment_data
 
     def shipment_weight(self, obj):
         return obj.shipment_weight
@@ -823,9 +859,12 @@ class DispatchSerializer(serializers.ModelSerializer):
         model = Dispatch
         fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
                   'shipment_address', 'invoice_city', 'invoice_amount',
-                  'created_at', 'shipment_weight')
+                  'created_at', 'shipment_weight','shipment_payment', 'trip_status',
+                  'payment_approval_status', 'online_payment_approval_status')
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount',
-            'shipment_weight')
+                 'shipment_payment', 'trip_status', 'shipment_weight', 
+                 'payment_approval_status', 'online_payment_approval_status')
+
 
 
 class CommercialShipmentSerializer(serializers.ModelSerializer):
@@ -835,6 +874,30 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
     cash_to_be_collected = serializers.SerializerMethodField()
     shipment_weight = serializers.SerializerMethodField()
     created_at = serializers.DateTimeField()
+    shipment_payment = serializers.SerializerMethodField()
+    payment_approval_status = serializers.SerializerMethodField()
+    online_payment_approval_status = serializers.SerializerMethodField()        
+    trip_status = serializers.SerializerMethodField()
+    paid_amount_shipment = serializers.SerializerMethodField()
+
+    def get_trip_status(self, obj):
+        if obj.trip:
+            return obj.trip.trip_status
+
+    def get_paid_amount_shipment(self, obj):
+        if obj.total_paid_amount:
+            return obj.total_paid_amount    
+        else:
+            return 0
+
+    def get_payment_approval_status(self, obj):
+        return obj.payment_approval_status()
+
+    def get_online_payment_approval_status(self, obj):
+        return obj.online_payment_approval_status()
+
+    def get_shipment_payment(self, obj):
+        return ""
 
     def shipment_weight(self, obj):
         return obj.shipment_weight
@@ -846,9 +909,14 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
         model = OrderedProduct
         fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
                   'shipment_address', 'invoice_city', 'invoice_amount',
-                  'created_at', 'cash_to_be_collected', 'shipment_weight')
+                  'created_at', 'cash_to_be_collected', 'shipment_payment',
+                   'trip_status', 'paid_amount_shipment', 'shipment_weight',
+                   'payment_approval_status', 'online_payment_approval_status')
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 
-            'shipment_weight','cash_to_be_collected')
+                    'cash_to_be_collected', 'shipment_payment', 'trip_status',
+                     'paid_amount_shipment', 'shipment_weight', 'payment_approval_status',
+                     'online_payment_approval_status')
+
 
 class FeedBackSerializer(serializers.ModelSerializer):
 
@@ -901,10 +969,29 @@ class ShipmentOrderSerializer(serializers.ModelSerializer):
 
 class ShipmentSerializer(serializers.ModelSerializer):
     shipment_id = serializers.ReadOnlyField()
+    total_paid_amount = serializers.SerializerMethodField()    
     order = ShipmentOrderSerializer()
+    shop_open_time = serializers.SerializerMethodField()
+    shop_close_time = serializers.SerializerMethodField()     
+
+    def get_total_paid_amount(self, obj):
+        return obj.total_paid_amount
+    
+    def get_shop_open_time(self, obj):
+        shop_timing = ShopTiming.objects.filter(shop=obj.order.buyer_shop)
+        if shop_timing.exists():         
+            return shop_timing.last().open_timing
+
+
+    def get_shop_close_time(self, obj):
+        shop_timing = ShopTiming.objects.filter(shop=obj.order.buyer_shop)
+        if shop_timing.exists():         
+            return shop_timing.last().closing_timing
+
     class Meta:
         model = OrderedProduct
-        fields = ('shipment_id', 'invoice_no', 'shipment_status', 'payment_mode', 'invoice_amount', 'order')
+        fields = ('shipment_id', 'invoice_no', 'shipment_status', 'payment_mode', 'invoice_amount', 'order',
+            'total_paid_amount', 'shop_open_time', 'shop_close_time')
 
 
 class ShipmentStatusSerializer(serializers.ModelSerializer):
