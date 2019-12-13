@@ -105,7 +105,7 @@ if ENVIRONMENT.lower() in ["production","qa"]:
     INSTALLED_APPS +=[
         'elasticapm.contrib.django',
 ]
-    service_name = "gramfactory-{}".format(ENVIRONMENT)
+    service_name = "gramfactory-{}".format(ENVIRONMENT.lower())
     ELASTIC_APM = {
       # Set required service name. Allowed characters:
       # a-z, A-Z, 0-9, -, _, and space
