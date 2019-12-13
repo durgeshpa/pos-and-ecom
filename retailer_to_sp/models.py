@@ -862,7 +862,7 @@ class Trip(models.Model):
 
     def total_paid_amount(self):
         from payments.models import ShipmentPayment
-        trip_shipments = self.rt_invoice_trip.all()
+        trip_shipments = self.rt_invoice_trip.exclude(parent_order_payment__parent_payment__payment_status='cancelled')
         total_amount  = cash_amount = online_amount = 0
         if trip_shipments.exists():
             shipment_payment_data = ShipmentPayment.objects.filter(shipment__in=trip_shipments)\
@@ -1156,7 +1156,7 @@ class OrderedProduct(models.Model): #Shipment
 
     def total_payment(self):
         from payments.models import ShipmentPayment
-        shipment_payment = self.shipment_payment.all()
+        shipment_payment = self.shipment_payment.exclude(parent_order_payment__parent_payment__payment_status='cancelled')
         total_payment = cash_payment = online_payment = 0
         if shipment_payment.exists():
             shipment_payment_data = shipment_payment.aggregate(Sum('paid_amount')) #annotate(sum_paid_amount=Sum('paid_amount'))
