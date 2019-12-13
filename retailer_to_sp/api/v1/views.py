@@ -917,7 +917,8 @@ class DownloadInvoiceSP(APIView):
                 open_time='-'
                 close_time='-'
         except Exception as e:
-            pass
+            open_time='-'
+            close_time='-'
         no_of_crates = a.no_of_crates
         no_of_packets = a.no_of_packets
         no_of_sacks = a.no_of_sacks
