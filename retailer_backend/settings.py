@@ -56,7 +56,6 @@ INSTALLED_APPS = [
     'allauth',
     'allauth.account',
     'rest_auth.registration',
-    'elasticapm.contrib.django',
     'accounts',
     'otp',
     'api',
@@ -103,6 +102,9 @@ INSTALLED_APPS = [
 ]
 
 if ENVIRONMENT.lower() in ["production","qa"]:
+    INSTALLED_APPS +=[
+        'elasticapm.contrib.django',
+]
     service_name = "gramfactory-{}".format(ENVIRONMENT)
     ELASTIC_APM = {
       # Set required service name. Allowed characters:
@@ -136,8 +138,11 @@ MIDDLEWARE += [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'accounts.middlewares.RequestMiddleware',
-    'elasticapm.contrib.django.middleware.TracingMiddleware'
 ]
+if ENVIRONMENT.lower() in ["production", "qa"]:
+    MIDDLEWARE += [
+            'elasticapm.contrib.django.middleware.TracingMiddleware'
+    ]
 
 ROOT_URLCONF = 'retailer_backend.urls'
 # STATICFILES_STORAGE = "retailer_backend.storage.ExtendedManifestStaticFilesStorage"
