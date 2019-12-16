@@ -180,7 +180,16 @@ DATABASES = {
         'PASSWORD': config('DB_PASSWORD'),
         'HOST': config('DB_HOST_READ'),
         'PORT': config('DB_PORT'),
-    }
+    },
+    'dataanalytics': {
+        'ENGINE': 'django_redshift_backend',
+        'NAME': 'dataanalytics',
+        'USER': 'gfadmin',
+        'PASSWORD': 'GF_admin2105',
+        'HOST': 'gf-prod-redshift.c168txhqczdw.ap-south-1.redshift.amazonaws.com',
+        'PORT': '5439',
+	}
+
 }
 
 # Password validation
