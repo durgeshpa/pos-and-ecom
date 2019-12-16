@@ -99,7 +99,6 @@ INSTALLED_APPS = [
     'offer',
     'celerybeat_status',
     'django_elasticsearch_dsl',
-    'celerybeat_status'
 ]
 
 if ENVIRONMENT.lower() in ["production","qa"]:
