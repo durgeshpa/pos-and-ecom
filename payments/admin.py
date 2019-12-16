@@ -7,6 +7,8 @@ from retailer_backend.admin import InputFilter
 from .models import *
 from .forms import ShipmentPaymentForm, ShipmentPaymentInlineForm, OnlinePaymentInlineForm, \
     PaymentForm, OrderPaymentForm, PaymentApprovalForm
+from .views import UserWithNameAutocomplete
+
 #from .forms import ShipmentPaymentApprovalForm
 from django.utils.safestring import mark_safe
 from django.forms.models import BaseInlineFormSet
@@ -116,6 +118,18 @@ class PaymentAdmin(admin.ModelAdmin, PermissionMixin):
     # def get_inline_instances(self, request, obj=None):
     #     if not obj or obj.payment_mode_name != "online_payment": return []
     #     return super(PaymentAdmin, self).get_inline_instances(request, obj)
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(PaymentAdmin, self).get_urls()
+        urls = [
+            url(
+                r'^userwithname-autocomplete/$',
+                self.admin_site.admin_view(UserWithNameAutocomplete.as_view()),
+                name="userwithname-autocomplete"
+            ),
+        ] + urls
+        return urls
 
     class Media:
         js = ('admin/js/hide_admin_fields_payment.js',)

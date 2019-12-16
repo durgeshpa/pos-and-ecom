@@ -21,7 +21,7 @@ from payments.models import Payment, ShipmentPayment, OnlinePayment,\
     OrderPayment, ShipmentPaymentApproval, PaymentApproval
 from retailer_to_sp.models import Order
 from shops.models import Shop
-
+from shops.views import UserAutocomplete
 
 User = get_user_model()
 
@@ -58,6 +58,11 @@ class ShipmentPaymentForm(forms.ModelForm):
 
 
 class PaymentForm(forms.ModelForm):
+    paid_by = forms.ModelChoiceField(
+        queryset=UserWithName.objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:userwithname-autocomplete',)
+    )
+
     class Meta:
         model = Payment
         fields = "__all__"
