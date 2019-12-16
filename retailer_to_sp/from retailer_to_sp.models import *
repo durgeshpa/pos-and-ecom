@@ -1,0 +1,4 @@
+from retailer_to_sp.models import *
+all_shipments = OrderedProduct.objects.all()
+for s in all_shipments:
+  print(s.order.shipping_address)
