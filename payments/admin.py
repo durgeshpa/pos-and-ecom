@@ -262,7 +262,7 @@ class AtLeastOneFormSet(BaseInlineFormSet):
 
 
 
-class ShipmentPaymentInlineAdmin(admin.TabularInline):
+class ShipmentPaymentInlineAdmin(admin.TabularInline, PermissionMixin):
     model = ShipmentPayment
     form = ShipmentPaymentInlineForm
     formset = AtLeastOneFormSet
@@ -342,6 +342,12 @@ class ShipmentPaymentDataAdmin(admin.ModelAdmin, PermissionMixin):
     def total_paid_amount(self,obj):
         return obj.total_paid_amount
     total_paid_amount.short_description = 'Total Paid Amount'
+
+    def has_change_permission(self, request, obj=None):
+        if request.user.has_perm("payments.change_payment"):
+            return True
+        else:
+            return False
 
     def trip_status(self,obj):
         return obj.trip.trip_status
