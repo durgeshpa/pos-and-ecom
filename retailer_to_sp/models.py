@@ -582,8 +582,6 @@ class Order(models.Model):
     total_discount_amount = models.FloatField(default=0)
     total_tax_amount = models.FloatField(default=0)
     order_status = models.CharField(max_length=50,choices=ORDER_STATUS)
-    #payment_status = models.CharField(max_length=50,choices=PAYMENT_STATUS, null=True, blank=True)
-    #intended_mode_of_payment = models.CharField(max_length=50,choices=PAYMENT_MODE, null=True, blank=True)
     cancellation_reason = models.CharField(
         max_length=50, choices=CANCELLATION_REASON,
         null=True, blank=True, verbose_name='Reason for Cancellation',
@@ -770,7 +768,6 @@ class Trip(models.Model):
                                     max_digits=19, decimal_places=2)
     received_amount = models.DecimalField(blank=True, null=True,
                                     max_digits=19, decimal_places=2)
-    #description = models.CharField(max_length=50, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -942,7 +939,6 @@ class Trip(models.Model):
             self.starts_at = datetime.datetime.now()
         elif self.trip_status == 'COMPLETED':
             self.completed_at = datetime.datetime.now()
-
         super().save(*args, **kwargs)
 
     def dispathces(self):
@@ -1056,8 +1052,6 @@ class OrderedProduct(models.Model): #Shipment
         get_user_model(), related_name='rt_last_modified_user_order',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
-    #payment_status = models.CharField(max_length=50,choices=PAYMENT_STATUS, null=True, blank=True)
-    #is_payment_approved = models.BooleanField(default=False)
     no_of_crates = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Crates Shipped")
     no_of_packets = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Packets Shipped")
     no_of_sacks = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Sacks Shipped")
