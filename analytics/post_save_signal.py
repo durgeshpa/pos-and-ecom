@@ -11,6 +11,10 @@ from decouple import config
 # from retailer_to_sp.models import Order, OrderedProductMapping
 # from shops.models import ParentRetailerMapping
 from celery.task import task
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 
 # @task
@@ -19,6 +23,7 @@ from celery.task import task
 
 @task
 def product_category_report_task(id):
+    logger.exception('adding product description in analytics')
     requests.post(config('REDSHIFT_URL') + '/analytics/api/v1/product-category-report/', data={'id': id})
 
 
