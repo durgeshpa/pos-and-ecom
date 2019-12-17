@@ -72,6 +72,7 @@ from sp_to_gram.tasks import es_search
 from coupon.serializers import CouponSerializer
 from coupon.models import Coupon, CusotmerCouponUsage
 
+from products.models import Product
 
 User = get_user_model()
 
@@ -1288,6 +1289,7 @@ class DeliveryShipmentDetails(APIView):
         msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': shipment_details.data}
         return Response(msg, status=status.HTTP_201_CREATED)
 
+
 class ShipmentDetail(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
@@ -1308,23 +1310,34 @@ class ShipmentDetail(APIView):
             shipment = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
         except ObjectDoesNotExist:
             return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            for item in request.data.get('delivered_items'):
+                product = item.get('product', None)
+                returned_qty = item.get('returned_qty', None)
+                damaged_qty = item.get('damaged_qty', None)
+                shipped_qty = int(ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product).shipped_qty)
+                if  shipped_qty >= int(returned_qty) + int(damaged_qty):
+                    delivered_qty = shipped_qty - (int(returned_qty) + int(damaged_qty))
+                    ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(
+                        returned_qty=returned_qty, damaged_qty=damaged_qty, delivered_qty=delivered_qty)
+                #shipment_product_details = ShipmentDetailSerializer(shipment, many=True)
+                else:
+                    product_name = Product.objects.get(id=product).product_name
+                    text = 'Returned qty and damaged qty is greater than shipped qty for product: ' + product_name
+                    msg = {'is_success': False, 'message': [text], 'response_data': None}
+                    return Response(msg, status=status.HTTP_400_BAD_REQUEST)
 
-        product = self.request.POST.get('product')
-        returned_qty = self.request.POST.get('returned_qty')
-        damaged_qty = self.request.POST.get('damaged_qty')
-        shipped_qty = int(ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product).shipped_qty)
-        if  shipped_qty >= int(returned_qty) + int(damaged_qty):
-            delivered_qty = shipped_qty - (int(returned_qty) + int(damaged_qty))
-            ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(
-                returned_qty=returned_qty, damaged_qty=damaged_qty, delivered_qty=delivered_qty)
-            #shipment_product_details = ShipmentDetailSerializer(shipment, many=True)
             cash_to_be_collected = shipment.last().ordered_product.cash_to_be_collected()
-            msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': None,
+            msg = {'is_success': True, 'message': ['Shipment Details Updated Successfully!'], 'response_data': None,
                        'cash_to_be_collected': cash_to_be_collected}
             return Response(msg, status=status.HTTP_201_CREATED)
-        else:
-            msg = {'is_success': False, 'message': ['Returned qty and damaged qty is greater than shipped qty'], 'response_data': None}
-            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            msg = {'is_success': False,
+               'message': [str(e)],
+               'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+
         # else:
         #     msg = {'is_success': False, 'message': ['Phone Number is not Valid'], 'response_data': None}
         #     return Response( msg, status=status.HTTP_400_BAD_REQUEST)
