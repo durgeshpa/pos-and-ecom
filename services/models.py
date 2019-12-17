@@ -1,4 +1,5 @@
 from django.db import models
+from datetime import datetime
 
 # Create your models here.
 
@@ -36,7 +37,7 @@ class OrderDetailReports(models.Model):
     order_type = models.CharField(max_length=255, null=True)
     campaign_name= models.CharField(max_length=255, null=True)
     discount = models.CharField(max_length=255, null=True)
-    event_occurred_at = models.DateTimeField(auto_now_add=True, blank=True)
+    event_occurred_at = models.DateTimeField(default=datetime.now)
 
 
     def __str__(self):
@@ -76,7 +77,7 @@ class OrderReports(models.Model):
     order_type = models.CharField(max_length=255, null=True)
     campaign_name= models.CharField(max_length=255, null=True)
     discount = models.CharField(max_length=255, null=True)
-    event_occurred_at = models.DateTimeField(auto_now_add=True, blank=True)
+    event_occurred_at = models.DateTimeField(default=datetime.now)
 
 
     def __str__(self):
@@ -112,7 +113,7 @@ class GRNReports(models.Model):
     returned_sku_pieces= models.CharField(max_length=255, null=True)
     dn_number = models.CharField(max_length=255, null=True)
     dn_value_basic = models.CharField(max_length=255, null=True)
-    event_occurred_at = models.DateTimeField(auto_now_add=True, blank=True)
+    event_occurred_at = models.DateTimeField(default=datetime.now)
 
 
     def __str__(self):
@@ -144,7 +145,7 @@ class MasterReports(models.Model):
     short_description = models.CharField(max_length=3000, null=True)
     long_description = models.CharField(max_length=3000, null=True)
     created_at = models.CharField(max_length=255, null=True)
-    event_occurred_at = models.DateTimeField(auto_now_add=True, blank=True)
+    event_occurred_at = models.DateTimeField(default=datetime.now)
 
     def __str__(self):
         return  "%s"%(self.product)
@@ -152,10 +153,10 @@ class MasterReports(models.Model):
 class OrderGrnReports(models.Model):
     order = models.CharField(max_length=255, null=True)
     grn = models.CharField(max_length=255, null=True)
-    event_occurred_at = models.DateTimeField(auto_now_add=True, blank=True)
+    event_occurred_at = models.DateTimeField(default=datetime.now)
 
     def __str__(self):
-        return  "%s"%(self.order)
+        return "%s"%(self.order)
 
 class RetailerReports(models.Model):
     retailer_id = models.CharField(max_length=255, null=True)
@@ -166,7 +167,7 @@ class RetailerReports(models.Model):
     service_partner = models.CharField(max_length=255, null=True)
     service_partner_id = models.CharField(max_length=255, null=True)
     service_partner_contact = models.CharField(max_length=255, null=True)
-    event_occurred_at = models.DateTimeField(auto_now_add=True, blank=True)
+    event_occurred_at = models.DateTimeField(default=datetime.now)
 
     def __str__(self):
         return  "%s"%(self.retailer_name)   
@@ -180,7 +181,7 @@ class CategoryProductReports(models.Model):
     category_id = models.CharField(max_length=255, null=True)
     category = models.CharField(max_length=255, null=True)
     category_name = models.CharField(max_length=255, null=True)
-    event_occurred_at = models.DateTimeField(auto_now_add=True, blank=True)
+    event_occurred_at = models.DateTimeField(default=datetime.now)
 
     def __str__(self):
         return  "%s"%(self.product_name)
