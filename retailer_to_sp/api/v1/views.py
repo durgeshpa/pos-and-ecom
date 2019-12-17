@@ -1298,17 +1298,13 @@ class ShipmentDeliveryBulkUpdate(APIView):
         shipment_id = kwargs.get('shipment')
         msg = {'is_success': False, 'message': ['shipment id is invalid'], 'response_data': None}
         try:
-            shipment = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
-        except ObjectDoesNotExist:
-            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            products = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)           
+            products = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
+            if not products.exists():
+                return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+
+            #products = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)           
             for item in products:
-                returned_qty = item.returned_qty
-                damaged_qty = item.damaged_qty
-                shipped_qty = item.shipped_qty
-                delivered_qty = shipped_qty - (int(returned_qty) + int(damaged_qty))
-                item.delivered_qty = delivered_qty
+                item.delivered_qty = item.shipped_qty - (int(item.returned_qty) + int(item.damaged_qty))
                 item.save()
             msg = {'is_success': True, 'message': ['Shipment Details Updated Successfully!'], 'response_data': None,
                        }
