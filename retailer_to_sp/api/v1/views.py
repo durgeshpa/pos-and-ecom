@@ -1303,7 +1303,7 @@ class ShipmentDetail(APIView):
                'response_data': shipment_product_details.data,'cash_to_be_collected': cash_to_be_collected}
         return Response(msg, status=status.HTTP_201_CREATED)
 
-    def post(self, *args, **kwargs):
+    def post(self, request, *args, **kwargs):
         shipment_id = kwargs.get('shipment')
         msg = {'is_success': False, 'message': ['shipment id is invalid'], 'response_data': None}
         try:
@@ -1336,7 +1336,6 @@ class ShipmentDetail(APIView):
                'message': [str(e)],
                'response_data': None}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-
 
         # else:
         #     msg = {'is_success': False, 'message': ['Phone Number is not Valid'], 'response_data': None}
