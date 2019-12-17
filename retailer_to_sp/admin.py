@@ -62,7 +62,7 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare,
                      OrderedProduct, OrderedProductMapping, Payment, Return,
                      ReturnProductMapping, Shipment, ShipmentProductMapping,
                      Trip, ShipmentRescheduling, Feedback, PickerDashboard,
-                     generate_picklist_id, ResponseComment)
+                     generate_picklist_id, ResponseComment, Invoice)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (
@@ -1140,7 +1140,7 @@ class TripAdmin(ExportCsvMixin, admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
     actions = ["export_as_csv_trip",]
     list_display = (
-        'dispathces', 'total_trip_shipments', 'total_trip_amount_value','delivery_boy', 'seller_shop', 'vehicle_no',
+        'dispathces', 'total_trip_shipments', 'delivery_boy', 'seller_shop', 'vehicle_no',
         'trip_status', 'starts_at', 'completed_at', 'download_trip_pdf'
     )
     readonly_fields = ('dispathces',)
@@ -1391,6 +1391,12 @@ class FeedbackAdmin(admin.ModelAdmin):
     list_display = ('user', 'shipment', 'delivery_experience', 'overall_product_packaging', 'comment', 'created_at', 'status')
     raw_id_fields = ['user', 'shipment']
 
+
+class InvoiceAdmin(admin.ModelAdmin):
+    list_display = ('invoice_no', 'shipment', 'invoice_amount')
+    raw_id_fields = ['shipment']
+
+
 # admin.site.register(Return, ReturnAdmin)
 admin.site.register(Cart, CartAdmin)
 admin.site.register(Order, OrderAdmin)
@@ -1404,3 +1410,4 @@ admin.site.register(Commercial, CommercialAdmin)
 admin.site.register(Shipment, ShipmentAdmin)
 admin.site.register(Feedback, FeedbackAdmin)
 admin.site.register(PickerDashboard, PickerDashboardAdmin)
+admin.site.register(Invoice, InvoiceAdmin)

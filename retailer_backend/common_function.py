@@ -7,6 +7,9 @@ from addresses.models import InvoiceCityMapping
 from rest_framework.response import Response
 from django.conf import settings
 import datetime
+from retailer_to_sp import models as RetailerToSPModels
+from celery.contrib import rdb
+from celery.task import task
 
 # get shop
 def checkShop(shop_id):
@@ -174,3 +177,12 @@ def required_fields(form, fields_list):
     for field in fields_list:
         form.fields[field].required = True
 
+
+@task
+def generate_invoice_number(field, instance_id, address, invoice_amount):
+    invoice_no = common_pattern(RetailerToSPModels.Invoice, field, instance_id, address, "IV")
+    instance, created = RetailerToSPModels.Invoice.objects.get_or_create(shipment_id=instance_id)
+    if created:
+        instance.invoice_amount=invoice_amount
+        instance.invoice_no=invoice_no
+        instance.save()
