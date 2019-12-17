@@ -7,7 +7,7 @@ from .views import (ProductsList, GramGRNProductsList,AddToCart,CartDetail,
     ProductDetail,ReleaseBlocking, OrderedProductViewSet, OrderedProductMappingView,
     CancelOrder, DeliveryBoyTrips,RetailerShopsList, FeedbackData, SellerOrderList,
     DeliveryShipmentDetails, ShipmentDetail, PickerDashboardViewSet, RescheduleReason,
-    ReturnReason, ShipmentDeliveryUpdate
+    ReturnReason, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate
 )
 
 router = routers.DefaultRouter()
@@ -36,6 +36,7 @@ urlpatterns = [
     url('^trip-shipment-details/(?P<trip>[-\w]+)/$', DeliveryShipmentDetails.as_view(), name = 'trip-shipment-details'),
     url('^shipment-detail/(?P<shipment>[-\w]+)/$', ShipmentDetail.as_view(), name='shipment-detail'),
     url('^shipment-delivery-update/(?P<shipment>[-\w]+)/$', ShipmentDeliveryUpdate.as_view(), name='shipment-delivry-update'),
+    url('^shipment-bulk-update/(?P<shipment>[-\w]+)/$', ShipmentDeliveryBulkUpdate.as_view(), name='shipment-delivry-bulk-update'),
 
     #url('^amount-collected/(?P<shipment>\d+)/$', StatusChangedAfterAmountCollected.as_view(), name='amount-collected'),
 
