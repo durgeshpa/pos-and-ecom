@@ -1306,7 +1306,10 @@ class ShipmentDeliveryBulkUpdate(APIView):
             for item in products:
                 item.delivered_qty = item.shipped_qty - (int(item.returned_qty) + int(item.damaged_qty))
                 item.save()
-            msg = {'is_success': True, 'message': ['Shipment Details Updated Successfully!'], 'response_data': None,
+            cash_to_be_collected = products.last().ordered_product.cash_to_be_collected()
+
+
+            msg = {'is_success': True, 'message': ['Shipment Details Updated Successfully!'], 'response_data': {'cash_to_be_collected': cash_to_be_collected},
                        }
             return Response(msg, status=status.HTTP_201_CREATED)
         except Exception as e:
