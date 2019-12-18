@@ -372,7 +372,7 @@ class CartProductMappingAdmin(admin.TabularInline):
     form = CartProductMappingForm
     formset = AtLeastOneFormSet
     fields = ('cart', 'cart_product', 'cart_product_price', 'qty',
-              'no_of_pieces', 'product_case_size', 'product_inner_case_size', 'item_effective_prices', 'effective_price')
+              'no_of_pieces', 'product_case_size', 'product_inner_case_size', 'item_effective_prices')
     autocomplete_fields = ('cart_product', 'cart_product_price')
     extra = 0
 
