@@ -1533,6 +1533,10 @@ class RescheduleReason(generics.ListCreateAPIView):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             self.perform_create(serializer)
+            products = ShipmentProducts.objects.filter(ordered_product__id=request.data.get('shipment'))
+            for item in products:
+                item.delivered_qty = item.returned_qty = item.damaged_qty = 0
+                item.save()            
             self.update_shipment(request.data.get('shipment'))
             update_trip_status(request.data.get('trip'))
             msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
