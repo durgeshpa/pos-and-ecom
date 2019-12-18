@@ -372,7 +372,7 @@ class CartProductMappingAdmin(admin.TabularInline):
     form = CartProductMappingForm
     formset = AtLeastOneFormSet
     fields = ('cart', 'cart_product', 'cart_product_price', 'qty',
-              'no_of_pieces', 'product_case_size', 'product_inner_case_size', 'item_effective_prices')
+              'no_of_pieces', 'product_case_size', 'product_inner_case_size', 'item_effective_prices', 'effective_price')
     autocomplete_fields = ('cart_product', 'cart_product_price')
     extra = 0
 
@@ -1256,8 +1256,8 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
     list_max_show_all = 100
     list_select_related = ('delivery_boy', 'seller_shop')
     readonly_fields = ('dispatch_no', 'delivery_boy', 'seller_shop',
-                        'total_received_amount', 'vehicle_no', 'starts_at', 'trip_amount', 
-                       #'received_cash_amount', 'received_online_amount', 
+                        'total_received_amount', 'vehicle_no', 'starts_at', 'trip_amount',
+                       #'received_cash_amount', 'received_online_amount',
                        'completed_at', 'e_way_bill_no', 'cash_to_be_collected')
     autocomplete_fields = ('seller_shop',)
     search_fields = [
@@ -1265,10 +1265,10 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
         'delivery_boy__phone_number', 'vehicle_no', 'dispatch_no',
         'seller_shop__shop_name'
     ]
-    fields = ['trip_status', 'trip_amount', 'cash_to_be_collected', #'description', 
-                'dispatch_no', 'total_received_amount', 
-              #'received_cash_amount', 'received_online_amount', 
-              'delivery_boy', 'seller_shop', 'starts_at', 'completed_at', 
+    fields = ['trip_status', 'trip_amount', 'cash_to_be_collected', #'description',
+                'dispatch_no', 'total_received_amount',
+              #'received_cash_amount', 'received_online_amount',
+              'delivery_boy', 'seller_shop', 'starts_at', 'completed_at',
               'e_way_bill_no', 'vehicle_no']
 
     list_filter = ['trip_status', ('created_at', DateTimeRangeFilter),
