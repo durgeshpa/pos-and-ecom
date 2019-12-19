@@ -307,7 +307,7 @@ DEBUG_TOOLBAR_CONFIG = {
 DEBUG_TOOLBAR_PATCH_SETTINGS = False
 
 # Initiate Sentry SDK
-if ENVIRONMENT.lower() in ["production","staging", "qa", "qa1"]:
+if ENVIRONMENT.lower() in ["production","staging", "qa", "qa1","qa3"]:
     from sentry_sdk.integrations.celery import CeleryIntegration
     sentry_sdk.init(
         dsn="https://2f8d192414f94cd6a0ba5b26d6461684@sentry.io/1407300",
@@ -363,7 +363,6 @@ REDIS_DB_CHOICE = {
 # JET_SIDE_MENU_COMPACT = True
 
 FCM_MAX_RECIPIENTS = 1000
-
 REDIS_URL = "{}/{}".format(config('CACHE_HOST'), REDIS_DB_CHOICE[ENVIRONMENT.lower()])
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
