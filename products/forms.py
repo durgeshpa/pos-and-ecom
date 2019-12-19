@@ -282,7 +282,16 @@ class ProductPriceNewForm(forms.ModelForm):
 
 
 class ProductForm(forms.ModelForm):
-    product_short_description= forms.CharField(required=True)
+    product_name = forms.CharField(required=True)
+    product_short_description = forms.CharField(required=True)
+    product_slug = forms.CharField(required=True)
+    product_gf_code = forms.CharField(required=True)
+
+    class Meta:
+        model = Product
+        fields = ('product_name','product_slug','product_short_description', 'product_long_description',
+                  'product_gf_code', 'product_ean_code', 'product_hsn','product_brand', 'product_inner_case_size',
+                  'product_case_size','weight_value', 'weight_unit', 'status',)
 
 
 class ProductsFilterForm(forms.Form):
