@@ -27,9 +27,7 @@ class CategoryProductReport(CreateAPIView):
     def create(self, request, *args, **kwargs):
         try:
             serializer = self.get_serializer(data=request.data)
-            print(serializer)
             if serializer.is_valid():
-                print(request.data)
                 #print(Product.objects.filter(product_name__icontains='dfgdgdfg')[0].id)
                 product = Product.objects.get(id=request.data.get("id"))
                 for cat in product.product_pro_category.all():
