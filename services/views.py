@@ -11,7 +11,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.http import HttpResponse, Http404
 from django.conf import settings
-from retailer_to_sp.models import Order, OrderedProductMapping
+from retailer_to_sp.models import Order, OrderedProductMapping, Trip, OrderedProduct, CartProductMapping
 from shops.models import Shop, ParentRetailerMapping
 from django.db.models import Sum
 from shops.models import Shop
@@ -22,7 +22,7 @@ from rest_framework import permissions, authentication
 from .forms import SalesReportForm, OrderReportForm, GRNReportForm, MasterReportForm, OrderGrnForm
 from django.views import View
 from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping, Tax
-from .models import RetailerReports, OrderReports,GRNReports, MasterReports, OrderGrnReports, OrderDetailReports, CategoryProductReports
+from .models import RetailerReports, OrderReports,GRNReports, MasterReports, OrderGrnReports, OrderDetailReports, CategoryProductReports, OrderDetailReportsData, CartProductMappingData
 from gram_to_brand.models import Order as PurchaseOrder
 from datetime import timedelta
 from categories.models import Category
@@ -104,8 +104,6 @@ class SalesReport(APIView):
             writer.writerow([k, v['product_id'], v['product_sku'], v['product_name'], v['product_brand'], v['ordered_qty'], v['delivered_qty'], v['ordered_amount'], v['ordered_tax_amount'],  v['delivered_amount'], v['delivered_tax_amount'],v['seller_shop']])
 
         return response
-
-
 
 class SalesReportFormView(View):
     def get(self, request):
