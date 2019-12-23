@@ -1,0 +1,3 @@
+from shops import models as shopmodels
+shops = shopmodels.Shop.objects.filter(status=True)
+shops.update(approval_status=2)

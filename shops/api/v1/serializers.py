@@ -82,7 +82,6 @@ class FavouriteProductSerializer(serializers.ModelSerializer):
     product = serializers.SerializerMethodField()   
 
     def get_product(self, obj):
-        #import pdb; pdb.set_trace()
         parent = obj.buyer_shop.retiler_mapping.last().parent.id
         product = obj.product
         return ProductSerializer(product, context={'parent': parent}).data

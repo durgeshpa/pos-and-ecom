@@ -133,21 +133,19 @@ class OrderedProductForm(forms.ModelForm):
 
     class Meta:
         model = OrderedProduct
-        fields = ['order', 'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
+        fields = ['order', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
 
 
     def __init__(self, *args, **kwargs):
         super(OrderedProductForm, self).__init__(*args, **kwargs)
-        self.fields['shipment_status'].choices = OrderedProduct.SHIPMENT_STATUS[:2]
+        #self.fields['shipment_status'].choices = OrderedProduct.SHIPMENT_STATUS[:2]
 
     def clean(self):
         data = self.cleaned_data
         if not self.cleaned_data['order'].picker_order.all().exists():
             raise forms.ValidationError(_("Please assign picklist to the order"), )
-        if self.cleaned_data['shipment_status'] == 'SHIPMENT_CREATED' and \
-                self.cleaned_data['order'].picker_order.last().picking_status != "picking_assigned":
+        if self.cleaned_data['order'].picker_order.last().picking_status != "picking_assigned":
             raise forms.ValidationError(_("Please set the picking status in picker dashboard"), )
-
         return data
 
 
@@ -286,6 +284,7 @@ class EditAssignPickerForm(forms.ModelForm):
             UserWithName,
             related_url="admin:accounts_user_add"))
 
+
     class Meta:
         model = PickerDashboard
         fields = ['order', 'shipment', 'picking_status', 'picklist_id', 'picker_boy']
@@ -313,10 +312,10 @@ class EditAssignPickerForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(EditAssignPickerForm, self).__init__(*args, **kwargs)
-        # import pdb; pdb.set_trace()
         instance = getattr(self, 'instance', None)
         shop = instance.order.seller_shop  # Shop.objects.get(related_users=user)
         # shop = Shop.objects.get(shop_name="TEST SP 1")
+
         # find all picker for the shop
         self.fields['picker_boy'].queryset = shop.related_users.filter(groups__name__in=["Picker Boy"])
         if instance.picking_status == "picking_pending":
@@ -359,7 +358,6 @@ class AssignPickerForm(forms.ModelForm):
     def __init__(self, user, shop_id, *args, **kwargs):
         super(AssignPickerForm, self).__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
-        # import pdb; pdb.set_trace()
         # assign shop name as readonly with value for shop name for user
         self.fields['picker_boy'].queryset = User.objects.none()
         if user.is_superuser:
@@ -483,7 +481,13 @@ class TripForm(forms.ModelForm):
             else:
                 for field_name in self.fields:
                     self.fields[field_name].disabled = True
-                self.fields['trip_status'].choices = TRIP_STATUS[1:2]
+                if trip_status == 'CLOSED':
+                    self.fields['trip_status'].choices = TRIP_STATUS[4:5] #"CLOSED"
+                elif trip_status == 'TRANSFERRED':
+                    self.fields['trip_status'].choices = TRIP_STATUS[5:] #"CLOSED"    
+                else:                            
+                    self.fields['trip_status'].choices = TRIP_STATUS[1:2]
+                #self.fields['trip_status'].choices = TRIP_STATUS[1:2]
         else:
             self.fields['trip_status'].initial = 'READY'
             fields = ['trip_status', 'e_way_bill_no']
@@ -616,7 +620,6 @@ class ShipmentForm(forms.ModelForm):
 
         if (data['close_order'] and
                 not data['shipment_status'] == OrderedProduct.READY_TO_SHIP):
-
                 raise forms.ValidationError(
                     _('You can only close the order in QC Passed state'),)
 
@@ -707,12 +710,16 @@ class CommercialForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(CommercialForm, self).__init__(*args, **kwargs)
-        self.fields['trip_status'].choices = TRIP_STATUS[3:5]
+        self.fields['trip_status'].choices = TRIP_STATUS[3:]
         instance = getattr(self, 'instance', None)
         if instance.pk:
-            if (instance.trip_status == 'TRANSFERRED' or
-                    instance.trip_status == 'CLOSED'):
-                self.fields['trip_status'].choices = TRIP_STATUS[-3:]
+            # seperate screen for transferred: access only to finance team
+            if (instance.trip_status == 'CLOSED'):
+                self.fields['trip_status'].choices = TRIP_STATUS[-2:]
+
+            if (instance.trip_status == 'TRANSFERRED'):
+                self.fields['trip_status'].choices = TRIP_STATUS[-1:]
+            if instance.trip_status == 'TRANSFERRED':
                 for field_name in self.fields:
                     self.fields[field_name].disabled = True
 
@@ -722,6 +729,23 @@ class CommercialForm(forms.ModelForm):
         if trip_status == 'CLOSED' and not received_amount:
             raise forms.ValidationError(('This field is required'), )
         return received_amount
+
+    def clean(self):
+        data = self.cleaned_data
+        if data['trip_status'] == 'CLOSED':
+            if int(self.instance.received_cash_amount) + int(self.instance.received_online_amount) < int(self.instance.cash_to_be_collected_value):
+                raise forms.ValidationError(_("Amount to be collected is less than sum of received cash amount and online amount"),)
+        # setup check for transferred
+        if data['trip_status'] == 'TRANSFERRED':
+            # setup check for transferred
+            # check if number of pending payment approval is 0
+            from payments.models import ShipmentPayment
+            trip_shipments = self.instance.rt_invoice_trip.all()
+            #pending_payments_count = trip_shipments.filter(parent_order_payment__parent_payment__payment_approval_status="approval_pending").count()
+            pending_payments_count = ShipmentPayment.objects.filter(shipment__in=trip_shipments, parent_order_payment__parent_payment__payment_approval_status="pending_approval").count()
+            if pending_payments_count:
+                raise forms.ValidationError(_("All shipment payments are not verified"),)
+        return data
 
 
 class OrderedProductReschedule(forms.ModelForm):
@@ -739,12 +763,14 @@ class OrderedProductReschedule(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if not get_current_user().is_superuser:
             instance = getattr(self, 'instance', None)
-            if instance.shipment_status == OrderedProduct.RESCHEDULED or instance.return_reason:
+            #if instance.shipment_status == OrderedProduct.RESCHEDULED or instance.return_reason:
+            if ((instance.shipment_status == OrderedProduct.RESCHEDULED) or
+                (instance.trip and instance.trip.trip_status == "CLOSED")):
                 self.fields['return_reason'].disabled = True
 
     def clean_return_reason(self):
         return_reason = self.cleaned_data.get('return_reason')
-        if not self.instance.shipment_status == OrderedProduct.RESCHEDULED and not self.instance.return_reason:
+        if not self.instance.shipment_status == OrderedProduct.RESCHEDULED:
             return_qty = 0
             damaged_qty = 0
             total_products = self.data.get(
@@ -803,7 +829,7 @@ class ShipmentReschedulingForm(forms.ModelForm):
         super(ShipmentReschedulingForm, self).__init__(*args, **kwargs)
         if not get_current_user().is_superuser:
             instance = getattr(self, 'instance', None)
-            if instance and instance.pk:
+            if instance and instance.pk or (instance.shipment and instance.shipment.trip and instance.shipment.trip.trip_status == "CLOSED"):
                 self.fields['rescheduling_reason'].disabled = True
                 self.fields['rescheduling_date'].disabled = True
 
@@ -819,7 +845,9 @@ class OrderedProductMappingRescheduleForm(forms.ModelForm):
         if not get_current_user().is_superuser:
             instance = getattr(self, 'instance', None)
             if instance and instance.pk:
-                if instance.ordered_product.shipment_status == OrderedProduct.RESCHEDULED or instance.ordered_product.return_reason:
+                #if instance.ordered_product.shipment_status == OrderedProduct.RESCHEDULED or instance.ordered_product.return_reason:
+                if (instance.ordered_product.shipment_status == OrderedProduct.RESCHEDULED) or (
+                    instance.ordered_product.trip and instance.ordered_product.trip.trip_status == "CLOSED"):
                     self.fields['returned_qty'].disabled = True
                     self.fields['damaged_qty'].disabled = True
 

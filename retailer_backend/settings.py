@@ -56,7 +56,6 @@ INSTALLED_APPS = [
     'allauth',
     'allauth.account',
     'rest_auth.registration',
-    'elasticapm.contrib.django',
     'accounts',
     'otp',
     'api',
@@ -85,6 +84,7 @@ INSTALLED_APPS = [
     'retailer_to_gram',
     'admin_auto_filters',
     'notification_center',
+    'payments',
     'django_ses',
     'services',
     'rangefilter',
@@ -100,18 +100,23 @@ INSTALLED_APPS = [
     'celerybeat_status',
     'django_elasticsearch_dsl',
 ]
-if ENVIRONMENT.lower()=='production':
-    ELASTIC_APM = {
-      # Set required service name. Allowed characters:
-      # a-z, A-Z, 0-9, -, _, and space
-      'SERVICE_NAME': 'gramfactory',
 
-      # Use if APM Server requires a token
-      'SECRET_TOKEN': '',
+# if ENVIRONMENT.lower() in ["production","qa"]:
+#     INSTALLED_APPS +=[
+#         'elasticapm.contrib.django',
+# ]
+#     service_name = "gramfactory-{}".format(ENVIRONMENT.lower())
+#     ELASTIC_APM = {
+#       # Set required service name. Allowed characters:
+#       # a-z, A-Z, 0-9, -, _, and space
+#       'SERVICE_NAME': service_name,
 
-      # Set custom APM Server URL (default: http://localhost:8200)
-      'SERVER_URL': 'http://13.234.240.93:8001',
-    }
+#       # Use if APM Server requires a token
+#       'SECRET_TOKEN': '',
+
+#       # Set custom APM Server URL (default: http://localhost:8200)
+#       'SERVER_URL': 'http://13.234.240.93:8001',
+#     }
 
 FCM_APIKEY = config('FCM_APIKEY')
 
@@ -133,8 +138,11 @@ MIDDLEWARE += [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'accounts.middlewares.RequestMiddleware',
-    'elasticapm.contrib.django.middleware.TracingMiddleware'
 ]
+# if ENVIRONMENT.lower() in ["production", "qa"]:
+#     MIDDLEWARE += [
+#             'elasticapm.contrib.django.middleware.TracingMiddleware'
+#     ]
 
 ROOT_URLCONF = 'retailer_backend.urls'
 # STATICFILES_STORAGE = "retailer_backend.storage.ExtendedManifestStaticFilesStorage"
