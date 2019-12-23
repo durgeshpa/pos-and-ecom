@@ -1089,6 +1089,15 @@ class OrderedProduct(models.Model): #Shipment
             return round((self._invoice_amount - self._cn_amount),2)
         return 0
 
+
+    @property
+    def invoice_amount(self):
+        if self.order:
+            if hasattr(self, 'invoice'):
+                return self.invoice.invoice_amount
+            return round(self._invoice_amount)
+        return str("-")
+
     @property
     def invoice_amount(self):
         if self.order and not hasattr(self, 'invoice'):
