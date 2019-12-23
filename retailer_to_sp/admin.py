@@ -62,13 +62,16 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare,
                      OrderedProduct, OrderedProductMapping, Payment, Return,
                      ReturnProductMapping, Shipment, ShipmentProductMapping,
                      Trip, ShipmentRescheduling, Feedback, PickerDashboard,
-                     generate_picklist_id, ResponseComment, Invoice)
+                     generate_picklist_id, ResponseComment, Invoice, TRIP_STATUS)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (
     GetPcsFromQty, add_cart_user, create_order_from_cart,
     reschedule_shipment_button
 )
+from .filters import (InvoiceAdminOrderFilter, InvoiceAdminTripFilter)
+
+
 class InvoiceNumberFilter(AutocompleteFilter):
     title = 'Invoice Number'
     field_name = 'invoice_no'
@@ -1393,8 +1396,72 @@ class FeedbackAdmin(admin.ModelAdmin):
 
 
 class InvoiceAdmin(admin.ModelAdmin):
-    list_display = ('invoice_no', 'shipment', 'invoice_amount')
-    raw_id_fields = ['shipment']
+    list_display = ('invoice_no', 'get_invoice_amount', 'created_at', 'get_shipment_status',
+                    'get_shipment', 'get_order', 'get_trip_no', 'get_trip_status')
+    fieldsets = (
+        ('Invoice', {
+            'fields': (('invoice_no', 'get_invoice_amount'), ('created_at', 'invoice_pdf'))
+        }),
+        ('Shipment', {
+            'classes': ('extrapretty',),
+            'fields': (('get_shipment_status', 'get_shipment'),),
+        }),
+        ('Trip', {
+            'classes': ('extrapretty',),
+            'fields': (('get_trip_no', 'get_trip_status'),),
+        }),
+        ('Order', {
+            'classes': ('extrapretty',),
+            'fields': ('get_order',),
+        }),
+    )
+    readonly_fields = ('invoice_no', 'get_shipment', 'invoice_amount', 'invoice_pdf')
+    search_fields =('invoice_no', 'shipment__trip__dispatch_no', 'shipment__order__order_no')
+    ordering = ('-created_at', )
+    list_filter = (InvoiceAdminOrderFilter, InvoiceAdminTripFilter, ('created_at', DateTimeRangeFilter))
+
+    def get_invoice_amount(self, obj):
+        return "%s %s" % (u'\u20B9', str(obj.invoice_amount))
+    get_invoice_amount.short_description = "Invoice Amount"
+
+    def get_shipment(self, obj):
+        url = reverse('admin:%s_%s_change' % (obj._meta.app_label, 'orderedproduct'),  args=[obj.shipment_id] )
+        return format_html("<a href='%s' target='blank'>View Shipment Details</a>" % (url))
+    get_shipment.short_description = "Shipment"
+
+    def get_order(self, obj):
+        return obj.get_order
+    get_order.short_description = "Order"
+
+    def get_shipment_status(self, obj):
+        shipment_status = dict(OrderedProduct.SHIPMENT_STATUS)
+        return shipment_status[obj.shipment_status]
+    get_shipment_status.short_description = "Shipment Status"
+
+    def get_trip_no(self, obj):
+        return obj.trip_no
+    get_trip_no.short_description = "Trip"
+
+    def get_trip_status(self, obj):
+        trip_status = dict(TRIP_STATUS)
+        return trip_status[obj.trip_status]
+    get_trip_status.short_description = "Trip Status"
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        qs = qs.annotate(
+            get_order=F('shipment__order__order_no'), shipment_status=F('shipment__shipment_status'),
+            trip_no=F('shipment__trip__dispatch_no'), trip_status=F('shipment__trip__trip_status'))
+        return qs
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 # admin.site.register(Return, ReturnAdmin)
