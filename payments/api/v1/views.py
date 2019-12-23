@@ -244,7 +244,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
 
             if error_msg:
                 msg = {'is_success': False,
-                    'message': error_msg,
+                    'message': [error_msg] ,
                     'response_data': None }
                 return Response(msg,
                                 status=status.HTTP_406_NOT_ACCEPTABLE)
