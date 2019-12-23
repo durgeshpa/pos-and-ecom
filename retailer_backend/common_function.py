@@ -96,6 +96,10 @@ def order_id_pattern(model, field, instance_id, address):
     return common_pattern(model, field, instance_id, address, "OR")
 
 
+def payment_id_pattern(model, field, instance_id, address):
+    return common_pattern(model, field, instance_id, address, "PA")    
+
+
 def order_id_pattern_r_gram(order_id):
 
     """ Order ID pattern

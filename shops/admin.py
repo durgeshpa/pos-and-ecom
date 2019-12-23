@@ -344,9 +344,25 @@ class ProductSKUFilter(InputFilter):
             product_sku = self.value()
             return queryset.filter(product_sku__icontains=product_sku)
 
-class ShopRequestBrandAdmin(admin.ModelAdmin):
+class ExportCsvMixin:
+    def export_as_csv_shop_request_brand(self, request, queryset):
+        meta = self.model._meta
+        list_display = ('shop', 'brand_name', 'product_sku', 'request_count', 'created_at')
+        field_names = [field.name for field in meta.fields if field.name in list_display]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in list_display])
+        return response
+
+    export_as_csv_shop_request_brand.short_description = "Download CSV of Shop Request Brand"
+
+class ShopRequestBrandAdmin(ExportCsvMixin, admin.ModelAdmin):
     #change_list_template = 'admin/shops/shop/change_list.html'
     #form = ShopRequestBrandForm
+    actions = ['export_as_csv_shop_request_brand']
     list_display = ('shop', 'brand_name', 'product_sku', 'request_count','created_at',)
     list_filter = (ShopFilter, ShopSearchByOwner, ProductSKUFilter, BrandNameFilter, ('created_at', DateTimeRangeFilter))
     raw_id_fields = ('shop',)
