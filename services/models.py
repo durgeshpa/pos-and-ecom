@@ -37,6 +37,7 @@ class OrderDetailReports(models.Model):
     order_type = models.CharField(max_length=255, null=True)
     campaign_name= models.CharField(max_length=255, null=True)
     discount = models.CharField(max_length=255, null=True)
+
     # event_occurred_at = models.DateTimeField(default=datetime.now)
 
 

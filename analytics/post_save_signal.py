@@ -60,8 +60,13 @@ def get_master_report(sender, instance=None, created=False, **kwargs):
     transaction.on_commit(lambda: master_report_task.delay(instance.seller_shop_id))
 
 
+# def get_order_report(sender, instance=None, created=False, **kwargs):
+#     transaction.on_commit(lambda: order_report_task.delay(instance.id))
+
 def get_order_report(sender, instance=None, created=False, **kwargs):
-    transaction.on_commit(lambda: order_report_task.delay(instance.id))
+    def on_commit4():
+        requests.post(config('REDSHIFT_URL')+'/analytics/api/v1/order-report/', data={'order_id':instance.id})
+    transaction.on_commit(on_commit4)
 
 
 def get_retailer_report(sender, instance=None, created=False, **kwargs):
