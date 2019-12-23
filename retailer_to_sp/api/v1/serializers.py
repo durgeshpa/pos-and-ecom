@@ -13,7 +13,7 @@ from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping 
     OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment
  )
 from addresses.models import Address,City,State,Country
-from payments.models import CashPayment, ShipmentPayment, OnlinePayment, PaymentMode
+from payments.models import ShipmentPayment, PaymentMode
 
 from gram_to_brand.models import GRNOrderProductMapping
 
