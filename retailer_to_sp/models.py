@@ -1204,19 +1204,10 @@ class OrderedProduct(models.Model): #Shipment
     @property
     def invoice_amount(self):
         if self.order:
-            if hasattr(self, 'invoice'):
-                return self.invoice.invoice_amount
+            # if hasattr(self, 'invoice'):
+            #     return self.invoice.invoice_amount
             return round(self._invoice_amount)
         return str("-")
-
-    @property
-    def invoice_amount(self):
-        if self.order and not hasattr(self, 'invoice'):
-            return round(self._invoice_amount, 2)
-        elif self.order and hasattr(self, 'invoice'):
-            return self.invoice.invoice_amount
-        else:
-            return str("-")
 
     @property
     def shipment_id(self):
@@ -1240,7 +1231,7 @@ class OrderedProduct(models.Model): #Shipment
             self.no_of_packets = 0
         if self.no_of_sacks == None:
             self.no_of_sacks = 0
-        CommonFunction.generate_invoice_number.delay(
+        CommonFunction.generate_invoice_number(
             'invoice_no', self.pk,
             self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
             self.invoice_amount)
