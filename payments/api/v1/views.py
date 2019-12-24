@@ -270,7 +270,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                 if return_reason:
                     shipment.return_reason = return_reason
                     shipment.save() 
-                    create_credit_note(shipment)
+                    #create_credit_note(shipment)
 
                 for item in request.data.get('payment_data'):
                     # serializer = self.get_serializer(data=item)
