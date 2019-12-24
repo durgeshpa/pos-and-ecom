@@ -262,8 +262,8 @@ class ProductPrice(models.Model):
                                 null=True, blank=True,
                                 on_delete=models.CASCADE)
     price_to_retailer = models.FloatField(null=True, blank=False)
-    start_date = models.DateTimeField(null=True, blank=True)
-    end_date = models.DateTimeField(null=True, blank=True)
+    start_date = models.DateTimeField(null=True, blank=False)
+    end_date = models.DateTimeField(null=True, blank=False)
     approval_status = models.IntegerField(choices=APPROVAL_CHOICES, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
