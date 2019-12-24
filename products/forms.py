@@ -487,7 +487,7 @@ class ProductPriceChangePerm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         #self.fields['start_date'].required = True
         #self.fields['end_date'].required = True
-        self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:-1]
+        # self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:-1]
 
 
 class ProductCategoryMappingForm(forms.Form):
