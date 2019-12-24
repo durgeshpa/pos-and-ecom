@@ -983,9 +983,10 @@ class ShipmentSerializer(serializers.ModelSerializer):
     def get_shop_timings(self, obj):
         shop_timing = ShopTiming.objects.filter(shop=obj.order.buyer_shop)
         if shop_timing.exists():
-            final_timing = shop_timing.last()     
-            return open_timing, closing_timing, break_start_time, \
-                break_end_time, off_day        
+            final_timing = shop_timing.last()
+            return [final_timing.open_timing, final_timing.closing_timing,
+            final_timing.break_start_time, final_timing.break_end_time, 
+            final_timing.off_day]        
 
     def get_shop_open_time(self, obj):
         shop_timings = self.get_shop_timings(obj)
