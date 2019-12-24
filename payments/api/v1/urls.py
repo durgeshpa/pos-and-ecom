@@ -1,7 +1,7 @@
 from django.conf.urls import include, url
 from rest_framework import routers
 
-from .views import (ShipmentPaymentView, CashPaymentView, SendCreditRequestAPI,
+from .views import (ShipmentPaymentView, SendCreditRequestAPI,
 	CreditOTPResponseAPI, BharatpeCallbackAPI, OrderPaymentView, PaymentImageUploadView)
 
 router = routers.DefaultRouter()
