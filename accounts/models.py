@@ -68,6 +68,8 @@ class UserManager(BaseUserManager):
 class User(AbstractUser):
     """User model."""
     username = None
+    first_name = models.CharField(max_length=254)
+    last_name = models.CharField(max_length=254)
     phone_regex = RegexValidator(regex=r'^[6-9]\d{9}$', message="Phone number is not valid")
     phone_number = models.CharField(validators=[phone_regex], max_length=10, blank=False, unique=True)
     email = models.EmailField(_('email address'),blank=True)
@@ -83,7 +85,7 @@ class User(AbstractUser):
         return mark_safe('<img alt="%s" src="%s" />' % (self.user, self.user_photo.url))
 
     def __str__(self):
-        return "%s"%(str(self.phone_number))
+        return "%s - %s"%(str(self.phone_number), self.first_name)
 
 
 # class UserInfo(models.Model):
