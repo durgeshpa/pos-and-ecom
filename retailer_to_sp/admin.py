@@ -837,6 +837,7 @@ class ShipmentReschedulingAdmin(admin.TabularInline):
     def has_delete_permission(self, request, obj=None):
         return False
 
+
 class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping
     form = OrderedProductMappingRescheduleForm
@@ -893,24 +894,12 @@ class OrderedProductAdmin(admin.ModelAdmin):
         form_instance = getattr(form, 'instance', None)
         formsets_dict = {formset.__class__.__name__: formset
                          for formset in formsets}
-        if ('ShipmentReschedulingFormFormSet' in formsets_dict and
-            formsets_dict['ShipmentReschedulingFormFormSet'].has_changed() and
-                not form.changed_data):
-            # if reschedule option selected but not return reason
-            reshedule_update_shipment(
-                form_instance,
-                formsets_dict['OrderedProductMappingFormFormSet']
-            )
-        elif ('OrderedProductMappingFormFormSet' in formsets_dict and
-              formsets_dict[
-                'OrderedProductMappingFormFormSet'].has_changed() and
-              form.changed_data):
-            # if return reason is selected and return qty is entered
-            update_shipment_status(
-                form_instance,
-                formsets_dict['OrderedProductMappingFormFormSet']
-            )
-            create_credit_note(form.instance)
+        if (not form_instance.rescheduling_shipment.exists()) and ('ShipmentReschedulingFormFormSet' in formsets_dict and
+            [i for i in formsets_dict['ShipmentReschedulingFormFormSet'].cleaned_data if i]):
+            reshedule_update_shipment(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
+        else:
+            update_shipment_status(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
+            #create_credit_note(form.instance)
         update_order_status(
             close_order_checked=False,
             shipment_id=form_instance.id

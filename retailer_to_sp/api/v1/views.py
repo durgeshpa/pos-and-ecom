@@ -1576,8 +1576,8 @@ class ReturnReason(generics.UpdateAPIView):
         if serializer.is_valid():
             serializer.save()
             # For creating credit note
-            shipment = OrderedProduct.objects.get(id=request.data.get('id'))
-            create_credit_note(shipment)
+            # shipment = OrderedProduct.objects.get(id=request.data.get('id'))
+            # create_credit_note(shipment)
             msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
         else:
             msg = {'is_success': False, 'message': ['have some issue'], 'response_data': None}

@@ -101,7 +101,7 @@ class CheckAppVersion(APIView):
         version = self.request.GET.get('app_version')
         msg = {'is_success': False, 'message': ['Please send version'], 'response_data': None}
         try:
-            app_version = AppVersion.objects.get(app_version=version)
+            app_version = AppVersion.objects.get(app_version=version, app_type='retailer')
         except ObjectDoesNotExist:
             msg["message"] = ['App version not found']
             return Response(msg, status=status.HTTP_200_OK)
