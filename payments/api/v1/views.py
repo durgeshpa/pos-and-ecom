@@ -26,12 +26,11 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db.models import Q
 from common.data_wrapper_view import DataWrapperViewSet
 
-from .serializers import ShipmentPaymentSerializer, CashPaymentSerializer, \
-    ReadShipmentPaymentSerializer, ShipmentPaymentSerializer2, OrderPaymentSerializer, \
-    PaymentImageSerializer
+from .serializers import ShipmentPaymentSerializer, ReadShipmentPaymentSerializer, \
+    ShipmentPaymentSerializer2, OrderPaymentSerializer, PaymentImageSerializer
 from accounts.models import UserWithName
-from retailer_to_sp.models import OrderedProduct
-from payments.models import ShipmentPayment, CashPayment, OnlinePayment, PaymentMode, \
+from retailer_to_sp.models import OrderedProduct, OrderedProductMapping
+from payments.models import ShipmentPayment, PaymentMode, \
     Payment, OrderPayment, PaymentImage
 
 from retailer_to_sp.views import update_order_status, update_shipment_status_with_id
@@ -244,7 +243,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
 
             if error_msg:
                 msg = {'is_success': False,
-                    'message': error_msg,
+                    'message': [error_msg] ,
                     'response_data': None }
                 return Response(msg,
                                 status=status.HTTP_406_NOT_ACCEPTABLE)
@@ -258,6 +257,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                     return Response(msg,
                             status=status.HTTP_406_NOT_ACCEPTABLE)
                 elif int(float(cash_collected)) == int(float(shipment.cash_to_be_collected())):    
+
                     update_shipment_status_with_id(shipment)
                     update_trip_status(trip)
                 else:
@@ -270,7 +270,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                 if return_reason:
                     shipment.return_reason = return_reason
                     shipment.save() 
-                    create_credit_note(shipment)
+                    #create_credit_note(shipment)
 
                 for item in request.data.get('payment_data'):
                     # serializer = self.get_serializer(data=item)
@@ -333,34 +333,6 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
 
             return Response(msg,
                             status=status.HTTP_406_NOT_ACCEPTABLE)
-
-
-class CashPaymentView(DataWrapperViewSet):
-    '''
-    This class handles all operation of ordered product mapping
-    '''
-    #permission_classes = (AllowAny,)
-    model = CashPayment
-    serializer_class = CashPaymentSerializer
-    queryset = CashPayment.objects.all()
-    authentication_classes = (authentication.TokenAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
-    # filter_backends = (filters.DjangoFilterBackend,)
-    # filter_class = CashPaymentFilter
-
-    def get_serializer_class(self):
-        '''
-        Returns the serializer according to action of viewset
-        '''
-        serializer_action_classes = {
-            'retrieve': CashPaymentSerializer,
-            'list':CashPaymentSerializer,
-            'create':CashPaymentSerializer,
-            'update':CashPaymentSerializer
-        }
-        if hasattr(self, 'action'):
-            return serializer_action_classes.get(self.action, self.serializer_class)
-        return self.serializer_class        
 
 
 # class OrderPaymentView(DataWrapperViewSet):

@@ -5,8 +5,10 @@ from django.db.models import Case, CharField, Value, When, F, Sum, Q
 from retailer_backend.admin import InputFilter
 
 from .models import *
-from .forms import ShipmentPaymentForm, ShipmentPaymentInlineForm, OnlinePaymentInlineForm, \
+from .forms import ShipmentPaymentForm, ShipmentPaymentInlineForm, \
     PaymentForm, OrderPaymentForm, PaymentApprovalForm
+from .views import UserWithNameAutocomplete
+
 #from .forms import ShipmentPaymentApprovalForm
 from django.utils.safestring import mark_safe
 from django.forms.models import BaseInlineFormSet
@@ -36,9 +38,9 @@ class PermissionMixin:
             return False
 
 
-class OnlinePaymentInlineAdmin(admin.TabularInline):
-    model = OnlinePayment
-    form = OnlinePaymentInlineForm
+# class OnlinePaymentInlineAdmin(admin.TabularInline):
+#     model = OnlinePayment
+#     form = OnlinePaymentInlineForm
 
 
 class OrderNoSearch(InputFilter):
@@ -117,6 +119,18 @@ class PaymentAdmin(admin.ModelAdmin, PermissionMixin):
     #     if not obj or obj.payment_mode_name != "online_payment": return []
     #     return super(PaymentAdmin, self).get_inline_instances(request, obj)
 
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(PaymentAdmin, self).get_urls()
+        urls = [
+            url(
+                r'^userwithname-autocomplete/$',
+                self.admin_site.admin_view(UserWithNameAutocomplete.as_view()),
+                name="userwithname-autocomplete"
+            ),
+        ] + urls
+        return urls
+
     class Media:
         js = ('admin/js/hide_admin_fields_payment.js',)
 
@@ -187,8 +201,8 @@ class NoDeleteAdminMixin:
         
         return False
 
-class OnlinePaymentAdmin1(admin.ModelAdmin):
-    model = OnlinePayment
+# class OnlinePaymentAdmin1(admin.ModelAdmin):
+#     model = OnlinePayment
 
 
 class PaymentApprovalAdmin(admin.ModelAdmin, PermissionMixin):# NoDeleteAdminMixin, 
@@ -262,7 +276,7 @@ class AtLeastOneFormSet(BaseInlineFormSet):
 
 
 
-class ShipmentPaymentInlineAdmin(admin.TabularInline):
+class ShipmentPaymentInlineAdmin(admin.TabularInline, PermissionMixin):
     model = ShipmentPayment
     form = ShipmentPaymentInlineForm
     formset = AtLeastOneFormSet
@@ -343,6 +357,12 @@ class ShipmentPaymentDataAdmin(admin.ModelAdmin, PermissionMixin):
         return obj.total_paid_amount
     total_paid_amount.short_description = 'Total Paid Amount'
 
+    def has_change_permission(self, request, obj=None):
+        if request.user.has_perm("payments.change_payment"):
+            return True
+        else:
+            return False
+
     def trip_status(self,obj):
         return obj.trip.trip_status
     trip_status.short_description = 'Trip Status'
@@ -402,30 +422,13 @@ class PaymentEditAdmin(admin.ModelAdmin):# NoDeleteAdminMixin,
         shipment_payment = ShipmentPayment.objects.get(parent_payment=obj)
         return mark_safe("<a href='/admin/retailer_to_sp/order/%s/change/'>%s<a/>" % (shipment_payment.shipment.order.id,
                   shipment_payment.shipment.order.order_no)
-                         )
-
-
-class CashPaymentAdmin(admin.ModelAdmin):
-    model = CashPayment
-
-
-class CreditPaymentAdmin(admin.ModelAdmin):
-    model = CreditPayment        
-
-
-class WalletPaymentAdmin(admin.ModelAdmin):
-    model = WalletPayment                 
+                         )               
 
 # payments
 admin.site.register(Payment,PaymentAdmin)
 admin.site.register(OrderPayment,OrderPaymentAdmin)
 admin.site.register(ShipmentPayment,ShipmentPaymentAdmin)
 
-#payment modes
-# admin.site.register(CashPayment,CashPaymentAdmin)
-# admin.site.register(OnlinePayment,OnlinePaymentAdmin1)
-# admin.site.register(CreditPayment,CreditPaymentAdmin)
-# admin.site.register(WalletPayment,WalletPaymentAdmin)
 #admin.site.register(PaymentMode,PaymentModeAdmin)
 
 # payment edit and approvals

@@ -1,8 +1,0 @@
-retailers = ParentRetailerMapping.objects.filter(parent__isnull=True)
-for retailer in retailers:
-            retailer_id = retailer.retailer.id
-            retailer_name = retailer.retailer
-            retailer_type = retailer.retailer.shop_type.shop_type
-            retailer_phone_number = retailer.retailer.shop_owner.phone_number
-            created_at = retailer.retailer.created_at
-            RetailerReports.objects.using('gfanalytics').create(retailer_id = retailer_id, retailer_name = retailer_name, retailer_type=retailer_type, retailer_phone_number=retailer_phone_number, created_at=created_at)

@@ -837,6 +837,7 @@ class ShipmentReschedulingAdmin(admin.TabularInline):
     def has_delete_permission(self, request, obj=None):
         return False
 
+
 class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping
     form = OrderedProductMappingRescheduleForm
@@ -893,24 +894,12 @@ class OrderedProductAdmin(admin.ModelAdmin):
         form_instance = getattr(form, 'instance', None)
         formsets_dict = {formset.__class__.__name__: formset
                          for formset in formsets}
-        if ('ShipmentReschedulingFormFormSet' in formsets_dict and
-            formsets_dict['ShipmentReschedulingFormFormSet'].has_changed() and
-                not form.changed_data):
-            # if reschedule option selected but not return reason
-            reshedule_update_shipment(
-                form_instance,
-                formsets_dict['OrderedProductMappingFormFormSet']
-            )
-        elif ('OrderedProductMappingFormFormSet' in formsets_dict and
-              formsets_dict[
-                'OrderedProductMappingFormFormSet'].has_changed() and
-              form.changed_data):
-            # if return reason is selected and return qty is entered
-            update_shipment_status(
-                form_instance,
-                formsets_dict['OrderedProductMappingFormFormSet']
-            )
-            create_credit_note(form.instance)
+        if (not form_instance.rescheduling_shipment.exists()) and ('ShipmentReschedulingFormFormSet' in formsets_dict and
+            [i for i in formsets_dict['ShipmentReschedulingFormFormSet'].cleaned_data if i]):
+            reshedule_update_shipment(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
+        else:
+            update_shipment_status(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
+            #create_credit_note(form.instance)
         update_order_status(
             close_order_checked=False,
             shipment_id=form_instance.id
@@ -1256,8 +1245,8 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
     list_max_show_all = 100
     list_select_related = ('delivery_boy', 'seller_shop')
     readonly_fields = ('dispatch_no', 'delivery_boy', 'seller_shop',
-                        'total_received_amount', 'vehicle_no', 'starts_at', 'trip_amount', 
-                       #'received_cash_amount', 'received_online_amount', 
+                        'total_received_amount', 'vehicle_no', 'starts_at', 'trip_amount',
+                       #'received_cash_amount', 'received_online_amount',
                        'completed_at', 'e_way_bill_no', 'cash_to_be_collected')
     autocomplete_fields = ('seller_shop',)
     search_fields = [
@@ -1265,10 +1254,10 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
         'delivery_boy__phone_number', 'vehicle_no', 'dispatch_no',
         'seller_shop__shop_name'
     ]
-    fields = ['trip_status', 'trip_amount', 'cash_to_be_collected', #'description', 
-                'dispatch_no', 'total_received_amount', 
-              #'received_cash_amount', 'received_online_amount', 
-              'delivery_boy', 'seller_shop', 'starts_at', 'completed_at', 
+    fields = ['trip_status', 'trip_amount', 'cash_to_be_collected', #'description',
+                'dispatch_no', 'total_received_amount',
+              #'received_cash_amount', 'received_online_amount',
+              'delivery_boy', 'seller_shop', 'starts_at', 'completed_at',
               'e_way_bill_no', 'vehicle_no']
 
     list_filter = ['trip_status', ('created_at', DateTimeRangeFilter),
