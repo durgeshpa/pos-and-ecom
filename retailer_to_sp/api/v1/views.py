@@ -72,6 +72,7 @@ from sp_to_gram.tasks import es_search
 from coupon.serializers import CouponSerializer
 from coupon.models import Coupon, CusotmerCouponUsage
 
+from products.models import Product
 
 User = get_user_model()
 
@@ -1288,6 +1289,75 @@ class DeliveryShipmentDetails(APIView):
         msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': shipment_details.data}
         return Response(msg, status=status.HTTP_201_CREATED)
 
+
+class ShipmentDeliveryBulkUpdate(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request, *args, **kwargs):
+        shipment_id = kwargs.get('shipment')
+        msg = {'is_success': False, 'message': ['shipment id is invalid'], 'response_data': None}
+        try:
+            products = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
+            if not products.exists():
+                return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+
+            #products = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)           
+            for item in products:
+                item.delivered_qty = item.shipped_qty - (int(item.returned_qty) + int(item.damaged_qty))
+                item.save()
+            cash_to_be_collected = products.last().ordered_product.cash_to_be_collected()
+
+
+            msg = {'is_success': True, 'message': ['Shipment Details Updated Successfully!'], 'response_data': {'cash_to_be_collected': cash_to_be_collected},
+                       }
+            return Response(msg, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            msg = {'is_success': False,
+               'message': [str(e)],
+               'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+
+class ShipmentDeliveryUpdate(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request, *args, **kwargs):
+        shipment_id = kwargs.get('shipment')
+        msg = {'is_success': False, 'message': ['shipment id is invalid'], 'response_data': None}
+        try:
+            shipment = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
+        except ObjectDoesNotExist:
+            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            for item in request.data.get('delivered_items'):
+                product = item.get('product', None)
+                returned_qty = item.get('returned_qty', None)
+                damaged_qty = item.get('damaged_qty', None)
+                shipped_qty = int(ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product).shipped_qty)
+                if  shipped_qty >= int(returned_qty) + int(damaged_qty):
+                    delivered_qty = shipped_qty - (int(returned_qty) + int(damaged_qty))
+                    ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(
+                        returned_qty=returned_qty, damaged_qty=damaged_qty, delivered_qty=delivered_qty)
+                #shipment_product_details = ShipmentDetailSerializer(shipment, many=True)
+                else:
+                    product_name = Product.objects.get(id=product).product_name
+                    text = 'Returned qty and damaged qty is greater than shipped qty for product: ' + product_name
+                    msg = {'is_success': False, 'message': [text], 'response_data': None}
+                    return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+
+            cash_to_be_collected = shipment.last().ordered_product.cash_to_be_collected()
+            msg = {'is_success': True, 'message': ['Shipment Details Updated Successfully!'], 'response_data': None,
+                       'cash_to_be_collected': cash_to_be_collected}
+            return Response(msg, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            msg = {'is_success': False,
+               'message': [str(e)],
+               'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+
 class ShipmentDetail(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
@@ -1463,6 +1533,10 @@ class RescheduleReason(generics.ListCreateAPIView):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             self.perform_create(serializer)
+            products = ShipmentProducts.objects.filter(ordered_product__id=request.data.get('shipment'))
+            for item in products:
+                item.delivered_qty = item.returned_qty = item.damaged_qty = 0
+                item.save()            
             self.update_shipment(request.data.get('shipment'))
             update_trip_status(request.data.get('trip'))
             msg = {'is_success': True, 'message': None, 'response_data': serializer.data}

@@ -30,7 +30,7 @@ from .serializers import ShipmentPaymentSerializer, CashPaymentSerializer, \
     ReadShipmentPaymentSerializer, ShipmentPaymentSerializer2, OrderPaymentSerializer, \
     PaymentImageSerializer
 from accounts.models import UserWithName
-from retailer_to_sp.models import OrderedProduct
+from retailer_to_sp.models import OrderedProduct, OrderedProductMapping
 from payments.models import ShipmentPayment, CashPayment, OnlinePayment, PaymentMode, \
     Payment, OrderPayment, PaymentImage
 
@@ -260,6 +260,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                     return Response(msg,
                             status=status.HTTP_406_NOT_ACCEPTABLE)
                 elif int(float(cash_collected)) == int(float(shipment.cash_to_be_collected())):    
+
                     update_shipment_status_with_id(shipment)
                     update_trip_status(trip)
                 else:

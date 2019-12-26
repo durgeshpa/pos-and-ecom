@@ -2,7 +2,8 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework import authentication, permissions, generics
 from rest_framework.response import Response
-from .serializers import UserSerializer, UserDocumentSerializer, AppVersionSerializer
+from .serializers import (UserSerializer, UserDocumentSerializer, 
+    AppVersionSerializer, DeliveryAppVersionSerializer)
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
 from rest_framework import status
@@ -106,5 +107,21 @@ class CheckAppVersion(APIView):
             return Response(msg, status=status.HTTP_200_OK)
 
         app_version_serializer = AppVersionSerializer(app_version)
+        return Response({"is_success": True, "message": [""], "response_data": app_version_serializer.data})
+
+
+class CheckDeliveryAppVersion(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self,*args, **kwargs):
+        version = self.request.GET.get('app_version')
+        msg = {'is_success': False, 'message': ['Please send version'], 'response_data': None}
+        try:
+            app_version = AppVersion.objects.get(app_version=version, app_type='delivery')
+        except ObjectDoesNotExist:
+            msg["message"] = ['Delivery App version not found']
+            return Response(msg, status=status.HTTP_200_OK)
+
+        app_version_serializer = DeliveryAppVersionSerializer(app_version)
         return Response({"is_success": True, "message": [""], "response_data": app_version_serializer.data})
 
