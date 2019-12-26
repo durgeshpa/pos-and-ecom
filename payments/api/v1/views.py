@@ -45,6 +45,8 @@ from common.data_wrapper import format_serializer_errors
 BHARATPE_BASE_URL = "http://api.bharatpe.io:8080"
 BHARATPE_PRODUCTION_BASE_URL = "https://api.bharatpe.in"
 
+logger = logging.getLogger(__name__)
+
 # ask front end to send request to shipment-payment/ order payment api if it succeeds
 class SendCreditRequestAPI(APIView):
     # authentication_classes = (authentication.TokenAuthentication,)
