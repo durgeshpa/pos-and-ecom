@@ -315,8 +315,10 @@ def shop_verification_notification1(sender, instance=None, created=False, **kwar
                 activity_type = "SHOP_VERIFIED"
 
                 from notification_center.utils import SendNotification
-                SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()
-
+                try:
+                    SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()
+                except Exception as e:
+                    logging.error(e)
                 # message = SendSms(phone=shop.shop_owner,
                 #                   body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App."\
                 #                       " Thanks,"\
