@@ -162,7 +162,7 @@ class Shop(models.Model):
             # from notification_center.utils import SendNotification
             # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()
 
-            message = SendSms(phone=self.shop_owner,
+            message = SendSms(phone=data['phone_number'],
                               body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App." \
                                    " Thanks," \
                                    " Team GramFactory " % (username, shop_title))
