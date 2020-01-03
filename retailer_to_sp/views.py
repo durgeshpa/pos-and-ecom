@@ -48,7 +48,6 @@ from retailer_to_sp.api.v1.serializers import (
 import json
 from django.http import HttpResponse
 from django.core import serializers
-from retailer_to_sp.tasks import (update_reserved_order, )
 
 logger = logging.getLogger(__name__)
 from retailer_to_sp.api.v1.serializers import OrderedCartSerializer
@@ -259,24 +258,24 @@ def ordered_product_mapping_shipment(request):
         form = OrderedProductForm(request.POST)
         if form.is_valid() and form_set.is_valid():
             try:
-                # with transaction.atomic():
-                shipment = form.save()
-                shipment.shipment_status = 'SHIPMENT_CREATED'
-                shipment.save()
-                for forms in form_set:
-                    if forms.is_valid():
-                        to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
-                        product_name = forms.cleaned_data.get('product')
-                        if to_be_ship_qty:
-                            formset_data = forms.save(commit=False)
-                            formset_data.ordered_product = shipment
-                            max_pieces_allowed = int(formset_data.ordered_qty) - int(
-                                formset_data.shipped_qty_exclude_current)
-                            if max_pieces_allowed < int(to_be_ship_qty):
-                                raise Exception(
-                                    '{}: Max Qty allowed is {}'.format(product_name, max_pieces_allowed))
-                            formset_data.save()
-                return redirect('/admin/retailer_to_sp/shipment/')
+                with transaction.atomic():
+                    shipment = form.save()
+                    shipment.shipment_status = 'SHIPMENT_CREATED'
+                    shipment.save()
+                    for forms in form_set:
+                        if forms.is_valid():
+                            to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
+                            product_name = forms.cleaned_data.get('product')
+                            if to_be_ship_qty:
+                                formset_data = forms.save(commit=False)
+                                formset_data.ordered_product = shipment
+                                max_pieces_allowed = int(formset_data.ordered_qty) - int(
+                                    formset_data.shipped_qty_exclude_current)
+                                if max_pieces_allowed < int(to_be_ship_qty):
+                                    raise Exception(
+                                        '{}: Max Qty allowed is {}'.format(product_name, max_pieces_allowed))
+                                formset_data.save()
+                    return redirect('/admin/retailer_to_sp/shipment/')
 
             except Exception as e:
                 messages.error(request, e)
@@ -807,7 +806,8 @@ def update_shipment_status(form_instance, formset):
 
 
 def update_order_status(close_order_checked, shipment_id):
-    order =  Order.objects.get(rt_order_order_product=shipment_id)
+    shipment = OrderedProduct.objects.get(pk=shipment_id)
+    order = shipment.order
     shipment_products_dict = order.rt_order_order_product.aggregate(
             delivered_qty = Sum('rt_order_product_order_product_mapping__delivered_qty'),
             shipped_qty = Sum('rt_order_product_order_product_mapping__shipped_qty'),
