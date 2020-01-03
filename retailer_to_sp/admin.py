@@ -62,13 +62,15 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare,
                      OrderedProduct, OrderedProductMapping, Payment, Return,
                      ReturnProductMapping, Shipment, ShipmentProductMapping,
                      Trip, ShipmentRescheduling, Feedback, PickerDashboard,
-                     generate_picklist_id, ResponseComment)
+                     ResponseComment)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (
     GetPcsFromQty, add_cart_user, create_order_from_cart,
     reschedule_shipment_button
 )
+from .tasks import update_order_status_and_create_picker
+
 class InvoiceNumberFilter(AutocompleteFilter):
     title = 'Invoice Number'
     field_name = 'invoice_no'
@@ -1067,43 +1069,43 @@ class ShipmentAdmin(admin.ModelAdmin):
 
 
     def save_related(self, request, form, formsets, change):
+
         #update_shipment_status(form, formsets)
+        # ordered_qty, shipment_products_dict = update_order_status(
+        #     close_order_checked=form.cleaned_data.get('close_order'),
+        #     shipment_id=form.instance.id
+        # )
 
-        ordered_qty, shipment_products_dict = update_order_status(
-            close_order_checked=form.cleaned_data.get('close_order'),
-            shipment_id=form.instance.id
-        )
+        # no_of_pieces = ordered_qty
+        # shipped_qty = shipment_products_dict.get('shipped_qty',0)
 
-        no_of_pieces = ordered_qty
-        shipped_qty = shipment_products_dict.get('shipped_qty',0)
+        # #when more shipments needed and status == qc_pass
+        # close_order = form.cleaned_data.get('close_order')
+        # if close_order:
+        #     form.instance.order.picker_order.update(picking_status="picking_complete")
+        # change_value = form.instance.shipment_status == form.instance.READY_TO_SHIP
+        # if "shipment_status" in form.changed_data and change_value and (not close_order):
 
-        #when more shipments needed and status == qc_pass
-        close_order = form.cleaned_data.get('close_order')
-        if close_order:
-            form.instance.order.picker_order.update(picking_status="picking_complete")
-        change_value = form.instance.shipment_status == form.instance.READY_TO_SHIP
-        if "shipment_status" in form.changed_data and change_value and (not close_order):
+        #     if int(no_of_pieces) > shipped_qty:
+        #         try:
+        #             pincode = "00" #form.instance.order.shipping_address.pincode
+        #         except:
+        #             pincode = "00"
+        #         PickerDashboard.objects.create(
+        #             order=form.instance.order,
+        #             picking_status="picking_pending",
+        #             picklist_id= generate_picklist_id(pincode) #get_random_string(12).lower(),#
+        #             )
 
-            if int(no_of_pieces) > shipped_qty:
-                try:
-                    pincode = "00" #form.instance.order.shipping_address.pincode
-                except:
-                    pincode = "00"
-                PickerDashboard.objects.create(
-                    order=form.instance.order,
-                    picking_status="picking_pending",
-                    picklist_id= generate_picklist_id(pincode) #get_random_string(12).lower(),#
-                    )
+        # if (form.cleaned_data.get('close_order') and
+        #         (form.instance.shipment_status != form.instance.CLOSED and
+        #          not form.instance.order.order_closed)):
 
-        if (form.cleaned_data.get('close_order') and
-                (form.instance.shipment_status != form.instance.CLOSED and
-                 not form.instance.order.order_closed)):
-
-            update_quantity = UpdateSpQuantity(form, formsets)
-            update_quantity.update()
+        #     update_quantity = UpdateSpQuantity(form, formsets)
+        #     update_quantity.update()
 
         super(ShipmentAdmin, self).save_related(request, form, formsets, change)
-
+        update_order_status_and_create_picker.delay(form.instance.id, form.cleaned_data.get('close_order'), form.changed_data)
 
     def get_queryset(self, request):
         qs = super(ShipmentAdmin, self).get_queryset(request)

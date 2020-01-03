@@ -276,7 +276,6 @@ def ordered_product_mapping_shipment(request):
                                 raise Exception(
                                     '{}: Max Qty allowed is {}'.format(product_name, max_pieces_allowed))
                             formset_data.save()
-                update_reserved_order.delay(json.dumps({'shipment_id': shipment.id}))
                 return redirect('/admin/retailer_to_sp/shipment/')
 
             except Exception as e:
@@ -808,8 +807,7 @@ def update_shipment_status(form_instance, formset):
 
 
 def update_order_status(close_order_checked, shipment_id):
-    shipment = OrderedProduct.objects.get(pk=shipment_id)
-    order = shipment.order
+    order =  Order.objects.get(rt_order_order_product=shipment_id)
     shipment_products_dict = order.rt_order_order_product.aggregate(
             delivered_qty = Sum('rt_order_product_order_product_mapping__delivered_qty'),
             shipped_qty = Sum('rt_order_product_order_product_mapping__shipped_qty'),
