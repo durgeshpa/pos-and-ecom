@@ -1070,6 +1070,7 @@ class ShipmentAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         if not form.instance.invoice_no and (form.cleaned_data.get('shipment_status', None) == form.instance.READY_TO_SHIP):
+            super().save_model(request, obj, form, change)
             update_reserved_order.delay(json.dumps({'shipment_id': form.instance.id}))
         super().save_model(request, obj, form, change)
 
