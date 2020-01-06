@@ -463,8 +463,7 @@ class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
               'start_date', 'end_date', 'approval_status')
 
     class Media:
-        js = ('admin/js/sweetalert.min.js',
-              'admin/js/product_price_approval.js')
+        pass
 
     def get_readonly_fields(self, request, obj=None):
         if not request.user.is_superuser:

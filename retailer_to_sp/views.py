@@ -48,7 +48,6 @@ from retailer_to_sp.api.v1.serializers import (
 import json
 from django.http import HttpResponse
 from django.core import serializers
-from retailer_to_sp.tasks import (update_reserved_order, )
 
 logger = logging.getLogger(__name__)
 from retailer_to_sp.api.v1.serializers import OrderedCartSerializer
@@ -258,30 +257,29 @@ def ordered_product_mapping_shipment(request):
         form_set = ordered_product_set(request.POST)
         form = OrderedProductForm(request.POST)
         if form.is_valid() and form_set.is_valid():
-            # try:
-            # # with transaction.atomic():
-            shipment = form.save(commit=False)
-            shipment.shipment_status = 'SHIPMENT_CREATED'
-            shipment.save()
-            for forms in form_set:
-                if forms.is_valid():
-                    to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
-                    product_name = forms.cleaned_data.get('product')
-                    if to_be_ship_qty:
-                        formset_data = forms.save(commit=False)
-                        formset_data.ordered_product = shipment
-                        max_pieces_allowed = int(formset_data.ordered_qty) - int(
-                            formset_data.shipped_qty_exclude_current)
-                        if max_pieces_allowed < int(to_be_ship_qty):
-                            raise Exception(
-                                '{}: Max Qty allowed is {}'.format(product_name, max_pieces_allowed))
-                        formset_data.save()
-            #update_reserved_order.delay(json.dumps({'shipment_id': shipment.id}))
-            return redirect('/admin/retailer_to_sp/shipment/')
+            try:
+                with transaction.atomic():
+                    shipment = form.save()
+                    shipment.shipment_status = 'SHIPMENT_CREATED'
+                    shipment.save()
+                    for forms in form_set:
+                        if forms.is_valid():
+                            to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
+                            product_name = forms.cleaned_data.get('product')
+                            if to_be_ship_qty:
+                                formset_data = forms.save(commit=False)
+                                formset_data.ordered_product = shipment
+                                max_pieces_allowed = int(formset_data.ordered_qty) - int(
+                                    formset_data.shipped_qty_exclude_current)
+                                if max_pieces_allowed < int(to_be_ship_qty):
+                                    raise Exception(
+                                        '{}: Max Qty allowed is {}'.format(product_name, max_pieces_allowed))
+                                formset_data.save()
+                    return redirect('/admin/retailer_to_sp/shipment/')
 
-            # except Exception as e:
-            #     messages.error(request, e)
-            #     logger.exception("An error occurred while creating shipment {}".format(e))
+            except Exception as e:
+                messages.error(request, e)
+                logger.exception("An error occurred while creating shipment {}".format(e))
 
     return render(
         request,
@@ -859,6 +857,9 @@ def update_order_status(close_order_checked, shipment_id):
 
 class SellerShopAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return Shop.objects.none()
+
         qs = Shop.objects.filter(
             Q(shop_type__shop_type='sp', shop_owner=self.request.user) | Q(shop_type__shop_type='sp',
                                                                            related_users=self.request.user))
@@ -879,6 +880,9 @@ class PickerNameAutocomplete(autocomplete.Select2QuerySetView):
 
 class BuyerShopAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return Shop.objects.none()
+
         qs = Shop.objects.filter(shop_type__shop_type='r', shop_owner=self.request.user)
 
         if self.q:

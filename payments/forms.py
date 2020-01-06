@@ -17,8 +17,8 @@ from django.utils.html import format_html
 
 from accounts.middlewares import get_current_user
 from accounts.models import UserWithName
-from payments.models import Payment, ShipmentPayment, OnlinePayment,\
-    OrderPayment, ShipmentPaymentApproval, PaymentApproval
+from payments.models import Payment, ShipmentPayment, OrderPayment, \
+ShipmentPaymentApproval, PaymentApproval
 from retailer_to_sp.models import Order
 from shops.models import Shop
 from shops.views import UserAutocomplete
@@ -142,9 +142,3 @@ class PaymentApprovalForm(forms.ModelForm):
             self.fields['is_payment_approved'].disabled = True 
             # adding payment approval status
 
-
-class OnlinePaymentInlineForm(forms.ModelForm):
-
-    class Meta:
-        model = OnlinePayment
-        fields = "__all__"

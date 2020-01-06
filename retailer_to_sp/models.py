@@ -1741,16 +1741,6 @@ class Payment(models.Model):
 def order_notification(sender, instance=None, created=False, **kwargs):
 
     if created:
-        # data = {}
-        # data['username'] = "test"
-        # data['phone_number'] = "9643112048" #instance.order_id.ordered_by.phone_number
-
-        # user_id = instance.order_id.ordered_by.id
-        # activity_type = "ORDER_RECEIVED"
-        # from notification_center.utils import SendNotification
-        # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()
-
-
         if instance.order_id.buyer_shop.shop_owner.first_name:
             username = instance.order_id.buyer_shop.shop_owner.first_name
         else:
@@ -1773,16 +1763,14 @@ def order_notification(sender, instance=None, created=False, **kwargs):
         template = Template.objects.get(type="ORDER_RECEIVED").id
         from notification_center.tasks import send_notification
         send_notification(user_id=user_id, activity_type=template, data=data)
-        # send_notification.delay(json.dumps({'user_id':user_id, 'activity_type':activity_type, 'data':data}))
-
-        # from notification_center.utils import SendNotification
-        # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()
-
-        message = SendSms(phone=instance.order_id.buyer_shop.shop_owner,
-                          body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
-                              " Thanks," \
-                              " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
-        message.send()
+        try:
+            message = SendSms(phone=instance.order_id.buyer_shop.shop_owner,
+                              body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
+                                  " Thanks," \
+                                  " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
+            message.send()
+        except Exception as e:
+            logger.exception("Unable to send SMS for order : {}".format(order_no))
 
 
 class Return(models.Model):

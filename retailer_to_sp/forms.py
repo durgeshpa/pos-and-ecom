@@ -696,6 +696,10 @@ class CartForm(forms.ModelForm):
     class Meta:
         model = Cart
         fields = ('seller_shop', 'buyer_shop')
+        widgets = {
+            'seller_shop': autocomplete.ModelSelect2(url='seller-shop-autocomplete'),
+            'buyer_shop': autocomplete.ModelSelect2(url='buyer-shop-autocomplete')
+        }
 
 
 class CommercialForm(forms.ModelForm):

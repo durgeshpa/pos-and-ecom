@@ -162,11 +162,11 @@ class Shop(models.Model):
             # from notification_center.utils import SendNotification
             # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()
 
-            message = SendSms(phone=self.shop_owner,
-                              body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App." \
-                                   " Thanks," \
-                                   " Team GramFactory " % (username, shop_title))
-            message.send()
+            # message = SendSms(phone=data['phone_number'],
+            #                   body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App." \
+            #                        " Thanks," \
+            #                        " Team GramFactory " % (username, shop_title))
+            # message.send()
         super(Shop, self).save(force_insert, force_update, *args, **kwargs)
 
     # def available_product(self, product):
@@ -315,8 +315,10 @@ def shop_verification_notification1(sender, instance=None, created=False, **kwar
                 activity_type = "SHOP_VERIFIED"
 
                 from notification_center.utils import SendNotification
-                SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()
-
+                try:
+                    SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()
+                except Exception as e:
+                    logging.error(e)
                 # message = SendSms(phone=shop.shop_owner,
                 #                   body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App."\
                 #                       " Thanks,"\

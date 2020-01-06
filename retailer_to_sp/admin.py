@@ -1,4 +1,5 @@
 import csv
+import json
 
 from admin_auto_filters.filters import AutocompleteFilter
 from admin_numeric_filter.admin import (NumericFilterModelAdmin,
@@ -62,7 +63,8 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare,
                      OrderedProduct, OrderedProductMapping, Payment, Return,
                      ReturnProductMapping, Shipment, ShipmentProductMapping,
                      Trip, ShipmentRescheduling, Feedback, PickerDashboard,
-                     generate_picklist_id, ResponseComment, Invoice, TRIP_STATUS)
+                     generate_picklist_id, ResponseComment, Invoice, TRIP_STATUS,
+                     ResponseComment)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (
@@ -71,6 +73,7 @@ from .utils import (
 )
 from .filters import (InvoiceAdminOrderFilter, InvoiceAdminTripFilter)
 
+from .tasks import update_order_status_and_create_picker, update_reserved_order
 
 class InvoiceNumberFilter(AutocompleteFilter):
     title = 'Invoice Number'
@@ -1008,6 +1011,7 @@ class ShipmentProductMappingAdmin(admin.TabularInline):
 
 
 class ShipmentAdmin(admin.ModelAdmin):
+    has_invoice_no = True
     inlines = [ShipmentProductMappingAdmin]
     form = ShipmentForm
     list_select_related = (
@@ -1068,45 +1072,16 @@ class ShipmentAdmin(admin.ModelAdmin):
                 "<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Start QC</a>" %(obj.id))
     invoice.short_description = 'Invoice No'
 
+    def save_model(self, request, obj, form, change):
+        if not form.instance.invoice_no and (form.cleaned_data.get('shipment_status', None) == form.instance.READY_TO_SHIP):
+            self.has_invoice_no = False
+        super().save_model(request, obj, form, change)
 
     def save_related(self, request, form, formsets, change):
-        #update_shipment_status(form, formsets)
-
-        ordered_qty, shipment_products_dict = update_order_status(
-            close_order_checked=form.cleaned_data.get('close_order'),
-            shipment_id=form.instance.id
-        )
-
-        no_of_pieces = ordered_qty
-        shipped_qty = shipment_products_dict.get('shipped_qty',0)
-
-        #when more shipments needed and status == qc_pass
-        close_order = form.cleaned_data.get('close_order')
-        if close_order:
-            form.instance.order.picker_order.update(picking_status="picking_complete")
-        change_value = form.instance.shipment_status == form.instance.READY_TO_SHIP
-        if "shipment_status" in form.changed_data and change_value and (not close_order):
-
-            if int(no_of_pieces) > shipped_qty:
-                try:
-                    pincode = "00" #form.instance.order.shipping_address.pincode
-                except:
-                    pincode = "00"
-                PickerDashboard.objects.create(
-                    order=form.instance.order,
-                    picking_status="picking_pending",
-                    picklist_id= generate_picklist_id(pincode) #get_random_string(12).lower(),#
-                    )
-
-        if (form.cleaned_data.get('close_order') and
-                (form.instance.shipment_status != form.instance.CLOSED and
-                 not form.instance.order.order_closed)):
-
-            update_quantity = UpdateSpQuantity(form, formsets)
-            update_quantity.update()
-
         super(ShipmentAdmin, self).save_related(request, form, formsets, change)
-
+        if not self.has_invoice_no:
+            update_reserved_order(json.dumps({'shipment_id': form.instance.id}))
+        update_order_status_and_create_picker.delay(form.instance.id, form.cleaned_data.get('close_order'), form.changed_data)
 
     def get_queryset(self, request):
         qs = super(ShipmentAdmin, self).get_queryset(request)

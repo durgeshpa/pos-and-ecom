@@ -1,11 +1,12 @@
 import datetime
 import json
 from celery.task import task
+from celery import Task
 from sp_to_gram.models import OrderedProductReserved, OrderedProductMapping
 from gram_to_brand.models import (
     OrderedProductReserved as GramOrderedProductReserved)
-from retailer_to_sp.models import (Cart, OrderedProduct)
-from django.db.models import Sum, Q
+from retailer_to_sp.models import (Cart, Order, OrderedProduct, generate_picklist_id, PickerDashboard)
+from django.db.models import Sum, Q, F
 from celery.contrib import rdb
 
 @task
@@ -120,3 +121,99 @@ def release_blocking(parent_shop_type, cart_id):
                 ordered_reserve.order_product_reserved.save()
                 ordered_reserve.delete()
     return True
+
+
+class UpdateOrderStatusAndCreatePicker(object):
+
+    def __init__(self, shipment_id, close_order_checked, changed_data):
+        super().__init__()
+        shipment = OrderedProduct.objects.get(id=shipment_id)
+        order =  Order.objects.get(rt_order_order_product=shipment_id)
+
+        self.update_order_status(order, shipment, close_order_checked, changed_data)
+
+        if (close_order_checked and
+                (shipment.shipment_status != shipment.CLOSED and
+                 not order.order_closed)):
+            self.update_sp_qty(order, shipment)
+            order.picker_order.update(picking_status="picking_complete")
+
+    def update_order_status(self, order, shipment, close_order_checked, changed_data):
+        shipment_products_dict = order.rt_order_order_product.aggregate(
+                delivered_qty = Sum('rt_order_product_order_product_mapping__delivered_qty'),
+                shipped_qty = Sum('rt_order_product_order_product_mapping__shipped_qty'),
+                returned_qty = Sum('rt_order_product_order_product_mapping__returned_qty'),
+                damaged_qty = Sum('rt_order_product_order_product_mapping__damaged_qty'),
+
+            )
+        cart_products_dict = order.ordered_cart.rt_cart_list.aggregate(total_no_of_pieces = Sum('no_of_pieces'))
+
+        total_delivered_qty = shipment_products_dict.get('delivered_qty')
+
+        total_shipped_qty = shipment_products_dict.get('shipped_qty')
+
+        total_returned_qty = shipment_products_dict.get('returned_qty')
+
+        total_damaged_qty = shipment_products_dict.get('damaged_qty')
+
+        ordered_qty = cart_products_dict.get('total_no_of_pieces')
+
+        order = shipment.order
+
+        if ordered_qty == (total_delivered_qty + total_returned_qty + total_damaged_qty):
+            order.order_status = 'SHIPPED'
+
+        elif (total_returned_qty == total_shipped_qty or
+              (total_damaged_qty + total_returned_qty) == total_shipped_qty):
+            if order.order_closed:
+                order.order_status = Order.DENIED_AND_CLOSED
+            else:
+                order.order_status = 'DENIED'
+
+        elif (total_delivered_qty == 0 and total_shipped_qty > 0 and
+              total_returned_qty == 0 and total_damaged_qty == 0):
+            order.order_status = 'DISPATCH_PENDING'
+
+        elif (ordered_qty - total_delivered_qty) > 0 and total_delivered_qty > 0:
+            if order.order_closed:
+                order.order_status = Order.PARTIALLY_SHIPPED_AND_CLOSED
+            else:
+                order.order_status = 'PARTIALLY_SHIPPED'
+
+        if close_order_checked and not order.order_closed:
+            order.order_closed = True
+
+        order.save()
+
+        self.create_picker(order, shipment, ordered_qty, shipment_products_dict.get('shipped_qty',0), changed_data, close_order_checked)
+
+    def create_picker(self, order, shipment, ordered_qty, shipped_qty, changed_data, close_order_checked):
+        change_value = shipment.shipment_status == shipment.READY_TO_SHIP
+        if 'shipment_status' in changed_data and change_value and (not close_order_checked):
+
+            if int(ordered_qty) > shipped_qty:
+                try:
+                    pincode = "00" #form.instance.order.shipping_address.pincode
+                except:
+                    pincode = "00"
+                PickerDashboard.objects.create(
+                    order=order,
+                    picking_status="picking_pending",
+                    picklist_id= generate_picklist_id(pincode) #get_random_string(12).lower(),#
+                    )
+
+    def update_sp_qty(self, order, shipment):
+        cart = order.ordered_cart
+        shipment_products = shipment.rt_order_product_order_product_mapping.all().values_list('product__id', flat=True)
+        reserved_products = OrderedProductReserved.objects.filter(cart=cart, product__id__in=shipment_products,
+                                                                  reserved_qty__gt=0).order_by('reserved_qty')
+        for ordered_product_reserved in reserved_products:
+            grn = ordered_product_reserved.order_product_reserved
+            grn.available_qty += (ordered_product_reserved.reserved_qty -
+                                  ordered_product_reserved.shipped_qty)
+            grn.save()
+            ordered_product_reserved.save()
+
+@task
+def update_order_status_and_create_picker(shipment_id, close_order_checked, changed_data):
+    UpdateOrderStatusAndCreatePicker(shipment_id, close_order_checked, changed_data)
