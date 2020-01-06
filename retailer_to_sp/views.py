@@ -879,7 +879,7 @@ class PickerNameAutocomplete(autocomplete.Select2QuerySetView):
 
 class BuyerShopAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        qs = Shop.objects.filter(shop_type__shop_type='r', shop_owner=self.request.user)
+        qs = Shop.objects.filter(shop_type__shop_type='r')
 
         if self.q:
             qs = qs.filter(shop_name__startswith=self.q)
