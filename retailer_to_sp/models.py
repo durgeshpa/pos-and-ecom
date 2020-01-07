@@ -1216,9 +1216,9 @@ class OrderedProduct(models.Model): #Shipment
         return self.id
 
     def picking_data(self):
-        picker_shipment = PickerDashboard.objects.filter(shipment=self.id)
-        if picker_shipment.exists():
-            picker_data = picker_shipment.last()
+        #picker_shipment = PickerDashboard.objects.filter(shipment=self.id)
+        if self.picker_shipment.all().exists():
+            picker_data = self.picker_shipment.last()
             return [picker_data.picking_status, picker_data.picker_boy, picker_data.picklist_id]
         else:
             return ["","",""]
