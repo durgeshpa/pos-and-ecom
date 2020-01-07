@@ -101,7 +101,7 @@ INSTALLED_APPS = [
     'django_elasticsearch_dsl',
 ]
 
-if ENVIRONMENT.lower() in ["production","qa"]:
+if False and ENVIRONMENT.lower() in ["production","qa"]:
     INSTALLED_APPS +=[
         'elasticapm.contrib.django',
 ]
