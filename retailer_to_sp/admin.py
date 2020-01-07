@@ -526,10 +526,10 @@ class ExportCsvMixin:
                                       'picking_status', 'picker_boy', 'picklist_id'] ]
                 shipment = picker.shipment
                 if shipment:
-                    row_items += [shipment.shipment_status, shipment.return_reason, shipment.invoice_amount] 
+                    row_items += [shipment.get_shipment_status_display(), shipment.return_reason, shipment.invoice_amount] 
                 else:
                     row_items += ["-","-","-"]
-                row_items += [picker.picking_status, picker.picker_boy, picker.picklist_id]
+                row_items += [picker.get_picking_status_display(), picker.picker_boy, picker.picklist_id]
 
                 row = writer.writerow(row_items)
 
