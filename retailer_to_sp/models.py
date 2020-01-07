@@ -1406,7 +1406,7 @@ class OrderedProductMapping(models.Model):
     @property
     def price_to_retailer(self):
         return self.ordered_product.order.ordered_cart.rt_cart_list\
-            .get(cart_product=self.product).cart_product_price.selling_price
+            .get(cart_product=self.product).effective_price
 
     @property
     def cash_discount(self):
