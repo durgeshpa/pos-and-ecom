@@ -1734,7 +1734,7 @@ def order_notification(sender, instance=None, created=False, **kwargs):
         from notification_center.tasks import send_notification
         send_notification(user_id=user_id, activity_type=template, data=data)
         try:
-            message = SendSms(phone=instance.order_id.buyer_shop.shop_owner,
+            message = SendSms(phone=instance.order_id.buyer_shop.shop_owner.phone_number,
                               body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
                                   " Thanks," \
                                   " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
