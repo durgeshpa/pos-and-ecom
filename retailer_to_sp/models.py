@@ -1215,6 +1215,26 @@ class OrderedProduct(models.Model): #Shipment
     def shipment_id(self):
         return self.id
 
+    def picking_data(self):
+        picker_shipment = PickerDashboard.objects.filter(shipment=self.id)
+        if picker_shipment.exists():
+            picker_data = picker_shipment.last()
+            return [picker_data.picking_status, picker_data.picker_boy, picker_data.picklist_id]
+        else:
+            return ["","",""]
+
+    @property
+    def picking_status(self):
+        return self.picking_data()[0] #picking_statuses(self.picker_shipment())
+
+    @property
+    def picker_boy(self):
+        return self.picking_data()[1]
+
+    @property
+    def picklist_id(self):
+        return self.picking_data()[2]
+
     def cn_amount(self):
         return round(self._cn_amount, 2)
 

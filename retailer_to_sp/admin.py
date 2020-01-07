@@ -510,16 +510,28 @@ class ExportCsvMixin:
         meta = self.model._meta
         list_display = ['order_no','seller_shop','buyer_shop_id', 'buyer_shop_with_mobile', 'pincode','city', 'total_final_amount',
                         'order_status', 'created_at', 'payment_mode', 'paid_amount',
-                        'total_paid_amount', 'shipment_status', 'shipment_status_reason','order_shipment_amount', 'order_shipment_details',
+                        'total_paid_amount', 'shipment_status', 'shipment_status_reason','order_shipment_amount',
                         'picking_status', 'picker_boy', 'picklist_id',]
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
         writer = csv.writer(response)
         writer.writerow(list_display)
-        for obj in queryset:
-            row = writer.writerow([getattr(obj, field).replace('<br>', '\n') if field in ['shipment_status','shipment_status_reason','order_shipment_amount',
-                                  'picking_status', 'picker_boy', 'picklist_id', 'order_shipment_details'] else getattr(obj, field) for field in list_display])
+        shipments = OrderedProduct.objects.filter(order__in=queryset)
+        # import pdb; pdb.set_trace()
+        for shipment in shipments:
+            obj = shipment.order
+            row_items = [getattr(obj, field) for field  in list_display if field not in ['shipment_status','shipment_status_reason','order_shipment_amount',
+                                  'picking_status', 'picker_boy', 'picklist_id'] ]
+
+            row_items += [shipment.shipment_status, shipment.return_reason, shipment.invoice_amount, 
+                shipment.picking_status, shipment.picker_boy, shipment.picklist_id]
+
+            #getattr(shipment, field) for field in list_display_s]
+            row = writer.writerow(row_items)
+        # for obj in queryset:
+        #     row = writer.writerow([getattr(obj, field).replace('<br>', '\n') if field in ['shipment_status','shipment_status_reason','order_shipment_amount',
+        #                           'picking_status', 'picker_boy', 'picklist_id'] else getattr(obj, field) for field in list_display])
         return response
     export_as_csv.short_description = "Download CSV of Selected Orders"
 
@@ -756,6 +768,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     resource_class = OrderResource
     search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name','order_status')
     form = OrderForm
+    list_per_page = 10
     fieldsets = (
         (_('Shop Details'), {
             'fields': ('seller_shop', 'buyer_shop',
