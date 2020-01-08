@@ -18,6 +18,11 @@ from rest_framework import status
 from shops.models import Shop, ParentRetailerMapping
 from gram_to_brand.models import Order as PurchaseOrder
 from retailer_to_sp.models import Order
+import logging
+logging.basicConfig(filename='data.log', filemode='a', format='%(asctime)s %(message)s')
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+
 
 class CategoryProductReport(CreateAPIView):
     permission_classes = (AllowAny,)
@@ -38,6 +43,7 @@ class CategoryProductReport(CreateAPIView):
                     category_id = cat.category.id
                     category = cat.category
                     category_name = cat.category.category_name
+                    logging.info(product_id, product_name, product_short_description, product_created_at, category_id, category, category_name)
                     CategoryProductReports.objects.using('dataanalytics').create(product_id = product_id,
                     product_name = product_name, product_short_description=product_short_description, product_created_at=product_created_at,
                     category_id=category_id, category=category, category_name=category_name)
@@ -116,6 +122,8 @@ class GRNReport(CreateAPIView):
                     returned_sku_pieces = grns.grn_order_grn_order_product.get(product = products.product).returned_qty if products.product else ''
                     dn_number = ''
                     dn_value_basic =''
+                    logging.info(product_id, product_name, product_brand, product_mrp, gram_to_brand_price,po_no,po_date,po_status,vendor_name,
+                                 vendor_id,buyer_shop,shipping_address,manufacture_date,expiry_date,po_sku_pieces,grn_id,grn_date,grn_sku_pieces,invoice_item_gross_value,delivered_sku_pieces,returned_sku_pieces)
                     GRNReports.objects.using('dataanalytics').create(po_no = po_no, po_date = po_date, po_status = po_status, vendor_name = vendor_name,  vendor_id = vendor_id, buyer_shop=buyer_shop, shipping_address = shipping_address, category_manager = category_manager, product_id = product_id, product_name = product_name, product_brand = product_brand, manufacture_date = manufacture_date, expiry_date = expiry_date, po_sku_pieces = po_sku_pieces, product_mrp = product_mrp, discount = discount,  gram_to_brand_price = gram_to_brand_price, grn_id = grn_id, grn_date = grn_date, grn_sku_pieces = grn_sku_pieces, product_cgst = product_cgst, product_sgst = product_sgst, product_igst = product_igst, product_cess = product_cess, invoice_item_gross_value = invoice_item_gross_value, delivered_sku_pieces = delivered_sku_pieces, returned_sku_pieces = returned_sku_pieces, dn_number = dn_number, dn_value_basic = dn_value_basic)
                     grn_details[i] = { 'po_no':po_no, 'po_date':po_date, 'po_status':po_status, 'vendor_name':vendor_name, 'vendor_id':vendor_id, 'buyer_shop':buyer_shop, 'shipping_address':shipping_address, 'category_manager':category_manager, 'product_id':product_id, 'product_name':product_name, 'product_brand':product_brand, 'manufacture_date':manufacture_date, 'expiry_date':expiry_date, 'po_sku_pieces':po_sku_pieces, 'product_mrp':product_mrp, 'discount':discount, 'gram_to_brand_price':gram_to_brand_price, 'grn_id':grn_id, 'grn_date':grn_date, 'grn_sku_pieces':grn_sku_pieces, 'product_cgst':product_cgst, 'product_sgst':product_sgst, 'product_igst':product_igst, 'product_cess':product_cess, 'invoice_item_gross_value':invoice_item_gross_value, 'delivered_sku_pieces':delivered_sku_pieces, 'returned_sku_pieces':returned_sku_pieces, 'dn_number':dn_number, 'dn_value_basic':dn_value_basic}
 
@@ -169,6 +177,7 @@ class MasterReport(CreateAPIView):
                 short_description = products.product.product_short_description
                 long_description = products.product.product_long_description
                 created_at = products.product.created_at
+                logging.info(shop,product ,mrp,price_to_retailer,selling_price,buyer_shop,city,pincode,product_gf_code,product_ean_code,product_brand,product_category,tax_gst_percentage, tax_cess_percentage,tax_surcharge_percentage,service_partner,pack_size,case_size,hsn_code,product_id,sku_code,short_description, long_description,created_at)
                 MasterReports.objects.using('dataanalytics').create(product = product, service_partner = service_partner,
                 mrp = mrp, price_to_retailer = price_to_retailer, selling_price=selling_price, buyer_shop=buyer_shop, city=city,
                 pincode=pincode, product_gf_code = product_gf_code,  product_brand = product_brand,
@@ -269,6 +278,9 @@ class OrderReport(CreateAPIView):
                             trip_status = shipment.trip.trip_status
                             delivery_boy = shipment.trip.delivery_boy
                             trip_created_at = shipment.trip.created_at
+                        logging.info(order,seller_shop,product_id,product_mrp,product_value_tax_included, selling_price, item_effective_price,product_gst, product_cgst, product_igst,product_cess,invoice_id,
+                                     order_modified_at,seller_shop,pin_code,order_status,retailer_id,retailer_name,order_invoice,invoice_status,returned_sku_pieces,
+                                     trip,delivery_boy)
                         OrderDetailReportsData.objects.using('dataanalytics').create(invoice_id = invoice_id, order_invoice = order_invoice,
                         invoice_date = invoice_date, invoice_modified_at = invoice_modified_at, invoice_last_modified_by = shipment_last_modified_by,
                         invoice_status = invoice_status, order_id = order_id, seller_shop = seller_shop,  order_status = order_status,
