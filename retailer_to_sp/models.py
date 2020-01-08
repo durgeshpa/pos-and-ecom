@@ -748,9 +748,12 @@ class Order(models.Model):
 
     @property
     def buyer_shop_with_mobile(self):
-        if self.buyer_shop:
-            return "%s - %s" % (self.buyer_shop, self.buyer_shop.shop_owner.phone_number)
-        return "-"
+        try:
+            if self.buyer_shop:
+                return "%s - %s" % (self.buyer_shop, self.buyer_shop.shop_owner.phone_number)
+            return "-"
+        except:
+            return "-"
 
 class Trip(models.Model):
     seller_shop = models.ForeignKey(
