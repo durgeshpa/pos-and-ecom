@@ -1093,7 +1093,9 @@ class OrderedProduct(models.Model): #Shipment
                     logger.exception("Exception occurred {}".format(e))
 
     def __str__(self):
-        return self.invoice_no or str(self.id)
+        if hasattr(self, 'invoice'):
+            return self.invoice.invoice_no
+        return str(self.id)
 
     def clean(self):
         super(OrderedProduct, self).clean()
@@ -1210,6 +1212,12 @@ class OrderedProduct(models.Model): #Shipment
         return str("-")
 
     @property
+    def invoice_no(self):
+        if hasattr(self, 'invoice'):
+            return self.invoice.invoice_no
+        return "-"
+
+    @property
     def shipment_id(self):
         return self.id
 
@@ -1225,7 +1233,7 @@ class OrderedProduct(models.Model): #Shipment
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         if self.shipment_status == OrderedProduct.READY_TO_SHIP:
-            CommonFunction.generate_invoice_number(
+            CommonFunction.generate_invoice_number.delay(
                 'invoice_no', self.pk,
                 self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                 self.invoice_amount)

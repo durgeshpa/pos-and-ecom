@@ -756,7 +756,7 @@ class OrderedProductReschedule(forms.ModelForm):
     class Meta:
         model = OrderedProduct
         fields = (
-            'order', 'invoice_no', 'shipment_status', 'trip',
+            'order', 'shipment_status', 'trip',
             'return_reason'
         )
 

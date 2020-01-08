@@ -1019,22 +1019,22 @@ class ShipmentAdmin(admin.ModelAdmin):
         'order__shipping_address__city',
     )
     list_display = (
-        'invoice', 'order', 'created_at', 'trip', 'shipment_address',
+        'start_qc', 'order', 'created_at', 'trip', 'shipment_address',
         'seller_shop', 'invoice_city', 'invoice_amount', 'payment_mode',
         'shipment_status', 'download_invoice', 'pincode',
     )
     list_filter = [
-        ('created_at', DateTimeRangeFilter), InvoiceSearch, ShipmentOrderIdSearch, ShipmentSellerShopSearch,
-        ('shipment_status', ChoiceDropdownFilter), PincodeSearch
-
+        ('created_at', DateTimeRangeFilter), InvoiceSearch, ShipmentOrderIdSearch,
+        ShipmentSellerShopSearch, ('shipment_status', ChoiceDropdownFilter), PincodeSearch
     ]
     fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
-        'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'close_order']
+              'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'close_order']
     search_fields = [
         'order__order_no', 'invoice_no', 'order__seller_shop__shop_name',
         'order__buyer_shop__shop_name', 'trip__dispatch_no',
         'trip__vehicle_no', 'trip__delivery_boy__phone_number']
-    readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
+    readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address',
+                       'invoice_city', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
     list_per_page = 50
     ordering = ['-created_at']
 
@@ -1067,13 +1067,13 @@ class ShipmentAdmin(admin.ModelAdmin):
         city = obj.order.shipping_address.city
         return str(city)
 
-    def invoice(self,obj):
-        return obj.invoice_no if obj.invoice_no else format_html(
+    def start_qc(self,obj):
+        return obj.invoice.invoice_no if hasattr(obj, 'invoice') else format_html(
             "<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Start QC</a>" %(obj.id))
-    invoice.short_description = 'Invoice No'
+    start_qc.short_description = 'Invoice No'
 
     def save_model(self, request, obj, form, change):
-        if not form.instance.invoice_no and (form.cleaned_data.get('shipment_status', None) == form.instance.READY_TO_SHIP):
+        if not hasattr(form.instance, 'invoice') and (form.cleaned_data.get('shipment_status', None) == form.instance.READY_TO_SHIP):
             self.has_invoice_no = False
         super().save_model(request, obj, form, change)
 
