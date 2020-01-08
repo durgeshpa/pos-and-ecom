@@ -533,7 +533,6 @@ class ExportCsvMixin:
 
                 row = writer.writerow(row_items)
 
-
         shipments = OrderedProduct.objects.filter(order__in=queryset)
         if shipments.exists():
             for shipment in shipments:
