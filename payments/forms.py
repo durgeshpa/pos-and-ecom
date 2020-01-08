@@ -17,11 +17,11 @@ from django.utils.html import format_html
 
 from accounts.middlewares import get_current_user
 from accounts.models import UserWithName
-from payments.models import Payment, ShipmentPayment, OnlinePayment,\
-    OrderPayment, ShipmentPaymentApproval, PaymentApproval
+from payments.models import Payment, ShipmentPayment, OrderPayment, \
+ShipmentPaymentApproval, PaymentApproval
 from retailer_to_sp.models import Order
 from shops.models import Shop
-
+from shops.views import UserAutocomplete
 
 User = get_user_model()
 
@@ -40,7 +40,6 @@ class RelatedFieldWidgetCanAdd(widgets.Select):
         self.related_url = related_url
 
     def render(self, name, value, *args, **kwargs):
-        import pdb; pdb.set_trace()
         self.related_url = reverse(self.related_url)
         output = [super(RelatedFieldWidgetCanAdd, self).render(name, value, *args, **kwargs)]
         output.append('<a href="%s" class="related-widget-wrapper-link add-related" id="add_id_%s" \
@@ -59,6 +58,11 @@ class ShipmentPaymentForm(forms.ModelForm):
 
 
 class PaymentForm(forms.ModelForm):
+    paid_by = forms.ModelChoiceField(
+        queryset=UserWithName.objects.all(),
+        widget=autocomplete.ModelSelect2(url='admin:userwithname-autocomplete',)
+    )
+
     class Meta:
         model = Payment
         fields = "__all__"
@@ -92,7 +96,6 @@ class OrderPaymentForm(forms.ModelForm):
         super(OrderPaymentForm, self).__init__(*args, **kwargs)
         self.fields.get('parent_payment').required = True
         self.fields.get('paid_amount').required = True
-        #import pdb; pdb.set_trace()
         if kwargs.get('order') is not None:
             self.fields['order'].initial = order
 
@@ -139,9 +142,3 @@ class PaymentApprovalForm(forms.ModelForm):
             self.fields['is_payment_approved'].disabled = True 
             # adding payment approval status
 
-
-class OnlinePaymentInlineForm(forms.ModelForm):
-
-    class Meta:
-        model = OnlinePayment
-        fields = "__all__"

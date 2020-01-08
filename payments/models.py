@@ -273,7 +273,6 @@ class OrderPayment(AbstractDateTime):
 
     def clean(self):
         #payment except current
-        # import pdb; pdb.set_trace()
         try:
             if float(self.payment_utilised_excluding_current) + float(self.paid_amount) > float(self.parent_payment.paid_amount):
                 error_msg = "Maximum amount to be utilised from parent payment is " + str(self.parent_payment.paid_amount - self.payment_utilised_excluding_current)
@@ -387,87 +386,6 @@ class PaymentMode(models.Model):
 
     # class Meta:
     #     unique_together = (('payment', 'payment_mode_name'),)
-
-
-class CashPayment(AbstractDateTime):
-    # This method stores the info about the cash payment
-    #payment = models.OneToOneField(ShipmentPayment, related_name='cash_payment', on_delete=models.CASCADE)
-    #payment_reference_number = models.CharField(max_length=50, unique=True)
-    payment_parent = models.OneToOneField(Payment, related_name='payment_cash', on_delete=models.CASCADE)
-    #paid_amount = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')
-    description = models.CharField(max_length=50, null=True, blank=True)
-
-
-class CreditPayment(AbstractDateTime):
-    # This method stores the credit payment: third party details, payment status
-    #payment = models.ForeignKey(ShipmentPayment, related_name='credit_payment', on_delete=models.CASCADE)
-    payment_parent = models.OneToOneField(Payment, related_name='payment_credit', on_delete=models.CASCADE)
-    
-    #payment_reference_number = models.CharField(max_length=50, unique=True)    
-    reference_no = models.CharField(max_length=50, unique=True)
-    description = models.CharField(max_length=50, null=True, blank=True)
-    payment_party_name = models.CharField(max_length=50, choices=PAYMENT_PARTY_CHOICES, null=True, blank=True)
-    #paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')    
-    #payment_status = models.CharField(max_length=50, choices=PAYMENT_STATUS_CHOICES, null=True, blank=True)
-    #initiated_time = models.DateTimeField(null=True, blank=True)
-    #timeout_time = models.DateTimeField(null=True, blank=True)
-    #processed_by = models.ForeignKey(User, related_name='wallet_payment_boy', on_delete=models.CASCADE)
-
-
-class WalletPayment(AbstractDateTime):
-    # This method stores the wallet payment: third party details, payment status
-    #payment = models.ForeignKey(ShipmentPayment, related_name='wallet_payment', on_delete=models.CASCADE)
-    payment_parent = models.OneToOneField(Payment, related_name='payment_wallet', on_delete=models.CASCADE)    
-    #payment_reference_number = models.CharField(max_length=50, unique=True)    
-    reference_no = models.CharField(max_length=50, unique=True)
-    description = models.CharField(max_length=50, null=True, blank=True)
-    #paid_amount = models.DecimalField(max_digits=20, decimal_places=4, default='0.0000')    
-    #payment_status = models.CharField(max_length=50, choices=PAYMENT_STATUS_CHOICES, null=True, blank=True)
-    #initiated_time = models.DateTimeField(null=True, blank=True)
-    #timeout_time = models.DateTimeField(null=True, blank=True)
-    #processed_by = models.ForeignKey(User, related_name='wallet_payment_boy', on_delete=models.CASCADE)
-
-
-class OnlinePayment(AbstractDateTime):
-    # This method stores the credit payment: third party details, payment status
-    #payment = models.OneToOneField(ShipmentPayment, related_name='online_payment', on_delete=models.CASCADE)
-    #payment_reference_number = models.CharField(max_length=50, unique=True)    
-    payment_parent = models.OneToOneField(Payment, related_name='payment_online', on_delete=models.CASCADE)    
-    reference_no = models.CharField(max_length=50, unique=True)
-    description = models.CharField(max_length=50, null=True, blank=True)
-    online_payment_type = models.CharField(max_length=50, choices=ONLINE_PAYMENT_TYPE_CHOICES, null=True, blank=True)
-    #paid_amount = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')    
-    #payment_approval_status = models.CharField(max_length=50, choices=PAYMENT_APPROVAL_STATUS_CHOICES, default="pending_approval",null=True, blank=True)
-    #payment_received = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')
-    #is_payment_approved = models.BooleanField(default=False)
-    #payment_status = models.CharField(max_length=50, choices=PAYMENT_STATUS_CHOICES, null=True, blank=True)
-    #initiated_time = models.DateTimeField(null=True, blank=True)
-    #timeout_time = models.DateTimeField(null=True, blank=True)
-    #processed_by = models.ForeignKey(User, related_name='wallet_payment_boy', on_delete=models.CASCADE)
-
-    def clean(self):
-        if not re.match("^[a-zA-Z0-9_]*$", self.reference_no):
-            raise ValidationError('Referece number can not have special character.')
-        super(OnlinePayment, self).clean()
-
-
-class Offer(AbstractDateTime):
-    # This method stores the discount description for a payment
-    offer_id = models.CharField(max_length=50, unique=True)
-    offer_type = models.CharField(max_length=50, choices=DISCOUNT_TYPE_CHOICES, null=True, blank=True)
-    offer_amount = models.DecimalField(max_digits=6, decimal_places=4, default='0.0000')
-    offer_percentage = models.FloatField(default=0.0)
-    offer_start_at = models.DateTimeField(null=True,blank=True)
-    offer_end_at = models.DateTimeField(null=True,blank=True)
-    status = models.BooleanField(default=True)
-    offer_limitation = models.CharField(max_length=50, choices=OFFER_LIMITATION_CHOICES, default='per_shop')
-
-    def __str__(self):
-        return self.offer_id
-
-    class Meta:
-        verbose_name = _("Offer")
-        verbose_name_plural = _("Offers")
 
 
 class ShipmentPaymentApproval(OrderedProduct):

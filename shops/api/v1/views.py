@@ -103,7 +103,6 @@ class FavouriteProductView(DataWrapperViewSet):
     def delete(self, request, *args, **kwargs):
     
         try:
-            # import pdb; pdb.set_trace()
             buyer_shop=request.query_params['buyer_shop']
             product=request.query_params['product']
             favourite = FavouriteProduct.objects.filter(buyer_shop=buyer_shop, product=product)

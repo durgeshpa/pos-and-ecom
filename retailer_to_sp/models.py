@@ -42,6 +42,7 @@ from .utils import (order_invoices, order_shipment_amount,
 from accounts.models import UserWithName, User
 from django.core.validators import RegexValidator
 from django.contrib.postgres.fields import JSONField
+from analytics.post_save_signal import get_order_report
 from coupon.models import Coupon, CusotmerCouponUsage
 from django.db.models import Sum
 from django.db.models import Q
@@ -425,6 +426,7 @@ class CartProductMapping(models.Model):
         max_length=255, null=True,
         blank=True, editable=False
     )
+    effective_price = models.FloatField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
@@ -859,23 +861,23 @@ class Trip(models.Model):
             cash_to_be_collected.append(
                 shipment.cash_to_be_collected())
         return round(sum(cash_to_be_collected), 2)
-   
+
     def total_paid_amount(self):
         from payments.models import ShipmentPayment
-        trip_shipments = self.rt_invoice_trip.all()
+        trip_shipments = self.rt_invoice_trip.exclude(shipment_payment__parent_order_payment__parent_payment__payment_status='cancelled')
         total_amount  = cash_amount = online_amount = 0
         if trip_shipments.exists():
             shipment_payment_data = ShipmentPayment.objects.filter(shipment__in=trip_shipments)\
-                .aggregate(Sum('paid_amount')) 
+                .aggregate(Sum('paid_amount'))
             shipment_payment_cash = ShipmentPayment.objects.filter(shipment__in=trip_shipments, parent_order_payment__parent_payment__payment_mode_name="cash_payment")\
-                .aggregate(Sum('paid_amount')) 
+                .aggregate(Sum('paid_amount'))
             shipment_payment_online = ShipmentPayment.objects.filter(shipment__in=trip_shipments, parent_order_payment__parent_payment__payment_mode_name="online_payment")\
-                .aggregate(Sum('paid_amount')) 
+                .aggregate(Sum('paid_amount'))
 
             if shipment_payment_data['paid_amount__sum']:
                 total_amount = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
             if shipment_payment_cash['paid_amount__sum']:
-                cash_amount = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount            
+                cash_amount = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
             if shipment_payment_online['paid_amount__sum']:
                 online_amount = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
         return total_amount, cash_amount, online_amount
@@ -1138,7 +1140,7 @@ class OrderedProduct(models.Model): #Shipment
                         ((s.parent_order_payment.parent_payment.reference_no,
                             s.parent_order_payment.parent_payment.payment_approval_status
                         ) for s in payments)
-                )  
+                )
 
 
     def payments(self):
@@ -1156,10 +1158,10 @@ class OrderedProduct(models.Model): #Shipment
 
     def total_payment(self):
         from payments.models import ShipmentPayment
-        shipment_payment = self.shipment_payment.all()
+        shipment_payment = self.shipment_payment.exclude(parent_order_payment__parent_payment__payment_status='cancelled')
         total_payment = cash_payment = online_payment = 0
         if shipment_payment.exists():
-            shipment_payment_data = shipment_payment.aggregate(Sum('paid_amount')) #annotate(sum_paid_amount=Sum('paid_amount')) 
+            shipment_payment_data = shipment_payment.aggregate(Sum('paid_amount')) #annotate(sum_paid_amount=Sum('paid_amount'))
             shipment_payment_cash = shipment_payment.filter(parent_order_payment__parent_payment__payment_mode_name="cash_payment").aggregate(Sum('paid_amount'))
             shipment_payment_online = shipment_payment.filter(parent_order_payment__parent_payment__payment_mode_name="online_payment").aggregate(Sum('paid_amount'))
         # shipment_payment = ShipmentPayment.objects.filter(shipment__in=trip_shipments).\
@@ -1167,9 +1169,9 @@ class OrderedProduct(models.Model): #Shipment
             if shipment_payment_data['paid_amount__sum']:
                 total_payment = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
             if shipment_payment_cash['paid_amount__sum']:
-                cash_payment = round(shipment_payment_cash['paid_amount__sum'], 2) #sum_paid_amount        
+                cash_payment = round(shipment_payment_cash['paid_amount__sum'], 2) #sum_paid_amount
             if shipment_payment_online['paid_amount__sum']:
-                online_payment = round(shipment_payment_online['paid_amount__sum'], 2) #sum_paid_amount  
+                online_payment = round(shipment_payment_online['paid_amount__sum'], 2) #sum_paid_amount
         return total_payment, cash_payment, online_payment
 
     @property
@@ -1206,7 +1208,7 @@ class OrderedProduct(models.Model): #Shipment
     @property
     def invoice_amount(self):
         if self.order:
-            return round(self._invoice_amount, 2)
+            return round(self._invoice_amount)
         return str("-")
 
     @property
@@ -1298,7 +1300,7 @@ class OrderedProductMapping(models.Model):
         super(OrderedProductMapping, self).clean()
         returned_qty = int(self.returned_qty)
         damaged_qty = int(self.damaged_qty)
-        
+
         if self.returned_qty > 0 or self.damaged_qty > 0:
             already_shipped_qty = int(self.shipped_qty)
             if sum([returned_qty, damaged_qty]) > already_shipped_qty:
@@ -1310,7 +1312,6 @@ class OrderedProductMapping(models.Model):
     @property
     def product_weight(self):
         # sum_a = sum([item.column for item in queryset]) # Definitely takes more memory.
-        #import pdb; pdb.set_trace()
         if self.product.weight_value:
             weight = self.product.weight_value*self.shipped_qty
             return weight
@@ -1456,7 +1457,6 @@ class OrderedProductMapping(models.Model):
         return self.product_tax_json.get('tax_sum')
 
     def save(self, *args, **kwargs):
-
         if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.shipped_qty != sum([self.delivered_qty, self.returned_qty, self.damaged_qty]):
             raise ValidationError(_('delivered, returned, damaged qty sum mismatched with shipped_qty'))
         else:
@@ -1711,16 +1711,6 @@ class Payment(models.Model):
 def order_notification(sender, instance=None, created=False, **kwargs):
 
     if created:
-        # data = {}
-        # data['username'] = "test"
-        # data['phone_number'] = "9643112048" #instance.order_id.ordered_by.phone_number
-
-        # user_id = instance.order_id.ordered_by.id
-        # activity_type = "ORDER_RECEIVED"
-        # from notification_center.utils import SendNotification
-        # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()
-
-
         if instance.order_id.buyer_shop.shop_owner.first_name:
             username = instance.order_id.buyer_shop.shop_owner.first_name
         else:
@@ -1743,16 +1733,14 @@ def order_notification(sender, instance=None, created=False, **kwargs):
         template = Template.objects.get(type="ORDER_RECEIVED").id
         from notification_center.tasks import send_notification
         send_notification(user_id=user_id, activity_type=template, data=data)
-        # send_notification.delay(json.dumps({'user_id':user_id, 'activity_type':activity_type, 'data':data}))
-
-        # from notification_center.utils import SendNotification
-        # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()
-
-        message = SendSms(phone=instance.order_id.buyer_shop.shop_owner,
-                          body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
-                              " Thanks," \
-                              " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
-        message.send()
+        try:
+            message = SendSms(phone=instance.order_id.buyer_shop.shop_owner.phone_number,
+                              body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
+                                  " Thanks," \
+                                  " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
+            message.send()
+        except Exception as e:
+            logger.exception("Unable to send SMS for order : {}".format(order_no))
 
 
 class Return(models.Model):
@@ -1934,6 +1922,10 @@ def assign_picklist(sender, instance=None, created=False, **kwargs):
             picking_status="picking_pending",
             picklist_id= generate_picklist_id(pincode), #get_random_string(12).lower(), ##generate random string of 12 digits
             )
+
+
+post_save.connect(get_order_report, sender=Order)
+
 
 @receiver(post_save, sender=CartProductMapping)
 def create_offers(sender, instance=None, created=False, **kwargs):

@@ -261,8 +261,8 @@ def ordered_product_mapping_shipment(request):
             try:
                 # with transaction.atomic():
                 shipment = form.save()
-                # shipment.shipment_status = 'SHIPMENT_CREATED'
-                # shipment.save()
+                shipment.shipment_status = 'SHIPMENT_CREATED'
+                shipment.save()
                 for forms in form_set:
                     if forms.is_valid():
                         to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
@@ -331,7 +331,6 @@ def assign_picker(request, shop_id=None):
 
 def assign_picker_data(request, shop_id):
     # update status to pick
-    # import pdb; pdb.set_trace()
     form = AssignPickerForm(request.user)
     # shop_id = request.GET.get('shop_id',None)
 
@@ -349,7 +348,6 @@ def assign_picker_change(request, pk):
     # save the changes
     picking_instance = PickerDashboard.objects.get(pk=pk)
     # picking_status = picking_instance.picking_status
-    # import pdb; pdb.set_trace()
 
     if request.method == 'POST':
         form = AssignPickerForm(request.user, request.POST, instance=picking_instance)
@@ -1039,16 +1037,14 @@ def commercial_shipment_details(request, pk):
     )
 
 
-def reshedule_update_shipment(form_instance, formset):
-    if form_instance.trip:
-        form_instance.shipment_status = OrderedProduct.RESCHEDULED
-        form_instance.trip = None
-        form_instance.save()
-        for inline_form in formset:
-            if inline_form.is_valid:
-                product = inline_form.save(commit=False)
-                product.delivered_qty = 0
-                product.save()
+def reshedule_update_shipment(shipment, shipment_proudcts_formset):
+    shipment.shipment_status=OrderedProduct.RESCHEDULED
+    shipment.trip=None
+    shipment.save()
+
+    for inline_form in shipment_proudcts_formset:
+        instance = getattr(inline_form, 'instance', None)
+        update_delivered_qty(instance, inline_form)
 
 
 class RetailerCart(APIView):

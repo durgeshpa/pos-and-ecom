@@ -6,7 +6,7 @@ from django.db import transaction
 from rest_framework import serializers
 
 from retailer_to_sp.models import OrderedProduct
-from payments.models import ShipmentPayment, CashPayment, OnlinePayment, PaymentMode, \
+from payments.models import ShipmentPayment, PaymentMode, \
     Payment, OrderPayment, PaymentImage
 
 
@@ -31,20 +31,6 @@ class PaymentImageSerializer(serializers.ModelSerializer):
 #     class Meta:
 #         model = OrderPayment
 #         fields = "__all__"
-
-
-class CashPaymentSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CashPayment
-        fields = "__all__"
-
-
-class OnlinePaymentSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = OnlinePayment
-        fields = "__all__"
-        
-
 
 class ShipmentPaymentSerializer(serializers.ModelSerializer):
     #paid_amount = serializers.DecimalField(default=0.0000, max_digits=20, decimal_places=4)
@@ -72,7 +58,6 @@ class ShipmentPaymentSerializer2(serializers.Serializer):
 
     def validate(self, data):
         initial_data = self.initial_data
-        #import pdb; pdb.set_trace() 
         shipment = initial_data.get('shipment', None)
         paid_by = initial_data.get('paid_by', None)
         if not OrderedProduct.objects.filter(pk=shipment).exists():
