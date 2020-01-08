@@ -518,7 +518,7 @@ class ExportCsvMixin:
         writer = csv.writer(response)
         writer.writerow(list_display)
 
-        pickers = PickerDashboard.objects.filter(order__in=queryset)
+        pickers = PickerDashboard.objects.filter(order__in=queryset, shipment__isnull=True)
         if pickers.exists():
             for picker in pickers:
                 obj = picker.order
@@ -534,18 +534,18 @@ class ExportCsvMixin:
                 row = writer.writerow(row_items)
 
 
-        # shipments = OrderedProduct.objects.filter(order__in=queryset)
-        # if shipments.exists():
-        #     for shipment in shipments:
-        #         obj = shipment.order
-        #         row_items = [getattr(obj, field) for field  in list_display if field not in ['shipment_status','shipment_status_reason','order_shipment_amount',
-        #                               'picking_status', 'picker_boy', 'picklist_id'] ]
+        shipments = OrderedProduct.objects.filter(order__in=queryset)
+        if shipments.exists():
+            for shipment in shipments:
+                obj = shipment.order
+                row_items = [getattr(obj, field) for field  in list_display if field not in ['shipment_status','shipment_status_reason','order_shipment_amount',
+                                      'picking_status', 'picker_boy', 'picklist_id'] ]
 
-        #         row_items += [shipment.shipment_status, shipment.return_reason, shipment.invoice_amount, 
-        #             shipment.picking_status, shipment.picker_boy, shipment.picklist_id]
+                row_items += [shipment.get_shipment_status_display(), shipment.return_reason, shipment.invoice_amount, 
+                    shipment.picking_status, shipment.picker_boy, shipment.picklist_id]
 
-        #         #getattr(shipment, field) for field in list_display_s]
-        #         row = writer.writerow(row_items)
+                #getattr(shipment, field) for field in list_display_s]
+                row = writer.writerow(row_items)
 
         # for obj in queryset:
         #     row = writer.writerow([getattr(obj, field).replace('<br>', '\n') if field in ['shipment_status','shipment_status_reason','order_shipment_amount',
