@@ -859,12 +859,14 @@ def update_order_status(close_order_checked, shipment_id):
 
 class SellerShopAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
+        # qs = Shop.objects.filter(
+        #     Q(shop_type__shop_type='sp', shop_owner=self.request.user) | Q(shop_type__shop_type='sp',
+        #                                                                    related_users=self.request.user))
         qs = Shop.objects.filter(
-            Q(shop_type__shop_type='sp', shop_owner=self.request.user) | Q(shop_type__shop_type='sp',
-                                                                           related_users=self.request.user))
-
+            shop_type__shop_type='sp')
+        
         if self.q:
-            qs = qs.filter(shop_name__startswith=self.q)
+            qs = qs.filter(shop_name__icontains=self.q)
         return qs
 
 
