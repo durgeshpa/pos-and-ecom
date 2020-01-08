@@ -1204,8 +1204,8 @@ class OrderedProduct(models.Model): #Shipment
     @property
     def invoice_amount(self):
         if self.order:
-            # if hasattr(self, 'invoice'):
-            #     return self.invoice.invoice_amount
+            if hasattr(self, 'invoice'):
+                return self.invoice.invoice_amount
             return round(self._invoice_amount)
         return str("-")
 
@@ -1224,17 +1224,18 @@ class OrderedProduct(models.Model): #Shipment
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-#       if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+        if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+            CommonFunction.generate_invoice_number(
+                'invoice_no', self.pk,
+                self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
+                self.invoice_amount)
         if self.no_of_crates == None:
             self.no_of_crates = 0
         if self.no_of_packets == None:
             self.no_of_packets = 0
         if self.no_of_sacks == None:
             self.no_of_sacks = 0
-        CommonFunction.generate_invoice_number(
-            'invoice_no', self.pk,
-            self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
-            self.invoice_amount)
+
         super().save(*args, **kwargs)
 
 
@@ -1254,22 +1255,6 @@ class Invoice(models.Model):
         return self.invoice_no
 
     def save(self, *args, **kwargs):
-        # if not self.invoice_no and self.shipment_status == OrderedProduct.READY_TO_SHIP:
-        # self.invoice_no = CommonFunction.generate_invoice_number.delay(
-        #                         self.shipment.__class__ ,'invoice_no',
-        #                         self.shipment.pk,
-        #                         self.shipment.order.seller_shop.shop_name_address_mapping.filter(
-        #                             address_type='billing').last().pk)
-        # CommonFunction.generate_invoice_number.delay(
-        #     'invoice_no', self.shipment.pk,
-        #     self.shipment.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk)
-
-        # if self.no_of_crates == None:
-        #     self.no_of_crates = 0
-        # if self.no_of_packets == None:
-        #     self.no_of_packets = 0
-        # if self.no_of_sacks == None:
-        #     self.no_of_sacks = 0
         super().save(*args, **kwargs)
 
 

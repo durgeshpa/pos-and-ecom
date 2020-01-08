@@ -1051,25 +1051,25 @@ class ShipmentAdmin(admin.ModelAdmin):
     download_invoice.short_description = 'Download Invoice'
 
     def pincode(self, obj):
-            return obj.order.shipping_address.pincode
+        return obj.order.shipping_address.pincode
 
     def seller_shop(self, obj):
-            return obj.order.seller_shop.shop_name
+        return obj.order.seller_shop.shop_name
 
     def shipment_address(self, obj):
-            address = obj.order.shipping_address
-            address_line = address.address_line1
-            contact = address.address_contact_number
-            shop_name = address.shop_name.shop_name
-            return str("%s, %s(%s)") % (shop_name, address_line, contact)
+        address = obj.order.shipping_address
+        address_line = address.address_line1
+        contact = address.address_contact_number
+        shop_name = address.shop_name.shop_name
+        return str("%s, %s(%s)") % (shop_name, address_line, contact)
 
     def invoice_city(self, obj):
-            city = obj.order.shipping_address.city
-            return str(city)
+        city = obj.order.shipping_address.city
+        return str(city)
 
     def invoice(self,obj):
-            return obj.invoice_no if obj.invoice_no else format_html(
-                "<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Start QC</a>" %(obj.id))
+        return obj.invoice_no if obj.invoice_no else format_html(
+            "<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Start QC</a>" %(obj.id))
     invoice.short_description = 'Invoice No'
 
     def save_model(self, request, obj, form, change):
@@ -1079,8 +1079,9 @@ class ShipmentAdmin(admin.ModelAdmin):
 
     def save_related(self, request, form, formsets, change):
         super(ShipmentAdmin, self).save_related(request, form, formsets, change)
+        shipment_products = form.instance.rt_order_product_order_product_mapping.all().values('product__id').annotate(shipped_items=Sum('shipped_qty'))
         if not self.has_invoice_no:
-            update_reserved_order(json.dumps({'shipment_id': form.instance.id}))
+            update_reserved_order.delay(list(shipment_products), form.instance.order.ordered_cart.id)
         update_order_status_and_create_picker.delay(form.instance.id, form.cleaned_data.get('close_order'), form.changed_data)
 
     def get_queryset(self, request):
@@ -1471,8 +1472,10 @@ class InvoiceAdmin(admin.ModelAdmin):
     get_order.short_description = "Order"
 
     def get_shipment_status(self, obj):
-        shipment_status = dict(OrderedProduct.SHIPMENT_STATUS)
-        return shipment_status[obj.shipment_status]
+        if obj.shipment_status:
+            shipment_status = dict(OrderedProduct.SHIPMENT_STATUS)
+            return shipment_status[obj.shipment_status]
+        return "-"
     get_shipment_status.short_description = "Shipment Status"
 
     def get_trip_no(self, obj):
@@ -1480,8 +1483,10 @@ class InvoiceAdmin(admin.ModelAdmin):
     get_trip_no.short_description = "Trip"
 
     def get_trip_status(self, obj):
-        trip_status = dict(TRIP_STATUS)
-        return trip_status[obj.trip_status]
+        if obj.trip_status:
+            trip_status = dict(TRIP_STATUS)
+            return trip_status[obj.trip_status]
+        return "-"
     get_trip_status.short_description = "Trip Status"
 
     def get_queryset(self, request):

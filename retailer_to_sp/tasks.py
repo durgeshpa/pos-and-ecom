@@ -40,14 +40,9 @@ def create_reserved_order(reserved_args):
             order_product_reserved.save()
 
 @task
-def update_reserved_order(reserved_args):
-    params = json.loads(reserved_args)
-    shipment_id = params['shipment_id']
-    shipment = OrderedProduct.objects.get(pk=shipment_id)
-    shipment_products = shipment.rt_order_product_order_product_mapping.all().values('product__id').annotate(shipped_items=Sum('shipped_qty'))
+def update_reserved_order(shipment_products, cart_id):
     shipment_products_mapping = {i['product__id']:i['shipped_items'] for i in shipment_products}
-    cart = shipment.order.ordered_cart
-    reserved_products = OrderedProductReserved.objects.filter(cart=cart, product__id__in=shipment_products_mapping.keys())
+    reserved_products = OrderedProductReserved.objects.filter(cart_id=cart_id, product__id__in=shipment_products_mapping.keys())
     for rp in reserved_products:
         reserved_qty = int(rp.reserved_qty)
         shipped_qty = int(shipment_products_mapping[rp.product.id])
@@ -143,9 +138,7 @@ class UpdateOrderStatusAndCreatePicker(object):
                 delivered_qty = Sum('rt_order_product_order_product_mapping__delivered_qty'),
                 shipped_qty = Sum('rt_order_product_order_product_mapping__shipped_qty'),
                 returned_qty = Sum('rt_order_product_order_product_mapping__returned_qty'),
-                damaged_qty = Sum('rt_order_product_order_product_mapping__damaged_qty'),
-
-            )
+                damaged_qty = Sum('rt_order_product_order_product_mapping__damaged_qty'),)
         cart_products_dict = order.ordered_cart.rt_cart_list.aggregate(total_no_of_pieces = Sum('no_of_pieces'))
 
         total_delivered_qty = shipment_products_dict.get('delivered_qty')
