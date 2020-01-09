@@ -884,7 +884,7 @@ class BuyerShopAutocomplete(autocomplete.Select2QuerySetView):
         qs = Shop.objects.filter(shop_type__shop_type='r')
 
         if self.q:
-            qs = qs.filter(shop_name__startswith=self.q)
+            qs = qs.filter(shop_name__icontains=self.q)
         return qs
 
 
