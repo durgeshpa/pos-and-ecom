@@ -1039,7 +1039,7 @@ class OrderedProduct(models.Model): #Shipment
         max_length=50, choices=RETURN_REASON,
         null=True, blank=True, verbose_name='Reason for Return',
     )
-    invoice_no = models.CharField(max_length=255, null=True, blank=True)
+    invoice_number = models.CharField(max_length=255, null=True, blank=True)
     trip = models.ForeignKey(
         Trip, related_name="rt_invoice_trip",
         null=True, blank=True, on_delete=models.DO_NOTHING,
@@ -1215,6 +1215,8 @@ class OrderedProduct(models.Model): #Shipment
     def invoice_no(self):
         if hasattr(self, 'invoice'):
             return self.invoice.invoice_no
+        if self.invoice_number:
+            return self.invoice_number
         return "-"
 
     @property
@@ -1248,7 +1250,7 @@ class OrderedProduct(models.Model): #Shipment
 
 
 class Invoice(models.Model):
-    invoice_no = models.CharField(max_length=255, unique=True)
+    invoice_no = models.CharField(max_length=255, unique=True, db_index=True)
     shipment = models.OneToOneField(OrderedProduct, related_name='invoice', on_delete=models.DO_NOTHING)
     invoice_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/', null=True, blank=True)
     invoice_amount = models.PositiveIntegerField(default=0, verbose_name='Invoice Amount')
