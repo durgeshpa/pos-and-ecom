@@ -1215,6 +1215,26 @@ class OrderedProduct(models.Model): #Shipment
     def shipment_id(self):
         return self.id
 
+    def picking_data(self):
+        #picker_shipment = PickerDashboard.objects.filter(shipment=self.id)
+        if self.picker_shipment.all().exists():
+            picker_data = self.picker_shipment.last()
+            return [picker_data.get_picking_status_display(), picker_data.picker_boy, picker_data.picklist_id]
+        else:
+            return ["","",""]
+
+    @property
+    def picking_status(self):
+        return self.picking_data()[0] #picking_statuses(self.picker_shipment())
+
+    @property
+    def picker_boy(self):
+        return self.picking_data()[1]
+
+    @property
+    def picklist_id(self):
+        return self.picking_data()[2]
+
     def cn_amount(self):
         return round(self._cn_amount, 2)
 
@@ -1892,7 +1912,7 @@ def assign_update_picker_to_shipment(shipment_id):
    if shipment.shipment_status == "SHIPMENT_CREATED":
        # assign shipment to picklist
        # tbd : if manual(by searching relevant picklist id) or automated
-       picker_lists = shipment.order.picker_order.filter(picking_status="picking_assigned").update(shipment=shipment)
+       picker_lists = shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).update(shipment=shipment)
    elif shipment.shipment_status == OrderedProduct.READY_TO_SHIP:
        shipment.picker_shipment.all().update(picking_status="picking_complete")
 

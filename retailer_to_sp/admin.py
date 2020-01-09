@@ -38,7 +38,8 @@ from retailer_to_sp.views import (
     trip_planning, trip_planning_change, update_delivered_qty,
     update_order_status, update_shipment_status, reshedule_update_shipment,
     RetailerCart, assign_picker, assign_picker_change, assign_picker_data,
-    UserWithNameAutocomplete,  SellerAutocomplete, ShipmentOrdersAutocomplete
+    UserWithNameAutocomplete,  SellerAutocomplete, ShipmentOrdersAutocomplete,
+    BuyerShopAutocomplete
 )
 from shops.models import ParentRetailerMapping, Shop
 from sp_to_gram.models import (
@@ -473,6 +474,10 @@ class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
                 self.admin_site.admin_view( SellerAutocomplete.as_view()),
                 name='seller-autocomplete'
                 ),
+            url(r'^buyer-autocomplete/$',
+                self.admin_site.admin_view( BuyerShopAutocomplete.as_view()),
+                name='buyer-autocomplete'
+                ),
             url(r'^plan-shipment-orders-autocomplete/$',
                 self.admin_site.admin_view(ShipmentOrdersAutocomplete.as_view()),
                 name='ShipmentOrdersAutocomplete'
@@ -505,16 +510,45 @@ class ExportCsvMixin:
         meta = self.model._meta
         list_display = ['order_no','seller_shop','buyer_shop_id', 'buyer_shop_with_mobile', 'pincode','city', 'total_final_amount',
                         'order_status', 'created_at', 'payment_mode', 'paid_amount',
-                        'total_paid_amount', 'shipment_status', 'shipment_status_reason','order_shipment_amount', 'order_shipment_details',
+                        'total_paid_amount', 'shipment_status', 'shipment_status_reason','order_shipment_amount',
                         'picking_status', 'picker_boy', 'picklist_id',]
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
         writer = csv.writer(response)
         writer.writerow(list_display)
+
+        # pickers = PickerDashboard.objects.filter(order__in=queryset, shipment__isnull=True)
+        # if pickers.exists():
+        #     for picker in pickers:
+        #         obj = picker.order
+        #         row_items = [getattr(obj, field) for field  in list_display if field not in ['shipment_status','shipment_status_reason','order_shipment_amount',
+        #                               'picking_status', 'picker_boy', 'picklist_id'] ]
+        #         shipment = picker.shipment
+        #         if shipment:
+        #             row_items += [shipment.get_shipment_status_display(), shipment.return_reason, shipment.invoice_amount] 
+        #         else:
+        #             row_items += ["-","-","-"]
+        #         row_items += [picker.get_picking_status_display(), picker.picker_boy, picker.picklist_id]
+
+        #         row = writer.writerow(row_items)
+
+        # shipments = OrderedProduct.objects.filter(order__in=queryset)
+        # if shipments.exists():
+        #     for shipment in shipments:
+        #         obj = shipment.order
+        #         row_items = [getattr(obj, field) for field  in list_display if field not in ['shipment_status','shipment_status_reason','order_shipment_amount',
+        #                               'picking_status', 'picker_boy', 'picklist_id'] ]
+
+        #         row_items += [shipment.get_shipment_status_display(), shipment.return_reason, shipment.invoice_amount, 
+        #             shipment.picking_status, shipment.picker_boy, shipment.picklist_id]
+
+        #         #getattr(shipment, field) for field in list_display_s]
+        #         row = writer.writerow(row_items)
+
         for obj in queryset:
             row = writer.writerow([getattr(obj, field).replace('<br>', '\n') if field in ['shipment_status','shipment_status_reason','order_shipment_amount',
-                                  'picking_status', 'picker_boy', 'picklist_id', 'order_shipment_details'] else getattr(obj, field) for field in list_display])
+                                  'picking_status', 'picker_boy', 'picklist_id'] else getattr(obj, field) for field in list_display])
         return response
     export_as_csv.short_description = "Download CSV of Selected Orders"
 
@@ -751,6 +785,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     resource_class = OrderResource
     search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name','order_status')
     form = OrderForm
+    list_per_page = 10
     fieldsets = (
         (_('Shop Details'), {
             'fields': ('seller_shop', 'buyer_shop',
