@@ -275,7 +275,7 @@ class ProductPrice(models.Model):
     def validate(self, exception_type):
         if not self.mrp:
             raise ValidationError(_('Please enter valid Mrp price.'))
-        if not self.price_to_retailer:
+        if not self.selling_price:
             raise ValidationError(_('Please enter valid Selling price.'))
             #raise exception_type(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
         if self.selling_price and self.selling_price > self.mrp:
