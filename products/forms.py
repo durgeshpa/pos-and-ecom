@@ -280,6 +280,21 @@ class ProductPriceNewForm(forms.ModelForm):
         if 'approval_status' in self.fields:
             self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:1]
 
+    def clean(self):
+        cleaned_data = self.cleaned_data
+        mrp = int(self.cleaned_data.get('mrp', '0'))
+        selling_price = int(self.cleaned_data.get('selling_price', '0'))
+        # if not mrp:
+        #     raise forms.ValidationError(
+        #         _('Please enter valid value for mrp'),
+        #     )
+        # if not selling_price:
+        #     raise forms.ValidationError(
+        #         _('Please enter valid value for Selling Price'),
+        #     )    
+        #else:
+        return cleaned_data
+
 
 class ProductForm(forms.ModelForm):
     product_name = forms.CharField(required=True)
