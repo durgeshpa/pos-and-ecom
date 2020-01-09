@@ -278,7 +278,7 @@ class ProductPrice(models.Model):
         if not self.selling_price:
             raise ValidationError(_('Please enter valid Selling price.'))
             #raise exception_type(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
-        if self.selling_price and self.selling_price > self.mrp:
+        if self.selling_price and self.mrp and self.selling_price > self.mrp:
             raise exception_type(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
 
     def clean(self):
