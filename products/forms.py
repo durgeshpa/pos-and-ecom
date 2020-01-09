@@ -284,14 +284,14 @@ class ProductPriceNewForm(forms.ModelForm):
         cleaned_data = self.cleaned_data
         mrp = int(self.cleaned_data.get('mrp', '0'))
         selling_price = int(self.cleaned_data.get('selling_price', '0'))
-        if not mrp:
-            raise forms.ValidationError(
-                _('Please enter valid value for mrp'),
-            )
-        if not selling_price:
-            raise forms.ValidationError(
-                _('Please enter valid value for Selling Price'),
-            )    
+        # if not mrp:
+        #     raise forms.ValidationError(
+        #         _('Please enter valid value for mrp'),
+        #     )
+        # if not selling_price:
+        #     raise forms.ValidationError(
+        #         _('Please enter valid value for Selling Price'),
+        #     )    
         #else:
         return cleaned_data
 
