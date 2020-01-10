@@ -499,7 +499,7 @@ class TripForm(forms.ModelForm):
         data = self.cleaned_data
         if self.instance and self.instance.trip_status == 'READY':
             shipment_ids = data.get('selected_id').split(',')
-            cancelled_shipments = Shipment.objects.values('id', 'invoice_no'
+            cancelled_shipments = Shipment.objects.values('id', 'invoice__invoice_no'
                                                           ).filter(id__in=shipment_ids, shipment_status='CANCELLED')
 
             if cancelled_shipments.exists():
@@ -511,7 +511,7 @@ class TripForm(forms.ModelForm):
                     [format_html(i) for i in
                      ["<a href=%s target='blank'>%s</a>" %
                       (reverse("admin:retailer_to_sp_shipment_change",
-                               args=[i.get('id')]), i.get('invoice_no'))
+                               args=[i.get('id')]), i.get('invoice__invoice_no'))
                       for i in cancelled_shipments]])
 
         return data
