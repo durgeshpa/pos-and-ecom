@@ -1067,30 +1067,33 @@ class OrderedProduct(models.Model): #Shipment
     class Meta:
         verbose_name = 'Update Delivery/ Returns/ Damage'
 
+    def initialize_shipment(self):
+        self._invoice_amount = 0
+        self._cn_amount = 0
+        self._damaged_amount = 0
+        self._delivered_amount = 0
+        self._shipment_weight = 0
+        shipment_products = self.rt_order_product_order_product_mapping.values('product','shipped_qty','returned_qty',
+                                                                               'damaged_qty', 'product__weight_value').all()
+        shipment_map = {i['product']:(i['shipped_qty'], i['returned_qty'], i['damaged_qty'], i['product__weight_value']) for i in shipment_products}
+        cart_product_map = self.order.ordered_cart.rt_cart_list.filter(cart_product_id__in=shipment_map.keys())
+        product_price_map = {i.cart_product.id:(i.item_effective_prices, i.qty) for i in cart_product_map}
+        for product, shipment_details in shipment_map.items():
+            try:
+                product_price = product_price_map[product][0]
+                shipped_qty, returned_qty, damaged_qty, product_weight = shipment_details
+                self._invoice_amount += product_price * shipped_qty
+                self._cn_amount += (returned_qty+damaged_qty) * product_price
+                self._damaged_amount += damaged_qty * product_price
+                self._delivered_amount += self._invoice_amount - self._cn_amount
+                self._shipment_weight += (product_weight if product_weight else 0) * shipped_qty
+            except Exception as e:
+                logger.exception("Exception occurred {}".format(e))
+
     def __init__(self, *args, **kwargs):
         super(OrderedProduct, self).__init__(*args, **kwargs)
         if self.order:
-            self._invoice_amount = 0
-            self._cn_amount = 0
-            self._damaged_amount = 0
-            self._delivered_amount = 0
-            self._shipment_weight = 0
-            shipment_products = self.rt_order_product_order_product_mapping.values('product','shipped_qty','returned_qty',
-                                                                                   'damaged_qty', 'product__weight_value').all()
-            shipment_map = {i['product']:(i['shipped_qty'], i['returned_qty'], i['damaged_qty'], i['product__weight_value']) for i in shipment_products}
-            cart_product_map = self.order.ordered_cart.rt_cart_list.filter(cart_product_id__in=shipment_map.keys())
-            product_price_map = {i.cart_product.id:(i.item_effective_prices, i.qty) for i in cart_product_map}
-            for product, shipment_details in shipment_map.items():
-                try:
-                    product_price = product_price_map[product][0]
-                    shipped_qty, returned_qty, damaged_qty, product_weight = shipment_details
-                    self._invoice_amount += product_price * shipped_qty
-                    self._cn_amount += (returned_qty+damaged_qty) * product_price
-                    self._damaged_amount += damaged_qty * product_price
-                    self._delivered_amount += self._invoice_amount - self._cn_amount
-                    self._shipment_weight += (product_weight if product_weight else 0) * shipped_qty
-                except Exception as e:
-                    logger.exception("Exception occurred {}".format(e))
+            self.initialize_shipment()
 
     def __str__(self):
         if hasattr(self, 'invoice'):
@@ -1235,6 +1238,7 @@ class OrderedProduct(models.Model): #Shipment
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+            self.initialize_shipment()
             CommonFunction.generate_invoice_number.delay(
                 'invoice_no', self.pk,
                 self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
