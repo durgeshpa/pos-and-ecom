@@ -463,7 +463,7 @@ class LoadDispatches(APIView):
         similarity = TrigramSimilarity(
             'order__shipping_address__address_line1', area)
         if invoice_id:
-            dispatches = Dispatch.objects.filter(invoice_no=invoice_id)
+            dispatches = Dispatch.objects.filter(invoice__invoice_no=invoice_id)
 
 
         elif seller_shop and area and trip_id:
@@ -500,7 +500,7 @@ class LoadDispatches(APIView):
                 Q(shipment_status=OrderedProduct.READY_TO_SHIP) |
                 Q(shipment_status=OrderedProduct.RESCHEDULED),
                 order__seller_shop=seller_shop
-            ).order_by('invoice_no')
+            ).order_by('invoice__invoice_no')
 
         elif area and trip_id:
             dispatches = Dispatch.objects.annotate(

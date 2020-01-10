@@ -266,7 +266,7 @@ class InvoiceSearch(InputFilter):
             if invoice_no is None:
                 return
             return queryset.filter(
-                Q(invoice_no__icontains=invoice_no)
+                Q(invoice__invoice_no__icontains=invoice_no)
             )
 
 class OrderInvoiceSearch(InputFilter):
@@ -871,7 +871,7 @@ class OrderedProductAdmin(admin.ModelAdmin):
         'return_reason', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check'
     )
     autocomplete_fields = ('order',)
-    search_fields = ('invoice_no', 'order__order_no')
+    search_fields = ('invoice__invoice_no', 'order__order_no')
     readonly_fields = (
         'order', 'invoice_no', 'trip', 'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks'
     )
@@ -1030,7 +1030,7 @@ class ShipmentAdmin(admin.ModelAdmin):
     fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
               'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'close_order']
     search_fields = [
-        'order__order_no', 'invoice_no', 'order__seller_shop__shop_name',
+        'order__order_no', 'invoice__invoice_no', 'order__seller_shop__shop_name',
         'order__buyer_shop__shop_name', 'trip__dispatch_no',
         'trip__vehicle_no', 'trip__delivery_boy__phone_number']
     readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address',
