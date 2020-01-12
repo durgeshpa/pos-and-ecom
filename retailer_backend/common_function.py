@@ -184,9 +184,8 @@ def required_fields(form, fields_list):
 
 @task
 def generate_invoice_number(field, instance_id, address, invoice_amount):
-    invoice_no = common_pattern(RetailerToSPModels.Invoice, field, instance_id, address, "IV")
     instance, created = RetailerToSPModels.Invoice.objects.get_or_create(shipment_id=instance_id)
     if created:
-        instance.invoice_amount=invoice_amount
+        invoice_no = common_pattern(RetailerToSPModels.Invoice, field, instance_id, address, "IV")
         instance.invoice_no=invoice_no
         instance.save()

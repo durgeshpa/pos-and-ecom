@@ -1209,8 +1209,8 @@ class OrderedProduct(models.Model): #Shipment
     @property
     def invoice_amount(self):
         if self.order:
-            if hasattr(self, 'invoice'):
-                return self.invoice.invoice_amount
+            # if hasattr(self, 'invoice'):
+            #     return self.invoice.invoice_amount
             return round(self._invoice_amount)
         return str("-")
 
@@ -1238,7 +1238,6 @@ class OrderedProduct(models.Model): #Shipment
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         if self.shipment_status == OrderedProduct.READY_TO_SHIP:
-            self.initialize_shipment()
             CommonFunction.generate_invoice_number.delay(
                 'invoice_no', self.pk,
                 self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
@@ -1257,7 +1256,6 @@ class Invoice(models.Model):
     invoice_no = models.CharField(max_length=255, unique=True, db_index=True)
     shipment = models.OneToOneField(OrderedProduct, related_name='invoice', on_delete=models.DO_NOTHING)
     invoice_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/', null=True, blank=True)
-    invoice_amount = models.PositiveIntegerField(default=0, verbose_name='Invoice Amount')
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -1271,6 +1269,9 @@ class Invoice(models.Model):
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
 
+    @property
+    def invoice_amount(self):
+        return self.shipment.invoice_amount 
 
 class PickerDashboard(models.Model):
 
