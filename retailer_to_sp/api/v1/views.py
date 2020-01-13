@@ -440,7 +440,7 @@ class AddToCart(APIView):
                     cart.save()
 
                 if capping.capping_qty > ordered_qty:
-                    cart_product.update(capping_error_msg = '')
+                    cart_mapping.update(capping_error_msg = '')
                     if int(qty) == 0:
                         if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
                             CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
