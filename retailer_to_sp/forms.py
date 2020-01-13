@@ -428,7 +428,7 @@ class TripForm(forms.ModelForm):
         self.fields['trip_weight'].initial = instance.trip_weight()
         self.fields['trip_weight'].disabled = True
         self.fields['total_trip_amount_value'].initial = instance.total_trip_amount_value
-        self.fields['total_trip_amount_value'].disabled = True        
+        self.fields['total_trip_amount_value'].disabled = True
 
         trip = instance.pk
         if trip:
@@ -484,8 +484,8 @@ class TripForm(forms.ModelForm):
                 if trip_status == 'CLOSED':
                     self.fields['trip_status'].choices = TRIP_STATUS[4:5] #"CLOSED"
                 elif trip_status == 'TRANSFERRED':
-                    self.fields['trip_status'].choices = TRIP_STATUS[5:] #"CLOSED"    
-                else:                            
+                    self.fields['trip_status'].choices = TRIP_STATUS[5:] #"CLOSED"
+                else:
                     self.fields['trip_status'].choices = TRIP_STATUS[1:2]
                 #self.fields['trip_status'].choices = TRIP_STATUS[1:2]
         else:
@@ -693,6 +693,16 @@ class CartProductMappingForm(forms.ModelForm):
 
 
 class CartForm(forms.ModelForm):
+    seller_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
+        widget=autocomplete.ModelSelect2(url='banner-shop-autocomplete', ),
+        required=False
+    )
+    buyer_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='r'),
+        widget=autocomplete.ModelSelect2(url='admin:retailer-shop-autocomplete', ),
+        required=False
+    )
     class Meta:
         model = Cart
         fields = ('seller_shop', 'buyer_shop')
