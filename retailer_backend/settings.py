@@ -402,6 +402,18 @@ ELASTICSEARCH_DSL={
         'hosts': '35.154.13.198:9200'
     },
 }
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_URL,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient"
+        },
+        "KEY_PREFIX": "gfcache"
+    }
+}
+
 # LOGGING = {
 #   'version': 1,
 #   'disable_existing_loggers': False,
