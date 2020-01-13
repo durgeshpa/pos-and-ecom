@@ -416,6 +416,7 @@ class AddToCart(APIView):
             if parent_mapping.parent.shop_type.shop_type == 'sp':
                 ordered_qty = 0
                 product = Product.objects.get(id = cart_product)
+                import pdb; pdb.set_trace()
                 capping = product.get_current_shop_capping(parent_mapping.parent, parent_mapping.retailer)
                 if capping:
                     capping_start_date = capping.start_date
@@ -438,7 +439,7 @@ class AddToCart(APIView):
                     cart.buyer_shop = parent_mapping.retailer
                     cart.save()
 
-                if capping.capping_qty < ordered_qty:
+                if capping.capping_qty > ordered_qty:
                     cart_product.update(capping_error_msg = '')
                     if int(qty) == 0:
                         if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
