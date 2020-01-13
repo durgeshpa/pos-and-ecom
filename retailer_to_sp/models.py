@@ -392,17 +392,6 @@ class Cart(models.Model):
         return self.created_at.time()
 
 
-@receiver(post_save, sender=Cart)
-def create_order_id(sender, instance=None, created=False, **kwargs):
-    if created:
-        instance.order_id = CommonFunction.order_id_pattern(
-                                    sender, 'order_id', instance.pk,
-                                    instance.seller_shop.
-                                    shop_name_address_mapping.filter(
-                                        address_type='billing').last().pk)
-        instance.save()
-
-
 class CartProductMapping(models.Model):
     cart = models.ForeignKey(Cart, related_name='rt_cart_list',null=True,
                              on_delete=models.DO_NOTHING
@@ -1258,7 +1247,7 @@ class OrderedProduct(models.Model): #Shipment
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         if self.shipment_status == OrderedProduct.READY_TO_SHIP:
-            CommonFunction.generate_invoice_number.delay(
+            CommonFunction.generate_invoice_number(
                 'invoice_no', self.pk,
                 self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                 self.invoice_amount)
@@ -1757,40 +1746,6 @@ class Payment(models.Model):
         super(Payment, self).save()
 
 
-@receiver(post_save, sender=Payment)
-def order_notification(sender, instance=None, created=False, **kwargs):
-
-    if created:
-        if instance.order_id.buyer_shop.shop_owner.first_name:
-            username = instance.order_id.buyer_shop.shop_owner.first_name
-        else:
-            username = instance.order_id.buyer_shop.shop_owner.phone_number
-        order_no = str(instance.order_id)
-        total_amount = str(instance.order_id.total_final_amount)
-        shop_name = str(instance.order_id.ordered_cart.buyer_shop.shop_name)
-        items_count = instance.order_id.ordered_cart.rt_cart_list.count()
-        data = {}
-        data['username'] = username
-        data['phone_number'] = instance.order_id.ordered_by
-        data['order_no'] = order_no
-        data['items_count'] = items_count
-        data['total_amount'] = total_amount
-        data['shop_name'] = shop_name
-
-        user_id = instance.order_id.ordered_by.id
-        activity_type = "ORDER_RECEIVED"
-        from notification_center.models import Template
-        template = Template.objects.get(type="ORDER_RECEIVED").id
-        from notification_center.tasks import send_notification
-        send_notification(user_id=user_id, activity_type=template, data=data)
-        try:
-            message = SendSms(phone=instance.order_id.buyer_shop.shop_owner.phone_number,
-                              body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
-                                  " Thanks," \
-                                  " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
-            message.send()
-        except Exception as e:
-            logger.exception("Unable to send SMS for order : {}".format(order_no))
 
 
 class Return(models.Model):
@@ -1975,6 +1930,51 @@ def assign_picklist(sender, instance=None, created=False, **kwargs):
 
 
 post_save.connect(get_order_report, sender=Order)
+
+@receiver(post_save, sender=Cart)
+def create_order_id(sender, instance=None, created=False, **kwargs):
+    if created:
+        instance.order_id = order_id_pattern(
+                                    sender, 'order_id', instance.pk,
+                                    instance.seller_shop.
+                                    shop_name_address_mapping.filter(
+                                        address_type='billing').last().pk)
+        instance.save()
+
+@receiver(post_save, sender=Payment)
+def order_notification(sender, instance=None, created=False, **kwargs):
+
+    if created:
+        if instance.order_id.buyer_shop.shop_owner.first_name:
+            username = instance.order_id.buyer_shop.shop_owner.first_name
+        else:
+            username = instance.order_id.buyer_shop.shop_owner.phone_number
+        order_no = str(instance.order_id)
+        total_amount = str(instance.order_id.total_final_amount)
+        shop_name = str(instance.order_id.ordered_cart.buyer_shop.shop_name)
+        items_count = instance.order_id.ordered_cart.rt_cart_list.count()
+        data = {}
+        data['username'] = username
+        data['phone_number'] = instance.order_id.ordered_by
+        data['order_no'] = order_no
+        data['items_count'] = items_count
+        data['total_amount'] = total_amount
+        data['shop_name'] = shop_name
+
+        user_id = instance.order_id.ordered_by.id
+        activity_type = "ORDER_RECEIVED"
+        from notification_center.models import Template
+        template = Template.objects.get(type="ORDER_RECEIVED").id
+        from notification_center.tasks import send_notification
+        send_notification(user_id=user_id, activity_type=template, data=data)
+        try:
+            message = SendSms(phone=instance.order_id.buyer_shop.shop_owner.phone_number,
+                              body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
+                                  " Thanks," \
+                                  " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
+            message.send()
+        except Exception as e:
+            logger.exception("Unable to send SMS for order : {}".format(order_no))
 
 
 @receiver(post_save, sender=CartProductMapping)

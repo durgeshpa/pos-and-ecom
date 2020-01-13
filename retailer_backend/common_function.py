@@ -7,8 +7,8 @@ from addresses.models import InvoiceCityMapping
 from rest_framework.response import Response
 from django.conf import settings
 import datetime
+from django.core.cache import cache
 from retailer_to_sp import models as RetailerToSPModels
-from celery.contrib import rdb
 from celery.task import task
 
 # get shop
@@ -68,10 +68,11 @@ def get_shop_warehouse_state_code(address):
     return state_code, shop_code, warehouse_code
 
 def get_last_no_to_increment(model, field, instance_id, starts_with):
+    prefix = "{}_{}_{}"
     instance_with_current_pattern = model.objects.filter(
                                         **{field+'__icontains': starts_with})
     if instance_with_current_pattern.exists():
-        last_instance_no = instance_with_current_pattern.latest(field)
+        last_instance_no = model.objects.filter(**{field+'__icontains': starts_with}).latest(field)
         return int(getattr(last_instance_no, field)[-7:])
 
     else:
@@ -85,8 +86,13 @@ def common_pattern(model, field, instance_id, address, invoice_type):
     starts_with = "%s%s%s%s%s" % (
                                 shop_code, invoice_type, financial_year,
                                 state_code, warehouse_code)
-    last_number = get_last_no_to_increment(model, field, instance_id, starts_with)
-    last_number += 1
+    try:
+        last_number = cache.incr(starts_with)
+    except:
+        last_number = get_last_no_to_increment(model, field, instance_id, starts_with)
+        last_number += 1
+        cache.set(starts_with, last_number)
+        cache.persist(starts_with)
     ends_with = str(format(last_number, '07d'))
     return "%s%s" % (starts_with, ends_with)
 

@@ -6,7 +6,7 @@ from celery import Celery
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'retailer_backend.settings')
 
 app = Celery('retailer_backend_celery')
-app.conf.task_routes = {'retailer_backend.common_function.generate_invoice_number': {'queue': 'invoice'}}
+# app.conf.task_routes = {'retailer_backend.common_function.generate_invoice_number': {'queue': 'invoice'}}
 
 # Using a string here means the worker don't have to serialize
 # the configuration object to child processes.
