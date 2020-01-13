@@ -41,7 +41,7 @@ from analytics.post_save_signal import get_order_report
 from coupon.models import Coupon, CusotmerCouponUsage
 from django.db.models import Sum
 from django.db.models import Q
-
+from retailer_backend import common_function
 
 
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
@@ -1934,7 +1934,7 @@ post_save.connect(get_order_report, sender=Order)
 @receiver(post_save, sender=Cart)
 def create_order_id(sender, instance=None, created=False, **kwargs):
     if created:
-        instance.order_id = order_id_pattern(
+        instance.order_id = common_function.order_id_pattern(
                                     sender, 'order_id', instance.pk,
                                     instance.seller_shop.
                                     shop_name_address_mapping.filter(
