@@ -67,8 +67,6 @@ def get_shop_warehouse_state_code(address):
 
 def get_last_no_to_increment(model, field, instance_id, starts_with):
     prefix = "{}_{}_{}"
-    try:
-        cache.incr()
     instance_with_current_pattern = model.objects.filter(
                                         **{field+'__icontains': starts_with})
     if instance_with_current_pattern.exists():
