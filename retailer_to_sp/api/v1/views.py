@@ -440,7 +440,6 @@ class AddToCart(APIView):
                     cart.save()
 
                 if capping.capping_qty > ordered_qty:
-                    cart_mapping.update(capping_error_msg = '')
                     if int(qty) == 0:
                         if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
                             CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
@@ -449,6 +448,7 @@ class AddToCart(APIView):
                         cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
                         cart_mapping.qty = qty
                         cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
+                        cart_mapping.update(capping_error_msg = '')
                         cart_mapping.save()
                 else:
                     cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
