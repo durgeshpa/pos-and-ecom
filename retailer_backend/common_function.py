@@ -78,8 +78,15 @@ def get_last_no_to_increment(model, field, instance_id, starts_with):
     else:
         return 0
 
+def get_last_model_invoice(starts_with):
+    shipment_instance = RetailerToSPModels.OrderedProduct.objects.filter(invoice_number__icontains=starts_with)
+    if shipment_instance.exists():
+        last_instance_no = shipment_instance.latest('invoice_number')
+        return int(getattr(last_instance_no, field)[-7:])
+    else:
+        return 0
 
-def common_pattern(model, field, instance_id, address, invoice_type):
+def common_pattern(model, field, instance_id, address, invoice_type, is_invoice=False):
     state_code, shop_code, warehouse_code = get_shop_warehouse_state_code(
                                             address)
     financial_year = get_financial_year()
@@ -89,7 +96,10 @@ def common_pattern(model, field, instance_id, address, invoice_type):
     try:
         last_number = cache.incr(starts_with)
     except:
-        last_number = get_last_no_to_increment(model, field, instance_id, starts_with)
+        if is_invoice:
+            last_number = get_last_model_invoice(starts_with)
+        else:
+            last_number = get_last_no_to_increment(model, field, instance_id, starts_with)
         last_number += 1
         cache.set(starts_with, last_number)
         cache.persist(starts_with)
@@ -192,6 +202,6 @@ def required_fields(form, fields_list):
 def generate_invoice_number(field, instance_id, address, invoice_amount):
     instance, created = RetailerToSPModels.Invoice.objects.get_or_create(shipment_id=instance_id)
     if created:
-        invoice_no = common_pattern(RetailerToSPModels.Invoice, field, instance_id, address, "IV")
+        invoice_no = common_pattern(RetailerToSPModels.Invoice, field, instance_id, address, "IV", is_invoice=True)
         instance.invoice_no=invoice_no
         instance.save()
