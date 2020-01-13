@@ -833,9 +833,9 @@ class Trip(models.Model):
         shop_id_date = "%s/%s" % (shop, date)
         last_dispatch_no = Trip.objects.filter(
             dispatch_no__contains=shop_id_date)
-        if last_dispatch_no:
+        if last_dispatch_no.exists():
             dispatch_attempt = int(
-                last_dispatch_no.last().dispatch_no.split('/')[-1])
+                Trip.objects.filter(dispatch_no__contains=shop_id_date).last().dispatch_no.split('/')[-1])
             dispatch_attempt += 1
         else:
             dispatch_attempt = 1
@@ -1406,7 +1406,7 @@ class OrderedProductMapping(models.Model):
     @property
     def price_to_retailer(self):
         return self.ordered_product.order.ordered_cart.rt_cart_list\
-            .get(cart_product=self.product).cart_product_price.selling_price
+            .get(cart_product=self.product).item_effective_prices
 
     @property
     def cash_discount(self):

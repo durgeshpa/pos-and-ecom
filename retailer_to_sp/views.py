@@ -129,7 +129,7 @@ class DownloadCreditNote(APIView):
                     (m.price_to_retailer)
             )
             for n in m.get_products_gst_tax():
-                divisor = Decimal(1+(n.tax.tax_percentage/100))
+                divisor = (1+(n.tax.tax_percentage/100))
                 original_amount = (inline_sum_amount/divisor)
                 tax_amount = inline_sum_amount - original_amount
                 if n.tax.tax_type == 'gst':
@@ -1275,7 +1275,7 @@ def update_shipment_status_after_return(shipment_obj):
         shipment_obj.save()
         return "FULLY_RETURNED_AND_COMPLETED"
     else:
-        return 0   
+        return 0
     # elif (total_returned_qty + total_damaged_qty) == 0:
     #     shipment_obj.shipment_status = 'FULLY_DELIVERED_AND_COMPLETED'
 
