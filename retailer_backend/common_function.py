@@ -8,6 +8,8 @@ from rest_framework.response import Response
 from django.conf import settings
 import datetime
 from django.core.cache import cache
+from retailer_to_sp import models as RetailerToSPModels
+from celery.task import task
 
 # get shop
 def checkShop(shop_id):
@@ -185,3 +187,11 @@ def required_fields(form, fields_list):
     for field in fields_list:
         form.fields[field].required = True
 
+
+@task
+def generate_invoice_number(field, instance_id, address, invoice_amount):
+    instance, created = RetailerToSPModels.Invoice.objects.get_or_create(shipment_id=instance_id)
+    if created:
+        invoice_no = common_pattern(RetailerToSPModels.Invoice, field, instance_id, address, "IV")
+        instance.invoice_no=invoice_no
+        instance.save()

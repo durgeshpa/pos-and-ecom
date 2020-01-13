@@ -16,10 +16,8 @@ from django.utils.crypto import get_random_string
 
 from accounts.middlewares import get_current_user
 from addresses.models import Address
-from retailer_backend.common_function import (
-    order_id_pattern, brand_credit_note_pattern, getcredit_note_id,
-    retailer_sp_invoice
-)
+from retailer_backend import common_function as CommonFunction
+
 from .utils import (order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util,
                     order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
                     order_damaged_amount, order_delivered_value, order_shipment_status_reason,
@@ -30,10 +28,7 @@ from addresses.models import Address
 from brand.models import Brand
 from otp.sms import SendSms
 from products.models import Product, ProductPrice
-from retailer_backend.common_function import (brand_credit_note_pattern,
-                                              getcredit_note_id,
-                                              order_id_pattern,
-                                              retailer_sp_invoice)
+
 from shops.models import Shop, ShopNameDisplay
 
 from .utils import (order_invoices, order_shipment_amount,
@@ -1033,7 +1028,7 @@ class OrderedProduct(models.Model): #Shipment
         max_length=50, choices=RETURN_REASON,
         null=True, blank=True, verbose_name='Reason for Return',
     )
-    invoice_no = models.CharField(max_length=255, null=True, blank=True)
+    invoice_number = models.CharField(max_length=255, null=True, blank=True)
     trip = models.ForeignKey(
         Trip, related_name="rt_invoice_trip",
         null=True, blank=True, on_delete=models.DO_NOTHING,
@@ -1061,30 +1056,38 @@ class OrderedProduct(models.Model): #Shipment
     class Meta:
         verbose_name = 'Update Delivery/ Returns/ Damage'
 
+    def initialize_shipment(self):
+        self._invoice_amount = 0
+        self._cn_amount = 0
+        self._damaged_amount = 0
+        self._delivered_amount = 0
+        self._shipment_weight = 0
+        shipment_products = self.rt_order_product_order_product_mapping.values('product','shipped_qty','returned_qty',
+                                                                               'damaged_qty', 'product__weight_value').all()
+        shipment_map = {i['product']:(i['shipped_qty'], i['returned_qty'], i['damaged_qty'], i['product__weight_value']) for i in shipment_products}
+        cart_product_map = self.order.ordered_cart.rt_cart_list.filter(cart_product_id__in=shipment_map.keys())
+        product_price_map = {i.cart_product.id:(i.item_effective_prices, i.qty) for i in cart_product_map}
+        for product, shipment_details in shipment_map.items():
+            try:
+                product_price = product_price_map[product][0]
+                shipped_qty, returned_qty, damaged_qty, product_weight = shipment_details
+                self._invoice_amount += product_price * shipped_qty
+                self._cn_amount += (returned_qty+damaged_qty) * product_price
+                self._damaged_amount += damaged_qty * product_price
+                self._delivered_amount += self._invoice_amount - self._cn_amount
+                self._shipment_weight += (product_weight if product_weight else 0) * shipped_qty
+            except Exception as e:
+                logger.exception("Exception occurred {}".format(e))
+
     def __init__(self, *args, **kwargs):
         super(OrderedProduct, self).__init__(*args, **kwargs)
         if self.order:
-            self._invoice_amount = 0
-            self._cn_amount = 0
-            self._damaged_amount = 0
-            self._delivered_amount = 0
-            shipment_products = self.rt_order_product_order_product_mapping.values('product','shipped_qty','returned_qty','damaged_qty').all()
-            shipment_map = {i['product']:(i['shipped_qty'], i['returned_qty'], i['damaged_qty']) for i in shipment_products}
-            cart_product_map = self.order.ordered_cart.rt_cart_list.filter(cart_product_id__in=shipment_map.keys())
-            product_price_map = {i.cart_product.id:(i.item_effective_prices, i.qty) for i in cart_product_map}
-            for product, shipment_details in shipment_map.items():
-                try:
-                    product_price = product_price_map[product][0]
-                    shipped_qty, returned_qty, damaged_qty = shipment_details
-                    self._invoice_amount += product_price * shipped_qty
-                    self._cn_amount += (returned_qty+damaged_qty) * product_price
-                    self._damaged_amount += damaged_qty * product_price
-                    self._delivered_amount += self._invoice_amount - self._cn_amount
-                except Exception as e:
-                    logger.exception("Exception occurred {}".format(e))
+            self.initialize_shipment()
 
     def __str__(self):
-        return self.invoice_no or str(self.id)
+        if hasattr(self, 'invoice'):
+            return self.invoice.invoice_no
+        return str(self.id)
 
     def clean(self):
         super(OrderedProduct, self).clean()
@@ -1094,10 +1097,7 @@ class OrderedProduct(models.Model): #Shipment
 
     @property
     def shipment_weight(self):
-        queryset = self.rt_order_product_order_product_mapping.all()
-        weight = sum([item.product_weight for item in queryset]) # Definitely takes more memory.
-        #weight = self.rt_order_product_order_product_mapping.all().aggregate(Sum('product.weight_value'))['weight_value__sum']
-        return weight
+        return self._shipment_weight
 
     @property
     def shipment_address(self):
@@ -1194,15 +1194,46 @@ class OrderedProduct(models.Model): #Shipment
             return round((self._invoice_amount - self._cn_amount),2)
         return 0
 
+
     @property
     def invoice_amount(self):
         if self.order:
+            # if hasattr(self, 'invoice'):
+            #     return self.invoice.invoice_amount
             return round(self._invoice_amount)
         return str("-")
 
     @property
+    def invoice_no(self):
+        if hasattr(self, 'invoice'):
+            return self.invoice.invoice_no
+        if self.invoice_number:
+            return self.invoice_number
+        return "-"
+
+    @property
     def shipment_id(self):
         return self.id
+
+    def picking_data(self):
+        #picker_shipment = PickerDashboard.objects.filter(shipment=self.id)
+        if self.picker_shipment.all().exists():
+            picker_data = self.picker_shipment.last()
+            return [picker_data.get_picking_status_display(), picker_data.picker_boy, picker_data.picklist_id]
+        else:
+            return ["","",""]
+
+    @property
+    def picking_status(self):
+        return self.picking_data()[0] #picking_statuses(self.picker_shipment())
+
+    @property
+    def picker_boy(self):
+        return self.picking_data()[1]
+
+    @property
+    def picklist_id(self):
+        return self.picking_data()[2]
 
     def cn_amount(self):
         return round(self._cn_amount, 2)
@@ -1215,21 +1246,41 @@ class OrderedProduct(models.Model): #Shipment
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        if not self.invoice_no and self.shipment_status == OrderedProduct.READY_TO_SHIP:
-            self.invoice_no = retailer_sp_invoice(
-                                    self.__class__, 'invoice_no',
-                                    self.pk, self.order.seller_shop.
-                                    shop_name_address_mapping.filter(
-                                                    address_type='billing'
-                                                    ).last().pk)
+        if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+            CommonFunction.generate_invoice_number(
+                'invoice_no', self.pk,
+                self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
+                self.invoice_amount)
         if self.no_of_crates == None:
             self.no_of_crates = 0
         if self.no_of_packets == None:
             self.no_of_packets = 0
         if self.no_of_sacks == None:
             self.no_of_sacks = 0
+
         super().save(*args, **kwargs)
-                # Update Product Tax Mapping End
+
+
+class Invoice(models.Model):
+    invoice_no = models.CharField(max_length=255, unique=True, db_index=True)
+    shipment = models.OneToOneField(OrderedProduct, related_name='invoice', on_delete=models.DO_NOTHING)
+    invoice_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/', null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Invoice"
+        verbose_name_plural = "Invoices"
+
+    def __str__(self):
+        return self.invoice_no
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
+    @property
+    def invoice_amount(self):
+        return self.shipment.invoice_amount 
 
 class PickerDashboard(models.Model):
 
@@ -1300,7 +1351,6 @@ class OrderedProductMapping(models.Model):
 
     @property
     def product_weight(self):
-        # sum_a = sum([item.column for item in queryset]) # Definitely takes more memory.
         if self.product.weight_value:
             weight = self.product.weight_value*self.shipped_qty
             return weight
@@ -1847,7 +1897,7 @@ def assign_update_picker_to_shipment(shipment_id):
    if shipment.shipment_status == "SHIPMENT_CREATED":
        # assign shipment to picklist
        # tbd : if manual(by searching relevant picklist id) or automated
-       picker_lists = shipment.order.picker_order.filter(picking_status="picking_assigned").update(shipment=shipment)
+       picker_lists = shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).update(shipment=shipment)
    elif shipment.shipment_status == OrderedProduct.READY_TO_SHIP:
        shipment.picker_shipment.all().update(picking_status="picking_complete")
 
