@@ -819,7 +819,7 @@ class Trip(models.Model):
             dispatch_no__contains=shop_id_date)
         if last_dispatch_no.exists():
             dispatch_attempt = int(
-                last_dispatch_no.latest().dispatch_no.split('/')[-1])
+                last_dispatch_no.last().dispatch_no.split('/')[-1])
             dispatch_attempt += 1
         else:
             dispatch_attempt = 1
