@@ -1103,7 +1103,7 @@ class ShipmentAdmin(admin.ModelAdmin):
         return str(city)
 
     def start_qc(self,obj):
-        return obj.invoice.invoice_no if hasattr(obj, 'invoice') else format_html(
+        return obj.invoice_no if obj.invoice_no != '-' else format_html(
             "<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Start QC</a>" %(obj.id))
     start_qc.short_description = 'Invoice No'
 
