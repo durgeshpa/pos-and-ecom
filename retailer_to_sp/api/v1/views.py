@@ -417,11 +417,12 @@ class AddToCart(APIView):
                 ordered_qty = 0
                 product = Product.objects.get(id = cart_product)
                 capping = product.get_current_shop_capping(parent_mapping.parent, parent_mapping.retailer)
-                capping_start_date = capping.start_date
-                capping_end_date = capping.end_date
-                capping_range_orders = Order.objects.filter(buyer_shop = parent_mapping.retailer, created_at__gte = capping_start_date, created_at__lte = capping_end_date)
-                for order in capping_range_orders:
-                    ordered_qty += order.rt_cart_list.filter(cart_product = product).aggregate(value=Sum(F('qty')['value']))
+                if capping:
+                    capping_start_date = capping.start_date
+                    capping_end_date = capping.end_date
+                    capping_range_orders = Order.objects.filter(buyer_shop = parent_mapping.retailer, created_at__gte = capping_start_date, created_at__lte = capping_end_date)
+                    for order in capping_range_orders:
+                        ordered_qty += order.rt_cart_list.filter(cart_product = product).aggregate(value=Sum(F('qty')['value']))
 
                 if Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
                                        cart_status__in=['active', 'pending']).exists():
