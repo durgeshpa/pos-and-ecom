@@ -96,10 +96,10 @@ def common_pattern(model, field, instance_id, address, invoice_type, is_invoice=
     try:
         last_number = cache.incr(starts_with)
     except:
-        if is_invoice:
-            last_number = get_last_model_invoice(starts_with)
-        else:
-            last_number = get_last_no_to_increment(model, field, instance_id, starts_with)
+        # if is_invoice:
+        #     last_number = get_last_model_invoice(starts_with)
+        # else:
+        last_number = get_last_no_to_increment(model, field, instance_id, starts_with)
         last_number += 1
         cache.set(starts_with, last_number)
         cache.persist(starts_with)

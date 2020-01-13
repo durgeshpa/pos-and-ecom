@@ -1265,8 +1265,8 @@ class Invoice(models.Model):
     invoice_no = models.CharField(max_length=255, unique=True, db_index=True)
     shipment = models.OneToOneField(OrderedProduct, related_name='invoice', on_delete=models.DO_NOTHING)
     invoice_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/', null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    modified_at = models.DateTimeField(auto_now=True, null=True)
 
     class Meta:
         verbose_name = "Invoice"
