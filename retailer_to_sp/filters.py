@@ -1,5 +1,7 @@
-import django_filters 
+import django_filters
 from django_filters import rest_framework as filters
+
+from retailer_backend.admin import InputFilter
 
 from retailer_to_sp.models import PickerDashboard
 from shops.models import Shop
@@ -19,4 +21,22 @@ class PickerDashboardFilter(filters.FilterSet):
 
     class Meta:
         model = PickerDashboard
-        fields = ['shop_id']#'__all__' 
+        fields = ['shop_id']#'__all__'
+
+
+class InvoiceAdminTripFilter(InputFilter):
+    parameter_name = 'dispatch_no'
+    title = 'Trip'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(shipment__trip__dispatch_no__icontains=self.value())
+
+
+class InvoiceAdminOrderFilter(InputFilter):
+    parameter_name = 'order_no'
+    title = 'Order'
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            return queryset.filter(shipment__order__order_no__icontains=self.value())

@@ -48,7 +48,6 @@ from retailer_to_sp.api.v1.serializers import (
 import json
 from django.http import HttpResponse
 from django.core import serializers
-from retailer_to_sp.tasks import (update_reserved_order, )
 
 logger = logging.getLogger(__name__)
 from retailer_to_sp.api.v1.serializers import OrderedCartSerializer
@@ -259,25 +258,24 @@ def ordered_product_mapping_shipment(request):
         form = OrderedProductForm(request.POST)
         if form.is_valid() and form_set.is_valid():
             try:
-                # with transaction.atomic():
-                shipment = form.save()
-                shipment.shipment_status = 'SHIPMENT_CREATED'
-                shipment.save()
-                for forms in form_set:
-                    if forms.is_valid():
-                        to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
-                        product_name = forms.cleaned_data.get('product')
-                        if to_be_ship_qty:
-                            formset_data = forms.save(commit=False)
-                            formset_data.ordered_product = shipment
-                            max_pieces_allowed = int(formset_data.ordered_qty) - int(
-                                formset_data.shipped_qty_exclude_current)
-                            if max_pieces_allowed < int(to_be_ship_qty):
-                                raise Exception(
-                                    '{}: Max Qty allowed is {}'.format(product_name, max_pieces_allowed))
-                            formset_data.save()
-                update_reserved_order.delay(json.dumps({'shipment_id': shipment.id}))
-                return redirect('/admin/retailer_to_sp/shipment/')
+                with transaction.atomic():
+                    shipment = form.save()
+                    shipment.shipment_status = 'SHIPMENT_CREATED'
+                    shipment.save()
+                    for forms in form_set:
+                        if forms.is_valid():
+                            to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
+                            product_name = forms.cleaned_data.get('product')
+                            if to_be_ship_qty:
+                                formset_data = forms.save(commit=False)
+                                formset_data.ordered_product = shipment
+                                max_pieces_allowed = int(formset_data.ordered_qty) - int(
+                                    formset_data.shipped_qty_exclude_current)
+                                if max_pieces_allowed < int(to_be_ship_qty):
+                                    raise Exception(
+                                        '{}: Max Qty allowed is {}'.format(product_name, max_pieces_allowed))
+                                formset_data.save()
+                    return redirect('/admin/retailer_to_sp/shipment/')
 
             except Exception as e:
                 messages.error(request, e)
@@ -465,7 +463,7 @@ class LoadDispatches(APIView):
         similarity = TrigramSimilarity(
             'order__shipping_address__address_line1', area)
         if invoice_id:
-            dispatches = Dispatch.objects.filter(invoice_no=invoice_id)
+            dispatches = Dispatch.objects.filter(invoice__invoice_no=invoice_id)
 
 
         elif seller_shop and area and trip_id:
@@ -502,7 +500,7 @@ class LoadDispatches(APIView):
                 Q(shipment_status=OrderedProduct.READY_TO_SHIP) |
                 Q(shipment_status=OrderedProduct.RESCHEDULED),
                 order__seller_shop=seller_shop
-            ).order_by('invoice_no')
+            ).order_by('invoice__invoice_no')
 
         elif area and trip_id:
             dispatches = Dispatch.objects.annotate(
@@ -859,12 +857,14 @@ def update_order_status(close_order_checked, shipment_id):
 
 class SellerShopAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        qs = Shop.objects.filter(
-            Q(shop_type__shop_type='sp', shop_owner=self.request.user) | Q(shop_type__shop_type='sp',
-                                                                           related_users=self.request.user))
+        if not self.request.user.is_authenticated:
+            return Shop.objects.none()
 
+        qs = Shop.objects.filter(
+            shop_type__shop_type='sp')
+        
         if self.q:
-            qs = qs.filter(shop_name__startswith=self.q)
+            qs = qs.filter(shop_name__icontains=self.q)
         return qs
 
 
@@ -879,10 +879,13 @@ class PickerNameAutocomplete(autocomplete.Select2QuerySetView):
 
 class BuyerShopAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return Shop.objects.none()
+
         qs = Shop.objects.filter(shop_type__shop_type='r', shop_owner=self.request.user)
 
         if self.q:
-            qs = qs.filter(shop_name__startswith=self.q)
+            qs = qs.filter(shop_name__icontains=self.q)
         return qs
 
 
