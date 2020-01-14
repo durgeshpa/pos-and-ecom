@@ -1488,7 +1488,7 @@ class InvoiceAdmin(admin.ModelAdmin):
             'fields': ('get_order',),
         }),
     )
-    readonly_fields = ('invoice_no', 'get_shipment', 'invoice_amount', 'invoice_pdf')
+    readonly_fields = ('invoice_no', 'get_shipment', 'invoice_pdf')
     search_fields =('invoice_no', 'shipment__trip__dispatch_no', 'shipment__order__order_no')
     ordering = ('-created_at', )
     list_filter = (InvoiceAdminOrderFilter, InvoiceAdminTripFilter, ('created_at', DateTimeRangeFilter))
