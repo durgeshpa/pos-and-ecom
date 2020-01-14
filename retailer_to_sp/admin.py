@@ -411,7 +411,7 @@ class ExportCsvMixin:
 
 class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
-    fields = ('seller_shop', 'buyer_shop', 'offers')
+    fields = ('seller_shop', 'buyer_shop', 'offers', 'cart_products_csv')
     actions = ["export_as_csv_cart", ]
     form = CartForm
     list_display = ('order_id', 'seller_shop','buyer_shop','cart_status','created_at',)

@@ -18,7 +18,7 @@ from .views import (
     ProductCategoryMapping, product_category_mapping_sample,
     ProductPriceUpload, CityAutocomplete, RetailerAutocomplete,
     SellerShopAutocomplete, ProductAutocomplete, PincodeAutocomplete,
-    ProductCategoryMapping, product_category_mapping_sample, VendorAutocomplete)
+    ProductCategoryMapping, product_category_mapping_sample, VendorAutocomplete, cart_products_mapping)
 from .resources import (
     SizeResource, ColorResource, FragranceResource,
     FlavorResource, WeightResource, PackageSizeResource,
@@ -323,6 +323,11 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 r'^products-vendor-mapping/(?P<pk>\d+)/$',
                 self.admin_site.admin_view(products_vendor_mapping),
                 name='products_vendor_mapping'
+            ),
+            url(
+                r'^cart-products-mapping/(?P<pk>\d+)/$',
+                self.admin_site.admin_view(cart_products_mapping),
+                name='cart_products_mapping'
             ),
             url(
                 r'^product-price-autocomplete/$',

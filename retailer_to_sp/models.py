@@ -46,6 +46,8 @@ from analytics.post_save_signal import get_order_report
 from coupon.models import Coupon, CusotmerCouponUsage
 from django.db.models import Sum
 from django.db.models import Q
+from django.urls import reverse
+
 
 
 
@@ -157,6 +159,10 @@ class Cart(models.Model):
     #     max_length=255, null=True,
     #     blank=True, editable=False
     # )
+    cart_products_csv = models.FileField(
+        upload_to='retailer/sp/cart_products_csv',
+        null=True, blank=True
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -165,6 +171,24 @@ class Cart(models.Model):
 
     def __str__(self):
         return "{}".format(self.order_id)
+
+    @property
+    def cart_products_sample_file(self):
+        if (
+            self.cart_products_csv
+            and hasattr(self.cart_products_csv, 'url')
+        ):
+            url = """<h3><a href="%s" target="_blank">
+                    Download Products List</a></h3>""" % \
+                  (
+                      reverse(
+                          'admin:cart_products_mapping',
+                          args=(self.seller_shop_id,)
+                      )
+                  )
+        else:
+            url = """<h3><a href="#">Download Products List</a></h3>"""
+        return url
 
     @property
     def subtotal(self):

@@ -685,6 +685,22 @@ def products_vendor_mapping(request,pk=None):
         writer.writerow(["Make sure you have selected vendor before downloading CSV file"])
     return response
 
+def cart_products_mapping(request,pk=None):
+    dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
+    filename = str(dt)+"cart_product_list.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    try:
+        writer.writerow(['id','qty'])
+        cart_products = ProductPrice.objects.filter(seller_shop_id=int(pk), approval_status = 2)
+        for p in cart_products:
+            writer.writerow([p.product_id,''])
+    except:
+        writer.writerow(["Make sure you have selected seller shop before downloading CSV file"])
+    return response
+
+
 def ProductsUploadSample(request):
     filename = "products_upload_sample.csv"
     response = HttpResponse(content_type='text/csv')
