@@ -436,8 +436,9 @@ class AddToCart(APIView):
                     capping_start_date = capping.start_date
                     capping_end_date = capping.end_date
                     capping_range_orders = Order.objects.filter(buyer_shop = parent_mapping.retailer, created_at__gte = capping_start_date, created_at__lte = capping_end_date)
-                    for order in capping_range_orders:
-                        ordered_qty += order.ordered_cart.rt_cart_list.get(cart_product = product).qty
+                    if capping_range_orders:
+                        for order in capping_range_orders:
+                            ordered_qty += order.ordered_cart.rt_cart_list.get(cart_product = product).qty
                     if capping.capping_qty > ordered_qty:
                         if (capping.capping_qty - ordered_qty)  > int(qty):
                             if int(qty) == 0:
@@ -688,8 +689,9 @@ class ReservedOrder(generics.ListAPIView):
                         capping_start_date = capping.start_date
                         capping_end_date = capping.end_date
                         capping_range_orders = Order.objects.filter(buyer_shop = parent_mapping.retailer, created_at__gte = capping_start_date, created_at__lte = capping_end_date)
-                        for order in capping_range_orders:
-                            ordered_qty += order.ordered_cart.rt_cart_list.get(cart_product = cart_product.cart_product).qty
+                        if capping_range_orders:
+                            for order in capping_range_orders:
+                                ordered_qty += order.ordered_cart.rt_cart_list.get(cart_product = product).qty
                         if capping.capping_qty < ordered_qty:
                             if (capping.capping_qty - ordered_qty)  < product_qty:
                                 cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty)
