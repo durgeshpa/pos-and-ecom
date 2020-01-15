@@ -1458,6 +1458,11 @@ class OrderedProductMapping(models.Model):
         return self.ordered_product.order.ordered_cart.rt_cart_list\
             .get(cart_product=self.product).item_effective_prices
 
+    def set_effective_price(self):
+        self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list\
+            .get(cart_product=self.product).item_effective_prices
+        self.save()
+        return True
     @property
     def cash_discount(self):
         return self.ordered_product.order.ordered_cart.rt_cart_list\
