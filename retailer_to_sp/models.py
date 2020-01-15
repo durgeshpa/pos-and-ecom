@@ -867,6 +867,10 @@ class Trip(models.Model):
         return total_amount, cash_amount, online_amount
 
     @property
+    def trip_amount(self):
+        return self.rt_invoice_trip.rt_order_product_order_product_mapping.aggregate(trip_amount=Sum('effective_price')).get('trip_amount')
+    
+    @property
     def total_received_amount(self):
         total_payment, _c , _o = self.total_paid_amount()
         return total_payment
@@ -1278,7 +1282,11 @@ class Invoice(models.Model):
 
     @property
     def invoice_amount(self):
-        return self.shipment.invoice_amount 
+        try:
+            inv_amount = self.shipment.rt_order_product_order_product_mapping.aggregate(invoice_amount=Sum('effective_price')).get('invoice_amount')
+        except:
+            inv_amount = self.shipment.invoice_amount
+        return inv_amount
 
 
 class PickerDashboard(models.Model):
@@ -1334,6 +1342,7 @@ class OrderedProductMapping(models.Model):
     product_tax_json = JSONField(null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    effective_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
 
     def clean(self):
         super(OrderedProductMapping, self).clean()
@@ -1443,8 +1452,18 @@ class OrderedProductMapping(models.Model):
 
     @property
     def price_to_retailer(self):
+        if self.effictive_price:
+            return self.effictive_price
         return self.ordered_product.order.ordered_cart.rt_cart_list\
             .get(cart_product=self.product).item_effective_prices
+
+    def set_effective_price(self):
+        try:
+            effective_price = self.ordered_product.order.ordered_cart.rt_cart_list\
+                .get(cart_product=self.product).item_effective_prices
+            OrderedProductMapping.objects.filter(id=self.id).update(effective_price=effective_price)
+        except:
+            pass
 
     @property
     def cash_discount(self):
@@ -1499,18 +1518,10 @@ class OrderedProductMapping(models.Model):
             raise ValidationError(_('delivered, returned, damaged qty sum mismatched with shipped_qty'))
         else:
             super().save(*args, **kwargs)
-    #     if self.product_tax_json:
-    #         super().save(*args, **kwargs)
-    #     else:
-    #         try:
-    #             product_tax_query = self.product.product_pro_tax.filter(status=True).values('product', 'tax', 'tax__tax_name',
-    #                                                                     'tax__tax_percentage')
-    #             product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
-    #             product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
-    #             self.product_tax_json = product_tax
-    #         except Exception as e:
-    #             logger.exception("Exception occurred while saving product {}".format(e))
-    #         super().save(*args, **kwargs)
+            if self.ordered_product.shipment_status == OrderedProduct.READY_TO_SHIP:
+                self.effictive_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().item_effective_prices
+                super().save(*args, **kwargs)
+
 
 class Dispatch(OrderedProduct):
     class Meta:
