@@ -691,7 +691,7 @@ class ReservedOrder(generics.ListAPIView):
                         for order in capping_range_orders:
                             ordered_qty += order.ordered_cart.rt_cart_list.filter(cart_product = cart_product.cart_product).last().qty
                         if capping.capping_qty > ordered_qty:
-                            if (capping.capping_qty - ordered_qty)  > product_qty:
+                            if (capping.capping_qty - ordered_qty)  < product_qty:
                                 cart_product.capping_error_msg = 'Raj Shekhar Singh'
                                 cart_product.save()
 
