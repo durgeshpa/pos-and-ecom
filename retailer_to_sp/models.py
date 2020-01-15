@@ -868,7 +868,7 @@ class Trip(models.Model):
 
     @property
     def trip_amount(self):
-        trip_shipments = self.rt_invoice_trip.values('')
+        return self.rt_invoice_trip.rt_order_product_order_product_mapping.aggregate(trip_amount=Sum('effective_price')).get('trip_amount')
     
     @property
     def total_received_amount(self):
@@ -1465,7 +1465,7 @@ class OrderedProductMapping(models.Model):
             OrderedProductMapping.objects.filter(id=self.id).update(effective_price=effective_price)
         except:
             pass
-            
+
     @property
     def cash_discount(self):
         return self.ordered_product.order.ordered_cart.rt_cart_list\
