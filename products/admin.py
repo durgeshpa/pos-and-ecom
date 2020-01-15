@@ -534,6 +534,13 @@ class ProductHSNAdmin(admin.ModelAdmin, ExportCsvMixin):
 
 class ProductCappingAdmin(admin.ModelAdmin):
     form = ProductCappingForm
+    list_display = ('product', 'seller_shop','buyer_shop','pincode','city', 'capping_qty', 'start_date', 'end_date', 'status')
+    list_filter = [
+        ProductSKUSearch, ProductFilter, ShopFilter,  CityFilter,
+        ('start_date', DateRangeFilter), ('end_date', DateRangeFilter),
+        'status']
+    class Media:
+        pass
 
 admin.site.register(ProductImage, ProductImageMainAdmin)
 admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)
