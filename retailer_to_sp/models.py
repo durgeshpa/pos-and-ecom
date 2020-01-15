@@ -869,8 +869,8 @@ class Trip(models.Model):
     @property
     def trip_amount(self):
         return OrderedProductMapping.objects.filter(ordered_product__in=self.rt_invoice_trip.all())\
-        .annotate(item_amount=F('effective_price')*F('shipped_qty')).aggregate(
-            invoice_amount=Sum('item_amount'), output_field=FloatField()).get('invoice_amount')
+        .aggregate(
+            invoice_amount=Sum(F('effective_price')*F('shipped_qty'), output_field=FloatField()).get('invoice_amount')
     
     @property
     def total_received_amount(self):
