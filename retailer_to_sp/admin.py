@@ -1250,7 +1250,7 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
     #inlines = [ShipmentInlineAdmin]
     actions = ["change_trip_status", "export_as_csv_commercial",]
     list_display = (
-        'dispatch_no', 'cash_to_be_collected', 'download_trip_pdf', 'delivery_boy',
+        'dispatch_no', 'trip_amount', 'cash_to_be_collected', 'download_trip_pdf', 'delivery_boy',
         'vehicle_no', 'trip_status', 'starts_at', 'completed_at',
         'seller_shop',)
     list_display_links = ('dispatch_no', )
