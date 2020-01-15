@@ -130,7 +130,6 @@ class MasterReports(models.Model):
     buyer_shop = models.CharField(max_length=255, null=True)
     city = models.CharField(max_length=255, null=True)
     pincode = models.CharField(max_length=255, null=True)
-
     product_gf_code = models.CharField(max_length=255, null=True)
     product_brand = models.CharField(max_length=255, null=True)
     product_subbrand = models.CharField(max_length=255, null=True)
