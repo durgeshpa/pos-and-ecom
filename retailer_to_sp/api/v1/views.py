@@ -629,6 +629,7 @@ class ReservedOrder(generics.ListAPIView):
         parent_shop_type = parent_mapping.parent.shop_type.shop_type
         # if shop mapped with sp
         if parent_shop_type == 'sp':
+            ordered_qty = 0
             cart = Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
                                        cart_status__in=['active', 'pending'])
             if cart.exists():
