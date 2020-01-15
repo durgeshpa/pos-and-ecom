@@ -1250,15 +1250,14 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
     #inlines = [ShipmentInlineAdmin]
     actions = ["change_trip_status", "export_as_csv_commercial",]
     list_display = (
-        'dispatch_no', 'trip_amount', #'received_cash_amount',
-        'cash_to_be_collected', 'download_trip_pdf', 'delivery_boy',
+        'dispatch_no', 'cash_to_be_collected', 'download_trip_pdf', 'delivery_boy',
         'vehicle_no', 'trip_status', 'starts_at', 'completed_at',
         'seller_shop',)
     list_display_links = ('dispatch_no', )
     list_per_page = 10
     list_max_show_all = 100
     list_select_related = ('delivery_boy', 'seller_shop')
-    readonly_fields = ('dispatch_no', 'delivery_boy', 'seller_shop',
+    readonly_fields = ('dispatch_no','trip_amount', 'delivery_boy', 'seller_shop',
                         'total_received_amount', 'vehicle_no', 'starts_at', 'trip_amount',
                        #'received_cash_amount', 'received_online_amount',
                        'completed_at', 'e_way_bill_no', 'cash_to_be_collected')
@@ -1268,7 +1267,7 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
         'delivery_boy__phone_number', 'vehicle_no', 'dispatch_no',
         'seller_shop__shop_name'
     ]
-    fields = ['trip_status', 'trip_amount', 'cash_to_be_collected', #'description',
+    fields = ['trip_status', 'cash_to_be_collected', #'description',
                 'dispatch_no', 'total_received_amount',
               #'received_cash_amount', 'received_online_amount',
               'delivery_boy', 'seller_shop', 'starts_at', 'completed_at',
