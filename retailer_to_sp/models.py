@@ -42,7 +42,7 @@ from .utils import (order_invoices, order_shipment_amount,
 from accounts.models import UserWithName, User
 from django.core.validators import RegexValidator
 from django.contrib.postgres.fields import JSONField
-from analytics.post_save_signal import get_order_report
+# from analytics.post_save_signal import get_order_report
 from coupon.models import Coupon, CusotmerCouponUsage
 from django.db.models import Sum
 from django.db.models import Q
@@ -1930,7 +1930,7 @@ def assign_picklist(sender, instance=None, created=False, **kwargs):
             )
 
 
-post_save.connect(get_order_report, sender=Order)
+# post_save.connect(get_order_report, sender=Order)
 
 
 @receiver(post_save, sender=CartProductMapping)

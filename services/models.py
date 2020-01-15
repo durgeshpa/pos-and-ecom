@@ -37,8 +37,7 @@ class OrderDetailReports(models.Model):
     order_type = models.CharField(max_length=255, null=True)
     campaign_name= models.CharField(max_length=255, null=True)
     discount = models.CharField(max_length=255, null=True)
-
-    # event_occurred_at = models.DateTimeField(default=datetime.now)
+    event_occurred_at = models.DateTimeField(auto_now_add=True)
 
 
     def __str__(self):
@@ -78,7 +77,7 @@ class OrderReports(models.Model):
     order_type = models.CharField(max_length=255, null=True)
     campaign_name= models.CharField(max_length=255, null=True)
     discount = models.CharField(max_length=255, null=True)
-    # event_occurred_at = models.DateTimeField(default=datetime.now)
+    event_occurred_at = models.DateTimeField(auto_now_add=True)
 
 
     def __str__(self):
@@ -114,7 +113,8 @@ class GRNReports(models.Model):
     returned_sku_pieces= models.CharField(max_length=255, null=True)
     dn_number = models.CharField(max_length=255, null=True)
     dn_value_basic = models.CharField(max_length=255, null=True)
-    # event_occurred_at = models.DateTimeField(default=datetime.now)
+    created_at = models.DateTimeField(auto_now_add=True)
+    event_occurred_at = models.DateTimeField(auto_now_add=True)
 
 
     def __str__(self):
@@ -146,7 +146,7 @@ class MasterReports(models.Model):
     short_description = models.CharField(max_length=3000, null=True)
     long_description = models.CharField(max_length=3000, null=True)
     created_at = models.CharField(max_length=255, null=True)
-    # event_occurred_at = models.DateTimeField(default=datetime.now)
+    event_occurred_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return  "%s"%(self.product)
@@ -168,7 +168,7 @@ class RetailerReports(models.Model):
     service_partner = models.CharField(max_length=255, null=True)
     service_partner_id = models.CharField(max_length=255, null=True)
     service_partner_contact = models.CharField(max_length=255, null=True)
-    # event_occurred_at = models.DateTimeField(default=datetime.now)
+    event_occurred_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return  "%s"%(self.retailer_name)   
@@ -182,7 +182,7 @@ class CategoryProductReports(models.Model):
     category_id = models.CharField(max_length=255, null=True)
     category = models.CharField(max_length=255, null=True)
     category_name = models.CharField(max_length=255, null=True)
-    # event_occurred_at = models.DateTimeField(default=datetime.now)
+    event_occurred_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return  "%s"%(self.product_name)
@@ -203,9 +203,46 @@ class TripShipmentReport(models.Model):
     trip_status=models.CharField(max_length=255, null=True)
     trip_created_at=models.CharField(max_length=255, null=True)
     delivery_boy=models.CharField(max_length=255, null=True)
+    event_occurred_at = models.DateTimeField(auto_now_add=True)
 
     def _str__(self):
         return "%s"%(self.trip)
+
+class TriReport(models.Model):
+    trip_id=models.CharField(max_length=255, null=True)
+    seller_shop=models.CharField(max_length=255, null=True)
+    dispatch_no=models.CharField(max_length=255, null=True)
+    delivery_boy=models.CharField(max_length=255, null=True)
+    vehicle_no=models.CharField(max_length=255, null=True)
+    trip_status=models.CharField(max_length=255, null=True)
+    e_way_bill_no=models.CharField(max_length=255, null=True)
+    starts_at=models.CharField(max_length=255, null=True)
+    completed_at=models.CharField(max_length=255, null=True)
+    trip_amount=models.CharField(max_length=255, null=True)
+    received_amount=models.CharField(max_length=255, null=True)
+    created_at=models.CharField(max_length=255, null=True)
+    modified_at=models.CharField(max_length=255, null=True)
+    total_crates_shipped=models.CharField(max_length=255, null=True)
+    total_packets_shipped=models.CharField(max_length=255, null=True)
+    total_sacks_shipped=models.CharField(max_length=255, null=True)
+    total_crates_collected=models.CharField(max_length=255, null=True)
+    total_packets_collected=models.CharField(max_length=255, null=True)
+    total_sacks_collected=models.CharField(max_length=255, null=True)
+    cash_to_be_collected=models.CharField(max_length=255, null=True)
+    cash_collected_by_delivery_boy=models.CharField(max_length=255, null=True)
+    total_paid_amount=models.CharField(max_length=255, null=True)
+    total_received_amount=models.CharField(max_length=255, null=True)
+    received_cash_amount=models.CharField(max_length=255, null=True)
+    received_online_amount=models.CharField(max_length=255, null=True)
+    cash_to_be_collected_value=models.CharField(max_length=255, null=True)
+    total_trip_shipments=models.CharField(max_length=255, null=True)
+    total_trip_amount=models.CharField(max_length=255, null=True)
+    total_trip_amount_value=models.CharField(max_length=255, null=True)
+    trip_weight=models.CharField(max_length=255, null=True)
+    event_occurred_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.dispatch_no
 
 class OrderDetailReportsData(models.Model):
     invoice_id = models.CharField(max_length=255, null=True)
@@ -248,9 +285,10 @@ class OrderDetailReportsData(models.Model):
     trip_created_at = models.CharField(max_length=255, null=True)
     selling_price = models.CharField(max_length=255, null=True)
     item_effective_price = models.CharField(max_length=255, null=True)
+    event_occurred_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return  "%s"%(self.order_invoice)
+        return "%s"%(self.order_invoice)
 
 class CartProductMappingData(models.Model):
     qty = models.CharField(max_length=255, null=True)
@@ -262,6 +300,7 @@ class CartProductMappingData(models.Model):
     cart_product_price = models.CharField(max_length=255, null=True)
     no_of_pieces = models.CharField(max_length=255, null=True)
     status = models.CharField(max_length=255, null=True)
+    event_occurred_at = models.DateTimeField(auto_now_add=True)
 
     def _str__(self):
-        return  "%s"%(self.cart)
+        return "%s"%(self.cart)
