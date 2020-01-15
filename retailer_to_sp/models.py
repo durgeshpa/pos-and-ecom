@@ -1459,10 +1459,13 @@ class OrderedProductMapping(models.Model):
             .get(cart_product=self.product).item_effective_prices
 
     def set_effective_price(self):
-        effective_price = self.ordered_product.order.ordered_cart.rt_cart_list\
-            .get(cart_product=self.product).item_effective_prices
-        OrderedProductMapping.objects.filter(id=self.id).update(effective_price=effective_price)
-        return True
+        try:
+            effective_price = self.ordered_product.order.ordered_cart.rt_cart_list\
+                .get(cart_product=self.product).item_effective_prices
+            OrderedProductMapping.objects.filter(id=self.id).update(effective_price=effective_price)
+        except:
+            pass
+            
     @property
     def cash_discount(self):
         return self.ordered_product.order.ordered_cart.rt_cart_list\
