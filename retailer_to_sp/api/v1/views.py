@@ -437,7 +437,7 @@ class AddToCart(APIView):
                     capping_end_date = capping.end_date
                     capping_range_orders = Order.objects.filter(buyer_shop = parent_mapping.retailer, created_at__gte = capping_start_date, created_at__lte = capping_end_date)
                     for order in capping_range_orders:
-                        ordered_qty += order.rt_cart_list.filter(cart_product = product).aggregate(value=Sum(F('qty')['value']))
+                        ordered_qty += order.ordered_cart.rt_cart_list.filter(cart_product = product).aggregate(value=Sum(F('qty')['value']))
                     if capping.capping_qty > ordered_qty:
                         if (capping.capping_qty - ordered_qty)  > int(qty):
                             if int(qty) == 0:
@@ -688,7 +688,7 @@ class ReservedOrder(generics.ListAPIView):
                         capping_end_date = capping.end_date
                         capping_range_orders = Order.objects.filter(buyer_shop = parent_mapping.retailer, created_at__gte = capping_start_date, created_at__lte = capping_end_date)
                         for order in capping_range_orders:
-                            ordered_qty += order.rt_cart_list.filter(cart_product = cart_product).aggregate(value=Sum(F('qty')['value']))
+                            ordered_qty += order.ordered_cart.rt_cart_list.filter(cart_product = cart_product).aggregate(value=Sum(F('qty')['value']))
                         if capping.capping_qty > ordered_qty:
                             if (capping.capping_qty - ordered_qty)  > product_qty:
                                 cart_product.capping_error_msg = 'Raj Shekhar Singh'
