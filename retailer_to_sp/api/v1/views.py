@@ -452,11 +452,11 @@ class AddToCart(APIView):
                                 cart_mapping.save()
                         else:
                             cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
-                            cart_mapping.capping_error_msg = 'Raj Shekhar Singh'
+                            cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty)
                             cart_mapping.save()
                     else:
                         cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
-                        cart_mapping.capping_error_msg = 'Raj Shekhar Singh'
+                        cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty)
                         cart_mapping.save()
                 else:
                     if int(qty) == 0:
@@ -692,7 +692,7 @@ class ReservedOrder(generics.ListAPIView):
                             ordered_qty += order.ordered_cart.rt_cart_list.filter(cart_product = cart_product.cart_product).last().qty
                         if capping.capping_qty < ordered_qty:
                             if (capping.capping_qty - ordered_qty)  < product_qty:
-                                cart_product.capping_error_msg = 'Raj Shekhar Singh'
+                                cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty)
                                 cart_product.save()
 
                 if products_unavailable:
