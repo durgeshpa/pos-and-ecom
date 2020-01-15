@@ -1085,9 +1085,7 @@ class OrderedProduct(models.Model): #Shipment
             self.initialize_shipment()
 
     def __str__(self):
-        if hasattr(self, 'invoice'):
-            return self.invoice.invoice_no
-        return str(self.id)
+        return self.invoice_no
 
     def clean(self):
         super(OrderedProduct, self).clean()
