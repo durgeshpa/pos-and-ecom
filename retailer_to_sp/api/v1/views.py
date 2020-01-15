@@ -415,7 +415,6 @@ class AddToCart(APIView):
 
             if parent_mapping.parent.shop_type.shop_type == 'sp':
                 ordered_qty = 0
-                import pdb; pdb.set_trace()
                 product = Product.objects.get(id = cart_product)
                 capping = product.get_current_shop_capping(parent_mapping.parent, parent_mapping.retailer)
 
