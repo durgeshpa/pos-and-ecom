@@ -682,7 +682,7 @@ class ReservedOrder(generics.ListAPIView):
                         cart_product.qty_error_msg = ERROR_MESSAGES['AVAILABLE_PRODUCT'].format(int(product_availability)) #TODO: Needs to be improved
                         cart_product.save()
                         products_unavailable.append(cart_product.id)
-                    capping = cart_product.get_current_shop_capping(parent_mapping.parent, parent_mapping.retailer)
+                    capping = cart_product.cart_product.get_current_shop_capping(parent_mapping.parent, parent_mapping.retailer)
                     if capping:
                         capping_start_date = capping.start_date
                         capping_end_date = capping.end_date
