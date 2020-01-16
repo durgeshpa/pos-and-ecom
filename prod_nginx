@@ -1,6 +1,6 @@
 
 server {
-    server_name seller.gramfactory.com;
+    server_name qa.gramfactory.com;
     valid_referers server_names  *.gramfactory.com;
     location = /favicon.ico { access_log off; log_not_found off; }
 
