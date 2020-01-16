@@ -928,7 +928,7 @@ class Trip(models.Model):
         if self._state.adding:
             self.create_dispatch_no()
         if self.trip_status != self.__trip_status and self.trip_status == 'STARTED':
-            self.trip_amount = self.total_trip_amount()
+            # self.trip_amount = self.total_trip_amount()
             self.starts_at = datetime.datetime.now()
         elif self.trip_status == 'COMPLETED':
             self.completed_at = datetime.datetime.now()
