@@ -751,8 +751,8 @@ class Trip(models.Model):
     e_way_bill_no = models.CharField(max_length=50, blank=True, null=True)
     starts_at = models.DateTimeField(blank=True, null=True)
     completed_at = models.DateTimeField(blank=True, null=True)
-    trip_amount = models.DecimalField(blank=True, null=True,
-                                    max_digits=19, decimal_places=2)
+    # _trip_amount = models.DecimalField(blank=True, null=True,
+    #                                 max_digits=19, decimal_places=2)
     received_amount = models.DecimalField(blank=True, null=True,
                                     max_digits=19, decimal_places=2)
     #description = models.CharField(max_length=50, null=True, blank=True)
@@ -1068,19 +1068,14 @@ class OrderedProduct(models.Model): #Shipment
         self._delivered_amount = 0
         self._shipment_weight = 0
         shipment_products = self.rt_order_product_order_product_mapping.values('product','shipped_qty','returned_qty',
-                                                                               'damaged_qty', 'product__weight_value').all()
-        shipment_map = {i['product']:(i['shipped_qty'], i['returned_qty'], i['damaged_qty'], i['product__weight_value']) for i in shipment_products}
-        cart_product_map = self.order.ordered_cart.rt_cart_list.filter(cart_product_id__in=shipment_map.keys())
-        product_price_map = {i.cart_product.id:(i.item_effective_prices, i.qty) for i in cart_product_map}
-        for product, shipment_details in shipment_map.items():
+                                                                               'damaged_qty', 'product__weight_value', 'effective_price').all()
+        for shipment_details in shipment_products:
             try:
-                product_price = product_price_map[product][0]
-                shipped_qty, returned_qty, damaged_qty, product_weight = shipment_details
-                self._invoice_amount += product_price * shipped_qty
-                self._cn_amount += (returned_qty+damaged_qty) * product_price
-                self._damaged_amount += damaged_qty * product_price
+                self._invoice_amount += shipment_details['effective_price'] * shipment_details['shipped_qty']
+                self._cn_amount += (shipment_details['returned_qty']+shipment_details['damaged_qty']) * shipment_details['effective_price']
+                self._damaged_amount += damaged_qty * shipment_details['effective_price']
                 self._delivered_amount += self._invoice_amount - self._cn_amount
-                self._shipment_weight += (product_weight if product_weight else 0) * shipped_qty
+                self._shipment_weight += (shipment_details.get('product__weight_value',0)) * shipped_qty
             except Exception as e:
                 logger.exception("Exception occurred {}".format(e))
 
