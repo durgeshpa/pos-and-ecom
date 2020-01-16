@@ -39,7 +39,7 @@ admin.site.register(TripShipmentReport, TripShipmentReportAdmin)
 
 class TriReportAdmin(admin.ModelAdmin):
     list_display = '__all__'
-admin.site.register(TriReportAdmin, TriReport)
+admin.site.register(TriReport, TriReportAdmin)
 
 
 
