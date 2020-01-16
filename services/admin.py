@@ -3,7 +3,7 @@ from .models import RetailerReports, OrderReports, GRNReports, MasterReports, Or
 # Register your models here.
 
 class OrderDetailReportsDataAdmin(admin.ModelAdmin):
-    list_display = '__all__'
+    model = OrderDetailReportsData
 admin.site.register(OrderDetailReportsData, OrderDetailReportsDataAdmin)
 
 class OrderReportsAdmin(admin.ModelAdmin):
@@ -12,12 +12,12 @@ class OrderReportsAdmin(admin.ModelAdmin):
 admin.site.register(OrderReports, OrderReportsAdmin)
 
 class GRNReportsAdmin(admin.ModelAdmin):
-    list_display = '__all_'
+    model = GRNReports
 
 admin.site.register(GRNReports, GRNReportsAdmin)
 
 class MasterReportsAdmin(admin.ModelAdmin):
-    list_display = '__all__'
+    model = MasterReports
 
 admin.site.register(MasterReports, MasterReportsAdmin)
 
@@ -26,19 +26,22 @@ class OrderGrnReportsAdmin(admin.ModelAdmin):
 admin.site.register(OrderGrnReports, OrderGrnReportsAdmin)
 
 class RetailerReportsAdmin(admin.ModelAdmin):
-    list_display ='__all__'
+    model = RetailerReports
 admin.site.register(RetailerReports, RetailerReportsAdmin) 
 
 class CategoryProductReportsAdmin(admin.ModelAdmin):
-    list_display = '__all__'
+    model = CategoryProductReports
+
 admin.site.register(CategoryProductReports, CategoryProductReportsAdmin)
 
 class TripShipmentReportAdmin(admin.ModelAdmin):
-    list_display = '__all__'
+    model = TripShipmentReport
+
 admin.site.register(TripShipmentReport, TripShipmentReportAdmin)
 
+
 class TriReportAdmin(admin.ModelAdmin):
-    list_display = '__all__'
+    model = TriReport
 admin.site.register(TriReport, TriReportAdmin)
 
 
