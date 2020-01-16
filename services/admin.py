@@ -35,11 +35,11 @@ admin.site.register(CategoryProductReports, CategoryProductReportsAdmin)
 
 class TripShipmentReportAdmin(admin.ModelAdmin):
     list_display = '__all__'
-admin.site.register(TripShipmentReportAdmin, TripShipmentReport)
+admin.site.register(TripShipmentReport, TripShipmentReportAdmin)
 
 class TriReportAdmin(admin.ModelAdmin):
     list_display = '__all__'
-admin.site.register(TriReport, TriReportAdmin)
+admin.site.register(TriReportAdmin, TriReport)
 
 
 
