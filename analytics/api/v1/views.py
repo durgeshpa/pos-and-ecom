@@ -34,7 +34,7 @@ def category_product_report(product_id):
         category_id = cat.category.id
         category = cat.category
         category_name = cat.category.category_name
-        CategoryProductReports.objects.using('dataanalytics').create(product_id=product_id,
+        CategoryProductReports.objects.create(product_id=product_id,
                                                                      product_name=product_name,
                                                                      product_short_description=product_short_description,
                                                                      product_created_at=product_created_at,
@@ -103,7 +103,7 @@ def grn_report(grn_id):
                              vendor_id, buyer_shop, shipping_address, manufacture_date, expiry_date, po_sku_pieces,
                              grn_id, grn_date, grn_sku_pieces, invoice_item_gross_value, delivered_sku_pieces,
                              returned_sku_pieces)
-                GRNReports.objects.using('dataanalytics').create(po_no=po_no, po_date=po_date, po_status=po_status,
+                GRNReports.objects.create(po_no=po_no, po_date=po_date, po_status=po_status,
                                                                  vendor_name=vendor_name, vendor_id=vendor_id,
                                                                  buyer_shop=buyer_shop,
                                                                  shipping_address=shipping_address,
@@ -164,7 +164,7 @@ def master_report(seller_shop_id):
         long_description = products.product.product_long_description
         created_at = products.product.created_at
         # logging.info(shop,product ,mrp,price_to_retailer,selling_price,buyer_shop,city,pincode,product_gf_code,product_ean_code,product_brand,product_category,tax_gst_percentage, tax_cess_percentage,tax_surcharge_percentage,service_partner,pack_size,case_size,hsn_code,product_id,sku_code,short_description, long_description,created_at)
-        MasterReports.objects.using('dataanalytics').create(product=product, service_partner=service_partner,
+        MasterReports.objects.create(product=product, service_partner=service_partner,
                                                             mrp=mrp, price_to_retailer=price_to_retailer,
                                                             selling_price=selling_price, buyer_shop=buyer_shop,
                                                             city=city,
@@ -258,7 +258,7 @@ def order_report(order_id):
                 trip_status = shipment.trip.trip_status
                 delivery_boy = shipment.trip.delivery_boy
                 trip_created_at = shipment.trip.created_at
-            OrderDetailReportsData.objects.using('dataanalytics').create(invoice_id=invoice_id,
+            OrderDetailReportsData.objects.create(invoice_id=invoice_id,
                                                                          order_invoice=order_invoice,
                                                                          invoice_date=invoice_date,
                                                                          invoice_modified_at=invoice_modified_at,
@@ -360,7 +360,7 @@ def shipment_report(shipment_id):
             trip_status = shipment.trip.trip_status
             delivery_boy = shipment.trip.delivery_boy
             trip_created_at = shipment.trip.created_at
-        OrderDetailReportsData.objects.using('dataanalytics').create(invoice_id=invoice_id,
+        OrderDetailReportsData.objects.create(invoice_id=invoice_id,
                                                                      order_invoice=order_invoice,
                                                                      invoice_date=invoice_date,
                                                                      invoice_modified_at=invoice_modified_at,
@@ -410,7 +410,7 @@ def retailer_report(id):
         service_partner = retailer.parent.shop_name
         service_partner_id = retailer.parent.id or ''
         service_partner_contact = retailer.parent.shop_owner.phone_number if retailer.parent else ''
-        RetailerReports.objects.using('dataanalytics').create(retailer_id=retailer_id, retailer_name=retailer_name,
+        RetailerReports.objects.create(retailer_id=retailer_id, retailer_name=retailer_name,
                                                               retailer_type=retailer_type,
                                                               retailer_phone_number=retailer_phone_number,
                                                               created_at=created_at, service_partner=service_partner,
@@ -431,7 +431,7 @@ def trip_shipment_report(id):
         shipment_id = shipments.id
         shipment = shipments.invoice_no
         shipment_status = shipments.shipment_status
-    TripShipmentReport.objects.using('dataanalytics').create(shipment_id=shipment_id,trip_id=trip_id, trip=trip,shipment=shipment,shipment_status=shipment_status, trip_status=trip_status,trip_created_at=trip_created_at, delivery_boy=delivery_boy)
+    TripShipmentReport.objects.create(shipment_id=shipment_id,trip_id=trip_id, trip=trip,shipment=shipment,shipment_status=shipment_status, trip_status=trip_status,trip_created_at=trip_created_at, delivery_boy=delivery_boy)
 
 
 @task(queue='analytics_tasks', routing_key='analytics')
@@ -469,7 +469,7 @@ def trip_report(trip_id):
     total_trip_amount_value = trips.total_trip_amount_value
     trip_weight = trips.trip_weight()
 
-    TriReport.objects.using('dataanalytics').create(trip_id=trip_id,seller_shop=seller_shop,dispatch_no=dispatch_no,delivery_boy=delivery_boy,vehicle_no=vehicle_no,trip_status=trip_status,e_way_bill_no=e_way_bill_no,
+    TriReport.objects.create(trip_id=trip_id,seller_shop=seller_shop,dispatch_no=dispatch_no,delivery_boy=delivery_boy,vehicle_no=vehicle_no,trip_status=trip_status,e_way_bill_no=e_way_bill_no,
                                                     starts_at=starts_at,completed_at=completed_at,trip_amount=trip_amount,received_amount=received_amount,created_at=created_at,modified_at=modified_at,total_crates_shipped=total_crates_shipped,
                                                     total_packets_shipped=total_packets_shipped,total_sacks_shipped=total_sacks_shipped,total_crates_collected=total_crates_collected,total_packets_collected=total_packets_collected,total_sacks_collected=total_sacks_collected,cash_to_be_collected=cash_to_be_collected,
                                                     cash_collected_by_delivery_boy=cash_collected_by_delivery_boy,total_paid_amount=total_paid_amount,total_received_amount=total_received_amount,received_cash_amount=received_cash_amount,received_online_amount=received_online_amount,cash_to_be_collected_value=cash_to_be_collected_value,total_trip_shipments=total_trip_shipments,

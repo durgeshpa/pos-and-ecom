@@ -88,7 +88,7 @@ def get_shipment_report(sender, instance=None, created=False, **kwargs):
 
 @receiver(post_save, sender=Trip)
 def get_tripshipment_report(sender, instance=None, created=False, **kwargs):
-    # trip_shipment_report.delay(instance.id)
+    trip_shipment_report.delay(instance.id)
     trip_report.delay(instance.id)
 
 # def get_category_product_report(sender, instance=None, created=False, **kwargs):

@@ -153,7 +153,7 @@ class MasterReports(models.Model):
 class OrderGrnReports(models.Model):
     order = models.CharField(max_length=255, null=True)
     grn = models.CharField(max_length=255, null=True)
-    # event_occurred_at = models.DateTimeField(default=datetime.now)
+    event_occurred_at = models.DateTimeField(default=datetime.now)
 
     def __str__(self):
         return "%s"%(self.order)
