@@ -868,7 +868,8 @@ class Trip(models.Model):
 
     @property
     def trip_amount(self):
-        return self.rt_invoice_trip.rt_order_product_order_product_mapping.aggregate(trip_amount=Sum('effective_price')).get('trip_amount')
+        return OrderedProductMapping.objects.filter(ordered_product__in=self.rt_invoice_trip.all())\
+        .aggregate(invoice_amount=Sum(F('effective_price')*F('shipped_qty'), output_field=FloatField())).get('invoice_amount')
     
     @property
     def total_received_amount(self):
@@ -927,7 +928,7 @@ class Trip(models.Model):
         if self._state.adding:
             self.create_dispatch_no()
         if self.trip_status != self.__trip_status and self.trip_status == 'STARTED':
-            self.trip_amount = self.total_trip_amount()
+            # self.trip_amount = self.total_trip_amount()
             self.starts_at = datetime.datetime.now()
         elif self.trip_status == 'COMPLETED':
             self.completed_at = datetime.datetime.now()
@@ -1089,9 +1090,7 @@ class OrderedProduct(models.Model): #Shipment
             self.initialize_shipment()
 
     def __str__(self):
-        if hasattr(self, 'invoice'):
-            return self.invoice.invoice_no
-        return str(self.id)
+        return self.invoice_no
 
     def clean(self):
         super(OrderedProduct, self).clean()
@@ -1285,10 +1284,11 @@ class Invoice(models.Model):
     @property
     def invoice_amount(self):
         try:
-            inv_amount = self.shipment.rt_order_product_order_product_mapping.aggregate(invoice_amount=Sum('effective_price')).get('invoice_amount')
+            inv_amount = self.shipment.rt_order_product_order_product_mapping.annotate(item_amount=F('effective_price')*F('shipped_qty')).aggregate(invoice_amount=Sum('item_amount')).get('invoice_amount')
         except:
             inv_amount = self.shipment.invoice_amount
         return inv_amount
+
 
 class PickerDashboard(models.Model):
 
