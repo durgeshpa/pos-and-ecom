@@ -1931,8 +1931,8 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
     '''
     Method to update picking status
     '''
-    assign_update_picker_to_shipment.delay(instance.id)
-    #assign_update_picker_to_shipment(instance.id)
+    #assign_update_picker_to_shipment.delay(instance.id)
+    assign_update_picker_to_shipment(instance.id)
 
 
 @receiver(post_save, sender=Order)
