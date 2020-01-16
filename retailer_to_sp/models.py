@@ -1919,9 +1919,11 @@ def assign_update_picker_to_shipment(shipment_id):
        logging.info (shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).count())        
        logging.error (shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).count())       
        print (shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).count())        
-       picker_lists = shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).update(shipment=shipment)
+       if shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).exists():
+           picker_lists = shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).update(shipment=shipment)
    elif shipment.shipment_status == OrderedProduct.READY_TO_SHIP:
-       shipment.picker_shipment.all().update(picking_status="picking_complete")
+       if shipment.picker_shipment.all().exists():
+           shipment.picker_shipment.all().update(picking_status="picking_complete")
 
 
 @receiver(post_save, sender=OrderedProduct)
@@ -1929,8 +1931,8 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
     '''
     Method to update picking status
     '''
-    #assign_update_picker_to_shipment.delay(instance.id)
-    assign_update_picker_to_shipment(instance.id)
+    assign_update_picker_to_shipment.delay(instance.id)
+    #assign_update_picker_to_shipment(instance.id)
 
 
 @receiver(post_save, sender=Order)
