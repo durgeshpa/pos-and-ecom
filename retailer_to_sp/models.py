@@ -1915,6 +1915,8 @@ def assign_update_picker_to_shipment(shipment_id):
    if shipment.shipment_status == "SHIPMENT_CREATED":
        # assign shipment to picklist
        # tbd : if manual(by searching relevant picklist id) or automated
+       logging.info(shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).count())        
+       logging.error(shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).count())        
        picker_lists = shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).update(shipment=shipment)
    elif shipment.shipment_status == OrderedProduct.READY_TO_SHIP:
        shipment.picker_shipment.all().update(picking_status="picking_complete")
