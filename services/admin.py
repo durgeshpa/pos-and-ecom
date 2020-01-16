@@ -1,11 +1,10 @@
 from django.contrib import admin
-from .models import RetailerReports, OrderReports, GRNReports, MasterReports, OrderGrnReports, OrderDetailReports,CategoryProductReports
+from .models import RetailerReports, OrderReports, GRNReports, MasterReports, OrderGrnReports, OrderDetailReportsData,CategoryProductReports, TripShipmentReport, TriReport
 # Register your models here.
 
-class OrderDetailReportsAdmin(admin.ModelAdmin):
-    list_display = ('id', 'order_invoice', 'invoice_date', 'invoice_modified_at', 'invoice_status', 'order_id', 'seller_shop',  'order_status', 'order_date', 'order_modified_at', 'order_by', 'retailer_id', 'retailer_name', 'pin_code', 'product_id', 'product_name', 'product_brand', 'product_mrp', 'product_value_tax_included', 'ordered_sku_pieces', 'shipped_sku_pieces', 'delivered_sku_pieces', 'returned_sku_pieces', 'damaged_sku_pieces', 'product_cgst', 'product_sgst', 'product_igst', 'product_cess', 'sales_person_name', 'order_type', 'campaign_name', 'discount')
-
-admin.site.register(OrderDetailReports, OrderDetailReportsAdmin)
+class OrderDetailReportsDataAdmin(admin.ModelAdmin):
+    list_display = '__all__'
+admin.site.register(OrderDetailReportsData, OrderDetailReportsDataAdmin)
 
 class OrderReportsAdmin(admin.ModelAdmin):
     list_display = ('order_invoice', 'invoice_date', 'invoice_status', 'order_id', 'seller_shop',  'order_status', 'order_date', 'order_by', 'retailer_id', 'retailer_name', 'pin_code', 'product_id', 'product_name', 'product_brand', 'product_mrp', 'product_value_tax_included', 'ordered_sku_pieces', 'shipped_sku_pieces', 'delivered_sku_pieces', 'returned_sku_pieces', 'damaged_sku_pieces', 'product_cgst', 'product_sgst', 'product_igst', 'product_cess', 'sales_person_name', 'order_type', 'campaign_name', 'discount')
@@ -13,12 +12,12 @@ class OrderReportsAdmin(admin.ModelAdmin):
 admin.site.register(OrderReports, OrderReportsAdmin)
 
 class GRNReportsAdmin(admin.ModelAdmin):
-    list_display = ('po_no', 'po_date', 'po_status', 'vendor_name',  'vendor_id', 'buyer_shop', 'shipping_address', 'category_manager', 'product_id', 'product_name', 'product_brand', 'manufacture_date', 'expiry_date', 'po_sku_pieces', 'product_mrp', 'discount', 'gram_to_brand_price', 'grn_id', 'grn_date', 'grn_sku_pieces', 'product_cgst', 'product_sgst', 'product_igst', 'product_cess', 'invoice_item_gross_value', 'delivered_sku_pieces', 'returned_sku_pieces', 'dn_number', 'dn_value_basic')
+    list_display = '__all_'
 
 admin.site.register(GRNReports, GRNReportsAdmin)
 
 class MasterReportsAdmin(admin.ModelAdmin):
-    list_display = ('product', 'service_partner', 'mrp', 'price_to_retailer', 'product_gf_code',  'product_brand', 'product_subbrand', 'product_category', 'tax_gst_percentage', 'tax_cess_percentage', 'tax_surcharge_percentage', 'pack_size', 'case_size', 'hsn_code', 'product_id', 'sku_code', 'short_description', 'long_description')
+    list_display = '__all__'
 
 admin.site.register(MasterReports, MasterReportsAdmin)
 
@@ -27,12 +26,22 @@ class OrderGrnReportsAdmin(admin.ModelAdmin):
 admin.site.register(OrderGrnReports, OrderGrnReportsAdmin)
 
 class RetailerReportsAdmin(admin.ModelAdmin):
-    list_display = ('retailer_id', 'retailer_name', 'retailer_type', 'created_at', 'service_partner', 'service_partner_id','service_partner_contact')
+    list_display ='__all__'
 admin.site.register(RetailerReports, RetailerReportsAdmin) 
 
 class CategoryProductReportsAdmin(admin.ModelAdmin):
-    list_display = ('product_id', 'product_name', 'product_short_description', 'product_created_at', 'category_id', 'category', 'category_name')
+    list_display = '__all__'
 admin.site.register(CategoryProductReports, CategoryProductReportsAdmin)
+
+class TripShipmentReportAdmin(admin.ModelAdmin):
+    list_display = '__all__'
+admin.site.register(TripShipmentReportAdmin, TripShipmentReport)
+
+class TriReportAdmin(admin.ModelAdmin):
+    list_display = '__all__'
+admin.site.register(TriReport, TriReportAdmin)
+
+
 
 
 
