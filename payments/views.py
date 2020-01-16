@@ -4,7 +4,7 @@ from django.db.models import Q
 
 from retailer_to_sp.models import Order
 from .models import Payment
-
+from accounts.models import UserWithName
 # Create your views here.
 
 
@@ -30,4 +30,12 @@ class OrderPaymentAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(Q(buyer_shop__shop_owner__phone_number__icontains=self.q) | Q(buyer_shop__shop_name__icontains=self.q))
         #print (order_id, order, users, shop_owner, qs)
+        return qs
+
+
+class UserWithNameAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = UserWithName.objects.all()
+        if self.q:
+            qs = qs.filter(Q(phone_number__icontains=self.q) | Q(first_name__icontains=self.q))
         return qs

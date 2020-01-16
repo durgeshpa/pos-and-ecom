@@ -13,7 +13,7 @@ from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping 
     OrderedProduct as GramMappedOrderedProduct, CustomerCare as GramMappedCustomerCare, Payment as GramMappedPayment
  )
 from addresses.models import Address,City,State,Country
-from payments.models import CashPayment, ShipmentPayment, OnlinePayment, PaymentMode
+from payments.models import ShipmentPayment, PaymentMode
 
 from gram_to_brand.models import GRNOrderProductMapping
 
@@ -863,7 +863,8 @@ class DispatchSerializer(serializers.ModelSerializer):
                   'payment_approval_status', 'online_payment_approval_status')
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount',
                  'shipment_payment', 'trip_status', 'shipment_weight', 
-                 'payment_approval_status', 'online_payment_approval_status')
+                 'payment_approval_status', 'online_payment_approval_status',
+                 'invoice_no')
 
 
 
@@ -915,7 +916,7 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 
                     'cash_to_be_collected', 'shipment_payment', 'trip_status',
                      'paid_amount_shipment', 'shipment_weight', 'payment_approval_status',
-                     'online_payment_approval_status')
+                     'online_payment_approval_status', 'invoice_no')
 
 
 class FeedBackSerializer(serializers.ModelSerializer):
@@ -973,25 +974,51 @@ class ShipmentSerializer(serializers.ModelSerializer):
     order = ShipmentOrderSerializer()
     shop_open_time = serializers.SerializerMethodField()
     shop_close_time = serializers.SerializerMethodField()     
+    break_start_time = serializers.SerializerMethodField()
+    break_end_time = serializers.SerializerMethodField()
+    off_day = serializers.SerializerMethodField()
 
     def get_total_paid_amount(self, obj):
         return obj.total_paid_amount
     
-    def get_shop_open_time(self, obj):
+    def get_shop_timings(self, obj):
         shop_timing = ShopTiming.objects.filter(shop=obj.order.buyer_shop)
-        if shop_timing.exists():         
-            return shop_timing.last().open_timing
+        if shop_timing.exists():
+            final_timing = shop_timing.last()
+            return [final_timing.open_timing, final_timing.closing_timing,
+            final_timing.break_start_time, final_timing.break_end_time, 
+            final_timing.off_day]        
 
+    def get_shop_open_time(self, obj):
+        shop_timings = self.get_shop_timings(obj)
+        if shop_timings:       
+            return shop_timings[0]
 
     def get_shop_close_time(self, obj):
-        shop_timing = ShopTiming.objects.filter(shop=obj.order.buyer_shop)
-        if shop_timing.exists():         
-            return shop_timing.last().closing_timing
+        shop_timings = self.get_shop_timings(obj)
+        if shop_timings:
+            return shop_timings[1]
+
+    def get_break_start_time(self, obj):
+        shop_timings = self.get_shop_timings(obj)
+        if shop_timings:       
+            return shop_timings[2]
+
+    def get_break_end_time(self, obj):
+        shop_timings = self.get_shop_timings(obj)
+        if shop_timings:
+            return shop_timings[3]
+
+    def get_off_day(self, obj):
+        shop_timings = self.get_shop_timings(obj)
+        if shop_timings:
+            return shop_timings[4]
 
     class Meta:
         model = OrderedProduct
         fields = ('shipment_id', 'invoice_no', 'shipment_status', 'payment_mode', 'invoice_amount', 'order',
-            'total_paid_amount', 'shop_open_time', 'shop_close_time')
+            'total_paid_amount', 'shop_open_time', 'shop_close_time',
+            'break_start_time', 'break_end_time', 'off_day')
 
 
 class ShipmentStatusSerializer(serializers.ModelSerializer):

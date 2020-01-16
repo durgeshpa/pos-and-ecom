@@ -262,8 +262,8 @@ class ProductPrice(models.Model):
                                 null=True, blank=True,
                                 on_delete=models.CASCADE)
     price_to_retailer = models.FloatField(null=True, blank=False)
-    start_date = models.DateTimeField(null=True, blank=True)
-    end_date = models.DateTimeField(null=True, blank=True)
+    start_date = models.DateTimeField(null=True, blank=False)
+    end_date = models.DateTimeField(null=True, blank=False)
     approval_status = models.IntegerField(choices=APPROVAL_CHOICES, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -273,7 +273,12 @@ class ProductPrice(models.Model):
         return "%s - %s" % (self.product.product_name, self.selling_price)
 
     def validate(self, exception_type):
-        if self.selling_price and self.selling_price > self.mrp:
+        if not self.mrp:
+            raise ValidationError(_('Please enter valid Mrp price.'))
+        if not self.selling_price:
+            raise ValidationError(_('Please enter valid Selling price.'))
+            #raise exception_type(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
+        if self.selling_price and self.mrp and self.selling_price > self.mrp:
             raise exception_type(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
 
     def clean(self):
