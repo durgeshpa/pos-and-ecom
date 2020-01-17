@@ -1192,9 +1192,7 @@ class OrderedProduct(models.Model): #Shipment
 
     def cash_to_be_collected(self):
         # fetch the amount to be collected
-        if self.order.rt_payment.filter(payment_choice='cash_on_delivery').exists():
-            return round((self._invoice_amount - self._cn_amount),2)
-        return 0
+        return (self._invoice_amount - self._cn_amount)
 
 
     @property
