@@ -1,4 +1,5 @@
 import csv
+import json
 
 from admin_auto_filters.filters import AutocompleteFilter
 from admin_numeric_filter.admin import (NumericFilterModelAdmin,
@@ -63,13 +64,18 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare,
                      OrderedProduct, OrderedProductMapping, Payment, Return,
                      ReturnProductMapping, Shipment, ShipmentProductMapping,
                      Trip, ShipmentRescheduling, Feedback, PickerDashboard,
-                     generate_picklist_id, ResponseComment)
+                     generate_picklist_id, ResponseComment, Invoice, TRIP_STATUS,
+                     ResponseComment)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (
     GetPcsFromQty, add_cart_user, create_order_from_cart,
     reschedule_shipment_button
 )
+from .filters import (InvoiceAdminOrderFilter, InvoiceAdminTripFilter)
+
+from .tasks import update_order_status_and_create_picker, update_reserved_order
+
 class InvoiceNumberFilter(AutocompleteFilter):
     title = 'Invoice Number'
     field_name = 'invoice_no'
@@ -261,7 +267,7 @@ class InvoiceSearch(InputFilter):
             if invoice_no is None:
                 return
             return queryset.filter(
-                Q(invoice_no__icontains=invoice_no)
+                Q(invoice__invoice_no__icontains=invoice_no)
             )
 
 class OrderInvoiceSearch(InputFilter):
@@ -789,6 +795,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     resource_class = OrderResource
     search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name','order_status')
     form = OrderForm
+    list_per_page = 50
     fieldsets = (
         (_('Shop Details'), {
             'fields': ('seller_shop', 'buyer_shop',
@@ -903,7 +910,7 @@ class OrderedProductAdmin(admin.ModelAdmin):
         'return_reason', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check'
     )
     autocomplete_fields = ('order',)
-    search_fields = ('invoice_no', 'order__order_no')
+    search_fields = ('invoice__invoice_no', 'order__order_no')
     readonly_fields = (
         'order', 'invoice_no', 'trip', 'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks'
     )
@@ -1043,6 +1050,7 @@ class ShipmentProductMappingAdmin(admin.TabularInline):
 
 
 class ShipmentAdmin(admin.ModelAdmin):
+    has_invoice_no = True
     inlines = [ShipmentProductMappingAdmin]
     form = ShipmentForm
     list_select_related = (
@@ -1050,22 +1058,22 @@ class ShipmentAdmin(admin.ModelAdmin):
         'order__shipping_address__city',
     )
     list_display = (
-        'invoice', 'order', 'created_at', 'trip', 'shipment_address',
+        'start_qc', 'order', 'created_at', 'trip', 'shipment_address',
         'seller_shop', 'invoice_city', 'invoice_amount', 'payment_mode',
         'shipment_status', 'download_invoice', 'pincode',
     )
     list_filter = [
-        ('created_at', DateTimeRangeFilter), InvoiceSearch, ShipmentOrderIdSearch, ShipmentSellerShopSearch,
-        ('shipment_status', ChoiceDropdownFilter), PincodeSearch
-
+        ('created_at', DateTimeRangeFilter), InvoiceSearch, ShipmentOrderIdSearch,
+        ShipmentSellerShopSearch, ('shipment_status', ChoiceDropdownFilter), PincodeSearch
     ]
     fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
-        'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'close_order']
+              'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'close_order']
     search_fields = [
-        'order__order_no', 'invoice_no', 'order__seller_shop__shop_name',
+        'order__order_no', 'invoice__invoice_no', 'order__seller_shop__shop_name',
         'order__buyer_shop__shop_name', 'trip__dispatch_no',
         'trip__vehicle_no', 'trip__delivery_boy__phone_number']
-    readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
+    readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address',
+                       'invoice_city', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
     list_per_page = 50
     ordering = ['-created_at']
 
@@ -1082,66 +1090,38 @@ class ShipmentAdmin(admin.ModelAdmin):
     download_invoice.short_description = 'Download Invoice'
 
     def pincode(self, obj):
-            return obj.order.shipping_address.pincode
+        return obj.order.shipping_address.pincode
 
     def seller_shop(self, obj):
-            return obj.order.seller_shop.shop_name
+        return obj.order.seller_shop.shop_name
 
     def shipment_address(self, obj):
-            address = obj.order.shipping_address
-            address_line = address.address_line1
-            contact = address.address_contact_number
-            shop_name = address.shop_name.shop_name
-            return str("%s, %s(%s)") % (shop_name, address_line, contact)
+        address = obj.order.shipping_address
+        address_line = address.address_line1
+        contact = address.address_contact_number
+        shop_name = address.shop_name.shop_name
+        return str("%s, %s(%s)") % (shop_name, address_line, contact)
 
     def invoice_city(self, obj):
-            city = obj.order.shipping_address.city
-            return str(city)
+        city = obj.order.shipping_address.city
+        return str(city)
 
-    def invoice(self,obj):
-            return obj.invoice_no if obj.invoice_no else format_html(
-                "<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Start QC</a>" %(obj.id))
-    invoice.short_description = 'Invoice No'
+    def start_qc(self,obj):
+        return obj.invoice_no if obj.invoice_no != '-' else format_html(
+            "<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Start QC</a>" %(obj.id))
+    start_qc.short_description = 'Invoice No'
 
+    def save_model(self, request, obj, form, change):
+        if not hasattr(form.instance, 'invoice') and (form.cleaned_data.get('shipment_status', None) == form.instance.READY_TO_SHIP):
+            self.has_invoice_no = False
+        super().save_model(request, obj, form, change)
 
     def save_related(self, request, form, formsets, change):
-        #update_shipment_status(form, formsets)
-
-        ordered_qty, shipment_products_dict = update_order_status(
-            close_order_checked=form.cleaned_data.get('close_order'),
-            shipment_id=form.instance.id
-        )
-
-        no_of_pieces = ordered_qty
-        shipped_qty = shipment_products_dict.get('shipped_qty',0)
-
-        #when more shipments needed and status == qc_pass
-        close_order = form.cleaned_data.get('close_order')
-        if close_order:
-            form.instance.order.picker_order.update(picking_status="picking_complete")
-        change_value = form.instance.shipment_status == form.instance.READY_TO_SHIP
-        if "shipment_status" in form.changed_data and change_value and (not close_order):
-
-            if int(no_of_pieces) > shipped_qty:
-                try:
-                    pincode = "00" #form.instance.order.shipping_address.pincode
-                except:
-                    pincode = "00"
-                PickerDashboard.objects.create(
-                    order=form.instance.order,
-                    picking_status="picking_pending",
-                    picklist_id= generate_picklist_id(pincode) #get_random_string(12).lower(),#
-                    )
-
-        if (form.cleaned_data.get('close_order') and
-                (form.instance.shipment_status != form.instance.CLOSED and
-                 not form.instance.order.order_closed)):
-
-            update_quantity = UpdateSpQuantity(form, formsets)
-            update_quantity.update()
-
         super(ShipmentAdmin, self).save_related(request, form, formsets, change)
-
+        shipment_products = form.instance.rt_order_product_order_product_mapping.all().values('product__id').annotate(shipped_items=Sum('shipped_qty'))
+        if not self.has_invoice_no:
+            update_reserved_order.delay(list(shipment_products), form.instance.order.ordered_cart.id)
+        update_order_status_and_create_picker.delay(form.instance.id, form.cleaned_data.get('close_order'), form.changed_data)
 
     def get_queryset(self, request):
         qs = super(ShipmentAdmin, self).get_queryset(request)
@@ -1491,6 +1471,80 @@ class FeedbackAdmin(admin.ModelAdmin):
     list_display = ('user', 'shipment', 'delivery_experience', 'overall_product_packaging', 'comment', 'created_at', 'status')
     raw_id_fields = ['user', 'shipment']
 
+
+class InvoiceAdmin(admin.ModelAdmin):
+    list_display = ('invoice_no', 'get_invoice_amount', 'created_at', 'get_shipment_status',
+                    'get_shipment', 'get_order', 'get_trip_no', 'get_trip_status')
+    fieldsets = (
+        ('Invoice', {
+            'fields': (('invoice_no', 'get_invoice_amount'), ('created_at', 'invoice_pdf'))
+        }),
+        ('Shipment', {
+            'classes': ('extrapretty',),
+            'fields': (('get_shipment_status', 'get_shipment'),),
+        }),
+        ('Trip', {
+            'classes': ('extrapretty',),
+            'fields': (('get_trip_no', 'get_trip_status'),),
+        }),
+        ('Order', {
+            'classes': ('extrapretty',),
+            'fields': ('get_order',),
+        }),
+    )
+    readonly_fields = ('invoice_no', 'get_shipment', 'invoice_amount', 'invoice_pdf')
+    search_fields =('invoice_no', 'shipment__trip__dispatch_no', 'shipment__order__order_no')
+    ordering = ('-created_at', )
+    list_filter = (InvoiceAdminOrderFilter, InvoiceAdminTripFilter, ('created_at', DateTimeRangeFilter))
+
+    def get_invoice_amount(self, obj):
+        return "%s %s" % (u'\u20B9', str(obj.invoice_amount))
+    get_invoice_amount.short_description = "Invoice Amount"
+
+    def get_shipment(self, obj):
+        url = reverse('admin:%s_%s_change' % (obj._meta.app_label, 'orderedproduct'),  args=[obj.shipment_id] )
+        return format_html("<a href='%s' target='blank'>View Shipment Details</a>" % (url))
+    get_shipment.short_description = "Shipment"
+
+    def get_order(self, obj):
+        return obj.get_order
+    get_order.short_description = "Order"
+
+    def get_shipment_status(self, obj):
+        if obj.shipment_status:
+            shipment_status = dict(OrderedProduct.SHIPMENT_STATUS)
+            return shipment_status[obj.shipment_status]
+        return "-"
+    get_shipment_status.short_description = "Shipment Status"
+
+    def get_trip_no(self, obj):
+        return obj.trip_no
+    get_trip_no.short_description = "Trip"
+
+    def get_trip_status(self, obj):
+        if obj.trip_status:
+            trip_status = dict(TRIP_STATUS)
+            return trip_status[obj.trip_status]
+        return "-"
+    get_trip_status.short_description = "Trip Status"
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        qs = qs.annotate(
+            get_order=F('shipment__order__order_no'), shipment_status=F('shipment__shipment_status'),
+            trip_no=F('shipment__trip__dispatch_no'), trip_status=F('shipment__trip__trip_status'))
+        return qs
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 # admin.site.register(Return, ReturnAdmin)
 admin.site.register(Cart, CartAdmin)
 admin.site.register(Order, OrderAdmin)
@@ -1504,3 +1558,4 @@ admin.site.register(Commercial, CommercialAdmin)
 admin.site.register(Shipment, ShipmentAdmin)
 admin.site.register(Feedback, FeedbackAdmin)
 admin.site.register(PickerDashboard, PickerDashboardAdmin)
+admin.site.register(Invoice, InvoiceAdmin)

@@ -863,7 +863,8 @@ class DispatchSerializer(serializers.ModelSerializer):
                   'payment_approval_status', 'online_payment_approval_status')
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount',
                  'shipment_payment', 'trip_status', 'shipment_weight', 
-                 'payment_approval_status', 'online_payment_approval_status')
+                 'payment_approval_status', 'online_payment_approval_status',
+                 'invoice_no')
 
 
 
@@ -915,7 +916,7 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 
                     'cash_to_be_collected', 'shipment_payment', 'trip_status',
                      'paid_amount_shipment', 'shipment_weight', 'payment_approval_status',
-                     'online_payment_approval_status')
+                     'online_payment_approval_status', 'invoice_no')
 
 
 class FeedBackSerializer(serializers.ModelSerializer):
