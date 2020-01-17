@@ -751,11 +751,8 @@ class Trip(models.Model):
     e_way_bill_no = models.CharField(max_length=50, blank=True, null=True)
     starts_at = models.DateTimeField(blank=True, null=True)
     completed_at = models.DateTimeField(blank=True, null=True)
-    # _trip_amount = models.DecimalField(blank=True, null=True,
-    #                                 max_digits=19, decimal_places=2)
     received_amount = models.DecimalField(blank=True, null=True,
                                     max_digits=19, decimal_places=2)
-    #description = models.CharField(max_length=50, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -892,21 +889,11 @@ class Trip(models.Model):
 
     @property
     def total_trip_shipments(self):
-        trip_shipments = self.rt_invoice_trip.count()
-        return trip_shipments
-
-    def total_trip_amount(self):
-        trip_shipments = self.rt_invoice_trip.all()
-        trip_amount = []
-        for shipment in trip_shipments:
-            invoice_amount = float(shipment.invoice_amount)
-            trip_amount.append(invoice_amount)
-        amount = round(sum(trip_amount),2)
-        return amount
+        return self.rt_invoice_trip.count()
 
     @property
     def total_trip_amount_value(self):
-        return self.total_trip_amount()
+        return self.trip_amount
 
     # @property
     def trip_weight(self):
@@ -1073,7 +1060,7 @@ class OrderedProduct(models.Model): #Shipment
             try:
                 self._invoice_amount += shipment_details['effective_price'] * shipment_details['shipped_qty']
                 self._cn_amount += (shipment_details['returned_qty']+shipment_details['damaged_qty']) * shipment_details['effective_price']
-                self._damaged_amount += damaged_qty * shipment_details['effective_price']
+                self._damaged_amount += shipment_details['damaged_qty'] * shipment_details['effective_price']
                 self._delivered_amount += self._invoice_amount - self._cn_amount
                 self._shipment_weight += (shipment_details.get('product__weight_value',0)) * shipped_qty
             except Exception as e:

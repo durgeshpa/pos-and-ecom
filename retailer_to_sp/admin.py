@@ -279,10 +279,8 @@ class OrderInvoiceSearch(InputFilter):
             invoice_no = self.value()
             if invoice_no is None:
                 return
-            ordered_products = OrderedProduct.objects.select_related('order').filter(invoice_no__icontains=invoice_no)
-            return queryset.filter(
-                id__in=[op.order_id for op in ordered_products]
-            )
+            queryset = queryset.filter(rt_order_order_product__invoice__invoice_no__icontains=invoice_no)
+            return queryset
 
 class ShipmentOrderIdSearch(InputFilter):
     parameter_name = 'order_id'
@@ -1166,7 +1164,7 @@ class DispatchNoSearch(InputFilter):
 class ExportCsvMixin:
     def export_as_csv_trip(self, request, queryset):
         meta = self.model._meta
-        list_display = ('created_at', 'dispatch_no', 'total_trip_shipments', 'total_trip_amount_value')
+        list_display = ('created_at', 'dispatch_no', 'total_trip_shipments', 'trip_amount')
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
