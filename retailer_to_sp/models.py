@@ -751,8 +751,6 @@ class Trip(models.Model):
     e_way_bill_no = models.CharField(max_length=50, blank=True, null=True)
     starts_at = models.DateTimeField(blank=True, null=True)
     completed_at = models.DateTimeField(blank=True, null=True)
-    trip_amount = models.DecimalField(blank=True, null=True,
-                                    max_digits=19, decimal_places=2)
     received_amount = models.DecimalField(blank=True, null=True,
                                     max_digits=19, decimal_places=2)
     #description = models.CharField(max_length=50, null=True, blank=True)
