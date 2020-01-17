@@ -834,7 +834,7 @@ class Trip(models.Model):
         for shipment in trip_shipments:
             cash_to_be_collected.append(
                 shipment.cash_to_be_collected())
-        return round(sum(cash_to_be_collected), 2)
+        return sum(cash_to_be_collected)
 
     def cash_collected_by_delivery_boy(self):
         cash_to_be_collected = []
@@ -1178,9 +1178,9 @@ class OrderedProduct(models.Model): #Shipment
 
     def cash_to_be_collected(self):
         # fetch the amount to be collected
-        if self.order.rt_payment.filter(payment_choice='cash_on_delivery').exists():
-            return round((self._invoice_amount - self._cn_amount),2)
-        return 0
+        # if self.order.rt_payment.filter(payment_choice='cash_on_delivery').exists():
+        return round((self._invoice_amount - self._cn_amount))
+        # return 0
 
 
     @property
@@ -1506,8 +1506,7 @@ class OrderedProductMapping(models.Model):
         if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.shipped_qty != sum([self.delivered_qty, self.returned_qty, self.damaged_qty]):
             raise ValidationError(_('delivered, returned, damaged qty sum mismatched with shipped_qty'))
         else:
-            if not self.effective_price:
-                self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().item_effective_prices
+            self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().item_effective_prices
             super().save(*args, **kwargs)
 
 
