@@ -868,9 +868,8 @@ class Trip(models.Model):
 
     @property
     def trip_amount(self):
-        return sum([s.invoice_amount for s in self.rt_invoice_trip.all()])
-        # return OrderedProductMapping.objects.filter(ordered_product__in=self.rt_invoice_trip.all())\
-        # .aggregate(invoice_amount=Sum(F('effective_price')*F('shipped_qty'), output_field=FloatField())).get('invoice_amount')
+        return OrderedProductMapping.objects.filter(ordered_product__in=self.rt_invoice_trip.all())\
+        .aggregate(invoice_amount=Sum(F('effective_price')*F('shipped_qty'), output_field=FloatField())).get('invoice_amount')
     
     @property
     def total_received_amount(self):
@@ -1500,13 +1499,16 @@ class OrderedProductMapping(models.Model):
             self.set_product_tax_json()
         return self.product_tax_json.get('tax_sum')
 
+    def get_effective_price(self):
+        return self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().item_effective_prices
+
     def save(self, *args, **kwargs):
         if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.shipped_qty != sum([self.delivered_qty, self.returned_qty, self.damaged_qty]):
             raise ValidationError(_('delivered, returned, damaged qty sum mismatched with shipped_qty'))
         else:
             super().save(*args, **kwargs)
             if self.ordered_product.shipment_status == OrderedProduct.READY_TO_SHIP:
-                self.effictive_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().item_effective_prices
+                self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().item_effective_prices
                 super().save(*args, **kwargs)
 
 
