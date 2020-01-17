@@ -1514,7 +1514,7 @@ class OrderedProductMapping(models.Model):
         return self.product_tax_json.get('tax_sum')
 
     def get_effective_price(self):
-        return self.effictive_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().item_effective_prices
+        return self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().item_effective_prices
 
     def save(self, *args, **kwargs):
         if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.shipped_qty != sum([self.delivered_qty, self.returned_qty, self.damaged_qty]):
