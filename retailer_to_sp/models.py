@@ -1521,7 +1521,7 @@ class OrderedProductMapping(models.Model):
             raise ValidationError(_('delivered, returned, damaged qty sum mismatched with shipped_qty'))
         else:
             super().save(*args, **kwargs)
-            if not self.effective_price and self.ordered_product.shipment_status != OrderedProduct.SHIPMENT_CREATED:
+            if not self.effective_price and self.ordered_product.shipment_status == OrderedProduct.READY_TO_SHIP:
                 self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().item_effective_prices
                 super().save(*args, **kwargs)
 
