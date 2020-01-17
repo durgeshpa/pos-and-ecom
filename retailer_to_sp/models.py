@@ -1513,7 +1513,7 @@ class OrderedProductMapping(models.Model):
             self.set_product_tax_json()
         return self.product_tax_json.get('tax_sum')
 
-    def effective_price(self):
+    def get_effective_price(self):
         return self.effictive_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().item_effective_prices
 
     def save(self, *args, **kwargs):
