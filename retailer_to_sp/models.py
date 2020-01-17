@@ -1192,7 +1192,7 @@ class OrderedProduct(models.Model): #Shipment
 
     def cash_to_be_collected(self):
         # fetch the amount to be collected
-        return (self._invoice_amount - self._cn_amount)
+        return round((self._invoice_amount - self._cn_amount))
 
 
     @property
