@@ -732,9 +732,12 @@ class Order(models.Model):
 
     @property
     def buyer_shop_with_mobile(self):
-        if self.buyer_shop:
-            return "%s - %s" % (self.buyer_shop, self.buyer_shop.shop_owner.phone_number)
-        return "-"
+        try:
+            if self.buyer_shop:
+                return "%s - %s" % (self.buyer_shop, self.buyer_shop.shop_owner.phone_number)
+            return "-"
+        except:
+            return "-"
 
 class Trip(models.Model):
     seller_shop = models.ForeignKey(
@@ -1891,9 +1894,11 @@ def assign_update_picker_to_shipment(shipment_id):
    if shipment.shipment_status == "SHIPMENT_CREATED":
        # assign shipment to picklist
        # tbd : if manual(by searching relevant picklist id) or automated
-       picker_lists = shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).update(shipment=shipment)
+       if shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).exists():
+           picker_lists = shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).update(shipment=shipment)
    elif shipment.shipment_status == OrderedProduct.READY_TO_SHIP:
-       shipment.picker_shipment.all().update(picking_status="picking_complete")
+       if shipment.picker_shipment.all().exists():
+           shipment.picker_shipment.all().update(picking_status="picking_complete")
 
 
 @receiver(post_save, sender=OrderedProduct)
@@ -1901,7 +1906,8 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
     '''
     Method to update picking status
     '''
-    assign_update_picker_to_shipment.delay(instance.id)
+    #assign_update_picker_to_shipment.delay(instance.id)
+    assign_update_picker_to_shipment(instance.id)
 
 
 @receiver(post_save, sender=Order)
