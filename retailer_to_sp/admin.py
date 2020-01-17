@@ -543,7 +543,7 @@ class ExportCsvMixin:
                                       'trip_completed_at','invoice_no','picking_status', 'picker_boy', 'picklist_id'] ]
 
                 row_items += [shipment.invoice_no, shipment.get_shipment_status_display(), shipment.return_reason, shipment.invoice_amount,
-                    shipment.trip.completed_at.date() if shipment.trip else '-', 
+                    shipment.trip.completed_at if shipment.trip else '-', 
                     shipment.picking_status, shipment.picker_boy, shipment.picklist_id]
 
                 #getattr(shipment, field) for field in list_display_s]
