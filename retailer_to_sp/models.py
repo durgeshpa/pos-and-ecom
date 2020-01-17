@@ -1506,10 +1506,8 @@ class OrderedProductMapping(models.Model):
         if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.shipped_qty != sum([self.delivered_qty, self.returned_qty, self.damaged_qty]):
             raise ValidationError(_('delivered, returned, damaged qty sum mismatched with shipped_qty'))
         else:
+            self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().item_effective_prices
             super().save(*args, **kwargs)
-            if self.ordered_product.shipment_status == OrderedProduct.READY_TO_SHIP:
-                self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().item_effective_prices
-                super().save(*args, **kwargs)
 
 
 class Dispatch(OrderedProduct):
