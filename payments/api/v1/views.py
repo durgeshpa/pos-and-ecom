@@ -250,7 +250,6 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                 return Response(msg,
                                 status=status.HTTP_406_NOT_ACCEPTABLE)
 
-
             with transaction.atomic():
                 if int(float(cash_collected)) > int(float(shipment.cash_to_be_collected())):
                     msg = {'is_success': False,
@@ -286,6 +285,16 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                     online_payment_type = item.get('online_payment_type', None)
                     description = item.get('description', None)
                     # create payment
+                    # import pdb; pdb.set_trace()
+                    # multiple checks
+                    sp = ShipmentPayment.objects.filter(
+                        shipment=shipment, 
+                        #paid_amount=paid_amount,
+                        parent_order_payment__parent_payment__payment_mode_name=payment_mode_name,
+                        parent_order_payment__parent_payment__online_payment_type=online_payment_type
+                        ) 
+                    if sp.exists(): # and round(sp.last().paid_amount)==round(sp.last().paid_amount):
+                        continue
                     payment = Payment.objects.create(
                         paid_amount = paid_amount,
                         payment_mode_name = payment_mode_name,
