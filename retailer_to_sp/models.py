@@ -1735,8 +1735,9 @@ def order_notification(sender, instance=None, created=False, **kwargs):
         activity_type = "ORDER_RECEIVED"
         from notification_center.models import Template
         template = Template.objects.get(type="ORDER_RECEIVED").id
-        from notification_center.tasks import send_notification
-        send_notification(user_id=user_id, activity_type=template, data=data)
+        # from notification_center.tasks import send_notification
+        # send_notification(user_id=user_id, activity_type=template, data=data)
+
         # send_notification.delay(json.dumps({'user_id':user_id, 'activity_type':activity_type, 'data':data}))
 
         # from notification_center.utils import SendNotification

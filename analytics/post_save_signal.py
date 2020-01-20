@@ -10,7 +10,7 @@ from decouple import config
 from products.models import Product, ProductPrice
 from retailer_to_sp.models import Order, OrderedProduct, Trip
 # from shops.models import ParentRetailerMapping
-from .api.v1.views import category_product_report, grn_report, master_report, order_report, retailer_report, shipment_report, trip_shipment_report,trip_report
+from .api.v1.views import category_product_report, grn_report, master_report, order_report, retailer_report, shipment_report, trip_shipment_report,trip_report, getStock
 from celery.task import task
 from celery import shared_task
 
@@ -111,4 +111,4 @@ def get_tripshipment_report(sender, instance=None, created=False, **kwargs):
 #     transaction.on_commit(lambda: requests.post(config('REDSHIFT_URL')+'/analytics/api/v1/retailer-report/',
 #                                                 data={'retailer_id': instance.retailer.id}))
 
-
+getStock()
