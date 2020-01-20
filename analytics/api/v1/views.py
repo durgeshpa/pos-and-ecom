@@ -290,11 +290,12 @@ def order_report(order_id):
             order_invoice = ''
             invoice_date = ''
             invoice_status = ''
-            ordered_sku_pieces = od.ordered_qty
-            shipped_sku_pieces = od.shipped_qty
-            delivered_sku_pieces = od.delivered_qty
-            returned_sku_pieces = od.returned_qty
-            damaged_sku_pieces = od.damaged_qty
+            for order_product in od.cart_product.rt_product_order_product.all():
+                ordered_sku_pieces = od.ordered_qty
+                shipped_sku_pieces = od.shipped_qty
+                delivered_sku_pieces = od.delivered_qty
+                returned_sku_pieces = od.returned_qty
+                damaged_sku_pieces = od.damaged_qty
             sales_person_name = ''
             if order.ordered_by:
                 sales_person_name = "{} {}".format(order.ordered_by.first_name, order.ordered_by.last_name)
