@@ -186,6 +186,12 @@ def master_report(seller_shop_id):
 def order_report(order_id):
     order = Order.objects.filter(id=order_id).last()
     seller_shop = order.seller_shop
+    ordered_sku_pieces = 0
+    shipped_sku_pieces = 0
+    delivered_sku_pieces = 0
+    returned_sku_pieces = 0
+    damaged_sku_pieces = 0
+
     if order.rt_order_order_product.all():
         for shipment in order.rt_order_order_product.all():
             for products in shipment.rt_order_product_order_product_mapping.all():
