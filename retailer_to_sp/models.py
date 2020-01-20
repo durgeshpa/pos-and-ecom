@@ -1966,21 +1966,19 @@ def order_notification(sender, instance=None, created=False, **kwargs):
 
         user_id = instance.order_id.ordered_by.id
         activity_type = "ORDER_RECEIVED"
+        from notification_center.models import Template
+        template = Template.objects.get(type="ORDER_RECEIVED").id
+        from notification_center.tasks import send_notification
+        send_notification(user_id=user_id, activity_type=template, data=data)
         try:
-            from notification_center.models import Template
-            template = Template.objects.get(type="ORDER_RECEIVED").id
-            from notification_center.tasks import send_notification
-            send_notification(user_id=user_id, activity_type=template, data=data)
-            try:
-                message = SendSms(phone=instance.order_id.buyer_shop.shop_owner.phone_number,
-                                 body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
-                                    " Thanks," \
-                                    " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
-                message.send()
-            except Exception as e:
-                logger.exception("Unable to send SMS for order : {}".format(order_no))
+            message = SendSms(phone=instance.order_id.buyer_shop.shop_owner.phone_number,
+                             body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
+                                " Thanks," \
+                                " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
+            message.send()
         except Exception as e:
-            logger.exception(e)
+            logger.exception("Unable to send SMS for order : {}".format(order_no))
+
 
 
 
