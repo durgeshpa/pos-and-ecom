@@ -54,6 +54,9 @@ class ShopMappedProduct(TemplateView):
 
 class ShopParentAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            qs = Shop.objects.none()
+            return qs
         shop_type = self.forwarded.get('shop_type', None)
         if shop_type:
             dt = {'r':'sp','sp':'gf'}
@@ -66,6 +69,9 @@ class ShopParentAutocomplete(autocomplete.Select2QuerySetView):
 
 class ShopRetailerAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            qs = Shop.objects.none()
+            return qs
         qs = Shop.objects.filter(shop_type__shop_type__in=['sp','r'],shop_name_address_mapping__address_type='shipping').distinct('id')
         if self.q:
             qs = qs.filter(Q(shop_owner__phone_number__icontains=self.q) | Q(shop_name__icontains=self.q))
