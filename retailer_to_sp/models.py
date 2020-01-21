@@ -107,7 +107,7 @@ def generate_picklist_id(pincode):
 
     return new_picklist_id
 
-class Round(Func):
+class RoundAmount(Func):
     function = "ROUND"
     template = "%(function)s(%(expressions)s::numeric, 0)"
 
@@ -873,7 +873,7 @@ class Trip(models.Model):
     @property
     def trip_amount(self):
         return self.rt_invoice_trip.all()\
-        .annotate(invoice_amount=Round(Sum(F('rt_order_product_order_product_mapping__effective_price')*F('rt_order_product_order_product_mapping__shipped_qty'))))\
+        .annotate(invoice_amount=RoundAmount(Sum(F('rt_order_product_order_product_mapping__effective_price')*F('rt_order_product_order_product_mapping__shipped_qty'))))\
         .aggregate(trip_amount=Sum(F('invoice_amount'), output_field=FloatField())).get('trip_amount')
     
     @property
