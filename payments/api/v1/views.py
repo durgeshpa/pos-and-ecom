@@ -291,7 +291,8 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                         shipment=shipment, 
                         #paid_amount=paid_amount,
                         parent_order_payment__parent_payment__payment_mode_name=payment_mode_name,
-                        parent_order_payment__parent_payment__online_payment_type=online_payment_type
+                        parent_order_payment__parent_payment__online_payment_type=online_payment_type,
+                        parent_order_payment__parent_payment__reference_no=reference_no
                         ) 
                     if sp.exists(): # and round(sp.last().paid_amount)==round(sp.last().paid_amount):
                         continue
