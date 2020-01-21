@@ -609,7 +609,7 @@ class Order(models.Model):
 
     @property
     def total_final_amount(self):
-        return self.ordered_cart.order_amount
+            return self.ordered_cart.order_amount
 
     @property
     def total_mrp_amount(self):

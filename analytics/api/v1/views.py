@@ -11,13 +11,18 @@ import datetime
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework import permissions, authentication
 from products.models import Product, ProductPrice
-from services.models import RetailerReports, OrderReports,GRNReports, MasterReports, OrderGrnReports, OrderDetailReportsData, CategoryProductReports, TripShipmentReport, TriReport
+from services.models import ShopStock, RetailerReports, OrderReports,GRNReports, MasterReports, OrderGrnReports, OrderDetailReportsData, CategoryProductReports, TripShipmentReport, TriReport
 from .serializers import ProductSerializer, ProductPriceSerializer, OrderSerializer, PurchaseOrderSerializer, ShopSerializer, ParentRetailerSerializer
 from rest_framework.response import Response
 from rest_framework import status
 from shops.models import Shop, ParentRetailerMapping
 from gram_to_brand.models import Order as PurchaseOrder
 from retailer_to_sp.models import Order, OrderedProduct, Trip
+from celery.task.schedules import crontab
+from celery.decorators import periodic_task
+from shops.models import Shop
+from sp_to_gram.models import OrderedProductMapping
+from django.db.models import Sum
 import logging
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -183,6 +188,7 @@ def master_report(seller_shop_id):
 
 @task(queue='analytics_tasks', routing_key='analytics')
 def order_report(order_id):
+    import pdb;pdb.set_trace()
     order = Order.objects.filter(id=order_id).last()
     seller_shop = order.seller_shop
     ordered_sku_pieces = 0
@@ -312,13 +318,13 @@ def order_report(order_id):
             delivery_boy = ''
             trip_created_at = None
 
-            OrderDetailReportsData.objects.create(invoice_id=invoice_id,order_invoice=order_invoice,invoice_date=invoice_date,invoice_modified_at=invoice_modified_at,invoice_last_modified_by=shipment_last_modified_by,invoice_status=invoice_status,
-                                                    order_id=order_id, seller_shop=seller_shop,order_status=order_status,order_date=order_date,order_modified_at=order_modified_at,
-                                                    order_by=order_by, retailer_id=retailer_id,retailer_name=retailer_name, pin_code=pin_code,product_id=product_id,product_name=product_name,
-                                                    product_brand=product_brand,product_mrp=product_mrp,selling_price=selling_price,item_effective_price=item_effective_price,product_value_tax_included=product_value_tax_included,
-                                                    ordered_sku_pieces=ordered_sku_pieces,shipped_sku_pieces=shipped_sku_pieces,delivered_sku_pieces=delivered_sku_pieces,returned_sku_pieces=returned_sku_pieces,damaged_sku_pieces=damaged_sku_pieces,
-                                                    product_cgst=product_cgst,product_sgst=product_sgst,product_igst=product_igst,product_cess=product_cess,sales_person_name=sales_person_name,order_type=order_type,
-                                                    campaign_name=campaign_name, discount=discount,trip_id=trip_id, trip_status=trip_status,delivery_boy=delivery_boy,trip_created_at=trip_created_at)
+    OrderDetailReportsData.objects.create(invoice_id=invoice_id,order_invoice=order_invoice,invoice_date=invoice_date,invoice_modified_at=invoice_modified_at,invoice_last_modified_by=shipment_last_modified_by,invoice_status=invoice_status,
+                                            order_id=order_id, seller_shop=seller_shop,order_status=order_status,order_date=order_date,order_modified_at=order_modified_at,
+                                            order_by=order_by, retailer_id=retailer_id,retailer_name=retailer_name, pin_code=pin_code,product_id=product_id,product_name=product_name,
+                                            product_brand=product_brand,product_mrp=product_mrp,selling_price=selling_price,item_effective_price=item_effective_price,product_value_tax_included=product_value_tax_included,
+                                            ordered_sku_pieces=ordered_sku_pieces,shipped_sku_pieces=shipped_sku_pieces,delivered_sku_pieces=delivered_sku_pieces,returned_sku_pieces=returned_sku_pieces,damaged_sku_pieces=damaged_sku_pieces,
+                                            product_cgst=product_cgst,product_sgst=product_sgst,product_igst=product_igst,product_cess=product_cess,sales_person_name=sales_person_name,order_type=order_type,
+                                            campaign_name=campaign_name, discount=discount,trip_id=trip_id, trip_status=trip_status,delivery_boy=delivery_boy,trip_created_at=trip_created_at)
 
 
 
@@ -445,21 +451,6 @@ def retailer_report(id):
                                                               service_partner_contact=service_partner_contact)
 
 
-@task(queue='analytics_tasks', routing_key='analytics')
-def trip_shipment_report(id):
-    trips = Trip.objects.get(pk=id)
-    i = 0
-    trip_id = trips.id
-    trip = trips.dispatch_no
-    trip_status = trips.trip_status
-    trip_created_at = trips.created_at
-    delivery_boy = trips.delivery_boy.first_name
-    for shipments in trips.rt_invoice_trip.all():
-        shipment_id = shipments.id
-        shipment = shipments.invoice_no
-        shipment_status = shipments.shipment_status
-    TripShipmentReport.objects.create(shipment_id=shipment_id,trip_id=trip_id, trip=trip,shipment=shipment,shipment_status=shipment_status, trip_status=trip_status,trip_created_at=trip_created_at, delivery_boy=delivery_boy)
-
 
 @task(queue='analytics_tasks', routing_key='analytics')
 def trip_report(trip_id):
@@ -503,64 +494,6 @@ def trip_report(trip_id):
                                                     total_trip_amount=total_trip_amount,total_trip_amount_value=total_trip_amount_value,trip_weight=trip_weight)
 
 
-
-
-
-# class RetailerProfileReport(CreateAPIView):
-#     permission_classes = (AllowAny,)
-#     serializer_class = ParentRetailerSerializer
-#     authentication_class = (authentication.TokenAuthentication,)
-#
-#
-#     # def get_unmapped_shops(self):
-#     #     retailers = ParentRetailerMapping.objects.filter(parent__isnull=True)
-#     #     for retailer in retailers:
-#     #         retailer_id = retailer.retailer.id
-#     #         retailer_name = retailer.retailer
-#     #         retailer_type = retailer.retailer.shop_type.shop_type
-#     #         retailer_phone_number = retailer.retailer.shop_owner.phone_number
-#     #         created_at = retailer.retailer.created_at
-#     #         RetailerReports.objects.using('gfanalytics').create(retailer_id=retailer_id, retailer_name=retailer_name,
-#     #                                                             retailer_type=retailer_type,
-#     #                                                             retailer_phone_number=retailer_phone_number,
-#     #                                                             created_at=created_at)
-#
-#     def create(self, request, *args, **kwargs):
-#         serializer = self.get_serializer(request.data)
-#         # shop = Shop.objects.get(pk=request.data.get("shop_id"))
-#         retailers = ParentRetailerMapping.objects.filter(retailer_id=request.data["retailer_id"], status=True)
-#         retailers_list = {}
-#         i = 0
-#         for retailer in retailers:
-#             i += 1
-#             retailer_id = retailer.retailer.id
-#             retailer_name = retailer.retailer
-#             retailer_type = retailer.retailer.shop_type.shop_type
-#             retailer_phone_number = retailer.retailer.shop_owner.phone_number
-#             created_at = retailer.retailer.created_at
-#             service_partner = retailer.parent.shop_name
-#             service_partner_id = retailer.parent.id or ''
-#             service_partner_contact = retailer.parent.shop_owner.phone_number if retailer.parent else ''
-#             RetailerReports.objects.using('dataanalytics').create(retailer_id=retailer_id, retailer_name=retailer_name,
-#                                                                 retailer_type=retailer_type,
-#                                                                 retailer_phone_number=retailer_phone_number,
-#                                                                 created_at=created_at, service_partner=service_partner,
-#                                                                 service_partner_id=service_partner_id,
-#                                                                 service_partner_contact=service_partner_contact)
-#         data = retailers_list
-#         return Response({"message": [""], "response_data": '', "is_success": True})
-
-
-from celery.task.schedules import crontab
-from celery.decorators import periodic_task
-from shops.models import Shop
-from sp_to_gram.models import OrderedProductMapping
-from django.db.models import Sum
-from services.models import ShopStock
-
-# @periodic_task(run_every=(crontab(hour=23)), name="some_task", ignore_result=True)
-# def some_task():
-#     print("hello world")
 
 @periodic_task(run_every=(crontab(hour='*/23')), name="getStock", ignore_result=True)
 def getStock():
