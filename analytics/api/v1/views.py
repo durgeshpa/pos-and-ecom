@@ -19,7 +19,6 @@ from shops.models import Shop, ParentRetailerMapping
 from gram_to_brand.models import Order as PurchaseOrder
 from retailer_to_sp.models import Order, OrderedProduct, Trip
 import logging
-logging.basicConfig(filename='data.log', filemode='a', format='%(asctime)s %(message)s')
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 

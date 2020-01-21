@@ -287,7 +287,7 @@ class OrderDetailReportsData(models.Model):
     event_occurred_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return "%s"%(self.order_invoice)
+        return "%s"%(self.order_id)
 
 class CartProductMappingData(models.Model):
     qty = models.CharField(max_length=255, null=True)
