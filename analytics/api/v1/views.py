@@ -188,7 +188,6 @@ def master_report(seller_shop_id):
 
 @task(queue='analytics_tasks', routing_key='analytics')
 def order_report(order_id):
-    import pdb;pdb.set_trace()
     order = Order.objects.filter(id=order_id).last()
     seller_shop = order.seller_shop
     ordered_sku_pieces = 0

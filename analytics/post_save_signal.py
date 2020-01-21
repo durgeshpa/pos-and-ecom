@@ -25,7 +25,7 @@ def get_category_product_report(sender, instance=None, created=False, **kwargs):
 
 @receiver(post_save, sender=PurchaseOrder)
 def get_grn_report(sender, instance=None, created=False, **kwargs):
-    transaction.on_commit(lambda: grn_report.delay(instance.order.id))
+    transaction.on_commit(lambda: grn_report.delay(instance.id))
 
 @receiver(post_save, sender=ProductPrice)
 def get_master_report(sender, instance=None, created=False, **kwargs):
