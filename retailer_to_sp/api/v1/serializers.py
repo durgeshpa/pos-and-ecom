@@ -1057,7 +1057,7 @@ class TripSerializer(serializers.ModelSerializer):
                                         source='get_trip_status_display')
 
     def get_total_trip_amount(self, obj):
-        return obj.total_trip_amount()
+        return obj.total_trip_amount_value #total_trip_amount()
 
     def get_cash_to_be_collected(self, obj):
         return obj.cash_collected_by_delivery_boy()
