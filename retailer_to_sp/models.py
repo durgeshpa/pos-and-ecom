@@ -6,7 +6,7 @@ from celery.task import task
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import F, FloatField, Sum
+from django.db.models import F, FloatField, Sum, Func, Q
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils.safestring import mark_safe
@@ -39,7 +39,6 @@ from django.core.validators import RegexValidator
 from django.contrib.postgres.fields import JSONField
 from analytics.post_save_signal import get_order_report
 from coupon.models import Coupon, CusotmerCouponUsage
-from django.db.models import Sum, Func, Q
 from retailer_backend import common_function
 
 
@@ -1041,8 +1040,6 @@ class OrderedProduct(models.Model): #Shipment
         get_user_model(), related_name='rt_last_modified_user_order',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
-    #payment_status = models.CharField(max_length=50,choices=PAYMENT_STATUS, null=True, blank=True)
-    #is_payment_approved = models.BooleanField(default=False)
     no_of_crates = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Crates Shipped")
     no_of_packets = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Packets Shipped")
     no_of_sacks = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Sacks Shipped")
@@ -1066,8 +1063,6 @@ class OrderedProduct(models.Model): #Shipment
                                                                                'damaged_qty', 'product__weight_value', 'effective_price').all()
         for shipment_details in shipment_products:
             try:
-                self._invoice_amount += shipment_details['effective_price'] * shipment_details['shipped_qty']
-                self._cn_amount += (shipment_details['returned_qty']+shipment_details['damaged_qty']) * shipment_details['effective_price']
                 self._damaged_amount += shipment_details['damaged_qty'] * shipment_details['effective_price']
                 self._delivered_amount += self._invoice_amount - self._cn_amount
                 self._shipment_weight += (shipment_details.get('product__weight_value',0)) * shipped_qty
@@ -1089,8 +1084,22 @@ class OrderedProduct(models.Model): #Shipment
                 raise ValidationError(_("The number of crates must be equal to the number of crates shipped during shipment"))
 
     @property
+    def invoice_amount(self):
+        return self.rt_order_product_order_product_mapping.all()\
+        .aggregate(inv_amt=Sum(F('effective_price')*F('shipped_qty'))).get('inv_amt')
+    
+    @property
+    def credit_note_amount(self):
+        return self.rt_order_product_order_product_mapping.all()\
+        .aggregate(cn_amt=Sum(F('effective_price')* (F('shipped_qty')-F('delivered_qty')))).get('cn_amt')
+    
+    @property
     def shipment_weight(self):
-        return self._shipment_weight
+        try:
+            return self.rt_order_product_order_product_mapping.all()\
+            .aggregate(total_weight=Sum(F('product__weight_value')* F('shipped_qty'))).get('total_weight')
+        except:
+            return 0
 
     @property
     def shipment_address(self):
@@ -1183,16 +1192,7 @@ class OrderedProduct(models.Model): #Shipment
 
     def cash_to_be_collected(self):
         # fetch the amount to be collected
-        return round((self._invoice_amount - self._cn_amount))
-
-
-    @property
-    def invoice_amount(self):
-        if self.order:
-            # if hasattr(self, 'invoice'):
-            #     return self.invoice.invoice_amount
-            return round(self._invoice_amount)
-        return str("-")
+        return round((self.invoice_amount - self.credit_note_amount))    
 
     @property
     def invoice_no(self):
@@ -1226,11 +1226,10 @@ class OrderedProduct(models.Model): #Shipment
     def picklist_id(self):
         return self.picking_data()[2]
 
-    def cn_amount(self):
-        return round(self._cn_amount, 2)
 
     def damaged_amount(self):
-        return round(self._damaged_amount, 2)
+        return self.rt_order_product_order_product_mapping.all()\
+        .aggregate(cn_amt=Sum(F('effective_price')* F('damaged_qty'))).get('cn_amt')
 
     def clean(self):
         super(OrderedProduct, self).clean()
@@ -1503,7 +1502,7 @@ class OrderedProductMapping(models.Model):
         return self.product_tax_json.get('tax_sum')
 
     def get_effective_price(self):
-        return self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().item_effective_prices
+        return self.effective_price
 
     def save(self, *args, **kwargs):
         if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.shipped_qty != sum([self.delivered_qty, self.returned_qty, self.damaged_qty]):
