@@ -39,8 +39,7 @@ from django.core.validators import RegexValidator
 from django.contrib.postgres.fields import JSONField
 from analytics.post_save_signal import get_order_report
 from coupon.models import Coupon, CusotmerCouponUsage
-from django.db.models import Sum
-from django.db.models import Q
+from django.db.models import Sum, Func, Q
 from retailer_backend import common_function
 
 
@@ -107,6 +106,11 @@ def generate_picklist_id(pincode):
         new_picklist_id = "PIK/" + str(pincode)[-2:] +"/" +str(1)
 
     return new_picklist_id
+
+class Round(Func):
+    function = "ROUND"
+    template = "%(function)s(%(expressions)s::numeric, 0)"
+
 
 
 class Cart(models.Model):
@@ -868,8 +872,9 @@ class Trip(models.Model):
 
     @property
     def trip_amount(self):
-        return OrderedProductMapping.objects.filter(ordered_product__in=self.rt_invoice_trip.all())\
-        .aggregate(invoice_amount=Sum(F('effective_price')*F('shipped_qty'), output_field=FloatField())).get('invoice_amount')
+        return self.rt_invoice_trip.all()\
+        .annotate(invoice_amount=Round(Sum(F('rt_order_product_order_product_mapping__effective_price')*F('rt_order_product_order_product_mapping__shipped_qty'))))\
+        .aggregate(trip_amount=Sum(F('invoice_amount'), output_field=FloatField())).get('trip_amount')
     
     @property
     def total_received_amount(self):
@@ -1178,9 +1183,7 @@ class OrderedProduct(models.Model): #Shipment
 
     def cash_to_be_collected(self):
         # fetch the amount to be collected
-        # if self.order.rt_payment.filter(payment_choice='cash_on_delivery').exists():
         return round((self._invoice_amount - self._cn_amount))
-        # return 0
 
 
     @property
