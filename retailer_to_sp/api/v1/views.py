@@ -892,24 +892,13 @@ class DownloadInvoiceSP(APIView):
     template_name = 'admin/invoice/invoice_sp.html'
 
     def get(self, request, *args, **kwargs):
-        order_obj = get_object_or_404(OrderedProduct, pk=self.kwargs.get('pk'))
-
-        #order_obj1= get_object_or_404(OrderedProductMapping)
-        pk=self.kwargs.get('pk')
-        a = OrderedProduct.objects.get(pk=pk)
-        shop=a
-        inv = a.invoice_no
-        barcode = barcodeGen(a.invoice_no)
-        payment_type=''
-        products = a.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0)
-        if a.order.rt_payment.filter(order_id=a.order).exists():
-            payment_type = a.order.rt_payment.last().payment_choice
-        order_id= a.order.order_no
-        shop_id = shop.order.buyer_shop.id
+        shipment = get_object_or_404(OrderedProduct, pk=self.kwargs.get('pk'))
+        barcode = barcodeGen(shipment.invoice_no)
+        payment_type='cash_on_delivery'
         try:
-            if shop.order.buyer_shop.shop_timing:
-                open_time=shop.order.buyer_shop.shop_timing.open_timing
-                close_time=shop.order.buyer_shop.shop_timing.closing_timing
+            if shipment.order.buyer_shop.shop_timing:
+                open_time=shipment.order.buyer_shop.shop_timing.open_timing
+                close_time=shipment.order.buyer_shop.shop_timing.closing_timing
                 if open_time=='midnight' and close_time=='midnight':
                     open_time='-'
                     close_time='-'
@@ -917,28 +906,9 @@ class DownloadInvoiceSP(APIView):
             else:
                 open_time='-'
                 close_time='-'
-        except Exception as e:
-            open_time='-'
-            close_time='-'
-        no_of_crates = a.no_of_crates
-        no_of_packets = a.no_of_packets
-        no_of_sacks = a.no_of_sacks
-        sum_qty = 0
-        sum_amount=0
-        tax_inline=0
-        total_tax_sum = 0
-        taxes_list = []
-        gst_tax_list= []
-        cess_tax_list= []
-        surcharge_tax_list=[]
-        for z in shop.order.seller_shop.shop_name_address_mapping.all():
-            shop_name_gram= z.shop_name
-            nick_name_gram= z.nick_name
-            address_line1_gram= z.address_line1
-            city_gram= z.city
-            state_gram= z.state
-            pincode_gram= z.pincode
-            address_contact_number= z.address_contact_number
+        except:
+            open_time = '-'
+            close_time = '-'
 
         seller_shop_gistin = '---'
         buyer_shop_gistin = '---'
@@ -1049,7 +1019,6 @@ class DownloadInvoiceSP(APIView):
         return response
 
 
-
 class DownloadNote(APIView):
     permission_classes = (AllowAny,)
     """
@@ -1154,7 +1123,7 @@ class PaymentApi(APIView):
         msg = {'is_success': True, 'message': ['All Payments'], 'response_data': serializer.data}
         return Response(msg, status=status.HTTP_201_CREATED)
 
-    def post(self,request):
+    def post(self,request): #TODO : Has to be updated as per new payment flow
         order_id=self.request.POST.get('order_id')
         payment_choice =self.request.POST.get('payment_choice')
         paid_amount =self.request.POST.get('paid_amount')
@@ -1203,21 +1172,6 @@ class PaymentApi(APIView):
             serializer = OrderSerializer(
                 order,context={'parent_mapping_id': parent_mapping.parent.id,
                                'buyer_shop_id': shop_id})
-
-        elif parent_mapping.parent.shop_type.shop_type == 'gf':
-
-            try:
-                order = GramMappedOrder.objects.get(id=order_id)
-            except ObjectDoesNotExist:
-                msg['message'] = ["No order found"]
-                return Response(msg, status=status.HTTP_200_OK)
-
-            payment = GramMappedPayment(order_id=order,paid_amount=paid_amount,payment_choice=payment_choice,
-                                        neft_reference_number=neft_reference_number,imei_no=imei_no)
-            payment.save()
-            order.order_status = 'opdp'
-            order.save()
-            serializer = GramMappedOrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id})
 
         if serializer.data:
             msg = {'is_success': True,'message': None,'response_data': serializer.data}

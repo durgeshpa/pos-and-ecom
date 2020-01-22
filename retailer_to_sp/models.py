@@ -6,7 +6,7 @@ from celery.task import task
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import F, FloatField, Sum
+from django.db.models import F, FloatField, Sum, Func, Q
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils.safestring import mark_safe
@@ -39,7 +39,6 @@ from django.core.validators import RegexValidator
 from django.contrib.postgres.fields import JSONField
 from analytics.post_save_signal import get_order_report
 from coupon.models import Coupon, CusotmerCouponUsage
-from django.db.models import Sum, Func, Q
 from retailer_backend import common_function
 
 
@@ -1041,8 +1040,6 @@ class OrderedProduct(models.Model): #Shipment
         get_user_model(), related_name='rt_last_modified_user_order',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
-    #payment_status = models.CharField(max_length=50,choices=PAYMENT_STATUS, null=True, blank=True)
-    #is_payment_approved = models.BooleanField(default=False)
     no_of_crates = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Crates Shipped")
     no_of_packets = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Packets Shipped")
     no_of_sacks = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Sacks Shipped")
@@ -1056,29 +1053,6 @@ class OrderedProduct(models.Model): #Shipment
     class Meta:
         verbose_name = 'Update Delivery/ Returns/ Damage'
 
-    def initialize_shipment(self):
-        self._invoice_amount = 0
-        self._cn_amount = 0
-        self._damaged_amount = 0
-        self._delivered_amount = 0
-        self._shipment_weight = 0
-        shipment_products = self.rt_order_product_order_product_mapping.values('product','shipped_qty','returned_qty',
-                                                                               'damaged_qty', 'product__weight_value', 'effective_price').all()
-        for shipment_details in shipment_products:
-            try:
-                self._invoice_amount += shipment_details['effective_price'] * shipment_details['shipped_qty']
-                self._cn_amount += (shipment_details['returned_qty']+shipment_details['damaged_qty']) * shipment_details['effective_price']
-                self._damaged_amount += shipment_details['damaged_qty'] * shipment_details['effective_price']
-                self._delivered_amount += self._invoice_amount - self._cn_amount
-                self._shipment_weight += (shipment_details.get('product__weight_value',0)) * shipped_qty
-            except Exception as e:
-                logger.exception("Exception occurred {}".format(e))
-
-    def __init__(self, *args, **kwargs):
-        super(OrderedProduct, self).__init__(*args, **kwargs)
-        if self.order:
-            self.initialize_shipment()
-
     def __str__(self):
         return self.invoice_no
 
@@ -1089,8 +1063,22 @@ class OrderedProduct(models.Model): #Shipment
                 raise ValidationError(_("The number of crates must be equal to the number of crates shipped during shipment"))
 
     @property
+    def invoice_amount(self):
+        return self.rt_order_product_order_product_mapping.all()\
+        .aggregate(inv_amt= RoundAmount(Sum(F('effective_price')*F('shipped_qty')),output_field=FloatField()) ).get('inv_amt')
+    
+    @property
+    def credit_note_amount(self):
+        return self.rt_order_product_order_product_mapping.all()\
+        .aggregate(cn_amt=RoundAmount(Sum(F('effective_price')* (F('shipped_qty')-F('delivered_qty')),output_field=FloatField()))).get('cn_amt')
+        
+    @property
     def shipment_weight(self):
-        return self._shipment_weight
+        try:
+            return self.rt_order_product_order_product_mapping.all()\
+            .aggregate(total_weight=Sum(F('product__weight_value')* F('shipped_qty'),output_field=FloatField())).get('total_weight')
+        except:
+            return 0
 
     @property
     def shipment_address(self):
@@ -1103,15 +1091,14 @@ class OrderedProduct(models.Model): #Shipment
         return str("-")
 
     def payment_approval_status(self):
-        payments = self.shipment_payment.all()
-        status = "-"
-        for payment in payments:
-            status = "approved_and_verified"
-            payment_status = payment.parent_order_payment.parent_payment.payment_approval_status
-            if payment_status == "pending_approval":
-                return "pending_approval"
-        else:
-            return  status
+        if not self.shipment_payment.all().exists():
+            return "-"
+
+        non_approved_payment = self.shipment_payment.exclude(parent_order_payment__parent_payment__payment_approval_status='approved_and_verified').first()
+        if non_approved_payment:
+            return non_approved_payment.parent_order_payment.parent_payment.payment_approval_status
+        
+        return "approved_and_verified"
 
     def online_payment_approval_status(self):
         payments = self.shipment_payment.all().exclude(parent_order_payment__parent_payment__payment_mode_name="cash_payment")
@@ -1124,30 +1111,13 @@ class OrderedProduct(models.Model): #Shipment
                         ) for s in payments)
                 )
 
-
-    def payments(self):
-        if hasattr(self, '_payment_mode'):
-            return self._payment_mode, self._payment_amount
-        else:
-            self._payment_mode = []
-            self._payment_amount = []
-            if self.order:
-                payments = self.order.rt_payment.values('payment_choice', 'paid_amount').all()
-                for payment in payments:
-                    self._payment_mode.append(dict(PAYMENT_MODE_CHOICES)[payment['payment_choice']])
-                    self._payment_amount.append(float(payment['paid_amount']))
-        return self._payment_mode, self._payment_amount
-
     def total_payment(self):
-        from payments.models import ShipmentPayment
         shipment_payment = self.shipment_payment.exclude(parent_order_payment__parent_payment__payment_status='cancelled')
         total_payment = cash_payment = online_payment = 0
         if shipment_payment.exists():
             shipment_payment_data = shipment_payment.aggregate(Sum('paid_amount')) #annotate(sum_paid_amount=Sum('paid_amount'))
             shipment_payment_cash = shipment_payment.filter(parent_order_payment__parent_payment__payment_mode_name="cash_payment").aggregate(Sum('paid_amount'))
             shipment_payment_online = shipment_payment.filter(parent_order_payment__parent_payment__payment_mode_name="online_payment").aggregate(Sum('paid_amount'))
-        # shipment_payment = ShipmentPayment.objects.filter(shipment__in=trip_shipments).\
-        #     annotate(sum_paid_amount=Sum('paid_amount'))
             if shipment_payment_data['paid_amount__sum']:
                 total_payment = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
             if shipment_payment_cash['paid_amount__sum']:
@@ -1172,27 +1142,31 @@ class OrderedProduct(models.Model): #Shipment
         return online_payment
 
     @property
-    def payment_mode(self):
-        payment_mode, _ = self.payments()
-        return payment_mode
-
-    @property
     def invoice_city(self):
         city = self.order.shipping_address.city
         return str(city)
 
     def cash_to_be_collected(self):
         # fetch the amount to be collected
-        return round((self._invoice_amount - self._cn_amount))
+        return (self.invoice_amount - self.credit_note_amount)  
+    
+    def total_shipped_pieces(self):
+        return self.rt_order_product_order_product_mapping.all()\
+        .aggregate(cn_amt=Sum(F('shipped_qty'))).get('cn_amt')
 
+    def sum_amount_tax(self):
+        return sum([item.product_tax_amount for item in self.rt_order_product_order_product_mapping.all()])   
 
-    @property
-    def invoice_amount(self):
-        if self.order:
-            # if hasattr(self, 'invoice'):
-            #     return self.invoice.invoice_amount
-            return round(self._invoice_amount)
-        return str("-")
+    def sum_cess(self):
+        return sum([item.product_tax_json() for item in self.rt_order_product_order_product_mapping.all()])   
+
+    def sum_cgst(self):
+        return self.rt_order_product_order_product_mapping.all()\
+        .aggregate(cn_amt=RoundAmount(Sum(F('effective_price')* (F('shipped_qty')-F('delivered_qty'))))).get('cn_amt')
+
+    def sum_sgst(self):
+        return sum([item.product_tax_json.get('6',{}).get("CESS - 12") for item in self.rt_order_product_order_product_mapping.all()])   
+    
 
     @property
     def invoice_no(self):
@@ -1207,7 +1181,6 @@ class OrderedProduct(models.Model): #Shipment
         return self.id
 
     def picking_data(self):
-        #picker_shipment = PickerDashboard.objects.filter(shipment=self.id)
         if self.picker_shipment.all().exists():
             picker_data = self.picker_shipment.last()
             return [picker_data.get_picking_status_display(), picker_data.picker_boy, picker_data.picklist_id]
@@ -1226,11 +1199,10 @@ class OrderedProduct(models.Model): #Shipment
     def picklist_id(self):
         return self.picking_data()[2]
 
-    def cn_amount(self):
-        return round(self._cn_amount, 2)
 
     def damaged_amount(self):
-        return round(self._damaged_amount, 2)
+        return self.rt_order_product_order_product_mapping.all()\
+        .aggregate(cn_amt=Sum(F('effective_price')* F('damaged_qty'))).get('cn_amt')
 
     def clean(self):
         super(OrderedProduct, self).clean()
@@ -1250,6 +1222,24 @@ class OrderedProduct(models.Model): #Shipment
             self.no_of_sacks = 0
 
         super().save(*args, **kwargs)
+
+    def payments(self):
+        if hasattr(self, '_payment_mode'):
+            return self._payment_mode, self._payment_amount
+        else:
+            self._payment_mode = []
+            self._payment_amount = []
+            if self.order:
+                payments = self.order.rt_payment.values('payment_choice', 'paid_amount').all()
+                for payment in payments:
+                    self._payment_mode.append(dict(PAYMENT_MODE_CHOICES)[payment['payment_choice']])
+                    self._payment_amount.append(float(payment['paid_amount']))
+        return self._payment_mode, self._payment_amount
+
+    @property
+    def payment_mode(self):
+        payment_mode, _ = self.payments()
+        return payment_mode
 
 
 class Invoice(models.Model):
@@ -1376,7 +1366,6 @@ class OrderedProductMapping(models.Model):
     @property
     def shipped_quantity_including_current(self):
         all_ordered_product = self.ordered_product.order.rt_order_order_product.filter(created_at__lte=self.ordered_product.created_at)#all()
-        #all_ordered_product_exclude_current = all_ordered_product.exclude(id=self.ordered_product_id)
         qty = OrderedProductMapping.objects.filter(
             ordered_product__in=all_ordered_product,
             product=self.product)
@@ -1389,16 +1378,12 @@ class OrderedProductMapping(models.Model):
     @property
     def to_be_shipped_qty(self):
         all_ordered_product = self.ordered_product.order.rt_order_order_product.all()
-        #all_ordered_product_exclude_current = all_ordered_product.exclude(id=self.ordered_product_id)
         qty = OrderedProductMapping.objects.filter(
             ordered_product__in=all_ordered_product,
             product=self.product)
         to_be_shipped_qty = qty.aggregate(
             Sum('shipped_qty')).get('shipped_qty__sum', 0)
-        # returned_qty = qty.aggregate(
-        #     Sum('returned_qty')).get('returned_qty__sum', 0)
         to_be_shipped_qty = to_be_shipped_qty if to_be_shipped_qty else 0
-        # to_be_shipped_qty = to_be_shipped_qty - returned_qty
         return to_be_shipped_qty
     to_be_shipped_qty.fget.short_description = "Already Shipped Qty"
 
@@ -1441,8 +1426,8 @@ class OrderedProductMapping(models.Model):
 
     @property
     def price_to_retailer(self):
-        if self.effictive_price:
-            return self.effictive_price
+        if self.effective_price:
+            return self.effective_price
         return self.ordered_product.order.ordered_cart.rt_cart_list\
             .get(cart_product=self.product).item_effective_prices
 
@@ -1477,6 +1462,26 @@ class OrderedProductMapping(models.Model):
     def product_short_description(self):
         return self.product.product_short_description
 
+    @property
+    def basic_rate(self):
+        get_tax_val = self.get_product_tax_json() / 100
+        basic_rate = (float(self.effective_price)) / (float(get_tax_val) + 1)
+        return round(basic_rate,2)
+    
+    @property
+    def base_price(self):
+        return self.basic_rate * self.shipped_qty
+
+    @property
+    def product_tax_amount(self):
+        get_tax_val = self.get_product_tax_json() / 100
+        return round(float(self.base_price) * float(get_tax_val),2)
+    
+    @property
+    def product_sub_total(self):
+        return round(self.effective_price * self.shipped_qty,2)
+    
+    
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
             shop__shop_type__shop_type='sp', status=True
@@ -1496,6 +1501,9 @@ class OrderedProductMapping(models.Model):
         self.product_tax_json = product_tax
         self.save()
 
+    # def product_taxes(self):
+    #     for tax in self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name','tax__tax_percentage'):
+            
 
     def get_product_tax_json(self):
         if not self.product_tax_json:
@@ -1503,7 +1511,9 @@ class OrderedProductMapping(models.Model):
         return self.product_tax_json.get('tax_sum')
 
     def get_effective_price(self):
-        return self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().item_effective_prices
+        return round(self.effective_price,2)
+
+
 
     def save(self, *args, **kwargs):
         if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.shipped_qty != sum([self.delivered_qty, self.returned_qty, self.damaged_qty]):
