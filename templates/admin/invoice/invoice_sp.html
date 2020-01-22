@@ -204,7 +204,7 @@ table tr td,th,h4,span,address{
     								<td class="no-line"></td>
 										<td class="no-line"></td>
     								<td class="no-line text-center"><strong>CGST</strong></td>
-    								<td class="no-line text-right"><strong>₹{{shipment.cgst | floatformat:2 }}/-</strong></td>
+    								<td class="no-line text-right"><strong>₹{{cgst | floatformat:2 }}/-</strong></td>
     							</tr>
 								<tr style="display:none">
 
@@ -221,7 +221,7 @@ table tr td,th,h4,span,address{
     								<td class="no-line"></td>
 										<td class="no-line"></td>
     								<td class="no-line text-center"><strong>SGST</strong></td>
-    								<td class="no-line text-right"><strong>₹ {{shipment.sgst | floatformat:2 }}/-</strong></td>
+    								<td class="no-line text-right"><strong>₹ {{sgst | floatformat:2 }}/-</strong></td>
     							</tr>
 									{% else %}
 									<tr style="display:none">
@@ -239,7 +239,7 @@ table tr td,th,h4,span,address{
 	    								<td class="no-line"></td>
 											<td class="no-line"></td>
 	    								<td class="no-line text-center"><strong>IGST</strong></td>
-	    								<td class="no-line text-right"><strong>₹ {{shipment.igst | floatformat:2 }}/-</strong></td>
+	    								<td class="no-line text-right"><strong>₹ {{igst | floatformat:2 }}/-</strong></td>
 	    							</tr>
 								<tr style="display:none">
 
@@ -257,7 +257,7 @@ table tr td,th,h4,span,address{
     								<td class="no-line"></td>
 										<td class="no-line"></td>
     								<td class="no-line text-center"><strong>Cess</strong></td>
-    								<td class="no-line text-right"><strong>₹ {{shipment.sum_cess | floatformat:2 }}/-</strong></td>
+    								<td class="no-line text-right"><strong>₹ {{cess | floatformat:2 }}/-</strong></td>
     							</tr>
 									<tr style="display:none">
 
@@ -275,7 +275,7 @@ table tr td,th,h4,span,address{
 	    								<td class="no-line"></td>
 											<td class="no-line"></td>
 	    								<td class="no-line text-center"><strong>Surcharge</strong></td>
-	    								<td class="no-line text-right"><strong>₹ {{shipment.surcharge | floatformat:2 }}/-</strong></td>
+	    								<td class="no-line text-right"><strong>₹ {{surcharge | floatformat:2 }}/-</strong></td>
 	    							</tr>
 
     							<tr>
