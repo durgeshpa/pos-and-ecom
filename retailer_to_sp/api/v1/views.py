@@ -926,6 +926,7 @@ class DownloadInvoiceSP(APIView):
         data = {
             "shipment": shipment,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http", 
         }
+
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
