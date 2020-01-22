@@ -16,6 +16,8 @@ def create_reserved_order(reserved_args):
     shop_id = params['shop_id']
     products = params['products']
     cart = Cart.objects.get(pk=cart_id)
+    if OrderedProductReserved.objects.filter(cart=cart, reserve_status='reserved').exists():
+        return "Cart items already reserved"
     grns = OrderedProductMapping.objects.filter(
         Q(shop__id=shop_id),
         Q(product__id__in=products.keys()),
