@@ -1246,7 +1246,7 @@ class ShipmentInlineAdmin(admin.TabularInline):
 class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
     #change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
     #inlines = [ShipmentInlineAdmin]
-    actions = ["change_trip_status", "export_as_csv_commercial",]
+    actions = ["export_as_csv_commercial",]
     list_display = (
         'dispatch_no', 'trip_amount', 'cash_to_be_collected', 'download_trip_pdf', 'delivery_boy',
         'vehicle_no', 'trip_status', 'starts_at', 'completed_at',
@@ -1276,10 +1276,6 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
                    ('completed_at', DateTimeRangeFilter), VehicleNoSearch,
                    DispatchNoSearch]
     form = CommercialForm
-
-    def change_trip_status(self, request, queryset):
-        queryset.filter(trip_status='CLOSED').update(trip_status='TRANSFERRED')
-    change_trip_status.short_description = "Mark selected Trips as Transferred"
 
     def cash_to_be_collected(self, obj):
         return obj.cash_to_be_collected()
@@ -1314,12 +1310,11 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
     def get_queryset(self, request):
         qs = super(CommercialAdmin, self).get_queryset(request)
         if request.user.is_superuser:
-            return qs.filter(trip_status__in=['COMPLETED', 'CLOSED',
-                                              'TRANSFERRED'])
+            return qs.filter(trip_status__in=['RETURN_V', 'PAYMENT_V'])
         return qs.filter(
             Q(seller_shop__related_users=request.user) |
             Q(seller_shop__shop_owner=request.user),
-            trip_status__in=['COMPLETED', 'CLOSED', 'TRANSFERRED'])
+            trip_status__in=['RETURN_V', 'PAYMENT_V'])
 
     def download_trip_pdf(self, obj):
         return format_html("<a href= '%s' >Download Trip PDF</a>"%(reverse('download_trip_pdf', args=[obj.pk])))

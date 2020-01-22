@@ -270,7 +270,7 @@ function CreateResponseTable(data){
       }
   });
   displaySelectedCount();
-  if (GetTripStatus() == 'COMPLETED'|| GetTripStatus() == 'STARTED'){
+  if (GetTripStatus() == 'COMPLETED'|| GetTripStatus() == 'STARTED' || GetTripStatus() == 'RETURN_V'){
     $(".shipment_checkbox").prop("checked", true);
     $(".shipment_checkbox").attr("disabled", true);
     $(".selected_invoice_count").hide();

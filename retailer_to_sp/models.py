@@ -80,8 +80,8 @@ TRIP_STATUS = (
     ('STARTED', 'Started'),
     ('COMPLETED', 'Completed'),
 #   ('READY_FOR_COMMERCIAL', 'Ready for commercial'),
-    ('CLOSED', 'Closed'),
-    ('TRANSFERRED', 'Transferred')
+    ('RETURN_V', 'Return Verified'),
+    ('PAYMENT_V', 'Payment Verified'),
 )
 
 PAYMENT_STATUS = (
@@ -767,47 +767,39 @@ class Trip(models.Model):
             delivery_boy_identifier
         )
 
+    def get_crates_packets_sacks(self):
+        data = self.rt_invoice_trip.aggregate(
+            crates_shipped=Sum('no_of_crates'),
+            packets_shipped=Sum('no_of_packets'),
+            sacks_shipped=Sum('no_of_sacks'),
+            crates_collected=Sum('no_of_crates_check'),
+            packets_collected=Sum('no_of_packets_check'),
+            sacks_collected=Sum('no_of_sacks_check'))
+        return data
+
     @property
     def total_crates_shipped(self):
-        sum_crates_shipped = 0
-        for m in self.rt_invoice_trip.all():
-            sum_crates_shipped+=m.no_of_crates
-        return sum_crates_shipped
+        return self.get_crates_packets_sacks().get('crates_shipped')
 
     @property
     def total_packets_shipped(self):
-        sum_packets_shipped = 0
-        for m in self.rt_invoice_trip.all():
-            sum_packets_shipped+=m.no_of_packets
-        return sum_packets_shipped
+        return self.get_crates_packets_sacks().get('packets_shipped')
 
     @property
     def total_sacks_shipped(self):
-        sum_sacks_shipped = 0
-        for m in self.rt_invoice_trip.all():
-            sum_sacks_shipped+=m.no_of_sacks
-        return sum_sacks_shipped
+        return self.get_crates_packets_sacks().get('sacks_shipped')
 
     @property
     def total_crates_collected(self):
-        sum_crates_collected = 0
-        for m in self.rt_invoice_trip.all():
-            sum_crates_collected+=m.no_of_crates_check
-        return sum_crates_collected
+        return self.get_crates_packets_sacks().get('crates_collected')
 
     @property
     def total_packets_collected(self):
-        sum_packets_collected = 0
-        for m in self.rt_invoice_trip.all():
-            sum_packets_collected+=m.no_of_packets_check
-        return sum_packets_collected
+        return self.get_crates_packets_sacks().get('packets_collected')
 
     @property
     def total_sacks_collected(self):
-        sum_sacks_collected = 0
-        for m in self.rt_invoice_trip.all():
-            sum_sacks_collected+=m.no_of_sacks_check
-        return sum_sacks_collected
+        return self.get_crates_packets_sacks().get('sacks_collected')
 
     def create_dispatch_no(self):
         date = datetime.date.today().strftime('%d%m%y')
@@ -1120,16 +1112,19 @@ class OrderedProduct(models.Model): #Shipment
             if payment_status == "pending_approval":
                 return "pending_approval"
         else:
-            return  status
+            return status
 
     def online_payment_approval_status(self):
-        payments = self.shipment_payment.all().exclude(parent_order_payment__parent_payment__payment_mode_name="cash_payment")
+        payments = self.shipment_payment.values(
+            reference_no=F('parent_order_payment__parent_payment__reference_no'),
+            payment_approval_status=F('parent_order_payment__parent_payment__payment_approval_status'),
+            payment_id=F('parent_order_payment__parent_payment__id')
+        ).exclude(parent_order_payment__parent_payment__payment_mode_name="cash_payment")
         if not payments.exists():
             return "-"
         return format_html_join(
-                "","{} - {}<br><br>",
-                        ((s.parent_order_payment.parent_payment.reference_no,
-                            s.parent_order_payment.parent_payment.payment_approval_status
+                "","<a href='/admin/payments/paymentapproval/{}/change/' target='_blank'>{} - {}</a><br><br>",
+                        ((s.get('payment_id'), s.get('reference_no'), s.get('payment_approval_status')
                         ) for s in payments)
                 )
 

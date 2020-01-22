@@ -90,7 +90,7 @@ function CreateResponseTable(data){
       var is_payment_approved = data['response_data'][i]['is_payment_approved'];
       var trip = data['response_data'][i]['trip'];
       var order = "<td>" + data['response_data'][i]['order'] + "</td>";
-      var shipment_status = "<td>" + data['response_data'][i]['shipment_status'] + "</td>";
+      var shipment_status = "<td><a href='/admin/retailer_to_sp/orderedproduct/"+pk+"/change/' target='_blank'>" + data['response_data'][i]['shipment_status'] + "</a></td>";
       var payment_approval_status = "<td>" + data['response_data'][i]['payment_approval_status'] + "</td>";      
       var online_payment_approval_status = "<td>" + data['response_data'][i]['online_payment_approval_status'] + "</td>";      
       //var invoice_no = "<td><a href='/admin/retailer_to_sp/cart/commercial/"+pk+"/shipment-details/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
