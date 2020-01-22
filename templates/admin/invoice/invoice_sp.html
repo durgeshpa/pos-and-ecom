@@ -30,61 +30,68 @@ table tr td,th,h4,span,address{
         <div class="col-lg-12">
 			<div class="row" style="padding-bottom:10px; margin-bottom: 10px; border-bottom: solid 1px #7B7B7A; position:relative">
     			<div class=" col-md-6">
-				<div class=" col-sm-12"><h4 style="font-size:20px"><strong>TAX INVOICE</strong></h4></div>
-					<div class="col-sm-12"> {% if payment_type == 'neft' %}
-                <h5 style="font-size:20px">Prepaid Order</h5>
-            {% elif payment_type == 'cash_on_delivery' %}
-                <h5 style="font-size:20px">Cash On Delivery</h5>
+					<div class=" col-sm-12">
+						<h4 style="font-size:20px"><strong>TAX INVOICE</strong></h4>
+					</div>
+					<div class="col-sm-12"> 
+						{% if payment_type == 'neft' %}
+                		<h5 style="font-size:20px">Prepaid Order</h5>
+            			{% elif payment_type == 'cash_on_delivery' %}
+                		<h5 style="font-size:20px">Cash On Delivery</h5>
 						<strong>Shop Opening Time:</strong><span><strong><strong>{{ open_time }}</strong></strong></span>
 						<strong>Shop Closing Time:</strong><span><strong><strong>{{ close_time }}</strong></strong></span>
-            {% endif %}</div>
+            			{% endif %}
+            		</div>
 				</div>
 
 				<div class="col-md-6" >
-				<div class="barcode"><div class="pull-right">Invoice No:<img src="data:image/png;base64,{{barcode}}" height="130px">
-				</div>
-
+					<div class="barcode">
+						<div class="pull-right">Invoice No:<img src="data:image/png;base64,{{barcode}}" height="130px">
+					</div>
 				</div>
 
     		</div>
-			</div>
+		</div>
             <div class="col-md-12">
-    				<div class="table">
-    					<table class="table table-bordered">
-
-                                <tr>
-        							<td class="text-center"><strong>Order ID.</strong><br>
-										{{order_id}}
-									<span>{{shop.po_no}}</span>
-									</td>
-        							<td class="text-center"><strong>Order Date <br>
-{{shop.created_at}}</strong></td>
-
-									<td class="text-center"><strong>Invoice No <br>
-{{shipment.invoice_no}}</strong></td>
-									<td class="text-center"><strong>Invoice Date <br>
-{{shop.created_at}}</strong></td>
-
-                                </tr>
-									</table>
+				<div class="table">
+					<table class="table table-bordered">
+                        <tr>
+							<td class="text-center">
+								<strong>Order ID.</strong><br>{{order_id}}<span>{{shop.po_no}}</span>
+							</td>
+							<td class="text-center">
+								<strong>Order Date <br>{{shop.created_at}}</strong>
+							</td>
+							<td class="text-center">
+								<strong>Invoice No <br>{{shipment.invoice_no}}</strong>
+							</td>
+							<td class="text-center">
+								<strong>Invoice Date <br>{{shop.created_at}}</strong>
+							</td>
+                        </tr>
+					</table>
     			</div>
-    		<div class="row">
-    			<div class="col-md-12">
-					<div class="col-xs-4"> <address>
-						<span>Dispatch To :</span><br>
-    				<strong>{{shipment.order.shipping_address.shop_name.shop_name}}</strong><br>
-    				{{shipment.order.shipping_address.nick_name}}, {{shipment.order.shipping_address.address_line1}}, {{shipment.order.shipping_address.city}}<br>
-						{{shipment.order.shipping_address.address_contact_number}}<br>
-						<strong>GSTIN/UIN:</strong> <span>{{ buyer_shop_gistin }}</span><br>
-						<strong>State Name:</strong> <span>{{shipment.order.shipping_address.state}} </span><strong>Code:</strong> <span>{{shipment.order.shipping_address.pincode}}</span><br>
-						<strong>CIN:</strong> <span>---</span><br>
-						<strong>Shop ID:</strong><span><strong>{{ shop_id }}</strong></span>
-    				</address>
-
-					</div>
-					<div class="col-xs-4">
-					<address>
-						<span>Invoice To :</span><br>
+    			<div class="row">
+    				<div class="col-md-12">
+						<div class="col-xs-4"> 
+							<address>
+								<span>Dispatch To :</span>
+								<br/>
+    							<strong>{{shipment.order.shipping_address.shop_name.shop_name}}</strong>
+    							<br/>
+    								{{shipment.order.shipping_address.nick_name}}, {{shipment.order.shipping_address.address_line1}}, {{shipment.order.shipping_address.city}}
+								<br/>
+								{{shipment.order.shipping_address.address_contact_number}}
+								<br/>
+								<strong>GSTIN/UIN:</strong> <span>{{ buyer_shop_gistin }}</span><br>
+								<strong>State Name:</strong> <span>{{shipment.order.shipping_address.state}} </span><strong>Code:</strong> <span>{{shipment.order.shipping_address.pincode}}</span><br>
+								<strong>CIN:</strong> <span>---</span><br>
+								<strong>Shop ID:</strong><span><strong>{{ shipment.order.buyer_shop_id }}</strong></span>
+    						</address>
+						</div>
+						<div class="col-xs-4">
+							<address>
+							<span>Invoice To :</span><br>
     				<strong>{{shipment.order.billing_address.shop_name.shop_name}}</strong><br>
     				{{shipment.order.billing_address.nick_name}}, {{shipment.order.billing_address.address_line1}}, {{shipment.order.billing_address.city}}<br>
 						{{shipment.order.billing_address.address_contact_number}}<br>
@@ -101,7 +108,7 @@ table tr td,th,h4,span,address{
 					<address>
 						<span>Supplier :</span><br>
 
-    				<strong>{{shop_name_gram.shop_name}}</strong><br>
+    				<strong>{{shipment.order.seller_shop.shop_name}}</strong><br>
     				{{nick_name_gram}}, {{address_line1_gram}}, {{city_gram}}<br>
 						{{address_contact_number}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{{seller_shop_gistin}}</span><br>
@@ -150,14 +157,14 @@ table tr td,th,h4,span,address{
     						<tbody>
     							<!-- foreach ($order->lineItems as $line) or some such thing here -->
     							<tr>
-                    {% for m in product_listing %}
+                    {% for m in shipment.rt_order_product_order_product_mapping.all %}
 								<td><strong>{{forloop.counter}}</strong></td>
-									<td class="text-center">{{ m.product_sku}}</td>
-								<td class="text-center"><strong>{{ m.product_short_description}}</strong></td>
-								<td class="text-center">{{ m.product_hsn}}</td>
-								<td class="text-center">{{ m.product_tax_percentage}}</td>
+									<td class="text-center">{{ m.product.product_sku}}</td>
+								<td class="text-center"><strong>{{ m.product.product_short_description}}</strong></td>
+								<td class="text-center">{{ m.product.product_hsn}}</td>
+								<td class="text-center">{{ m.get_product_tax_json}}</td>
 								<td class="text-center"><strong>{{ m.product_mrp}}</strong></td>
-								<td class="text-center">{{m.product_no_of_pices}}</td>
+								<td class="text-center">{{m.shipped_qty}}</td>
 								<td class="text-center">{{m.basic_rate |floatformat:2 | intcomma}}</td>
 								<td class="text-center">{{m.basic_amount |floatformat:2 | intcomma}}</td>
 								<td class="text-center">{{m.price_to_retailer |floatformat:2 | intcomma}}</td>
@@ -174,14 +181,14 @@ table tr td,th,h4,span,address{
 									<td></td>
                   <td></td>
 									<td></td>
-								  <td class="thick-line text-center"><strong>{{sum_qty}} PCS</strong></td>
+								  <td class="thick-line text-center"><strong>{{shipment.shipped_pieces}} PCS</strong></td>
     								<td class="thick-line"></td>
 										<td class="thick-line"></td>
 										<td class="thick-line"></td>
-    								<td class="thick-line text-center"><strong>₹{{sum_amount_tax| floatformat:2 | intcomma }}/-</strong></td>
-    								<td class="thick-line text-right"><strong>₹{{sum_amount| floatformat:2 | intcomma }}/-</strong></td>
+    								<td class="thick-line text-center"><strong>₹{{shipment.sum_amount_tax| floatformat:2 | intcomma }}/-</strong></td>
+    								<td class="thick-line text-right"><strong>₹{{shipment.invoice_amount| floatformat:2 | intcomma }}/-</strong></td>
     							</tr>
-									{% if shipment.order.seller_shop.shop_name_address_mapping.all == shipment.order.shipping_address %}
+						{% if shipment.order.seller_shop.shop_name_address_mapping.all == shipment.order.shipping_address %}
     							<tr style="display:none">
 
 									<td class="no-line"></td>
@@ -197,7 +204,7 @@ table tr td,th,h4,span,address{
     								<td class="no-line"></td>
 										<td class="no-line"></td>
     								<td class="no-line text-center"><strong>CGST</strong></td>
-    								<td class="no-line text-right"><strong>₹{{cgst | floatformat:2 }}/-</strong></td>
+    								<td class="no-line text-right"><strong>₹{{shipment.cgst | floatformat:2 }}/-</strong></td>
     							</tr>
 								<tr style="display:none">
 
@@ -214,7 +221,7 @@ table tr td,th,h4,span,address{
     								<td class="no-line"></td>
 										<td class="no-line"></td>
     								<td class="no-line text-center"><strong>SGST</strong></td>
-    								<td class="no-line text-right"><strong>₹ {{sgst | floatformat:2 }}/-</strong></td>
+    								<td class="no-line text-right"><strong>₹ {{shipment.sgst | floatformat:2 }}/-</strong></td>
     							</tr>
 									{% else %}
 									<tr style="display:none">
@@ -234,7 +241,6 @@ table tr td,th,h4,span,address{
 	    								<td class="no-line text-center"><strong>IGST</strong></td>
 	    								<td class="no-line text-right"><strong>₹ {{shipment.igst | floatformat:2 }}/-</strong></td>
 	    							</tr>
-										{% endif %}
 								<tr style="display:none">
 
 
@@ -251,7 +257,7 @@ table tr td,th,h4,span,address{
     								<td class="no-line"></td>
 										<td class="no-line"></td>
     								<td class="no-line text-center"><strong>Cess</strong></td>
-    								<td class="no-line text-right"><strong>₹ {{shipment.cess | floatformat:2 }}/-</strong></td>
+    								<td class="no-line text-right"><strong>₹ {{shipment.sum_cess | floatformat:2 }}/-</strong></td>
     							</tr>
 									<tr style="display:none">
 
@@ -361,7 +367,7 @@ table tr td,th,h4,span,address{
     		</div>
     	</div>
 			<tr>
-				<strong>No. of Crates:</strong>{{ shipment.no_of_crates }} <strong> No. of Packets: </strong>{{ no_of_packets }}  <storng> No. of Sacks: </strong>{{ no_of_sacks }}
+				<strong>No. of Crates:</strong>{{ shipment.no_of_crates }} <strong> No. of Packets: </strong>{{ shipment.no_of_packets }}  <storng> No. of Sacks: </strong>{{ shipment.no_of_sacks }}
 			</tr>
     	</div>
 </div>
