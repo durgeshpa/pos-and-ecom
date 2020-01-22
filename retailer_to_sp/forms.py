@@ -737,7 +737,7 @@ class CommercialForm(forms.ModelForm):
     def clean(self):
         data = self.cleaned_data
         if data['trip_status'] == 'CLOSED':
-            if int(self.instance.received_cash_amount) + int(self.instance.received_online_amount) < int(self.instance.cash_to_be_collected_value):
+            if int(self.instance.total_received_amount) < int(self.instance.cash_to_be_collected):
                 raise forms.ValidationError(_("Amount to be collected is less than sum of received cash amount and online amount"),)
         # setup check for transferred
         if data['trip_status'] == 'TRANSFERRED':
