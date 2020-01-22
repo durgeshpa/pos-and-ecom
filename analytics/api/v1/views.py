@@ -102,24 +102,10 @@ def grn_report(grn_id):
                     product=products.product).returned_qty if products.product else ''
                 dn_number = ''
                 dn_value_basic = ''
-            GRNReports.objects.create(po_no=po_no, po_date=po_date, po_status=po_status,
-                                                             vendor_name=vendor_name, vendor_id=vendor_id,
-                                                             buyer_shop=buyer_shop,
-                                                             shipping_address=shipping_address,
-                                                             category_manager=category_manager,
-                                                             product_id=product_id, product_name=product_name,
-                                                             product_brand=product_brand,
-                                                             manufacture_date=manufacture_date,
-                                                             expiry_date=expiry_date, po_sku_pieces=po_sku_pieces,
-                                                             product_mrp=product_mrp, discount=discount,
-                                                             gram_to_brand_price=gram_to_brand_price, grn_id=grn_id,
-                                                             grn_date=grn_date, grn_sku_pieces=grn_sku_pieces,
-                                                             product_cgst=product_cgst, product_sgst=product_sgst,
-                                                             product_igst=product_igst, product_cess=product_cess,
-                                                             invoice_item_gross_value=invoice_item_gross_value,
-                                                             delivered_sku_pieces=delivered_sku_pieces,
-                                                             returned_sku_pieces=returned_sku_pieces,
-                                                             dn_number=dn_number, dn_value_basic=dn_value_basic)
+                GRNReports.objects.create(po_no=po_no, po_date=po_date, po_status=po_status,vendor_name=vendor_name, vendor_id=vendor_id,buyer_shop=buyer_shop,shipping_address=shipping_address,category_manager=category_manager,
+                                          product_id=product_id, product_name=product_name,product_brand=product_brand,manufacture_date=manufacture_date,expiry_date=expiry_date, po_sku_pieces=po_sku_pieces,product_mrp=product_mrp, discount=discount,gram_to_brand_price=gram_to_brand_price, grn_id=grn_id,
+                                          grn_date=grn_date, grn_sku_pieces=grn_sku_pieces,product_cgst=product_cgst, product_sgst=product_sgst,product_igst=product_igst, product_cess=product_cess,
+                                          invoice_item_gross_value=invoice_item_gross_value,delivered_sku_pieces=delivered_sku_pieces,returned_sku_pieces=returned_sku_pieces,dn_number=dn_number, dn_value_basic=dn_value_basic)
 
 
 @task(queue='analytics_tasks', routing_key='analytics')
@@ -459,7 +445,7 @@ def trip_report(trip_id):
     e_way_bill_no = trips.e_way_bill_no
     starts_at = trips.starts_at
     completed_at = trips.completed_at
-    trip_amount = trips.trip_amount
+    trip_amount = ''
     received_amount = trips.received_amount
     created_at = trips.created_at
     modified_at = trips.modified_at
