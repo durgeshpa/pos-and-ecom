@@ -425,7 +425,7 @@ class TripForm(forms.ModelForm):
         self.fields['total_packets_collected'].initial = instance.total_packets_collected
         self.fields['total_sacks_collected'].initial = instance.total_sacks_collected
         self.fields['trip_weight'].initial = instance.trip_weight()
-        self.fields['total_trip_amount_value'].initial = instance.total_trip_amount_value
+        self.fields['total_trip_amount_value'].initial = instance.trip_amount
 
         trip = instance.pk
         if trip:

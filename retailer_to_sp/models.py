@@ -39,8 +39,7 @@ from django.core.validators import RegexValidator
 from django.contrib.postgres.fields import JSONField
 from analytics.post_save_signal import get_order_report
 from coupon.models import Coupon, CusotmerCouponUsage
-from django.db.models import Sum
-from django.db.models import Q
+from django.db.models import Sum, Func, Q
 from retailer_backend import common_function
 
 
@@ -107,6 +106,11 @@ def generate_picklist_id(pincode):
         new_picklist_id = "PIK/" + str(pincode)[-2:] +"/" +str(1)
 
     return new_picklist_id
+
+class RoundAmount(Func):
+    function = "ROUND"
+    template = "%(function)s(%(expressions)s::numeric, 0)"
+
 
 
 class Cart(models.Model):
@@ -732,9 +736,12 @@ class Order(models.Model):
 
     @property
     def buyer_shop_with_mobile(self):
-        if self.buyer_shop:
-            return "%s - %s" % (self.buyer_shop, self.buyer_shop.shop_owner.phone_number)
-        return "-"
+        try:
+            if self.buyer_shop:
+                return "%s - %s" % (self.buyer_shop, self.buyer_shop.shop_owner.phone_number)
+            return "-"
+        except:
+            return "-"
 
 class Trip(models.Model):
     seller_shop = models.ForeignKey(
@@ -753,7 +760,6 @@ class Trip(models.Model):
     completed_at = models.DateTimeField(blank=True, null=True)
     received_amount = models.DecimalField(blank=True, null=True,
                                     max_digits=19, decimal_places=2)
-    #description = models.CharField(max_length=50, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -824,7 +830,7 @@ class Trip(models.Model):
         for shipment in trip_shipments:
             cash_to_be_collected.append(
                 shipment.cash_to_be_collected())
-        return round(sum(cash_to_be_collected), 2)
+        return sum(cash_to_be_collected)
 
     def cash_collected_by_delivery_boy(self):
         cash_to_be_collected = []
@@ -858,9 +864,9 @@ class Trip(models.Model):
 
     @property
     def trip_amount(self):
-        return sum([s.invoice_amount for s in self.rt_invoice_trip.all()])
-        # return OrderedProductMapping.objects.filter(ordered_product__in=self.rt_invoice_trip.all())\
-        # .aggregate(invoice_amount=Sum(F('effective_price')*F('shipped_qty'), output_field=FloatField())).get('invoice_amount')
+        return self.rt_invoice_trip.all()\
+        .annotate(invoice_amount=RoundAmount(Sum(F('rt_order_product_order_product_mapping__effective_price')*F('rt_order_product_order_product_mapping__shipped_qty'))))\
+        .aggregate(trip_amount=Sum(F('invoice_amount'), output_field=FloatField())).get('trip_amount')
     
     @property
     def total_received_amount(self):
@@ -883,21 +889,11 @@ class Trip(models.Model):
 
     @property
     def total_trip_shipments(self):
-        trip_shipments = self.rt_invoice_trip.count()
-        return trip_shipments
-
-    def total_trip_amount(self):
-        trip_shipments = self.rt_invoice_trip.all()
-        trip_amount = []
-        for shipment in trip_shipments:
-            invoice_amount = float(shipment.invoice_amount)
-            trip_amount.append(invoice_amount)
-        amount = round(sum(trip_amount),2)
-        return amount
+        return self.rt_invoice_trip.count()
 
     @property
     def total_trip_amount_value(self):
-        return self.total_trip_amount()
+        return self.trip_amount
 
     # @property
     def trip_weight(self):
@@ -1059,19 +1055,14 @@ class OrderedProduct(models.Model): #Shipment
         self._delivered_amount = 0
         self._shipment_weight = 0
         shipment_products = self.rt_order_product_order_product_mapping.values('product','shipped_qty','returned_qty',
-                                                                               'damaged_qty', 'product__weight_value').all()
-        shipment_map = {i['product']:(i['shipped_qty'], i['returned_qty'], i['damaged_qty'], i['product__weight_value']) for i in shipment_products}
-        cart_product_map = self.order.ordered_cart.rt_cart_list.filter(cart_product_id__in=shipment_map.keys())
-        product_price_map = {i.cart_product.id:(i.item_effective_prices, i.qty) for i in cart_product_map}
-        for product, shipment_details in shipment_map.items():
+                                                                               'damaged_qty', 'product__weight_value', 'effective_price').all()
+        for shipment_details in shipment_products:
             try:
-                product_price = product_price_map[product][0]
-                shipped_qty, returned_qty, damaged_qty, product_weight = shipment_details
-                self._invoice_amount += product_price * shipped_qty
-                self._cn_amount += (returned_qty+damaged_qty) * product_price
-                self._damaged_amount += damaged_qty * product_price
+                self._invoice_amount += shipment_details['effective_price'] * shipment_details['shipped_qty']
+                self._cn_amount += (shipment_details['returned_qty']+shipment_details['damaged_qty']) * shipment_details['effective_price']
+                self._damaged_amount += shipment_details['damaged_qty'] * shipment_details['effective_price']
                 self._delivered_amount += self._invoice_amount - self._cn_amount
-                self._shipment_weight += (product_weight if product_weight else 0) * shipped_qty
+                self._shipment_weight += (shipment_details.get('product__weight_value',0)) * shipped_qty
             except Exception as e:
                 logger.exception("Exception occurred {}".format(e))
 
@@ -1901,9 +1892,11 @@ def assign_update_picker_to_shipment(shipment_id):
    if shipment.shipment_status == "SHIPMENT_CREATED":
        # assign shipment to picklist
        # tbd : if manual(by searching relevant picklist id) or automated
-       picker_lists = shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).update(shipment=shipment)
+       if shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).exists():
+           picker_lists = shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).update(shipment=shipment)
    elif shipment.shipment_status == OrderedProduct.READY_TO_SHIP:
-       shipment.picker_shipment.all().update(picking_status="picking_complete")
+       if shipment.picker_shipment.all().exists():
+           shipment.picker_shipment.all().update(picking_status="picking_complete")
 
 
 @receiver(post_save, sender=OrderedProduct)
@@ -1911,7 +1904,8 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
     '''
     Method to update picking status
     '''
-    assign_update_picker_to_shipment.delay(instance.id)
+    #assign_update_picker_to_shipment.delay(instance.id)
+    assign_update_picker_to_shipment(instance.id)
 
 
 @receiver(post_save, sender=Order)
