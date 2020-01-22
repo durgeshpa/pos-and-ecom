@@ -913,16 +913,20 @@ class DownloadInvoiceSP(APIView):
         seller_shop_gistin = '---'
         buyer_shop_gistin = '---'
 
-        if order_obj.order.ordered_cart.seller_shop.shop_name_documents.exists():
-            seller_shop_gistin = order_obj.order.ordered_cart.seller_shop.shop_name_documents.filter(
-            shop_document_type='gstin').last().shop_document_number if order_obj.order.ordered_cart.seller_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else '---'
+        if shipment.order.ordered_cart.seller_shop.shop_name_documents.exists():
+            seller_shop_gistin = shipment.order.ordered_cart.seller_shop.shop_name_documents.filter(
+            shop_document_type='gstin').last().shop_document_number if shipment.order.ordered_cart.seller_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else '---'
 
-        if order_obj.order.ordered_cart.buyer_shop.shop_name_documents.exists():
-            buyer_shop_gistin = order_obj.order.ordered_cart.buyer_shop.shop_name_documents.filter(
-            shop_document_type='gstin').last().shop_document_number if order_obj.order.ordered_cart.buyer_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else '---'
+        if shipment.order.ordered_cart.buyer_shop.shop_name_documents.exists():
+            buyer_shop_gistin = shipment.order.ordered_cart.buyer_shop.shop_name_documents.filter(
+            shop_document_type='gstin').last().shop_document_number if shipment.order.ordered_cart.buyer_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else '---'
 
         product_listing = []
-        for m in products:
+        taxes_list = []
+        gst_tax_list= []
+        cess_tax_list= []
+        surcharge_tax_list=[]
+        for m in shipment.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
 
             # New Code For Product Listing Start
             tax_sum = 0
@@ -937,10 +941,10 @@ class DownloadInvoiceSP(APIView):
             basic_rate = 0
             inline_sum_amount = 0
 
-            cart_product_map = order_obj.order.ordered_cart.rt_cart_list.filter(cart_product=m.product).last()
+            cart_product_map = shipment.order.ordered_cart.rt_cart_list.filter(cart_product=m.product).last()
             product_price = cart_product_map.get_cart_product_price(
-                order_obj.order.ordered_cart.seller_shop,
-                order_obj.order.ordered_cart.buyer_shop)
+                shipment.order.ordered_cart.seller_shop,
+                shipment.order.ordered_cart.buyer_shop)
 
             product_pro_price_ptr = cart_product_map.item_effective_prices
             product_pro_price_mrp = round(product_price.mrp,2)
@@ -971,14 +975,14 @@ class DownloadInvoiceSP(APIView):
                 "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr),
                 "product_tax_amount": product_tax_amount
                 }
-            total_tax_sum = total_tax_sum + product_tax_amount
-            inline_sum_amount = inline_sum_amount + product_pro_price_ptr
+            # total_tax_sum = total_tax_sum + product_tax_amount
+            # inline_sum_amount = inline_sum_amount + product_pro_price_ptr
             product_listing.append(ordered_prodcut)
             # New Code For Product Listing End
 
-            sum_qty += int(m.shipped_qty)
-            sum_amount += int(m.shipped_qty) * product_pro_price_ptr
-            inline_sum_amount += int(m.shipped_qty) * product_pro_price_ptr
+            # sum_qty += int(m.shipped_qty)
+            # sum_amount += int(m.shipped_qty) * product_pro_price_ptr
+            # inline_sum_amount += int(m.shipped_qty) * product_pro_price_ptr
 
             for n in m.product.product_pro_tax.all():
                 divisor= (1+(n.tax.tax_percentage/100))
@@ -1000,18 +1004,15 @@ class DownloadInvoiceSP(APIView):
                 #tax_inline = tax_inline + (inline_sum_amount - original_amount)
                 #tax_inline1 =(tax_inline / 2)
 
-        total_amount = a.invoice_amount
+        total_amount = shipment.invoice_amount
         total_amount_int = total_amount
 
-        data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop,"shop_id":shop_id, "sum_qty": sum_qty,
-                "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" ,
+        data = {"shipment": shipment,"order": shipment.order, 
+                "url":request.get_host(), "scheme": request.is_secure() and "https" or "http" ,
                 "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,
-                "order_id":order_id,"shop_name_gram":shop_name_gram,"nick_name_gram":nick_name_gram, "city_gram":city_gram,
-                "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram,"barcode":barcode,
-                "payment_type":payment_type,"total_amount_int":total_amount_int,"product_listing":product_listing,
+                "barcode":barcode,"product_listing":product_listing,
                 "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
-                "address_contact_number":address_contact_number,"sum_amount_tax":round(total_tax_sum, 2), "no_of_crates":no_of_crates,
-                "no_of_packets":no_of_packets, "no_of_sacks":no_of_sacks, "inv":inv,"open_time":open_time, "close_time":close_time,}
+                "open_time":open_time, "close_time":close_time,}
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
