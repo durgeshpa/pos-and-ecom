@@ -1030,8 +1030,8 @@ class DownloadInvoiceSP(APIView):
                 #tax_inline = tax_inline + (inline_sum_amount - original_amount)
                 #tax_inline1 =(tax_inline / 2)
 
-        total_amount = sum_amount
-        total_amount_int = int(total_amount)
+        total_amount = round(sum_amount)
+        total_amount_int = total_amount
 
         data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop,"shop_id":shop_id, "sum_qty": sum_qty,
                 "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" ,
