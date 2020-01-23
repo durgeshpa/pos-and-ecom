@@ -724,7 +724,7 @@ class BulkCartForm(forms.ModelForm):
         queryset=Address.objects.filter(shop_name__shop_type__shop_type='r'),
         widget=autocomplete.ModelSelect2(
             url='bulk-shipping-address-autocomplete',
-            forward=('buyer_shop',)
+            forward=('buyer_shop',),
         required=False
         )
     )
@@ -732,7 +732,7 @@ class BulkCartForm(forms.ModelForm):
         queryset=Address.objects.filter(shop_name__shop_type__shop_type='r'),
         widget=autocomplete.ModelSelect2(
             url='bulk-billing-address-autocomplete',
-            forward=('buyer_shop',)
+            forward=('buyer_shop',),
         required=False
         )
     )
