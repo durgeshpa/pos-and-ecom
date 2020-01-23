@@ -1069,7 +1069,7 @@ class OrderedProduct(models.Model): #Shipment
     
     @property
     def credit_note_amount(self):
-        credit_note_amt = self.rt_order_product_order_product_mapping.all()\
+        credit_note_amount = self.rt_order_product_order_product_mapping.all()\
         .aggregate(cn_amt=RoundAmount(Sum(F('effective_price')* (F('shipped_qty')-F('delivered_qty')),output_field=FloatField()))).get('cn_amt')
         if credit_note_amount:
             return credit_note_amount
