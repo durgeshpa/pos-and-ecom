@@ -456,7 +456,6 @@ class BulkOrder(models.Model):
             reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
             headers = next(reader, None)
             product_ids = [int(x[0]) for x in reader if x]
-            import pdb; pdb.set_trace()
             from sp_to_gram.models import (OrderedProductMapping as SpMappedOrderedProductMapping)
             shop_products_available = SpMappedOrderedProductMapping.get_shop_stock(self.seller_shop).filter(product__in=product_ids,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
             shop_products_dict = {g['product_id']:int(g['available_qty']) for g in shop_products_available}
