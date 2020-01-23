@@ -1,9 +1,11 @@
 import datetime
-
+import csv
+import codecs
+import re
 from dal import autocomplete
 from django_select2.forms import Select2MultipleWidget, ModelSelect2Widget
 from tempus_dominus.widgets import DatePicker
-
+from django.db.models import F, FloatField, Sum
 from django.contrib.auth import get_user_model
 from django.contrib.admin import widgets
 from django import forms
@@ -14,7 +16,7 @@ from django.urls import reverse
 from django.conf import settings
 from django.forms import widgets
 from django.utils.html import format_html
-
+from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from .signals import ReservedOrder
 from sp_to_gram.models import (
     OrderedProductReserved,
@@ -24,7 +26,7 @@ from retailer_to_sp.models import (
     CustomerCare, ReturnProductMapping, OrderedProduct,
     OrderedProductMapping, Order, Dispatch, Trip, TRIP_STATUS,
     Shipment, ShipmentProductMapping, CartProductMapping, Cart,
-    ShipmentRescheduling, PickerDashboard, generate_picklist_id, ResponseComment
+    ShipmentRescheduling, PickerDashboard, generate_picklist_id, ResponseComment,BulkOrder
 )
 from products.models import Product
 from shops.models import Shop
@@ -705,34 +707,63 @@ class CartForm(forms.ModelForm):
     )
     class Meta:
         model = Cart
-        fields = ('seller_shop', 'buyer_shop', 'cart_products_csv')
+        fields = ('seller_shop', 'buyer_shop')
+
+class BulkCartForm(forms.ModelForm):
+    seller_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
+        widget=autocomplete.ModelSelect2(url='banner-shop-autocomplete', ),
+        required=True
+    )
+    buyer_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='r'),
+        widget=autocomplete.ModelSelect2(url='admin:retailer-shop-autocomplete', ),
+        required=True
+    )
+    shipping_address = forms.ModelChoiceField(
+        queryset=Address.objects.filter(shop_name__shop_type__shop_type='r'),
+        widget=autocomplete.ModelSelect2(
+            url='bulk-shipping-address-autocomplete',
+            forward=('buyer_shop',)
+        )
+    )
+    billing_address = forms.ModelChoiceField(
+        queryset=Address.objects.filter(shop_name__shop_type__shop_type='r'),
+        widget=autocomplete.ModelSelect2(
+            url='bulk-billing-address-autocomplete',
+            forward=('buyer_shop',)
+        )
+    )
+    class Meta:
+        model = BulkOrder
+        fields = ('seller_shop', 'buyer_shop', 'shipping_address', 'billing_address', 'cart_products_csv')
 
     def __init__(self, *args, **kwargs):
-        super(CartForm, self).__init__(*args, **kwargs)
+        super(BulkCartForm, self).__init__(*args, **kwargs)
         self.fields['cart_products_csv'].help_text = self.instance.\
             cart_products_sample_file
 
-    # def clean(self):
-    #     if self.cleaned_data['cart_products_csv']:
-    #         if not self.cleaned_data['cart_products_csv'].name[-4:] in ('.csv'):
-    #             raise forms.ValidationError("Sorry! Only csv file accepted")
-    #         reader = csv.reader(codecs.iterdecode(self.cleaned_data['cart_products_csv'], 'utf-8'))
-    #         first_row = next(reader)
-    #         for id,row in enumerate(reader):
-    #             if not row[0]:
-    #                 raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product ID cannot be empty")
-    #
-    #             try:
-    #                 product = Product.objects.get(pk=row[0])
-    #             except:
-    #                 raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | "+VALIDATION_ERROR_MESSAGES[
-    #                 'INVALID_PRODUCT_ID'])
-    #
-    #             if not row[2] or not re.match("^[\d\,]*$", row[2]):
-    #                 raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
-    #                 'EMPTY']%("Case_Size"))
-    #
-    #     return self.cleaned_data
+    def clean(self):
+        if self.cleaned_data['cart_products_csv']:
+            if not self.cleaned_data['cart_products_csv'].name[-4:] in ('.csv'):
+                raise forms.ValidationError("Sorry! Only csv file accepted")
+            reader = csv.reader(codecs.iterdecode(self.cleaned_data['cart_products_csv'], 'utf-8'))
+            first_row = next(reader)
+
+            for id,row in enumerate(reader):
+                if not row[0]:
+                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product ID cannot be empty")
+
+                try:
+                    product = Product.objects.get(pk=row[0])
+                except:
+                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | "+VALIDATION_ERROR_MESSAGES[
+                    'INVALID_PRODUCT_ID'])
+                if not row[2] or not re.match("^[\d\,]*$", row[2]):
+                    raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
+                    'EMPTY']%("qty"))
+
+        return self.cleaned_data
 
 
 class CommercialForm(forms.ModelForm):

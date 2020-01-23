@@ -55,14 +55,14 @@ from .forms import (
     ReturnProductMappingForm, ShipmentForm,
     ShipmentProductMappingForm, TripForm, ShipmentReschedulingForm,
     OrderedProductReschedule, OrderedProductMappingRescheduleForm,
-    OrderForm, EditAssignPickerForm, ResponseCommentForm
+    OrderForm, EditAssignPickerForm, ResponseCommentForm, BulkCartForm
 )
 from .models import (Cart, CartProductMapping, Commercial, CustomerCare,
                      Dispatch, DispatchProductMapping, Note, Order,
                      OrderedProduct, OrderedProductMapping, Payment, Return,
                      ReturnProductMapping, Shipment, ShipmentProductMapping,
                      Trip, ShipmentRescheduling, Feedback, PickerDashboard,
-                     generate_picklist_id, ResponseComment)
+                     generate_picklist_id, ResponseComment, BulkOrder)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (
@@ -411,7 +411,7 @@ class ExportCsvMixin:
 
 class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
-    fields = ('seller_shop', 'buyer_shop', 'offers', 'cart_products_csv')
+    fields = ('seller_shop', 'buyer_shop', 'offers')
     actions = ["export_as_csv_cart", ]
     form = CartForm
     list_display = ('order_id', 'seller_shop','buyer_shop','cart_status','created_at',)
@@ -498,6 +498,15 @@ class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
             OrderedProductReserved, request.user)
         reserve_order.create()
 
+class BulkOrderAdmin(admin.ModelAdmin):
+    fields = ('seller_shop', 'buyer_shop', 'shipping_address', 'billing_address', 'cart_products_csv')
+    form = BulkCartForm
+    list_display = ('cart', 'seller_shop','buyer_shop', 'shipping_address', 'billing_address', 'created_at',)
+    #change_form_template = 'admin/sp_to_gram/cart/change_form.html'
+    list_filter = (SellerShopFilter, BuyerShopFilter)
+
+    class Media:
+        js = ('admin/js/bulk_order.js', 'admin/js/select2.min.js')
 
 
 class ExportCsvMixin:
@@ -1455,6 +1464,7 @@ class FeedbackAdmin(admin.ModelAdmin):
 
 # admin.site.register(Return, ReturnAdmin)
 admin.site.register(Cart, CartAdmin)
+admin.site.register(BulkOrder, BulkOrderAdmin)
 admin.site.register(Order, OrderAdmin)
 admin.site.register(OrderedProduct, OrderedProductAdmin)
 admin.site.register(Note, NoteAdmin)

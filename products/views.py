@@ -692,10 +692,9 @@ def cart_products_mapping(request,pk=None):
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     try:
-        writer.writerow(['id','qty'])
-        cart_products = ProductPrice.objects.filter(seller_shop_id=int(pk), approval_status = 2)
-        for p in cart_products:
-            writer.writerow([p.product_id,''])
+        writer.writerow(['id', 'product_name','qty'])
+        cart_products = ProductPrice.objects.values('product_id', 'product__product_name').filter(seller_shop_id=int(pk), approval_status = 2)
+        writer.writerows([(product.get('product_id'), product.get('product__product_name'), '') for product in cart_products])
     except:
         writer.writerow(["Make sure you have selected seller shop before downloading CSV file"])
     return response

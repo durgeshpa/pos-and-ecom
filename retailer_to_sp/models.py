@@ -1,7 +1,11 @@
 import datetime
 import logging
 from decimal import Decimal
-
+import csv
+import codecs
+import re
+from django.db import models
+from accounts.middlewares import get_current_user
 from celery.task import task
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
@@ -13,7 +17,6 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html, format_html_join
 from django.utils.crypto import get_random_string
-
 from accounts.middlewares import get_current_user
 from addresses.models import Address
 from retailer_backend.common_function import (
@@ -47,8 +50,6 @@ from coupon.models import Coupon, CusotmerCouponUsage
 from django.db.models import Sum
 from django.db.models import Q
 from django.urls import reverse
-
-
 
 
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
@@ -159,10 +160,6 @@ class Cart(models.Model):
     #     max_length=255, null=True,
     #     blank=True, editable=False
     # )
-    cart_products_csv = models.FileField(
-        upload_to='retailer/sp/cart_products_csv',
-        null=True, blank=True
-    )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -172,23 +169,6 @@ class Cart(models.Model):
     def __str__(self):
         return "{}".format(self.order_id)
 
-    @property
-    def cart_products_sample_file(self):
-        if (
-            self.cart_products_csv
-            and hasattr(self.cart_products_csv, 'url')
-        ):
-            url = """<h3><a href="%s" target="_blank">
-                    Download Products List</a></h3>""" % \
-                  (
-                      reverse(
-                          'admin:cart_products_mapping',
-                          args=(self.seller_shop_id,)
-                      )
-                  )
-        else:
-            url = """<h3><a href="#">Download Products List</a></h3>"""
-        return url
 
     @property
     def subtotal(self):
@@ -421,6 +401,82 @@ class Cart(models.Model):
         return self.created_at.time()
 
 
+class BulkOrder(models.Model):
+    cart = models.OneToOneField(Cart, related_name='rt_bulk_cart_list',null=True,
+                             on_delete=models.DO_NOTHING
+    )
+    seller_shop = models.ForeignKey(
+        Shop, related_name='rt_bulk_seller_shop_cart',
+        null=True, blank=True, on_delete=models.DO_NOTHING
+    )
+    buyer_shop = models.ForeignKey(
+        Shop, related_name='rt_bulk_buyer_shop_cart',
+        null=True, blank=True, on_delete=models.DO_NOTHING
+    )
+    billing_address = models.ForeignKey(
+        Address, related_name='rt_billing_address_bulk_order',
+        null=True, blank=True, on_delete=models.DO_NOTHING
+    )
+    shipping_address = models.ForeignKey(
+        Address, related_name='rt_shipping_address_bulk_order',
+        null=True, blank=True, on_delete=models.DO_NOTHING
+    )
+    cart_products_csv = models.FileField(
+        upload_to='retailer/sp/cart_products_csv',
+        null=True, blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+
+    def __str__(self):
+        return self.seller_shop.shop_name
+
+    @property
+    def cart_products_sample_file(self):
+        if (
+            self.cart_products_csv
+            and hasattr(self.cart_products_csv, 'url')
+        ):
+            url = """<h3><a href="%s" target="_blank">
+                    Download Products List</a></h3>""" % \
+                  (
+                      reverse(
+                          'admin:cart_products_mapping',
+                          args=(self.seller_shop_id,)
+                      )
+                  )
+        else:
+            url = """<h3><a href="#">Download Products List</a></h3>"""
+        return url
+
+    def clean(self, *args, **kwargs):
+        if self.cart_products_csv:
+            product_ids = []
+            reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
+            headers = next(reader, None)
+            product_ids = [int(x[0]) for x in reader if x]
+            import pdb; pdb.set_trace()
+            from sp_to_gram.models import (OrderedProductMapping as SpMappedOrderedProductMapping)
+            shop_products_available = SpMappedOrderedProductMapping.get_shop_stock(self.seller_shop).filter(product__in=product_ids,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
+            shop_products_dict = {g['product_id']:int(g['available_qty']) for g in shop_products_available}
+            reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
+            for id,row in enumerate(reader):
+                for row in reader:
+                    if row[0]:
+                        product = Product.objects.get(id=int(row[0]))
+                        product_price = product.get_current_shop_price(self.seller_shop, self.buyer_shop)
+                        ordered_qty = int(row[2])
+                        product_availability = int(int(shop_products_dict.get(int(row[0]), 0))/int(product.product_inner_case_size))
+                        if product_availability < ordered_qty:
+                            raise ValidationError(_("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Product Available Quantity:%s" %(product_availability)))
+        else:
+            super(BulkOrder, self).clean(*args, **kwargs)
+
+    def save(self, *args, **kwargs):
+        self.cart = Cart.objects.create(seller_shop=self.seller_shop, buyer_shop=self.buyer_shop, cart_status = 'ordered')
+        super().save(*args, **kwargs)
+
 @receiver(post_save, sender=Cart)
 def create_order_id(sender, instance=None, created=False, **kwargs):
     if created:
@@ -430,6 +486,35 @@ def create_order_id(sender, instance=None, created=False, **kwargs):
                                     shop_name_address_mapping.filter(
                                         address_type='billing').last().pk)
         instance.save()
+
+@receiver(post_save, sender=BulkOrder)
+def create_bulk_order(sender, instance=None, created=False, **kwargs):
+    if created:
+        if instance.cart_products_csv:
+            product_ids = []
+            reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8'))
+            for id,row in enumerate(reader):
+                for row in reader:
+                    if row[0]:
+                        product = Product.objects.get(id=int(row[0]))
+                        product_price = product.get_current_shop_price(instance.seller_shop, instance.buyer_shop)
+                        CartProductMapping.objects.create(cart=instance.cart,cart_product_id = row[0],
+                         qty = int(row[2]),
+                         no_of_pieces = int(row[2]) * int(product.product_inner_case_size),
+                         cart_product_price=product_price)
+
+    order,_ = Order.objects.get_or_create(ordered_cart=instance.cart)
+    order.order_no = instance.cart.order_id
+    order.ordered_cart = instance.cart
+    order.seller_shop = instance.seller_shop
+    order.buyer_shop = instance.buyer_shop
+    order.billing_address = instance.billing_address
+    order.shipping_address = instance.shipping_address
+    user = get_current_user()
+    order.ordered_by = user
+    order.last_modified_by = user
+    order.received_by = user
+    order.save()
 
 
 class CartProductMapping(models.Model):
