@@ -534,6 +534,12 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
     order.received_by = user
     order.order_status = 'ordered'
     order.save()
+    from sp_to_gram.models import OrderedProductReserved
+    for order_reserve in OrderedProductReserved.objects.filter(cart=instance.cart, reserve_status=OrderedProductReserved.RESERVED):
+        ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
+        ordered_reserve.order_product_reserved.save()
+        ordered_reserve.reserve_status = OrderedProductReserved.ORDERED
+        ordered_reserve.save()
 
 
 class CartProductMapping(models.Model):
