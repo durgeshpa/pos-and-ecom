@@ -1054,7 +1054,7 @@ class RetailerCart(APIView):
     permission_classes = (AllowAny,)
 
     def get(self, request, *args, **kwargs):
-        order_obj = Order.objects.get(order_no=request.GET.get('order_no'))
+        order_obj = Order.objects.filter(order_no=request.GET.get('order_no')).last()
         dt = OrderedCartSerializer(
             order_obj.ordered_cart,
             context={'parent_mapping_id': order_obj.seller_shop.id,

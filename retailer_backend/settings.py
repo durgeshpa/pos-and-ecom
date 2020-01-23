@@ -185,7 +185,16 @@ DATABASES = {
         'PASSWORD': config('DB_PASSWORD'),
         'HOST': config('DB_HOST_READ'),
         'PORT': config('DB_PORT'),
-    }
+    },
+    'dataanalytics': {
+        'ENGINE': 'django_redshift_backend',
+        'NAME': 'dataanalytics',
+        'USER': 'gfadmin',
+        'PASSWORD': 'GF_admin2105',
+        'HOST': 'gf-prod-redshift.c168txhqczdw.ap-south-1.redshift.amazonaws.com',
+        'PORT': '5439',
+	}
+
 }
 
 # Password validation
@@ -319,6 +328,7 @@ TEMPUS_DOMINUS_INCLUDE_ASSETS=False
 
 CRONJOBS = [
     ('* * * * *', 'retailer_backend.cron.CronToDeleteOrderedProductReserved', '>> /var/log/nginx/cron.log')
+
 ]
 
 INTERNAL_IPS = ['127.0.0.1','localhost']
@@ -394,6 +404,11 @@ CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+
+
+CELERY_ROUTES = {
+    'analytics.api.v1.views': {'queue': 'analytics_tasks'},
+}
 
 # ElasticSearch
 ELASTICSEARCH_PREFIX = config('ELASTICSEARCH_PREFIX')
