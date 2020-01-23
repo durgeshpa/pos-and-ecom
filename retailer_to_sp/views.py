@@ -116,10 +116,6 @@ class DownloadCreditNote(APIView):
             )
 
             # h = m.price_to_retailer
-            sum_amount = sum_amount + (
-                int(m.returned_qty + m.damaged_qty) *
-                    (m.price_to_retailer)
-            )
             inline_sum_amount = (
                 int(m.returned_qty + m.damaged_qty) *
                     float(m.price_to_retailer)
@@ -143,16 +139,14 @@ class DownloadCreditNote(APIView):
                 surcharge = sum(surcharge_tax_list)
 
         total_amount = credit_note.note_amount
-        total_amount_int = int(total_amount)
-
 
         data = {
             "object": credit_note,
             "products": products,
             "shop": credit_note,
-            "total_amount_int": total_amount_int,
+            "total_amount_int": total_amount,
             "sum_qty": sum_qty,
-            "sum_amount": round(sum_amount,2),
+            "sum_amount": total_amount,
             "url": request.get_host(),
             "scheme": request.is_secure() and "https" or "http",
             "igst": igst,
@@ -160,7 +154,7 @@ class DownloadCreditNote(APIView):
             "sgst": sgst,
             "cess": cess,
             "surcharge": surcharge,
-            "total_amount": round(total_amount,2),
+            "total_amount": total_amount,
             "order_id": order_id,
             "shop_name_gram": shop_name_gram,
             "nick_name_gram": nick_name_gram,
