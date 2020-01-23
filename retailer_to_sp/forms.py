@@ -726,7 +726,7 @@ class BulkCartForm(forms.ModelForm):
             url='bulk-shipping-address-autocomplete',
             forward=('buyer_shop',)
         ),
-        required=False
+        required=True
     )
     billing_address = forms.ModelChoiceField(
         queryset=Address.objects.filter(shop_name__shop_type__shop_type='r'),
@@ -734,7 +734,7 @@ class BulkCartForm(forms.ModelForm):
             url='bulk-billing-address-autocomplete',
             forward=('buyer_shop',)
         ),
-        required=False
+        required=True
     )
     class Meta:
         model = BulkOrder

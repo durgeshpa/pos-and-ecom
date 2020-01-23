@@ -532,6 +532,7 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
     order.ordered_by = user
     order.last_modified_by = user
     order.received_by = user
+    order.order_status = 'ordered'
     order.save()
 
 
