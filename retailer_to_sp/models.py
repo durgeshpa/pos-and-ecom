@@ -37,7 +37,7 @@ from .utils import (order_invoices, order_shipment_amount,
 from accounts.models import UserWithName, User
 from django.core.validators import RegexValidator
 from django.contrib.postgres.fields import JSONField
-from analytics.post_save_signal import get_order_report
+# from analytics.post_save_signal import get_order_report
 from coupon.models import Coupon, CusotmerCouponUsage
 from retailer_backend import common_function
 
@@ -560,8 +560,6 @@ class Order(models.Model):
     total_discount_amount = models.FloatField(default=0)
     total_tax_amount = models.FloatField(default=0)
     order_status = models.CharField(max_length=50,choices=ORDER_STATUS)
-    #payment_status = models.CharField(max_length=50,choices=PAYMENT_STATUS, null=True, blank=True)
-    #intended_mode_of_payment = models.CharField(max_length=50,choices=PAYMENT_MODE, null=True, blank=True)
     cancellation_reason = models.CharField(
         max_length=50, choices=CANCELLATION_REASON,
         null=True, blank=True, verbose_name='Reason for Cancellation',
@@ -604,7 +602,7 @@ class Order(models.Model):
 
     @property
     def total_final_amount(self):
-        return self.ordered_cart.order_amount
+            return self.ordered_cart.order_amount
 
     @property
     def total_mrp_amount(self):
@@ -926,7 +924,6 @@ class Trip(models.Model):
             self.starts_at = datetime.datetime.now()
         elif self.trip_status == self.COMPLETED:
             self.completed_at = datetime.datetime.now()
-
         super().save(*args, **kwargs)
 
     def dispathces(self):
@@ -1752,8 +1749,6 @@ class Payment(models.Model):
         super(Payment, self).save()
 
 
-
-
 class Return(models.Model):
     invoice_no = models.ForeignKey(
         OrderedProduct, on_delete=models.DO_NOTHING,
@@ -1938,7 +1933,7 @@ def assign_picklist(sender, instance=None, created=False, **kwargs):
             )
 
 
-post_save.connect(get_order_report, sender=Order)
+# post_save.connect(get_order_report, sender=Order)
 
 @receiver(post_save, sender=Cart)
 def create_order_id(sender, instance=None, created=False, **kwargs):
@@ -1974,16 +1969,18 @@ def order_notification(sender, instance=None, created=False, **kwargs):
         activity_type = "ORDER_RECEIVED"
         from notification_center.models import Template
         template = Template.objects.get(type="ORDER_RECEIVED").id
-        from notification_center.tasks import send_notification
-        send_notification(user_id=user_id, activity_type=template, data=data)
+        # from notification_center.tasks import send_notification
+        # send_notification(user_id=user_id, activity_type=template, data=data)
         try:
             message = SendSms(phone=instance.order_id.buyer_shop.shop_owner.phone_number,
-                              body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
-                                  " Thanks," \
-                                  " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
+                             body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
+                                " Thanks," \
+                                " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
             message.send()
         except Exception as e:
             logger.exception("Unable to send SMS for order : {}".format(order_no))
+
+
 
 
 @receiver(post_save, sender=CartProductMapping)
