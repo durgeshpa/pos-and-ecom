@@ -84,18 +84,15 @@ class DownloadCreditNote(APIView):
     filename = 'credit_note.pdf'
     template_name = 'admin/credit_note/credit_note.html'
     def get(self, request, *args, **kwargs):
-        order_obj = get_object_or_404(Note, pk=self.kwargs.get('pk'))
-        pk = self.kwargs.get('pk')
-        a = Note.objects.get(pk=pk)
-        shop = a
-        amount = a.amount
-        pp = OrderedProductMapping.objects.filter(ordered_product=a.shipment.id)
+        credit_note = get_object_or_404(Note, pk=self.kwargs.get('pk'))
+        amount = credit_note.amount
+        pp = OrderedProductMapping.objects.filter(ordered_product=credit_note.shipment.id)
         products = []
         for i in pp:
             if(i.returned_qty + i.damaged_qty)!=0:
                 products.append(i)
 
-        order_id = a.shipment.order.order_no
+        order_id = credit_note.shipment.order.order_no
         sum_qty = 0
         sum_amount = 0
         tax_inline = 0
@@ -104,7 +101,7 @@ class DownloadCreditNote(APIView):
         gst_tax_list = []
         cess_tax_list = []
         surcharge_tax_list = []
-        for z in shop.shipment.order.seller_shop.\
+        for z in credit_note.shipment.order.seller_shop.\
                 shop_name_address_mapping.all():
             shop_name_gram = z.shop_name
             nick_name_gram = z.nick_name
@@ -145,14 +142,14 @@ class DownloadCreditNote(APIView):
                 cess = sum(cess_tax_list)
                 surcharge = sum(surcharge_tax_list)
 
-        total_amount = sum_amount
+        total_amount = credit_note.note_amount
         total_amount_int = int(total_amount)
 
 
         data = {
-            "object": order_obj,
+            "object": credit_note,
             "products": products,
-            "shop": shop,
+            "shop": credit_note,
             "total_amount_int": total_amount_int,
             "sum_qty": sum_qty,
             "sum_amount": round(sum_amount,2),
