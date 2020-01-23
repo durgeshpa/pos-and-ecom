@@ -8,7 +8,7 @@ from products.models import *
 
 from django.forms import formset_factory, inlineformset_factory, modelformset_factory, BaseFormSet, ValidationError
 from django.shortcuts import render, get_object_or_404, redirect
-from django.db.models import Sum, Q, F, Count
+from django.db.models import Sum, Q, F, Count, Case, Value, When
 from django.db import transaction
 from django.dispatch import receiver
 from django.db.models.signals import post_save
@@ -402,7 +402,7 @@ def trip_planning_change(request, pk):
 
     if request.method == 'POST':
         form = TripForm(request.user, request.POST, instance=trip_instance)
-        if trip_status == 'READY' or trip_status == 'STARTED':
+        if trip_status in ('READY', 'STARTED', 'COMPLETED'):
             if form.is_valid():
                 trip = form.save()
                 current_trip_status = trip.trip_status
@@ -421,6 +421,9 @@ def trip_planning_change(request, pk):
                     trip_instance.rt_invoice_trip.all().update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status], trip=None)
                     return redirect('/admin/retailer_to_sp/trip/')
 
+                if current_trip_status == 'RETURN_V':
+                    return redirect('/admin/retailer_to_sp/trip/')
+
                 selected_shipment_ids = form.cleaned_data.get('selected_id', None)
 
                 if selected_shipment_ids:
@@ -428,7 +431,6 @@ def trip_planning_change(request, pk):
                     selected_shipments = Dispatch.objects.filter(~Q(shipment_status='CANCELLED'),
                                                                  pk__in=selected_shipment_list)
                     selected_shipments.update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status],trip=trip_instance)
-
 
                 return redirect('/admin/retailer_to_sp/trip/')
             else:
