@@ -1333,7 +1333,7 @@ class NoteAdmin(admin.ModelAdmin):
                        'note_amount', 'invoice_no', 'status')
     list_filter = [('created_at', DateTimeRangeFilter),ShipmentSearch, CreditNoteSearch, ShopSearch]
 
-    search_fields = ('credit_note_id','shop__shop_name', 'shipment__invoice_number')
+    search_fields = ('credit_note_id','shop__shop_name', 'shipment__invoice__invoice_no')
 
     class Media:
         pass
