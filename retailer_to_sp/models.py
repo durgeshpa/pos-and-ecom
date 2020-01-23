@@ -11,7 +11,8 @@ from celery.task import task
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import F, FloatField, Sum, Func, Q
+
+from django.db.models import F, FloatField, Sum, Func, Q, Count, Case, Value, When
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils.safestring import mark_safe
@@ -1224,8 +1225,11 @@ class OrderedProduct(models.Model): #Shipment
     @property
     def shipment_weight(self):
         try:
-            return self.rt_order_product_order_product_mapping.all()\
+            total_weight = self.rt_order_product_order_product_mapping.all()\
             .aggregate(total_weight=Sum(F('product__weight_value')* F('shipped_qty'),output_field=FloatField())).get('total_weight')
+            if not total_weight:
+                return 0
+            return total_weight
         except:
             return 0
 

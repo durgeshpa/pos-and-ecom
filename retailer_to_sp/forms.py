@@ -787,7 +787,7 @@ class CommercialForm(forms.ModelForm):
         data = self.cleaned_data
         # setup check for payment verified
         if data['trip_status'] == Trip.PAYMENT_VERIFIED:
-            if self.instance.cash_to_be_collected != self.instance.total_received_amount:
+            if float(self.instance.cash_to_be_collected()) != float(self.instance.total_received_amount):
                 raise forms.ValidationError(_("Amount to be Collected should be equal to Total Received Amount"),)
 
             # setup check for transferred
