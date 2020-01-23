@@ -1076,8 +1076,11 @@ class OrderedProduct(models.Model): #Shipment
     @property
     def shipment_weight(self):
         try:
-            return self.rt_order_product_order_product_mapping.all()\
+            total_weight = self.rt_order_product_order_product_mapping.all()\
             .aggregate(total_weight=Sum(F('product__weight_value')* F('shipped_qty'),output_field=FloatField())).get('total_weight')
+            if not total_weight:
+                return 0
+            return total_weight
         except:
             return 0
 
