@@ -948,7 +948,7 @@ class CancelOrderSerializer(serializers.ModelSerializer):
             if (s['shipment_status'] not in [i[0] for i in OrderedProduct.SHIPMENT_STATUS[:3]]):
                 raise serializers.ValidationError(
                     _('Sorry! This order cannot be cancelled'),)
-            elif (s['trip__trip_status'] and s['trip__trip_status'] != 'READY'):
+            elif (s['trip__trip_status'] and s['trip__trip_status'] != Trip.READY):
                 raise serializers.ValidationError(
                     _('Sorry! This order cannot be cancelled'),)
         elif len(shipments_data) > 1:

@@ -64,7 +64,7 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare,
                      OrderedProduct, OrderedProductMapping, Payment, Return,
                      ReturnProductMapping, Shipment, ShipmentProductMapping,
                      Trip, ShipmentRescheduling, Feedback, PickerDashboard,
-                     generate_picklist_id, ResponseComment, Invoice, TRIP_STATUS,
+                     generate_picklist_id, ResponseComment, Invoice,
                      ResponseComment)
 from .resources import OrderResource
 from .signals import ReservedOrder
@@ -1314,11 +1314,11 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
     def get_queryset(self, request):
         qs = super(CommercialAdmin, self).get_queryset(request)
         if request.user.is_superuser:
-            return qs.filter(trip_status__in=['RETURN_V', 'PAYMENT_V'])
+            return qs.filter(trip_status__in=[Trip.RETURN_VERIFIED, Trip.PAYMENT_VERIFIED])
         return qs.filter(
             Q(seller_shop__related_users=request.user) |
             Q(seller_shop__shop_owner=request.user),
-            trip_status__in=['RETURN_V', 'PAYMENT_V'])
+            trip_status__in=[Trip.RETURN_VERIFIED, Trip.PAYMENT_VERIFIED])
 
     def download_trip_pdf(self, obj):
         return format_html("<a href= '%s' >Download Trip PDF</a>"%(reverse('download_trip_pdf', args=[obj.pk])))
@@ -1515,7 +1515,7 @@ class InvoiceAdmin(admin.ModelAdmin):
 
     def get_trip_status(self, obj):
         if obj.trip_status:
-            trip_status = dict(TRIP_STATUS)
+            trip_status = dict(Trip.TRIP_STATUS)
             return trip_status[obj.trip_status]
         return "-"
     get_trip_status.short_description = "Trip Status"

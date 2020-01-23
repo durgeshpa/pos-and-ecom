@@ -72,16 +72,6 @@ SELECT_ISSUE = (
     ("Others", "others")
 )
 
-TRIP_STATUS = (
-    ('READY', 'Ready'),
-    ('CANCELLED', 'Cancelled'),
-    ('STARTED', 'Started'),
-    ('COMPLETED', 'Completed'),
-#   ('READY_FOR_COMMERCIAL', 'Ready for commercial'),
-    ('RETURN_V', 'Return Verified'),
-    ('PAYMENT_V', 'Payment Verified'),
-)
-
 PAYMENT_STATUS = (
     ('PENDING', 'Pending'),
     ('PARTIALLY_PAID', 'Partially_paid'),
@@ -742,7 +732,25 @@ class Order(models.Model):
         except:
             return "-"
 
+
 class Trip(models.Model):
+
+    READY = 'READY'
+    CANCELLED = 'CANCELLED'
+    STARTED = 'STARTED'
+    COMPLETED = 'COMPLETED'
+    RETURN_VERIFIED = 'CLOSED'
+    PAYMENT_VERIFIED = 'TRANSFERRED'
+
+    TRIP_STATUS = (
+        (READY, 'Ready'),
+        (CANCELLED, 'Cancelled'),
+        (STARTED, 'Started'),
+        (COMPLETED, 'Completed'),
+        (RETURN_VERIFIED, 'Return Verified'),
+        (PAYMENT_VERIFIED, 'Payment Verified'),
+    )
+
     seller_shop = models.ForeignKey(
         Shop, related_name='trip_seller_shop', null=True,
         on_delete=models.DO_NOTHING
@@ -913,10 +921,10 @@ class Trip(models.Model):
     def save(self, *args, **kwargs):
         if self._state.adding:
             self.create_dispatch_no()
-        if self.trip_status != self.__trip_status and self.trip_status == 'STARTED':
+        if self.trip_status != self.__trip_status and self.trip_status == self.STARTED:
             # self.trip_amount = self.total_trip_amount()
             self.starts_at = datetime.datetime.now()
-        elif self.trip_status == 'COMPLETED':
+        elif self.trip_status == self.COMPLETED:
             self.completed_at = datetime.datetime.now()
 
         super().save(*args, **kwargs)
@@ -1628,7 +1636,7 @@ class Commercial(Trip):
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        if self.trip_status == 'PAYMENT_V':
+        if self.trip_status == Trip.PAYMENT_VERIFIED:
             self.change_shipment_status()
 
 

@@ -402,26 +402,26 @@ def trip_planning_change(request, pk):
 
     if request.method == 'POST':
         form = TripForm(request.user, request.POST, instance=trip_instance)
-        if trip_status in ('READY', 'STARTED', 'COMPLETED'):
+        if trip_status in (Trip.READY, Trip.STARTED, Trip.COMPLETED):
             if form.is_valid():
                 trip = form.save()
                 current_trip_status = trip.trip_status
-                if trip_status == 'STARTED':
-                    if current_trip_status == "COMPLETED":
+                if trip_status == Trip.STARTED:
+                    if current_trip_status == Trip.COMPLETED:
                         trip_instance.rt_invoice_trip.filter(shipment_status='OUT_FOR_DELIVERY').update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
                         OrderedProductMapping.objects.filter(ordered_product__in=trip_instance.rt_invoice_trip.filter(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])).update(delivered_qty=F('shipped_qty'))
                     else:
                         trip_instance.rt_invoice_trip.all().update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
                     return redirect('/admin/retailer_to_sp/trip/')
 
-                if trip_status == 'READY':
+                if trip_status == Trip.READY:
                     trip_instance.rt_invoice_trip.all().update(trip=None, shipment_status='READY_TO_SHIP')
 
-                if current_trip_status == 'CANCELLED':
+                if current_trip_status == Trip.CANCELLED:
                     trip_instance.rt_invoice_trip.all().update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status], trip=None)
                     return redirect('/admin/retailer_to_sp/trip/')
 
-                if current_trip_status == 'RETURN_V':
+                if current_trip_status == Trip.RETURN_VERIFIED:
                     return redirect('/admin/retailer_to_sp/trip/')
 
                 selected_shipment_ids = form.cleaned_data.get('selected_id', None)
@@ -1209,7 +1209,7 @@ class OrderCancellation(object):
                 # updating shipment status
                 self.get_shipment_queryset().update(shipment_status='CANCELLED')
 
-            elif self.trip_status and self.trip_status == 'READY':
+            elif self.trip_status and self.trip_status == Trip.READY:
                 # cancel order and generate credit note and
                 # remove shipment from trip
                 self.generate_credit_note(order_closed=self.order.order_closed)
