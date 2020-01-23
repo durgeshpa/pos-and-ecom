@@ -4,6 +4,7 @@ from decimal import Decimal
 import csv
 import codecs
 import re
+import json
 from django.db import models
 from accounts.middlewares import get_current_user
 from celery.task import task
@@ -450,27 +451,29 @@ class BulkOrder(models.Model):
             url = """<h3><a href="#">Download Products List</a></h3>"""
         return url
 
-    # def clean(self, *args, **kwargs):
-    #     if self.cart_products_csv:
-    #         product_ids = []
-    #         reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
-    #         headers = next(reader, None)
-    #         product_ids = [int(x[0]) for x in reader if x]
-    #         from sp_to_gram.models import (OrderedProductMapping as SpMappedOrderedProductMapping)
-    #         shop_products_available = SpMappedOrderedProductMapping.get_shop_stock(self.seller_shop).filter(product__in=product_ids,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
-    #         shop_products_dict = {g['product_id']:int(g['available_qty']) for g in shop_products_available}
-    #         reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
-    #         for id,row in enumerate(reader):
-    #             for row in reader:
-    #                 if row[0]:
-    #                     product = Product.objects.get(id=int(row[0]))
-    #                     product_price = product.get_current_shop_price(self.seller_shop, self.buyer_shop)
-    #                     ordered_qty = int(row[2])
-    #                     product_availability = int(int(shop_products_dict.get(int(row[0]), 0))/int(product.product_inner_case_size))
-    #                     if product_availability < ordered_qty:
-    #                         raise ValidationError(_("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Product Available Quantity:%s" %(product_availability)))
-    #     else:
-    #         super(BulkOrder, self).clean(*args, **kwargs)
+    def clean(self, *args, **kwargs):
+        if self.cart_products_csv:
+            product_ids = []
+            reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
+            headers = next(reader, None)
+            product_ids = [int(x[0]) for x in reader if x]
+            from sp_to_gram.models import (OrderedProductMapping as SpMappedOrderedProductMapping)
+            shop_products_available = SpMappedOrderedProductMapping.get_shop_stock(self.seller_shop).filter(product__in=product_ids,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
+            shop_products_dict = {g['product_id']:int(g['available_qty']) for g in shop_products_available}
+            reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
+            for id,row in enumerate(reader):
+                for row in reader:
+                    if row[0]:
+                        product = Product.objects.get(id=int(row[0]))
+                        product_price = product.get_current_shop_price(self.seller_shop, self.buyer_shop)
+                        if not product_price:
+                            raise ValidationError(_("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Product Price Not Available"))
+                        ordered_qty = int(row[2])
+                        product_availability = int(int(shop_products_dict.get(int(row[0]), 0))/int(product.product_inner_case_size))
+                        if product_availability < ordered_qty:
+                            raise ValidationError(_("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Product Available Quantity:%s" %(product_availability)))
+        else:
+            super(BulkOrder, self).clean(*args, **kwargs)
 
     def save(self, *args, **kwargs):
         self.cart = Cart.objects.create(seller_shop=self.seller_shop, buyer_shop=self.buyer_shop, cart_status = 'ordered')
@@ -492,16 +495,32 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
         if instance.cart_products_csv:
             product_ids = []
             reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8'))
+            headers = next(reader, None)
+            product_ids = [int(x[0]) for x in reader if x]
+            from sp_to_gram.models import (OrderedProductMapping as SpMappedOrderedProductMapping)
+            shop_products_available = SpMappedOrderedProductMapping.get_shop_stock(instance.seller_shop).filter(product__in=product_ids,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
+            shop_products_dict = {g['product_id']:int(g['available_qty']) for g in shop_products_available}
+            products_available = {}
+            reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8'))
             for id,row in enumerate(reader):
                 for row in reader:
                     if row[0]:
                         product = Product.objects.get(id=int(row[0]))
                         product_price = product.get_current_shop_price(instance.seller_shop, instance.buyer_shop)
+                        ordered_pieces = int(row[2]) * int(product.product_inner_case_size)
+                        product_availability = shop_products_dict.get(int(row[0]), 0)
+                        products_available[int(row[0])] = ordered_pieces
                         CartProductMapping.objects.create(cart=instance.cart,cart_product_id = row[0],
                          qty = int(row[2]),
                          no_of_pieces = int(row[2]) * int(product.product_inner_case_size),
                          cart_product_price=product_price)
-
+    reserved_args = json.dumps({
+        'shop_id': instance.seller_shop.id,
+        'cart_id': instance.cart.id,
+        'products': products_available
+        })
+    from retailer_to_sp.tasks import create_reserved_order
+    create_reserved_order(reserved_args)
     order,_ = Order.objects.get_or_create(ordered_cart=instance.cart)
     order.order_no = instance.cart.order_id
     order.ordered_cart = instance.cart
