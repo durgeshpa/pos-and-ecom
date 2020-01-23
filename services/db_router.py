@@ -3,7 +3,7 @@ class PrimaryReplicaRouter:
         """
         Reads go to a randomly-chosen replica.
         """
-        if model._meta.app_label == 'auth'
+        if model._meta.app_label == 'auth':
             return 'readonly'
         return 'default'
 

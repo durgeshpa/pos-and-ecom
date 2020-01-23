@@ -6,7 +6,8 @@ from celery.task import task
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import F, FloatField, Sum, Func, Q
+
+from django.db.models import F, FloatField, Sum, Func, Q, Count, Case, Value, When
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils.safestring import mark_safe
@@ -37,7 +38,7 @@ from .utils import (order_invoices, order_shipment_amount,
 from accounts.models import UserWithName, User
 from django.core.validators import RegexValidator
 from django.contrib.postgres.fields import JSONField
-from analytics.post_save_signal import get_order_report
+# from analytics.post_save_signal import get_order_report
 from coupon.models import Coupon, CusotmerCouponUsage
 from retailer_backend import common_function
 
@@ -70,16 +71,6 @@ SELECT_ISSUE = (
     ("Cancellation", "cancellation"),
     ("Return", "return"),
     ("Others", "others")
-)
-
-TRIP_STATUS = (
-    ('READY', 'Ready'),
-    ('CANCELLED', 'Cancelled'),
-    ('STARTED', 'Started'),
-    ('COMPLETED', 'Completed'),
-#   ('READY_FOR_COMMERCIAL', 'Ready for commercial'),
-    ('CLOSED', 'Closed'),
-    ('TRANSFERRED', 'Transferred')
 )
 
 PAYMENT_STATUS = (
@@ -570,8 +561,6 @@ class Order(models.Model):
     total_discount_amount = models.FloatField(default=0)
     total_tax_amount = models.FloatField(default=0)
     order_status = models.CharField(max_length=50,choices=ORDER_STATUS)
-    #payment_status = models.CharField(max_length=50,choices=PAYMENT_STATUS, null=True, blank=True)
-    #intended_mode_of_payment = models.CharField(max_length=50,choices=PAYMENT_MODE, null=True, blank=True)
     cancellation_reason = models.CharField(
         max_length=50, choices=CANCELLATION_REASON,
         null=True, blank=True, verbose_name='Reason for Cancellation',
@@ -614,7 +603,7 @@ class Order(models.Model):
 
     @property
     def total_final_amount(self):
-        return self.ordered_cart.order_amount
+            return self.ordered_cart.order_amount
 
     @property
     def total_mrp_amount(self):
@@ -742,7 +731,25 @@ class Order(models.Model):
         except:
             return "-"
 
+
 class Trip(models.Model):
+
+    READY = 'READY'
+    CANCELLED = 'CANCELLED'
+    STARTED = 'STARTED'
+    COMPLETED = 'COMPLETED'
+    RETURN_VERIFIED = 'CLOSED'
+    PAYMENT_VERIFIED = 'TRANSFERRED'
+
+    TRIP_STATUS = (
+        (READY, 'Ready'),
+        (CANCELLED, 'Cancelled'),
+        (STARTED, 'Started'),
+        (COMPLETED, 'Completed'),
+        (RETURN_VERIFIED, 'Return Verified'),
+        (PAYMENT_VERIFIED, 'Payment Verified'),
+    )
+
     seller_shop = models.ForeignKey(
         Shop, related_name='trip_seller_shop', null=True,
         on_delete=models.DO_NOTHING
@@ -772,47 +779,39 @@ class Trip(models.Model):
             delivery_boy_identifier
         )
 
+    def get_crates_packets_sacks(self):
+        data = self.rt_invoice_trip.aggregate(
+            crates_shipped=Sum('no_of_crates'),
+            packets_shipped=Sum('no_of_packets'),
+            sacks_shipped=Sum('no_of_sacks'),
+            crates_collected=Sum('no_of_crates_check'),
+            packets_collected=Sum('no_of_packets_check'),
+            sacks_collected=Sum('no_of_sacks_check'))
+        return data
+
     @property
     def total_crates_shipped(self):
-        sum_crates_shipped = 0
-        for m in self.rt_invoice_trip.all():
-            sum_crates_shipped+=m.no_of_crates
-        return sum_crates_shipped
+        return self.get_crates_packets_sacks().get('crates_shipped')
 
     @property
     def total_packets_shipped(self):
-        sum_packets_shipped = 0
-        for m in self.rt_invoice_trip.all():
-            sum_packets_shipped+=m.no_of_packets
-        return sum_packets_shipped
+        return self.get_crates_packets_sacks().get('packets_shipped')
 
     @property
     def total_sacks_shipped(self):
-        sum_sacks_shipped = 0
-        for m in self.rt_invoice_trip.all():
-            sum_sacks_shipped+=m.no_of_sacks
-        return sum_sacks_shipped
+        return self.get_crates_packets_sacks().get('sacks_shipped')
 
     @property
     def total_crates_collected(self):
-        sum_crates_collected = 0
-        for m in self.rt_invoice_trip.all():
-            sum_crates_collected+=m.no_of_crates_check
-        return sum_crates_collected
+        return self.get_crates_packets_sacks().get('crates_collected')
 
     @property
     def total_packets_collected(self):
-        sum_packets_collected = 0
-        for m in self.rt_invoice_trip.all():
-            sum_packets_collected+=m.no_of_packets_check
-        return sum_packets_collected
+        return self.get_crates_packets_sacks().get('packets_collected')
 
     @property
     def total_sacks_collected(self):
-        sum_sacks_collected = 0
-        for m in self.rt_invoice_trip.all():
-            sum_sacks_collected+=m.no_of_sacks_check
-        return sum_sacks_collected
+        return self.get_crates_packets_sacks().get('sacks_collected')
 
     def create_dispatch_no(self):
         date = datetime.date.today().strftime('%d%m%y')
@@ -921,12 +920,11 @@ class Trip(models.Model):
     def save(self, *args, **kwargs):
         if self._state.adding:
             self.create_dispatch_no()
-        if self.trip_status != self.__trip_status and self.trip_status == 'STARTED':
+        if self.trip_status != self.__trip_status and self.trip_status == self.STARTED:
             # self.trip_amount = self.total_trip_amount()
             self.starts_at = datetime.datetime.now()
-        elif self.trip_status == 'COMPLETED':
+        elif self.trip_status == self.COMPLETED:
             self.completed_at = datetime.datetime.now()
-
         super().save(*args, **kwargs)
 
     def dispathces(self):
@@ -1079,8 +1077,11 @@ class OrderedProduct(models.Model): #Shipment
     @property
     def shipment_weight(self):
         try:
-            return self.rt_order_product_order_product_mapping.all()\
+            total_weight = self.rt_order_product_order_product_mapping.all()\
             .aggregate(total_weight=Sum(F('product__weight_value')* F('shipped_qty'),output_field=FloatField())).get('total_weight')
+            if not total_weight:
+                return 0
+            return total_weight
         except:
             return 0
 
@@ -1105,13 +1106,16 @@ class OrderedProduct(models.Model): #Shipment
         return "approved_and_verified"
 
     def online_payment_approval_status(self):
-        payments = self.shipment_payment.all().exclude(parent_order_payment__parent_payment__payment_mode_name="cash_payment")
+        payments = self.shipment_payment.values(
+            reference_no=F('parent_order_payment__parent_payment__reference_no'),
+            payment_approval_status=F('parent_order_payment__parent_payment__payment_approval_status'),
+            payment_id=F('parent_order_payment__parent_payment__id')
+        ).exclude(parent_order_payment__parent_payment__payment_mode_name="cash_payment")
         if not payments.exists():
             return "-"
         return format_html_join(
-                "","{} - {}<br><br>",
-                        ((s.parent_order_payment.parent_payment.reference_no,
-                            s.parent_order_payment.parent_payment.payment_approval_status
+                "","<a href='/admin/payments/paymentapproval/{}/change/' target='_blank'>{} - {}</a><br><br>",
+                        ((s.get('payment_id'), s.get('reference_no'), s.get('payment_approval_status')
                         ) for s in payments)
                 )
 
@@ -1622,35 +1626,20 @@ class Commercial(Trip):
         verbose_name_plural = _("Commercial")
 
     def change_shipment_status(self):
-        trip_shipments = self.rt_invoice_trip.all()
-        for shipment in trip_shipments:
-            if shipment.shipment_status == 'FULLY_RETURNED_AND_COMPLETED':
-                shipment.shipment_status = 'FULLY_RETURNED_AND_CLOSED'
-            if shipment.shipment_status == 'PARTIALLY_DELIVERED_AND_COMPLETED':
-                shipment.shipment_status = 'PARTIALLY_DELIVERED_AND_CLOSED'
-            if shipment.shipment_status == 'FULLY_DELIVERED_AND_COMPLETED':
-                shipment.shipment_status = 'FULLY_DELIVERED_AND_CLOSED'
-            shipment.save()
+        self.rt_invoice_trip.update(
+            shipment_status=Case(
+            When(shipment_status='FULLY_RETURNED_AND_COMPLETED',
+                 then=Value('FULLY_RETURNED_AND_CLOSED')),
+            When(shipment_status='PARTIALLY_DELIVERED_AND_COMPLETED',
+                 then=Value('PARTIALLY_DELIVERED_AND_CLOSED')),
+            When(shipment_status='FULLY_DELIVERED_AND_COMPLETED',
+                 then=Value('FULLY_DELIVERED_AND_CLOSED'))))
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        if self.trip_status == 'CLOSED':
+        if self.trip_status == Trip.PAYMENT_VERIFIED:
             self.change_shipment_status()
 
-    def clean(self):
-        if self.received_amount:
-            if (self.trip_status == 'CLOSED' and
-                    (int(self.received_amount) !=
-                        int(self.cash_to_be_collected()))):
-                    raise ValidationError(_("Received amount should be equal"
-                                            " to Amount to be Collected"
-                                            ),)
-            if (self.trip_status == 'COMPLETED' and
-                    (int(self.received_amount) >
-                        int(self.cash_to_be_collected()))):
-                    raise ValidationError(_("Received amount should be less"
-                                            " than Amount to be Collected"
-                                            ),)
 
 class CustomerCare(models.Model):
     order_id = models.ForeignKey(
@@ -1762,8 +1751,6 @@ class Payment(models.Model):
         super(Payment, self).save()
         self.name = "Payment/%s" % self.pk
         super(Payment, self).save()
-
-
 
 
 class Return(models.Model):
@@ -1950,7 +1937,7 @@ def assign_picklist(sender, instance=None, created=False, **kwargs):
             )
 
 
-post_save.connect(get_order_report, sender=Order)
+# post_save.connect(get_order_report, sender=Order)
 
 @receiver(post_save, sender=Cart)
 def create_order_id(sender, instance=None, created=False, **kwargs):
@@ -1986,16 +1973,18 @@ def order_notification(sender, instance=None, created=False, **kwargs):
         activity_type = "ORDER_RECEIVED"
         from notification_center.models import Template
         template = Template.objects.get(type="ORDER_RECEIVED").id
-        from notification_center.tasks import send_notification
-        send_notification(user_id=user_id, activity_type=template, data=data)
+        # from notification_center.tasks import send_notification
+        # send_notification(user_id=user_id, activity_type=template, data=data)
         try:
             message = SendSms(phone=instance.order_id.buyer_shop.shop_owner.phone_number,
-                              body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
-                                  " Thanks," \
-                                  " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
+                             body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
+                                " Thanks," \
+                                " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
             message.send()
         except Exception as e:
             logger.exception("Unable to send SMS for order : {}".format(order_no))
+
+
 
 
 @receiver(post_save, sender=CartProductMapping)
