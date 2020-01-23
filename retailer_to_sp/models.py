@@ -1617,35 +1617,20 @@ class Commercial(Trip):
         verbose_name_plural = _("Commercial")
 
     def change_shipment_status(self):
-        trip_shipments = self.rt_invoice_trip.all()
-        for shipment in trip_shipments:
-            if shipment.shipment_status == 'FULLY_RETURNED_AND_COMPLETED':
-                shipment.shipment_status = 'FULLY_RETURNED_AND_CLOSED'
-            if shipment.shipment_status == 'PARTIALLY_DELIVERED_AND_COMPLETED':
-                shipment.shipment_status = 'PARTIALLY_DELIVERED_AND_CLOSED'
-            if shipment.shipment_status == 'FULLY_DELIVERED_AND_COMPLETED':
-                shipment.shipment_status = 'FULLY_DELIVERED_AND_CLOSED'
-            shipment.save()
+        self.rt_invoice_trip.update(
+            shipment_status=Case(
+            When(shipment_status='FULLY_RETURNED_AND_COMPLETED',
+                 then=Value('FULLY_RETURNED_AND_CLOSED')),
+            When(shipment_status='PARTIALLY_DELIVERED_AND_COMPLETED',
+                 then=Value('PARTIALLY_DELIVERED_AND_CLOSED')),
+            When(shipment_status='FULLY_DELIVERED_AND_COMPLETED',
+                 then=Value('FULLY_DELIVERED_AND_CLOSED'))))
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        if self.trip_status == 'CLOSED':
+        if self.trip_status == 'PAYMENT_V':
             self.change_shipment_status()
 
-    def clean(self):
-        if self.received_amount:
-            if (self.trip_status == 'CLOSED' and
-                    (int(self.received_amount) !=
-                        int(self.cash_to_be_collected()))):
-                    raise ValidationError(_("Received amount should be equal"
-                                            " to Amount to be Collected"
-                                            ),)
-            if (self.trip_status == 'COMPLETED' and
-                    (int(self.received_amount) >
-                        int(self.cash_to_be_collected()))):
-                    raise ValidationError(_("Received amount should be less"
-                                            " than Amount to be Collected"
-                                            ),)
 
 class CustomerCare(models.Model):
     order_id = models.ForeignKey(

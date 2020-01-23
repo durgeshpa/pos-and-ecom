@@ -422,14 +422,6 @@ def trip_planning_change(request, pk):
                     return redirect('/admin/retailer_to_sp/trip/')
 
                 if current_trip_status == 'RETURN_V':
-                    trip_instance.rt_invoice_trip.update(
-                        shipment_status=Case(
-                        When(shipment_status='FULLY_RETURNED_AND_COMPLETED',
-                             then=Value('FULLY_RETURNED_AND_CLOSED')),
-                        When(shipment_status='PARTIALLY_DELIVERED_AND_COMPLETED',
-                             then=Value('PARTIALLY_DELIVERED_AND_CLOSED')),
-                        When(shipment_status='FULLY_DELIVERED_AND_COMPLETED',
-                             then=Value('FULLY_DELIVERED_AND_CLOSED'))))
                     return redirect('/admin/retailer_to_sp/trip/')
 
                 selected_shipment_ids = form.cleaned_data.get('selected_id', None)
