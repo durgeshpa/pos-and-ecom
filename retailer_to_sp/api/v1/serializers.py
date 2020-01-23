@@ -863,7 +863,8 @@ class DispatchSerializer(serializers.ModelSerializer):
                   'payment_approval_status', 'online_payment_approval_status')
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount',
                  'shipment_payment', 'trip_status', 'shipment_weight', 
-                 'payment_approval_status', 'online_payment_approval_status')
+                 'payment_approval_status', 'online_payment_approval_status',
+                 'invoice_no')
 
 
 
@@ -915,7 +916,7 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 
                     'cash_to_be_collected', 'shipment_payment', 'trip_status',
                      'paid_amount_shipment', 'shipment_weight', 'payment_approval_status',
-                     'online_payment_approval_status')
+                     'online_payment_approval_status', 'invoice_no')
 
 
 class FeedBackSerializer(serializers.ModelSerializer):
@@ -947,7 +948,7 @@ class CancelOrderSerializer(serializers.ModelSerializer):
             if (s['shipment_status'] not in [i[0] for i in OrderedProduct.SHIPMENT_STATUS[:3]]):
                 raise serializers.ValidationError(
                     _('Sorry! This order cannot be cancelled'),)
-            elif (s['trip__trip_status'] and s['trip__trip_status'] != 'READY'):
+            elif (s['trip__trip_status'] and s['trip__trip_status'] != Trip.READY):
                 raise serializers.ValidationError(
                     _('Sorry! This order cannot be cancelled'),)
         elif len(shipments_data) > 1:
@@ -1056,13 +1057,13 @@ class TripSerializer(serializers.ModelSerializer):
                                         source='get_trip_status_display')
 
     def get_total_trip_amount(self, obj):
-        return obj.total_trip_amount()
+        return obj.total_trip_amount_value #total_trip_amount()
 
     def get_cash_to_be_collected(self, obj):
         return obj.cash_collected_by_delivery_boy()
 
     def get_trip_return_amount(self, obj):
-        return round(float(obj.total_trip_amount()) - float(obj.cash_to_be_collected()),2)
+        return round(float(obj.total_trip_amount_value) - float(obj.cash_to_be_collected()),2)
 
     class Meta:
         model = Trip

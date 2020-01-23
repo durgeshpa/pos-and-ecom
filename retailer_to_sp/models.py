@@ -11,7 +11,7 @@ from celery.task import task
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import F, FloatField, Sum
+from django.db.models import F, FloatField, Sum, Func, Q
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils.safestring import mark_safe
@@ -20,10 +20,8 @@ from django.utils.html import format_html, format_html_join
 from django.utils.crypto import get_random_string
 from accounts.middlewares import get_current_user
 from addresses.models import Address
-from retailer_backend.common_function import (
-    order_id_pattern, brand_credit_note_pattern, getcredit_note_id,
-    retailer_sp_invoice
-)
+from retailer_backend import common_function as CommonFunction
+
 from .utils import (order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util,
                     order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
                     order_damaged_amount, order_delivered_value, order_shipment_status_reason,
@@ -34,10 +32,7 @@ from addresses.models import Address
 from brand.models import Brand
 from otp.sms import SendSms
 from products.models import Product, ProductPrice
-from retailer_backend.common_function import (brand_credit_note_pattern,
-                                              getcredit_note_id,
-                                              order_id_pattern,
-                                              retailer_sp_invoice)
+
 from shops.models import Shop, ShopNameDisplay
 
 from .utils import (order_invoices, order_shipment_amount,
@@ -46,11 +41,12 @@ from .utils import (order_invoices, order_shipment_amount,
 from accounts.models import UserWithName, User
 from django.core.validators import RegexValidator
 from django.contrib.postgres.fields import JSONField
-from analytics.post_save_signal import get_order_report
+# from analytics.post_save_signal import get_order_report
 from coupon.models import Coupon, CusotmerCouponUsage
 from django.db.models import Sum
 from django.db.models import Q
 from django.urls import reverse
+from retailer_backend import common_function
 
 
 # from sp_to_gram.models import (OrderedProduct as SPGRN, OrderedProductMapping as SPGRNProductMapping)
@@ -83,16 +79,6 @@ SELECT_ISSUE = (
     ("Others", "others")
 )
 
-TRIP_STATUS = (
-    ('READY', 'Ready'),
-    ('CANCELLED', 'Cancelled'),
-    ('STARTED', 'Started'),
-    ('COMPLETED', 'Completed'),
-#   ('READY_FOR_COMMERCIAL', 'Ready for commercial'),
-    ('CLOSED', 'Closed'),
-    ('TRANSFERRED', 'Transferred')
-)
-
 PAYMENT_STATUS = (
     ('PENDING', 'Pending'),
     ('PARTIALLY_PAID', 'Partially_paid'),
@@ -116,6 +102,11 @@ def generate_picklist_id(pincode):
         new_picklist_id = "PIK/" + str(pincode)[-2:] +"/" +str(1)
 
     return new_picklist_id
+
+class RoundAmount(Func):
+    function = "ROUND"
+    template = "%(function)s(%(expressions)s::numeric, 0)"
+
 
 
 class Cart(models.Model):
@@ -492,6 +483,7 @@ def create_order_id(sender, instance=None, created=False, **kwargs):
 @receiver(post_save, sender=BulkOrder)
 def create_bulk_order(sender, instance=None, created=False, **kwargs):
     if created:
+        products_available = {}
         if instance.cart_products_csv:
             product_ids = []
             reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8'))
@@ -500,7 +492,6 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
             from sp_to_gram.models import (OrderedProductMapping as SpMappedOrderedProductMapping)
             shop_products_available = SpMappedOrderedProductMapping.get_shop_stock(instance.seller_shop).filter(product__in=product_ids,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
             shop_products_dict = {g['product_id']:int(g['available_qty']) for g in shop_products_available}
-            products_available = {}
             reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8'))
             for id,row in enumerate(reader):
                 for row in reader:
@@ -514,11 +505,11 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                          qty = int(row[2]),
                          no_of_pieces = int(row[2]) * int(product.product_inner_case_size),
                          cart_product_price=product_price)
-    reserved_args = json.dumps({
-        'shop_id': instance.seller_shop.id,
-        'cart_id': instance.cart.id,
-        'products': products_available
-        })
+        reserved_args = json.dumps({
+            'shop_id': instance.seller_shop.id,
+            'cart_id': instance.cart.id,
+            'products': products_available
+            })
     from retailer_to_sp.tasks import create_reserved_order
     create_reserved_order(reserved_args)
     order,_ = Order.objects.get_or_create(ordered_cart=instance.cart)
@@ -717,8 +708,6 @@ class Order(models.Model):
     total_discount_amount = models.FloatField(default=0)
     total_tax_amount = models.FloatField(default=0)
     order_status = models.CharField(max_length=50,choices=ORDER_STATUS)
-    #payment_status = models.CharField(max_length=50,choices=PAYMENT_STATUS, null=True, blank=True)
-    #intended_mode_of_payment = models.CharField(max_length=50,choices=PAYMENT_MODE, null=True, blank=True)
     cancellation_reason = models.CharField(
         max_length=50, choices=CANCELLATION_REASON,
         null=True, blank=True, verbose_name='Reason for Cancellation',
@@ -761,7 +750,7 @@ class Order(models.Model):
 
     @property
     def total_final_amount(self):
-        return self.ordered_cart.order_amount
+            return self.ordered_cart.order_amount
 
     @property
     def total_mrp_amount(self):
@@ -882,11 +871,32 @@ class Order(models.Model):
 
     @property
     def buyer_shop_with_mobile(self):
-        if self.buyer_shop:
-            return "%s - %s" % (self.buyer_shop, self.buyer_shop.shop_owner.phone_number)
-        return "-"
+        try:
+            if self.buyer_shop:
+                return "%s - %s" % (self.buyer_shop, self.buyer_shop.shop_owner.phone_number)
+            return "-"
+        except:
+            return "-"
+
 
 class Trip(models.Model):
+
+    READY = 'READY'
+    CANCELLED = 'CANCELLED'
+    STARTED = 'STARTED'
+    COMPLETED = 'COMPLETED'
+    RETURN_VERIFIED = 'CLOSED'
+    PAYMENT_VERIFIED = 'TRANSFERRED'
+
+    TRIP_STATUS = (
+        (READY, 'Ready'),
+        (CANCELLED, 'Cancelled'),
+        (STARTED, 'Started'),
+        (COMPLETED, 'Completed'),
+        (RETURN_VERIFIED, 'Return Verified'),
+        (PAYMENT_VERIFIED, 'Payment Verified'),
+    )
+
     seller_shop = models.ForeignKey(
         Shop, related_name='trip_seller_shop', null=True,
         on_delete=models.DO_NOTHING
@@ -901,11 +911,8 @@ class Trip(models.Model):
     e_way_bill_no = models.CharField(max_length=50, blank=True, null=True)
     starts_at = models.DateTimeField(blank=True, null=True)
     completed_at = models.DateTimeField(blank=True, null=True)
-    trip_amount = models.DecimalField(blank=True, null=True,
-                                    max_digits=19, decimal_places=2)
     received_amount = models.DecimalField(blank=True, null=True,
                                     max_digits=19, decimal_places=2)
-    #description = models.CharField(max_length=50, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -919,47 +926,39 @@ class Trip(models.Model):
             delivery_boy_identifier
         )
 
+    def get_crates_packets_sacks(self):
+        data = self.rt_invoice_trip.aggregate(
+            crates_shipped=Sum('no_of_crates'),
+            packets_shipped=Sum('no_of_packets'),
+            sacks_shipped=Sum('no_of_sacks'),
+            crates_collected=Sum('no_of_crates_check'),
+            packets_collected=Sum('no_of_packets_check'),
+            sacks_collected=Sum('no_of_sacks_check'))
+        return data
+
     @property
     def total_crates_shipped(self):
-        sum_crates_shipped = 0
-        for m in self.rt_invoice_trip.all():
-            sum_crates_shipped+=m.no_of_crates
-        return sum_crates_shipped
+        return self.get_crates_packets_sacks().get('crates_shipped')
 
     @property
     def total_packets_shipped(self):
-        sum_packets_shipped = 0
-        for m in self.rt_invoice_trip.all():
-            sum_packets_shipped+=m.no_of_packets
-        return sum_packets_shipped
+        return self.get_crates_packets_sacks().get('packets_shipped')
 
     @property
     def total_sacks_shipped(self):
-        sum_sacks_shipped = 0
-        for m in self.rt_invoice_trip.all():
-            sum_sacks_shipped+=m.no_of_sacks
-        return sum_sacks_shipped
+        return self.get_crates_packets_sacks().get('sacks_shipped')
 
     @property
     def total_crates_collected(self):
-        sum_crates_collected = 0
-        for m in self.rt_invoice_trip.all():
-            sum_crates_collected+=m.no_of_crates_check
-        return sum_crates_collected
+        return self.get_crates_packets_sacks().get('crates_collected')
 
     @property
     def total_packets_collected(self):
-        sum_packets_collected = 0
-        for m in self.rt_invoice_trip.all():
-            sum_packets_collected+=m.no_of_packets_check
-        return sum_packets_collected
+        return self.get_crates_packets_sacks().get('packets_collected')
 
     @property
     def total_sacks_collected(self):
-        sum_sacks_collected = 0
-        for m in self.rt_invoice_trip.all():
-            sum_sacks_collected+=m.no_of_sacks_check
-        return sum_sacks_collected
+        return self.get_crates_packets_sacks().get('sacks_collected')
 
     def create_dispatch_no(self):
         date = datetime.date.today().strftime('%d%m%y')
@@ -967,7 +966,7 @@ class Trip(models.Model):
         shop_id_date = "%s/%s" % (shop, date)
         last_dispatch_no = Trip.objects.filter(
             dispatch_no__contains=shop_id_date)
-        if last_dispatch_no:
+        if last_dispatch_no.exists():
             dispatch_attempt = int(
                 last_dispatch_no.last().dispatch_no.split('/')[-1])
             dispatch_attempt += 1
@@ -984,7 +983,7 @@ class Trip(models.Model):
         for shipment in trip_shipments:
             cash_to_be_collected.append(
                 shipment.cash_to_be_collected())
-        return round(sum(cash_to_be_collected), 2)
+        return sum(cash_to_be_collected)
 
     def cash_collected_by_delivery_boy(self):
         cash_to_be_collected = []
@@ -1017,6 +1016,12 @@ class Trip(models.Model):
         return total_amount, cash_amount, online_amount
 
     @property
+    def trip_amount(self):
+        return self.rt_invoice_trip.all()\
+        .annotate(invoice_amount=RoundAmount(Sum(F('rt_order_product_order_product_mapping__effective_price')*F('rt_order_product_order_product_mapping__shipped_qty'))))\
+        .aggregate(trip_amount=Sum(F('invoice_amount'), output_field=FloatField())).get('trip_amount')
+
+    @property
     def total_received_amount(self):
         total_payment, _c , _o = self.total_paid_amount()
         return total_payment
@@ -1037,21 +1042,11 @@ class Trip(models.Model):
 
     @property
     def total_trip_shipments(self):
-        trip_shipments = self.rt_invoice_trip.count()
-        return trip_shipments
-
-    def total_trip_amount(self):
-        trip_shipments = self.rt_invoice_trip.all()
-        trip_amount = []
-        for shipment in trip_shipments:
-            invoice_amount = float(shipment.invoice_amount)
-            trip_amount.append(invoice_amount)
-        amount = round(sum(trip_amount),2)
-        return amount
+        return self.rt_invoice_trip.count()
 
     @property
     def total_trip_amount_value(self):
-        return self.total_trip_amount()
+        return self.trip_amount
 
     # @property
     def trip_weight(self):
@@ -1072,12 +1067,11 @@ class Trip(models.Model):
     def save(self, *args, **kwargs):
         if self._state.adding:
             self.create_dispatch_no()
-        if self.trip_status != self.__trip_status and self.trip_status == 'STARTED':
-            self.trip_amount = self.total_trip_amount()
+        if self.trip_status != self.__trip_status and self.trip_status == self.STARTED:
+            # self.trip_amount = self.total_trip_amount()
             self.starts_at = datetime.datetime.now()
-        elif self.trip_status == 'COMPLETED':
+        elif self.trip_status == self.COMPLETED:
             self.completed_at = datetime.datetime.now()
-
         super().save(*args, **kwargs)
 
     def dispathces(self):
@@ -1178,7 +1172,7 @@ class OrderedProduct(models.Model): #Shipment
         max_length=50, choices=RETURN_REASON,
         null=True, blank=True, verbose_name='Reason for Return',
     )
-    invoice_no = models.CharField(max_length=255, null=True, blank=True)
+    invoice_number = models.CharField(max_length=255, null=True, blank=True)
     trip = models.ForeignKey(
         Trip, related_name="rt_invoice_trip",
         null=True, blank=True, on_delete=models.DO_NOTHING,
@@ -1191,8 +1185,6 @@ class OrderedProduct(models.Model): #Shipment
         get_user_model(), related_name='rt_last_modified_user_order',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
-    #payment_status = models.CharField(max_length=50,choices=PAYMENT_STATUS, null=True, blank=True)
-    #is_payment_approved = models.BooleanField(default=False)
     no_of_crates = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Crates Shipped")
     no_of_packets = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Packets Shipped")
     no_of_sacks = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Sacks Shipped")
@@ -1206,30 +1198,8 @@ class OrderedProduct(models.Model): #Shipment
     class Meta:
         verbose_name = 'Update Delivery/ Returns/ Damage'
 
-    def __init__(self, *args, **kwargs):
-        super(OrderedProduct, self).__init__(*args, **kwargs)
-        if self.order:
-            self._invoice_amount = 0
-            self._cn_amount = 0
-            self._damaged_amount = 0
-            self._delivered_amount = 0
-            shipment_products = self.rt_order_product_order_product_mapping.values('product','shipped_qty','returned_qty','damaged_qty').all()
-            shipment_map = {i['product']:(i['shipped_qty'], i['returned_qty'], i['damaged_qty']) for i in shipment_products}
-            cart_product_map = self.order.ordered_cart.rt_cart_list.filter(cart_product_id__in=shipment_map.keys())
-            product_price_map = {i.cart_product.id:(i.item_effective_prices, i.qty) for i in cart_product_map}
-            for product, shipment_details in shipment_map.items():
-                try:
-                    product_price = product_price_map[product][0]
-                    shipped_qty, returned_qty, damaged_qty = shipment_details
-                    self._invoice_amount += product_price * shipped_qty
-                    self._cn_amount += (returned_qty+damaged_qty) * product_price
-                    self._damaged_amount += damaged_qty * product_price
-                    self._delivered_amount += self._invoice_amount - self._cn_amount
-                except Exception as e:
-                    logger.exception("Exception occurred {}".format(e))
-
     def __str__(self):
-        return self.invoice_no or str(self.id)
+        return self.invoice_no
 
     def clean(self):
         super(OrderedProduct, self).clean()
@@ -1238,11 +1208,26 @@ class OrderedProduct(models.Model): #Shipment
                 raise ValidationError(_("The number of crates must be equal to the number of crates shipped during shipment"))
 
     @property
+    def invoice_amount(self):
+        return self.rt_order_product_order_product_mapping.all()\
+        .aggregate(inv_amt= RoundAmount(Sum(F('effective_price')*F('shipped_qty')),output_field=FloatField()) ).get('inv_amt')
+
+    @property
+    def credit_note_amount(self):
+        credit_note_amount = self.rt_order_product_order_product_mapping.all()\
+        .aggregate(cn_amt=RoundAmount(Sum(F('effective_price')* (F('shipped_qty')-F('delivered_qty')),output_field=FloatField()))).get('cn_amt')
+        if credit_note_amount:
+            return credit_note_amount
+        else:
+            return 0
+
+    @property
     def shipment_weight(self):
-        queryset = self.rt_order_product_order_product_mapping.all()
-        weight = sum([item.product_weight for item in queryset]) # Definitely takes more memory.
-        #weight = self.rt_order_product_order_product_mapping.all().aggregate(Sum('product.weight_value'))['weight_value__sum']
-        return weight
+        try:
+            return self.rt_order_product_order_product_mapping.all()\
+            .aggregate(total_weight=Sum(F('product__weight_value')* F('shipped_qty'),output_field=FloatField())).get('total_weight')
+        except:
+            return 0
 
     @property
     def shipment_address(self):
@@ -1255,51 +1240,36 @@ class OrderedProduct(models.Model): #Shipment
         return str("-")
 
     def payment_approval_status(self):
-        payments = self.shipment_payment.all()
-        status = "-"
-        for payment in payments:
-            status = "approved_and_verified"
-            payment_status = payment.parent_order_payment.parent_payment.payment_approval_status
-            if payment_status == "pending_approval":
-                return "pending_approval"
-        else:
-            return  status
+        if not self.shipment_payment.all().exists():
+            return "-"
+
+        non_approved_payment = self.shipment_payment.exclude(parent_order_payment__parent_payment__payment_approval_status='approved_and_verified').first()
+        if non_approved_payment:
+            return non_approved_payment.parent_order_payment.parent_payment.payment_approval_status
+
+        return "approved_and_verified"
 
     def online_payment_approval_status(self):
-        payments = self.shipment_payment.all().exclude(parent_order_payment__parent_payment__payment_mode_name="cash_payment")
+        payments = self.shipment_payment.values(
+            reference_no=F('parent_order_payment__parent_payment__reference_no'),
+            payment_approval_status=F('parent_order_payment__parent_payment__payment_approval_status'),
+            payment_id=F('parent_order_payment__parent_payment__id')
+        ).exclude(parent_order_payment__parent_payment__payment_mode_name="cash_payment")
         if not payments.exists():
             return "-"
         return format_html_join(
-                "","{} - {}<br><br>",
-                        ((s.parent_order_payment.parent_payment.reference_no,
-                            s.parent_order_payment.parent_payment.payment_approval_status
+                "","<a href='/admin/payments/paymentapproval/{}/change/' target='_blank'>{} - {}</a><br><br>",
+                        ((s.get('payment_id'), s.get('reference_no'), s.get('payment_approval_status')
                         ) for s in payments)
                 )
 
-
-    def payments(self):
-        if hasattr(self, '_payment_mode'):
-            return self._payment_mode, self._payment_amount
-        else:
-            self._payment_mode = []
-            self._payment_amount = []
-            if self.order:
-                payments = self.order.rt_payment.values('payment_choice', 'paid_amount').all()
-                for payment in payments:
-                    self._payment_mode.append(dict(PAYMENT_MODE_CHOICES)[payment['payment_choice']])
-                    self._payment_amount.append(float(payment['paid_amount']))
-        return self._payment_mode, self._payment_amount
-
     def total_payment(self):
-        from payments.models import ShipmentPayment
         shipment_payment = self.shipment_payment.exclude(parent_order_payment__parent_payment__payment_status='cancelled')
         total_payment = cash_payment = online_payment = 0
         if shipment_payment.exists():
             shipment_payment_data = shipment_payment.aggregate(Sum('paid_amount')) #annotate(sum_paid_amount=Sum('paid_amount'))
             shipment_payment_cash = shipment_payment.filter(parent_order_payment__parent_payment__payment_mode_name="cash_payment").aggregate(Sum('paid_amount'))
             shipment_payment_online = shipment_payment.filter(parent_order_payment__parent_payment__payment_mode_name="online_payment").aggregate(Sum('paid_amount'))
-        # shipment_payment = ShipmentPayment.objects.filter(shipment__in=trip_shipments).\
-        #     annotate(sum_paid_amount=Sum('paid_amount'))
             if shipment_payment_data['paid_amount__sum']:
                 total_payment = round(shipment_payment_data['paid_amount__sum'], 2) #sum_paid_amount
             if shipment_payment_cash['paid_amount__sum']:
@@ -1324,57 +1294,135 @@ class OrderedProduct(models.Model): #Shipment
         return online_payment
 
     @property
-    def payment_mode(self):
-        payment_mode, _ = self.payments()
-        return payment_mode
-
-    @property
     def invoice_city(self):
         city = self.order.shipping_address.city
         return str(city)
 
     def cash_to_be_collected(self):
         # fetch the amount to be collected
-        if self.order.rt_payment.filter(payment_choice='cash_on_delivery').exists():
-            return round((self._invoice_amount - self._cn_amount),2)
-        return 0
+        if self.invoice_amount:
+            return (self.invoice_amount - self.credit_note_amount)
+        else:
+            return 0
+
+
+    def total_shipped_pieces(self):
+        return self.rt_order_product_order_product_mapping.all()\
+        .aggregate(cn_amt=Sum(F('shipped_qty'))).get('cn_amt')
+
+    def sum_amount_tax(self):
+        return sum([item.product_tax_amount for item in self.rt_order_product_order_product_mapping.all()])
+
+    def sum_cess(self):
+        return sum([item.product_tax_json() for item in self.rt_order_product_order_product_mapping.all()])
+
+    def sum_cgst(self):
+        return self.rt_order_product_order_product_mapping.all()\
+        .aggregate(cn_amt=RoundAmount(Sum(F('effective_price')* (F('shipped_qty')-F('delivered_qty'))))).get('cn_amt')
+
+    def sum_sgst(self):
+        return sum([item.product_tax_json.get('6',{}).get("CESS - 12") for item in self.rt_order_product_order_product_mapping.all()])
+
 
     @property
-    def invoice_amount(self):
-        if self.order:
-            return round(self._invoice_amount)
-        return str("-")
+    def invoice_no(self):
+        if hasattr(self, 'invoice'):
+            return self.invoice.invoice_no
+        if self.invoice_number:
+            return self.invoice_number
+        return "-"
 
     @property
     def shipment_id(self):
         return self.id
 
-    def cn_amount(self):
-        return round(self._cn_amount, 2)
+    def picking_data(self):
+        if self.picker_shipment.all().exists():
+            picker_data = self.picker_shipment.last()
+            return [picker_data.get_picking_status_display(), picker_data.picker_boy, picker_data.picklist_id]
+        else:
+            return ["","",""]
+
+    @property
+    def picking_status(self):
+        return self.picking_data()[0] #picking_statuses(self.picker_shipment())
+
+    @property
+    def picker_boy(self):
+        return self.picking_data()[1]
+
+    @property
+    def picklist_id(self):
+        return self.picking_data()[2]
+
 
     def damaged_amount(self):
-        return round(self._damaged_amount, 2)
+        return self.rt_order_product_order_product_mapping.all()\
+        .aggregate(cn_amt=Sum(F('effective_price')* F('damaged_qty'))).get('cn_amt')
 
     def clean(self):
         super(OrderedProduct, self).clean()
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        if not self.invoice_no and self.shipment_status == OrderedProduct.READY_TO_SHIP:
-            self.invoice_no = retailer_sp_invoice(
-                                    self.__class__, 'invoice_no',
-                                    self.pk, self.order.seller_shop.
-                                    shop_name_address_mapping.filter(
-                                                    address_type='billing'
-                                                    ).last().pk)
+        if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+            CommonFunction.generate_invoice_number(
+                'invoice_no', self.pk,
+                self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
+                self.invoice_amount)
         if self.no_of_crates == None:
             self.no_of_crates = 0
         if self.no_of_packets == None:
             self.no_of_packets = 0
         if self.no_of_sacks == None:
             self.no_of_sacks = 0
+
         super().save(*args, **kwargs)
-                # Update Product Tax Mapping End
+
+    def payments(self):
+        if hasattr(self, '_payment_mode'):
+            return self._payment_mode, self._payment_amount
+        else:
+            self._payment_mode = []
+            self._payment_amount = []
+            if self.order:
+                payments = self.order.rt_payment.values('payment_choice', 'paid_amount').all()
+                for payment in payments:
+                    self._payment_mode.append(dict(PAYMENT_MODE_CHOICES)[payment['payment_choice']])
+                    self._payment_amount.append(float(payment['paid_amount']))
+        return self._payment_mode, self._payment_amount
+
+    @property
+    def payment_mode(self):
+        payment_mode, _ = self.payments()
+        return payment_mode
+
+
+class Invoice(models.Model):
+    invoice_no = models.CharField(max_length=255, unique=True, db_index=True)
+    shipment = models.OneToOneField(OrderedProduct, related_name='invoice', on_delete=models.DO_NOTHING)
+    invoice_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/', null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    modified_at = models.DateTimeField(auto_now=True, null=True)
+
+    class Meta:
+        verbose_name = "Invoice"
+        verbose_name_plural = "Invoices"
+
+    def __str__(self):
+        return self.invoice_no
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
+    @property
+    def invoice_amount(self):
+        try:
+            inv_amount = self.shipment.rt_order_product_order_product_mapping.annotate(item_amount=F('effective_price')*F('shipped_qty')).aggregate(invoice_amount=Sum('item_amount')).get('invoice_amount')
+        except:
+            inv_amount = self.shipment.invoice_amount
+        return inv_amount
+
 
 class PickerDashboard(models.Model):
 
@@ -1429,6 +1477,7 @@ class OrderedProductMapping(models.Model):
     product_tax_json = JSONField(null=True,blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+    effective_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
 
     def clean(self):
         super(OrderedProductMapping, self).clean()
@@ -1445,7 +1494,6 @@ class OrderedProductMapping(models.Model):
 
     @property
     def product_weight(self):
-        # sum_a = sum([item.column for item in queryset]) # Definitely takes more memory.
         if self.product.weight_value:
             weight = self.product.weight_value*self.shipped_qty
             return weight
@@ -1474,7 +1522,6 @@ class OrderedProductMapping(models.Model):
     @property
     def shipped_quantity_including_current(self):
         all_ordered_product = self.ordered_product.order.rt_order_order_product.filter(created_at__lte=self.ordered_product.created_at)#all()
-        #all_ordered_product_exclude_current = all_ordered_product.exclude(id=self.ordered_product_id)
         qty = OrderedProductMapping.objects.filter(
             ordered_product__in=all_ordered_product,
             product=self.product)
@@ -1487,16 +1534,12 @@ class OrderedProductMapping(models.Model):
     @property
     def to_be_shipped_qty(self):
         all_ordered_product = self.ordered_product.order.rt_order_order_product.all()
-        #all_ordered_product_exclude_current = all_ordered_product.exclude(id=self.ordered_product_id)
         qty = OrderedProductMapping.objects.filter(
             ordered_product__in=all_ordered_product,
             product=self.product)
         to_be_shipped_qty = qty.aggregate(
             Sum('shipped_qty')).get('shipped_qty__sum', 0)
-        # returned_qty = qty.aggregate(
-        #     Sum('returned_qty')).get('returned_qty__sum', 0)
         to_be_shipped_qty = to_be_shipped_qty if to_be_shipped_qty else 0
-        # to_be_shipped_qty = to_be_shipped_qty - returned_qty
         return to_be_shipped_qty
     to_be_shipped_qty.fget.short_description = "Already Shipped Qty"
 
@@ -1539,8 +1582,18 @@ class OrderedProductMapping(models.Model):
 
     @property
     def price_to_retailer(self):
+        if self.effective_price:
+            return self.effective_price
         return self.ordered_product.order.ordered_cart.rt_cart_list\
             .get(cart_product=self.product).item_effective_prices
+
+    def set_effective_price(self):
+        try:
+            effective_price = self.ordered_product.order.ordered_cart.rt_cart_list\
+                .get(cart_product=self.product).item_effective_prices
+            OrderedProductMapping.objects.filter(id=self.id).update(effective_price=effective_price)
+        except:
+            pass
 
     @property
     def cash_discount(self):
@@ -1565,6 +1618,26 @@ class OrderedProductMapping(models.Model):
     def product_short_description(self):
         return self.product.product_short_description
 
+    @property
+    def basic_rate(self):
+        get_tax_val = self.get_product_tax_json() / 100
+        basic_rate = (float(self.effective_price)) / (float(get_tax_val) + 1)
+        return round(basic_rate,2)
+
+    @property
+    def base_price(self):
+        return self.basic_rate * self.shipped_qty
+
+    @property
+    def product_tax_amount(self):
+        get_tax_val = self.get_product_tax_json() / 100
+        return round(float(self.base_price) * float(get_tax_val),2)
+
+    @property
+    def product_sub_total(self):
+        return round(self.effective_price * self.shipped_qty,2)
+
+
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
             shop__shop_type__shop_type='sp', status=True
@@ -1584,29 +1657,27 @@ class OrderedProductMapping(models.Model):
         self.product_tax_json = product_tax
         self.save()
 
+    # def product_taxes(self):
+    #     for tax in self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name','tax__tax_percentage'):
+
 
     def get_product_tax_json(self):
         if not self.product_tax_json:
             self.set_product_tax_json()
         return self.product_tax_json.get('tax_sum')
 
+    def get_effective_price(self):
+        return round(self.effective_price,2)
+
+
+
     def save(self, *args, **kwargs):
         if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.shipped_qty != sum([self.delivered_qty, self.returned_qty, self.damaged_qty]):
             raise ValidationError(_('delivered, returned, damaged qty sum mismatched with shipped_qty'))
         else:
+            self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().item_effective_prices
             super().save(*args, **kwargs)
-    #     if self.product_tax_json:
-    #         super().save(*args, **kwargs)
-    #     else:
-    #         try:
-    #             product_tax_query = self.product.product_pro_tax.filter(status=True).values('product', 'tax', 'tax__tax_name',
-    #                                                                     'tax__tax_percentage')
-    #             product_tax = {i['tax']: [i['tax__tax_name'], i['tax__tax_percentage']] for i in product_tax_query}
-    #             product_tax['tax_sum'] = product_tax_query.aggregate(tax_sum=Sum('tax__tax_percentage'))['tax_sum']
-    #             self.product_tax_json = product_tax
-    #         except Exception as e:
-    #             logger.exception("Exception occurred while saving product {}".format(e))
-    #         super().save(*args, **kwargs)
+
 
 class Dispatch(OrderedProduct):
     class Meta:
@@ -1699,35 +1770,20 @@ class Commercial(Trip):
         verbose_name_plural = _("Commercial")
 
     def change_shipment_status(self):
-        trip_shipments = self.rt_invoice_trip.all()
-        for shipment in trip_shipments:
-            if shipment.shipment_status == 'FULLY_RETURNED_AND_COMPLETED':
-                shipment.shipment_status = 'FULLY_RETURNED_AND_CLOSED'
-            if shipment.shipment_status == 'PARTIALLY_DELIVERED_AND_COMPLETED':
-                shipment.shipment_status = 'PARTIALLY_DELIVERED_AND_CLOSED'
-            if shipment.shipment_status == 'FULLY_DELIVERED_AND_COMPLETED':
-                shipment.shipment_status = 'FULLY_DELIVERED_AND_CLOSED'
-            shipment.save()
+        self.rt_invoice_trip.update(
+            shipment_status=Case(
+            When(shipment_status='FULLY_RETURNED_AND_COMPLETED',
+                 then=Value('FULLY_RETURNED_AND_CLOSED')),
+            When(shipment_status='PARTIALLY_DELIVERED_AND_COMPLETED',
+                 then=Value('PARTIALLY_DELIVERED_AND_CLOSED')),
+            When(shipment_status='FULLY_DELIVERED_AND_COMPLETED',
+                 then=Value('FULLY_DELIVERED_AND_CLOSED'))))
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        if self.trip_status == 'CLOSED':
+        if self.trip_status == Trip.PAYMENT_VERIFIED:
             self.change_shipment_status()
 
-    def clean(self):
-        if self.received_amount:
-            if (self.trip_status == 'CLOSED' and
-                    (int(self.received_amount) !=
-                        int(self.cash_to_be_collected()))):
-                    raise ValidationError(_("Received amount should be equal"
-                                            " to Amount to be Collected"
-                                            ),)
-            if (self.trip_status == 'COMPLETED' and
-                    (int(self.received_amount) >
-                        int(self.cash_to_be_collected()))):
-                    raise ValidationError(_("Received amount should be less"
-                                            " than Amount to be Collected"
-                                            ),)
 
 class CustomerCare(models.Model):
     order_id = models.ForeignKey(
@@ -1839,42 +1895,6 @@ class Payment(models.Model):
         super(Payment, self).save()
         self.name = "Payment/%s" % self.pk
         super(Payment, self).save()
-
-
-@receiver(post_save, sender=Payment)
-def order_notification(sender, instance=None, created=False, **kwargs):
-
-    if created:
-        if instance.order_id.buyer_shop.shop_owner.first_name:
-            username = instance.order_id.buyer_shop.shop_owner.first_name
-        else:
-            username = instance.order_id.buyer_shop.shop_owner.phone_number
-        order_no = str(instance.order_id)
-        total_amount = str(instance.order_id.total_final_amount)
-        shop_name = str(instance.order_id.ordered_cart.buyer_shop.shop_name)
-        items_count = instance.order_id.ordered_cart.rt_cart_list.count()
-        data = {}
-        data['username'] = username
-        data['phone_number'] = instance.order_id.ordered_by
-        data['order_no'] = order_no
-        data['items_count'] = items_count
-        data['total_amount'] = total_amount
-        data['shop_name'] = shop_name
-
-        user_id = instance.order_id.ordered_by.id
-        activity_type = "ORDER_RECEIVED"
-        from notification_center.models import Template
-        template = Template.objects.get(type="ORDER_RECEIVED").id
-        from notification_center.tasks import send_notification
-        send_notification(user_id=user_id, activity_type=template, data=data)
-        try:
-            message = SendSms(phone=instance.order_id.buyer_shop.shop_owner.phone_number,
-                              body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
-                                  " Thanks," \
-                                  " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
-            message.send()
-        except Exception as e:
-            logger.exception("Unable to send SMS for order : {}".format(order_no))
 
 
 class Return(models.Model):
@@ -1989,7 +2009,7 @@ class Note(models.Model):
     @property
     def note_amount(self):
         if self.shipment:
-            return round(self.shipment._cn_amount,2)
+            return round(self.shipment.credit_note_amount,2)
 
 
 class Feedback(models.Model):
@@ -2026,9 +2046,11 @@ def assign_update_picker_to_shipment(shipment_id):
    if shipment.shipment_status == "SHIPMENT_CREATED":
        # assign shipment to picklist
        # tbd : if manual(by searching relevant picklist id) or automated
-       picker_lists = shipment.order.picker_order.filter(picking_status="picking_assigned").update(shipment=shipment)
+       if shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).exists():
+           picker_lists = shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).update(shipment=shipment)
    elif shipment.shipment_status == OrderedProduct.READY_TO_SHIP:
-       shipment.picker_shipment.all().update(picking_status="picking_complete")
+       if shipment.picker_shipment.all().exists():
+           shipment.picker_shipment.all().update(picking_status="picking_complete")
 
 
 @receiver(post_save, sender=OrderedProduct)
@@ -2036,7 +2058,8 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
     '''
     Method to update picking status
     '''
-    assign_update_picker_to_shipment.delay(instance.id)
+    #assign_update_picker_to_shipment.delay(instance.id)
+    assign_update_picker_to_shipment(instance.id)
 
 
 @receiver(post_save, sender=Order)
@@ -2058,7 +2081,54 @@ def assign_picklist(sender, instance=None, created=False, **kwargs):
             )
 
 
-post_save.connect(get_order_report, sender=Order)
+# post_save.connect(get_order_report, sender=Order)
+
+@receiver(post_save, sender=Cart)
+def create_order_id(sender, instance=None, created=False, **kwargs):
+    if created:
+        instance.order_id = common_function.order_id_pattern(
+                                    sender, 'order_id', instance.pk,
+                                    instance.seller_shop.
+                                    shop_name_address_mapping.filter(
+                                        address_type='billing').last().pk)
+        instance.save()
+
+@receiver(post_save, sender=Payment)
+def order_notification(sender, instance=None, created=False, **kwargs):
+
+    if created:
+        if instance.order_id.buyer_shop.shop_owner.first_name:
+            username = instance.order_id.buyer_shop.shop_owner.first_name
+        else:
+            username = instance.order_id.buyer_shop.shop_owner.phone_number
+        order_no = str(instance.order_id)
+        total_amount = str(instance.order_id.total_final_amount)
+        shop_name = str(instance.order_id.ordered_cart.buyer_shop.shop_name)
+        items_count = instance.order_id.ordered_cart.rt_cart_list.count()
+        data = {}
+        data['username'] = username
+        data['phone_number'] = instance.order_id.ordered_by
+        data['order_no'] = order_no
+        data['items_count'] = items_count
+        data['total_amount'] = total_amount
+        data['shop_name'] = shop_name
+
+        user_id = instance.order_id.ordered_by.id
+        activity_type = "ORDER_RECEIVED"
+        from notification_center.models import Template
+        template = Template.objects.get(type="ORDER_RECEIVED").id
+        # from notification_center.tasks import send_notification
+        # send_notification(user_id=user_id, activity_type=template, data=data)
+        try:
+            message = SendSms(phone=instance.order_id.buyer_shop.shop_owner.phone_number,
+                             body="Hi %s, We have received your order no. %s with %s items and totalling to %s Rupees for your shop %s. We will update you further on shipment of the items."\
+                                " Thanks," \
+                                " Team GramFactory" % (username, order_no,items_count, total_amount, shop_name))
+            message.send()
+        except Exception as e:
+            logger.exception("Unable to send SMS for order : {}".format(order_no))
+
+
 
 
 @receiver(post_save, sender=CartProductMapping)

@@ -16,7 +16,7 @@ from django.db.models.signals import pre_save, post_save
 from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ValidationError
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES,ERROR_MESSAGES
-from analytics.post_save_signal import get_category_product_report, get_master_report
+# from analytics.post_save_signal import get_category_product_report, get_master_report
 
 
 from coupon.models import Coupon
@@ -273,7 +273,12 @@ class ProductPrice(models.Model):
         return "%s - %s" % (self.product.product_name, self.selling_price)
 
     def validate(self, exception_type):
-        if self.selling_price and self.selling_price > self.mrp:
+        if not self.mrp:
+            raise ValidationError(_('Please enter valid Mrp price.'))
+        if not self.selling_price:
+            raise ValidationError(_('Please enter valid Selling price.'))
+            #raise exception_type(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
+        if self.selling_price and self.mrp and self.selling_price > self.mrp:
             raise exception_type(ERROR_MESSAGES['INVALID_PRICE_UPLOAD'])
 
     def clean(self):
@@ -516,6 +521,6 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
         product.save()
 
 
-post_save.connect(get_category_product_report, sender=Product)
-post_save.connect(get_master_report, sender=ProductPrice)
+# post_save.connect(get_category_product_report, sender=Product)
+# post_save.connect(get_master_report, sender=ProductPrice)
 

@@ -7,6 +7,9 @@ from addresses.models import InvoiceCityMapping
 from rest_framework.response import Response
 from django.conf import settings
 import datetime
+from django.core.cache import cache
+from retailer_to_sp import models as RetailerToSPModels
+from celery.task import task
 
 # get shop
 def checkShop(shop_id):
@@ -65,25 +68,41 @@ def get_shop_warehouse_state_code(address):
     return state_code, shop_code, warehouse_code
 
 def get_last_no_to_increment(model, field, instance_id, starts_with):
+    prefix = "{}_{}_{}"
     instance_with_current_pattern = model.objects.filter(
                                         **{field+'__icontains': starts_with})
     if instance_with_current_pattern.exists():
-        last_instance_no = instance_with_current_pattern.latest(field)
+        last_instance_no = model.objects.filter(**{field+'__icontains': starts_with}).latest(field)
         return int(getattr(last_instance_no, field)[-7:])
 
     else:
         return 0
 
+def get_last_model_invoice(starts_with, field):
+    shipment_instance = RetailerToSPModels.OrderedProduct.objects.filter(invoice_number__icontains=starts_with)
+    if shipment_instance.exists():
+        last_instance_no = shipment_instance.latest('invoice_number')
+        return int(getattr(last_instance_no, field)[-7:])
+    else:
+        return 0
 
-def common_pattern(model, field, instance_id, address, invoice_type):
+def common_pattern(model, field, instance_id, address, invoice_type, is_invoice=False):
     state_code, shop_code, warehouse_code = get_shop_warehouse_state_code(
                                             address)
     financial_year = get_financial_year()
     starts_with = "%s%s%s%s%s" % (
                                 shop_code, invoice_type, financial_year,
                                 state_code, warehouse_code)
-    last_number = get_last_no_to_increment(model, field, instance_id, starts_with)
-    last_number += 1
+    try:
+        last_number = cache.incr(starts_with)
+    except:
+        if is_invoice:
+            last_number = get_last_model_invoice(starts_with, field)
+        else:
+            last_number = get_last_no_to_increment(model, field, instance_id, starts_with)
+            last_number += 1
+        cache.set(starts_with, last_number)
+        cache.persist(starts_with)
     ends_with = str(format(last_number, '07d'))
     return "%s%s" % (starts_with, ends_with)
 
@@ -178,3 +197,11 @@ def required_fields(form, fields_list):
     for field in fields_list:
         form.fields[field].required = True
 
+
+@task
+def generate_invoice_number(field, instance_id, address, invoice_amount):
+    instance, created = RetailerToSPModels.Invoice.objects.get_or_create(shipment_id=instance_id)
+    if created:
+        invoice_no = common_pattern(RetailerToSPModels.Invoice, field, instance_id, address, "IV", is_invoice=True)
+        instance.invoice_no=invoice_no
+        instance.save()

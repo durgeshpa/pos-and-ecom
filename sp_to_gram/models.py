@@ -508,9 +508,9 @@ def create_credit_note_on_trip_close(trip_id):
             credit_note.save()
 
 
-@receiver(post_save, sender=Commercial)
+@receiver(post_save, sender=Trip)
 def create_offers(sender, instance=None, created=False, **kwargs):
-    if instance.trip_status == "CLOSED":
+    if instance.trip_status == "RETURN_V":
         create_credit_note_on_trip_close.delay(instance.id)
 
 

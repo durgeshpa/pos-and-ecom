@@ -60,6 +60,7 @@ class OrderNoSearch(InputFilter):
 class OrderPaymentAdmin(admin.ModelAdmin, PermissionMixin):
     model = OrderPayment
     form  = OrderPaymentForm
+    list_per_page = 25
     #autocomplete_fields = ('order', 'parent_payment', 'created_by', 'updated_by',)
     search_fields = ('order__order_no', 'parent_payment__payment_id')
     readonly_fields = (
@@ -90,6 +91,7 @@ class PaymentImageAdmin(admin.ModelAdmin, PermissionMixin):
 class PaymentAdmin(admin.ModelAdmin, PermissionMixin):
     # inlines = [OnlinePaymentInlineAdmin]
     model = Payment
+    list_per_page = 25
     autocomplete_fields = ('paid_by',)
     search_fields = ('paid_amount', "paid_by__phone_number", "payment_id",)
     form  = PaymentForm
@@ -208,6 +210,7 @@ class NoDeleteAdminMixin:
 class PaymentApprovalAdmin(admin.ModelAdmin, PermissionMixin):# NoDeleteAdminMixin, 
     form = PaymentApprovalForm
     model = PaymentApproval
+    list_per_page = 25
     list_display = (
         "id", "reference_no", "payment_approval_status", "paid_amount",
         "retailer", "payment_mode_name", "order_number", "invoice_number" 
@@ -302,7 +305,7 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline, PermissionMixin):
         try:
             parent_obj_id = request.resolver_match.kwargs['object_id']
             parent_obj = OrderedProduct.objects.get(pk=parent_obj_id)
-            if parent_obj.trip.trip_status in ["CLOSED", "TRANSFERRED"]:
+            if parent_obj.trip.trip_status in [Trip.RETURN_VERIFIED, Trip.PAYMENT_VERIFIED]:
                 return False
             else: 
                 return True
@@ -314,7 +317,7 @@ class ShipmentPaymentInlineAdmin(admin.TabularInline, PermissionMixin):
         try:
             parent_obj_id = request.resolver_match.kwargs['object_id']
             parent_obj = OrderedProduct.objects.get(pk=parent_obj_id)
-            if parent_obj.trip.trip_status in ["CLOSED", "TRANSFERRED"]:
+            if parent_obj.trip.trip_status in [Trip.RETURN_VERIFIED, Trip.PAYMENT_VERIFIED]:
                 return False
             else: 
                 return True

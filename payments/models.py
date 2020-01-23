@@ -289,8 +289,6 @@ class ShipmentPayment(AbstractDateTime):
     shipment = models.ForeignKey(OrderedProduct, related_name='shipment_payment', on_delete=models.CASCADE) #shipment_id
     parent_order_payment = models.ForeignKey(OrderPayment, 
        related_name='shipment_order_payment', on_delete=models.CASCADE)
-    #parent_payment = models.ForeignKey(Payment, 
-    #   related_name='shipment_payment', on_delete=models.CASCADE, null=True, blank=True)
     paid_amount = models.DecimalField(validators=[MinValueValidator(0)], max_digits=20, decimal_places=4, default='0.0000')
     created_by = models.ForeignKey(User, related_name='payment_created_by', null=True, blank=True, on_delete=models.SET_NULL)
     updated_by = models.ForeignKey(User, related_name='payment_updated_by', null=True, blank=True, on_delete=models.SET_NULL)

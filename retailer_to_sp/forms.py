@@ -24,7 +24,7 @@ from sp_to_gram.models import (
 from retailer_backend.common_function import required_fields
 from retailer_to_sp.models import (
     CustomerCare, ReturnProductMapping, OrderedProduct,
-    OrderedProductMapping, Order, Dispatch, Trip, TRIP_STATUS,
+    OrderedProductMapping, Order, Dispatch, Trip,
     Shipment, ShipmentProductMapping, CartProductMapping, Cart,
     ShipmentRescheduling, PickerDashboard, generate_picklist_id, ResponseComment,BulkOrder
 )
@@ -33,6 +33,7 @@ from shops.models import Shop
 from accounts.models import UserWithName
 from accounts.middlewares import get_current_user
 from addresses.models import Address
+from payments.models import ShipmentPayment
 
 User = get_user_model()
 
@@ -380,32 +381,27 @@ class TripForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(
             url='admin:user_with_name_autocomplete',)
     )
-    # delivery_boy = forms.ModelChoiceField(
-    #     queryset=UserWithName.objects.all(),
-    #     widget=RelatedFieldWidgetCanAdd(
-    #         UserWithName,
-    #         related_url="admin:accounts_user_add"))
-    trip_status = forms.ChoiceField(choices=TRIP_STATUS)
+    trip_status = forms.ChoiceField(choices=Trip.TRIP_STATUS)
     search_by_area = forms.CharField(required=False)
     search_by_pincode = forms.CharField(required=False)
     Invoice_No = forms.CharField(required=False)
     trip_id = forms.CharField(required=False)
-    total_crates_shipped = forms.IntegerField(required=False)
-    total_packets_shipped = forms.IntegerField(required=False)
-    total_sacks_shipped = forms.IntegerField(required=False)
-    total_crates_collected = forms.IntegerField(required=False)
-    total_packets_collected = forms.IntegerField(required=False)
-    total_sacks_collected = forms.IntegerField(required=False)
-    trip_weight = forms.CharField(required=False)
-    total_trip_amount_value = forms.CharField(required=False)
+    total_crates_shipped = forms.IntegerField(required=False, disabled=True)
+    total_packets_shipped = forms.IntegerField(required=False, disabled=True)
+    total_sacks_shipped = forms.IntegerField(required=False, disabled=True)
+    total_crates_collected = forms.IntegerField(required=False, disabled=True)
+    total_packets_collected = forms.IntegerField(required=False, disabled=True)
+    total_sacks_collected = forms.IntegerField(required=False, disabled=True)
+    trip_weight = forms.CharField(required=False, disabled=True)
+    total_trip_amount_value = forms.CharField(required=False, disabled=True)
     selected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
     unselected_id = forms.CharField(widget=forms.HiddenInput(), required=False)
 
     class Meta:
         model = Trip
         fields = ['seller_shop', 'delivery_boy', 'vehicle_no', 'trip_status',
-                  'e_way_bill_no', 'search_by_area', 'search_by_pincode', 'Invoice_No', 'selected_id',
-                  'unselected_id', 'trip_weight']
+                  'e_way_bill_no', 'search_by_area', 'search_by_pincode',
+                  'Invoice_No', 'selected_id', 'unselected_id', 'trip_weight']
 
     class Media:
         js = ('admin/js/select2.min.js',)
@@ -427,55 +423,46 @@ class TripForm(forms.ModelForm):
         self.fields['total_crates_shipped'].initial = instance.total_crates_shipped
         self.fields['total_packets_shipped'].initial = instance.total_packets_shipped
         self.fields['total_sacks_shipped'].initial = instance.total_sacks_shipped
+        self.fields['total_crates_collected'].initial = instance.total_crates_collected
+        self.fields['total_packets_collected'].initial = instance.total_packets_collected
+        self.fields['total_sacks_collected'].initial = instance.total_sacks_collected
         self.fields['trip_weight'].initial = instance.trip_weight()
         self.fields['trip_weight'].disabled = True
         self.fields['total_trip_amount_value'].initial = instance.total_trip_amount_value
         self.fields['total_trip_amount_value'].disabled = True
+        self.fields['total_trip_amount_value'].initial = instance.trip_amount
 
         trip = instance.pk
         if trip:
             trip_status = instance.trip_status
             self.fields['trip_id'].initial = trip
-            if trip_status == 'READY':
+            if trip_status == Trip.READY:
                 self.fields['seller_shop'].disabled = True
-                self.fields['trip_status'].choices = TRIP_STATUS[0], TRIP_STATUS[2], TRIP_STATUS[1]
-                self.fields['total_crates_shipped'].disabled = True
-                self.fields['total_packets_shipped'].disabled = True
-                self.fields['total_sacks_shipped'].disabled = True
-                self.fields['total_crates_collected'].disabled = True
-                self.fields['total_packets_collected'].disabled = True
-                self.fields['total_sacks_collected'].disabled = True
+                self.fields['trip_status'].choices = Trip.TRIP_STATUS[0], Trip.TRIP_STATUS[2], Trip.TRIP_STATUS[1]
 
-            elif trip_status == 'STARTED':
+            elif trip_status == Trip.STARTED:
                 self.fields['delivery_boy'].disabled = True
                 self.fields['seller_shop'].disabled = True
                 self.fields['vehicle_no'].disabled = True
-                self.fields['trip_status'].choices = TRIP_STATUS[2:4]
-                self.fields['total_crates_shipped'].disabled = True
-                self.fields['total_packets_shipped'].disabled = True
-                self.fields['total_sacks_shipped'].disabled = True
-                self.fields['total_crates_collected'].disabled = True
-                self.fields['total_packets_collected'].disabled = True
-                self.fields['total_sacks_collected'].disabled = True
+                self.fields['trip_status'].choices = Trip.TRIP_STATUS[2:4]
                 self.fields['search_by_area'].widget = forms.HiddenInput()
                 self.fields['search_by_pincode'].widget = forms.HiddenInput()
                 self.fields['Invoice_No'].widget = forms.HiddenInput()
 
+            elif trip_status == Trip.COMPLETED:
+                self.fields['delivery_boy'].disabled = True
+                self.fields['seller_shop'].disabled = True
+                self.fields['vehicle_no'].disabled = True
+                self.fields['trip_status'].choices = Trip.TRIP_STATUS[3:5]
+                self.fields['search_by_area'].widget = forms.HiddenInput()
+                self.fields['search_by_pincode'].widget = forms.HiddenInput()
+                self.fields['Invoice_No'].widget = forms.HiddenInput()
 
-            elif trip_status == 'COMPLETED':
+            elif trip_status == Trip.RETURN_VERIFIED:
                 self.fields['delivery_boy'].disabled = True
                 self.fields['seller_shop'].disabled = True
                 self.fields['vehicle_no'].disabled = True
                 self.fields['trip_status'].disabled = True
-                self.fields['total_crates_shipped'].disabled = True
-                self.fields['total_packets_shipped'].disabled = True
-                self.fields['total_sacks_shipped'].disabled = True
-                self.fields['total_crates_collected'].initial = instance.total_crates_collected
-                self.fields['total_crates_collected'].disabled = True
-                self.fields['total_packets_collected'].initial = instance.total_packets_collected
-                self.fields['total_packets_collected'].disabled = True
-                self.fields['total_sacks_collected'].initial = instance.total_sacks_collected
-                self.fields['total_sacks_collected'].disabled = True
                 self.fields['search_by_area'].widget = forms.HiddenInput()
                 self.fields['search_by_pincode'].widget = forms.HiddenInput()
                 self.fields['Invoice_No'].widget = forms.HiddenInput()
@@ -490,8 +477,9 @@ class TripForm(forms.ModelForm):
                 else:
                     self.fields['trip_status'].choices = TRIP_STATUS[1:2]
                 #self.fields['trip_status'].choices = TRIP_STATUS[1:2]
+
         else:
-            self.fields['trip_status'].initial = 'READY'
+            self.fields['trip_status'].initial = Trip.READY
             fields = ['trip_status', 'e_way_bill_no']
             for field in fields:
                 self.fields[field].required = False
@@ -499,9 +487,9 @@ class TripForm(forms.ModelForm):
 
     def clean(self):
         data = self.cleaned_data
-        if self.instance and self.instance.trip_status == 'READY':
+        if self.instance and self.instance.trip_status == Trip.READY:
             shipment_ids = data.get('selected_id').split(',')
-            cancelled_shipments = Shipment.objects.values('id', 'invoice_no'
+            cancelled_shipments = Shipment.objects.values('id', 'invoice__invoice_no'
                                                           ).filter(id__in=shipment_ids, shipment_status='CANCELLED')
 
             if cancelled_shipments.exists():
@@ -513,7 +501,7 @@ class TripForm(forms.ModelForm):
                     [format_html(i) for i in
                      ["<a href=%s target='blank'>%s</a>" %
                       (reverse("admin:retailer_to_sp_shipment_change",
-                               args=[i.get('id')]), i.get('invoice_no'))
+                               args=[i.get('id')]), i.get('invoice__invoice_no'))
                       for i in cancelled_shipments]])
 
         return data
@@ -542,7 +530,7 @@ class DispatchForm(forms.ModelForm):
             if instance.trip:
                 trip_status = instance.trip.trip_status
                 self.fields['selected'].initial = True
-                if trip_status == 'READY' or trip_status == 'STARTED':
+                if trip_status == Trip.READY or trip_status == Trip.STARTED:
                     self.fields['items'].initial = mark_safe('<b><a href="/admin/retailer_to_sp/dispatch/' +
                                                              str(pk) + '/change/" target="_blank">' +
                                                              invoice_no + '</a></b>')
@@ -708,6 +696,10 @@ class CartForm(forms.ModelForm):
     class Meta:
         model = Cart
         fields = ('seller_shop', 'buyer_shop')
+        widgets = {
+            'seller_shop': autocomplete.ModelSelect2(url='seller-shop-autocomplete'),
+            'buyer_shop': autocomplete.ModelSelect2(url='buyer-shop-autocomplete')
+        }
 
 class BulkCartForm(forms.ModelForm):
     seller_shop = forms.ModelChoiceField(
@@ -772,47 +764,40 @@ class CommercialForm(forms.ModelForm):
     class Meta:
         model = Trip
         fields = ['dispatch_no', 'delivery_boy', 'seller_shop', 'trip_status',
-                  'starts_at', 'completed_at', 'e_way_bill_no', 'vehicle_no',
-                  'received_amount']
+                  'starts_at', 'completed_at', 'e_way_bill_no', 'vehicle_no']
 
     class Media:
         js = ('admin/js/CommercialLoadShipments.js',)
 
     def __init__(self, *args, **kwargs):
         super(CommercialForm, self).__init__(*args, **kwargs)
-        self.fields['trip_status'].choices = TRIP_STATUS[3:]
+        self.fields['trip_status'].choices = Trip.TRIP_STATUS[3:]
         instance = getattr(self, 'instance', None)
         if instance.pk:
             # seperate screen for transferred: access only to finance team
-            if (instance.trip_status == 'CLOSED'):
-                self.fields['trip_status'].choices = TRIP_STATUS[-2:]
+            if (instance.trip_status == Trip.RETURN_VERIFIED):
+                self.fields['trip_status'].choices = Trip.TRIP_STATUS[4:6]
 
-            if (instance.trip_status == 'TRANSFERRED'):
-                self.fields['trip_status'].choices = TRIP_STATUS[-1:]
-            if instance.trip_status == 'TRANSFERRED':
+            if (instance.trip_status == Trip.PAYMENT_VERIFIED):
+                self.fields['trip_status'].choices = Trip.TRIP_STATUS[5:6]
                 for field_name in self.fields:
                     self.fields[field_name].disabled = True
 
-    def clean_received_amount(self):
-        trip_status = self.cleaned_data.get('trip_status')
-        received_amount = self.cleaned_data.get('received_amount')
-        if trip_status == 'CLOSED' and not received_amount:
-            raise forms.ValidationError(('This field is required'), )
-        return received_amount
-
     def clean(self):
         data = self.cleaned_data
-        if data['trip_status'] == 'CLOSED':
-            if int(self.instance.received_cash_amount) + int(self.instance.received_online_amount) < int(self.instance.cash_to_be_collected_value):
-                raise forms.ValidationError(_("Amount to be collected is less than sum of received cash amount and online amount"),)
-        # setup check for transferred
-        if data['trip_status'] == 'TRANSFERRED':
+        # setup check for payment verified
+        if data['trip_status'] == Trip.PAYMENT_VERIFIED:
+            if self.instance.cash_to_be_collected != self.instance.total_received_amount:
+                raise forms.ValidationError(_("Amount to be Collected should be equal to Total Received Amount"),)
+
             # setup check for transferred
             # check if number of pending payment approval is 0
-            from payments.models import ShipmentPayment
-            trip_shipments = self.instance.rt_invoice_trip.all()
+            trip_shipments = self.instance.rt_invoice_trip.values_list('id', flat=True)
             #pending_payments_count = trip_shipments.filter(parent_order_payment__parent_payment__payment_approval_status="approval_pending").count()
-            pending_payments_count = ShipmentPayment.objects.filter(shipment__in=trip_shipments, parent_order_payment__parent_payment__payment_approval_status="pending_approval").count()
+            pending_payments_count = ShipmentPayment.objects.filter(
+                shipment__in=trip_shipments,
+                parent_order_payment__parent_payment__payment_approval_status="pending_approval"
+            ).count()
             if pending_payments_count:
                 raise forms.ValidationError(_("All shipment payments are not verified"),)
         return data
@@ -822,7 +807,7 @@ class OrderedProductReschedule(forms.ModelForm):
     class Meta:
         model = OrderedProduct
         fields = (
-            'order', 'invoice_no', 'shipment_status', 'trip',
+            'order', 'shipment_status', 'trip',
             'return_reason'
         )
 
@@ -835,7 +820,7 @@ class OrderedProductReschedule(forms.ModelForm):
             instance = getattr(self, 'instance', None)
             #if instance.shipment_status == OrderedProduct.RESCHEDULED or instance.return_reason:
             if ((instance.shipment_status == OrderedProduct.RESCHEDULED) or
-                (instance.trip and instance.trip.trip_status == "CLOSED")):
+                (instance.trip and instance.trip.trip_status == Trip.RETURN_VERIFIED)):
                 self.fields['return_reason'].disabled = True
 
     def clean_return_reason(self):
@@ -899,7 +884,7 @@ class ShipmentReschedulingForm(forms.ModelForm):
         super(ShipmentReschedulingForm, self).__init__(*args, **kwargs)
         if not get_current_user().is_superuser:
             instance = getattr(self, 'instance', None)
-            if instance and instance.pk or (instance.shipment and instance.shipment.trip and instance.shipment.trip.trip_status == "CLOSED"):
+            if instance and instance.pk or (instance.shipment and instance.shipment.trip and instance.shipment.trip.trip_status == Trip.RETURN_VERIFIED):
                 self.fields['rescheduling_reason'].disabled = True
                 self.fields['rescheduling_date'].disabled = True
 
@@ -917,7 +902,7 @@ class OrderedProductMappingRescheduleForm(forms.ModelForm):
             if instance and instance.pk:
                 #if instance.ordered_product.shipment_status == OrderedProduct.RESCHEDULED or instance.ordered_product.return_reason:
                 if (instance.ordered_product.shipment_status == OrderedProduct.RESCHEDULED) or (
-                    instance.ordered_product.trip and instance.ordered_product.trip.trip_status == "CLOSED"):
+                    instance.ordered_product.trip and instance.ordered_product.trip.trip_status == Trip.RETURN_VERIFIED):
                     self.fields['returned_qty'].disabled = True
                     self.fields['damaged_qty'].disabled = True
 
@@ -964,7 +949,7 @@ class OrderForm(forms.ModelForm):
                 if (s['shipment_status'] not in [i[0] for i in OrderedProduct.SHIPMENT_STATUS[:3]]):
                     raise forms.ValidationError(
                         _('Sorry! This order cannot be cancelled'), )
-                elif (s['trip__trip_status'] and s['trip__trip_status'] != 'READY'):
+                elif (s['trip__trip_status'] and s['trip__trip_status'] != Trip.READY):
                     raise forms.ValidationError(
                         _('Sorry! This order cannot be cancelled'), )
             elif len(shipments_data) > 1:

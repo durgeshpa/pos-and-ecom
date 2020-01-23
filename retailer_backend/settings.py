@@ -185,7 +185,16 @@ DATABASES = {
         'PASSWORD': config('DB_PASSWORD'),
         'HOST': config('DB_HOST_READ'),
         'PORT': config('DB_PORT'),
-    }
+    },
+    'dataanalytics': {
+        'ENGINE': 'django_redshift_backend',
+        'NAME': 'dataanalytics',
+        'USER': 'gfadmin',
+        'PASSWORD': 'GF_admin2105',
+        'HOST': 'gf-prod-redshift.c168txhqczdw.ap-south-1.redshift.amazonaws.com',
+        'PORT': '5439',
+	}
+
 }
 
 # Password validation
@@ -319,6 +328,7 @@ TEMPUS_DOMINUS_INCLUDE_ASSETS=False
 
 CRONJOBS = [
     ('* * * * *', 'retailer_backend.cron.CronToDeleteOrderedProductReserved', '>> /var/log/nginx/cron.log')
+
 ]
 
 INTERNAL_IPS = ['127.0.0.1','localhost']
@@ -395,6 +405,11 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
+
+CELERY_ROUTES = {
+    'analytics.api.v1.views': {'queue': 'analytics_tasks'},
+}
+
 # ElasticSearch
 ELASTICSEARCH_PREFIX = config('ELASTICSEARCH_PREFIX')
 ELASTICSEARCH_DSL={
@@ -402,6 +417,18 @@ ELASTICSEARCH_DSL={
         'hosts': '35.154.13.198:9200'
     },
 }
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_URL,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient"
+        },
+        "KEY_PREFIX": "gfcache"
+    }
+}
+
 # LOGGING = {
 #   'version': 1,
 #   'disable_existing_loggers': False,
