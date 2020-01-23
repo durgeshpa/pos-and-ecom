@@ -725,6 +725,7 @@ class BulkCartForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(
             url='bulk-shipping-address-autocomplete',
             forward=('buyer_shop',)
+        required=False
         )
     )
     billing_address = forms.ModelChoiceField(
@@ -732,6 +733,7 @@ class BulkCartForm(forms.ModelForm):
         widget=autocomplete.ModelSelect2(
             url='bulk-billing-address-autocomplete',
             forward=('buyer_shop',)
+        required=False
         )
     )
     class Meta:
