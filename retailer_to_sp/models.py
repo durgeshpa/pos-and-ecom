@@ -1069,9 +1069,13 @@ class OrderedProduct(models.Model): #Shipment
     
     @property
     def credit_note_amount(self):
-        return self.rt_order_product_order_product_mapping.all()\
+        credit_note_amt = self.rt_order_product_order_product_mapping.all()\
         .aggregate(cn_amt=RoundAmount(Sum(F('effective_price')* (F('shipped_qty')-F('delivered_qty')),output_field=FloatField()))).get('cn_amt')
-        
+        if credit_note_amount:
+            return credit_note_amount
+        else:
+            return 0
+
     @property
     def shipment_weight(self):
         try:
@@ -1148,7 +1152,11 @@ class OrderedProduct(models.Model): #Shipment
 
     def cash_to_be_collected(self):
         # fetch the amount to be collected
-        return (self.invoice_amount - self.credit_note_amount)  
+        if self.invoice_amount:
+            return (self.invoice_amount - self.credit_note_amount)
+        else:
+            return 0
+
     
     def total_shipped_pieces(self):
         return self.rt_order_product_order_product_mapping.all()\
