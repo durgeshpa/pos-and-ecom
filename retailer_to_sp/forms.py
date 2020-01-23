@@ -709,6 +709,7 @@ class CommercialForm(forms.ModelForm):
         if data['trip_status'] == 'PAYMENT_V':
             if self.instance.cash_to_be_collected != self.instance.total_received_amount:
                 raise forms.ValidationError(_("Amount to be Collected should be equal to Total Received Amount"),)
+
             # setup check for transferred
             # check if number of pending payment approval is 0
             trip_shipments = self.instance.rt_invoice_trip.values_list('id', flat=True)
