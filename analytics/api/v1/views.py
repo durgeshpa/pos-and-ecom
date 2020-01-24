@@ -463,7 +463,7 @@ def trip_report(trip_id):
     received_online_amount = trips.received_online_amount
     cash_to_be_collected_value = trips.cash_to_be_collected_value
     total_trip_shipments = trips.total_trip_shipments
-    total_trip_amount = trips.total_trip_amount()
+    total_trip_amount = trips.trip_amount
     total_trip_amount_value = trips.total_trip_amount_value
     trip_weight = trips.trip_weight()
 
