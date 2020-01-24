@@ -471,11 +471,11 @@ class TripForm(forms.ModelForm):
                 for field_name in self.fields:
                     self.fields[field_name].disabled = True
                 if trip_status == 'CLOSED':
-                    self.fields['trip_status'].choices = TRIP_STATUS[4:5] #"CLOSED"
+                    self.fields['trip_status'].choices = Trip.TRIP_STATUS[4:5] #"CLOSED"
                 elif trip_status == Trip.PAYMENT_VERIFIED:
-                    self.fields['trip_status'].choices = TRIP_STATUS[5:] #"CLOSED"
+                    self.fields['trip_status'].choices = Trip.TRIP_STATUS[5:] #"CLOSED"
                 else:
-                    self.fields['trip_status'].choices = TRIP_STATUS[1:2]
+                    self.fields['trip_status'].choices = Trip.TRIP_STATUS[1:2]
                 #self.fields['trip_status'].choices = TRIP_STATUS[1:2]
 
         else:
