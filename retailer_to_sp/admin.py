@@ -40,7 +40,7 @@ from retailer_to_sp.views import (
     update_order_status, update_shipment_status, reshedule_update_shipment,
     RetailerCart, assign_picker, assign_picker_change, assign_picker_data,
     UserWithNameAutocomplete,  SellerAutocomplete, ShipmentOrdersAutocomplete,
-    BuyerShopAutocomplete
+    BuyerShopAutocomplete, BuyerParentShopAutocomplete
 )
 from shops.models import ParentRetailerMapping, Shop
 from sp_to_gram.models import (
@@ -483,6 +483,10 @@ class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
                 self.admin_site.admin_view( BuyerShopAutocomplete.as_view()),
                 name='buyer-autocomplete'
                 ),
+            url(r'^buyer-parent-autocomplete/$',
+                self.admin_site.admin_view( BuyerParentShopAutocomplete.as_view()),
+                name='buyer-parent-autocomplete'
+                ),
             url(r'^plan-shipment-orders-autocomplete/$',
                 self.admin_site.admin_view(ShipmentOrdersAutocomplete.as_view()),
                 name='ShipmentOrdersAutocomplete'
@@ -517,6 +521,11 @@ class BulkOrderAdmin(admin.ModelAdmin):
 
     class Media:
         js = ('admin/js/bulk_order.js', 'admin/js/select2.min.js')
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj: # editing an existing object
+            return self.readonly_fields + ('seller_shop','buyer_shop','shipping_address','billing_address',)
+        return self.readonly_fields
 
 
 class ExportCsvMixin:

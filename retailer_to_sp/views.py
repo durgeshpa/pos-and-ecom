@@ -864,7 +864,7 @@ class SellerShopAutocomplete(autocomplete.Select2QuerySetView):
 
         qs = Shop.objects.filter(
             shop_type__shop_type='sp')
-        
+
         if self.q:
             qs = qs.filter(shop_name__icontains=self.q)
         return qs
@@ -885,6 +885,18 @@ class BuyerShopAutocomplete(autocomplete.Select2QuerySetView):
             return Shop.objects.none()
 
         qs = Shop.objects.filter(shop_type__shop_type='r', shop_owner=self.request.user)
+
+        if self.q:
+            qs = qs.filter(shop_name__icontains=self.q)
+        return qs
+
+class BuyerParentShopAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        seller_shop_id = self.forwarded.get('seller_shop', None)
+        if seller_shop_id:
+            qs = Shop.objects.filter(shop_type__shop_type='r', retiler_mapping__parent = seller_shop_id, shop_owner=self.request.user)
+        else:
+            qs = Shop.objects.filter(shop_type__shop_type='r', shop_owner=self.request.user)
 
         if self.q:
             qs = qs.filter(shop_name__icontains=self.q)

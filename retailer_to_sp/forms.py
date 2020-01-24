@@ -709,7 +709,7 @@ class BulkCartForm(forms.ModelForm):
     )
     buyer_shop = forms.ModelChoiceField(
         queryset=Shop.objects.filter(shop_type__shop_type='r'),
-        widget=autocomplete.ModelSelect2(url='admin:retailer-shop-autocomplete', ),
+        widget=autocomplete.ModelSelect2(url='admin:buyer-parent-autocomplete', ),
         required=True
     )
     shipping_address = forms.ModelChoiceField(
