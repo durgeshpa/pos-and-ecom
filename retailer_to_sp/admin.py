@@ -40,7 +40,7 @@ from retailer_to_sp.views import (
     update_order_status, update_shipment_status, reshedule_update_shipment,
     RetailerCart, assign_picker, assign_picker_change, assign_picker_data,
     UserWithNameAutocomplete,  SellerAutocomplete, ShipmentOrdersAutocomplete,
-    BuyerShopAutocomplete
+    BuyerShopAutocomplete, BuyerParentShopAutocomplete
 )
 from shops.models import ParentRetailerMapping, Shop
 from sp_to_gram.models import (
@@ -57,15 +57,16 @@ from .forms import (
     ReturnProductMappingForm, ShipmentForm,
     ShipmentProductMappingForm, TripForm, ShipmentReschedulingForm,
     OrderedProductReschedule, OrderedProductMappingRescheduleForm,
-    OrderForm, EditAssignPickerForm, ResponseCommentForm
+    OrderForm, EditAssignPickerForm, ResponseCommentForm, BulkCartForm
 )
 from .models import (Cart, CartProductMapping, Commercial, CustomerCare,
                      Dispatch, DispatchProductMapping, Note, Order,
                      OrderedProduct, OrderedProductMapping, Payment, Return,
                      ReturnProductMapping, Shipment, ShipmentProductMapping,
                      Trip, ShipmentRescheduling, Feedback, PickerDashboard,
+                     generate_picklist_id, ResponseComment,
                      generate_picklist_id, ResponseComment, Invoice,
-                     ResponseComment)
+                     ResponseComment, BulkOrder)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (
@@ -482,6 +483,10 @@ class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
                 self.admin_site.admin_view( BuyerShopAutocomplete.as_view()),
                 name='buyer-autocomplete'
                 ),
+            url(r'^buyer-parent-autocomplete/$',
+                self.admin_site.admin_view( BuyerParentShopAutocomplete.as_view()),
+                name='buyer-parent-autocomplete'
+                ),
             url(r'^plan-shipment-orders-autocomplete/$',
                 self.admin_site.admin_view(ShipmentOrdersAutocomplete.as_view()),
                 name='ShipmentOrdersAutocomplete'
@@ -507,6 +512,20 @@ class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
             OrderedProductReserved, request.user)
         reserve_order.create()
 
+class BulkOrderAdmin(admin.ModelAdmin):
+    fields = ('seller_shop', 'buyer_shop', 'shipping_address', 'billing_address', 'cart_products_csv')
+    form = BulkCartForm
+    list_display = ('cart', 'seller_shop','buyer_shop', 'shipping_address', 'billing_address', 'created_at',)
+    #change_form_template = 'admin/sp_to_gram/cart/change_form.html'
+    list_filter = (SellerShopFilter, BuyerShopFilter)
+
+    class Media:
+        js = ('admin/js/bulk_order.js', 'admin/js/select2.min.js')
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj: # editing an existing object
+            return self.readonly_fields + ('seller_shop','buyer_shop','shipping_address','billing_address',)
+        return self.readonly_fields
 
 
 class ExportCsvMixin:
@@ -515,7 +534,7 @@ class ExportCsvMixin:
         list_display = ['order_no','seller_shop','buyer_shop_id', 'buyer_shop_with_mobile', 'pincode','city', 'total_final_amount',
                         'order_status', 'created_at', 'payment_mode', 'paid_amount',
                         'total_paid_amount', 'invoice_no', 'shipment_status', 'shipment_status_reason','order_shipment_amount',
-                        'trip_completed_at',                   
+                        'trip_completed_at',
                         'picking_status', 'picker_boy', 'picklist_id',]
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
@@ -532,7 +551,7 @@ class ExportCsvMixin:
                 shipment = picker.shipment
                 if shipment:
                     row_items += [shipment.invoice_no, shipment.get_shipment_status_display(), shipment.return_reason, shipment.invoice_amount,
-                    shipment.trip.completed_at if shipment.trip else '--'] 
+                    shipment.trip.completed_at if shipment.trip else '--']
                 else:
                     row_items += ["-","-","-","-", "-"]
                 row_items += [picker.get_picking_status_display(), picker.picker_boy, picker.picklist_id]
@@ -547,7 +566,7 @@ class ExportCsvMixin:
                                       'trip_completed_at','invoice_no','picking_status', 'picker_boy', 'picklist_id'] ]
 
                 row_items += [shipment.invoice_no, shipment.get_shipment_status_display(), shipment.return_reason, shipment.invoice_amount,
-                    shipment.trip.completed_at if shipment.trip else '-', 
+                    shipment.trip.completed_at if shipment.trip else '-',
                     shipment.picking_status, shipment.picker_boy, shipment.picklist_id]
 
                 #getattr(shipment, field) for field in list_display_s]
@@ -1539,6 +1558,7 @@ class InvoiceAdmin(admin.ModelAdmin):
 
 # admin.site.register(Return, ReturnAdmin)
 admin.site.register(Cart, CartAdmin)
+admin.site.register(BulkOrder, BulkOrderAdmin)
 admin.site.register(Order, OrderAdmin)
 admin.site.register(OrderedProduct, OrderedProductAdmin)
 admin.site.register(Note, NoteAdmin)

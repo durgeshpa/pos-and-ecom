@@ -855,7 +855,7 @@ class SellerShopAutocomplete(autocomplete.Select2QuerySetView):
 
         qs = Shop.objects.filter(
             shop_type__shop_type='sp')
-        
+
         if self.q:
             qs = qs.filter(shop_name__icontains=self.q)
         return qs
@@ -876,6 +876,18 @@ class BuyerShopAutocomplete(autocomplete.Select2QuerySetView):
             return Shop.objects.none()
 
         qs = Shop.objects.filter(shop_type__shop_type='r', shop_owner=self.request.user)
+
+        if self.q:
+            qs = qs.filter(shop_name__icontains=self.q)
+        return qs
+
+class BuyerParentShopAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        seller_shop_id = self.forwarded.get('seller_shop', None)
+        if seller_shop_id:
+            qs = Shop.objects.filter(shop_type__shop_type='r', retiler_mapping__parent = seller_shop_id, approval_status = 2)
+        else:
+            qs = Shop.objects.filter(shop_type__shop_type='r')
 
         if self.q:
             qs = qs.filter(shop_name__icontains=self.q)
@@ -1327,4 +1339,31 @@ class ShipmentOrdersAutocomplete(autocomplete.Select2QuerySetView):
                                         order_closed=False).exclude(id__in=qc_pending_orders)
         if self.q:
             qs = qs.filter(order_no__icontains=self.q)
+        return qs
+
+class ShippingAddressAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = None
+        buyer_shop = self.forwarded.get('buyer_shop', None)
+        qs = Address.objects.filter(
+            Q(shop_name__shop_owner=self.request.user) |
+            Q(shop_name__related_users=self.request.user),
+            shop_name__shop_type__shop_type='r',
+            address_type='shipping',
+            shop_name = buyer_shop
+            )
+        return qs
+
+
+class BillingAddressAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = None
+        buyer_shop = self.forwarded.get('buyer_shop', None)
+        qs = Address.objects.filter(
+            Q(shop_name__shop_owner=self.request.user) |
+            Q(shop_name__related_users=self.request.user),
+            shop_name__shop_type__shop_type='r',
+            address_type='billing',
+            shop_name = buyer_shop
+            )
         return qs

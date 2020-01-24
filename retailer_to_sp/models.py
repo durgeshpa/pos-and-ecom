@@ -1,7 +1,12 @@
 import datetime
 import logging
 from decimal import Decimal
-
+import csv
+import codecs
+import re
+import json
+from django.db import models
+from accounts.middlewares import get_current_user
 from celery.task import task
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
@@ -14,7 +19,6 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 from django.utils.html import format_html, format_html_join
 from django.utils.crypto import get_random_string
-
 from accounts.middlewares import get_current_user
 from addresses.models import Address
 from retailer_backend import common_function as CommonFunction
@@ -40,6 +44,9 @@ from django.core.validators import RegexValidator
 from django.contrib.postgres.fields import JSONField
 # from analytics.post_save_signal import get_order_report
 from coupon.models import Coupon, CusotmerCouponUsage
+from django.db.models import Sum
+from django.db.models import Q
+from django.urls import reverse
 from retailer_backend import common_function
 
 
@@ -154,6 +161,7 @@ class Cart(models.Model):
 
     def __str__(self):
         return "{}".format(self.order_id)
+
 
     @property
     def subtotal(self):
@@ -384,6 +392,146 @@ class Cart(models.Model):
     @property
     def time(self):
         return self.created_at.time()
+
+
+class BulkOrder(models.Model):
+    cart = models.OneToOneField(Cart, related_name='rt_bulk_cart_list',null=True,
+                             on_delete=models.DO_NOTHING
+    )
+    seller_shop = models.ForeignKey(
+        Shop, related_name='rt_bulk_seller_shop_cart',
+        null=True, blank=True, on_delete=models.DO_NOTHING
+    )
+    buyer_shop = models.ForeignKey(
+        Shop, related_name='rt_bulk_buyer_shop_cart',
+        null=True, blank=True, on_delete=models.DO_NOTHING
+    )
+    billing_address = models.ForeignKey(
+        Address, related_name='rt_billing_address_bulk_order',
+        null=True, blank=True, on_delete=models.DO_NOTHING
+    )
+    shipping_address = models.ForeignKey(
+        Address, related_name='rt_shipping_address_bulk_order',
+        null=True, blank=True, on_delete=models.DO_NOTHING
+    )
+    cart_products_csv = models.FileField(
+        upload_to='retailer/sp/cart_products_csv',
+        null=True, blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+
+    def __str__(self):
+        return self.seller_shop.shop_name
+
+    @property
+    def cart_products_sample_file(self):
+        if (
+            self.cart_products_csv
+            and hasattr(self.cart_products_csv, 'url')
+        ):
+            url = """<h3><a href="%s" target="_blank">
+                    Download Products List</a></h3>""" % \
+                  (
+                      reverse(
+                          'admin:cart_products_mapping',
+                          args=(self.seller_shop_id,)
+                      )
+                  )
+        else:
+            url = """<h3><a href="#">Download Products List</a></h3>"""
+        return url
+
+    def clean(self, *args, **kwargs):
+        if self.cart_products_csv:
+            product_ids = []
+            reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
+            headers = next(reader, None)
+            product_ids = [int(x[0]) for x in reader if x]
+            from sp_to_gram.models import (OrderedProductMapping as SpMappedOrderedProductMapping)
+            shop_products_available = SpMappedOrderedProductMapping.get_shop_stock(self.seller_shop).filter(product__in=product_ids,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
+            shop_products_dict = {g['product_id']:int(g['available_qty']) for g in shop_products_available}
+            reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
+            for id,row in enumerate(reader):
+                for row in reader:
+                    if row[0]:
+                        product = Product.objects.get(id=int(row[0]))
+                        product_price = product.get_current_shop_price(self.seller_shop, self.buyer_shop)
+                        if not product_price:
+                            raise ValidationError(_("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Product Price Not Available"))
+                        ordered_qty = int(row[2])
+                        product_availability = int(int(shop_products_dict.get(int(row[0]), 0))/int(product.product_inner_case_size))
+                        if product_availability < ordered_qty:
+                            raise ValidationError(_("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Product Available Quantity:%s" %(product_availability)))
+        else:
+            super(BulkOrder, self).clean(*args, **kwargs)
+
+    def save(self, *args, **kwargs):
+        self.cart = Cart.objects.create(seller_shop=self.seller_shop, buyer_shop=self.buyer_shop, cart_status = 'ordered')
+        super().save(*args, **kwargs)
+
+@receiver(post_save, sender=Cart)
+def create_order_id(sender, instance=None, created=False, **kwargs):
+    if created:
+        instance.order_id = order_id_pattern(
+                                    sender, 'order_id', instance.pk,
+                                    instance.seller_shop.
+                                    shop_name_address_mapping.filter(
+                                        address_type='billing').last().pk)
+        instance.save()
+
+@receiver(post_save, sender=BulkOrder)
+def create_bulk_order(sender, instance=None, created=False, **kwargs):
+    if created:
+        products_available = {}
+        if instance.cart_products_csv:
+            product_ids = []
+            reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8'))
+            headers = next(reader, None)
+            product_ids = [int(x[0]) for x in reader if x]
+            from sp_to_gram.models import (OrderedProductMapping as SpMappedOrderedProductMapping)
+            shop_products_available = SpMappedOrderedProductMapping.get_shop_stock(instance.seller_shop).filter(product__in=product_ids,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
+            shop_products_dict = {g['product_id']:int(g['available_qty']) for g in shop_products_available}
+            reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8'))
+            for id,row in enumerate(reader):
+                for row in reader:
+                    if row[0]:
+                        product = Product.objects.get(id=int(row[0]))
+                        product_price = product.get_current_shop_price(instance.seller_shop, instance.buyer_shop)
+                        ordered_pieces = int(row[2]) * int(product.product_inner_case_size)
+                        product_availability = shop_products_dict.get(int(row[0]), 0)
+                        products_available[int(row[0])] = ordered_pieces
+                        CartProductMapping.objects.create(cart=instance.cart,cart_product_id = row[0],
+                         qty = int(row[2]),
+                         no_of_pieces = int(row[2]) * int(product.product_inner_case_size),
+                         cart_product_price=product_price)
+        from retailer_to_sp.tasks import create_reserved_order
+        reserved_args = json.dumps({
+            'shop_id': instance.seller_shop.id,
+            'cart_id': instance.cart.id,
+            'products': products_available
+            })
+        create_reserved_order(reserved_args)
+    order,_ = Order.objects.get_or_create(ordered_cart=instance.cart)
+    order.order_no = instance.cart.order_id
+    order.ordered_cart = instance.cart
+    order.seller_shop = instance.seller_shop
+    order.buyer_shop = instance.buyer_shop
+    order.billing_address = instance.billing_address
+    order.shipping_address = instance.shipping_address
+    user = get_current_user()
+    order.ordered_by = user
+    order.last_modified_by = user
+    order.received_by = user
+    order.order_status = 'ordered'
+    order.save()
+    from sp_to_gram.models import OrderedProductReserved
+    for ordered_reserve in OrderedProductReserved.objects.filter(cart=instance.cart, reserve_status=OrderedProductReserved.RESERVED):
+        ordered_reserve.order_product_reserved.ordered_qty = ordered_reserve.reserved_qty
+        ordered_reserve.order_product_reserved.save()
+        ordered_reserve.reserve_status = OrderedProductReserved.ORDERED
+        ordered_reserve.save()
 
 
 class CartProductMapping(models.Model):
@@ -874,7 +1022,7 @@ class Trip(models.Model):
         return self.rt_invoice_trip.all()\
         .annotate(invoice_amount=RoundAmount(Sum(F('rt_order_product_order_product_mapping__effective_price')*F('rt_order_product_order_product_mapping__shipped_qty'))))\
         .aggregate(trip_amount=Sum(F('invoice_amount'), output_field=FloatField())).get('trip_amount')
-    
+
     @property
     def total_received_amount(self):
         total_payment, _c , _o = self.total_paid_amount()
@@ -1065,7 +1213,7 @@ class OrderedProduct(models.Model): #Shipment
     def invoice_amount(self):
         return self.rt_order_product_order_product_mapping.all()\
         .aggregate(inv_amt= RoundAmount(Sum(F('effective_price')*F('shipped_qty')),output_field=FloatField()) ).get('inv_amt')
-    
+
     @property
     def credit_note_amount(self):
         credit_note_amount = self.rt_order_product_order_product_mapping.all()\
@@ -1103,7 +1251,7 @@ class OrderedProduct(models.Model): #Shipment
         non_approved_payment = self.shipment_payment.exclude(parent_order_payment__parent_payment__payment_approval_status='approved_and_verified').first()
         if non_approved_payment:
             return non_approved_payment.parent_order_payment.parent_payment.payment_approval_status
-        
+
         return "approved_and_verified"
 
     def online_payment_approval_status(self):
@@ -1162,24 +1310,24 @@ class OrderedProduct(models.Model): #Shipment
         else:
             return 0
 
-    
+
     def total_shipped_pieces(self):
         return self.rt_order_product_order_product_mapping.all()\
         .aggregate(cn_amt=Sum(F('shipped_qty'))).get('cn_amt')
 
     def sum_amount_tax(self):
-        return sum([item.product_tax_amount for item in self.rt_order_product_order_product_mapping.all()])   
+        return sum([item.product_tax_amount for item in self.rt_order_product_order_product_mapping.all()])
 
     def sum_cess(self):
-        return sum([item.product_tax_json() for item in self.rt_order_product_order_product_mapping.all()])   
+        return sum([item.product_tax_json() for item in self.rt_order_product_order_product_mapping.all()])
 
     def sum_cgst(self):
         return self.rt_order_product_order_product_mapping.all()\
         .aggregate(cn_amt=RoundAmount(Sum(F('effective_price')* (F('shipped_qty')-F('delivered_qty'))))).get('cn_amt')
 
     def sum_sgst(self):
-        return sum([item.product_tax_json.get('6',{}).get("CESS - 12") for item in self.rt_order_product_order_product_mapping.all()])   
-    
+        return sum([item.product_tax_json.get('6',{}).get("CESS - 12") for item in self.rt_order_product_order_product_mapping.all()])
+
 
     @property
     def invoice_no(self):
@@ -1480,7 +1628,7 @@ class OrderedProductMapping(models.Model):
         get_tax_val = self.get_product_tax_json() / 100
         basic_rate = (float(self.effective_price)) / (float(get_tax_val) + 1)
         return round(basic_rate,2)
-    
+
     @property
     def base_price(self):
         return self.basic_rate * self.shipped_qty
@@ -1489,12 +1637,12 @@ class OrderedProductMapping(models.Model):
     def product_tax_amount(self):
         get_tax_val = self.get_product_tax_json() / 100
         return round(float(self.base_price) * float(get_tax_val),2)
-    
+
     @property
     def product_sub_total(self):
         return round(self.effective_price * self.shipped_qty,2)
-    
-    
+
+
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
             shop__shop_type__shop_type='sp', status=True
@@ -1516,7 +1664,7 @@ class OrderedProductMapping(models.Model):
 
     # def product_taxes(self):
     #     for tax in self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name','tax__tax_percentage'):
-            
+
 
     def get_product_tax_json(self):
         if not self.product_tax_json:
