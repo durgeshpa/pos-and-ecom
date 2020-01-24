@@ -644,7 +644,7 @@ class DownloadPickListPicker(TemplateView, ):
                 product_list = {
                     "product_name": shipment_pro.product.product_name,
                     "product_sku": shipment_pro.product.product_sku,
-                    "product_mrp": round(shipment_pro.get_shop_specific_products_prices_sp().mrp, 2),
+                    "product_mrp": round(shipment_pro.mrp, 2),
                     # "to_be_shipped_qty": int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_quantity),
                 }
                 # product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_qty_exclude_current)

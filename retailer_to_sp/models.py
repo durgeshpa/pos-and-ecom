@@ -1645,7 +1645,7 @@ class OrderedProductMapping(models.Model):
 
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
-            shop__shop_type__shop_type='sp', status=True
+            seller_shop__shop_type__shop_type='sp', status=True
         ).last()
 
     def get_products_gst_tax(self):
