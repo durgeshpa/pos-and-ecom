@@ -1346,8 +1346,10 @@ class ShippingAddressAutocomplete(autocomplete.Select2QuerySetView):
         qs = None
         buyer_shop = self.forwarded.get('buyer_shop', None)
         qs = Address.objects.filter(
+            Q(shop_name__shop_owner=self.request.user) |
+            Q(shop_name__related_users=self.request.user),
+            shop_name__shop_type__shop_type='r',
             address_type='shipping',
-            status=True,
             shop_name = buyer_shop
             )
         return qs
@@ -1358,8 +1360,10 @@ class BillingAddressAutocomplete(autocomplete.Select2QuerySetView):
         qs = None
         buyer_shop = self.forwarded.get('buyer_shop', None)
         qs = Address.objects.filter(
+            Q(shop_name__shop_owner=self.request.user) |
+            Q(shop_name__related_users=self.request.user),
+            shop_name__shop_type__shop_type='r',
             address_type='billing',
-            status=True,
             shop_name = buyer_shop
             )
         return qs
