@@ -40,7 +40,7 @@ from retailer_to_sp.views import (
     update_order_status, update_shipment_status, reshedule_update_shipment,
     RetailerCart, assign_picker, assign_picker_change, assign_picker_data,
     UserWithNameAutocomplete,  SellerAutocomplete, ShipmentOrdersAutocomplete,
-    BuyerShopAutocomplete
+    BuyerShopAutocomplete, BuyerParentShopAutocomplete
 )
 from shops.models import ParentRetailerMapping, Shop
 from sp_to_gram.models import (
@@ -57,15 +57,16 @@ from .forms import (
     ReturnProductMappingForm, ShipmentForm,
     ShipmentProductMappingForm, TripForm, ShipmentReschedulingForm,
     OrderedProductReschedule, OrderedProductMappingRescheduleForm,
-    OrderForm, EditAssignPickerForm, ResponseCommentForm
+    OrderForm, EditAssignPickerForm, ResponseCommentForm, BulkCartForm
 )
 from .models import (Cart, CartProductMapping, Commercial, CustomerCare,
                      Dispatch, DispatchProductMapping, Note, Order,
                      OrderedProduct, OrderedProductMapping, Payment, Return,
                      ReturnProductMapping, Shipment, ShipmentProductMapping,
                      Trip, ShipmentRescheduling, Feedback, PickerDashboard,
-                     generate_picklist_id, ResponseComment, Invoice, TRIP_STATUS,
-                     ResponseComment)
+                     generate_picklist_id, ResponseComment,
+                     generate_picklist_id, ResponseComment, Invoice,
+                     ResponseComment, BulkOrder)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (
@@ -482,6 +483,10 @@ class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
                 self.admin_site.admin_view( BuyerShopAutocomplete.as_view()),
                 name='buyer-autocomplete'
                 ),
+            url(r'^buyer-parent-autocomplete/$',
+                self.admin_site.admin_view( BuyerParentShopAutocomplete.as_view()),
+                name='buyer-parent-autocomplete'
+                ),
             url(r'^plan-shipment-orders-autocomplete/$',
                 self.admin_site.admin_view(ShipmentOrdersAutocomplete.as_view()),
                 name='ShipmentOrdersAutocomplete'
@@ -507,6 +512,20 @@ class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
             OrderedProductReserved, request.user)
         reserve_order.create()
 
+class BulkOrderAdmin(admin.ModelAdmin):
+    fields = ('seller_shop', 'buyer_shop', 'shipping_address', 'billing_address', 'cart_products_csv')
+    form = BulkCartForm
+    list_display = ('cart', 'seller_shop','buyer_shop', 'shipping_address', 'billing_address', 'created_at',)
+    #change_form_template = 'admin/sp_to_gram/cart/change_form.html'
+    list_filter = (SellerShopFilter, BuyerShopFilter)
+
+    class Media:
+        js = ('admin/js/bulk_order.js', 'admin/js/select2.min.js')
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj: # editing an existing object
+            return self.readonly_fields + ('seller_shop','buyer_shop','shipping_address','billing_address',)
+        return self.readonly_fields
 
 
 class ExportCsvMixin:
@@ -514,7 +533,8 @@ class ExportCsvMixin:
         meta = self.model._meta
         list_display = ['order_no','seller_shop','buyer_shop_id', 'buyer_shop_with_mobile', 'pincode','city', 'total_final_amount',
                         'order_status', 'created_at', 'payment_mode', 'paid_amount',
-                        'total_paid_amount', 'shipment_status', 'shipment_status_reason','order_shipment_amount',
+                        'total_paid_amount', 'invoice_no', 'shipment_status', 'shipment_status_reason','order_shipment_amount',
+                        'trip_completed_at',
                         'picking_status', 'picker_boy', 'picklist_id',]
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
@@ -522,39 +542,42 @@ class ExportCsvMixin:
         writer = csv.writer(response)
         writer.writerow(list_display)
 
-        # pickers = PickerDashboard.objects.filter(order__in=queryset, shipment__isnull=True)
-        # if pickers.exists():
-        #     for picker in pickers:
-        #         obj = picker.order
-        #         row_items = [getattr(obj, field) for field  in list_display if field not in ['shipment_status','shipment_status_reason','order_shipment_amount',
-        #                               'picking_status', 'picker_boy', 'picklist_id'] ]
-        #         shipment = picker.shipment
-        #         if shipment:
-        #             row_items += [shipment.get_shipment_status_display(), shipment.return_reason, shipment.invoice_amount] 
-        #         else:
-        #             row_items += ["-","-","-"]
-        #         row_items += [picker.get_picking_status_display(), picker.picker_boy, picker.picklist_id]
+        pickers = PickerDashboard.objects.filter(order__in=queryset, shipment__isnull=True)
+        if pickers.exists():
+            for picker in pickers:
+                obj = picker.order
+                row_items = [getattr(obj, field) for field  in list_display if field not in ['trip_completed_at', 'shipment_status','shipment_status_reason','order_shipment_amount',
+                                      'invoice_no', 'picking_status', 'picker_boy', 'picklist_id'] ]
+                shipment = picker.shipment
+                if shipment:
+                    row_items += [shipment.invoice_no, shipment.get_shipment_status_display(), shipment.return_reason, shipment.invoice_amount,
+                    shipment.trip.completed_at if shipment.trip else '--']
+                else:
+                    row_items += ["-","-","-","-", "-"]
+                row_items += [picker.get_picking_status_display(), picker.picker_boy, picker.picklist_id]
 
-        #         row = writer.writerow(row_items)
+                row = writer.writerow(row_items)
 
-        # shipments = OrderedProduct.objects.filter(order__in=queryset)
-        # if shipments.exists():
-        #     for shipment in shipments:
-        #         obj = shipment.order
-        #         row_items = [getattr(obj, field) for field  in list_display if field not in ['shipment_status','shipment_status_reason','order_shipment_amount',
-        #                               'picking_status', 'picker_boy', 'picklist_id'] ]
+        shipments = OrderedProduct.objects.filter(order__in=queryset)
+        if shipments.exists():
+            for shipment in shipments:
+                obj = shipment.order
+                row_items = [getattr(obj, field) for field  in list_display if field not in ['shipment_status','shipment_status_reason','order_shipment_amount',
+                                      'trip_completed_at','invoice_no','picking_status', 'picker_boy', 'picklist_id'] ]
 
-        #         row_items += [shipment.get_shipment_status_display(), shipment.return_reason, shipment.invoice_amount, 
-        #             shipment.picking_status, shipment.picker_boy, shipment.picklist_id]
+                row_items += [shipment.invoice_no, shipment.get_shipment_status_display(), shipment.return_reason, shipment.invoice_amount,
+                    shipment.trip.completed_at if shipment.trip else '-',
+                    shipment.picking_status, shipment.picker_boy, shipment.picklist_id]
 
-        #         #getattr(shipment, field) for field in list_display_s]
-        #         row = writer.writerow(row_items)
+                #getattr(shipment, field) for field in list_display_s]
+                row = writer.writerow(row_items)
 
-        for obj in queryset:
-            row = writer.writerow([getattr(obj, field).replace('<br>', '\n') if field in ['shipment_status','shipment_status_reason','order_shipment_amount',
-                                  'picking_status', 'picker_boy', 'picklist_id'] else getattr(obj, field) for field in list_display])
+        # for obj in queryset:
+        #     row = writer.writerow([getattr(obj, field).replace('<br>', '\n') if field in ['shipment_status','shipment_status_reason','order_shipment_amount',
+        #                           'picking_status', 'picker_boy', 'picklist_id'] else getattr(obj, field) for field in list_display])
         return response
     export_as_csv.short_description = "Download CSV of Selected Orders"
+
 
 class SellerShopFilter(AutocompleteFilter):
     title = 'Seller Shop'
@@ -1164,7 +1187,7 @@ class DispatchNoSearch(InputFilter):
 class ExportCsvMixin:
     def export_as_csv_trip(self, request, queryset):
         meta = self.model._meta
-        list_display = ('created_at', 'dispatch_no', 'total_trip_shipments', 'total_trip_amount_value')
+        list_display = ('created_at', 'dispatch_no', 'total_trip_shipments', 'trip_amount')
         field_names = [field.name for field in meta.fields if field.name in list_display]
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
@@ -1246,7 +1269,7 @@ class ShipmentInlineAdmin(admin.TabularInline):
 class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
     #change_list_template = 'admin/retailer_to_sp/trip/change_list.html'
     #inlines = [ShipmentInlineAdmin]
-    actions = ["change_trip_status", "export_as_csv_commercial",]
+    actions = ["export_as_csv_commercial",]
     list_display = (
         'dispatch_no', 'trip_amount', 'cash_to_be_collected', 'download_trip_pdf', 'delivery_boy',
         'vehicle_no', 'trip_status', 'starts_at', 'completed_at',
@@ -1276,10 +1299,6 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
                    ('completed_at', DateTimeRangeFilter), VehicleNoSearch,
                    DispatchNoSearch]
     form = CommercialForm
-
-    def change_trip_status(self, request, queryset):
-        queryset.filter(trip_status='CLOSED').update(trip_status='TRANSFERRED')
-    change_trip_status.short_description = "Mark selected Trips as Transferred"
 
     def cash_to_be_collected(self, obj):
         return obj.cash_to_be_collected()
@@ -1314,12 +1333,11 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
     def get_queryset(self, request):
         qs = super(CommercialAdmin, self).get_queryset(request)
         if request.user.is_superuser:
-            return qs.filter(trip_status__in=['COMPLETED', 'CLOSED',
-                                              'TRANSFERRED'])
+            return qs.filter(trip_status__in=[Trip.RETURN_VERIFIED, Trip.PAYMENT_VERIFIED])
         return qs.filter(
             Q(seller_shop__related_users=request.user) |
             Q(seller_shop__shop_owner=request.user),
-            trip_status__in=['COMPLETED', 'CLOSED', 'TRANSFERRED'])
+            trip_status__in=[Trip.RETURN_VERIFIED, Trip.PAYMENT_VERIFIED])
 
     def download_trip_pdf(self, obj):
         return format_html("<a href= '%s' >Download Trip PDF</a>"%(reverse('download_trip_pdf', args=[obj.pk])))
@@ -1334,7 +1352,7 @@ class NoteAdmin(admin.ModelAdmin):
                        'note_amount', 'invoice_no', 'status')
     list_filter = [('created_at', DateTimeRangeFilter),ShipmentSearch, CreditNoteSearch, ShopSearch]
 
-    search_fields = ('credit_note_id','shop__shop_name', 'shipment__invoice_no')
+    search_fields = ('credit_note_id','shop__shop_name', 'shipment__invoice__invoice_no')
 
     class Media:
         pass
@@ -1516,7 +1534,7 @@ class InvoiceAdmin(admin.ModelAdmin):
 
     def get_trip_status(self, obj):
         if obj.trip_status:
-            trip_status = dict(TRIP_STATUS)
+            trip_status = dict(Trip.TRIP_STATUS)
             return trip_status[obj.trip_status]
         return "-"
     get_trip_status.short_description = "Trip Status"
@@ -1540,6 +1558,7 @@ class InvoiceAdmin(admin.ModelAdmin):
 
 # admin.site.register(Return, ReturnAdmin)
 admin.site.register(Cart, CartAdmin)
+admin.site.register(BulkOrder, BulkOrderAdmin)
 admin.site.register(Order, OrderAdmin)
 admin.site.register(OrderedProduct, OrderedProductAdmin)
 admin.site.register(Note, NoteAdmin)

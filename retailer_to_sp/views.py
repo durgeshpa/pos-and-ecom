@@ -8,7 +8,7 @@ from products.models import *
 
 from django.forms import formset_factory, inlineformset_factory, modelformset_factory, BaseFormSet, ValidationError
 from django.shortcuts import render, get_object_or_404, redirect
-from django.db.models import Sum, Q, F, Count
+from django.db.models import Sum, Q, F, Count, Case, Value, When
 from django.db import transaction
 from django.dispatch import receiver
 from django.db.models.signals import post_save
@@ -84,18 +84,15 @@ class DownloadCreditNote(APIView):
     filename = 'credit_note.pdf'
     template_name = 'admin/credit_note/credit_note.html'
     def get(self, request, *args, **kwargs):
-        order_obj = get_object_or_404(Note, pk=self.kwargs.get('pk'))
-        pk = self.kwargs.get('pk')
-        a = Note.objects.get(pk=pk)
-        shop = a
-        amount = a.amount
-        pp = OrderedProductMapping.objects.filter(ordered_product=a.shipment.id)
+        credit_note = get_object_or_404(Note, pk=self.kwargs.get('pk'))
+        amount = credit_note.amount
+        pp = OrderedProductMapping.objects.filter(ordered_product=credit_note.shipment.id)
         products = []
         for i in pp:
             if(i.returned_qty + i.damaged_qty)!=0:
                 products.append(i)
 
-        order_id = a.shipment.order.order_no
+        order_id = credit_note.shipment.order.order_no
         sum_qty = 0
         sum_amount = 0
         tax_inline = 0
@@ -104,7 +101,7 @@ class DownloadCreditNote(APIView):
         gst_tax_list = []
         cess_tax_list = []
         surcharge_tax_list = []
-        for z in shop.shipment.order.seller_shop.\
+        for z in credit_note.shipment.order.seller_shop.\
                 shop_name_address_mapping.all():
             shop_name_gram = z.shop_name
             nick_name_gram = z.nick_name
@@ -119,13 +116,9 @@ class DownloadCreditNote(APIView):
             )
 
             # h = m.price_to_retailer
-            sum_amount = sum_amount + (
-                int(m.returned_qty + m.damaged_qty) *
-                    (m.price_to_retailer)
-            )
             inline_sum_amount = (
                 int(m.returned_qty + m.damaged_qty) *
-                    (m.price_to_retailer)
+                    float(m.price_to_retailer)
             )
             for n in m.get_products_gst_tax():
                 divisor = (1+(n.tax.tax_percentage/100))
@@ -145,17 +138,15 @@ class DownloadCreditNote(APIView):
                 cess = sum(cess_tax_list)
                 surcharge = sum(surcharge_tax_list)
 
-        total_amount = sum_amount
-        total_amount_int = int(total_amount)
-
+        total_amount = credit_note.note_amount
 
         data = {
-            "object": order_obj,
+            "object": credit_note,
             "products": products,
-            "shop": shop,
-            "total_amount_int": total_amount_int,
+            "shop": credit_note,
+            "total_amount_int": total_amount,
             "sum_qty": sum_qty,
-            "sum_amount": round(sum_amount,2),
+            "sum_amount": total_amount,
             "url": request.get_host(),
             "scheme": request.is_secure() and "https" or "http",
             "igst": igst,
@@ -163,7 +154,7 @@ class DownloadCreditNote(APIView):
             "sgst": sgst,
             "cess": cess,
             "surcharge": surcharge,
-            "total_amount": round(total_amount,2),
+            "total_amount": total_amount,
             "order_id": order_id,
             "shop_name_gram": shop_name_gram,
             "nick_name_gram": nick_name_gram,
@@ -402,23 +393,26 @@ def trip_planning_change(request, pk):
 
     if request.method == 'POST':
         form = TripForm(request.user, request.POST, instance=trip_instance)
-        if trip_status == 'READY' or trip_status == 'STARTED':
+        if trip_status in (Trip.READY, Trip.STARTED, Trip.COMPLETED):
             if form.is_valid():
                 trip = form.save()
                 current_trip_status = trip.trip_status
-                if trip_status == 'STARTED':
-                    if current_trip_status == "COMPLETED":
+                if trip_status == Trip.STARTED:
+                    if current_trip_status == Trip.COMPLETED:
                         trip_instance.rt_invoice_trip.filter(shipment_status='OUT_FOR_DELIVERY').update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
                         OrderedProductMapping.objects.filter(ordered_product__in=trip_instance.rt_invoice_trip.filter(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])).update(delivered_qty=F('shipped_qty'))
                     else:
                         trip_instance.rt_invoice_trip.all().update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
                     return redirect('/admin/retailer_to_sp/trip/')
 
-                if trip_status == 'READY':
+                if trip_status == Trip.READY:
                     trip_instance.rt_invoice_trip.all().update(trip=None, shipment_status='READY_TO_SHIP')
 
-                if current_trip_status == 'CANCELLED':
+                if current_trip_status == Trip.CANCELLED:
                     trip_instance.rt_invoice_trip.all().update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status], trip=None)
+                    return redirect('/admin/retailer_to_sp/trip/')
+
+                if current_trip_status == Trip.RETURN_VERIFIED:
                     return redirect('/admin/retailer_to_sp/trip/')
 
                 selected_shipment_ids = form.cleaned_data.get('selected_id', None)
@@ -428,7 +422,6 @@ def trip_planning_change(request, pk):
                     selected_shipments = Dispatch.objects.filter(~Q(shipment_status='CANCELLED'),
                                                                  pk__in=selected_shipment_list)
                     selected_shipments.update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status],trip=trip_instance)
-
 
                 return redirect('/admin/retailer_to_sp/trip/')
             else:
@@ -651,7 +644,7 @@ class DownloadPickListPicker(TemplateView, ):
                 product_list = {
                     "product_name": shipment_pro.product.product_name,
                     "product_sku": shipment_pro.product.product_sku,
-                    "product_mrp": round(shipment_pro.get_shop_specific_products_prices_sp().mrp, 2),
+                    "product_mrp": round(shipment_pro.mrp, 2),
                     # "to_be_shipped_qty": int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_quantity),
                 }
                 # product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_qty_exclude_current)
@@ -862,7 +855,7 @@ class SellerShopAutocomplete(autocomplete.Select2QuerySetView):
 
         qs = Shop.objects.filter(
             shop_type__shop_type='sp')
-        
+
         if self.q:
             qs = qs.filter(shop_name__icontains=self.q)
         return qs
@@ -883,6 +876,18 @@ class BuyerShopAutocomplete(autocomplete.Select2QuerySetView):
             return Shop.objects.none()
 
         qs = Shop.objects.filter(shop_type__shop_type='r', shop_owner=self.request.user)
+
+        if self.q:
+            qs = qs.filter(shop_name__icontains=self.q)
+        return qs
+
+class BuyerParentShopAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        seller_shop_id = self.forwarded.get('seller_shop', None)
+        if seller_shop_id:
+            qs = Shop.objects.filter(shop_type__shop_type='r', retiler_mapping__parent = seller_shop_id, approval_status = 2)
+        else:
+            qs = Shop.objects.filter(shop_type__shop_type='r')
 
         if self.q:
             qs = qs.filter(shop_name__icontains=self.q)
@@ -1054,7 +1059,7 @@ class RetailerCart(APIView):
     permission_classes = (AllowAny,)
 
     def get(self, request, *args, **kwargs):
-        order_obj = Order.objects.get(order_no=request.GET.get('order_no'))
+        order_obj = Order.objects.filter(order_no=request.GET.get('order_no')).last()
         dt = OrderedCartSerializer(
             order_obj.ordered_cart,
             context={'parent_mapping_id': order_obj.seller_shop.id,
@@ -1207,7 +1212,7 @@ class OrderCancellation(object):
                 # updating shipment status
                 self.get_shipment_queryset().update(shipment_status='CANCELLED')
 
-            elif self.trip_status and self.trip_status == 'READY':
+            elif self.trip_status and self.trip_status == Trip.READY:
                 # cancel order and generate credit note and
                 # remove shipment from trip
                 self.generate_credit_note(order_closed=self.order.order_closed)
@@ -1334,4 +1339,31 @@ class ShipmentOrdersAutocomplete(autocomplete.Select2QuerySetView):
                                         order_closed=False).exclude(id__in=qc_pending_orders)
         if self.q:
             qs = qs.filter(order_no__icontains=self.q)
+        return qs
+
+class ShippingAddressAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = None
+        buyer_shop = self.forwarded.get('buyer_shop', None)
+        qs = Address.objects.filter(
+            Q(shop_name__shop_owner=self.request.user) |
+            Q(shop_name__related_users=self.request.user),
+            shop_name__shop_type__shop_type='r',
+            address_type='shipping',
+            shop_name = buyer_shop
+            )
+        return qs
+
+
+class BillingAddressAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        qs = None
+        buyer_shop = self.forwarded.get('buyer_shop', None)
+        qs = Address.objects.filter(
+            Q(shop_name__shop_owner=self.request.user) |
+            Q(shop_name__related_users=self.request.user),
+            shop_name__shop_type__shop_type='r',
+            address_type='billing',
+            shop_name = buyer_shop
+            )
         return qs

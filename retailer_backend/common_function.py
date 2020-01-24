@@ -78,7 +78,7 @@ def get_last_no_to_increment(model, field, instance_id, starts_with):
     else:
         return 0
 
-def get_last_model_invoice(starts_with):
+def get_last_model_invoice(starts_with, field):
     shipment_instance = RetailerToSPModels.OrderedProduct.objects.filter(invoice_number__icontains=starts_with)
     if shipment_instance.exists():
         last_instance_no = shipment_instance.latest('invoice_number')
@@ -97,7 +97,7 @@ def common_pattern(model, field, instance_id, address, invoice_type, is_invoice=
         last_number = cache.incr(starts_with)
     except:
         if is_invoice:
-            last_number = get_last_model_invoice(starts_with)
+            last_number = get_last_model_invoice(starts_with, field)
         else:
             last_number = get_last_no_to_increment(model, field, instance_id, starts_with)
             last_number += 1

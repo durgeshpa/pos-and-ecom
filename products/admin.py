@@ -18,7 +18,7 @@ from .views import (
     ProductCategoryMapping, product_category_mapping_sample,
     ProductPriceUpload, CityAutocomplete, RetailerAutocomplete,
     SellerShopAutocomplete, ProductAutocomplete, PincodeAutocomplete,
-    ProductCategoryMapping, product_category_mapping_sample, VendorAutocomplete)
+    ProductCategoryMapping, product_category_mapping_sample, VendorAutocomplete, cart_products_mapping)
 from .resources import (
     SizeResource, ColorResource, FragranceResource,
     FlavorResource, WeightResource, PackageSizeResource,
@@ -86,7 +86,23 @@ class VendorFilter(AutocompleteFilter):
     title = 'Vendor Name' # display title
     field_name = 'vendor' # name of the foreign key field
 
-class ProductVendorMappingAdmin(admin.ModelAdmin):
+class ExportCsvMixin:
+    def export_as_csv_product_vendormapping(self, request, queryset):
+        meta = self.model._meta
+        list_display = ('vendor', 'product', 'product_price', 'product_mrp','case_size','created_at','status')
+        field_names = [field.name for field in meta.fields if field.name in list_display]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in list_display])
+        return response
+    export_as_csv_product_vendormapping.short_description = "Download CSV of selected Productvendormapping"
+
+
+class ProductVendorMappingAdmin(ExportCsvMixin, admin.ModelAdmin):
+    actions = ["export_as_csv_product_vendormapping", ]
     fields = ('vendor', 'product', 'product_price','product_mrp','case_size')
     list_display = ('vendor', 'product','product_price','product_mrp','case_size','created_at','status')
     list_filter = [VendorFilter,ProductFilter,]
@@ -323,6 +339,11 @@ class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
                 r'^products-vendor-mapping/(?P<pk>\d+)/$',
                 self.admin_site.admin_view(products_vendor_mapping),
                 name='products_vendor_mapping'
+            ),
+            url(
+                r'^cart-products-mapping/(?P<pk>\d+)/$',
+                self.admin_site.admin_view(cart_products_mapping),
+                name='cart_products_mapping'
             ),
             url(
                 r'^product-price-autocomplete/$',

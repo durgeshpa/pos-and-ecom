@@ -183,7 +183,15 @@ DATABASES = {
         'NAME': config('DB_NAME'),
         'USER': config('DB_USER'),
         'PASSWORD': config('DB_PASSWORD'),
-        'HOST': config('DB_HOST_READ'),
+        'HOST': config('DB_HOST'),
+        'PORT': config('DB_PORT'),
+    },
+    'dataanalytics': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': config('DB_NAME'),
+        'USER': config('DB_USER'),
+        'PASSWORD': config('DB_PASSWORD'),
+        'HOST': config('DB_HOST'),
         'PORT': config('DB_PORT'),
     }
 }
@@ -319,6 +327,7 @@ TEMPUS_DOMINUS_INCLUDE_ASSETS=False
 
 CRONJOBS = [
     ('* * * * *', 'retailer_backend.cron.CronToDeleteOrderedProductReserved', '>> /var/log/nginx/cron.log')
+
 ]
 
 INTERNAL_IPS = ['127.0.0.1','localhost']
@@ -345,7 +354,7 @@ REDIS_DB_CHOICE = {
     'staging': '2',
     'qa': '7',
     'qa1': '9',
-    'local':'5',
+    'local-raj':'5',
     'qa3':'6',
     'qa2':'8',
     'local':'10',
@@ -394,6 +403,11 @@ CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+
+
+CELERY_ROUTES = {
+    'analytics.api.v1.views': {'queue': 'analytics_tasks'},
+}
 
 # ElasticSearch
 ELASTICSEARCH_PREFIX = config('ELASTICSEARCH_PREFIX')
