@@ -885,9 +885,9 @@ class BuyerParentShopAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         seller_shop_id = self.forwarded.get('seller_shop', None)
         if seller_shop_id:
-            qs = Shop.objects.filter(shop_type__shop_type='r', retiler_mapping__parent = seller_shop_id, shop_owner=self.request.user)
+            qs = Shop.objects.filter(shop_type__shop_type='r', retiler_mapping__parent = seller_shop_id, approval_status = 2)
         else:
-            qs = Shop.objects.filter(shop_type__shop_type='r', shop_owner=self.request.user)
+            qs = Shop.objects.filter(shop_type__shop_type='r')
 
         if self.q:
             qs = qs.filter(shop_name__icontains=self.q)
@@ -1346,9 +1346,6 @@ class ShippingAddressAutocomplete(autocomplete.Select2QuerySetView):
         qs = None
         buyer_shop = self.forwarded.get('buyer_shop', None)
         qs = Address.objects.filter(
-            Q(shop_name__shop_owner=self.request.user) |
-            Q(shop_name__related_users=self.request.user),
-            shop_name__shop_type__shop_type='r',
             address_type='shipping',
             status=True,
             shop_name = buyer_shop
@@ -1361,9 +1358,6 @@ class BillingAddressAutocomplete(autocomplete.Select2QuerySetView):
         qs = None
         buyer_shop = self.forwarded.get('buyer_shop', None)
         qs = Address.objects.filter(
-            Q(shop_name__shop_owner=self.request.user) |
-            Q(shop_name__related_users=self.request.user),
-            shop_name__shop_type__shop_type='r',
             address_type='billing',
             status=True,
             shop_name = buyer_shop
