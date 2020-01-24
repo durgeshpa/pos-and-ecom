@@ -192,7 +192,7 @@ def order_cash_to_be_collected(shipments):
 def order_cn_amount(shipments):
 	return format_html_join(
 		"", "{}<br><br>",
-		((s.cn_amount(),) for s in shipments)
+		((s.credit_note_amount,) for s in shipments)
 	)
 
 def order_damaged_amount(shipments):

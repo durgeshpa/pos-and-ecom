@@ -250,7 +250,7 @@ function CreateResponseTable(data){
       var trip = elem.trip;
       var order = "<td>" + elem.order + "</td>";
       var shipment_status = "<td>" + elem.shipment_status + "</td>";
-      if (GetTripStatus() == ('COMPLETED') || GetTripStatus() == 'RETURN_V'){
+      if (GetTripStatus() == ('COMPLETED') || GetTripStatus() == 'CLOSED'){
         var invoice_no = "<td><a href='/admin/retailer_to_sp/orderedproduct/"+elem.pk+"/change/' target='_blank'>"+ elem.invoice_no + "</a></td>";
       }else {
         var invoice_no = "<td><a href='/admin/retailer_to_sp/dispatch/"+elem.pk+"/change/' target='_blank'>"+ elem.invoice_no + "</a></td>";
@@ -270,7 +270,7 @@ function CreateResponseTable(data){
       }
   });
   displaySelectedCount();
-  if (GetTripStatus() == 'COMPLETED'|| GetTripStatus() == 'STARTED' || GetTripStatus() == 'RETURN_V'){
+  if (GetTripStatus() == 'COMPLETED'|| GetTripStatus() == 'STARTED' || GetTripStatus() == 'CLOSED'){
     $(".shipment_checkbox").prop("checked", true);
     $(".shipment_checkbox").attr("disabled", true);
     $(".selected_invoice_count").hide();
