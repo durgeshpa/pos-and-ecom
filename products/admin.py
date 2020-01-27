@@ -86,7 +86,7 @@ class VendorFilter(AutocompleteFilter):
     title = 'Vendor Name' # display title
     field_name = 'vendor' # name of the foreign key field
 
-class ExportCsvMixin:
+class ExportProductVendor:
     def export_as_csv_product_vendormapping(self, request, queryset):
         meta = self.model._meta
         list_display = ('vendor', 'product', 'product_price', 'product_mrp','case_size','created_at','status')
@@ -101,7 +101,7 @@ class ExportCsvMixin:
     export_as_csv_product_vendormapping.short_description = "Download CSV of selected Productvendormapping"
 
 
-class ProductVendorMappingAdmin(ExportCsvMixin, admin.ModelAdmin):
+class ProductVendorMappingAdmin(admin.ModelAdmin, ExportProductVendor):
     actions = ["export_as_csv_product_vendormapping", ]
     fields = ('vendor', 'product', 'product_price','product_mrp','case_size')
     list_display = ('vendor', 'product','product_price','product_mrp','case_size','created_at','status')
@@ -439,7 +439,7 @@ class MRPSearch(InputFilter):
                 Q(mrp__icontains=mrp)
             )
 
-class ExportCsvMixin:
+class ExportProductPrice:
     def export_as_csv_productprice(self, request, queryset):
         meta = self.model._meta
         list_display = [
@@ -457,7 +457,7 @@ class ExportCsvMixin:
     export_as_csv_productprice.short_description = "Download CSV of Selected ProductPrice"
 
 
-class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
+class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     resource_class = ProductPriceResource
     form = ProductPriceNewForm
     actions = ['export_as_csv_productprice', 'approve_product_price','disapprove_product_price']
