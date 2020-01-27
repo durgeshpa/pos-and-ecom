@@ -453,13 +453,22 @@ class AddToCart(APIView):
                                 cart_mapping.capping_error_msg = ''
                                 cart_mapping.save()
                         else:
+                            if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
+                                cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
+                                cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty)
+                                cart_mapping.save()
+                            else:
+                                msg = {'is_success': True, 'message': ['The Purchase Limit of the Product is %s' % (capping.capping_qty)],'response_data': None}
+                                return Response(msg, status=status.HTTP_200_OK)
+
+                    else:
+                        if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
                             cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
                             cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty)
                             cart_mapping.save()
-                    else:
-                        cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
-                        cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty)
-                        cart_mapping.save()
+                        else:
+                            msg = {'is_success': True, 'message': ['The Purchase Limit of the Product is %s' % (capping.capping_qty)],'response_data': None}
+                            return Response(msg, status=status.HTTP_200_OK)
                 else:
                     if int(qty) == 0:
                         if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
@@ -471,7 +480,6 @@ class AddToCart(APIView):
                         cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
                         cart_mapping.capping_error_msg = ''
                         cart_mapping.save()
-
 
 
                 if cart.rt_cart_list.count() <= 0:
