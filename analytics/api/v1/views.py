@@ -298,13 +298,13 @@ def order_report(order_id):
             delivery_boy = ''
             trip_created_at = None
 
-    OrderDetailReportsData.objects.create(invoice_id=invoice_id,order_invoice=order_invoice,invoice_date=invoice_date,invoice_modified_at=invoice_modified_at,invoice_last_modified_by=shipment_last_modified_by,invoice_status=invoice_status,
-                                            order_id=order_id, seller_shop=seller_shop,order_status=order_status,order_date=order_date,order_modified_at=order_modified_at,
-                                            order_by=order_by, retailer_id=retailer_id,retailer_name=retailer_name, pin_code=pin_code,product_id=product_id,product_name=product_name,
-                                            product_brand=product_brand,product_mrp=product_mrp,selling_price=selling_price,item_effective_price=item_effective_price,product_value_tax_included=product_value_tax_included,
-                                            ordered_sku_pieces=ordered_sku_pieces,shipped_sku_pieces=shipped_sku_pieces,delivered_sku_pieces=delivered_sku_pieces,returned_sku_pieces=returned_sku_pieces,damaged_sku_pieces=damaged_sku_pieces,
-                                            product_cgst=product_cgst,product_sgst=product_sgst,product_igst=product_igst,product_cess=product_cess,sales_person_name=sales_person_name,order_type=order_type,
-                                            campaign_name=campaign_name, discount=discount,trip_id=trip_id, trip_status=trip_status,delivery_boy=delivery_boy,trip_created_at=trip_created_at)
+            OrderDetailReportsData.objects.create(invoice_id=invoice_id,order_invoice=order_invoice,invoice_date=invoice_date,invoice_modified_at=invoice_modified_at,invoice_last_modified_by=shipment_last_modified_by,invoice_status=invoice_status,
+                                                    order_id=order_id, seller_shop=seller_shop,order_status=order_status,order_date=order_date,order_modified_at=order_modified_at,
+                                                    order_by=order_by, retailer_id=retailer_id,retailer_name=retailer_name, pin_code=pin_code,product_id=product_id,product_name=product_name,
+                                                    product_brand=product_brand,product_mrp=product_mrp,selling_price=selling_price,item_effective_price=item_effective_price,product_value_tax_included=product_value_tax_included,
+                                                    ordered_sku_pieces=ordered_sku_pieces,shipped_sku_pieces=shipped_sku_pieces,delivered_sku_pieces=delivered_sku_pieces,returned_sku_pieces=returned_sku_pieces,damaged_sku_pieces=damaged_sku_pieces,
+                                                    product_cgst=product_cgst,product_sgst=product_sgst,product_igst=product_igst,product_cess=product_cess,sales_person_name=sales_person_name,order_type=order_type,
+                                                    campaign_name=campaign_name, discount=discount,trip_id=trip_id, trip_status=trip_status,delivery_boy=delivery_boy,trip_created_at=trip_created_at)
 
 
 
@@ -474,8 +474,7 @@ def trip_report(trip_id):
                                                     total_trip_amount=total_trip_amount,total_trip_amount_value=total_trip_amount_value,trip_weight=trip_weight)
 
 
-
-@periodic_task(run_every=(crontab(hour='*/23')), name="getStock", ignore_result=True)
+@periodic_task(run_every=(crontab(minute=0, hour=0)), name="getStock", ignore_result=True)
 def getStock():
     for shop_obj in Shop.objects.filter(shop_type__shop_type='sp'):
         sp_grn_product = OrderedProductMapping.get_shop_stock(shop_obj)
