@@ -1,7 +1,7 @@
 from products.models import Product
 import xlrd
 
-def update_hsn_code():
+def update_ean_code():
     wb = xlrd.open_workbook('EANCODES.xlsx')
     sheet = wb.sheet_by_index(0)
     sheet.cell_value(0,0)
@@ -13,4 +13,4 @@ def update_hsn_code():
 
 
 if __name__=='__main__':
-    update_hsn_code()
+    update_ean_code()
