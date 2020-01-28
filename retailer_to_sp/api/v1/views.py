@@ -441,7 +441,7 @@ class AddToCart(APIView):
                             if order.ordered_cart.rt_cart_list.filter(cart_product = product).exists():
                                 ordered_qty += order.ordered_cart.rt_cart_list.filter(cart_product = product).last().qty
                     if capping.capping_qty > ordered_qty:
-                        if (capping.capping_qty - ordered_qty)  > int(qty):
+                        if (capping.capping_qty - ordered_qty)  >= int(qty):
                             if int(qty) == 0:
                                 if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
                                     CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
