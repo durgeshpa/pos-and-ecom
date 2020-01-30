@@ -1018,7 +1018,7 @@ class DownloadInvoiceSP(APIView):
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         try:
-            shipment.invoice.invoice_pdf.save("invoice-{}".format(shipment.invoice_no), response.rendered_content)
+            shipment.invoice.invoice_pdf.save("invoice-{}".format(shipment.invoice_no), response.rendered_content, save=True)
         except Exception as e:
             logger.exception(e)
         return response
