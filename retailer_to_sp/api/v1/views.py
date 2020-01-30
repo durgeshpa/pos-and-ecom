@@ -1020,8 +1020,8 @@ class DownloadInvoiceSP(APIView):
         try:
             shipment.invoice.invoice_pdf = response.rendered_content
             shipment.invoice.save()
-        except:
-            pass
+        except Exception as e:
+            logger.exception(e)
         return response
 
 
