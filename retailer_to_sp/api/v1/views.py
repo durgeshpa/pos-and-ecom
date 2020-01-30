@@ -896,7 +896,8 @@ class DownloadInvoiceSP(APIView):
     def get(self, request, *args, **kwargs):
         shipment = get_object_or_404(OrderedProduct, pk=self.kwargs.get('pk'))
         if shipment.invoice.invoice_pdf:
-            response = HttpResponse(pdf, content_type='application/pdf')
+
+            response = Response(shipment.invoice.invoice_pdf, content_type='application/pdf')
             response['Content-Disposition'] = 'attachment; filename="invoice.pdf"'
             return response
 
