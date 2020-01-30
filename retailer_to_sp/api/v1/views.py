@@ -894,6 +894,9 @@ class DownloadInvoiceSP(APIView):
 
     def get(self, request, *args, **kwargs):
         shipment = get_object_or_404(OrderedProduct, pk=self.kwargs.get('pk'))
+        if shipment.invoice.invoice_pdf:
+            return HttpResponse(pdf, content_type='application/pdf')
+            
         barcode = barcodeGen(shipment.invoice_no)
         payment_type='cash_on_delivery'
         try:
