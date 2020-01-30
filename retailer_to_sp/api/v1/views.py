@@ -19,6 +19,7 @@ from rest_framework import status
 from rest_framework import serializers
 from rest_framework import generics, viewsets
 from retailer_backend.utils import SmallOffsetPagination
+from django.core.files.base import ContentFile
 
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,
     CartProductMappingSerializer,CartSerializer, OrderSerializer,
@@ -1018,7 +1019,7 @@ class DownloadInvoiceSP(APIView):
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         try:
-            shipment.invoice.invoice_pdf.save("invoice-{}".format(shipment.invoice_no), response.rendered_content, save=True)
+            shipment.invoice.invoice_pdf.save("invoice-{}".format(shipment.invoice_no), ContentFile(response.rendered_content), save=True)
         except Exception as e:
             logger.exception(e)
         return response
