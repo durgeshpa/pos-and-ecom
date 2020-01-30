@@ -1417,9 +1417,6 @@ class Invoice(models.Model):
     def __str__(self):
         return self.invoice_no
 
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-
     @property
     def invoice_amount(self):
         try:
