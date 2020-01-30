@@ -21,7 +21,7 @@ from rest_framework import serializers
 from rest_framework import generics, viewsets
 from retailer_backend.utils import SmallOffsetPagination
 from django.core.files.base import ContentFile
-
+from django.shortcuts import redirect
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,
     CartProductMappingSerializer,CartSerializer, OrderSerializer,
     CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,
@@ -896,9 +896,7 @@ class DownloadInvoiceSP(APIView):
     def get(self, request, *args, **kwargs):
         shipment = get_object_or_404(OrderedProduct, pk=self.kwargs.get('pk'))
         if shipment.invoice.invoice_pdf:
-            response = Response(shipment.invoice.invoice_pdf.read(), content_type='application/pdf')
-            response['Content-Disposition'] = 'attachment; filename="invoice.pdf"'
-            return response
+            return redirect(shipment.invoice.invoice_pdf.url)
 
         barcode = barcodeGen(shipment.invoice_no)
         payment_type='cash_on_delivery'
