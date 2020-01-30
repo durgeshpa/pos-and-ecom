@@ -1017,6 +1017,11 @@ class DownloadInvoiceSP(APIView):
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
+        try:
+            shipment.invoice.invoice_pdf = response.rendered_content
+            shipment.invoice.save()
+        except:
+            pass
         return response
 
 
