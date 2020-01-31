@@ -13,6 +13,7 @@ from django_filters import rest_framework as filters
 from rest_framework import permissions, authentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import JSONParser
+import requests
 from django.http import HttpResponse
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -895,6 +896,7 @@ class DownloadInvoiceSP(APIView):
 
     def get(self, request, *args, **kwargs):
         shipment = get_object_or_404(OrderedProduct, pk=self.kwargs.get('pk'))
+
         if shipment.invoice.invoice_pdf:
             return redirect(shipment.invoice.invoice_pdf.url)
 
