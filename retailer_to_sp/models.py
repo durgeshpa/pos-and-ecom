@@ -1779,7 +1779,8 @@ class Commercial(Trip):
             When(shipment_status='PARTIALLY_DELIVERED_AND_COMPLETED',
                  then=Value('PARTIALLY_DELIVERED_AND_CLOSED')),
             When(shipment_status='FULLY_DELIVERED_AND_COMPLETED',
-                 then=Value('FULLY_DELIVERED_AND_CLOSED'))))
+                 then=Value('FULLY_DELIVERED_AND_CLOSED')),
+            default=F('shipment_status')))
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
