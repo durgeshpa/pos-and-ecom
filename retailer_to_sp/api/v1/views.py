@@ -458,7 +458,7 @@ class AddToCart(APIView):
                                 cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty)
                                 cart_mapping.save()
                             else:
-                                msg = {'is_success': True, 'message': ['The Purchase Limit of the %s is %s #%s' % (product, capping.capping_qty, cart_product)],'response_data': None}
+                                msg = {'is_success': True, 'message': ['The Purchase Limit of the Product is %s #%s' % (capping.capping_qty, cart_product)],'response_data': None}
                                 return Response(msg, status=status.HTTP_200_OK)
 
                     else:
@@ -467,7 +467,7 @@ class AddToCart(APIView):
                             cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty)
                             cart_mapping.save()
                         else:
-                            msg = {'is_success': True, 'message': ['The Purchase Limit of the %s is %s #%s' % (product, capping.capping_qty, cart_product)],'response_data': None}
+                            msg = {'is_success': True, 'message': ['The Purchase Limit of the Product is %s #%s' % (capping.capping_qty, cart_product)],'response_data': None}
                             return Response(msg, status=status.HTTP_200_OK)
                 else:
                     if int(qty) == 0:
