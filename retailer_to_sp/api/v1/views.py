@@ -900,7 +900,7 @@ class DownloadInvoiceSP(APIView):
         if shipment.invoice.invoice_pdf:
             r = requests.get(shipment.invoice.invoice_pdf.url)
             response = HttpResponse(r.content, content_type='application/pdf')
-            response['Content-Disposition'] = 'attachment; filename="mypdf.pdf"'
+            response['Content-Disposition'] = 'attachment; filename="invoice-{}"'.format(shipment.invoice_no)
             return response
             # return redirect(shipment.invoice.invoice_pdf.url)
 
