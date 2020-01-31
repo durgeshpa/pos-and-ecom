@@ -453,6 +453,8 @@ class BulkOrder(models.Model):
             shop_products_available = SpMappedOrderedProductMapping.get_shop_stock(self.seller_shop).filter(product__in=product_ids,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
             shop_products_dict = {g['product_id']:int(g['available_qty']) for g in shop_products_available}
             reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
+            error_list = []
+            i = 0
             for id,row in enumerate(reader):
                 for row in reader:
                     if row[0]:
@@ -463,7 +465,11 @@ class BulkOrder(models.Model):
                         ordered_qty = int(row[2])
                         product_availability = int(int(shop_products_dict.get(int(row[0]), 0))/int(product.product_inner_case_size))
                         if product_availability < ordered_qty:
-                            raise ValidationError(_("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Product Available Quantity:%s" %(product_availability)))
+                            error_list.append(("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Product Available Quantity:%s" %(product_availability)))
+            # import pdb; pdb.set_trace()
+            if error_list:
+                for i in range(len(error_list)):
+                    raise ValidationError({error_list[0], error_list[1]})
         else:
             super(BulkOrder, self).clean(*args, **kwargs)
 
