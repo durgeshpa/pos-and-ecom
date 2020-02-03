@@ -723,7 +723,6 @@ class ReservedOrder(generics.ListAPIView):
                         cart_product.save()
                         products_unavailable.append(cart_product.id)
                     capping = cart_product.cart_product.get_current_shop_capping(parent_mapping.parent, parent_mapping.retailer)
-                    import pdb; pdb.set_trace()
                     if capping:
                         capping_start_date = capping.start_date
                         capping_end_date = capping.end_date
@@ -732,10 +731,13 @@ class ReservedOrder(generics.ListAPIView):
                             for order in capping_range_orders:
                                 if order.ordered_cart.rt_cart_list.filter(cart_product = cart_product.cart_product).exists():
                                     ordered_qty += order.ordered_cart.rt_cart_list.filter(cart_product = cart_product.cart_product).last().qty
-                        if capping.capping_qty < ordered_qty:
+                        if capping.capping_qty > ordered_qty:
                             if (capping.capping_qty - ordered_qty)  < product_qty:
                                 cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty - ordered_qty)
                                 cart_product.save()
+                        else:
+                            cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty - ordered_qty)
+                            cart_product.save()
 
                 if products_unavailable:
                     serializer = CartSerializer(
