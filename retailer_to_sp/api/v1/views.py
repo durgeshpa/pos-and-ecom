@@ -723,6 +723,7 @@ class ReservedOrder(generics.ListAPIView):
                         cart_product.save()
                         products_unavailable.append(cart_product.id)
                     capping = cart_product.cart_product.get_current_shop_capping(parent_mapping.parent, parent_mapping.retailer)
+                    import pdb; pdb.set_trace()
                     if capping:
                         capping_start_date = capping.start_date
                         capping_end_date = capping.end_date
