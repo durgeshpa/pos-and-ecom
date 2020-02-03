@@ -368,6 +368,36 @@ class GramGRNProductsList(APIView):
         return Response(msg,
                          status=200)
 
+class AutoSuggest(APIView):
+    permission_classes = (AllowAny,)
+
+    def search_query(self, keyword):
+        filter_list = [{"term":{"status":True}}]
+        query = {"bool":{"filter":filter_list}}
+        q = {
+        "match":{
+            "name":{"query":keyword, "fuzziness":"AUTO", "operator":"or", "minimum_should_match":"2"}
+            }
+        }
+        filter_list.append(q)
+        return query
+
+    def get(self, request, *args,**kwargs):
+        search_keyword = request.GET.get('keyword')
+        offset = 0
+        page_size = 5
+        query = self.search_query(search_keyword)
+        body = {
+            "from" : offset,
+            "size" : page_size,
+            "query":query,"_source":{"includes":["name", "product_images"]}
+            }
+        products_list = es_search(index="all_products", body=body)
+        p_list = []
+        for p in products_list['hits']['hits']:
+            p_list.append(p["_source"])
+        return Response({"message":['suggested products'], "response_data": p_list,"is_success": True})
+
 
 class ProductDetail(APIView):
 
@@ -417,7 +447,12 @@ class AddToCart(APIView):
                 ordered_qty = 0
                 product = Product.objects.get(id = cart_product)
                 capping = product.get_current_shop_capping(parent_mapping.parent, parent_mapping.retailer)
-
+                product = Product.objects.get(id = cart_product)
+                capping = product.get_current_shop_capping(parent_mapping.parent, parent_mapping.retailer)
+                capping_start_date = capping.starts_date
+                capping_end_date = capping.end_date
+                capping_range_orders = Order.objects.filter(created_at__date__gte = capping_start_date, created_at__date__lte = capping_end_date)
+                capping_product_qty = Order.objects.filter(created_at__date__gte = capping_start_date, created_at__date__lte = capping_end_date)
                 if Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
                                        cart_status__in=['active', 'pending']).exists():
                     cart = Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
@@ -701,10 +736,10 @@ class ReservedOrder(generics.ListAPIView):
                         if capping_range_orders:
                             for order in capping_range_orders:
                                 if order.ordered_cart.rt_cart_list.filter(cart_product = product).exists():
-                                    ordered_qty += order.ordered_cart.rt_cart_list.filter(cart_product = product).last().qty
+                                    ordered_qty += order.ordered_cart.rt_cart_list.filter(cart_product = cart_product).last().qty
                         if capping.capping_qty < ordered_qty:
                             if (capping.capping_qty - ordered_qty)  < product_qty:
-                                cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty)
+                                cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty - ordered_qty)
                                 cart_product.save()
 
                 if products_unavailable:
