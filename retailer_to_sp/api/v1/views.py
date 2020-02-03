@@ -484,7 +484,10 @@ class AddToCart(APIView):
                         else:
                             if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
                                 cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
-                                cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty - ordered_qty)
+                                if (capping.capping_qty - ordered_qty) > 0:
+                                    cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty - ordered_qty)
+                                else:
+                                    cart_mapping.capping_error_msg = 'You have already exceeded the purchase limit of this product'
                                 cart_mapping.save()
                             else:
                                 msg = {'is_success': True, 'message': ['The Purchase Limit of the Product is %s #%s' % (capping.capping_qty - ordered_qty, cart_product)],'response_data': None}
@@ -493,7 +496,10 @@ class AddToCart(APIView):
                     else:
                         if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
                             cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
-                            cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty - ordered_qty)
+                            if (capping.capping_qty - ordered_qty) > 0:
+                                cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty - ordered_qty)
+                            else:
+                                cart_mapping.capping_error_msg = 'You have already exceeded the purchase limit of this product'
                             cart_mapping.save()
                         else:
                             msg = {'is_success': True, 'message': ['The Purchase Limit of the Product is %s #%s' % (capping.capping_qty - ordered_qty, cart_product)],'response_data': None}
@@ -733,10 +739,16 @@ class ReservedOrder(generics.ListAPIView):
                                     ordered_qty += order.ordered_cart.rt_cart_list.filter(cart_product = cart_product.cart_product).last().qty
                         if capping.capping_qty > ordered_qty:
                             if (capping.capping_qty - ordered_qty)  < product_qty:
-                                cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty - ordered_qty)
+                                if (capping.capping_qty - ordered_qty) > 0:
+                                    cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty - ordered_qty)
+                                else:
+                                    cart_mapping.capping_error_msg = 'You have already exceeded the purchase limit of this product'
                                 cart_product.save()
                         else:
-                            cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty - ordered_qty)
+                            if (capping.capping_qty - ordered_qty) > 0:
+                                cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty - ordered_qty)
+                            else:
+                                cart_mapping.capping_error_msg = 'You have already exceeded the purchase limit of this product'
                             cart_product.save()
 
                 if products_unavailable:
