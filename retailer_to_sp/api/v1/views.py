@@ -740,15 +740,15 @@ class ReservedOrder(generics.ListAPIView):
                         if capping.capping_qty > ordered_qty:
                             if (capping.capping_qty - ordered_qty)  < product_qty:
                                 if (capping.capping_qty - ordered_qty) > 0:
-                                    cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty - ordered_qty)
+                                    cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty - ordered_qty)
                                 else:
-                                    cart_mapping.capping_error_msg = 'You have already exceeded the purchase limit of this product'
+                                    cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
                                 cart_product.save()
                         else:
                             if (capping.capping_qty - ordered_qty) > 0:
-                                cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty - ordered_qty)
+                                cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty - ordered_qty)
                             else:
-                                cart_mapping.capping_error_msg = 'You have already exceeded the purchase limit of this product'
+                                cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
                             cart_product.save()
 
                 if products_unavailable:
