@@ -13,13 +13,16 @@ from django_filters import rest_framework as filters
 from rest_framework import permissions, authentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import JSONParser
+import requests
+from django.http import HttpResponse
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework import serializers
 from rest_framework import generics, viewsets
 from retailer_backend.utils import SmallOffsetPagination
-
+from django.core.files.base import ContentFile
+from django.shortcuts import redirect
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,
     CartProductMappingSerializer,CartSerializer, OrderSerializer,
     CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,
@@ -72,6 +75,7 @@ from sp_to_gram.tasks import es_search
 from coupon.serializers import CouponSerializer
 from coupon.models import Coupon, CusotmerCouponUsage
 
+from products.models import Product
 
 User = get_user_model()
 
@@ -928,53 +932,49 @@ class DownloadInvoiceSP(APIView):
     template_name = 'admin/invoice/invoice_sp.html'
 
     def get(self, request, *args, **kwargs):
-        order_obj = get_object_or_404(OrderedProduct, pk=self.kwargs.get('pk'))
+        shipment = get_object_or_404(OrderedProduct, pk=self.kwargs.get('pk'))
 
-        #order_obj1= get_object_or_404(OrderedProductMapping)
-        pk=self.kwargs.get('pk')
-        a = OrderedProduct.objects.get(pk=pk)
-        shop=a
-        inv = a.invoice_no
-        barcode = barcodeGen(a.invoice_no)
-        payment_type=''
-        products = a.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0)
-        if a.order.rt_payment.filter(order_id=a.order).exists():
-            payment_type = a.order.rt_payment.last().payment_choice
-        order_id= a.order.order_no
-        shop_id = shop.order.buyer_shop.id
-        no_of_crates = a.no_of_crates
-        no_of_packets = a.no_of_packets
-        no_of_sacks = a.no_of_sacks
-        sum_qty = 0
-        sum_amount=0
-        tax_inline=0
-        total_tax_sum = 0
-        taxes_list = []
-        gst_tax_list= []
-        cess_tax_list= []
-        surcharge_tax_list=[]
-        for z in shop.order.seller_shop.shop_name_address_mapping.all():
-            shop_name_gram= z.shop_name
-            nick_name_gram= z.nick_name
-            address_line1_gram= z.address_line1
-            city_gram= z.city
-            state_gram= z.state
-            pincode_gram= z.pincode
-            address_contact_number= z.address_contact_number
+        if shipment.invoice.invoice_pdf:
+            r = requests.get(shipment.invoice.invoice_pdf.url)
+            response = HttpResponse(r.content, content_type='application/pdf')
+            response['Content-Disposition'] = 'attachment; filename="invoice-{}.pdf"'.format(shipment.invoice_no)
+            return response
+            # return redirect(shipment.invoice.invoice_pdf.url)
+
+        barcode = barcodeGen(shipment.invoice_no)
+        payment_type='cash_on_delivery'
+        try:
+            if shipment.order.buyer_shop.shop_timing:
+                open_time=shipment.order.buyer_shop.shop_timing.open_timing
+                close_time=shipment.order.buyer_shop.shop_timing.closing_timing
+                if open_time=='midnight' and close_time=='midnight':
+                    open_time='-'
+                    close_time='-'
+
+            else:
+                open_time='-'
+                close_time='-'
+        except:
+            open_time = '-'
+            close_time = '-'
 
         seller_shop_gistin = '---'
         buyer_shop_gistin = '---'
 
-        if order_obj.order.ordered_cart.seller_shop.shop_name_documents.exists():
-            seller_shop_gistin = order_obj.order.ordered_cart.seller_shop.shop_name_documents.filter(
-            shop_document_type='gstin').last().shop_document_number if order_obj.order.ordered_cart.seller_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else '---'
+        if shipment.order.ordered_cart.seller_shop.shop_name_documents.exists():
+            seller_shop_gistin = shipment.order.ordered_cart.seller_shop.shop_name_documents.filter(
+            shop_document_type='gstin').last().shop_document_number if shipment.order.ordered_cart.seller_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else '---'
 
-        if order_obj.order.ordered_cart.buyer_shop.shop_name_documents.exists():
-            buyer_shop_gistin = order_obj.order.ordered_cart.buyer_shop.shop_name_documents.filter(
-            shop_document_type='gstin').last().shop_document_number if order_obj.order.ordered_cart.buyer_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else '---'
+        if shipment.order.ordered_cart.buyer_shop.shop_name_documents.exists():
+            buyer_shop_gistin = shipment.order.ordered_cart.buyer_shop.shop_name_documents.filter(
+            shop_document_type='gstin').last().shop_document_number if shipment.order.ordered_cart.buyer_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else '---'
 
         product_listing = []
-        for m in products:
+        taxes_list = []
+        gst_tax_list= []
+        cess_tax_list= []
+        surcharge_tax_list=[]
+        for m in shipment.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
 
             # New Code For Product Listing Start
             tax_sum = 0
@@ -989,10 +989,10 @@ class DownloadInvoiceSP(APIView):
             basic_rate = 0
             inline_sum_amount = 0
 
-            cart_product_map = order_obj.order.ordered_cart.rt_cart_list.filter(cart_product=m.product).last()
+            cart_product_map = shipment.order.ordered_cart.rt_cart_list.filter(cart_product=m.product).last()
             product_price = cart_product_map.get_cart_product_price(
-                order_obj.order.ordered_cart.seller_shop,
-                order_obj.order.ordered_cart.buyer_shop)
+                shipment.order.ordered_cart.seller_shop,
+                shipment.order.ordered_cart.buyer_shop)
 
             product_pro_price_ptr = cart_product_map.item_effective_prices
             product_pro_price_mrp = round(product_price.mrp,2)
@@ -1023,14 +1023,14 @@ class DownloadInvoiceSP(APIView):
                 "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr),
                 "product_tax_amount": product_tax_amount
                 }
-            total_tax_sum = total_tax_sum + product_tax_amount
-            inline_sum_amount = inline_sum_amount + product_pro_price_ptr
+            # total_tax_sum = total_tax_sum + product_tax_amount
+            # inline_sum_amount = inline_sum_amount + product_pro_price_ptr
             product_listing.append(ordered_prodcut)
             # New Code For Product Listing End
 
-            sum_qty += int(m.shipped_qty)
-            sum_amount += int(m.shipped_qty) * product_pro_price_ptr
-            inline_sum_amount += int(m.shipped_qty) * product_pro_price_ptr
+            # sum_qty += int(m.shipped_qty)
+            # sum_amount += int(m.shipped_qty) * product_pro_price_ptr
+            # inline_sum_amount += int(m.shipped_qty) * product_pro_price_ptr
 
             for n in m.product.product_pro_tax.all():
                 divisor= (1+(n.tax.tax_percentage/100))
@@ -1052,24 +1052,24 @@ class DownloadInvoiceSP(APIView):
                 #tax_inline = tax_inline + (inline_sum_amount - original_amount)
                 #tax_inline1 =(tax_inline / 2)
 
-        total_amount = sum_amount
-        total_amount_int = int(total_amount)
+        total_amount = shipment.invoice_amount
+        total_amount_int = total_amount
 
-        data = {"object": order_obj,"order": order_obj.order,"products":products ,"shop":shop,"shop_id":shop_id, "sum_qty": sum_qty,
-                "sum_amount":sum_amount,"url":request.get_host(), "scheme": request.is_secure() and "https" or "http" ,
+        data = {"shipment": shipment,"order": shipment.order, 
+                "url":request.get_host(), "scheme": request.is_secure() and "https" or "http" ,
                 "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,
-                "order_id":order_id,"shop_name_gram":shop_name_gram,"nick_name_gram":nick_name_gram, "city_gram":city_gram,
-                "address_line1_gram":address_line1_gram, "pincode_gram":pincode_gram,"state_gram":state_gram,"barcode":barcode,
-                "payment_type":payment_type,"total_amount_int":total_amount_int,"product_listing":product_listing,
+                "barcode":barcode,"product_listing":product_listing,
                 "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
-                "address_contact_number":address_contact_number,"sum_amount_tax":round(total_tax_sum, 2), "no_of_crates":no_of_crates,
-                "no_of_packets":no_of_packets, "no_of_sacks":no_of_sacks, "inv":inv,}
+                "open_time":open_time, "close_time":close_time,}
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
+        try:
+            shipment.invoice.invoice_pdf.save("invoice-{}.pdf".format(shipment.invoice_no), ContentFile(response.rendered_content), save=True)
+        except Exception as e:
+            logger.exception(e)
         return response
-
 
 
 class DownloadNote(APIView):
@@ -1176,7 +1176,7 @@ class PaymentApi(APIView):
         msg = {'is_success': True, 'message': ['All Payments'], 'response_data': serializer.data}
         return Response(msg, status=status.HTTP_201_CREATED)
 
-    def post(self,request):
+    def post(self,request): #TODO : Has to be updated as per new payment flow
         order_id=self.request.POST.get('order_id')
         payment_choice =self.request.POST.get('payment_choice')
         paid_amount =self.request.POST.get('paid_amount')
@@ -1225,21 +1225,6 @@ class PaymentApi(APIView):
             serializer = OrderSerializer(
                 order,context={'parent_mapping_id': parent_mapping.parent.id,
                                'buyer_shop_id': shop_id})
-
-        elif parent_mapping.parent.shop_type.shop_type == 'gf':
-
-            try:
-                order = GramMappedOrder.objects.get(id=order_id)
-            except ObjectDoesNotExist:
-                msg['message'] = ["No order found"]
-                return Response(msg, status=status.HTTP_200_OK)
-
-            payment = GramMappedPayment(order_id=order,paid_amount=paid_amount,payment_choice=payment_choice,
-                                        neft_reference_number=neft_reference_number,imei_no=imei_no)
-            payment.save()
-            order.order_status = 'opdp'
-            order.save()
-            serializer = GramMappedOrderSerializer(order,context={'parent_mapping_id': parent_mapping.parent.id})
 
         if serializer.data:
             msg = {'is_success': True,'message': None,'response_data': serializer.data}
@@ -1310,6 +1295,75 @@ class DeliveryShipmentDetails(APIView):
         shipment_details = ShipmentSerializer(shipments, many=True)
         msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': shipment_details.data}
         return Response(msg, status=status.HTTP_201_CREATED)
+
+
+class ShipmentDeliveryBulkUpdate(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request, *args, **kwargs):
+        shipment_id = kwargs.get('shipment')
+        msg = {'is_success': False, 'message': ['shipment id is invalid'], 'response_data': None}
+        try:
+            products = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
+            if not products.exists():
+                return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+
+            #products = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)           
+            for item in products:
+                item.delivered_qty = item.shipped_qty - (int(item.returned_qty) + int(item.damaged_qty))
+                item.save()
+            cash_to_be_collected = products.last().ordered_product.cash_to_be_collected()
+
+
+            msg = {'is_success': True, 'message': ['Shipment Details Updated Successfully!'], 'response_data': {'cash_to_be_collected': cash_to_be_collected},
+                       }
+            return Response(msg, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            msg = {'is_success': False,
+               'message': [str(e)],
+               'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
+
+class ShipmentDeliveryUpdate(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request, *args, **kwargs):
+        shipment_id = kwargs.get('shipment')
+        msg = {'is_success': False, 'message': ['shipment id is invalid'], 'response_data': None}
+        try:
+            shipment = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
+        except ObjectDoesNotExist:
+            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            for item in request.data.get('delivered_items'):
+                product = item.get('product', None)
+                returned_qty = item.get('returned_qty', None)
+                damaged_qty = item.get('damaged_qty', None)
+                shipped_qty = int(ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product).shipped_qty)
+                if  shipped_qty >= int(returned_qty) + int(damaged_qty):
+                    delivered_qty = shipped_qty - (int(returned_qty) + int(damaged_qty))
+                    ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(
+                        returned_qty=returned_qty, damaged_qty=damaged_qty, delivered_qty=delivered_qty)
+                #shipment_product_details = ShipmentDetailSerializer(shipment, many=True)
+                else:
+                    product_name = Product.objects.get(id=product).product_name
+                    text = 'Returned qty and damaged qty is greater than shipped qty for product: ' + product_name
+                    msg = {'is_success': False, 'message': [text], 'response_data': None}
+                    return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+
+            cash_to_be_collected = shipment.last().ordered_product.cash_to_be_collected()
+            msg = {'is_success': True, 'message': ['Shipment Details Updated Successfully!'], 'response_data': None,
+                       'cash_to_be_collected': cash_to_be_collected}
+            return Response(msg, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            msg = {'is_success': False,
+               'message': [str(e)],
+               'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+
 
 class ShipmentDetail(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
@@ -1484,6 +1538,10 @@ class RescheduleReason(generics.ListCreateAPIView):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             self.perform_create(serializer)
+            products = ShipmentProducts.objects.filter(ordered_product__id=request.data.get('shipment'))
+            for item in products:
+                item.delivered_qty = item.returned_qty = item.damaged_qty = 0
+                item.save()            
             self.update_shipment(request.data.get('shipment'))
             update_trip_status(request.data.get('trip'))
             msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
@@ -1501,7 +1559,7 @@ def update_trip_status(trip_id):
     shipment_status_list = ['FULLY_DELIVERED_AND_COMPLETED', 'PARTIALLY_DELIVERED_AND_COMPLETED', 'FULLY_RETURNED_AND_COMPLETED', 'RESCHEDULED']
     order_product = OrderedProduct.objects.filter(trip_id=trip_id)
     if order_product.exclude(shipment_status__in=shipment_status_list).count()==0:
-        Trip.objects.filter(pk=trip_id).update(trip_status='COMPLETED')
+        Trip.objects.filter(pk=trip_id).update(trip_status=Trip.COMPLETED, completed_at=datetime.now())
 
 class ReturnReason(generics.UpdateAPIView):
     authentication_classes = (authentication.TokenAuthentication,)
@@ -1523,8 +1581,8 @@ class ReturnReason(generics.UpdateAPIView):
         if serializer.is_valid():
             serializer.save()
             # For creating credit note
-            shipment = OrderedProduct.objects.get(id=request.data.get('id'))
-            create_credit_note(shipment)
+            # shipment = OrderedProduct.objects.get(id=request.data.get('id'))
+            # create_credit_note(shipment)
             msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
         else:
             msg = {'is_success': False, 'message': ['have some issue'], 'response_data': None}

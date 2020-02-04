@@ -36,7 +36,8 @@ from addresses.api.v1.serializers import AddressSerializer
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.core.exceptions import ObjectDoesNotExist
 from retailer_to_sp.models import OrderedProduct
-from retailer_to_sp.views import update_order_status, update_shipment_status_with_id
+from retailer_to_sp.views import update_order_status, update_shipment_status_with_id, \
+update_shipment_status_after_return
 from retailer_to_sp.api.v1.views import update_trip_status
 from dateutil.relativedelta import relativedelta
 
@@ -102,7 +103,6 @@ class FavouriteProductView(DataWrapperViewSet):
     def delete(self, request, *args, **kwargs):
     
         try:
-            # import pdb; pdb.set_trace()
             buyer_shop=request.query_params['buyer_shop']
             product=request.query_params['product']
             favourite = FavouriteProduct.objects.filter(buyer_shop=buyer_shop, product=product)
@@ -783,8 +783,10 @@ class StatusChangedAfterAmountCollected(APIView):
         trip = self.request.POST.get('trip')
         shipment = OrderedProduct.objects.get(id=shipment_id)
         if float(cash_collected) == float(shipment.cash_to_be_collected()):
-            update_shipment_status_with_id(shipment)
-            update_trip_status(trip)
+            shipment_status = update_shipment_status_after_return(shipment)
+            #shipment_status = update_shipment_status_with_id(shipment)
+            if shipment_status == "FULLY_RETURNED_AND_COMPLETED":
+                update_trip_status(trip)
             msg = {'is_success': True, 'message': ['Status Changed'], 'response_data': None}
         else:
             msg = {'is_success': False, 'message': ['Amount is different'], 'response_data': None}

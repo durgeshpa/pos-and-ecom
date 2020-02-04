@@ -75,6 +75,8 @@
     $("select[id$='rescheduling_reason']").change(function() {
       $('option:selected', $(this)).each(function() {
             swal({
+              closeOnClickOutside: false,
+              closeOnEsc: false,
               icon: "warning",
               text: "Are you sure to Reschedule the Shipment?",
               dangerMode: false,

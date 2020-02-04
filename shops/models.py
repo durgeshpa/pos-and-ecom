@@ -14,6 +14,7 @@ from retailer_backend.validators import *
 import datetime
 from django.core.validators import MinLengthValidator
 from django.contrib.auth.models import Group
+# from analytics.post_save_signal import get_retailer_report
 
 Product = 'products.product'
 logger = logging.getLogger(__name__)
@@ -161,11 +162,11 @@ class Shop(models.Model):
             # from notification_center.utils import SendNotification
             # SendNotification(user_id=user_id, activity_type=activity_type, data=data).send()
 
-            message = SendSms(phone=self.shop_owner,
-                              body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App." \
-                                   " Thanks," \
-                                   " Team GramFactory " % (username, shop_title))
-            message.send()
+            # message = SendSms(phone=data['phone_number'],
+            #                   body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App." \
+            #                        " Thanks," \
+            #                        " Team GramFactory " % (username, shop_title))
+            # message.send()
         super(Shop, self).save(force_insert, force_update, *args, **kwargs)
 
     # def available_product(self, product):
@@ -314,8 +315,10 @@ def shop_verification_notification1(sender, instance=None, created=False, **kwar
                 activity_type = "SHOP_VERIFIED"
 
                 from notification_center.utils import SendNotification
-                SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()
-
+                try:
+                    SendNotification(user_id=instance.id, activity_type=activity_type, data=data).send()
+                except Exception as e:
+                    logging.error(e)
                 # message = SendSms(phone=shop.shop_owner,
                 #                   body="Dear %s, Your Shop %s has been approved. Click here to start ordering immediately at GramFactory App."\
                 #                       " Thanks,"\
@@ -422,3 +425,6 @@ class ShopTiming(models.Model):
     break_start_time = models.TimeField(null=True, blank=True)
     break_end_time = models.TimeField(null=True, blank=True)
     off_day = ArrayField(models.CharField(max_length=25,choices=off_day_choices, null=True, blank=True), null=True, blank=True)
+
+
+# post_save.connect(get_retailer_report, sender=ParentRetailerMapping)

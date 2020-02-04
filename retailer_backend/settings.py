@@ -84,6 +84,7 @@ INSTALLED_APPS = [
     'retailer_to_gram',
     'admin_auto_filters',
     'notification_center',
+    'payments',
     'django_ses',
     'services',
     'rangefilter',
@@ -96,8 +97,26 @@ INSTALLED_APPS = [
     'django_celery_results',
     'coupon',
     'offer',
-    'celerybeat_status'
+    'celerybeat_status',
+    'django_elasticsearch_dsl',
 ]
+
+# if ENVIRONMENT.lower() in ["production","qa"]:
+#     INSTALLED_APPS +=[
+#         'elasticapm.contrib.django',
+# ]
+#     service_name = "gramfactory-{}".format(ENVIRONMENT.lower())
+#     ELASTIC_APM = {
+#       # Set required service name. Allowed characters:
+#       # a-z, A-Z, 0-9, -, _, and space
+#       'SERVICE_NAME': service_name,
+
+#       # Use if APM Server requires a token
+#       'SECRET_TOKEN': '',
+
+#       # Set custom APM Server URL (default: http://localhost:8200)
+#       'SERVER_URL': 'http://13.234.240.93:8001',
+#     }
 
 FCM_APIKEY = config('FCM_APIKEY')
 
@@ -120,6 +139,10 @@ MIDDLEWARE += [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'accounts.middlewares.RequestMiddleware',
 ]
+# if ENVIRONMENT.lower() in ["production", "qa"]:
+#     MIDDLEWARE += [
+#             'elasticapm.contrib.django.middleware.TracingMiddleware'
+#     ]
 
 ROOT_URLCONF = 'retailer_backend.urls'
 # STATICFILES_STORAGE = "retailer_backend.storage.ExtendedManifestStaticFilesStorage"
@@ -160,7 +183,15 @@ DATABASES = {
         'NAME': config('DB_NAME'),
         'USER': config('DB_USER'),
         'PASSWORD': config('DB_PASSWORD'),
-        'HOST': config('DB_HOST_READ'),
+        'HOST': config('DB_HOST'),
+        'PORT': config('DB_PORT'),
+    },
+    'dataanalytics': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': config('DB_NAME'),
+        'USER': config('DB_USER'),
+        'PASSWORD': config('DB_PASSWORD'),
+        'HOST': config('DB_HOST'),
         'PORT': config('DB_PORT'),
     }
 }
@@ -296,6 +327,7 @@ TEMPUS_DOMINUS_INCLUDE_ASSETS=False
 
 CRONJOBS = [
     ('* * * * *', 'retailer_backend.cron.CronToDeleteOrderedProductReserved', '>> /var/log/nginx/cron.log')
+
 ]
 
 INTERNAL_IPS = ['127.0.0.1','localhost']
@@ -371,5 +403,64 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
+
+CELERY_ROUTES = {
+    'analytics.api.v1.views': {'queue': 'analytics_tasks'},
+}
+
 # ElasticSearch
 ELASTICSEARCH_PREFIX = config('ELASTICSEARCH_PREFIX')
+ELASTICSEARCH_DSL={
+    'default': {
+        'hosts': '35.154.13.198:9200'
+    },
+}
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_URL,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient"
+        },
+        "KEY_PREFIX": "gfcache"
+    }
+}
+
+# LOGGING = {
+#   'version': 1,
+#   'disable_existing_loggers': False,
+#   'formatters': {
+#       'simple': {
+#             'format': 'velname)s %(message)s'
+#         },
+#   },
+#   'handlers': {
+#         'console': {
+#             'level': 'ERROR',
+#             'class': 'logging.StreamHandler',
+#             'formatter': 'simple'
+#         },
+#         'logstash': {
+#             'level': 'ERROR',
+#             'class': 'logstash.TCPLogstashHandler',
+#             'host': '13.234.240.93',
+#             'port': 8002, # Default value: 5959
+#             'version': 1, # Version of logstash event schema. Default value: 0 (for backward compatibility of the library)
+#             'message_type': 'django',  # 'type' field in logstash message. Default value: 'logstash'.
+#             'fqdn': False, # Fully qualified domain name. Default value: false.
+#             'tags': ['django.request'], # list of tags. Default: None.
+#         },
+#   },
+#   'loggers': {
+#         'django.request': {
+#             'handlers': ['logstash'],
+#             'level': 'ERROR',
+#             'propagate': True,
+#         },
+#         'django': {
+#             'handlers': ['logstash'],
+#             'propagate': True,
+#         },
+#     }
+# }

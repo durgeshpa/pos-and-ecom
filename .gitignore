@@ -17,6 +17,10 @@ venv/
 env/
 build/
 develop-eggs/
+kinesis-to-es/
+live_server_key.pem
+pylogicaldecoding-master/
+static/jet/
 dist/
 downloads/
 eggs/

@@ -21,7 +21,7 @@ from rest_framework.documentation import include_docs_urls
 from rest_framework_swagger.views import get_swagger_view
 from decouple import config, Csv
 from django.conf import settings
-from retailer_backend.cron import CronToDeleteOrderedProductReserved,cron_to_delete_ordered_product_reserved
+from retailer_backend.cron import CronToDeleteOrderedProductReserved,cron_to_delete_ordered_product_reserved, DailyStock
 from accounts.views import (terms_and_conditions, privacy_policy)
 from shops.views import ShopMappedProduct
 
@@ -50,6 +50,7 @@ urlpatterns = [
     url(r'^gram/brand/', include('gram_to_brand.urls')),
     url(r'^retailer/gram/', include('retailer_to_gram.urls')),
     url(r'^services/', include('services.urls')),
+    url(r'^payments/', include('payments.urls')),
     url(r'^fcm/', include('fcm.urls')),
     url(r'^notification-center/', include('notification_center.urls')),
     url(r'^admin/shops/shop-mapped/(?P<pk>\d+)/product/$', ShopMappedProduct.as_view(), name='shop_mapped_product'),
@@ -59,10 +60,12 @@ urlpatterns = [
     url('^privacy-policy/$', privacy_policy, name='privacy_policy'),
 
     url('^delete-ordered-product-reserved1/$', cron_to_delete_ordered_product_reserved, name='delete_ordered_product_reserved'),
+    url('^daily-stock/$', DailyStock.as_view(), name='daily_stock'),
     # url(r'^jet/dashboard/', include('jet.dashboard.urls', 'jet-dashboard')),  # Django JET dashboard URLS
     # url(r'^jet/', include('jet.urls', 'jet')),
     path('admin/', admin.site.urls),
     url(r'^ses/bounce/$', csrf_exempt(handle_bounce)),
+    url(r'^analytics/', include('analytics.urls')),
 ]
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

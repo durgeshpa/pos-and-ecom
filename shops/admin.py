@@ -285,6 +285,45 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     shop_mapped_product.short_description = 'Product List with Qty'
     disable_shop.short_description = "Disapprove shops"
 
+
+    # def get_shop_pending_amount(self, obj):
+    #     pending_amount_gf = 0
+    #     pending_amount_sp = 0
+    #     pending_amount_total=0
+    #     if obj.shop_type.shop_type == 'r':
+    #         #if obj.retiler_mapping.filter(status=True).last().parent.shop_type.shop_type=='gf':
+    #         orders_to_gf = obj.rtg_buyer_shop_order.all()
+    #         for order in orders_to_gf:
+    #             if order.rt_payment.last().payment_status == 'payment_done_approval_pending' or order.rt_payment.last().payment_status == 'cash_collected':
+    #                 pending_amount_gf = pending_amount_gf + order.total_final_amount
+    #         #return pending_amount
+    #         #elif obj.retiler_mapping.filter(status=True).last().parent.shop_type.shop_type=='sp':
+    #         orders_to_sp = obj.rt_buyer_shop_order.all()
+    #         for order in orders_to_sp:
+    #             if order.rt_payment.last().payment_status == 'payment_done_approval_pending' or order.rt_payment.last().payment_status == 'cash_collected':
+    #                 pending_amount_sp = pending_amount_sp + order.total_final_amount
+    #         #return pending_amount
+    #         pending_amount_total = pending_amount_gf + pending_amount_sp
+    #         return pending_amount_total
+    #     elif obj.shop_type.shop_type == 'sp':
+    #         carts_to_gf = obj.sp_shop_cart.all()
+    #         total_pending_amount = 0
+    #         for cart in carts_to_gf:
+    #             for order in cart.sp_order_cart_mapping.all():
+    #                 total_pending_amount = total_pending_amount + order.total_final_amount
+    #         return total_pending_amount
+    # get_shop_pending_amount.short_description = 'Shop Pending Amount'
+
+    def get_shop_city(self, obj):
+        if obj.shop_name_address_mapping.exists():
+            return obj.shop_name_address_mapping.last().city
+    get_shop_city.short_description = 'Shop City'
+
+    def get_shop_parent(self, obj):
+        if obj.retiler_mapping.exists():
+            return obj.retiler_mapping.last().parent
+    get_shop_parent.short_description = 'Parent Shop'
+
 class ParentFilter(AutocompleteFilter):
     title = 'Parent' # display title
     field_name = 'parent' # name of the foreign key field
@@ -344,9 +383,25 @@ class ProductSKUFilter(InputFilter):
             product_sku = self.value()
             return queryset.filter(product_sku__icontains=product_sku)
 
-class ShopRequestBrandAdmin(admin.ModelAdmin):
+class ExportCsvMixin:
+    def export_as_csv_shop_request_brand(self, request, queryset):
+        meta = self.model._meta
+        list_display = ('shop', 'brand_name', 'product_sku', 'request_count', 'created_at')
+        field_names = [field.name for field in meta.fields if field.name in list_display]
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in list_display])
+        return response
+
+    export_as_csv_shop_request_brand.short_description = "Download CSV of Shop Request Brand"
+
+class ShopRequestBrandAdmin(ExportCsvMixin, admin.ModelAdmin):
     #change_list_template = 'admin/shops/shop/change_list.html'
     #form = ShopRequestBrandForm
+    actions = ['export_as_csv_shop_request_brand']
     list_display = ('shop', 'brand_name', 'product_sku', 'request_count','created_at',)
     list_filter = (ShopFilter, ShopSearchByOwner, ProductSKUFilter, BrandNameFilter, ('created_at', DateTimeRangeFilter))
     raw_id_fields = ('shop',)
@@ -358,7 +413,7 @@ class ShopUserMappingAdmin(admin.ModelAdmin):
     form = ShopUserMappingForm
     list_display = ('shop','manager','employee','employee_group','created_at','status')
     list_filter = [ShopFilter, ManagerFilter, EmployeeFilter, 'status', ('created_at', DateTimeRangeFilter), ]
-    search_fields = ('employee',)
+    search_fields = ('shop__shop_name', 'employee_group__permissions__codename', 'employee__phone_number')
 
     def get_urls(self):
         from django.conf.urls import url

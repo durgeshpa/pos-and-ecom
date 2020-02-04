@@ -164,16 +164,16 @@ def load_brands(request):
 class SpSrProductPrice(View):
 
     def validate_row(self, first_row, row):
-        if not re.match("^\d{0,8}(\.\d{1,4})?$", row[4]):
+        if not re.match("^\d{0,8}(\.\d{1,4})?$", row[4]) or not row[4]:
             raise Exception("{} - Please enter a valid {}"
                             "".format(row[4], first_row[4]))
-        if not re.match("^\d{0,8}(\.\d{1,4})?$", row[5]):
+        if not re.match("^\d{0,8}(\.\d{1,4})?$", row[5]) or not row[5]:
             raise Exception("{} - Please enter a valid {}"
                             "".format(row[5], first_row[5]))
-        if not re.match("^\d{0,8}(\.\d{1,4})?$", row[6]):
+        if not re.match("^\d{0,8}(\.\d{1,4})?$", row[6]) or not row[6]:
             raise Exception("{} - Please enter a valid {}"
                             "".format(row[6], first_row[6]))
-        if not re.match("^\d{0,8}(\.\d{1,4})?$", row[7]):
+        if not re.match("^\d{0,8}(\.\d{1,4})?$", row[7]) or not row[7]:
             raise Exception("{} - Please enter a valid {}"
                             "".format(row[7], first_row[7]))
         if row[8] and not re.match("^\d{0,8}(\.\d{1,4})?$", row[8]):
@@ -245,6 +245,21 @@ class SpSrProductPrice(View):
         )
 
 
+def validate_row(row):
+    if not re.match("^\d{0,8}(\.\d{1,4})?$", row[4]) or not row[4]:
+        raise Exception("{} - Please enter a valid {}"
+                        "".format(row[4], "mrp"))
+    if not re.match("^\d{0,8}(\.\d{1,4})?$", row[5]) or not row[5]:
+        raise Exception("{} - Please enter a valid {}"
+                        "".format(row[5], "price_to_service_partner"))
+    if not re.match("^\d{0,8}(\.\d{1,4})?$", row[6]) or not row[6]:
+        raise Exception("{} - Please enter a valid {}"
+                        "".format(row[6], "price_to_super_retailer"))
+    if not re.match("^\d{0,8}(\.\d{1,4})?$", row[7]) or not row[7]:
+        raise Exception("{} - Please enter a valid {}"
+                        "".format(row[7], "price_to_retailer"))
+
+
 def gf_product_price(request):
     """CSV to product prices for GramFactory
 
@@ -271,6 +286,7 @@ def gf_product_price(request):
             first_row = next(reader)
             try:
                 for row in reader:
+                    validate_row(row)
                     for shop in shops:
                         product_price = ProductPrice.objects.create(
                             product_id=row[0],
@@ -288,8 +304,9 @@ def gf_product_price(request):
 
                 messages.success(request, 'Price uploaded successfully')
 
-            except:
-                messages.error("Something went wrong!")
+            except Exception as e:
+                messages.error(str(e))
+                # messages.error("Something went wrong!")
             return redirect('admin:gf_productprice')
 
     else:
@@ -684,6 +701,21 @@ def products_vendor_mapping(request,pk=None):
     except:
         writer.writerow(["Make sure you have selected vendor before downloading CSV file"])
     return response
+
+def cart_products_mapping(request,pk=None):
+    dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
+    filename = str(dt)+"cart_product_list.csv"
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    try:
+        writer.writerow(['id', 'product_name','qty'])
+        cart_products = ProductPrice.objects.values('product_id', 'product__product_name').filter(seller_shop_id=int(pk), approval_status = 2)
+        writer.writerows([(product.get('product_id'), product.get('product__product_name'), '') for product in cart_products])
+    except:
+        writer.writerow(["Make sure you have selected seller shop before downloading CSV file"])
+    return response
+
 
 def ProductsUploadSample(request):
     filename = "products_upload_sample.csv"
