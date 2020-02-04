@@ -554,11 +554,12 @@ class ProductHSNAdmin(admin.ModelAdmin, ExportCsvMixin):
 
 class ProductCappingAdmin(admin.ModelAdmin):
     form = ProductCappingForm
-    list_display = ('product', 'seller_shop','buyer_shop','pincode','city', 'capping_qty', 'start_date', 'end_date', 'status')
+    list_display = ('product', 'seller_shop', 'capping_qty', 'start_date', 'end_date', 'status')
     list_filter = [
-        ProductSKUSearch, ProductFilter, ShopFilter,  CityFilter,
+        ProductSKUSearch, ProductFilter, ShopFilter,
         ('start_date', DateRangeFilter), ('end_date', DateRangeFilter),
         'status']
+    readonly_fields = ('buyer_shop', 'city', 'pincode')
     class Media:
         pass
 
