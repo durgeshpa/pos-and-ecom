@@ -448,13 +448,9 @@ class AddToCart(APIView):
             #  if shop mapped with SP
 
             if parent_mapping.parent.shop_type.shop_type == 'sp':
-                import pdb; pdb.set_trace()
+                ordered_qty = 0
                 product = Product.objects.get(id = cart_product)
                 capping = product.get_current_shop_capping(parent_mapping.parent, parent_mapping.retailer)
-                capping_start_date = capping.starts_date
-                capping_end_date = capping.end_date
-                capping_range_orders = Order.objects.filter(created_at__date__gte = capping_start_date, created_at__date__lte = capping_end_date)
-                capping_product_qty = Order.objects.filter(created_at__date__gte = capping_start_date, created_at__date__lte = capping_end_date)
                 if Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
                                        cart_status__in=['active', 'pending']).exists():
                     cart = Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
@@ -469,15 +465,60 @@ class AddToCart(APIView):
                     cart.buyer_shop = parent_mapping.retailer
                     cart.save()
 
-                if int(qty) == 0:
-                    if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
-                        CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
+                if capping:
+                    capping_start_date = capping.start_date
+                    capping_end_date = capping.end_date
+                    capping_range_orders = Order.objects.filter(buyer_shop = parent_mapping.retailer, created_at__gte = capping_start_date, created_at__lte = capping_end_date)
+                    if capping_range_orders:
+                        for order in capping_range_orders:
+                            if order.ordered_cart.rt_cart_list.filter(cart_product = product).exists():
+                                ordered_qty += order.ordered_cart.rt_cart_list.filter(cart_product = product).last().qty
+                    if capping.capping_qty > ordered_qty:
+                        if (capping.capping_qty - ordered_qty)  >= int(qty):
+                            if int(qty) == 0:
+                                if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
+                                    CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
 
+                            else:
+                                cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
+                                cart_mapping.qty = qty
+                                cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
+                                cart_mapping.capping_error_msg = ''
+                                cart_mapping.save()
+                        else:
+                            if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
+                                cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
+                                if (capping.capping_qty - ordered_qty) > 0:
+                                    cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty - ordered_qty)
+                                else:
+                                    cart_mapping.capping_error_msg = 'You have already exceeded the purchase limit of this product'
+                                cart_mapping.save()
+                            else:
+                                msg = {'is_success': True, 'message': ['The Purchase Limit of the Product is %s #%s' % (capping.capping_qty - ordered_qty, cart_product)],'response_data': None}
+                                return Response(msg, status=status.HTTP_200_OK)
+
+                    else:
+                        if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
+                            cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
+                            if (capping.capping_qty - ordered_qty) > 0:
+                                cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty - ordered_qty)
+                            else:
+                                cart_mapping.capping_error_msg = 'You have already exceeded the purchase limit of this product'
+                            cart_mapping.save()
+                        else:
+                            msg = {'is_success': True, 'message': ['The Purchase Limit of the Product is %s #%s' % (capping.capping_qty - ordered_qty, cart_product)],'response_data': None}
+                            return Response(msg, status=status.HTTP_200_OK)
                 else:
-                    cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
-                    cart_mapping.qty = qty
-                    cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
-                    cart_mapping.save()
+                    if int(qty) == 0:
+                        if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
+                            CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
+
+                    else:
+                        cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
+                        cart_mapping.qty = qty
+                        cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
+                        cart_mapping.capping_error_msg = ''
+                        cart_mapping.save()
 
 
                 if cart.rt_cart_list.count() <= 0:
@@ -637,6 +678,7 @@ class ReservedOrder(generics.ListAPIView):
         parent_shop_type = parent_mapping.parent.shop_type.shop_type
         # if shop mapped with sp
         if parent_shop_type == 'sp':
+            ordered_qty = 0
             cart = Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
                                        cart_status__in=['active', 'pending'])
             if cart.exists():
@@ -659,6 +701,7 @@ class ReservedOrder(generics.ListAPIView):
                     return Response(msg, status=status.HTTP_200_OK)
 
                 cart_products.update(qty_error_msg='')
+                cart_products.update(capping_error_msg ='')
                 cart_product_ids = cart_products.values('cart_product')
                 shop_products_available = OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product__in=cart_product_ids,available_qty__gt=0).values('product_id').annotate(available_qty=Sum('available_qty'))
                 shop_products_dict = {g['product_id']:int(g['available_qty']) for g in shop_products_available}
@@ -681,12 +724,36 @@ class ReservedOrder(generics.ListAPIView):
                         int(cart_product.qty) *
                         int(cart_product.cart_product.product_inner_case_size))
 
+                    product_qty = int(cart_product.qty)
+
                     if product_availability >= ordered_amount:
                         products_available[cart_product.cart_product.id] = ordered_amount
                     else:
                         cart_product.qty_error_msg = ERROR_MESSAGES['AVAILABLE_PRODUCT'].format(int(product_availability)) #TODO: Needs to be improved
                         cart_product.save()
                         products_unavailable.append(cart_product.id)
+                    capping = cart_product.cart_product.get_current_shop_capping(parent_mapping.parent, parent_mapping.retailer)
+                    if capping:
+                        capping_start_date = capping.start_date
+                        capping_end_date = capping.end_date
+                        capping_range_orders = Order.objects.filter(buyer_shop = parent_mapping.retailer, created_at__gte = capping_start_date, created_at__lte = capping_end_date)
+                        if capping_range_orders:
+                            for order in capping_range_orders:
+                                if order.ordered_cart.rt_cart_list.filter(cart_product = cart_product.cart_product).exists():
+                                    ordered_qty += order.ordered_cart.rt_cart_list.filter(cart_product = cart_product.cart_product).last().qty
+                        if capping.capping_qty > ordered_qty:
+                            if (capping.capping_qty - ordered_qty)  < product_qty:
+                                if (capping.capping_qty - ordered_qty) > 0:
+                                    cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty - ordered_qty)
+                                else:
+                                    cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
+                                cart_product.save()
+                        else:
+                            if (capping.capping_qty - ordered_qty) > 0:
+                                cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty - ordered_qty)
+                            else:
+                                cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
+                            cart_product.save()
 
                 if products_unavailable:
                     serializer = CartSerializer(

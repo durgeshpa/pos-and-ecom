@@ -363,7 +363,7 @@ class ProductsCSVUploadForm(forms.Form):
             if not row[3] or row[3].isspace():
                 raise ValidationError(_("PRODUCT_GF_CODE required at Row[%(value)s]."), params={'value': id+1},)
             if not row[12] or row[12].isspace():
-                raise ValidationError(_("Product weight in gram required at Row[%(value)s]."), params={'value': id+1},)                
+                raise ValidationError(_("Product weight in gram required at Row[%(value)s]."), params={'value': id+1},)
 #            if row[3]:
 #                product_gf = Product.objects.filter(product_gf_code=row[3])
 #                if product_gf:
@@ -590,3 +590,33 @@ class ProductVendorMappingForm(forms.ModelForm):
     class Meta:
         model = ProductVendorMapping
         fields = ('vendor', 'product', 'product_price', 'product_mrp', 'case_size', )
+
+class ProductCappingForm(forms.ModelForm):
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:product-price-autocomplete',)
+    )
+    seller_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
+        widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete')
+    )
+    buyer_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='r'),
+        widget=autocomplete.ModelSelect2(url='admin:retailer_autocomplete'),
+        required=False
+    )
+    city = forms.ModelChoiceField(
+        queryset=City.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:city_autocomplete',
+            forward=('buyer_shop',)),
+        required=False
+    )
+    pincode = forms.ModelChoiceField(
+        queryset=Pincode.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:pincode_autocomplete',
+            forward=('city', 'buyer_shop')),
+        required=False
+    )

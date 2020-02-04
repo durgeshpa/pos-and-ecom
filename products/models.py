@@ -176,6 +176,40 @@ class Product(models.Model):
             return None
         return product_price.last()
 
+    def get_current_shop_capping(self, seller_shop_id, buyer_shop_id):
+        '''
+        Firstly we will only filter using seller shop. If the queryset exists
+        we will further filter to city, pincode and buyer shop level.
+        '''
+        today = datetime.datetime.today()
+        buyer_shop_dt = Address.objects.values('city_id', 'pincode_link')\
+            .filter(shop_name_id=buyer_shop_id, address_type='shipping')
+        if buyer_shop_dt.exists():
+            buyer_shop_dt = buyer_shop_dt.last()
+        product_capping = self.product_pro_capping\
+            .filter(Q(seller_shop_id=seller_shop_id),
+                    Q(city_id=buyer_shop_dt.get('city_id')) | Q(city_id=None),
+                    Q(pincode_id=buyer_shop_dt.get('pincode_link')) | Q(pincode_id=None),
+                    Q(buyer_shop_id=buyer_shop_id) | Q(buyer_shop_id=None),
+                    status=True,
+                    start_date__lte=today, end_date__gte=today)\
+            .order_by('start_date')
+        if product_capping.count() > 1:
+            product_capping = product_capping.filter(
+                city_id=buyer_shop_dt.get('city_id'))
+        if product_capping.count() > 1:
+            product_capping = product_capping.filter(
+                pincode_id=buyer_shop_dt.get('pincode_link', None))
+        if product_capping.count() > 1:
+            product_capping = product_capping.filter(
+                buyer_shop_id=buyer_shop_id)
+        if not product_capping:
+            product_capping = self.product_pro_capping.filter(seller_shop_id=seller_shop_id, status = True, start_date__lte=today, end_date__gte=today).order_by('start_date')
+        if not product_capping:
+            return None
+        return product_capping.last()
+
+
     def getPriceByShopId(self, seller_shop_id, buyer_shop_id):
         return self.get_current_shop_price(seller_shop_id, buyer_shop_id)
 
@@ -520,6 +554,27 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
         product.product_sku="%s%s%s%s"%(cat_sku_code,parent_cat_sku_code,brand_sku_code,last_sku_increment)
         product.save()
 
+class ProductCapping(models.Model):
+    product = models.ForeignKey(Product, related_name='product_pro_capping',
+                                on_delete=models.CASCADE)
+    seller_shop = models.ForeignKey(Shop, related_name='shop_product_capping',
+                                    null=True, blank=True,
+                                    on_delete=models.CASCADE)
+    buyer_shop = models.ForeignKey(Shop,
+                                   related_name='buyer_shop_product_capping',
+                                   null=True, blank=True,
+                                   on_delete=models.CASCADE)
+    city = models.ForeignKey(City, related_name='city_pro_capping',
+                             null=True, blank=True, on_delete=models.CASCADE)
+    pincode = models.ForeignKey(Pincode, related_name='pincode_product_capping',
+                                null=True, blank=True,
+                                on_delete=models.CASCADE)
+    capping_qty = models.PositiveIntegerField(default=0, null=True)
+    start_date = models.DateTimeField(null=True, blank=True)
+    end_date = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
 
 # post_save.connect(get_category_product_report, sender=Product)
 # post_save.connect(get_master_report, sender=ProductPrice)
