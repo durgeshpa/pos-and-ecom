@@ -100,6 +100,7 @@ class DownloadCreditNote(APIView):
         amount = shop.amount
         pp = OrderedProductMapping.objects.filter(ordered_product=shop.shipment.id)
         products = [i for i in pp if(i.returned_qty + i.damaged_qty) != 0]
+        reason = 'returned' if [i for i in pp if i.returned_qty>0] else 'damaged' if [i for i in pp if i.damaged_qty>0] else 'returned and damaged'
         order_id = shop.shipment.order.order_no
         sum_qty, sum_amount, tax_inline, product_tax_amount = 0, 0, 0, 0
         taxes_list, gst_tax_list, cess_tax_list, surcharge_tax_list = [], [], [], []
@@ -132,7 +133,7 @@ class DownloadCreditNote(APIView):
             "products": products,"shop": shop,"total_amount_int": total_amount_int,"sum_qty": sum_qty,"sum_amount": round(sum_amount,2),
             "url": request.get_host(),"scheme": request.is_secure() and "https" or "http","igst": igst,"cgst": cgst,"sgst": sgst,"cess": cess,"surcharge": surcharge,
             "total_amount": round(total_amount,2),"order_id": order_id,"shop_name_gram": shop_name_gram,"nick_name_gram": nick_name_gram,"city_gram": city_gram,
-            "address_line1_gram": address_line1_gram,"pincode_gram": pincode_gram,"state_gram": state_gram,"amount":amount,"gstinn":gstinn1,"gstinn2":gstinn2, "gstinn3":gstinn3,"gst_number":gst_number,}
+            "address_line1_gram": address_line1_gram,"pincode_gram": pincode_gram,"state_gram": state_gram,"amount":amount,"gstinn":gstinn1,"gstinn2":gstinn2, "gstinn3":gstinn3,"gst_number":gst_number,"reason":reason,}
 
         cmd_option = {
             "margin-top": 10,
