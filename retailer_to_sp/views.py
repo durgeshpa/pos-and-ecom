@@ -84,46 +84,38 @@ class DownloadCreditNote(APIView):
     filename = 'credit_note.pdf'
     template_name = 'admin/credit_note/credit_note.html'
     def get(self, request, *args, **kwargs):
-        credit_note = get_object_or_404(Note, pk=self.kwargs.get('pk'))
-        amount = credit_note.amount
-        pp = OrderedProductMapping.objects.filter(ordered_product=credit_note.shipment.id)
-        products = []
-        for i in pp:
-            if(i.returned_qty + i.damaged_qty)!=0:
-                products.append(i)
+        shop = Note.objects.get(pk=self.kwargs.get('pk'))
+        for gs in shop.shipment.order.seller_shop.shop_name_documents.all():
+            gstinn3 = gs.shop_document_number if gs.shop_document_type=='gstin' else 'Unregistered'
 
-        order_id = credit_note.shipment.order.order_no
-        sum_qty = 0
-        sum_amount = 0
-        tax_inline = 0
-        product_tax_amount=0
-        taxes_list = []
-        gst_tax_list = []
-        cess_tax_list = []
-        surcharge_tax_list = []
-        for z in credit_note.shipment.order.seller_shop.\
-                shop_name_address_mapping.all():
-            shop_name_gram = z.shop_name
-            nick_name_gram = z.nick_name
-            address_line1_gram = z.address_line1
-            city_gram = z.city
-            state_gram = z.state
-            pincode_gram = z.pincode
+        for gs in shop.shipment.order.billing_address.shop_name.shop_name_documents.all():
+            gstinn2 =gs.shop_document_number if gs.shop_document_type=='gstin' else 'Unregistered'
+
+        for gs in shop.shipment.order.shipping_address.shop_name.shop_name_documents.all():
+            gstinn1 = gs.shop_document_number if gs.shop_document_type=='gstin' else 'Unregistered'
+
+        gst_number ='07AAHCG4891M1ZZ' if shop.shipment.order.seller_shop.shop_name_address_mapping.all().last().state.state_name=='Delhi' else '09AAHCG4891M1ZV'
+
+
+        amount = shop.amount
+        pp = OrderedProductMapping.objects.filter(ordered_product=shop.shipment.id)
+        products = [i for i in pp if(i.returned_qty + i.damaged_qty) != 0]
+        order_id = shop.shipment.order.order_no
+        sum_qty, sum_amount, tax_inline, product_tax_amount = 0, 0, 0, 0
+        taxes_list, gst_tax_list, cess_tax_list, surcharge_tax_list = [], [], [], []
+
+        for z in shop.shipment.order.seller_shop.shop_name_address_mapping.all():
+            shop_name_gram, nick_name_gram, address_line1_gram = z.shop_name, z.nick_name, z.address_line1
+            city_gram, state_gram, pincode_gram = z.city, z.state, z.pincode
 
         for m in products:
-            sum_qty = sum_qty + (
-                int(m.returned_qty + m.damaged_qty)
-            )
-
-            # h = m.price_to_retailer
-            inline_sum_amount = (
-                int(m.returned_qty + m.damaged_qty) *
-                    float(m.price_to_retailer)
-            )
+            sum_qty = sum_qty + (int(m.returned_qty + m.damaged_qty))
+            sum_amount = sum_amount + (int(m.returned_qty + m.damaged_qty) *(m.price_to_retailer))
+            inline_sum_amount = (int(m.returned_qty + m.damaged_qty) *(m.price_to_retailer))
             for n in m.get_products_gst_tax():
                 divisor = (1+(n.tax.tax_percentage/100))
-                original_amount = (inline_sum_amount/divisor)
-                tax_amount = inline_sum_amount - original_amount
+                original_amount = (float(inline_sum_amount)/divisor)
+                tax_amount = float(inline_sum_amount) - original_amount
                 if n.tax.tax_type == 'gst':
                     gst_tax_list.append(tax_amount)
                 if n.tax.tax_type == 'cess':
@@ -132,38 +124,15 @@ class DownloadCreditNote(APIView):
                     surcharge_tax_list.append(tax_amount)
 
                 taxes_list.append(tax_amount)
-                igst = sum(gst_tax_list)
-                cgst = (sum(gst_tax_list))/2
-                sgst = (sum(gst_tax_list))/2
-                cess = sum(cess_tax_list)
-                surcharge = sum(surcharge_tax_list)
-
-        total_amount = credit_note.note_amount
+                igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list))/2, (sum(gst_tax_list))/2, sum(cess_tax_list), sum(surcharge_tax_list)
+        total_amount = sum_amount
+        total_amount_int = int(total_amount)
 
         data = {
-            "object": credit_note,
-            "products": products,
-            "shop": credit_note,
-            "total_amount_int": total_amount,
-            "sum_qty": sum_qty,
-            "sum_amount": total_amount,
-            "url": request.get_host(),
-            "scheme": request.is_secure() and "https" or "http",
-            "igst": igst,
-            "cgst": cgst,
-            "sgst": sgst,
-            "cess": cess,
-            "surcharge": surcharge,
-            "total_amount": total_amount,
-            "order_id": order_id,
-            "shop_name_gram": shop_name_gram,
-            "nick_name_gram": nick_name_gram,
-            "city_gram": city_gram,
-            "address_line1_gram": address_line1_gram,
-            "pincode_gram": pincode_gram,
-            "state_gram": state_gram,
-            "amount":amount,
-        }
+            "products": products,"shop": shop,"total_amount_int": total_amount_int,"sum_qty": sum_qty,"sum_amount": round(sum_amount,2),
+            "url": request.get_host(),"scheme": request.is_secure() and "https" or "http","igst": igst,"cgst": cgst,"sgst": sgst,"cess": cess,"surcharge": surcharge,
+            "total_amount": round(total_amount,2),"order_id": order_id,"shop_name_gram": shop_name_gram,"nick_name_gram": nick_name_gram,"city_gram": city_gram,
+            "address_line1_gram": address_line1_gram,"pincode_gram": pincode_gram,"state_gram": state_gram,"amount":amount,"gstinn":gstinn1,"gstinn2":gstinn2, "gstinn3":gstinn3,"gst_number":gst_number,}
 
         cmd_option = {
             "margin-top": 10,

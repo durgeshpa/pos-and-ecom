@@ -94,8 +94,8 @@ table tr td,th,h4,span,address{
     				<strong>{{shop.shipment.order.billing_address.shop_name}}</strong><br>
     				{{shop.shipment.order.billing_address.nick_name}}, {{shop.shipment.order.billing_address.address_line1}}, {{shop.order.shipping_address.city}}<br>
 						{{shop.shipment.order.billing_address.city}}<br>
-						<strong>GSTIN/UIN:</strong> <span>----</span><br>
-						<strong>State Name:</strong> <span>{{shop.shipment.order.invoice_no.order.billing_address.state}} </span><strong>Code:</strong> <span>{{shop.shipment.order.billing_address.pincode}}</span><br>
+						<strong>GSTIN/UIN:</strong> <span>{{ gstinn2 }} </span><br>
+						<strong>State Name:{{shop.shipment.order.billing_address.state.state_name}}</strong> <span>{{shop.shipment.order.invoice_no.order.billing_address.state}} </span><strong>Code:</strong> <span>{{shop.shipment.order.billing_address.pincode}}</span><br>
 						<strong>CIN:</strong> <span>---</span><br>
     				</address>
 
@@ -105,17 +105,17 @@ table tr td,th,h4,span,address{
 						<span>Dispatch To :</span><br>
     				<strong>{{shop.shipment.order.shipping_address.shop_name}}</strong><br>
     				{{shop.shipment.order.shipping_address.nick_name}}, {{shop.shipment.order.shipping_address.address_line1}}, {{shop.shipment.order.shipping_address.city}}<br>
-						<strong>GSTIN/UIN:</strong> <span>----</span><br>
+						<strong>GSTIN/UIN:</strong> <span>{{gstinn1}}</span><br>
 						<strong>State Name:</strong> <span>{{shop.shipment.order.shipping_address.state}} </span><strong>Code:</strong> <span>{{shop.shipment.order.shipping_address.pincode}}</span><br>
 						<strong>CIN:</strong> <span>---</span>
     				</address>
 					</div>
 					<div class="col-xs-4">
 						<address>
-							<span>GramFactory:</span><br>
+							<span>Supplier:</span><br>
 							<strong>{{shop_name_gram}}</strong><br>
 							{{nick_name_gram}}, {{address_line1_gram}}, {{city_gram}}<br>
-							<strong>GSTIN/UIN:</strong> <span>{{m.GST_number}}</span><br>
+							<strong>GSTIN/UIN:</strong> <span>{{gstinn3}}</span><br>
 							<strong>State Name:</strong><span>{{state_gram}}</span><strong>Code:</strong><span>{{pincode_gram}}</span><br>
 							<strong>CIN:</strong><span>---</span>
 						</address>
@@ -343,8 +343,8 @@ table tr td,th,h4,span,address{
         							<td class="text-left" colspan="10">
 
 
-						<strong>Supplier's Service Tax No:</strong> <span>NA</span><br>
-										<strong>Company's PAN:</strong> <span>09AAQCA9570J1ZW</span><br>
+						<strong>Supplier's GST No:</strong> <span>{{gst_number}}</span><br>
+										<strong>Company's PAN:</strong> <span>AAHCG4891M</span><br>
 
 									</td>
 
@@ -368,7 +368,7 @@ We declare that this invoice shows the actual price of the goods described and t
 									</td>
         							<td class="text-right" colspan="5" height="100">
 
-										<strong>For Addistro Technologies Pvt Ltd</strong> <br>
+										<strong>For GFDN Services Pvt Ltd</strong> <br>
  Authorised Signatory
 									</td>
 
