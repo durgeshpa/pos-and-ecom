@@ -106,6 +106,6 @@ class OfferBannerData(SortableMixin):
 class TopSKU(models.Model):
     shop = models.ForeignKey(Shop,blank=True, on_delete=models.CASCADE, null=True)
     product = models.ForeignKey(Product, blank=True, null=True, on_delete=models.CASCADE)
-    start_date = models.DateTimeField(blank=True, null=True)
-    end_date = models.DateTimeField(blank=True, null=True)
+    start_date = models.DateTimeField(blank=False, null=True)
+    end_date = models.DateTimeField(blank=False, null=True)
     status = models.BooleanField(('Status'),help_text=('Designates whether the product is to be displayed or not.'),default=False)

@@ -18,13 +18,14 @@ from brand.models import Brand
 from products.models import Product, ProductPrice
 from retailer_to_sp.models import Cart as RetailerCart
 from addresses.models import Address, City, State
-from retailer_to_sp.models import Note as CreditNote, OrderedProduct as RetailerShipment, OrderedProductMapping as RetailerShipmentMapping
+from retailer_to_sp.models import Note as CreditNote, OrderedProduct as RetailerShipment, OrderedProductMapping as RetailerShipmentMapping, Trip, Commercial
 from retailer_backend.common_function import (
     order_id_pattern, brand_credit_note_pattern, getcredit_note_id
 )
 from sp_to_gram.tasks import update_shop_product_es
 logger = logging.getLogger(__name__)
 from dateutil.relativedelta import relativedelta
+from celery.task import task
 
 
 ORDER_STATUS = (
@@ -433,6 +434,84 @@ def create_brand_note_id(sender, instance=None, created=False, **kwargs):
             else:
                 last_brand_note_id_increment = '00001'
             instance.brand_note_id = "ADT/CN/%s"%(last_brand_note_id_increment)
+
+
+@task
+def create_credit_note_on_trip_close(trip_id):
+    trip = Trip.objects.get(id=trip_id)
+    shipments = trip.rt_invoice_trip.all()
+    for shipment in shipments:
+        if(shipment.rt_order_product_order_product_mapping.last() and
+        shipment.rt_order_product_order_product_mapping.all().aggregate(Sum('returned_qty')).get('returned_qty__sum') > 0 or
+        shipment.rt_order_product_order_product_mapping.all().aggregate(Sum('damaged_qty')).get('damaged_qty__sum')>0):
+            invoice_prefix = shipment.order.seller_shop.invoice_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
+            last_credit_note = CreditNote.objects.filter(shop=shipment.order.seller_shop, status=True).order_by('credit_note_id').last()
+            if last_credit_note:
+                note_id = brand_credit_note_pattern(
+                            CreditNote, 'credit_note_id', None,
+                            shipment.order.seller_shop.
+                            shop_name_address_mapping.filter(
+                                            address_type='billing'
+                                            ).last().pk)
+            else:
+                note_id = brand_credit_note_pattern(
+                            CreditNote, 'credit_note_id', None,
+                            shipment.order.seller_shop.
+                            shop_name_address_mapping.filter(
+                                            address_type='billing'
+                                            ).last().pk)
+
+            credit_amount = 0
+
+            #cur_cred_note = brand_credit_note_pattern(note_id, invoice_prefix)
+            if shipment.credit_note.count():
+                credit_note = shipment.credit_note.last()
+            else:
+                credit_note = CreditNote.objects.create(
+                    shop = shipment.order.seller_shop,
+                    credit_note_id=note_id,
+                    shipment = shipment,
+                    amount = 0,
+                    status=True)
+            OrderedProduct.objects.filter(credit_note=credit_note).update(status=OrderedProduct.DISABLED)
+            credit_grn = OrderedProduct.objects.create(credit_note=credit_note)
+            credit_grn.save()
+
+            manufacture_date = datetime.date.today() - relativedelta(months=+1)
+            expiry_date = datetime.date.today() + relativedelta(months=+6)
+
+            for item in shipment.rt_order_product_order_product_mapping.all():
+                reserved_order = OrderedProductReserved.objects.filter(cart=shipment.order.ordered_cart,
+                                                                     product=item.product, reserve_status=OrderedProductReserved.ORDERED).last()
+                grn_item = OrderedProductMapping.objects.create(
+                    shop = shipment.order.seller_shop,
+                    ordered_product=credit_grn,
+                    product=item.product,
+                    shipped_qty=item.returned_qty,
+                    available_qty=item.returned_qty,
+                    damaged_qty=item.damaged_qty,
+                    ordered_qty = item.returned_qty,
+                    delivered_qty = item.returned_qty,
+                    manufacture_date= reserved_order.order_product_reserved.manufacture_date if reserved_order else manufacture_date,
+                    expiry_date= reserved_order.order_product_reserved.expiry_date if reserved_order else expiry_date,
+                    )
+                grn_item.save()
+                try:
+                    cart_product_map = shipment.order.ordered_cart.rt_cart_list.filter(cart_product=item.product).last()
+                    credit_amount += ((item.returned_qty + item.damaged_qty) * cart_product_map.item_effective_prices)
+                except Exception as e:
+                    logger.exception("Product price not found for {} -- {}".format(item.product, e))
+                    credit_amount += Decimal(item.returned_qty) * item.product.product_pro_price.filter(
+                        seller_shop=shipment.order.seller_shop, approval_status=ProductPrice.APPROVED
+                        ).last().selling_price
+            credit_note.amount = credit_amount
+            credit_note.save()
+
+
+@receiver(post_save, sender=Trip)
+def create_offers(sender, instance=None, created=False, **kwargs):
+    if instance.trip_status == Trip.RETURN_VERIFIED:
+        create_credit_note_on_trip_close.delay(instance.id)
 
 
 def create_credit_note(instance=None, created=False, **kwargs):

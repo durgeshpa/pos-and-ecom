@@ -3,7 +3,7 @@ from django.contrib import admin
 
 from .views import (
     ReturnProductAutocomplete, DownloadCreditNote, DownloadPickList, DownloadTripPdf, SellerShopAutocomplete, BuyerShopAutocomplete,
-    RetailerCart, PickerNameAutocomplete, DownloadPickListPicker,
+    RetailerCart, PickerNameAutocomplete, DownloadPickListPicker, ShippingAddressAutocomplete, BillingAddressAutocomplete
 )
 urlpatterns = [
     url(r'^api/', include('retailer_to_sp.api.urls')),
@@ -23,5 +23,7 @@ urlpatterns = [
     url(r'^buyer-shop-autocomplete/$', BuyerShopAutocomplete.as_view(), name='buyer-shop-autocomplete'),
     url('^download-trip-pdf/(?P<pk>\d+)/trip_pdf/$', DownloadTripPdf.as_view(), name='download_trip_pdf'),
     url('^retailer-cart/$', RetailerCart.as_view(), name='retailer_cart'),
-    url(r'^picker-name-autocomplete/$', PickerNameAutocomplete.as_view(), name='picker-name-autocomplete'),    
+    url(r'^picker-name-autocomplete/$', PickerNameAutocomplete.as_view(), name='picker-name-autocomplete'),
+    url(r'^bulk-shipping-address-autocomplete/$',ShippingAddressAutocomplete.as_view(),name='bulk-shipping-address-autocomplete',),
+    url(r'^bulk-billing-address-autocomplete/$',BillingAddressAutocomplete.as_view(),name='bulk-billing-address-autocomplete',),    
     ]

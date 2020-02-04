@@ -275,14 +275,38 @@ class ProductPriceNewForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['start_date'].required = True
-        self.fields['end_date'].required = True
+        # self.fields['start_date'].required = True
+        # self.fields['end_date'].required = True
         if 'approval_status' in self.fields:
             self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:1]
 
+    def clean(self):
+        cleaned_data = self.cleaned_data
+        mrp = int(self.cleaned_data.get('mrp', '0'))
+        selling_price = int(self.cleaned_data.get('selling_price', '0'))
+        # if not mrp:
+        #     raise forms.ValidationError(
+        #         _('Please enter valid value for mrp'),
+        #     )
+        # if not selling_price:
+        #     raise forms.ValidationError(
+        #         _('Please enter valid value for Selling Price'),
+        #     )    
+        #else:
+        return cleaned_data
+
 
 class ProductForm(forms.ModelForm):
-    product_short_description= forms.CharField(required=True)
+    product_name = forms.CharField(required=True)
+    product_short_description = forms.CharField(required=True)
+    product_slug = forms.CharField(required=True)
+    product_gf_code = forms.CharField(required=True)
+
+    class Meta:
+        model = Product
+        fields = ('product_name','product_slug','product_short_description', 'product_long_description',
+                  'product_gf_code', 'product_ean_code', 'product_hsn','product_brand', 'product_inner_case_size',
+                  'product_case_size','weight_value', 'weight_unit', 'status',)
 
 
 class ProductsFilterForm(forms.Form):
@@ -450,9 +474,9 @@ class ProductPriceAddPerm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if 'start_date' in self.fields and 'end_date' in self.fields:
-            self.fields['start_date'].required = True
-            self.fields['end_date'].required = True
+        # if 'start_date' in self.fields and 'end_date' in self.fields:
+        #     self.fields['start_date'].required = True
+        #     self.fields['end_date'].required = True
         if 'approval_status' in self.fields:
             self.fields['approval_status'].initial = ProductPrice.APPROVAL_PENDING
             self.fields['approval_status'].widget = forms.HiddenInput()
@@ -476,9 +500,9 @@ class ProductPriceChangePerm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['start_date'].required = True
-        self.fields['end_date'].required = True
-        self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:-1]
+        #self.fields['start_date'].required = True
+        #self.fields['end_date'].required = True
+        # self.fields['approval_status'].choices = ProductPrice.APPROVAL_CHOICES[:-1]
 
 
 class ProductCategoryMappingForm(forms.Form):
