@@ -539,6 +539,7 @@ class ProductCappingAdmin(admin.ModelAdmin):
         ProductSKUSearch, ProductFilter, ShopFilter,
         ('start_date', DateRangeFilter), ('end_date', DateRangeFilter),
         'status']
+    readonly_fields = ('buyer_shop', 'city', 'pincode')
     class Media:
         pass
 
