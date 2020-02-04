@@ -1001,11 +1001,11 @@ class DownloadInvoiceSP(APIView):
     def get(self, request, *args, **kwargs):
         shipment = get_object_or_404(OrderedProduct, pk=self.kwargs.get('pk'))
 
-        if shipment.invoice.invoice_pdf:
-            r = requests.get(shipment.invoice.invoice_pdf.url)
-            response = HttpResponse(r.content, content_type='application/pdf')
-            response['Content-Disposition'] = 'attachment; filename="invoice-{}.pdf"'.format(shipment.invoice_no)
-            return response
+        # if shipment.invoice.invoice_pdf:
+        #     r = requests.get(shipment.invoice.invoice_pdf.url)
+        #     response = HttpResponse(r.content, content_type='application/pdf')
+        #     response['Content-Disposition'] = 'attachment; filename="invoice-{}.pdf"'.format(shipment.invoice_no)
+        #     return response
             # return redirect(shipment.invoice.invoice_pdf.url)
 
         barcode = barcodeGen(shipment.invoice_no)
