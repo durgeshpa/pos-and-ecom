@@ -552,15 +552,6 @@ class ProductCapping(models.Model):
     seller_shop = models.ForeignKey(Shop, related_name='shop_product_capping',
                                     null=True, blank=True,
                                     on_delete=models.CASCADE)
-    buyer_shop = models.ForeignKey(Shop,
-                                   related_name='buyer_shop_product_capping',
-                                   null=True, blank=True,
-                                   on_delete=models.CASCADE)
-    city = models.ForeignKey(City, related_name='city_pro_capping',
-                             null=True, blank=True, on_delete=models.CASCADE)
-    pincode = models.ForeignKey(Pincode, related_name='pincode_product_capping',
-                                null=True, blank=True,
-                                on_delete=models.CASCADE)
     capping_qty = models.PositiveIntegerField(default=0, null=True)
     start_date = models.DateTimeField(null=True, blank=True)
     end_date = models.DateTimeField(null=True, blank=True)
