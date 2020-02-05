@@ -12,5 +12,20 @@ def update_ean_code():
         products.update(product_ean_code=product_ean_code)
 
 
+def update_ean_code_withgfcode():
+    wb = xlrd.open_workbook('EANCODE.xlsx')
+    sheet = wb.sheet_by_index(0)
+    sheet.cell_value(0, 0)
+    for i in range(sheet.nrows - 1):
+        product_ean_code = str(sheet.cell_value(i + 1, 3)).split('.')[0]
+        product_gf_code = sheet.cell_value(i + 1, 0)
+        print(product_gf_code)
+        products = Product.objects.filter(product_gf_code=sheet.cell_value(i + 1, 0))
+        print(products)
+        products.update(product_ean_code=product_ean_code)
+
 if __name__=='__main__':
     update_ean_code()
+
+
+update_ean_code_withgfcode()
