@@ -71,7 +71,7 @@ from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (
     GetPcsFromQty, add_cart_user, create_order_from_cart,
-    reschedule_shipment_button
+    reschedule_shipment_button, create_order_data_excel
 )
 from .filters import (InvoiceAdminOrderFilter, InvoiceAdminTripFilter)
 
@@ -808,7 +808,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
 
 
 class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
-    actions = ["export_as_csv"]#, "assign_picker"]
+    actions = ['order_data_excel_action']#, "assign_picker"]
     resource_class = OrderResource
     search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name','order_status')
     form = OrderForm
@@ -879,6 +879,10 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         return obj.total_mrp_amount
 
     change_form_template = 'admin/retailer_to_sp/order/change_form.html'
+
+    def order_data_excel_action(self, request, queryset):
+        return create_order_data_excel(request, queryset)
+    order_data_excel_action.short_description = "Download CSV of selected orders"
 
     def get_urls(self):
         from django.conf.urls import url
