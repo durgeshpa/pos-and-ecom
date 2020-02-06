@@ -77,6 +77,10 @@ from .filters import (InvoiceAdminOrderFilter, InvoiceAdminTripFilter)
 
 from .tasks import update_order_status_and_create_picker, update_reserved_order
 
+from payments.models import OrderPayment, ShipmentPayment
+
+
+
 class InvoiceNumberFilter(AutocompleteFilter):
     title = 'Invoice Number'
     field_name = 'invoice_no'
@@ -881,7 +885,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     change_form_template = 'admin/retailer_to_sp/order/change_form.html'
 
     def order_data_excel_action(self, request, queryset):
-        return create_order_data_excel(request, queryset)
+        return create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment)
     order_data_excel_action.short_description = "Download CSV of selected orders"
 
     def get_urls(self):
