@@ -24,8 +24,9 @@ def update_ean_code_withgfcode():
         print(products)
         products.update(product_ean_code=product_ean_code)
 
-if __name__=='__main__':
+
+def update():
     update_ean_code()
 
-
-update_ean_code_withgfcode()
+def updateean():
+    update_ean_code_withgfcode()
