@@ -60,7 +60,7 @@ table tr td,th,h4,span,address{
 								<strong>Order ID.</strong><br>{{shipment.order.order_no}}
 							</td>
 							<td class="text-center">
-								<strong>Order Date <br>{{shipment.created_at}}</strong>
+								<strong>Order Date <br>{{shipment.order.created_at}}</strong>
 							</td>
 							<td class="text-center">
 								<strong>Invoice No <br>{{shipment.invoice_no}}</strong>
@@ -159,14 +159,14 @@ table tr td,th,h4,span,address{
     							<tr>
                     {% for m in shipment.rt_order_product_order_product_mapping.all %}
 								<td><strong>{{forloop.counter}}</strong></td>
-									<td class="text-center">{{ m.product.product_sku}}</td>
+									<td class="text-center">{{ m.product.product_gf_code}}</td>
 								<td class="text-center"><strong>{{ m.product.product_short_description}}</strong></td>
 								<td class="text-center">{{ m.product.product_hsn}}</td>
 								<td class="text-center">{{ m.get_product_tax_json}}</td>
-								<td class="text-center"><strong>{{ m.product_mrp}}</strong></td>
+								<td class="text-center"><strong>{{ m.mrp}}</strong></td>
 								<td class="text-center">{{m.shipped_qty}}</td>
 								<td class="text-center">{{m.basic_rate |floatformat:2 | intcomma}}</td>
-								<td class="text-center">{{m.basic_amount |floatformat:2 | intcomma}}</td>
+								<td class="text-center">{{m.base_price |floatformat:2 | intcomma}}</td>
 								<td class="text-center">{{m.price_to_retailer |floatformat:2 | intcomma}}</td>
 								<td class="text-center">{{m.product_tax_amount |floatformat:2 | intcomma}}</td>
 								<td class="text-right"><strong>{{m.product_sub_total|floatformat:2| intcomma }}/-</strong></td>
