@@ -56,7 +56,8 @@ table tr td,th,h4,span,address{
 
 
     			<div class=" col-md-6">
-				<div class=" col-sm-12"><h4 style="font-size:20px"><strong>CREDIT NOTE-reason {{reason}}</strong></h4></div>
+				<div class=" col-sm-12"><h4 style="font-size:20px"><strong>CREDIT NOTE</strong></h4></div><br>
+			    <div class=" col-sm-12"><h4 style="font-size:20px"><strong>REASON: {{reason}}</strong></h4></div>
 				</div>
 
 				<div class="col-md-6" >
@@ -95,8 +96,8 @@ table tr td,th,h4,span,address{
     				{{shop.shipment.order.billing_address.nick_name}}, {{shop.shipment.order.billing_address.address_line1}}, {{shop.order.shipping_address.city}}<br>
 						{{shop.shipment.order.billing_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{{ gstinn2 }} </span><br>
-						<strong>State Name:{{shop.shipment.order.billing_address.state.state_name}}</strong> <span>{{shop.shipment.order.invoice_no.order.billing_address.state}} </span><strong>Code:</strong> <span>{{shop.shipment.order.billing_address.pincode}}</span><br>
-						<strong>CIN:</strong> <span>---</span><br>
+						<strong>State Name:{{shop.shipment.order.billing_address.state.state_name}}</strong> <span>{{shop.shipment.order.invoice_no.order.billing_address.state}} </span><strong>Pincode:</strong> <span>{{shop.shipment.order.billing_address.pincode}}</span><br>
+						<strong>CIN:</strong> <span>U74999HR2018PTC075977</span><br>
     				</address>
 
 					</div>
@@ -106,8 +107,8 @@ table tr td,th,h4,span,address{
     				<strong>{{shop.shipment.order.shipping_address.shop_name}}</strong><br>
     				{{shop.shipment.order.shipping_address.nick_name}}, {{shop.shipment.order.shipping_address.address_line1}}, {{shop.shipment.order.shipping_address.city}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{{gstinn1}}</span><br>
-						<strong>State Name:</strong> <span>{{shop.shipment.order.shipping_address.state}} </span><strong>Code:</strong> <span>{{shop.shipment.order.shipping_address.pincode}}</span><br>
-						<strong>CIN:</strong> <span>---</span>
+						<strong>State Name:</strong> <span>{{shop.shipment.order.shipping_address.state}} </span><strong>Pincode:</strong> <span>{{shop.shipment.order.shipping_address.pincode}}</span><br>
+						<strong>CIN:</strong> <span>U74999HR2018PTC075977</span>
     				</address>
 					</div>
 					<div class="col-xs-4">
@@ -116,8 +117,8 @@ table tr td,th,h4,span,address{
 							<strong>{{shop_name_gram}}</strong><br>
 							{{nick_name_gram}}, {{address_line1_gram}}, {{city_gram}}<br>
 							<strong>GSTIN/UIN:</strong> <span>{{gstinn3}}</span><br>
-							<strong>State Name:</strong><span>{{state_gram}}</span><strong>Code:</strong><span>{{pincode_gram}}</span><br>
-							<strong>CIN:</strong><span>---</span>
+							<strong>State Name:</strong><span>{{state_gram}}</span><strong>Pincode:</strong><span>{{pincode_gram}}</span><br>
+							<strong>CIN:</strong><span>U74999HR2018PTC075977</span>
 						</address>
 					</div>
 
@@ -343,8 +344,8 @@ table tr td,th,h4,span,address{
         							<td class="text-left" colspan="10">
 
 
-						<strong>Supplier's GST No:</strong> <span>{{gst_number}}</span><br>
-										<strong>Company's PAN:</strong> <span>AAHCG4891M</span><br>
+						<strong>GST No:</strong> <span>{{gst_number}}</span><br>
+										<strong>PAN No:</strong> <span>AAHCG4891M</span><br>
 
 									</td>
 
@@ -369,6 +370,9 @@ We declare that this invoice shows the actual price of the goods described and t
         							<td class="text-right" colspan="5" height="100">
 
 										<strong>For GFDN Services Pvt Ltd</strong> <br>
+										<img src="{{scheme}}://{{url}}/static/admin/img/stamp.png" width="80" height="80" style="text-align: center">
+										<br>
+										Authorised Signatory
  Authorised Signatory
 									</td>
 

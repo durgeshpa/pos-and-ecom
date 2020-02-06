@@ -100,7 +100,7 @@ class DownloadCreditNote(APIView):
         amount = shop.amount
         pp = OrderedProductMapping.objects.filter(ordered_product=shop.shipment.id)
         products = [i for i in pp if(i.returned_qty + i.damaged_qty) != 0]
-        reason = 'returned' if [i for i in pp if i.returned_qty>0] else 'damaged' if [i for i in pp if i.damaged_qty>0] else 'returned and damaged'
+        reason = 'Returned' if [i for i in pp if i.returned_qty>0] else 'Damaged' if [i for i in pp if i.damaged_qty>0] else 'Returned and Damaged'
         order_id = shop.shipment.order.order_no
         sum_qty, sum_amount, tax_inline, product_tax_amount = 0, 0, 0, 0
         taxes_list, gst_tax_list, cess_tax_list, surcharge_tax_list = [], [], [], []
