@@ -12,7 +12,7 @@ from django.utils.html import format_html_join, format_html
 from django.utils.safestring import mark_safe
 from django.urls import reverse
 from django.http import HttpResponse
-from django.db.models import Sum, F, FloatField
+from django.db.models import Sum, F, FloatField, OuterRef, Subquery
 
 from products.models import Product
 
@@ -248,24 +248,25 @@ def reschedule_shipment_button(obj):
     )
 
 
-def create_order_data_excel(request, queryset):
+def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment):
     filename = "Orders_data_{}.csv".format(datetime.date.today())
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     writer.writerow([
-        'Order No', 'Seller Shop ID', 'Seller Shop Name', 'Buyer Shop ID',
+        'Order No', 'Order Status', 'Seller Shop ID', 'Seller Shop Name', 'Buyer Shop ID',
         'Buyer Shop Name', 'Mobie No.(Buyer Shop)', 'City(Buyer Shop)',
-        'Pincode(Buyer Shop)', 'Invoice No', 'Shipment Status',
-        'Shipment Created At', 'Shipment QC passed At', 'Picking Status',
-        'Picklist ID', 'Picker Boy', 'Paid Amount', 'Payment Status',
-        'Total MRP', 'Total Final Price'])
+        'Pincode(Buyer Shop)', 'Total MRP', 'Total Final Price',
+        'Order Paid Amount', 'Invoice No', 'Shipment Status',
+        'Shipment Created At', 'Shipment QC passed At', 'Shipment Paid Amount',
+        'Picking Status', 'Picklist ID', 'Picker Boy'])
 
     orders = queryset\
-        .annotate(total_mrp_amount=Sum(F('ordered_cart__rt_cart_list__no_of_pieces') *
-                                       F('ordered_cart__rt_cart_list__cart_product_price__mrp'),
-                  output_field=FloatField()))\
-        .values('order_no', 'seller_shop_id', 'seller_shop__shop_name','buyer_shop_id',
+        .annotate(total_mrp_amount=Sum(F('ordered_cart__rt_cart_list__no_of_pieces') * F('ordered_cart__rt_cart_list__cart_product_price__mrp'), output_field=FloatField()),
+                  total_final_amount=Sum(F('ordered_cart__rt_cart_list__no_of_pieces') * F('ordered_cart__rt_cart_list__cart_product_price__selling_price'), output_field=FloatField()),
+                  shipment_paid_amount=Subquery(ShipmentPayment.objects.filter(parent_order_payment__order=OuterRef('pk')).values('parent_order_payment__order_id').annotate(sum=Sum('paid_amount')).values('sum')[:1]),
+                  order_paid_amount=Subquery(OrderPayment.objects.filter(order=OuterRef('pk')).values('order_id').annotate(sum=Sum('paid_amount')).values('sum')[:1]))\
+        .values('order_no', 'order_status', 'seller_shop_id', 'seller_shop__shop_name', 'buyer_shop_id',
                 'buyer_shop__shop_name', 'buyer_shop__shop_owner__phone_number',
                 'shipping_address__city__city_name',
                 'shipping_address__pincode_link__pincode',
@@ -276,15 +277,19 @@ def create_order_data_excel(request, queryset):
                 'rt_order_order_product__picker_shipment__picking_status',
                 'rt_order_order_product__picker_shipment__picklist_id',
                 'rt_order_order_product__picker_shipment__picker_boy__phone_number',
-                'order_payment__paid_amount',
-                'order_payment__parent_payment__payment_status',
-                'total_mrp_amount', 'ordered_cart__offers')
-
+                'shipment_paid_amount',
+                'order_paid_amount',
+                'total_mrp_amount', 'ordered_cart__offers',
+                'total_final_amount')
     for order in orders.iterator():
         offers = order.get('ordered_cart__offers')
-        total_final_amount = sum([i.get('discounted_product_subtotal', 0) for i in offers])
+        if offers:
+            total_final_amount = sum([i.get('discounted_product_subtotal', 0) for i in offers])
+        else:
+            total_final_amount = order.get('total_final_amount')
         writer.writerow([
             order.get('order_no'),
+            order.get('order_status'),
             order.get('seller_shop_id'),
             order.get('seller_shop__shop_name'),
             order.get('buyer_shop_id'),
@@ -292,15 +297,16 @@ def create_order_data_excel(request, queryset):
             order.get('buyer_shop__shop_owner__phone_number'),
             order.get('shipping_address__city__city_name'),
             order.get('shipping_address__pincode_link__pincode'),
+            order.get('total_mrp_amount'),
+            total_final_amount,
+            order.get('order_paid_amount'),
             order.get('rt_order_order_product__invoice__invoice_no'),
             order.get('rt_order_order_product__shipment_status'),
             order.get('rt_order_order_product__created_at'),
+            order.get('rt_order_order_product__invoice__created_at'),
+            order.get('shipment_paid_amount'),
             order.get('rt_order_order_product__picker_shipment__picking_status'),
             order.get('rt_order_order_product__picker_shipment__picklist_id'),
             order.get('rt_order_order_product__picker_shipment__picker_boy__phone_number'),
-            order.get('order_payment__paid_amount'),
-            order.get('order_payment__parent_payment__payment_status'),
-            order.get('total_mrp_amount'),
-            total_final_amount
         ])
     return response
