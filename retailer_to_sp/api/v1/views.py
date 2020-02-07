@@ -1,6 +1,7 @@
 from decimal import Decimal
 import logging
 import json
+from num2words import num2words
 from datetime import datetime, timedelta
 from barCodeGenerator import barcodeGen
 from django.core.exceptions import ObjectDoesNotExist
@@ -1017,11 +1018,14 @@ class DownloadInvoiceSP(APIView):
 
         total_amount = shipment.invoice_amount
         total_amount_int = total_amount
+        amt = [num2words(i) for i in str(total_amount).split('.')]
+        ruppes = amt[0]
+
 
         data = {"shipment": shipment,"order": shipment.order, 
                 "url":request.get_host(), "scheme": request.is_secure() and "https" or "http" ,
                 "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,
-                "barcode":barcode,"product_listing":product_listing,
+                "barcode":barcode,"product_listing":product_listing,"rupees":rupees,
                 "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
                 "open_time":open_time, "close_time":close_time,}
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
