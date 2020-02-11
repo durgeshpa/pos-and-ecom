@@ -416,6 +416,15 @@ ELASTICSEARCH_DSL={
     },
 }
 
+REDIS_CACHE_CHOICE = {
+    'production': 'gfcache',
+    'staging': 'stagingcache',
+    'qa': 'qacache',
+    'qa1': 'qa1cache',
+    'qa3': 'qa3cache',
+    'qa2': 'qa2cache',
+}
+
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
@@ -423,7 +432,7 @@ CACHES = {
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient"
         },
-        "KEY_PREFIX": "gfcache"
+        "KEY_PREFIX": REDIS_CACHE_CHOICE[ENVIRONMENT.lower()]
     }
 }
 
