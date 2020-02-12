@@ -11,21 +11,26 @@
          /* change the margins as you want them to be. */
     }
 
-		table tr td,th,h4,span,address{
+		table,tr,td,th,h4,span,address{
 
 			font-size:10px
 		}
 
-		.table > thead > tr > th, .table > tbody > tr > th, .table > tfoot > tr > th, .table > thead > tr > td, .table > tbody > tr > td, .table > tfoot > tr > td{ padding: 2px
+		.table > thead > tr > th, .table > tbody > tr > th, .table > tfoot > tr > th, .table > thead > tr > td, .table > tbody > tr > td, .table > tfoot > tr > td{ padding: 2px;
 		}
 
 		#Header, #Footer { display: none !important; }
  }
 
-thead { display: table-row-group;}
-tfoot { display: table-row-group }
-tr { page-break-inside: avoid }
+body{
 
+			font-size:10px
+		}
+
+table,tr,td,th,h4,span,address{
+
+			font-size:10px
+		}
 
 h4.invoice{
 	float: left;
@@ -40,23 +45,14 @@ margin-bottom: 20px;
 width: 100%;
 
 }
-div.barcode{
-float:right;
 
-.validate_highlight {
-    border-color: #f70000 !important;
- }
+.invoice-title.order_id{
 
-margin-top:-90px;
-right:10px;
-}
-.invoice-title.order_id{	
-	
 }
 
 .invoice_no,.order_id_no{
 	font-weight: normal;
-	
+
 }
 
 
