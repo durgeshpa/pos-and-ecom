@@ -100,7 +100,7 @@
     				<h3 class="panel-title"><strong>Order summary</strong></h3>
     			</div>
     			<div class="panel-body">
-    				<div class="table-responsive">
+    				<div class="table">
     					<table class="table table-condensed">
     						<thead>
                       <tr>
@@ -274,16 +274,15 @@
 <!--    								<td class="no-line text-center"><strong></strong></td>-->
     								<td class="no-line text-right" style="width:120px"><strong></strong></td>
     							</tr>
-
 								<tr>
 								<td colspan="12"></td>
 								</tr>
 								<tr>
         							<td colspan="8" class="no-line"><strong>Amount Chargeable (in words)</strong></td>
-        							<td class="no-line">E . &amp; O . E</td>
+        							<td colspan="4" class="no-line">E . &amp; O . E</td>
                                 </tr>
 								<tr>{% if amount.is_integer %}
-        							<td colspan="11"><strong>INR {{rupees}} only</strong></td>
+        							<td colspan="12"><strong>INR {{rupees}} only</strong></td>
                       {% else %}
                       <td colspan="11"><strong>INR {{rupees}} only</strong></td>
                       {% endif %}
