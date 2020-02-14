@@ -20,7 +20,9 @@ class CronToDeleteOrderedProductReserved(APIView):
 
     def get(self, request):
         reserved_orders = OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now(),reserve_status='reserved')
+        logger.exception("{} reserved orderes ".format(reserved_orders.count()))
         reserved_orders.update(reserve_status='free')
+        
         for ordered_reserve in reserved_orders:
             logger.exception("reserve order ")
             ordered_reserve.order_product_reserved.available_qty = int(ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
