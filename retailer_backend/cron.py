@@ -10,6 +10,9 @@ from django.db.models import Sum,Q
 from shops.models import Shop
 from services.models import ShopStock
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 class CronToDeleteOrderedProductReserved(APIView):
 
@@ -19,6 +22,7 @@ class CronToDeleteOrderedProductReserved(APIView):
         reserved_orders = OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now(),reserve_status='reserved')
         reserved_orders.update(reserve_status='free')
         for ordered_reserve in reserved_orders:
+            logger.exception("reserve order ")
             ordered_reserve.order_product_reserved.available_qty = int(ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
             ordered_reserve.order_product_reserved.save()
             # Saving Cart as pending
