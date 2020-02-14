@@ -20,15 +20,13 @@ class CronToDeleteOrderedProductReserved(APIView):
 
     def get(self, request):
         reserved_orders = OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now(),reserve_status='reserved')
-        
+        reserved_orders.update(reserve_status='free')
         for ro in reserved_orders:
             logger.exception("reserve order {}".format(ro.id))
             ro.order_product_reserved.available_qty = int(ro.order_product_reserved.available_qty) + int(ro.reserved_qty)
             ro.order_product_reserved.save()
-            # Saving Cart as pending
             ro.cart.cart_status = 'pending'
             ro.cart.save()
-        # reserved_orders.update(reserve_status='free')
         return Response()
 
 def cron_to_delete_ordered_product_reserved(request):
