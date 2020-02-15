@@ -1424,7 +1424,7 @@ class Invoice(models.Model):
     @property
     def invoice_amount(self):
         try:
-            inv_amount = self.shipment.rt_order_product_order_product_mapping.annotate(item_amount=F('effective_price')*F('shipped_qty')).aggregate(invoice_amount=Sum('item_amount')).get('invoice_amount')
+            inv_amount = self.shipment.rt_order_product_order_product_mapping.annotate(item_amount=F('set_effective_price')*F('shipped_qty')).aggregate(invoice_amount=Sum('item_amount')).get('invoice_amount')
         except:
             inv_amount = self.shipment.invoice_amount
         return inv_amount
