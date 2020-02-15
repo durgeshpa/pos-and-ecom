@@ -310,3 +310,51 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment):
             order.get('rt_order_order_product__picker_shipment__picker_boy__phone_number'),
         ])
     return response
+
+
+def create_invoice_data_excel(request, queryset, RoundAmount, ShipmentPayment):
+    filename = "Invoice_data_{}.csv".format(datetime.date.today())
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow([
+        'Invoice No.', 'Invoice Created At', 'Invoice Amount',
+        'Shipment Status', 'Order No.', 'Order Date', 'Order Status',
+        'Trip No.', 'Trip Status', 'Trip Started At',
+        'Trip Completed At', 'Paid Amount', 'CN Amount'])
+
+    invoices = queryset\
+        .annotate(
+            get_order=F('shipment__order__order_no'), shipment_status=F('shipment__shipment_status'),
+            trip_no=F('shipment__trip__dispatch_no'), trip_status=F('shipment__trip__trip_status'),
+            order_date=F('shipment__order__created_at'), order_status=F('shipment__order__order_status'),
+            trip_started_at=F('shipment__trip__starts_at'), trip_completed_at=F('shipment__trip__completed_at'),
+            shipment_paid_amount=Subquery(ShipmentPayment.objects.filter(shipment__invoice__id=OuterRef('pk')).annotate(sum=Sum('paid_amount')).values('sum')[:1]),
+            cn_amount=F('shipment__credit_note__amount'),
+            invoice_amount=RoundAmount(Sum(
+                F('shipment__rt_order_product_order_product_mapping__effective_price') * 
+                F('shipment__rt_order_product_order_product_mapping__shipped_qty'),
+                output_field=FloatField())))\
+        .values(
+            'invoice_no', 'created_at', 'invoice_amount', 'shipment_status',
+            'get_order', 'order_date', 'order_status', 'trip_no',
+            'trip_status', 'trip_started_at', 'trip_completed_at',
+            'shipment_paid_amount', 'cn_amount'
+        )
+    for invoice in invoices.iterator():
+        writer.writerow([
+            invoice.get('invoice_no'),
+            invoice.get('created_at'),
+            invoice.get('invoice_amount'),
+            invoice.get('shipment_status'),
+            invoice.get('get_order'),
+            invoice.get('order_date'),
+            invoice.get('order_status'),
+            invoice.get('trip_no'),
+            invoice.get('trip_status'),
+            invoice.get('trip_started_at'),
+            invoice.get('trip_completed_at'),
+            invoice.get('shipment_paid_amount'),
+            invoice.get('cn_amount'),
+        ])
+    return response

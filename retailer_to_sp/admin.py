@@ -66,12 +66,13 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare,
                      Trip, ShipmentRescheduling, Feedback, PickerDashboard,
                      generate_picklist_id, ResponseComment,
                      generate_picklist_id, ResponseComment, Invoice,
-                     ResponseComment, BulkOrder)
+                     ResponseComment, BulkOrder, RoundAmount)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (
     GetPcsFromQty, add_cart_user, create_order_from_cart,
-    reschedule_shipment_button, create_order_data_excel
+    reschedule_shipment_button, create_order_data_excel,
+    create_invoice_data_excel
 )
 from .filters import (
     InvoiceAdminOrderFilter, InvoiceAdminTripFilter, InvoiceCreatedAt,
@@ -1493,6 +1494,7 @@ class FeedbackAdmin(admin.ModelAdmin):
 
 
 class InvoiceAdmin(admin.ModelAdmin):
+    actions = ['invoice_data_excel_action']
     list_display = ('invoice_no', 'created_at', 'get_invoice_amount', 'get_shipment_status',
                     'get_order', 'get_order_date', 'get_order_status', 'get_shipment',
                     'get_trip_no', 'get_trip_status', 'get_trip_started_at',
@@ -1523,6 +1525,10 @@ class InvoiceAdmin(admin.ModelAdmin):
         ('shipment__trip__starts_at', DeliveryStartsAt),
         ('shipment__trip__completed_at', DeliveryCompletedAt),
         ('shipment__order__created_at', OrderCreatedAt))
+
+    def invoice_data_excel_action(self, request, queryset):
+        return create_invoice_data_excel(request, queryset, RoundAmount, ShipmentPayment)
+    invoice_data_excel_action.short_description = "Download CSV of selected Invoices"
 
     def get_invoice_amount(self, obj):
         return "%s %s" % (u'\u20B9', str(obj.invoice_amount))
