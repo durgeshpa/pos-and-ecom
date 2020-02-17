@@ -312,7 +312,11 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment):
     return response
 
 
-def create_invoice_data_excel(request, queryset, RoundAmount, ShipmentPayment):
+def create_invoice_data_excel(request, queryset, RoundAmount, ShipmentPayment,
+                              OrderedProduct, Trip, Order):
+    shipment_status_dict = dict(OrderedProduct.SHIPMENT_STATUS)
+    order_status_dict = dict(Order.ORDER_STATUS)
+    trip_status_dict = dict(Trip.TRIP_STATUS)
     filename = "Invoice_data_{}.csv".format(datetime.date.today())
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
@@ -346,12 +350,12 @@ def create_invoice_data_excel(request, queryset, RoundAmount, ShipmentPayment):
             invoice.get('invoice_no'),
             invoice.get('created_at'),
             invoice.get('invoice_amount'),
-            invoice.get('shipment_status'),
+            shipment_status_dict[invoice.get('shipment_status')],
             invoice.get('get_order'),
             invoice.get('order_date'),
-            invoice.get('order_status'),
+            order_status_dict[invoice.get('order_status')],
             invoice.get('trip_no'),
-            invoice.get('trip_status'),
+            trip_status_dict[invoice.get('trip_status')],
             invoice.get('trip_started_at'),
             invoice.get('trip_completed_at'),
             invoice.get('shipment_paid_amount'),
