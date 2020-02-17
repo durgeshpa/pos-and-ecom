@@ -28,6 +28,8 @@ class CronToDeleteOrderedProductReserved(APIView):
             ro.order_product_reserved.save()
             ro.cart.cart_status = 'pending'
             ro.cart.save()
+            ro.reserve_status = 'free'
+            ro.save()
         return Response()
 
 def cron_to_delete_ordered_product_reserved(request):
