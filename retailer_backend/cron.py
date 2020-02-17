@@ -10,37 +10,26 @@ from django.db.models import Sum,Q
 from shops.models import Shop
 from services.models import ShopStock
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 class CronToDeleteOrderedProductReserved(APIView):
 
     permission_classes = (AllowAny,)
 
     def get(self, request):
-        if OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now(),reserve_status='reserved').exists():
-            for ordered_reserve in OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now(),reserve_status='reserved'):
-                ordered_reserve.order_product_reserved.available_qty = int(ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
-                ordered_reserve.order_product_reserved.save()
-
-                # Saving Cart as pending
-                ordered_reserve.cart.cart_status = 'pending'
-                ordered_reserve.cart.save()
-
-                # Deleted Cart
-                ordered_reserve.reserve_status = 'free'
-                ordered_reserve.save()
-
-        if GramOrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now(),reserve_status='reserved').exists():
-            for ordered_reserve in GramOrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now(),reserve_status='reserved'):
-                ordered_reserve.order_product_reserved.available_qty = int(ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
-                ordered_reserve.order_product_reserved.save()
-
-                # Saving Cart as pending
-                ordered_reserve.cart.cart_status = 'pending'
-                ordered_reserve.cart.save()
-
-                # Deleted Cart
-                ordered_reserve.reserve_status = 'free'
-                ordered_reserve.save()
+        reserved_orders = OrderedProductReserved.objects.filter(order_reserve_end_time__lte=timezone.now(),reserve_status='reserved')
+        reserved_orders.update(reserve_status='clearing')
+        reserved_orders = OrderedProductReserved.objects.filter(reserve_status='clearing')
+        for ro in reserved_orders:
+            logger.exception("reserve order {}".format(ro.id))
+            ro.order_product_reserved.available_qty = int(ro.order_product_reserved.available_qty) + int(ro.reserved_qty)
+            ro.order_product_reserved.save()
+            ro.cart.cart_status = 'pending'
+            ro.cart.save()
+            ro.reserve_status = 'free'
+            ro.save()
         return Response()
 
 def cron_to_delete_ordered_product_reserved(request):
