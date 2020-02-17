@@ -1527,7 +1527,9 @@ class InvoiceAdmin(admin.ModelAdmin):
         ('shipment__order__created_at', OrderCreatedAt))
 
     def invoice_data_excel_action(self, request, queryset):
-        return create_invoice_data_excel(request, queryset, RoundAmount, ShipmentPayment)
+        return create_invoice_data_excel(request, queryset, RoundAmount,
+                                         ShipmentPayment, OrderedProduct, Trip,
+                                         Order)
     invoice_data_excel_action.short_description = "Download CSV of selected Invoices"
 
     def get_invoice_amount(self, obj):
