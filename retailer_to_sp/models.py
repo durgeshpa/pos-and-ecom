@@ -491,11 +491,24 @@ class BulkOrder(models.Model):
 @receiver(post_save, sender=Cart)
 def create_order_id(sender, instance=None, created=False, **kwargs):
     if created:
-        instance.order_id = order_id_pattern(
-                                    sender, 'order_id', instance.pk,
-                                    instance.seller_shop.
-                                    shop_name_address_mapping.filter(
-                                        address_type='billing').last().pk)
+        if instance.cart_type == 'RETAIL':
+            instance.order_id = order_id_pattern(
+                                        sender, 'order_id', instance.pk,
+                                        instance.seller_shop.
+                                        shop_name_address_mapping.filter(
+                                            address_type='billing').last().pk)
+        elif instance.cart_type == 'BULK':
+            instance.order_id = order_id_pattern_bulk(
+                                        sender, 'order_id', instance.pk,
+                                        instance.seller_shop.
+                                        shop_name_address_mapping.filter(
+                                            address_type='billing').last().pk)
+        elif instance.cart_type == 'DISCOUNTED':
+            instance.order_id = order_id_pattern_discounted(
+                                        sender, 'order_id', instance.pk,
+                                        instance.seller_shop.
+                                        shop_name_address_mapping.filter(
+                                            address_type='billing').last().pk)
         instance.save()
 
 @receiver(post_save, sender=BulkOrder)
@@ -1195,7 +1208,7 @@ class OrderedProduct(models.Model): #Shipment
     )
     order = models.ForeignKey(
         Order, related_name='rt_order_order_product',
-        on_delete=models.DO_NOTHING, null=True, blank=True, limit_choices_to= Q(ordered_cart__cart_type = 'RETAIL') | Q(ordered_cart__cart_type = 'DISCOUNTED', ordered_cart__approval_status = True)
+        on_delete=models.DO_NOTHING, null=True, blank=True, limit_choices_to= Q(ordered_cart__cart_type = 'RETAIL') | Q(ordered_cart__cart_type = 'BULK') | Q(ordered_cart__cart_type = 'DISCOUNTED', ordered_cart__approval_status = True)
     )
     shipment_status = models.CharField(
         max_length=50, choices=SHIPMENT_STATUS,
@@ -1740,13 +1753,15 @@ class OrderedProductMapping(models.Model):
     def get_effective_price(self):
         return round(self.effective_price,2)
 
-
+    def get_discounted_price(self):
+        return round(self.discounted_price,2)
 
     def save(self, *args, **kwargs):
         if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.shipped_qty != sum([self.delivered_qty, self.returned_qty, self.damaged_qty]):
             raise ValidationError(_('delivered, returned, damaged qty sum mismatched with shipped_qty'))
         else:
             self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().item_effective_prices
+            self.discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().discounted_price
             super().save(*args, **kwargs)
 
 

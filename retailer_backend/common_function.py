@@ -114,6 +114,12 @@ def po_pattern(model, field, instance_id, address):
 def order_id_pattern(model, field, instance_id, address):
     return common_pattern(model, field, instance_id, address, "OR")
 
+def order_id_pattern_discounted(model, field, instance_id, address):
+    return common_pattern(model, field, instance_id, address, "DOR")
+
+def order_id_pattern_bulk(model, field, instance_id, address):
+    return common_pattern(model, field, instance_id, address, "BOR")
+
 
 def payment_id_pattern(model, field, instance_id, address):
     return common_pattern(model, field, instance_id, address, "PA")
@@ -163,9 +169,6 @@ def brand_credit_note_pattern(model, field, instance_id, address):
 
 def discounted_credit_note_pattern(model, field, instance_id, address):
     return common_pattern(model, field, instance_id, address, "DCN")
-
-
-
 
 def getcredit_note_id(c_num, invoice_pattern):
     starts_with = invoice_pattern
