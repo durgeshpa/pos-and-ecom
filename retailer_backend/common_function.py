@@ -162,7 +162,9 @@ def brand_credit_note_pattern(model, field, instance_id, address):
     return common_pattern(model, field, instance_id, address, "CN")
 
 def discounted_credit_note_pattern(model, field, instance_id, address):
-    return common_pattern(model, field, instance_id, address, "DCN")
+    return common_pattern(model, field, instance_id, address, "DCN")]
+
+
 
 
 def getcredit_note_id(c_num, invoice_pattern):
@@ -206,5 +208,21 @@ def generate_invoice_number(field, instance_id, address, invoice_amount):
     instance, created = RetailerToSPModels.Invoice.objects.get_or_create(shipment_id=instance_id)
     if created:
         invoice_no = common_pattern(RetailerToSPModels.Invoice, field, instance_id, address, "IV", is_invoice=True)
+        instance.invoice_no=invoice_no
+        instance.save()
+
+@task
+def generate_invoice_number_discounted_order(field, instance_id, address, invoice_amount):
+    instance, created = RetailerToSPModels.Invoice.objects.get_or_create(shipment_id=instance_id)
+    if created:
+        invoice_no = common_pattern(RetailerToSPModels.Invoice, field, instance_id, address, "DIV", is_invoice=True)
+        instance.invoice_no=invoice_no
+        instance.save()
+
+@task
+def generate_invoice_number_bulk_order(field, instance_id, address, invoice_amount):
+    instance, created = RetailerToSPModels.Invoice.objects.get_or_create(shipment_id=instance_id)
+    if created:
+        invoice_no = common_pattern(RetailerToSPModels.Invoice, field, instance_id, address, "BIV", is_invoice=True)
         instance.invoice_no=invoice_no
         instance.save()

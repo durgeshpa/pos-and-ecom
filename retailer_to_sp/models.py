@@ -1412,11 +1412,25 @@ class OrderedProduct(models.Model): #Shipment
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        if self.shipment_status == OrderedProduct.READY_TO_SHIP:
-            CommonFunction.generate_invoice_number(
-                'invoice_no', self.pk,
-                self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
-                self.invoice_amount)
+        if self.order.ordered_cart.cart_type == 'RETAIL':
+            if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+                CommonFunction.generate_invoice_number(
+                    'invoice_no', self.pk,
+                    self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
+                    self.invoice_amount)
+        elif self.order.ordered_cart.cart_type == 'DISCOUNTED':
+            if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+                CommonFunction.generate_invoice_number_discounted_order(
+                    'invoice_no', self.pk,
+                    self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
+                    self.invoice_amount)
+        elif self.order.ordered_cart.cart_type == 'BULK':
+            if self.shipment_status == OrderedProduct.READY_TO_SHIP:
+                CommonFunction.generate_invoice_number_bulk_order(
+                    'invoice_no', self.pk,
+                    self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
+                    self.invoice_amount)
+
         if self.no_of_crates == None:
             self.no_of_crates = 0
         if self.no_of_packets == None:
