@@ -116,7 +116,7 @@ def order_id_pattern(model, field, instance_id, address):
 
 
 def payment_id_pattern(model, field, instance_id, address):
-    return common_pattern(model, field, instance_id, address, "PA")    
+    return common_pattern(model, field, instance_id, address, "PA")
 
 
 def order_id_pattern_r_gram(order_id):
@@ -160,6 +160,9 @@ def brand_debit_note_pattern(model, field, instance_id, address):
 
 def brand_credit_note_pattern(model, field, instance_id, address):
     return common_pattern(model, field, instance_id, address, "CN")
+
+def discounted_credit_note_pattern(model, field, instance_id, address):
+    return common_pattern(model, field, instance_id, address, "DCN")
 
 
 def getcredit_note_id(c_num, invoice_pattern):

@@ -730,7 +730,7 @@ class BulkCartForm(forms.ModelForm):
     )
     class Meta:
         model = BulkOrder
-        fields = ('seller_shop', 'buyer_shop', 'shipping_address', 'billing_address', 'cart_products_csv')
+        fields = ('seller_shop', 'buyer_shop', 'shipping_address', 'billing_address', 'cart_products_csv', 'order_type')
 
     def __init__(self, *args, **kwargs):
         super(BulkCartForm, self).__init__(*args, **kwargs)
@@ -756,6 +756,10 @@ class BulkCartForm(forms.ModelForm):
                 if not row[2] or not re.match("^[\d\,]*$", row[2]):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY']%("qty"))
+                if self.cleaned_data['order_type'] == 'DISCOUNTED':
+                    if not row[3] or not re.match("^[\d\,]*$", row[2]):
+                        raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
+                        'EMPTY']%("discounted_price"))
 
         return self.cleaned_data
 

@@ -419,12 +419,16 @@ class AddToCart(APIView):
                                        cart_status__in=['active', 'pending']).exists():
                     cart = Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
                                                cart_status__in=['active', 'pending']).last()
+                    cart.cart_type = 'Retail'
+                    cart.approval_status = False
                     cart.cart_status = 'active'
                     cart.seller_shop = parent_mapping.parent
                     cart.buyer_shop = parent_mapping.retailer
                     cart.save()
                 else:
                     cart = Cart(last_modified_by=self.request.user, cart_status='active')
+                    cart.cart_type = 'Retail'
+                    cart.approval_status = False
                     cart.seller_shop = parent_mapping.parent
                     cart.buyer_shop = parent_mapping.retailer
                     cart.save()
@@ -1007,7 +1011,7 @@ class DownloadInvoiceSP(APIView):
         total_amount = shipment.invoice_amount
         total_amount_int = total_amount
 
-        data = {"shipment": shipment,"order": shipment.order, 
+        data = {"shipment": shipment,"order": shipment.order,
                 "url":request.get_host(), "scheme": request.is_secure() and "https" or "http" ,
                 "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,
                 "barcode":barcode,"product_listing":product_listing,
@@ -1257,7 +1261,7 @@ class ShipmentDeliveryBulkUpdate(APIView):
             if not products.exists():
                 return Response(msg, status=status.HTTP_400_BAD_REQUEST)
 
-            #products = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)           
+            #products = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
             for item in products:
                 item.delivered_qty = item.shipped_qty - (int(item.returned_qty) + int(item.damaged_qty))
                 item.save()
@@ -1491,7 +1495,7 @@ class RescheduleReason(generics.ListCreateAPIView):
             products = ShipmentProducts.objects.filter(ordered_product__id=request.data.get('shipment'))
             for item in products:
                 item.delivered_qty = item.returned_qty = item.damaged_qty = 0
-                item.save()            
+                item.save()
             self.update_shipment(request.data.get('shipment'))
             update_trip_status(request.data.get('trip'))
             msg = {'is_success': True, 'message': None, 'response_data': serializer.data}
