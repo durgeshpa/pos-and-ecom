@@ -162,7 +162,7 @@ def brand_credit_note_pattern(model, field, instance_id, address):
     return common_pattern(model, field, instance_id, address, "CN")
 
 def discounted_credit_note_pattern(model, field, instance_id, address):
-    return common_pattern(model, field, instance_id, address, "DCN")]
+    return common_pattern(model, field, instance_id, address, "DCN")
 
 
 
