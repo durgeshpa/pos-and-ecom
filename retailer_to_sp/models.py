@@ -625,8 +625,8 @@ class Order(models.Model):
     DENIED_AND_CLOSED = 'denied_and_closed'
 
     ORDER_STATUS = (
-        (ORDERED, 'Order Placed'),
-        ('DISPATCH_PENDING', 'Dispatch Pending'),
+        (ORDERED, 'Order Placed'), #1
+        ('DISPATCH_PENDING', 'Dispatch Pending'), #2
         (ACTIVE, "Active"),
         (PENDING, "Pending"),
         (DELETED, "Deleted"),
@@ -636,8 +636,8 @@ class Order(models.Model):
         (CLOSED, "Closed"),
         (PDAP, "Payment Done Approval Pending"),
         (ORDER_PLACED_DISPATCH_PENDING, "Order Placed Dispatch Pending"),
-        ('PARTIALLY_SHIPPED', 'Partially Shipped'),
-        ('SHIPPED', 'Shipped'),
+        ('PARTIALLY_SHIPPED', 'Partially Shipped'), #3
+        ('SHIPPED', 'Shipped'), #4
         ('CANCELLED', 'Cancelled'),
         ('DENIED', 'Denied'),
         (PAYMENT_DONE_APPROVAL_PENDING, "Payment Done Approval Pending"),
@@ -1424,7 +1424,7 @@ class Invoice(models.Model):
     @property
     def invoice_amount(self):
         try:
-            inv_amount = self.shipment.rt_order_product_order_product_mapping.annotate(item_amount=F('set_effective_price')*F('shipped_qty')).aggregate(invoice_amount=Sum('item_amount')).get('invoice_amount')
+            inv_amount = self.shipment.rt_order_product_order_product_mapping.annotate(item_amount=F('effective_price')*F('shipped_qty')).aggregate(invoice_amount=Sum('item_amount')).get('invoice_amount')
         except:
             inv_amount = self.shipment.invoice_amount
         return inv_amount

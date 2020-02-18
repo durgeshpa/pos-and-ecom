@@ -582,39 +582,28 @@ class ShipmentForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(ShipmentForm, self).__init__(*args, **kwargs)
         # order with status picking pending
+        setattr(self.fields['close_order'], 'initial', True)
+        setattr(self.fields['close_order'], 'disabled', True)
 
-        if not get_current_user().is_superuser:
-            ordered_product = getattr(self, 'instance', None)
-            SHIPMENT_STATUS = OrderedProduct.SHIPMENT_STATUS
-            if ordered_product:
-                shipment_status = ordered_product.shipment_status
-                if shipment_status == 'SHIPMENT_CREATED':
-                    self.fields['shipment_status'].choices = SHIPMENT_STATUS[:2]
-                elif shipment_status == 'READY_TO_SHIP':
-                    setattr(self.fields['close_order'], 'disabled', True)
-                    self.fields['shipment_status'].disabled = True
-                elif shipment_status == 'CANCELLED':
-                    setattr(self.fields['close_order'], 'disabled', True)
-                    self.fields['shipment_status'].disabled = True
-                if ordered_product.order.order_closed:
-                    setattr(self.fields['close_order'], 'initial', True)
-                    setattr(self.fields['close_order'], 'disabled', True)
+        ordered_product = getattr(self, 'instance', None)
+        SHIPMENT_STATUS = OrderedProduct.SHIPMENT_STATUS
+        if ordered_product:
+            shipment_status = ordered_product.shipment_status
+            if shipment_status == 'SHIPMENT_CREATED':
+                self.fields['shipment_status'].choices = SHIPMENT_STATUS[:2]
             else:
-                self.fields['shipment_status'].choices = SHIPMENT_STATUS[:1]
+                self.fields['shipment_status'].disabled = True
+        else:
+            self.fields['shipment_status'].choices = SHIPMENT_STATUS[:1]
 
     def clean(self):
         data = self.cleaned_data
-        # if self.instance and self.cleaned_data['shipment_status']=='SHIPMENT_CREATED' and \
-        #     self.instance.order.picker_order.last().picking_status != "picking_assigned":
-        #     raise forms.ValidationError(_("Please set the picking status in picker dashboard"),)
-
+        if self.instance and self.instance.order.order_closed:
+            return data
         if (data['close_order'] and
-                not data['shipment_status'] == OrderedProduct.READY_TO_SHIP):
+                data['shipment_status'] != OrderedProduct.READY_TO_SHIP):
                 raise forms.ValidationError(
                     _('You can only close the order in QC Passed state'),)
-
-        order_closed_status = ['denied_and_closed', 'partially_shipped_and_closed',
-                               'DENIED', 'CANCELLED', 'CLOSED', 'deleted']
         return data
 
 
@@ -967,3 +956,8 @@ class OrderForm(forms.ModelForm):
             if instance.order_status == 'CANCELLED':
                 self.fields['order_status'].disabled = True
                 self.fields['cancellation_reason'].disabled = True
+            else:
+                order_status_choices = tuple(set(
+                    [i for i in Order.ORDER_STATUS if i[0] == 'opdp'] +
+                    [('CANCELLED', 'Cancelled')]))
+                self.fields['order_status'].choices = order_status_choices
