@@ -218,7 +218,13 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
 
     def get_serializer_context(self):
         shipment = self.request.data.get('shipment')
-        shipment = OrderedProduct.objects.get(pk=int(shipment))
+        shipment = OrderedProduct.objects.filter(pk=int(shipment))
+        if not shipment.exists():
+            msg = {'is_success': False,
+                   'message': ['Shipment ID is not valid.'],
+                   'response_data': None,
+                   'is_pan_required': False}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
         order = shipment.order
         paid_by = shipment.order.buyer_shop.shop_owner
         processed_by = self.request.user
@@ -232,10 +238,10 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
         return context
 
     def create(self, request, *args, **kwargs):
-        shipment = request.data.get('shipment')
-        shipment = OrderedProduct.objects.get(pk=int(shipment))
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
+            shipment = request.data.get('shipment')
+            shipment = OrderedProduct.objects.get(pk=int(shipment))
             self.perform_create(serializer)
             msg = {'is_success': True,
                    'message': ["Payment created successfully"],
@@ -247,7 +253,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
             msg = {'is_success': False,
                    'message': serializer.errors,
                    'response_data': None,
-                   'is_pan_required': self.is_pan_required(shipment)}
+                   'is_pan_required': False}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
 
