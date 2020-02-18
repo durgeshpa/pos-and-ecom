@@ -202,15 +202,13 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
 
     def get_exception_handler(self):
         default_handler = super().get_exception_handler()
-        shipment = self.request.data.get('shipment')
-        shipment = OrderedProduct.objects.get(pk=int(shipment))
 
         def handle_exception(exc, context):
             if isinstance(exc, APIException):
                 msg = {'is_success': False,
                        'message': exc.detail,
                        'response_data': None,
-                       'is_pan_required': self.is_pan_required(shipment)}
+                       'is_pan_required': False}
                 return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
             else:
                 return default_handler(exc, context)
