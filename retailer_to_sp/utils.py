@@ -324,8 +324,8 @@ def create_invoice_data_excel(request, queryset, RoundAmount, ShipmentPayment,
     writer.writerow([
         'Invoice No.', 'Invoice Created At', 'Invoice Amount',
         'Shipment Status', 'Order No.', 'Order Date', 'Order Status',
-        'Trip No.', 'Trip Status', 'Trip Started At',
-        'Trip Completed At', 'Paid Amount', 'CN Amount'])
+        'Trip No.', 'Trip Status', 'Delivery Started At',
+        'Delivery Completed At', 'Paid Amount', 'CN Amount'])
 
     invoices = queryset\
         .annotate(
