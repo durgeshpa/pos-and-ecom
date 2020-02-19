@@ -451,7 +451,7 @@ class ProductTaxMapping(models.Model):
     status = models.BooleanField(default=True)
 
     def __str__(self):
-        return self.tax.tax_name
+        return "{}-{}".format(self.product, self.tax.tax_name)
 
     def get_products_gst_tax(self):
         return self.product.product_pro_tax.filter(tax__tax_type='gst')
