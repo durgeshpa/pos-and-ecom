@@ -517,7 +517,7 @@ def create_offers(sender, instance=None, created=False, **kwargs):
 def create_credit_note(instance=None, created=False, **kwargs):
     if created:
         return None
-    if instance.order.oredered_cart.approval_status == True:
+    if instance.order.ordered_cart.approval_status == True:
         invoice_prefix = instance.order.seller_shop.invoice_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
         last_credit_note = CreditNote.objects.filter(shop=instance.order.seller_shop, starts_with = 'GD', status=True).order_by('credit_note_id').last()
         if last_credit_note:
