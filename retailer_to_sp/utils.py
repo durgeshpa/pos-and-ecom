@@ -322,7 +322,7 @@ def create_invoice_data_excel(request, queryset, RoundAmount, ShipmentPayment,
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     writer.writerow([
-        'Invoice No.', 'Invoice Created At', 'Invoice Amount',
+        'Invoice No.', 'Created At', 'Invoice Amount',
         'Shipment Status', 'Order No.', 'Order Date', 'Order Status',
         'Trip No.', 'Trip Status', 'Delivery Started At',
         'Delivery Completed At', 'Paid Amount', 'CN Amount'])
