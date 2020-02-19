@@ -563,6 +563,9 @@ class ProductCappingAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+class ProductTaxAdmin(admin.ModelAdmin, ExportCsvMixin):
+    search_fields = ['product__product_name']
+
 admin.site.register(ProductImage, ProductImageMainAdmin)
 admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)
 admin.site.register(Size, SizeAdmin)
@@ -576,3 +579,4 @@ admin.site.register(Product, ProductAdmin)
 admin.site.register(ProductPrice, ProductPriceAdmin)
 admin.site.register(ProductHSN, ProductHSNAdmin)
 admin.site.register(ProductCapping, ProductCappingAdmin)
+admin.site.register(ProductTaxMapping,ProductTaxAdmin)
