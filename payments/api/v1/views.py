@@ -223,6 +223,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                    'response_data': None,
                    'is_pan_required': False}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+        shipment = shipment.last()
         order = shipment.order
         paid_by = shipment.order.buyer_shop.shop_owner
         processed_by = self.request.user
