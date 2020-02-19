@@ -514,7 +514,7 @@ def create_offers(sender, instance=None, created=False, **kwargs):
 
 
 @receiver(post_save, sender=RetailerShipment)
-def create_credit_note_discounted_order(instance=None, created=False, **kwargs):
+def create_credit_note(instance=None, created=False, **kwargs):
     if created:
         return None
     if instance.order.oredered_cart.approval_status == True:
