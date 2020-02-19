@@ -519,7 +519,7 @@ def create_credit_note(instance=None, created=False, **kwargs):
         return None
     if instance.order.ordered_cart.approval_status == True:
         invoice_prefix = instance.order.seller_shop.invoice_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
-        last_credit_note = CreditNote.objects.filter(shop=instance.order.seller_shop, starts_with = 'GD', status=True).order_by('credit_note_id').last()
+        last_credit_note = CreditNote.objects.filter(shop=instance.order.seller_shop, status=True).order_by('credit_note_id').last()
         if last_credit_note:
             note_id = discounted_credit_note_pattern(
                         CreditNote, 'credit_note_id', None,
