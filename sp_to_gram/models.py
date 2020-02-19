@@ -514,10 +514,10 @@ def create_offers(sender, instance=None, created=False, **kwargs):
 
 
 @receiver(post_save, sender=RetailerShipment)
-def create_credit_note(instance=None, created=False, **kwargs):
+def create_credit_note_discounted_order(instance=None, created=False, **kwargs):
     if created:
         return None
-    if instance.shipment_status == 'FULLY_DELIVERED_AND_COMPLETED' and instance.order.oredered_cart.approval_status == True:
+    if instance.order.oredered_cart.approval_status == True:
         invoice_prefix = instance.order.seller_shop.invoice_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
         last_credit_note = CreditNote.objects.filter(shop=instance.order.seller_shop, starts_with = 'GD', status=True).order_by('credit_note_id').last()
         if last_credit_note:

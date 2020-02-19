@@ -2172,11 +2172,24 @@ def assign_picklist(sender, instance=None, created=False, **kwargs):
 @receiver(post_save, sender=Cart)
 def create_order_id(sender, instance=None, created=False, **kwargs):
     if created:
-        instance.order_id = common_function.order_id_pattern(
-                                    sender, 'order_id', instance.pk,
-                                    instance.seller_shop.
-                                    shop_name_address_mapping.filter(
-                                        address_type='billing').last().pk)
+        if instance.cart_type == 'RETAIL':
+            instance.order_id = common_function.order_id_pattern(
+                                        sender, 'order_id', instance.pk,
+                                        instance.seller_shop.
+                                        shop_name_address_mapping.filter(
+                                            address_type='billing').last().pk)
+        elif instance.cart_type == 'BULK':
+            instance.order_id = common_function.order_id_pattern_bulk(
+                                        sender, 'order_id', instance.pk,
+                                        instance.seller_shop.
+                                        shop_name_address_mapping.filter(
+                                            address_type='billing').last().pk)
+        elif instance.cart_type == 'DISCOUNTED':
+            instance.order_id = common_function.order_id_pattern_discounted(
+                                        sender, 'order_id', instance.pk,
+                                        instance.seller_shop.
+                                        shop_name_address_mapping.filter(
+                                            address_type='billing').last().pk)
         instance.save()
 
 @receiver(post_save, sender=Payment)
