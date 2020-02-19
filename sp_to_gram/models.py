@@ -506,7 +506,7 @@ def create_credit_note_on_trip_close(trip_id):
                         ).last().selling_price
             credit_note.amount = credit_amount
             credit_note.save()
-        if shipment.order.ordered_cart.approval_status == True:
+        if instance.order.ordered_cart.approval_status == True:
             invoice_prefix = instance.order.seller_shop.invoice_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
             last_credit_note = CreditNote.objects.filter(shop=instance.order.seller_shop, status=True).order_by('credit_note_id').last()
             if last_credit_note:
@@ -547,104 +547,104 @@ def create_offers(sender, instance=None, created=False, **kwargs):
 
 
 # @receiver(post_save, sender=RetailerShipment)
-# def create_credit_note(instance=None, created=False, **kwargs):
-#     if created:
-#         return None
-#     if instance.order.ordered_cart.approval_status == True:
-#         invoice_prefix = instance.order.seller_shop.invoice_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
-#         last_credit_note = CreditNote.objects.filter(shop=instance.order.seller_shop, status=True).order_by('credit_note_id').last()
-#         if last_credit_note:
-#             note_id = discounted_credit_note_pattern(
-#                         CreditNote, 'credit_note_id', None,
-#                         instance.order.seller_shop.
-#                         shop_name_address_mapping.filter(
-#                                         address_type='billing'
-#                                         ).last().pk)
-#         else:
-#             note_id = discounted_credit_note_pattern(
-#                         CreditNote, 'credit_note_id', None,
-#                         instance.order.seller_shop.
-#                         shop_name_address_mapping.filter(
-#                                         address_type='billing'
-#                                         ).last().pk)
-#
-#         credit_amount = 0
-#         if instance.credit_note.count():
-#             credit_note = instance.credit_note.last()
-#         else:
-#             credit_note = CreditNote.objects.create(
-#                 shop = instance.order.seller_shop,
-#                 credit_note_id=note_id,
-#                 shipment = instance,
-#                 amount = 0,
-#                 status=True)
-#         for item in instance.rt_order_product_order_product_mapping.all():
-#             cart_product_map = instance.order.ordered_cart.rt_cart_list.filter(cart_product=item.product).last()
-#             credit_amount += ((cart_product_map.item_effective_prices - cart_product_map.discounted_price) * (item.returned_qty + item.damaged_qty))
-#         credit_note.amount = credit_amount
-#         credit_note.save()
-#         # if(instance.rt_order_product_order_product_mapping.last() and
-#         # instance.rt_order_product_order_product_mapping.all().aggregate(Sum('returned_qty')).get('returned_qty__sum') > 0 or
-#         # instance.rt_order_product_order_product_mapping.all().aggregate(Sum('damaged_qty')).get('damaged_qty__sum')>0):
-#         #     invoice_prefix = instance.order.seller_shop.invoice_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
-#         #     last_credit_note = CreditNote.objects.filter(shop=instance.order.seller_shop, starts_with = 'GC', status=True).order_by('credit_note_id').last()
-#         #     if last_credit_note:
-#         #         note_id = brand_credit_note_pattern(
-#         #                     CreditNote, 'credit_note_id', None,
-#         #                     instance.order.seller_shop.
-#         #                     shop_name_address_mapping.filter(
-#         #                                     address_type='billing'
-#         #                                     ).last().pk)
-#         #     else:
-#         #         note_id = brand_credit_note_pattern(
-#         #                     CreditNote, 'credit_note_id', None,
-#         #                     instance.order.seller_shop.
-#         #                     shop_name_address_mapping.filter(
-#         #                                     address_type='billing'
-#         #                                     ).last().pk)
-#         #
-#         #     credit_amount = 0
-#         #
-#         #     #cur_cred_note = brand_credit_note_pattern(note_id, invoice_prefix)
-#         #     if instance.credit_note.count():
-#         #         credit_note = instance.credit_note.last()
-#         #     else:
-#         #         credit_note = CreditNote.objects.create(
-#         #             shop = instance.order.seller_shop,
-#         #             credit_note_id=note_id,
-#         #             shipment = instance,
-#         #             amount = 0,
-#         #             status=True)
-#         #     OrderedProduct.objects.filter(credit_note=credit_note).update(status=OrderedProduct.DISABLED)
-#         #     credit_grn = OrderedProduct.objects.create(credit_note=credit_note)
-#         #     credit_grn.save()
-#         #
-#         #     manufacture_date = datetime.date.today() - relativedelta(months=+1)
-#         #     expiry_date = datetime.date.today() + relativedelta(months=+6)
-#         #
-#         #     for item in instance.rt_order_product_order_product_mapping.all():
-#         #         reserved_order = OrderedProductReserved.objects.filter(cart=instance.order.ordered_cart,
-#         #                                                              product=item.product, reserve_status=OrderedProductReserved.ORDERED).last()
-#         #         grn_item = OrderedProductMapping.objects.create(
-#         #             shop = instance.order.seller_shop,
-#         #             ordered_product=credit_grn,
-#         #             product=item.product,
-#         #             shipped_qty=item.returned_qty,
-#         #             available_qty=item.returned_qty,
-#         #             damaged_qty=item.damaged_qty,
-#         #             ordered_qty = item.returned_qty,
-#         #             delivered_qty = item.returned_qty,
-#         #             manufacture_date= reserved_order.order_product_reserved.manufacture_date if reserved_order else manufacture_date,
-#         #             expiry_date= reserved_order.order_product_reserved.expiry_date if reserved_order else expiry_date,
-#         #             )
-#         #         grn_item.save()
-#         #         try:
-#         #             cart_product_map = instance.order.ordered_cart.rt_cart_list.filter(cart_product=item.product).last()
-#         #             credit_amount += ((item.returned_qty + item.damaged_qty) * cart_product_map.item_effective_prices)
-#         #         except Exception as e:
-#         #             logger.exception("Product price not found for {} -- {}".format(item.product, e))
-#         #             credit_amount += Decimal(item.returned_qty) * item.product.product_pro_price.filter(
-#         #                 seller_shop=instance.order.seller_shop, approval_status=ProductPrice.APPROVED
-#         #                 ).last().selling_price
-#         #     credit_note.amount = credit_amount
-#         #     credit_note.save()
+def create_credit_note(instance=None, created=False, **kwargs):
+    if created:
+        return None
+    if instance.order.ordered_cart.approval_status == True:
+        invoice_prefix = instance.order.seller_shop.invoice_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
+        last_credit_note = CreditNote.objects.filter(shop=instance.order.seller_shop, status=True).order_by('credit_note_id').last()
+        if last_credit_note:
+            note_id = discounted_credit_note_pattern(
+                        CreditNote, 'credit_note_id', None,
+                        instance.order.seller_shop.
+                        shop_name_address_mapping.filter(
+                                        address_type='billing'
+                                        ).last().pk)
+        else:
+            note_id = discounted_credit_note_pattern(
+                        CreditNote, 'credit_note_id', None,
+                        instance.order.seller_shop.
+                        shop_name_address_mapping.filter(
+                                        address_type='billing'
+                                        ).last().pk)
+
+        credit_amount = 0
+        if instance.credit_note.count():
+            credit_note = instance.credit_note.last()
+        else:
+            credit_note = CreditNote.objects.create(
+                shop = instance.order.seller_shop,
+                credit_note_id=note_id,
+                shipment = instance,
+                amount = 0,
+                status=True)
+        for item in instance.rt_order_product_order_product_mapping.all():
+            cart_product_map = instance.order.ordered_cart.rt_cart_list.filter(cart_product=item.product).last()
+            credit_amount += ((cart_product_map.item_effective_prices - cart_product_map.discounted_price) * (item.returned_qty + item.damaged_qty))
+        credit_note.amount = credit_amount
+        credit_note.save()
+        # if(instance.rt_order_product_order_product_mapping.last() and
+        # instance.rt_order_product_order_product_mapping.all().aggregate(Sum('returned_qty')).get('returned_qty__sum') > 0 or
+        # instance.rt_order_product_order_product_mapping.all().aggregate(Sum('damaged_qty')).get('damaged_qty__sum')>0):
+        #     invoice_prefix = instance.order.seller_shop.invoice_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
+        #     last_credit_note = CreditNote.objects.filter(shop=instance.order.seller_shop, starts_with = 'GC', status=True).order_by('credit_note_id').last()
+        #     if last_credit_note:
+        #         note_id = brand_credit_note_pattern(
+        #                     CreditNote, 'credit_note_id', None,
+        #                     instance.order.seller_shop.
+        #                     shop_name_address_mapping.filter(
+        #                                     address_type='billing'
+        #                                     ).last().pk)
+        #     else:
+        #         note_id = brand_credit_note_pattern(
+        #                     CreditNote, 'credit_note_id', None,
+        #                     instance.order.seller_shop.
+        #                     shop_name_address_mapping.filter(
+        #                                     address_type='billing'
+        #                                     ).last().pk)
+        #
+        #     credit_amount = 0
+        #
+        #     #cur_cred_note = brand_credit_note_pattern(note_id, invoice_prefix)
+        #     if instance.credit_note.count():
+        #         credit_note = instance.credit_note.last()
+        #     else:
+        #         credit_note = CreditNote.objects.create(
+        #             shop = instance.order.seller_shop,
+        #             credit_note_id=note_id,
+        #             shipment = instance,
+        #             amount = 0,
+        #             status=True)
+        #     OrderedProduct.objects.filter(credit_note=credit_note).update(status=OrderedProduct.DISABLED)
+        #     credit_grn = OrderedProduct.objects.create(credit_note=credit_note)
+        #     credit_grn.save()
+        #
+        #     manufacture_date = datetime.date.today() - relativedelta(months=+1)
+        #     expiry_date = datetime.date.today() + relativedelta(months=+6)
+        #
+        #     for item in instance.rt_order_product_order_product_mapping.all():
+        #         reserved_order = OrderedProductReserved.objects.filter(cart=instance.order.ordered_cart,
+        #                                                              product=item.product, reserve_status=OrderedProductReserved.ORDERED).last()
+        #         grn_item = OrderedProductMapping.objects.create(
+        #             shop = instance.order.seller_shop,
+        #             ordered_product=credit_grn,
+        #             product=item.product,
+        #             shipped_qty=item.returned_qty,
+        #             available_qty=item.returned_qty,
+        #             damaged_qty=item.damaged_qty,
+        #             ordered_qty = item.returned_qty,
+        #             delivered_qty = item.returned_qty,
+        #             manufacture_date= reserved_order.order_product_reserved.manufacture_date if reserved_order else manufacture_date,
+        #             expiry_date= reserved_order.order_product_reserved.expiry_date if reserved_order else expiry_date,
+        #             )
+        #         grn_item.save()
+        #         try:
+        #             cart_product_map = instance.order.ordered_cart.rt_cart_list.filter(cart_product=item.product).last()
+        #             credit_amount += ((item.returned_qty + item.damaged_qty) * cart_product_map.item_effective_prices)
+        #         except Exception as e:
+        #             logger.exception("Product price not found for {} -- {}".format(item.product, e))
+        #             credit_amount += Decimal(item.returned_qty) * item.product.product_pro_price.filter(
+        #                 seller_shop=instance.order.seller_shop, approval_status=ProductPrice.APPROVED
+        #                 ).last().selling_price
+        #     credit_note.amount = credit_amount
+        #     credit_note.save()
