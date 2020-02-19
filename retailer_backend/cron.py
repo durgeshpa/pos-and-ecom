@@ -24,7 +24,6 @@ class CronToDeleteOrderedProductReserved(APIView):
             reserved_orders.update(reserve_status='clearing')
             reserved_orders = OrderedProductReserved.objects.filter(reserve_status='clearing')
             for ro in reserved_orders:
-                logger.exception("reserve order {}".format(ro.id))
                 ro.order_product_reserved.available_qty = int(ro.order_product_reserved.available_qty) + int(ro.reserved_qty)
                 ro.order_product_reserved.save()
                 ro.cart.cart_status = 'pending'
