@@ -536,7 +536,7 @@ def create_credit_note_on_trip_close(trip_id):
                     status=True)
             for item in shipment.rt_order_product_order_product_mapping.all():
                 cart_product_map = shipment.order.ordered_cart.rt_cart_list.filter(cart_product=item.product).last()
-                credit_amount += ((cart_product_map.item_effective_prices - cart_product_map.discounted_price) * (item.returned_qty + item.damaged_qty))
+                credit_amount += ((cart_product_map.item_effective_prices - cart_product_map.discounted_price) * (item.delivered_qty))
             credit_note.amount = credit_amount
             credit_note.save()
 
