@@ -507,35 +507,35 @@ def create_credit_note_on_trip_close(trip_id):
             credit_note.amount = credit_amount
             credit_note.save()
         if shipment.order.ordered_cart.approval_status == True:
-            invoice_prefix = instance.order.seller_shop.invoice_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
-            last_credit_note = CreditNote.objects.filter(shop=instance.order.seller_shop, status=True).order_by('credit_note_id').last()
+            invoice_prefix = shipment.order.seller_shop.invoice_pattern.filter(status=ShopInvoicePattern.ACTIVE).last().pattern
+            last_credit_note = CreditNote.objects.filter(shop=shipment.order.seller_shop, status=True).order_by('credit_note_id').last()
             if last_credit_note:
                 note_id = discounted_credit_note_pattern(
                             CreditNote, 'credit_note_id', None,
-                            instance.order.seller_shop.
+                            shipment.order.seller_shop.
                             shop_name_address_mapping.filter(
                                             address_type='billing'
                                             ).last().pk)
             else:
                 note_id = discounted_credit_note_pattern(
                             CreditNote, 'credit_note_id', None,
-                            instance.order.seller_shop.
+                            shipment.order.seller_shop.
                             shop_name_address_mapping.filter(
                                             address_type='billing'
                                             ).last().pk)
 
             credit_amount = 0
-            if instance.credit_note.count():
-                credit_note = instance.credit_note.last()
+            if shipment.credit_note.count():
+                credit_note = shipment.credit_note.last()
             else:
                 credit_note = CreditNote.objects.create(
-                    shop = instance.order.seller_shop,
+                    shop = shipment.order.seller_shop,
                     credit_note_id=note_id,
-                    shipment = instance,
+                    shipment = shipment,
                     amount = 0,
                     status=True)
-            for item in instance.rt_order_product_order_product_mapping.all():
-                cart_product_map = instance.order.ordered_cart.rt_cart_list.filter(cart_product=item.product).last()
+            for item in shipment.rt_order_product_order_product_mapping.all():
+                cart_product_map = shipment.order.ordered_cart.rt_cart_list.filter(cart_product=item.product).last()
                 credit_amount += ((cart_product_map.item_effective_prices - cart_product_map.discounted_price) * (item.returned_qty + item.damaged_qty))
             credit_note.amount = credit_amount
             credit_note.save()
