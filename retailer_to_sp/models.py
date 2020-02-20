@@ -469,7 +469,7 @@ class BulkOrder(models.Model):
             for id,row in enumerate(reader):
                 for row in reader:
                     if row[0]:
-                        product = Product.objects.get(id=int(row[0]))
+                        product = Product.objects.get(product_sku=row[0])
                         product_price = product.get_current_shop_price(self.seller_shop, self.buyer_shop)
                         if not product_price:
                             raise ValidationError(_("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Product Price Not Available"))
