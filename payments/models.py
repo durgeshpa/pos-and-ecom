@@ -143,6 +143,7 @@ class PaymentImage(models.Model):
 
 #if prepaid then its against order, else shipment
 # replace order with user
+
 class Payment(AbstractDateTime):
     order = models.ManyToManyField(Order, through="OrderPayment", related_name='order_payment_data')
     #order = models.ForeignKey(Order, related_name='order_payment_data', on_delete=models.CASCADE)

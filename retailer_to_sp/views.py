@@ -97,6 +97,7 @@ class DownloadCreditNote(APIView):
         sum_amount = 0
         tax_inline = 0
         product_tax_amount=0
+        igst, cgst, sgst, cess, surcharge = 0,0,0,0,0
         taxes_list = []
         gst_tax_list = []
         cess_tax_list = []
