@@ -2095,7 +2095,7 @@ class Note(models.Model):
     @property
     def note_amount(self):
         if self.shipment:
-            return round(amount, 2)
+            return round(self.amount, 2)
 
 
 

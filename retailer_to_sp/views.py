@@ -138,7 +138,7 @@ class DownloadCreditNote(APIView):
                 cess = sum(cess_tax_list)
                 surcharge = sum(surcharge_tax_list)
 
-        total_amount = credit_note.return_note_amount
+        total_amount = credit_note.note_amount
 
         data = {
             "object": credit_note,
