@@ -1,3 +1,9 @@
+import io
+import xlsxwriter
+import csv
+import codecs
+import datetime
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
@@ -5,6 +11,8 @@ from rest_framework.permissions import AllowAny
 from django.utils.html import format_html_join, format_html
 from django.utils.safestring import mark_safe
 from django.urls import reverse
+from django.http import HttpResponse
+from django.db.models import Sum, F, FloatField, OuterRef, Subquery
 
 from products.models import Product
 
@@ -238,3 +246,119 @@ def reschedule_shipment_button(obj):
         (reverse('admin:retailer_to_sp_shipmentrescheduling_add'),
          obj.id)
     )
+
+
+def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment):
+    filename = "Orders_data_{}.csv".format(datetime.date.today())
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow([
+        'Order No', 'Order Status', 'Seller Shop ID', 'Seller Shop Name', 'Buyer Shop ID',
+        'Buyer Shop Name', 'Mobie No.(Buyer Shop)', 'City(Buyer Shop)',
+        'Pincode(Buyer Shop)', 'Total MRP', 'Total Final Price',
+        'Order Paid Amount', 'Invoice No', 'Shipment Status',
+        'Shipment Created At', 'Shipment QC passed At', 'Shipment Paid Amount',
+        'Picking Status', 'Picklist ID', 'Picker Boy'])
+
+    orders = queryset\
+        .annotate(total_mrp_amount=Sum(F('ordered_cart__rt_cart_list__no_of_pieces') * F('ordered_cart__rt_cart_list__cart_product_price__mrp'), output_field=FloatField()),
+                  total_final_amount=Sum(F('ordered_cart__rt_cart_list__no_of_pieces') * F('ordered_cart__rt_cart_list__cart_product_price__selling_price'), output_field=FloatField()),
+                  shipment_paid_amount=Subquery(ShipmentPayment.objects.filter(parent_order_payment__order=OuterRef('pk')).annotate(sum=Sum('paid_amount')).values('sum')[:1]),
+                  order_paid_amount=Subquery(OrderPayment.objects.filter(order=OuterRef('pk')).annotate(sum=Sum('paid_amount')).values('sum')[:1]))\
+        .values('order_no', 'order_status', 'seller_shop_id', 'seller_shop__shop_name', 'buyer_shop_id',
+                'buyer_shop__shop_name', 'buyer_shop__shop_owner__phone_number',
+                'shipping_address__city__city_name',
+                'shipping_address__pincode_link__pincode',
+                'rt_order_order_product__invoice__invoice_no',
+                'rt_order_order_product__shipment_status',
+                'rt_order_order_product__created_at',
+                'rt_order_order_product__invoice__created_at',
+                'rt_order_order_product__picker_shipment__picking_status',
+                'rt_order_order_product__picker_shipment__picklist_id',
+                'rt_order_order_product__picker_shipment__picker_boy__phone_number',
+                'shipment_paid_amount',
+                'order_paid_amount',
+                'total_mrp_amount', 'ordered_cart__offers',
+                'total_final_amount')
+    for order in orders.iterator():
+        offers = order.get('ordered_cart__offers')
+        if offers:
+            total_final_amount = sum([i.get('discounted_product_subtotal', 0) for i in offers])
+        else:
+            total_final_amount = order.get('total_final_amount')
+        writer.writerow([
+            order.get('order_no'),
+            order.get('order_status'),
+            order.get('seller_shop_id'),
+            order.get('seller_shop__shop_name'),
+            order.get('buyer_shop_id'),
+            order.get('buyer_shop__shop_name'),
+            order.get('buyer_shop__shop_owner__phone_number'),
+            order.get('shipping_address__city__city_name'),
+            order.get('shipping_address__pincode_link__pincode'),
+            order.get('total_mrp_amount'),
+            total_final_amount,
+            order.get('order_paid_amount'),
+            order.get('rt_order_order_product__invoice__invoice_no'),
+            order.get('rt_order_order_product__shipment_status'),
+            order.get('rt_order_order_product__created_at'),
+            order.get('rt_order_order_product__invoice__created_at'),
+            order.get('shipment_paid_amount'),
+            order.get('rt_order_order_product__picker_shipment__picking_status'),
+            order.get('rt_order_order_product__picker_shipment__picklist_id'),
+            order.get('rt_order_order_product__picker_shipment__picker_boy__phone_number'),
+        ])
+    return response
+
+
+def create_invoice_data_excel(request, queryset, RoundAmount, ShipmentPayment,
+                              OrderedProduct, Trip, Order):
+    shipment_status_dict = dict(OrderedProduct.SHIPMENT_STATUS)
+    order_status_dict = dict(Order.ORDER_STATUS)
+    trip_status_dict = dict(Trip.TRIP_STATUS)
+    filename = "Invoice_data_{}.csv".format(datetime.date.today())
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    writer = csv.writer(response)
+    writer.writerow([
+        'Invoice No.', 'Created At', 'Invoice Amount',
+        'Shipment Status', 'Order No.', 'Order Date', 'Order Status',
+        'Trip No.', 'Trip Status', 'Delivery Started At',
+        'Delivery Completed At', 'Paid Amount', 'CN Amount'])
+
+    invoices = queryset\
+        .annotate(
+            get_order=F('shipment__order__order_no'), shipment_status=F('shipment__shipment_status'),
+            trip_no=F('shipment__trip__dispatch_no'), trip_status=F('shipment__trip__trip_status'),
+            order_date=F('shipment__order__created_at'), order_status=F('shipment__order__order_status'),
+            trip_started_at=F('shipment__trip__starts_at'), trip_completed_at=F('shipment__trip__completed_at'),
+            shipment_paid_amount=Subquery(ShipmentPayment.objects.filter(shipment__invoice__id=OuterRef('pk')).annotate(sum=Sum('paid_amount')).values('sum')[:1]),
+            cn_amount=F('shipment__credit_note__amount'),
+            invoice_amount=RoundAmount(Sum(
+                F('shipment__rt_order_product_order_product_mapping__effective_price') * 
+                F('shipment__rt_order_product_order_product_mapping__shipped_qty'),
+                output_field=FloatField())))\
+        .values(
+            'invoice_no', 'created_at', 'invoice_amount', 'shipment_status',
+            'get_order', 'order_date', 'order_status', 'trip_no',
+            'trip_status', 'trip_started_at', 'trip_completed_at',
+            'shipment_paid_amount', 'cn_amount'
+        )
+    for invoice in invoices.iterator():
+        writer.writerow([
+            invoice.get('invoice_no'),
+            invoice.get('created_at'),
+            invoice.get('invoice_amount'),
+            shipment_status_dict.get(invoice.get('shipment_status'), invoice.get('shipment_status')),
+            invoice.get('get_order'),
+            invoice.get('order_date'),
+            order_status_dict.get(invoice.get('order_status'), invoice.get('order_status')),
+            invoice.get('trip_no'),
+            trip_status_dict.get(invoice.get('trip_status'), invoice.get('trip_status')),
+            invoice.get('trip_started_at'),
+            invoice.get('trip_completed_at'),
+            invoice.get('shipment_paid_amount'),
+            invoice.get('cn_amount'),
+        ])
+    return response
