@@ -541,7 +541,7 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                                  qty = int(row[2]),
                                  no_of_pieces = int(row[2]) * int(product.product_inner_case_size),
                                  cart_product_price=product_price,
-                                 discounted_price = int(row[3]))
+                                 discounted_price = float(row[3]))
                             else:
                                 CartProductMapping.objects.create(cart=instance.cart,cart_product__product_sku = row[0],
                                  qty = int(row[2]),
