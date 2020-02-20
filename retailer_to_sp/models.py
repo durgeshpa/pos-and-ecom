@@ -2069,6 +2069,13 @@ class ReturnProductMapping(models.Model):
         )
 
 class Note(models.Model):
+    RETURN = 'RETURN'
+    DISCOUNTED = 'DISCOUNTED'
+
+    CREDIT_NOTE_CHOICES = (
+        (RETURN, 'Return'),
+        (DISCOUNTED, 'Discounted'),
+    )
     shop = models.ForeignKey(Shop, related_name='credit_notes', null=True, blank=True, on_delete=models.DO_NOTHING)
     credit_note_id = models.CharField(max_length=255, null=True, blank=True)
     shipment = models.ForeignKey(OrderedProduct, null=True, blank=True, on_delete=models.DO_NOTHING, related_name='credit_note')
@@ -2080,6 +2087,7 @@ class Note(models.Model):
         get_user_model(), related_name='rt_last_modified_user_note',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
+    credit_note_type = models.CharField(max_length=50,choices=CREDIT_NOTE_CHOICES)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=False)

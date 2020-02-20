@@ -464,7 +464,7 @@ def create_credit_note_on_trip_close(trip_id):
             credit_amount = 0
 
             #cur_cred_note = brand_credit_note_pattern(note_id, invoice_prefix)
-            if shipment.credit_note.count():
+            if shipment.credit_note.filter(credit_note_type = 'RETURN').count():
                 credit_note = shipment.credit_note.last()
             else:
                 credit_note = CreditNote.objects.create(
@@ -472,6 +472,7 @@ def create_credit_note_on_trip_close(trip_id):
                     credit_note_id=note_id,
                     shipment = shipment,
                     amount = 0,
+                    credit_note_type = 'RETURN',
                     status=True)
             OrderedProduct.objects.filter(credit_note=credit_note).update(status=OrderedProduct.DISABLED)
             credit_grn = OrderedProduct.objects.create(credit_note=credit_note)
@@ -525,7 +526,7 @@ def create_credit_note_on_trip_close(trip_id):
                                             ).last().pk)
 
             credit_amount = 0
-            if shipment.credit_note.count():
+            if shipment.credit_note.filter(credit_note_type = 'DISCOUNTED').count():
                 credit_note = shipment.credit_note.last()
             else:
                 credit_note = CreditNote.objects.create(
@@ -533,6 +534,7 @@ def create_credit_note_on_trip_close(trip_id):
                     credit_note_id=note_id,
                     shipment = shipment,
                     amount = 0,
+                    credit_note_type = 'DISCOUNTED',
                     status=True)
             for item in shipment.rt_order_product_order_product_mapping.all():
                 credit_amount += ((item.effective_price - item.discounted_price) * (item.delivered_qty))
