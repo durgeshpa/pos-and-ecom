@@ -517,11 +517,14 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
         products_available = {}
         if instance.cart_products_csv:
             product_skus = []
+            product_ids = []
             reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8'))
             headers = next(reader, None)
             product_skus = [x[0] for x in reader if x]
+            for sku in product_skus:
+                product_ids.append(Product.objects.get(product_sku=row[0]).id)
             from sp_to_gram.models import (OrderedProductMapping as SpMappedOrderedProductMapping)
-            shop_products_available = SpMappedOrderedProductMapping.get_shop_stock(instance.seller_shop).filter(product__product_sku__in=product_skus,available_qty__gte=0).values('product__product_sku').annotate(available_qty=Sum('available_qty'))
+            shop_products_available = SpMappedOrderedProductMapping.get_shop_stock(instance.seller_shop).filter(product__in=product_ids,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
             shop_products_dict = {g['product__product_sku']:int(g['available_qty']) for g in shop_products_available}
             reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8'))
             error_product_list = []
@@ -529,21 +532,22 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                 for row in reader:
                     if row[0]:
                         product = Product.objects.get(product_sku=row[0])
+                        product_id = product.id
                         product_price = product.get_current_shop_price(instance.seller_shop, instance.buyer_shop)
                         ordered_pieces = int(row[2]) * int(product.product_inner_case_size)
                         ordered_qty = int(row[2])
-                        product_availability = shop_products_dict.get(row[0], 0)
-                        product_available = int(int(shop_products_dict.get(row[0], 0))/int(product.product_inner_case_size))
+                        product_availability = shop_products_dict.get(product.id, 0)
+                        product_available = int(int(shop_products_dict.get(product.id, 0))/int(product.product_inner_case_size))
                         products_available[row[0]] = ordered_pieces
                         if product_available >= ordered_qty:
                             if instance.order_type == 'DISCOUNTED':
-                                CartProductMapping.objects.create(cart=instance.cart,cart_product__product_sku = row[0],
+                                CartProductMapping.objects.create(cart=instance.cart,cart_product_id = product_id,
                                  qty = int(row[2]),
                                  no_of_pieces = int(row[2]) * int(product.product_inner_case_size),
                                  cart_product_price=product_price,
                                  discounted_price = float(row[3]))
                             else:
-                                CartProductMapping.objects.create(cart=instance.cart,cart_product__product_sku = row[0],
+                                CartProductMapping.objects.create(cart=instance.cart,cart_product_id = product_id,
                                  qty = int(row[2]),
                                  no_of_pieces = int(row[2]) * int(product.product_inner_case_size),
                                  cart_product_price=product_price,
