@@ -538,7 +538,7 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                         ordered_qty = int(row[2])
                         product_availability = shop_products_dict.get(product.id, 0)
                         product_available = int(int(shop_products_dict.get(product.id, 0))/int(product.product_inner_case_size))
-                        products_available[row[0]] = ordered_pieces
+                        products_available[product_id] = ordered_pieces
                         if product_available >= ordered_qty:
                             if instance.order_type == 'DISCOUNTED':
                                 CartProductMapping.objects.create(cart=instance.cart,cart_product_id = product_id,
