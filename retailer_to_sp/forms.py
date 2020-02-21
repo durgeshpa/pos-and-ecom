@@ -737,12 +737,6 @@ class BulkCartForm(forms.ModelForm):
         self.fields['cart_products_csv'].help_text = self.instance.\
             cart_products_sample_file
 
-    def clean_order_type(self):
-        order_type = self.cleaned_data.get('order_type')
-        if not order_type:
-            raise forms.ValidationError('order_type cannot be blank')
-        return order_type
-
     def clean(self):
         if self.cleaned_data['cart_products_csv']:
             if not self.cleaned_data['cart_products_csv'].name[-4:] in ('.csv'):
@@ -763,7 +757,7 @@ class BulkCartForm(forms.ModelForm):
                     raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
                     'EMPTY']%("qty"))
 
-                if self.cleaned_data['order_type']:
+                if 'order_type' in self.cleaned_data:
                     if self.cleaned_data['order_type'] == 'DISCOUNTED':
                         if not row[3] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[2]):
                             raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
