@@ -122,7 +122,7 @@ class Product(models.Model):
     product_long_description = models.TextField(null=True,blank=True)
     product_sku = models.CharField(max_length=255, blank=False, unique=True)
     product_gf_code = models.CharField(max_length=255, blank=False, unique=True)
-    product_ean_code = models.CharField(max_length=255, blank=False)
+    product_ean_code = models.CharField(max_length=255, blank=True)
     product_hsn = models.ForeignKey(ProductHSN,related_name='product_hsn',null=True,blank=True,on_delete=models.CASCADE)
     product_brand = models.ForeignKey(Brand,related_name='prodcut_brand_product',blank=False,on_delete=models.CASCADE)
     product_inner_case_size = models.CharField(max_length=255,blank=False, default=1)
