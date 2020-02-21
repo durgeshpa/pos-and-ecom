@@ -44,7 +44,11 @@ def create_reserved_order(reserved_args):
 @task
 def update_reserved_order(shipment_products, cart_id):
     shipment_products_mapping = {i['product__id']:i['shipped_items'] for i in shipment_products}
-    reserved_products = OrderedProductReserved.objects.filter(cart_id=cart_id, product__id__in=shipment_products_mapping.keys())
+    reserved_products = OrderedProductReserved.objects.filter(
+        cart_id=cart_id,
+        reserve_status=OrderedProductReserved.ORDERED,
+        product__id__in=shipment_products_mapping.keys()
+    )
     for rp in reserved_products:
         reserved_qty = int(rp.reserved_qty)
         shipped_qty = int(shipment_products_mapping[rp.product.id])
@@ -180,22 +184,22 @@ class UpdateOrderStatusAndCreatePicker(object):
 
         order.save()
 
-        self.create_picker(order, shipment, ordered_qty, shipment_products_dict.get('shipped_qty',0), changed_data, close_order_checked)
+        #self.create_picker(order, shipment, ordered_qty, shipment_products_dict.get('shipped_qty',0), changed_data, close_order_checked)
 
-    def create_picker(self, order, shipment, ordered_qty, shipped_qty, changed_data, close_order_checked):
-        change_value = shipment.shipment_status == shipment.READY_TO_SHIP
-        if 'shipment_status' in changed_data and change_value and (not close_order_checked):
+    # def create_picker(self, order, shipment, ordered_qty, shipped_qty, changed_data, close_order_checked):
+    #     change_value = shipment.shipment_status == shipment.READY_TO_SHIP
+    #     if 'shipment_status' in changed_data and change_value and (not close_order_checked):
 
-            if int(ordered_qty) > shipped_qty:
-                try:
-                    pincode = "00" #form.instance.order.shipping_address.pincode
-                except:
-                    pincode = "00"
-                PickerDashboard.objects.create(
-                    order=order,
-                    picking_status="picking_pending",
-                    picklist_id= generate_picklist_id(pincode) #get_random_string(12).lower(),#
-                    )
+    #         if int(ordered_qty) > shipped_qty:
+    #             try:
+    #                 pincode = "00" #form.instance.order.shipping_address.pincode
+    #             except:
+    #                 pincode = "00"
+    #             PickerDashboard.objects.create(
+    #                 order=order,
+    #                 picking_status="picking_pending",
+    #                 picklist_id= generate_picklist_id(pincode) #get_random_string(12).lower(),#
+    #                 )
 
     def update_sp_qty(self, order, shipment):
         cart = order.ordered_cart

@@ -297,6 +297,7 @@ def assign_picker(request, shop_id=None):
                 selected_orders = selected_orders.split(',')
                 selected_orders = PickerDashboard.objects.filter(
                     pk__in=selected_orders)
+                import pdb; pdb.set_trace()
 
                 for picker_instance in selected_orders:
                     picker_instance.picker_boy = picker_boy

@@ -40,7 +40,7 @@ def create_order_from_cart(form, formsets, request, order):
 	order.total_tax_amount = order_amounts.get('total_tax_amount')
 	#order.total_final_amount = order_amounts.get('total_final_amount')
 	order.ordered_by = request.user
-	order.order_status = order.ORDER_PLACED_DISPATCH_PENDING
+	order.order_status = order.ORDERED
 	order.last_modified_by = request.user
 	order.save()
 
