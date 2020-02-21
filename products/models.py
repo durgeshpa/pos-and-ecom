@@ -451,7 +451,7 @@ class ProductTaxMapping(models.Model):
     status = models.BooleanField(default=True)
 
     def __str__(self):
-        return self.tax.tax_name
+        return "{}-{}".format(self.product, self.tax.tax_name)
 
     def get_products_gst_tax(self):
         return self.product.product_pro_tax.filter(tax__tax_type='gst')
@@ -578,4 +578,3 @@ class ProductCapping(models.Model):
 
 # post_save.connect(get_category_product_report, sender=Product)
 # post_save.connect(get_master_report, sender=ProductPrice)
-
