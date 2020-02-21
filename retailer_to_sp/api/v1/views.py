@@ -1,6 +1,7 @@
 from decimal import Decimal
 import logging
 import json
+from num2words import num2words
 from datetime import datetime, timedelta
 from barCodeGenerator import barcodeGen
 from django.core.exceptions import ObjectDoesNotExist
@@ -1008,6 +1009,7 @@ class DownloadInvoiceSP(APIView):
             return response
             return redirect(shipment.invoice.invoice_pdf.url)
 
+
         barcode = barcodeGen(shipment.invoice_no)
         payment_type='cash_on_delivery'
         try:
@@ -1025,16 +1027,16 @@ class DownloadInvoiceSP(APIView):
             open_time = '-'
             close_time = '-'
 
-        seller_shop_gistin = '---'
-        buyer_shop_gistin = '---'
+        seller_shop_gistin = 'unregistered'
+        buyer_shop_gistin = 'unregistered'
 
         if shipment.order.ordered_cart.seller_shop.shop_name_documents.exists():
             seller_shop_gistin = shipment.order.ordered_cart.seller_shop.shop_name_documents.filter(
-            shop_document_type='gstin').last().shop_document_number if shipment.order.ordered_cart.seller_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else '---'
+            shop_document_type='gstin').last().shop_document_number if shipment.order.ordered_cart.seller_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else 'unregistered'
 
         if shipment.order.ordered_cart.buyer_shop.shop_name_documents.exists():
             buyer_shop_gistin = shipment.order.ordered_cart.buyer_shop.shop_name_documents.filter(
-            shop_document_type='gstin').last().shop_document_number if shipment.order.ordered_cart.buyer_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else '---'
+            shop_document_type='gstin').last().shop_document_number if shipment.order.ordered_cart.buyer_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else 'unregistered'
 
         product_listing = []
         taxes_list = []
@@ -1074,6 +1076,9 @@ class DownloadInvoiceSP(APIView):
             basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
             base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
             product_tax_amount = round(float(base_price) * float(get_tax_val),2)
+            for z in shipment.order.seller_shop.shop_name_address_mapping.all():
+                shop_name_gram, nick_name_gram, address_line1_gram = z.shop_name, z.nick_name, z.address_line1
+                city_gram, state_gram, pincode_gram = z.city, z.state, z.pincode
 
             ordered_prodcut = {
                 "product_sku": m.product.product_gf_code,
@@ -1121,13 +1126,17 @@ class DownloadInvoiceSP(APIView):
 
         total_amount = shipment.invoice_amount
         total_amount_int = total_amount
+        amt = [num2words(i) for i in str(total_amount).split('.')]
+        rupees = amt[0]
+
 
         data = {"shipment": shipment,"order": shipment.order, 
                 "url":request.get_host(), "scheme": request.is_secure() and "https" or "http" ,
                 "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,
-                "barcode":barcode,"product_listing":product_listing,
+                "barcode":barcode,"product_listing":product_listing,"rupees":rupees,
                 "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
-                "open_time":open_time, "close_time":close_time,}
+                "open_time":open_time, "close_time":close_time,"shop_name_gram":shop_name_gram, "nick_name_gram":nick_name_gram,
+                "address_line1_gram":address_line1_gram,"city_gram":city_gram,"state_gram":state_gram, "pincode_gram":state_gram, }
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
