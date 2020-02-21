@@ -944,7 +944,6 @@ class DownloadInvoiceSP(APIView):
             product_tax_amount = 0
             basic_rate = 0
             inline_sum_amount = 0
-
             cart_product_map = shipment.order.ordered_cart.rt_cart_list.filter(cart_product=m.product).last()
             product_price = cart_product_map.get_cart_product_price(
                 shipment.order.ordered_cart.seller_shop,

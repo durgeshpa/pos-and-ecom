@@ -473,6 +473,10 @@ class BulkOrder(models.Model):
                         product_price = product.get_current_shop_price(self.seller_shop, self.buyer_shop)
                         if not product_price:
                             raise ValidationError(_("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Product Price Not Available"))
+                        if row[3] and self.order_type == 'DISCOUNTED':
+                            discounted_price = float(row[3])
+                            if product_price.selling_price < discounted_price:
+                                raise ValidationError(_("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Discounted Price can't be more than Product Price."))
             #             ordered_qty = int(row[2])
             #             product_availability = int(int(shop_products_dict.get(int(row[0]), 0))/int(product.product_inner_case_size))
             #             if product_availability < ordered_qty:
