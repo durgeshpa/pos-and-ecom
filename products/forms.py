@@ -291,7 +291,7 @@ class ProductPriceNewForm(forms.ModelForm):
         # if not selling_price:
         #     raise forms.ValidationError(
         #         _('Please enter valid value for Selling Price'),
-        #     )    
+        #     )
         #else:
         return cleaned_data
 
@@ -301,6 +301,7 @@ class ProductForm(forms.ModelForm):
     product_short_description = forms.CharField(required=True)
     product_slug = forms.CharField(required=True)
     product_gf_code = forms.CharField(required=True)
+    product_ean_code = forms.CharField(required=True)
 
     class Meta:
         model = Product
