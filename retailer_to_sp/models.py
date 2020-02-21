@@ -459,6 +459,7 @@ class BulkOrder(models.Model):
             product_ids = []
             reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
             headers = next(reader, None)
+            duplicate_products = []
             # product_ids = [int(x[0]) for x in reader if x]
             # from sp_to_gram.models import (OrderedProductMapping as SpMappedOrderedProductMapping)
             # shop_products_available = SpMappedOrderedProductMapping.get_shop_stock(self.seller_shop).filter(product__in=product_ids,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
@@ -470,7 +471,8 @@ class BulkOrder(models.Model):
                 for row in reader:
                     if row[0]:
                         product = Product.objects.get(product_sku=row[0])
-                        if product.count() > 1:
+                        if product in duplicate_products:
+                            duplicate_products.append(product)
                             raise ValidationError(_("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Duplicate entries of this product has been uploaded"))
                         product_price = product.get_current_shop_price(self.seller_shop, self.buyer_shop)
                         if not product_price:
