@@ -161,8 +161,8 @@ class Cart(models.Model):
     #     max_length=255, null=True,
     #     blank=True, editable=False
     # )
-    approval_status = models.BooleanField(default=False)
-    cart_type = models.CharField(max_length=50,choices=BULK_ORDER_STATUS)
+    approval_status = models.BooleanField(default=False, null = True)
+    cart_type = models.CharField(max_length=50,choices=BULK_ORDER_STATUS, null = True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -424,7 +424,7 @@ class BulkOrder(models.Model):
         Address, related_name='rt_shipping_address_bulk_order',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
-    order_type = models.CharField(max_length=50,choices=BULK_ORDER_STATUS)
+    order_type = models.CharField(max_length=50,choices=BULK_ORDER_STATUS, null = True)
     cart_products_csv = models.FileField(
         upload_to='retailer/sp/cart_products_csv',
         null=True, blank=True
@@ -470,6 +470,8 @@ class BulkOrder(models.Model):
                 for row in reader:
                     if row[0]:
                         product = Product.objects.get(product_sku=row[0])
+                        if product.count() > 1:
+                            raise ValidationError(_("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Duplicate entries of this product has been uploaded"))
                         product_price = product.get_current_shop_price(self.seller_shop, self.buyer_shop)
                         if not product_price:
                             raise ValidationError(_("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Product Price Not Available"))
@@ -2091,7 +2093,7 @@ class Note(models.Model):
         get_user_model(), related_name='rt_last_modified_user_note',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
-    credit_note_type = models.CharField(max_length=50,choices=CREDIT_NOTE_CHOICES)
+    credit_note_type = models.CharField(max_length=50,choices=CREDIT_NOTE_CHOICES, null =True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=False)
