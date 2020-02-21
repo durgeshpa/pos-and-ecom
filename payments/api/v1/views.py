@@ -236,6 +236,13 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
         })
         return context
 
+    def update_field_response(self, serializer_errors, errors_dict, field):
+        errors_list = []
+        for errors in errors_dict:
+            for error in errors:
+                errors_list.append("{}:{}".format(error, json.dumps(errors[error])))
+            serializer_errors.update({field: errors_list})
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
@@ -249,8 +256,17 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
             return Response(msg, status=status.HTTP_200_OK)
 
         else:
+            serializer_errors = serializer.errors
+            payment_data_errors = serializer_errors.get('payment_data', None)
+            user_documents_errors = serializer_errors.get('user_documents', None)
+            if payment_data_errors:
+                self.update_field_response(serializer_errors,
+                                          payment_data_errors, 'payment_data')
+            if user_documents_errors:
+                self.update_field_response(serializer_errors,
+                                          user_documents_errors, 'user_documents')
             msg = {'is_success': False,
-                   'message': serializer.errors,
+                   'message': serializer_errors,
                    'response_data': None,
                    'is_pan_required': False}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
