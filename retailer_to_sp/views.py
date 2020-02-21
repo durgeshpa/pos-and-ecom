@@ -105,6 +105,12 @@ class DownloadCreditNote(APIView):
         order_id = credit_note.shipment.order.order_no
         sum_qty, sum_amount, tax_inline, product_tax_amount = 0, 0, 0, 0
         taxes_list, gst_tax_list, cess_tax_list, surcharge_tax_list = [], [], [], []
+        igst, cgst, sgst, cess, surcharge = 0,0,0,0,0
+        taxes_list = []
+        gst_tax_list = []
+        cess_tax_list = []
+        surcharge_tax_list = []
+
 
         for z in credit_note.shipment.order.seller_shop.shop_name_address_mapping.all():
             shop_name_gram, nick_name_gram, address_line1_gram = z.shop_name, z.nick_name, z.address_line1
