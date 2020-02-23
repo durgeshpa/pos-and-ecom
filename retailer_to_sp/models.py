@@ -458,37 +458,21 @@ class BulkOrder(models.Model):
         if self.cart_products_csv:
             product_ids = []
             reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
-            headers = next(reader, None)
+            headers = next(reader)
             duplicate_products = []
-            # product_ids = [int(x[0]) for x in reader if x]
-            # from sp_to_gram.models import (OrderedProductMapping as SpMappedOrderedProductMapping)
-            # shop_products_available = SpMappedOrderedProductMapping.get_shop_stock(self.seller_shop).filter(product__in=product_ids,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
-            # shop_products_dict = {g['product_id']:int(g['available_qty']) for g in shop_products_available}
-            # reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
-            # error_list = []
-            # i = 0
             for id,row in enumerate(reader):
-                for row in reader:
-                    if row[0]:
-                        product = Product.objects.get(product_sku=row[0])
-                        if product in duplicate_products:
-                            duplicate_products.append(product)
-                            raise ValidationError(_("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Duplicate entries of this product has been uploaded"))
-                        product_price = product.get_current_shop_price(self.seller_shop, self.buyer_shop)
-                        if not product_price:
-                            raise ValidationError(_("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Product Price Not Available"))
-                        if row[3] and self.order_type == 'DISCOUNTED':
-                            discounted_price = float(row[3])
-                            if product_price.selling_price < discounted_price:
-                                raise ValidationError(_("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Discounted Price can't be more than Product Price."))
-            #             ordered_qty = int(row[2])
-            #             product_availability = int(int(shop_products_dict.get(int(row[0]), 0))/int(product.product_inner_case_size))
-            #             if product_availability < ordered_qty:
-            #                 error_list.append(("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Product Available Quantity:%s" %(product_availability)))
-            # # import pdb; pdb.set_trace()
-            # if error_list:
-            #     for i in range(len(error_list)):
-            #         raise ValidationError({error_list[0], error_list[1]})
+                if row[0]:
+                    product = Product.objects.get(product_sku=row[0])
+                    if product in duplicate_products:
+                        duplicate_products.append(product)
+                        raise ValidationError(_("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Duplicate entries of this product has been uploaded"))
+                    product_price = product.get_current_shop_price(self.seller_shop, self.buyer_shop)
+                    if not product_price:
+                        raise ValidationError(_("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Product Price Not Available"))
+                    if row[3] and self.order_type == 'DISCOUNTED':
+                        discounted_price = float(row[3])
+                        if product_price.selling_price < discounted_price:
+                            raise ValidationError(_("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Discounted Price can't be more than Product Price."))
         else:
             super(BulkOrder, self).clean(*args, **kwargs)
 
@@ -535,7 +519,6 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
             shop_products_available = SpMappedOrderedProductMapping.get_shop_stock(instance.seller_shop).filter(product__in=product_ids,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
             shop_products_dict = {g['product_id']:int(g['available_qty']) for g in shop_products_available}
             reader = csv.reader(codecs.iterdecode(instance.cart_products_csv, 'utf-8'))
-            error_product_list = []
             for id,row in enumerate(reader):
                 for row in reader:
                     if row[0]:
@@ -657,6 +640,12 @@ class CartProductMapping(models.Model):
             return self.cart_product_price.mrp
         else:
             return self.cart_product.get_current_shop_price(seller_shop_id, buyer_shop_id).mrp
+
+    def clean(self, *args, **kwargs):
+        if self.discounted_price > self.cart_product_price.selling_price:
+            raise ValidationError("Discounted Price of %s can't be more than Product Price." % (self.cart_product))
+        else:
+            super(CartProductMapping, self).clean(*args, **kwargs)
 
     # def save(self, *args, **kwargs):
     #
