@@ -71,7 +71,7 @@ class ShipmentPaymentSerializer(serializers.Serializer):
     return_reason = serializers.ChoiceField(
         choices=OrderedProduct.RETURN_REASON, required=False)
     payment_data = PaymentSerializer(many=True)
-    user_documents = UserDocumentSerializer(many=True)
+    user_documents = UserDocumentSerializer(many=True, required=False)
 
     class Meta:
         fields = ['shipment', 'trip', 'amount_collected', 'payment_data',

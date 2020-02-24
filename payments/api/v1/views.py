@@ -242,9 +242,17 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
             for error in serializer_errors[field]:
                 if 'non_field_errors' in field:
                     result = error
+                    errors.append(result)
+                elif field in ['payment_data', 'user_documents']:
+                    error_msg = ''
+                    if error:
+                        for e in error:
+                            error_msg = error_msg.join(error[e])
+                        result = ''.join('{} : {}'.format(e, error_msg))
+                        errors.append(result)
                 else:
                     result = ''.join('{} : {}'.format(field,error))
-                errors.append(result)
+                    errors.append(result)
         return errors
 
     def create(self, request, *args, **kwargs):
