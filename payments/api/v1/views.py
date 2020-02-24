@@ -191,7 +191,7 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
         return self.serializer_class
 
     def is_pan_required(self, shipment):
-        if shipment.cash_to_be_collected() > 1000:
+        if shipment.cash_to_be_collected() > 10000:
             user_pan_exists = shipment.order.\
                               buyer_shop.shop_owner.user_documents.\
                               filter(user_document_type='pc').exists()
