@@ -20,6 +20,7 @@ from rest_framework import viewsets
 from rest_framework import permissions, authentication
 from rest_framework.decorators import list_route
 from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework import serializers
 
 from django.db import transaction
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -205,10 +206,10 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
 
         def handle_exception(exc, context):
             if isinstance(exc, APIException):
-                msg = {'is_success': False,
-                       'message': exc.detail,
+                msg = {'is_con': False,
+                       'message': exc.detail['message'] if 'is_context' in exc.detail else exc.detail,
                        'response_data': None,
-                       'is_pan_required': False}
+                       'is_pan_required': False if 'is_context' in exc.detail else self.context.get('is_pan_required')}
                 return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
             else:
                 return default_handler(exc, context)
@@ -218,11 +219,9 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
         shipment = self.request.data.get('shipment')
         shipment = OrderedProduct.objects.filter(pk=int(shipment))
         if not shipment.exists():
-            msg = {'is_success': False,
-                   'message': ['Shipment ID is not valid.'],
-                   'response_data': None,
-                   'is_pan_required': False}
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+            msg = {'is_context': True,
+                   'message': ['Shipment ID is not valid.']}
+            raise serializers.ValidationError(msg)
         shipment = shipment.last()
         order = shipment.order
         paid_by = shipment.order.buyer_shop.shop_owner
@@ -246,10 +245,14 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                 elif field in ['payment_data', 'user_documents']:
                     error_msg = ''
                     if error:
-                        for e in error:
-                            error_msg = error_msg.join(error[e])
-                        result = ''.join('{} : {}'.format(e, error_msg))
-                        errors.append(result)
+                        if isinstance(error, dict):
+                            for e in error:
+                                error_msg = error_msg.join(error[e])
+                            result = ''.join('{} : {}'.format(e, error_msg))
+                            errors.append(result)
+                        else:
+                            result = ''.join('{} : {}'.format(field, error))
+                            errors.append(result)
                 else:
                     result = ''.join('{} : {}'.format(field,error))
                     errors.append(result)
@@ -258,20 +261,18 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            shipment = request.data.get('shipment')
-            shipment = OrderedProduct.objects.get(pk=int(shipment))
             self.perform_create(serializer)
             msg = {'is_success': True,
                    'message': ["Payment created successfully"],
                    'response_data': serializer.data,
-                   'is_pan_required': self.is_pan_required(shipment)}
+                   'is_pan_required': self.get_serializer_context().get('is_pan_required')}
             return Response(msg, status=status.HTTP_200_OK)
 
         else:
             msg = {'is_success': False,
                    'message': [i for i in self.errors_response(serializer.errors)],
                    'response_data': None,
-                   'is_pan_required': False}
+                   'is_pan_required': self.get_serializer_context().get('is_pan_required')}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
 
