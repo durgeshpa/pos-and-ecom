@@ -543,9 +543,6 @@ def create_bulk_order(sender, instance=None, created=False, **kwargs):
                                  no_of_pieces = int(row[2]) * int(product.product_inner_case_size),
                                  cart_product_price=product_price,
                                  discounted_price = 0)
-                        else:
-                            error_product_list.append(product)
-
         from retailer_to_sp.tasks import create_reserved_order
         reserved_args = json.dumps({
             'shop_id': instance.seller_shop.id,

@@ -395,10 +395,10 @@ class CartProductMappingAdmin(admin.TabularInline):
             readonly_fields = readonly_fields + (
                 'cart_product', 'cart_product_price', 'qty', 'no_of_pieces', 'item_effective_prices'
             )
-        if obj.approval_status == True:
-            readonly_fields = readonly_fields + (
-                'discounted_price',
-            )
+            if obj.approval_status == True:
+                readonly_fields = readonly_fields + (
+                    'discounted_price',
+                )
         return readonly_fields
 
     def has_delete_permission(self, request, obj=None):
@@ -537,8 +537,8 @@ class CartAdmin(ExportCsvMixinCart, ExportCsvMixinCartProduct, admin.ModelAdmin)
             count_discounted_prices = obj.rt_cart_list.filter(discounted_price__gt = 0).count()
             if count_products != count_discounted_prices:
                 return self.readonly_fields+ ('approval_status',)
-        if obj.approval_status == True:
-            return self.readonly_fields+ ('approval_status',)
+            if obj.approval_status == True:
+                return self.readonly_fields+ ('approval_status',)
         return self.readonly_fields
 
 class BulkOrderAdmin(admin.ModelAdmin):
