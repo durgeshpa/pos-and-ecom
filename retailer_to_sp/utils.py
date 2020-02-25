@@ -322,10 +322,10 @@ def create_invoice_data_excel(request, queryset, RoundAmount, ShipmentPayment,
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     writer.writerow([
-        'Invoice No.', 'Invoice Created At', 'Invoice Amount',
+        'Invoice No.', 'Created At', 'Invoice Amount',
         'Shipment Status', 'Order No.', 'Order Date', 'Order Status',
-        'Trip No.', 'Trip Status', 'Trip Started At',
-        'Trip Completed At', 'Paid Amount', 'CN Amount'])
+        'Trip No.', 'Trip Status', 'Delivery Started At',
+        'Delivery Completed At', 'Paid Amount', 'CN Amount'])
 
     invoices = queryset\
         .annotate(
@@ -350,12 +350,12 @@ def create_invoice_data_excel(request, queryset, RoundAmount, ShipmentPayment,
             invoice.get('invoice_no'),
             invoice.get('created_at'),
             invoice.get('invoice_amount'),
-            shipment_status_dict[invoice.get('shipment_status')],
+            shipment_status_dict.get(invoice.get('shipment_status'), invoice.get('shipment_status')),
             invoice.get('get_order'),
             invoice.get('order_date'),
-            order_status_dict[invoice.get('order_status')],
+            order_status_dict.get(invoice.get('order_status'), invoice.get('order_status')),
             invoice.get('trip_no'),
-            trip_status_dict[invoice.get('trip_status')],
+            trip_status_dict.get(invoice.get('trip_status'), invoice.get('trip_status')),
             invoice.get('trip_started_at'),
             invoice.get('trip_completed_at'),
             invoice.get('shipment_paid_amount'),

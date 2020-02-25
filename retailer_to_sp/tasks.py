@@ -49,6 +49,7 @@ def update_reserved_order(shipment_products, cart_id):
         reserve_status=OrderedProductReserved.ORDERED,
         product__id__in=shipment_products_mapping.keys()
     )
+
     for rp in reserved_products:
         reserved_qty = int(rp.reserved_qty)
         shipped_qty = int(shipment_products_mapping[rp.product.id])
@@ -204,7 +205,8 @@ class UpdateOrderStatusAndCreatePicker(object):
     def update_sp_qty(self, order, shipment):
         cart = order.ordered_cart
         shipment_products = shipment.rt_order_product_order_product_mapping.all().values_list('product__id', flat=True)
-        reserved_products = OrderedProductReserved.objects.filter(cart=cart, product__id__in=shipment_products,
+        reserved_products = OrderedProductReserved.objects.filter(cart=cart, product__id__in=shipment_products, 
+                                                                  reserve_status=OrderedProductReserved.ORDERED,
                                                                   reserved_qty__gt=0).order_by('reserved_qty')
         for ordered_product_reserved in reserved_products:
             grn = ordered_product_reserved.order_product_reserved

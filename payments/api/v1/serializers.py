@@ -42,7 +42,8 @@ class PaymentSerializer(serializers.ModelSerializer):
         if not re.match("^[a-zA-Z0-9_]*$", data):
             raise serializers.ValidationError('Referece number cannot have special character.')
 
-        if Payment.objects.filter(reference_no=data).exists():
+        if Payment.objects.filter(payment_mode_name='online_payment',
+                                  reference_no=data).exists():
             raise serializers.ValidationError('This referece number already exists.')
         return data
 
@@ -70,7 +71,7 @@ class ShipmentPaymentSerializer(serializers.Serializer):
     return_reason = serializers.ChoiceField(
         choices=OrderedProduct.RETURN_REASON, required=False)
     payment_data = PaymentSerializer(many=True)
-    user_documents = UserDocumentSerializer(many=True)
+    user_documents = UserDocumentSerializer(many=True, required=False)
 
     class Meta:
         fields = ['shipment', 'trip', 'amount_collected', 'payment_data',

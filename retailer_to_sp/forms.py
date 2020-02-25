@@ -559,7 +559,7 @@ class DispatchDisabledForm(DispatchForm):
 
 
 class ShipmentForm(forms.ModelForm):
-    close_order = forms.BooleanField(required=False)
+    close_order = forms.BooleanField(required=False, initial=True)
 
     class Meta:
         model = Shipment
@@ -569,7 +569,7 @@ class ShipmentForm(forms.ModelForm):
         js = (
             'https://cdnjs.cloudflare.com/ajax/libs/select2/'
             '4.0.6-rc.0/js/select2.min.js', 'admin/js/sweetalert.min.js',
-            'admin/js/order_close_message.js'
+            # 'admin/js/order_close_message.js'
         )
         css = {
             'all': (
