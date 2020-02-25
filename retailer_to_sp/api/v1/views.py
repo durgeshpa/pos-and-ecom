@@ -1377,28 +1377,44 @@ class ShipmentDeliveryBulkUpdate(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
+    def is_pan_required(self, cash_to_be_collected, shipmentproductmapping):
+        if cash_to_be_collected > 10000:
+            user_pan_exists = shipmentproductmapping.ordered_product.order.\
+                              buyer_shop.shop_owner.user_documents.\
+                              filter(user_document_type='pc').exists()
+            if user_pan_exists:
+                return False
+            if not user_pan_exists:
+                return True
+        return False
+
     def post(self, request, *args, **kwargs):
         shipment_id = kwargs.get('shipment')
-        msg = {'is_success': False, 'message': ['shipment id is invalid'], 'response_data': None}
-        try:
-            products = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
-            if not products.exists():
-                return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+        products = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
+        if not products.exists():
+            msg = {'is_success': False,
+                   'message': ['shipment id is invalid'],
+                   'response_data': None,
+                   'is_pan_required': False}
+            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
 
-            #products = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)           
+        try:
             for item in products:
                 item.delivered_qty = item.shipped_qty - (int(item.returned_qty) + int(item.damaged_qty))
                 item.save()
+
             cash_to_be_collected = products.last().ordered_product.cash_to_be_collected()
-
-
-            msg = {'is_success': True, 'message': ['Shipment Details Updated Successfully!'], 'response_data': {'cash_to_be_collected': cash_to_be_collected},
-                       }
+            is_pan_required = self.is_pan_required(cash_to_be_collected, products.last())
+            msg = {'is_success': True,
+                   'message': ['Shipment Details Updated Successfully!'],
+                   'response_data': {'cash_to_be_collected': cash_to_be_collected},
+                   'is_pan_required': is_pan_required}
             return Response(msg, status=status.HTTP_201_CREATED)
         except Exception as e:
             msg = {'is_success': False,
-               'message': [str(e)],
-               'response_data': None}
+                   'message': [str(e)],
+                   'response_data': None,
+                   'is_pan_required': False}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
 

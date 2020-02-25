@@ -578,4 +578,3 @@ class ProductCapping(models.Model):
 
 # post_save.connect(get_category_product_report, sender=Product)
 # post_save.connect(get_master_report, sender=ProductPrice)
-
