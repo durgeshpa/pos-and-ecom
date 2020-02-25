@@ -704,13 +704,14 @@ def products_vendor_mapping(request,pk=None):
 
 def cart_products_mapping(request,pk=None):
     dt = datetime.datetime.now().strftime("%d_%b_%y_%I_%M")
+    current_time = datetime.datetime.now()
     filename = str(dt)+"cart_product_list.csv"
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
     try:
         writer.writerow(['SKU', 'product_name','qty', 'discounted_price'])
-        cart_products = ProductPrice.objects.values('product__product_sku', 'product__product_name').filter(seller_shop_id=int(pk), approval_status = 2)
+        cart_products = ProductPrice.objects.values('product__product_sku', 'product__product_name').filter(seller_shop_id=int(pk), approval_status = 2, start_date__lte =  current_time, end_date__gte = current_time)
         writer.writerows([(product.get('product__product_sku'), product.get('product__product_name'), '', '') for product in cart_products])
     except:
         writer.writerow(["Make sure you have selected seller shop before downloading CSV file"])
