@@ -1713,6 +1713,12 @@ class OrderedProductMapping(models.Model):
         return round(basic_rate,2)
 
     @property
+    def basic_rate_discounted(self):
+        get_tax_val = self.get_product_tax_json() / 100
+        basic_rate = (float(self.effective_price - self.discounted_price)) / (float(get_tax_val) + 1)
+        return round(basic_rate,2)
+
+    @property
     def base_price(self):
         return self.basic_rate * self.shipped_qty
 

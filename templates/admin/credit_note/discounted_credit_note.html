@@ -114,7 +114,7 @@
                                     {% else %}
                                     <td class="text-center">{{ m.get_products_gst_tax.last.tax.tax_percentage}}%</td>
                                     {% endif %}
-                           <td class="text-center">{{m.basic_rate |floatformat:2 | intcomma}}</td>
+                           <td class="text-center">{{m.basic_rate_discounted |floatformat:2 | intcomma}}</td>
                             <td class="text-center">{{m.delivered_qty}}</td>
                             <td class="text-center">PCS</td>
                            <div style="display:none"> {{m.returned_qty | total_returned_qty }}</div>
