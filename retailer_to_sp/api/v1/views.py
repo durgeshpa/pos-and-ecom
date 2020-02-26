@@ -1044,7 +1044,7 @@ class DownloadCreditNoteDiscounted(APIView):
         gst_number ='07AAHCG4891M1ZZ' if credit_note.shipment.order.seller_shop.shop_name_address_mapping.all().last().state.state_name=='Delhi' else '09AAHCG4891M1ZV'
         amount = credit_note.amount
         credit_note_type = credit_note.credit_note_type
-        products = OrderedProductMapping.objects.filter(ordered_product=credit_note.shipment.id)
+        products = credit_note.shipment.rt_order_product_order_product_mapping.all()
         # reason = 'Returned' if [i for i in pp if i.returned_qty>0] else 'Damaged' if [i for i in pp if i.damaged_qty>0] else 'Returned and Damaged'
         order_id = credit_note.shipment.order.order_no
         sum_qty, sum_amount, tax_inline, product_tax_amount = 0, 0, 0, 0

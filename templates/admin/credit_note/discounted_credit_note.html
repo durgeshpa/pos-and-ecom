@@ -119,7 +119,7 @@
                             <td class="text-center">PCS</td>
                            <div style="display:none"> {{m.returned_qty | total_returned_qty }}</div>
                            <div style="display:none"> {{m.product.product_inner_case_size | total_returned_qty}}</div>
-                            <td class="text-right">{% addMultiplication m.price_to_retailer m.returned_qty m.damaged_qty %}/</td>
+                            <td class="text-right">{% addMultiplicationcreditNote m.price_to_retailer m.delivered_qty %}/</td>
                          </tr>
                                 {% endfor %}
                          <tr>
