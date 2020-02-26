@@ -1,6 +1,7 @@
 from decimal import Decimal
 import logging
 import json
+from num2words import num2words
 from datetime import datetime, timedelta
 from barCodeGenerator import barcodeGen
 from django.core.exceptions import ObjectDoesNotExist
@@ -13,6 +14,8 @@ from django_filters import rest_framework as filters
 from rest_framework import permissions, authentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import JSONParser
+import requests
+from django.http import HttpResponse
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
@@ -21,6 +24,8 @@ from rest_framework import generics, viewsets
 from retailer_backend.utils import SmallOffsetPagination
 from num2words import num2words
 
+from django.core.files.base import ContentFile
+from django.shortcuts import redirect
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,
     CartProductMappingSerializer,CartSerializer, OrderSerializer,
     CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,
@@ -370,6 +375,36 @@ class GramGRNProductsList(APIView):
         return Response(msg,
                          status=200)
 
+class AutoSuggest(APIView):
+    permission_classes = (AllowAny,)
+
+    def search_query(self, keyword):
+        filter_list = [{"term":{"status":True}}]
+        query = {"bool":{"filter":filter_list}}
+        q = {
+        "match":{
+            "name":{"query":keyword, "fuzziness":"AUTO", "operator":"or", "minimum_should_match":"2"}
+            }
+        }
+        filter_list.append(q)
+        return query
+
+    def get(self, request, *args,**kwargs):
+        search_keyword = request.GET.get('keyword')
+        offset = 0
+        page_size = 5
+        query = self.search_query(search_keyword)
+        body = {
+            "from" : offset,
+            "size" : page_size,
+            "query":query,"_source":{"includes":["name", "product_images"]}
+            }
+        products_list = es_search(index="all_products", body=body)
+        p_list = []
+        for p in products_list['hits']['hits']:
+            p_list.append(p["_source"])
+        return Response({"message":['suggested products'], "response_data": p_list,"is_success": True})
+
 
 class ProductDetail(APIView):
 
@@ -416,6 +451,9 @@ class AddToCart(APIView):
             #  if shop mapped with SP
 
             if parent_mapping.parent.shop_type.shop_type == 'sp':
+                ordered_qty = 0
+                product = Product.objects.get(id = cart_product)
+                capping = product.get_current_shop_capping(parent_mapping.parent, parent_mapping.retailer)
                 if Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
                                        cart_status__in=['active', 'pending']).exists():
                     cart = Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
@@ -434,15 +472,60 @@ class AddToCart(APIView):
                     cart.buyer_shop = parent_mapping.retailer
                     cart.save()
 
-                if int(qty) == 0:
-                    if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
-                        CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
+                if capping:
+                    capping_start_date = capping.start_date
+                    capping_end_date = capping.end_date
+                    capping_range_orders = Order.objects.filter(buyer_shop = parent_mapping.retailer, created_at__gte = capping_start_date, created_at__lte = capping_end_date)
+                    if capping_range_orders:
+                        for order in capping_range_orders:
+                            if order.ordered_cart.rt_cart_list.filter(cart_product = product).exists():
+                                ordered_qty += order.ordered_cart.rt_cart_list.filter(cart_product = product).last().qty
+                    if capping.capping_qty > ordered_qty:
+                        if (capping.capping_qty - ordered_qty)  >= int(qty):
+                            if int(qty) == 0:
+                                if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
+                                    CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
 
+                            else:
+                                cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
+                                cart_mapping.qty = qty
+                                cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
+                                cart_mapping.capping_error_msg = ''
+                                cart_mapping.save()
+                        else:
+                            if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
+                                cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
+                                if (capping.capping_qty - ordered_qty) > 0:
+                                    cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty - ordered_qty)
+                                else:
+                                    cart_mapping.capping_error_msg = 'You have already exceeded the purchase limit of this product'
+                                cart_mapping.save()
+                            else:
+                                msg = {'is_success': True, 'message': ['The Purchase Limit of the Product is %s #%s' % (capping.capping_qty - ordered_qty, cart_product)],'response_data': None}
+                                return Response(msg, status=status.HTTP_200_OK)
+
+                    else:
+                        if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
+                            cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
+                            if (capping.capping_qty - ordered_qty) > 0:
+                                cart_mapping.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty - ordered_qty)
+                            else:
+                                cart_mapping.capping_error_msg = 'You have already exceeded the purchase limit of this product'
+                            cart_mapping.save()
+                        else:
+                            msg = {'is_success': True, 'message': ['The Purchase Limit of the Product is %s #%s' % (capping.capping_qty - ordered_qty, cart_product)],'response_data': None}
+                            return Response(msg, status=status.HTTP_200_OK)
                 else:
-                    cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
-                    cart_mapping.qty = qty
-                    cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
-                    cart_mapping.save()
+                    if int(qty) == 0:
+                        if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
+                            CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
+
+                    else:
+                        cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
+                        cart_mapping.qty = qty
+                        cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
+                        cart_mapping.capping_error_msg = ''
+                        cart_mapping.save()
 
 
                 if cart.rt_cart_list.count() <= 0:
@@ -602,6 +685,7 @@ class ReservedOrder(generics.ListAPIView):
         parent_shop_type = parent_mapping.parent.shop_type.shop_type
         # if shop mapped with sp
         if parent_shop_type == 'sp':
+            ordered_qty = 0
             cart = Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
                                        cart_status__in=['active', 'pending'])
             if cart.exists():
@@ -624,6 +708,7 @@ class ReservedOrder(generics.ListAPIView):
                     return Response(msg, status=status.HTTP_200_OK)
 
                 cart_products.update(qty_error_msg='')
+                cart_products.update(capping_error_msg ='')
                 cart_product_ids = cart_products.values('cart_product')
                 shop_products_available = OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product__in=cart_product_ids,available_qty__gt=0).values('product_id').annotate(available_qty=Sum('available_qty'))
                 shop_products_dict = {g['product_id']:int(g['available_qty']) for g in shop_products_available}
@@ -646,12 +731,36 @@ class ReservedOrder(generics.ListAPIView):
                         int(cart_product.qty) *
                         int(cart_product.cart_product.product_inner_case_size))
 
+                    product_qty = int(cart_product.qty)
+
                     if product_availability >= ordered_amount:
                         products_available[cart_product.cart_product.id] = ordered_amount
                     else:
                         cart_product.qty_error_msg = ERROR_MESSAGES['AVAILABLE_PRODUCT'].format(int(product_availability)) #TODO: Needs to be improved
                         cart_product.save()
                         products_unavailable.append(cart_product.id)
+                    capping = cart_product.cart_product.get_current_shop_capping(parent_mapping.parent, parent_mapping.retailer)
+                    if capping:
+                        capping_start_date = capping.start_date
+                        capping_end_date = capping.end_date
+                        capping_range_orders = Order.objects.filter(buyer_shop = parent_mapping.retailer, created_at__gte = capping_start_date, created_at__lte = capping_end_date)
+                        if capping_range_orders:
+                            for order in capping_range_orders:
+                                if order.ordered_cart.rt_cart_list.filter(cart_product = cart_product.cart_product).exists():
+                                    ordered_qty += order.ordered_cart.rt_cart_list.filter(cart_product = cart_product.cart_product).last().qty
+                        if capping.capping_qty > ordered_qty:
+                            if (capping.capping_qty - ordered_qty)  < product_qty:
+                                if (capping.capping_qty - ordered_qty) > 0:
+                                    cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty - ordered_qty)
+                                else:
+                                    cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
+                                cart_product.save()
+                        else:
+                            if (capping.capping_qty - ordered_qty) > 0:
+                                cart_product.capping_error_msg = 'The Purchase Limit of the Product is %s' % (capping.capping_qty - ordered_qty)
+                            else:
+                                cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
+                            cart_product.save()
 
                 if products_unavailable:
                     serializer = CartSerializer(
@@ -898,6 +1007,15 @@ class DownloadInvoiceSP(APIView):
 
     def get(self, request, *args, **kwargs):
         shipment = get_object_or_404(OrderedProduct, pk=self.kwargs.get('pk'))
+
+        if shipment.invoice.invoice_pdf:
+            r = requests.get(shipment.invoice.invoice_pdf.url)
+            response = HttpResponse(r.content, content_type='application/pdf')
+            response['Content-Disposition'] = 'attachment; filename="invoice-{}.pdf"'.format(shipment.invoice_no)
+            return response
+            return redirect(shipment.invoice.invoice_pdf.url)
+
+
         barcode = barcodeGen(shipment.invoice_no)
         payment_type='cash_on_delivery'
         try:
@@ -915,16 +1033,16 @@ class DownloadInvoiceSP(APIView):
             open_time = '-'
             close_time = '-'
 
-        seller_shop_gistin = '---'
-        buyer_shop_gistin = '---'
+        seller_shop_gistin = 'unregistered'
+        buyer_shop_gistin = 'unregistered'
 
         if shipment.order.ordered_cart.seller_shop.shop_name_documents.exists():
             seller_shop_gistin = shipment.order.ordered_cart.seller_shop.shop_name_documents.filter(
-            shop_document_type='gstin').last().shop_document_number if shipment.order.ordered_cart.seller_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else '---'
+            shop_document_type='gstin').last().shop_document_number if shipment.order.ordered_cart.seller_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else 'unregistered'
 
         if shipment.order.ordered_cart.buyer_shop.shop_name_documents.exists():
             buyer_shop_gistin = shipment.order.ordered_cart.buyer_shop.shop_name_documents.filter(
-            shop_document_type='gstin').last().shop_document_number if shipment.order.ordered_cart.buyer_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else '---'
+            shop_document_type='gstin').last().shop_document_number if shipment.order.ordered_cart.buyer_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else 'unregistered'
 
         product_listing = []
         taxes_list = []
@@ -966,6 +1084,9 @@ class DownloadInvoiceSP(APIView):
             basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
             base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
             product_tax_amount = round(float(base_price) * float(get_tax_val),2)
+            for z in shipment.order.seller_shop.shop_name_address_mapping.all():
+                shop_name_gram, nick_name_gram, address_line1_gram = z.shop_name, z.nick_name, z.address_line1
+                city_gram, state_gram, pincode_gram = z.city, z.state, z.pincode
 
             ordered_prodcut = {
                 "product_sku": m.product.product_gf_code,
@@ -1013,17 +1134,25 @@ class DownloadInvoiceSP(APIView):
 
         total_amount = shipment.invoice_amount
         total_amount_int = total_amount
+        amt = [num2words(i) for i in str(total_amount).split('.')]
+        rupees = amt[0]
+
 
         data = {"shipment": shipment,"order": shipment.order,
                 "url":request.get_host(), "scheme": request.is_secure() and "https" or "http" ,
                 "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,
-                "barcode":barcode,"product_listing":product_listing,
+                "barcode":barcode,"product_listing":product_listing,"rupees":rupees,
                 "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
-                "open_time":open_time, "close_time":close_time, "sum_qty":sum_qty}
+                "open_time":open_time, "close_time":close_time,  "sum_qty":sum_qty" ,shop_name_gram":shop_name_gram, "nick_name_gram":nick_name_gram,
+                "address_line1_gram":address_line1_gram,"city_gram":city_gram,"state_gram":state_gram, "pincode_gram":state_gram, }
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
+        try:
+            shipment.invoice.invoice_pdf.save("invoice-{}.pdf".format(shipment.invoice_no), ContentFile(response.rendered_content), save=True)
+        except Exception as e:
+            logger.exception(e)
         return response
 
 class DownloadCreditNoteDiscounted(APIView):
@@ -1322,28 +1451,45 @@ class ShipmentDeliveryBulkUpdate(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
+    def is_pan_required(self, cash_to_be_collected, shipmentproductmapping):
+        if cash_to_be_collected > 10000:
+            user_pan_exists = shipmentproductmapping.ordered_product.order.\
+                              buyer_shop.shop_owner.user_documents.\
+                              filter(user_document_type='pc').exists()
+            if user_pan_exists:
+                return False
+            if not user_pan_exists:
+                return True
+        return False
+
     def post(self, request, *args, **kwargs):
         shipment_id = kwargs.get('shipment')
-        msg = {'is_success': False, 'message': ['shipment id is invalid'], 'response_data': None}
-        try:
-            products = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
-            if not products.exists():
-                return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+        products = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
+        if not products.exists():
+            msg = {'is_success': False,
+                   'message': ['shipment id is invalid'],
+                   'response_data': None,
+                   'is_pan_required': False}
+            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
 
             #products = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
+        try:
             for item in products:
                 item.delivered_qty = item.shipped_qty - (int(item.returned_qty) + int(item.damaged_qty))
                 item.save()
+
             cash_to_be_collected = products.last().ordered_product.cash_to_be_collected()
-
-
-            msg = {'is_success': True, 'message': ['Shipment Details Updated Successfully!'], 'response_data': {'cash_to_be_collected': cash_to_be_collected},
-                       }
+            is_pan_required = self.is_pan_required(cash_to_be_collected, products.last())
+            msg = {'is_success': True,
+                   'message': ['Shipment Details Updated Successfully!'],
+                   'response_data': {'cash_to_be_collected': cash_to_be_collected},
+                   'is_pan_required': is_pan_required}
             return Response(msg, status=status.HTTP_201_CREATED)
         except Exception as e:
             msg = {'is_success': False,
-               'message': [str(e)],
-               'response_data': None}
+                   'message': [str(e)],
+                   'response_data': None,
+                   'is_pan_required': False}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
 
@@ -1410,11 +1556,9 @@ class ShipmentDetail(APIView):
         product = self.request.POST.get('product')
         returned_qty = self.request.POST.get('returned_qty')
         damaged_qty = self.request.POST.get('damaged_qty')
-        shipped_qty = int(ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product).shipped_qty)
-        if  shipped_qty >= int(returned_qty) + int(damaged_qty):
-            delivered_qty = shipped_qty - (int(returned_qty) + int(damaged_qty))
-            ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(
-                returned_qty=returned_qty, damaged_qty=damaged_qty, delivered_qty=delivered_qty)
+
+        if int(ShipmentProducts.objects.get(ordered_product_id=shipment_id, product=product).shipped_qty) >= int(returned_qty) + int(damaged_qty):
+            ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(returned_qty=returned_qty, damaged_qty=damaged_qty)
             #shipment_product_details = ShipmentDetailSerializer(shipment, many=True)
             cash_to_be_collected = shipment.last().ordered_product.cash_to_be_collected()
             msg = {'is_success': True, 'message': ['Shipment Details'], 'response_data': None,

@@ -26,7 +26,7 @@ from .resources import (
     )
 
 from .forms import (ProductPriceNewForm, ProductPriceChangePerm,
-                    ProductPriceAddPerm, ProductVendorMappingForm, ProductForm)
+                    ProductPriceAddPerm, ProductVendorMappingForm, ProductForm, ProductCappingForm)
 
 from retailer_backend.filters import CityFilter, ProductCategoryFilter
 
@@ -86,7 +86,7 @@ class VendorFilter(AutocompleteFilter):
     title = 'Vendor Name' # display title
     field_name = 'vendor' # name of the foreign key field
 
-class ExportCsvMixin:
+class ExportProductVendor:
     def export_as_csv_product_vendormapping(self, request, queryset):
         meta = self.model._meta
         list_display = ('vendor', 'product', 'product_price', 'product_mrp','case_size','created_at','status')
@@ -101,7 +101,7 @@ class ExportCsvMixin:
     export_as_csv_product_vendormapping.short_description = "Download CSV of selected Productvendormapping"
 
 
-class ProductVendorMappingAdmin(ExportCsvMixin, admin.ModelAdmin):
+class ProductVendorMappingAdmin(admin.ModelAdmin, ExportProductVendor):
     actions = ["export_as_csv_product_vendormapping", ]
     fields = ('vendor', 'product', 'product_price','product_mrp','case_size')
     list_display = ('vendor', 'product','product_price','product_mrp','case_size','created_at','status')
@@ -439,7 +439,7 @@ class MRPSearch(InputFilter):
                 Q(mrp__icontains=mrp)
             )
 
-class ExportCsvMixin:
+class ExportProductPrice:
     def export_as_csv_productprice(self, request, queryset):
         meta = self.model._meta
         list_display = [
@@ -457,7 +457,7 @@ class ExportCsvMixin:
     export_as_csv_productprice.short_description = "Download CSV of Selected ProductPrice"
 
 
-class ProductPriceAdmin(admin.ModelAdmin, ExportCsvMixin):
+class ProductPriceAdmin(admin.ModelAdmin, ExportProductPrice):
     resource_class = ProductPriceResource
     form = ProductPriceNewForm
     actions = ['export_as_csv_productprice', 'approve_product_price','disapprove_product_price']
@@ -552,6 +552,19 @@ class ProductHSNAdmin(admin.ModelAdmin, ExportCsvMixin):
     actions = ['export_as_csv']
     search_fields = ['product_hsn_code']
 
+class ProductCappingAdmin(admin.ModelAdmin):
+    form = ProductCappingForm
+    list_display = ('product', 'seller_shop', 'capping_qty', 'start_date', 'end_date', 'status')
+    list_filter = [
+        ProductSKUSearch, ProductFilter, ShopFilter,
+        ('start_date', DateRangeFilter), ('end_date', DateRangeFilter),
+        'status']
+    readonly_fields = ('buyer_shop', 'city', 'pincode')
+    class Media:
+        pass
+
+class ProductTaxAdmin(admin.ModelAdmin, ExportCsvMixin):
+    search_fields = ['product__product_name']
 
 admin.site.register(ProductImage, ProductImageMainAdmin)
 admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)
@@ -565,3 +578,5 @@ admin.site.register(Tax, TaxAdmin)
 admin.site.register(Product, ProductAdmin)
 admin.site.register(ProductPrice, ProductPriceAdmin)
 admin.site.register(ProductHSN, ProductHSNAdmin)
+admin.site.register(ProductCapping, ProductCappingAdmin)
+admin.site.register(ProductTaxMapping,ProductTaxAdmin)

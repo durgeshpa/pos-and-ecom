@@ -8,7 +8,7 @@ from gram_to_brand.models import Order as PurchaseOrder, GRNOrder
 import requests
 from decouple import config
 from products.models import Product, ProductPrice
-from retailer_to_sp.models import Order, OrderedProduct, Trip
+from retailer_to_sp.models import Order, OrderedProduct, Trip, Shipment
 # from shops.models import ParentRetailerMapping
 from .api.v1.views import category_product_report, grn_report, master_report, order_report, retailer_report, shipment_report,trip_report, getStock
 from celery.task import task
@@ -39,7 +39,7 @@ def get_order_report(sender, instance=None, created=False, **kwargs):
 def get_retailer_report(sender, instance=None, created=False, **kwargs):
     transaction.on_commit(lambda: retailer_report.delay(instance.id))
 
-@receiver(post_save, sender=OrderedProduct)
+@receiver(post_save, sender=Shipment)
 def get_shipment_report(sender, instance=None, created=False, **kwargs):
     transaction.on_commit(lambda: shipment_report.delay(instance.id))
 

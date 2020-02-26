@@ -15,7 +15,7 @@ from django.contrib.admin import SimpleListFilter, helpers
 from django.utils.html import format_html, format_html_join
 from django.urls import reverse
 from django.db.models import Q
-from django.db.models import F, FloatField, Sum
+from django.db.models import F, FloatField, Sum, FloatField, OuterRef, Subquery
 
 from django.forms.models import BaseInlineFormSet
 from django import forms
@@ -66,16 +66,22 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare,
                      Trip, ShipmentRescheduling, Feedback, PickerDashboard,
                      generate_picklist_id, ResponseComment,
                      generate_picklist_id, ResponseComment, Invoice,
-                     ResponseComment, BulkOrder)
+                     ResponseComment, BulkOrder, RoundAmount)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (
     GetPcsFromQty, add_cart_user, create_order_from_cart,
-    reschedule_shipment_button
+    reschedule_shipment_button, create_order_data_excel,
+    create_invoice_data_excel
 )
-from .filters import (InvoiceAdminOrderFilter, InvoiceAdminTripFilter)
+from .filters import (
+    InvoiceAdminOrderFilter, InvoiceAdminTripFilter, InvoiceCreatedAt,
+    DeliveryStartsAt, DeliveryCompletedAt, OrderCreatedAt)
 
 from .tasks import update_order_status_and_create_picker, update_reserved_order
+
+from payments.models import OrderPayment, ShipmentPayment
+
 
 class InvoiceNumberFilter(AutocompleteFilter):
     title = 'Invoice Number'
@@ -400,6 +406,14 @@ class CartProductMappingAdmin(admin.TabularInline):
                     'discounted_price',
                 )
         return readonly_fields
+    # def get_readonly_fields(self, request, obj=None):
+    #     readonly_fields = super(CartProductMappingAdmin, self) \
+    #         .get_readonly_fields(request, obj)
+    #     if obj:
+    #         readonly_fields = readonly_fields + (
+    #             'cart_product', 'cart_product_price', 'item_effective_prices'
+    #         )
+    #     return readonly_fields
 
     def has_delete_permission(self, request, obj=None):
         return False
@@ -837,7 +851,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
 
 
 class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
-    actions = ["export_as_csv"]#, "assign_picker"]
+    actions = ['order_data_excel_action']#, "assign_picker"]
     resource_class = OrderResource
     search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name','order_status')
     form = OrderForm
@@ -908,6 +922,10 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         return obj.total_mrp_amount
 
     change_form_template = 'admin/retailer_to_sp/order/change_form.html'
+
+    def order_data_excel_action(self, request, queryset):
+        return create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment)
+    order_data_excel_action.short_description = "Download CSV of selected orders"
 
     def get_urls(self):
         from django.conf.urls import url
@@ -1519,8 +1537,11 @@ class FeedbackAdmin(admin.ModelAdmin):
 
 
 class InvoiceAdmin(admin.ModelAdmin):
-    list_display = ('invoice_no', 'get_invoice_amount', 'created_at', 'get_shipment_status',
-                    'get_shipment', 'get_order', 'get_trip_no', 'get_trip_status')
+    actions = ['invoice_data_excel_action']
+    list_display = ('invoice_no', 'created_at', 'get_invoice_amount', 'get_shipment_status',
+                    'get_order', 'get_order_date', 'get_order_status', 'get_shipment',
+                    'get_trip_no', 'get_trip_status', 'get_trip_started_at',
+                    'get_trip_completed_at', 'get_paid_amount', 'get_cn_amount')
     fieldsets = (
         ('Invoice', {
             'fields': (('invoice_no', 'get_invoice_amount'), ('created_at', 'invoice_pdf'))
@@ -1541,7 +1562,18 @@ class InvoiceAdmin(admin.ModelAdmin):
     readonly_fields = ('invoice_no', 'get_shipment', 'invoice_pdf')
     search_fields =('invoice_no', 'shipment__trip__dispatch_no', 'shipment__order__order_no')
     ordering = ('-created_at', )
-    list_filter = (InvoiceAdminOrderFilter, InvoiceAdminTripFilter, ('created_at', DateTimeRangeFilter))
+    list_filter = (
+        InvoiceAdminOrderFilter, InvoiceAdminTripFilter,
+        ('created_at', InvoiceCreatedAt),
+        ('shipment__trip__starts_at', DeliveryStartsAt),
+        ('shipment__trip__completed_at', DeliveryCompletedAt),
+        ('shipment__order__created_at', OrderCreatedAt))
+
+    def invoice_data_excel_action(self, request, queryset):
+        return create_invoice_data_excel(request, queryset, RoundAmount,
+                                         ShipmentPayment, OrderedProduct, Trip,
+                                         Order)
+    invoice_data_excel_action.short_description = "Download CSV of selected Invoices"
 
     def get_invoice_amount(self, obj):
         return "%s %s" % (u'\u20B9', str(obj.invoice_amount))
@@ -1574,11 +1606,42 @@ class InvoiceAdmin(admin.ModelAdmin):
         return "-"
     get_trip_status.short_description = "Trip Status"
 
+    def get_order_date(self, obj):
+        return obj.order_date
+    get_order_date.short_description = "Order Date"
+
+    def get_order_status(self, obj):
+        if obj.order_status:
+            order_status = dict(Order.ORDER_STATUS)
+            return order_status[obj.order_status]
+        return "-"
+    get_order_status.short_description = "Order Status"
+
+    def get_trip_started_at(self, obj):
+        return obj.trip_started_at
+    get_trip_started_at.short_description = "Delivery Started At"
+
+    def get_trip_completed_at(self, obj):
+        return obj.trip_completed_at
+    get_trip_completed_at.short_description = "Delivery Completed At"
+
+    def get_paid_amount(self, obj):
+        return obj.shipment_paid_amount
+    get_paid_amount.short_description = "Paid Amount"
+
+    def get_cn_amount(self, obj):
+        return obj.cn_amount
+    get_cn_amount.short_description = "CN Amount"
+
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         qs = qs.annotate(
             get_order=F('shipment__order__order_no'), shipment_status=F('shipment__shipment_status'),
-            trip_no=F('shipment__trip__dispatch_no'), trip_status=F('shipment__trip__trip_status'))
+            trip_no=F('shipment__trip__dispatch_no'), trip_status=F('shipment__trip__trip_status'),
+            order_date=F('shipment__order__created_at'), order_status=F('shipment__order__order_status'),
+            trip_started_at=F('shipment__trip__starts_at'), trip_completed_at=F('shipment__trip__completed_at'),
+            shipment_paid_amount=Subquery(ShipmentPayment.objects.filter(shipment__invoice__id=OuterRef('pk')).annotate(sum=Sum('paid_amount')).values('sum')[:1]),
+            cn_amount=F('shipment__credit_note__amount'))
         return qs
 
     def has_add_permission(self, request, obj=None):

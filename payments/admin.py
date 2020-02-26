@@ -166,7 +166,7 @@ class InvoiceNoSearch(InputFilter):
             if invoice_no is None:
                 return
             return queryset.filter(
-                Q(shipment__invoice_no__icontains=invoice_no)
+                Q(shipment__invoice__invoice_no__icontains=invoice_no)
             )
 
 class DispatchNoSearch(InputFilter):
@@ -186,7 +186,7 @@ class DispatchNoSearch(InputFilter):
 
 class ShipmentPaymentAdmin(admin.ModelAdmin, PermissionMixin):
     model = ShipmentPayment
-    search_fields = ('shipment__invoice_no', 'parent_order_payment__order__order_no',)
+    search_fields = ('shipment__invoice__invoice_no', 'parent_order_payment__order__order_no',)
     #fields = ("shipment",) #, "is_payment_approved")
     raw_id_fields = ("shipment",)
     list_display = (

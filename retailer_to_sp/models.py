@@ -590,6 +590,10 @@ class CartProductMapping(models.Model):
         max_length=255, null=True,
         blank=True, editable=False
     )
+    capping_error_msg = models.CharField(
+        max_length=255, null=True,
+        blank=True, editable=False
+    )
     effective_price = models.FloatField(default=0)
     discounted_price = models.FloatField(default = 0)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1485,9 +1489,6 @@ class Invoice(models.Model):
     def __str__(self):
         return self.invoice_no
 
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-
     @property
     def invoice_amount(self):
         try:
@@ -1734,7 +1735,7 @@ class OrderedProductMapping(models.Model):
 
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
-            shop__shop_type__shop_type='sp', status=True
+            seller_shop__shop_type__shop_type='sp', status=True
         ).last()
 
     def get_products_gst_tax(self):
@@ -1873,7 +1874,8 @@ class Commercial(Trip):
             When(shipment_status='PARTIALLY_DELIVERED_AND_COMPLETED',
                  then=Value('PARTIALLY_DELIVERED_AND_CLOSED')),
             When(shipment_status='FULLY_DELIVERED_AND_COMPLETED',
-                 then=Value('FULLY_DELIVERED_AND_CLOSED'))))
+                 then=Value('FULLY_DELIVERED_AND_CLOSED')),
+            default=F('shipment_status')))
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)

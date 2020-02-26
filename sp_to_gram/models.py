@@ -322,6 +322,7 @@ class OrderedProductReserved(models.Model):
     RESERVED = "reserved"
     ORDERED = "ordered"
     FREE = "free"
+    CLEARING = "clearing"
     ORDER_CANCELLED = 'order_cancelled'
     RESERVE_STATUS = (
         (RESERVED, "Reserved"),

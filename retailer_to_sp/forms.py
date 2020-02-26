@@ -471,11 +471,11 @@ class TripForm(forms.ModelForm):
                 for field_name in self.fields:
                     self.fields[field_name].disabled = True
                 if trip_status == 'CLOSED':
-                    self.fields['trip_status'].choices = TRIP_STATUS[4:5] #"CLOSED"
-                elif trip_status == 'TRANSFERRED':
-                    self.fields['trip_status'].choices = TRIP_STATUS[5:] #"CLOSED"
+                    self.fields['trip_status'].choices = Trip.TRIP_STATUS[4:5] #"CLOSED"
+                elif trip_status == Trip.PAYMENT_VERIFIED:
+                    self.fields['trip_status'].choices = Trip.TRIP_STATUS[5:] #"CLOSED"
                 else:
-                    self.fields['trip_status'].choices = TRIP_STATUS[1:2]
+                    self.fields['trip_status'].choices = Trip.TRIP_STATUS[1:2]
                 #self.fields['trip_status'].choices = TRIP_STATUS[1:2]
 
         else:
@@ -559,7 +559,7 @@ class DispatchDisabledForm(DispatchForm):
 
 
 class ShipmentForm(forms.ModelForm):
-    close_order = forms.BooleanField(required=False)
+    close_order = forms.BooleanField(required=False, initial=True)
 
     class Meta:
         model = Shipment
@@ -569,7 +569,7 @@ class ShipmentForm(forms.ModelForm):
         js = (
             'https://cdnjs.cloudflare.com/ajax/libs/select2/'
             '4.0.6-rc.0/js/select2.min.js', 'admin/js/sweetalert.min.js',
-            'admin/js/order_close_message.js'
+            # 'admin/js/order_close_message.js'
         )
         css = {
             'all': (

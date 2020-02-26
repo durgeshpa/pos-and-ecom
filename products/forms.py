@@ -291,7 +291,7 @@ class ProductPriceNewForm(forms.ModelForm):
         # if not selling_price:
         #     raise forms.ValidationError(
         #         _('Please enter valid value for Selling Price'),
-        #     )    
+        #     )
         #else:
         return cleaned_data
 
@@ -301,6 +301,7 @@ class ProductForm(forms.ModelForm):
     product_short_description = forms.CharField(required=True)
     product_slug = forms.CharField(required=True)
     product_gf_code = forms.CharField(required=True)
+    product_ean_code = forms.CharField(required=True)
 
     class Meta:
         model = Product
@@ -363,7 +364,7 @@ class ProductsCSVUploadForm(forms.Form):
             if not row[3] or row[3].isspace():
                 raise ValidationError(_("PRODUCT_GF_CODE required at Row[%(value)s]."), params={'value': id+1},)
             if not row[12] or row[12].isspace():
-                raise ValidationError(_("Product weight in gram required at Row[%(value)s]."), params={'value': id+1},)                
+                raise ValidationError(_("Product weight in gram required at Row[%(value)s]."), params={'value': id+1},)
 #            if row[3]:
 #                product_gf = Product.objects.filter(product_gf_code=row[3])
 #                if product_gf:
@@ -590,3 +591,14 @@ class ProductVendorMappingForm(forms.ModelForm):
     class Meta:
         model = ProductVendorMapping
         fields = ('vendor', 'product', 'product_price', 'product_mrp', 'case_size', )
+
+class ProductCappingForm(forms.ModelForm):
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(
+            url='admin:product-price-autocomplete',)
+    )
+    seller_shop = forms.ModelChoiceField(
+        queryset=Shop.objects.filter(shop_type__shop_type='sp'),
+        widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete')
+    )

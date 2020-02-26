@@ -339,7 +339,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CartProductMapping
-        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg', 'is_available','no_of_pieces','product_sub_total', 'product_coupons', 'margin')
+        fields = ('id', 'cart', 'cart_product', 'qty','qty_error_msg', 'capping_error_msg', 'is_available','no_of_pieces','product_sub_total', 'product_coupons', 'margin')
 
 
 class CartSerializer(serializers.ModelSerializer):
@@ -1075,7 +1075,10 @@ class TripSerializer(serializers.ModelSerializer):
         return obj.cash_collected_by_delivery_boy()
 
     def get_trip_return_amount(self, obj):
-        return round(float(obj.total_trip_amount_value) - float(obj.cash_to_be_collected()),2)
+        try:
+            return round(float(obj.total_trip_amount_value) - float(obj.cash_to_be_collected()),2)
+        except:
+            return 0
 
     class Meta:
         model = Trip

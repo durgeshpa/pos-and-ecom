@@ -7,7 +7,7 @@ from .views import (ProductsList, GramGRNProductsList,AddToCart,CartDetail,
     ProductDetail,ReleaseBlocking, OrderedProductViewSet, OrderedProductMappingView,
     CancelOrder, DeliveryBoyTrips,RetailerShopsList, FeedbackData, SellerOrderList,
     DeliveryShipmentDetails, ShipmentDetail, PickerDashboardViewSet, RescheduleReason,
-    ReturnReason, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate, DownloadCreditNoteDiscounted
+    ReturnReason, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate, DownloadCreditNoteDiscounted, AutoSuggest
 )
 
 router = routers.DefaultRouter()
@@ -53,6 +53,7 @@ urlpatterns = [
     url('^discounted_credit_note/(?P<pk>\d+)/note/$',
         DownloadCreditNoteDiscounted.as_view(),
         name='discounted_credit_note'),
+    url('^autosearch/suggest/$', AutoSuggest.as_view()),
 ]
 
 urlpatterns += router.urls
