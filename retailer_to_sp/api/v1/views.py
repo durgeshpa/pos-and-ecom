@@ -949,7 +949,7 @@ class DownloadInvoiceSP(APIView):
                 shipment.order.ordered_cart.seller_shop,
                 shipment.order.ordered_cart.buyer_shop)
 
-            if shipment.order.oredered_cart.cart_type == 'DISCOUNTED':
+            if shipment.order.ordered_cart.cart_type == 'DISCOUNTED':
                 product_pro_price_ptr = round(product_price.selling_price,2)
             else:
                 product_pro_price_ptr = cart_product_map.item_effective_prices
