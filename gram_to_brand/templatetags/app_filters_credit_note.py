@@ -52,4 +52,4 @@ def addMultiplicationcreditNote(qty, unit_price, discounted_price, *args, **kwar
     return round(float(qty - unit_price) * int(discounted_price),2)
 
 @register.simple_tag(name='discount')
-def findDiscount(effective, discounted, *args, **kwargs):return round(effective - discounted)
+def findDiscount(effective, discounted, *args, **kwargs):return round((effective - discounted), 2)
