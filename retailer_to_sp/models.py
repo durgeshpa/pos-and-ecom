@@ -1655,7 +1655,7 @@ class OrderedProductMapping(models.Model):
 
     @property
     def price_to_retailer(self):
-        if self.ordered_product.orddr.ordered_cart.cart_type == 'DISCOUNTED':
+        if self.ordered_product.order.ordered_cart.cart_type == 'DISCOUNTED':
             if self.discounted_price:
                 return self.discounted_price
             return self.ordered_product.order.ordered_cart.rt_cart_list\
