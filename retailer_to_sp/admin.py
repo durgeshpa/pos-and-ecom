@@ -1387,15 +1387,21 @@ class NoteAdmin(admin.ModelAdmin):
         pass
 
     def download_credit_note(self, obj):
-    # if (
-
-    # obj.Note_credit_note.count() > 0
-    # and obj.return_credit_note.filter(status=True)
-    # ):
-        return format_html(
-                    "<a href= '%s' >Download Credit Note</a>" %
-                       (reverse('download_credit_note', args=[obj.pk]))
-        )
+        if obj.credit_note_type == 'RETURN':
+            return format_html(
+                        "<a href= '%s' >Download Credit Note</a>" %
+                           (reverse('download_credit_note', args=[obj.pk]))
+            )
+        elif obj.credit_note_type=='DISCOUNTED':
+            return format_html(
+                        "<a href= '%s' >Download Credit Note</a>" %
+                            (reverse('discounted_credit_note', args=[obj.pk]))
+            )
+        else:
+            return format_html(
+                "<a href= '%s' >Download Credit Note</a>" %
+                (reverse('download_credit_note', args=[obj.pk]))
+            )
 
     download_credit_note.short_description = 'Download Credit Note'
 
