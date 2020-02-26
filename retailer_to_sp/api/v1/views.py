@@ -931,7 +931,7 @@ class DownloadInvoiceSP(APIView):
         cess_tax_list= []
         surcharge_tax_list=[]
         for m in shipment.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
-
+            sum_qty += m.shipped_qty
             # New Code For Product Listing Start
             tax_sum = 0
             basic_rate = 0
@@ -973,7 +973,7 @@ class DownloadInvoiceSP(APIView):
                 "product_mrp": product_pro_price_mrp,
                 "shipped_qty": m.shipped_qty,
                 "product_inner_case_size": m.product.product_inner_case_size,
-                "product_no_of_pices": int(m.shipped_qty),
+                "product_no_of_pices": int(m.shipped_qty) * int(m.product.product_inner_case_size),
                 "basic_rate": basic_rate,
                 "basic_amount": float(m.shipped_qty) * float(basic_rate),
                 "price_to_retailer": round(product_pro_price_ptr, 2),
@@ -1017,7 +1017,7 @@ class DownloadInvoiceSP(APIView):
                 "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,
                 "barcode":barcode,"product_listing":product_listing,
                 "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
-                "open_time":open_time, "close_time":close_time,}
+                "open_time":open_time, "close_time":close_time, "sum_qty":sum_qty}
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
