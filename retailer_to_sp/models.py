@@ -2245,12 +2245,12 @@ def order_notification(sender, instance=None, created=False, **kwargs):
 
 @receiver(post_save, sender=CartProductMapping)
 def create_offers(sender, instance=None, created=False, **kwargs):
-    if instance.qty and instance.no_of_pieces and instance.cart_type != 'DISCOUNTED':
+    if instance.qty and instance.no_of_pieces and instance.cart.cart_type != 'DISCOUNTED':
         Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
 
 from django.db.models.signals import post_delete
 
 @receiver(post_delete, sender=CartProductMapping)
 def create_offers_at_deletion(sender, instance=None, created=False, **kwargs):
-    if instance.qty and instance.no_of_pieces and instance.cart_type != 'DISCOUNTED':
+    if instance.qty and instance.no_of_pieces and instance.cart.cart_type != 'DISCOUNTED':
         Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
