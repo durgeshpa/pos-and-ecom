@@ -477,8 +477,9 @@ class BulkOrder(models.Model):
             super(BulkOrder, self).clean(*args, **kwargs)
 
     def save(self, *args, **kwargs):
-        self.cart = Cart.objects.create(seller_shop=self.seller_shop, buyer_shop=self.buyer_shop, cart_status = 'ordered', cart_type = self.order_type)
-        super().save(*args, **kwargs)
+        if self.pk is None:
+            self.cart = Cart.objects.create(seller_shop=self.seller_shop, buyer_shop=self.buyer_shop, cart_status = 'ordered', cart_type = self.order_type)
+            super().save(*args, **kwargs)
 
 @receiver(post_save, sender=Cart)
 def create_order_id(sender, instance=None, created=False, **kwargs):
