@@ -930,6 +930,7 @@ class DownloadInvoiceSP(APIView):
         gst_tax_list= []
         cess_tax_list= []
         surcharge_tax_list=[]
+        sum_qty = 0
         for m in shipment.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
             sum_qty += m.shipped_qty
             # New Code For Product Listing Start
