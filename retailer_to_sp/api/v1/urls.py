@@ -7,7 +7,7 @@ from .views import (ProductsList, GramGRNProductsList,AddToCart,CartDetail,
     ProductDetail,ReleaseBlocking, OrderedProductViewSet, OrderedProductMappingView,
     CancelOrder, DeliveryBoyTrips,RetailerShopsList, FeedbackData, SellerOrderList,
     DeliveryShipmentDetails, ShipmentDetail, PickerDashboardViewSet, RescheduleReason,
-    ReturnReason, AutoSuggest, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate
+    ReturnReason, ShipmentDeliveryUpdate, ShipmentDeliveryBulkUpdate, DownloadCreditNoteDiscounted, AutoSuggest
 )
 
 router = routers.DefaultRouter()
@@ -50,6 +50,9 @@ urlpatterns = [
     url('^seller-order-list/$', SellerOrderList.as_view(), name='seller-order-list'),
     url('^reschedule-reason/$', RescheduleReason.as_view(), name='reschedule-reason'),
     url('^return-reason/$', ReturnReason.as_view(), name='return-reason'),
+    url('^discounted_credit_note/(?P<pk>\d+)/note/$',
+        DownloadCreditNoteDiscounted.as_view(),
+        name='discounted_credit_note'),
     url('^autosearch/suggest/$', AutoSuggest.as_view()),
 ]
 

@@ -19,6 +19,7 @@ VALIDATION_ERROR_MESSAGES = {
     'INVALID_PRICE': 'Invalid price.(eg: 1000, 200.50)',
     'INVALID_PINCODE': 'Invalid Pincode',
     'INVALID_PRODUCT_ID':'Invalid Product Id',
+    'INVALID_PRODUCT_SKU':'Invalid Product SKU',
     'EMPTY':'%s cant be empty',
     'EMPTY_OR_NOT_VALID':'%s cant be empty or not valid( eg: 11.11)',
     'INVALID_GSTIN_Number': 'Invalid Gstin number',
