@@ -1143,7 +1143,7 @@ class DownloadInvoiceSP(APIView):
                 "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,
                 "barcode":barcode,"product_listing":product_listing,"rupees":rupees,
                 "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
-                "open_time":open_time, "close_time":close_time,  "sum_qty":sum_qty" ,shop_name_gram":shop_name_gram, "nick_name_gram":nick_name_gram,
+                "open_time":open_time, "close_time":close_time,  "sum_qty":sum_qty, "shop_name_gram":shop_name_gram, "nick_name_gram":nick_name_gram,
                 "address_line1_gram":address_line1_gram,"city_gram":city_gram,"state_gram":state_gram, "pincode_gram":state_gram, }
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
