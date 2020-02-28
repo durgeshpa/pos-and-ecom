@@ -887,7 +887,10 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     change_form_template = 'admin/retailer_to_sp/order/change_form.html'
 
     def order_data_excel_action(self, request, queryset):
-        return create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment)
+        return create_order_data_excel(
+            request, queryset, OrderPayment, ShipmentPayment,
+            OrderedProduct, Order, Trip, PickerDashboard,
+            RoundAmount)
     order_data_excel_action.short_description = "Download CSV of selected orders"
 
     def get_urls(self):
