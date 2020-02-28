@@ -294,16 +294,11 @@ def assign_picker(request, shop_id=None):
             selected_orders = form.cleaned_data.get('selected_id', None)
             picker_boy = form.cleaned_data.get('picker_boy', None)
             if selected_orders:
-
                 selected_orders = selected_orders.split(',')
                 selected_orders = PickerDashboard.objects.filter(
                     pk__in=selected_orders)
-                import pdb; pdb.set_trace()
-
-                for picker_instance in selected_orders:
-                    picker_instance.picker_boy = picker_boy
-                    picker_instance.picking_status = 'picking_assigned'
-                    picker_instance.save()
+                selected_orders.update(picker_boy=picker_boy,
+                                       picking_status='picking_assigned')
 
             return redirect('/admin/retailer_to_sp/pickerdashboard/')
     # form for assigning picker
@@ -799,56 +794,55 @@ def update_shipment_status(form_instance, formset):
 
     form_instance.save()
 
+# def update_order_status(close_order_checked, shipment_id):
+#     shipment = OrderedProduct.objects.get(pk=shipment_id)
+#     order = shipment.order
+#     shipment_products_dict = order.rt_order_order_product.aggregate(
+#             delivered_qty = Sum('rt_order_product_order_product_mapping__delivered_qty'),
+#             shipped_qty = Sum('rt_order_product_order_product_mapping__shipped_qty'),
+#             returned_qty = Sum('rt_order_product_order_product_mapping__returned_qty'),
+#             damaged_qty = Sum('rt_order_product_order_product_mapping__damaged_qty'),
 
-def update_order_status(close_order_checked, shipment_id):
-    shipment = OrderedProduct.objects.get(pk=shipment_id)
-    order = shipment.order
-    shipment_products_dict = order.rt_order_order_product.aggregate(
-            delivered_qty = Sum('rt_order_product_order_product_mapping__delivered_qty'),
-            shipped_qty = Sum('rt_order_product_order_product_mapping__shipped_qty'),
-            returned_qty = Sum('rt_order_product_order_product_mapping__returned_qty'),
-            damaged_qty = Sum('rt_order_product_order_product_mapping__damaged_qty'),
+#         )
+#     cart_products_dict = order.ordered_cart.rt_cart_list.aggregate(total_no_of_pieces = Sum('no_of_pieces'))
 
-        )
-    cart_products_dict = order.ordered_cart.rt_cart_list.aggregate(total_no_of_pieces = Sum('no_of_pieces'))
+#     total_delivered_qty = shipment_products_dict.get('delivered_qty')
 
-    total_delivered_qty = shipment_products_dict.get('delivered_qty')
+#     total_shipped_qty = shipment_products_dict.get('shipped_qty')
 
-    total_shipped_qty = shipment_products_dict.get('shipped_qty')
+#     total_returned_qty = shipment_products_dict.get('returned_qty')
 
-    total_returned_qty = shipment_products_dict.get('returned_qty')
+#     total_damaged_qty = shipment_products_dict.get('damaged_qty')
 
-    total_damaged_qty = shipment_products_dict.get('damaged_qty')
+#     ordered_qty = cart_products_dict.get('total_no_of_pieces')
 
-    ordered_qty = cart_products_dict.get('total_no_of_pieces')
+#     order = shipment.order
 
-    order = shipment.order
+#     if ordered_qty == (total_delivered_qty + total_returned_qty + total_damaged_qty):
+#         order.order_status = 'SHIPPED'
 
-    if ordered_qty == (total_delivered_qty + total_returned_qty + total_damaged_qty):
-        order.order_status = 'SHIPPED'
+#     elif (total_returned_qty == total_shipped_qty or
+#           (total_damaged_qty + total_returned_qty) == total_shipped_qty):
+#         if order.order_closed:
+#             order.order_status = Order.DENIED_AND_CLOSED
+#         else:
+#             order.order_status = 'DENIED'
 
-    elif (total_returned_qty == total_shipped_qty or
-          (total_damaged_qty + total_returned_qty) == total_shipped_qty):
-        if order.order_closed:
-            order.order_status = Order.DENIED_AND_CLOSED
-        else:
-            order.order_status = 'DENIED'
+#     elif (total_delivered_qty == 0 and total_shipped_qty > 0 and
+#           total_returned_qty == 0 and total_damaged_qty == 0):
+#         order.order_status = 'DISPATCH_PENDING'
 
-    elif (total_delivered_qty == 0 and total_shipped_qty > 0 and
-          total_returned_qty == 0 and total_damaged_qty == 0):
-        order.order_status = 'DISPATCH_PENDING'
+#     elif (ordered_qty - total_delivered_qty) > 0 and total_delivered_qty > 0:
+#         if order.order_closed:
+#             order.order_status = Order.PARTIALLY_SHIPPED_AND_CLOSED
+#         else:
+#             order.order_status = 'PARTIALLY_SHIPPED'
 
-    elif (ordered_qty - total_delivered_qty) > 0 and total_delivered_qty > 0:
-        if order.order_closed:
-            order.order_status = Order.PARTIALLY_SHIPPED_AND_CLOSED
-        else:
-            order.order_status = 'PARTIALLY_SHIPPED'
+#     if close_order_checked and not order.order_closed:
+#         order.order_closed = True
 
-    if close_order_checked and not order.order_closed:
-        order.order_closed = True
-
-    order.save()
-    return ordered_qty, shipment_products_dict
+#     order.save()
+#     return ordered_qty, shipment_products_dict
 
 class SellerShopAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):

@@ -37,7 +37,7 @@ from retailer_to_sp.views import (
     LoadDispatches, UpdateSpQuantity, commercial_shipment_details,
     load_dispatches, order_invoices, ordered_product_mapping_shipment,
     trip_planning, trip_planning_change, update_delivered_qty,
-    update_order_status, update_shipment_status, reshedule_update_shipment,
+    update_shipment_status, reshedule_update_shipment,
     RetailerCart, assign_picker, assign_picker_change, assign_picker_data,
     UserWithNameAutocomplete,  SellerAutocomplete, ShipmentOrdersAutocomplete,
     BuyerShopAutocomplete, BuyerParentShopAutocomplete
@@ -972,10 +972,10 @@ class OrderedProductAdmin(admin.ModelAdmin):
         else:
             update_shipment_status(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
             #create_credit_note(form.instance)
-        update_order_status(
-            close_order_checked=False,
-            shipment_id=form_instance.id
-        )
+        # update_order_status(
+        #     close_order_checked=False,
+        #     shipment_id=form_instance.id
+        # )
         super(OrderedProductAdmin, self).save_related(request, form,
                                                       formsets, change)
 

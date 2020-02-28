@@ -24,25 +24,25 @@ def add_cart_user(form, request):
 	cart.save()
 
 
-def create_order_from_cart(form, formsets, request, order):
-	cart_data = get_cart_seller_buyer_shop_address(form)
-	order_amounts = get_order_mrp_tax_discount_final_amount(formsets)
+def create_order_from_cart(form, formsets, request, Order):
+    cart_data = get_cart_seller_buyer_shop_address(form)
+    order_amounts = get_order_mrp_tax_discount_final_amount(formsets)
 
-	order, _ = order.objects.get_or_create(
-		ordered_cart=cart_data.get('cart'), order_no=cart_data.get('order_id'))
+    order, _ = Order.objects.get_or_create(
+    	ordered_cart=cart_data.get('cart'), order_no=cart_data.get('order_id'))
 
-	order.seller_shop = cart_data.get('seller_shop')
-	order.buyer_shop = cart_data.get('buyer_shop')
-	order.billing_address = cart_data.get('billing_address')
-	order.shipping_address = cart_data.get('shipping_address')
-	order.total_mrp = order_amounts.get('total_mrp')
-	order.total_discount_amount = order_amounts.get('total_discount_amount')
-	order.total_tax_amount = order_amounts.get('total_tax_amount')
-	#order.total_final_amount = order_amounts.get('total_final_amount')
-	order.ordered_by = request.user
-	order.order_status = order.ORDERED
-	order.last_modified_by = request.user
-	order.save()
+    order.seller_shop = cart_data.get('seller_shop')
+    order.buyer_shop = cart_data.get('buyer_shop')
+    order.billing_address = cart_data.get('billing_address')
+    order.shipping_address = cart_data.get('shipping_address')
+    order.total_mrp = order_amounts.get('total_mrp')
+    order.total_discount_amount = order_amounts.get('total_discount_amount')
+    order.total_tax_amount = order_amounts.get('total_tax_amount')
+    #order.total_final_amount = order_amounts.get('total_final_amount')
+    order.ordered_by = request.user
+    order.order_status = Order.ORDERED
+    order.last_modified_by = request.user
+    order.save()
 
 
 def get_product_tax_amount(product, ptr, ordered_no_of_pieces):

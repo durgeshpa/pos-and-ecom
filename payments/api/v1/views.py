@@ -34,7 +34,7 @@ from retailer_to_sp.models import OrderedProduct, OrderedProductMapping
 from payments.models import ShipmentPayment, PaymentMode, \
     Payment, OrderPayment, PaymentImage
 
-from retailer_to_sp.views import update_order_status, update_shipment_status_with_id
+from retailer_to_sp.views import update_shipment_status_with_id
 from retailer_to_sp.api.v1.views import update_trip_status    
 
 from sp_to_gram.models import create_credit_note

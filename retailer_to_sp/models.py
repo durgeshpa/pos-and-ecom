@@ -623,10 +623,15 @@ class Order(models.Model):
     ORDER_PLACED_DISPATCH_PENDING = 'opdp'
     PARTIALLY_SHIPPED_AND_CLOSED = 'partially_shipped_and_closed'
     DENIED_AND_CLOSED = 'denied_and_closed'
+    DISPATCH_PENDING = 'DISPATCH_PENDING'
+    PARTIAL_SHIPMENT_CREATED = 'par_ship_created'
+    FULL_SHIPMENT_CREATED = 'full_ship_created'
+    COMPLETED = 'completed'
+    READY_TO_DISPATCH = 'ready_to_dispatch'
 
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'), #1
-        ('DISPATCH_PENDING', 'Dispatch Pending'), #2
+        (DISPATCH_PENDING, 'Dispatch Pending'), #2
         (ACTIVE, "Active"),
         (PENDING, "Pending"),
         (DELETED, "Deleted"),
@@ -643,7 +648,11 @@ class Order(models.Model):
         (PAYMENT_DONE_APPROVAL_PENDING, "Payment Done Approval Pending"),
         (OPDP, "Order Placed Dispatch Pending"),
         (PARTIALLY_SHIPPED_AND_CLOSED, "Partially shipped and closed"),
-        (DENIED_AND_CLOSED, 'Denied and Closed')
+        (DENIED_AND_CLOSED, 'Denied and Closed'),
+        (PARTIAL_SHIPMENT_CREATED, 'Partial Shipment Created'),
+        (FULL_SHIPMENT_CREATED, 'Full Shipment Created'),
+        (READY_TO_DISPATCH, 'Ready to Dispatch'),
+        (COMPLETED, 'Completed')
     )
 
     CASH_NOT_AVAILABLE = 'cna'
@@ -1431,10 +1440,11 @@ class Invoice(models.Model):
 
 
 class PickerDashboard(models.Model):
+    PICKING_ASSIGNED = 'picking_assigned'
 
     PICKING_STATUS = (
         ('picking_pending', 'Picking Pending'),
-        ('picking_assigned', 'Picking Assigned'),
+        (PICKING_ASSIGNED, 'Picking Assigned'),
         ('picking_in_progress', 'Picking In Progress'),
         ('picking_complete', 'Picking Complete'),
     )
@@ -2069,6 +2079,24 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
     assign_update_picker_to_shipment(instance.id)
 
 
+@receiver(post_save, sender=Invoice)
+def update_order_status_from_invoice(sender, instance=None, created=False, **kwargs):
+    if created:
+        shipment_products_dict = instance.shipment.order.rt_order_order_product\
+            .aggregate(shipped_qty=Sum('rt_order_product_order_product_mapping__shipped_qty'))
+        cart_products_dict = instance.shipment.order.ordered_cart.rt_cart_list\
+            .aggregate(total_no_of_pieces=Sum('no_of_pieces'))
+        total_shipped_qty = shipment_products_dict.get('shipped_qty')
+        ordered_qty = cart_products_dict.get('total_no_of_pieces')
+
+        order = instance.shipment.order
+        if ordered_qty == total_shipped_qty:
+            order.order_status = Order.FULL_SHIPMENT_CREATED
+        else:
+            order.order_status = Order.PARTIAL_SHIPMENT_CREATED
+        order.save()
+
+
 @receiver(post_save, sender=Order)
 def assign_picklist(sender, instance=None, created=False, **kwargs):
     '''
@@ -2149,3 +2177,32 @@ from django.db.models.signals import post_delete
 def create_offers_at_deletion(sender, instance=None, created=False, **kwargs):
     if instance.qty and instance.no_of_pieces:
         Cart.objects.filter(id=instance.cart.id).update(offers=instance.cart.offers_applied())
+
+
+@receiver(post_save, sender=PickerDashboard)
+def update_order_status_from_picker(sender, instance=None, created=False, **kwargs):
+    if instance.picking_status == PickerDashboard.PICKING_ASSIGNED:
+        instance.order.order_status = Order.DISPATCH_PENDING
+        instance.order.save()
+
+
+@receiver(post_save, sender=Trip)
+def update_order_status_from_trip(sender, instance=None, created=False, **kwargs):
+    import pdb; pdb.set_trace()
+    if created:
+        order_ids = instance.rt_invoice_trip.values_list('order', flat=True)
+        Order.objects.filter(id__in=order_ids).update(order_status=Order.READY_TO_DISPATCH)
+    if instance.trip_status == Trip.STARTED:
+        order_ids = instance.rt_invoice_trip.values_list('order', flat=True)
+        Order.objects.filter(id__in=order_ids).update(order_status=Order.DISPATCHED)
+
+
+@receiver(post_save, sender=OrderedProduct)
+def update_order_status_from_shipment(sender, instance=None, created=False, **kwargs):
+    if 'COMPLETED' in instance.shipment_status:
+        order_shipments_count = instance.order.rt_order_order_product.count()
+        order_completed_shipments_count = instance.order.rt_order_order_product\
+            .filter(shipment_status__icontains='COMPLETED').count()
+        if order_shipments_count == order_completed_shipments_count:
+            instance.order.order_status = 'COMPLETED'
+            instance.order.save()
