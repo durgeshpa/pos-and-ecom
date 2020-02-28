@@ -458,7 +458,7 @@ class AddToCart(APIView):
                                        cart_status__in=['active', 'pending']).exists():
                     cart = Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
                                                cart_status__in=['active', 'pending']).last()
-                    cart.cart_type = 'Retail'
+                    cart.cart_type = 'RETAIL'
                     cart.approval_status = False
                     cart.cart_status = 'active'
                     cart.seller_shop = parent_mapping.parent
@@ -466,7 +466,7 @@ class AddToCart(APIView):
                     cart.save()
                 else:
                     cart = Cart(last_modified_by=self.request.user, cart_status='active')
-                    cart.cart_type = 'Retail'
+                    cart.cart_type = 'RETAIL'
                     cart.approval_status = False
                     cart.seller_shop = parent_mapping.parent
                     cart.buyer_shop = parent_mapping.retailer
