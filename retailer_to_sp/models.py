@@ -69,13 +69,13 @@ PAYMENT_MODE_CHOICES = (
     ("neft", "NEFT"),
     ("credit", "credit")
 )
-BULK = 'BULK'
 RETAIL = 'RETAIL'
+BULK = 'BULK'
 DISCOUNTED = 'DISCOUNTED'
 
 BULK_ORDER_STATUS = (
-    (BULK, 'Bulk'),
     (RETAIL, 'Retail'),
+    (BULK, 'Bulk'),
     (DISCOUNTED, 'Discounted'),
 )
 MESSAGE_STATUS = (
@@ -424,7 +424,7 @@ class BulkOrder(models.Model):
         Address, related_name='rt_shipping_address_bulk_order',
         null=True, blank=True, on_delete=models.DO_NOTHING
     )
-    order_type = models.CharField(max_length=50,choices=BULK_ORDER_STATUS, null = True)
+    order_type = models.CharField(max_length=50,choices=BULK_ORDER_STATUS[1:], null = True)
     cart_products_csv = models.FileField(
         upload_to='retailer/sp/cart_products_csv',
         null=True, blank=False
