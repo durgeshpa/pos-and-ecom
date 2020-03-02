@@ -1211,7 +1211,7 @@ class OrderedProduct(models.Model): #Shipment
     )
     order = models.ForeignKey(
         Order, related_name='rt_order_order_product',
-        on_delete=models.DO_NOTHING, null=True, blank=True, limit_choices_to= Q(ordered_cart__cart_type = 'RETAIL') | Q(ordered_cart__cart_type = 'BULK') | Q(ordered_cart__cart_type = 'DISCOUNTED', ordered_cart__approval_status = True)
+        on_delete=models.DO_NOTHING, null=True, blank=True
     )
     shipment_status = models.CharField(
         max_length=50, choices=SHIPMENT_STATUS,
