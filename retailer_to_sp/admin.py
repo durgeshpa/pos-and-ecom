@@ -384,7 +384,7 @@ class CartProductMappingAdmin(admin.TabularInline):
     form = CartProductMappingForm
     formset = AtLeastOneFormSet
     fields = ('cart', 'cart_product', 'cart_product_price', 'qty',
-              'no_of_pieces', 'product_case_size', 'product_inner_case_size', 'item_effective_prices')
+              'no_of_pieces', 'product_case_size', 'product_inner_case_size', 'item_effective_prices', 'discounted_price')
     autocomplete_fields = ('cart_product', 'cart_product_price')
     extra = 0
 
@@ -394,6 +394,18 @@ class CartProductMappingAdmin(admin.TabularInline):
         return super(CartProductMappingAdmin, self).\
             formfield_for_foreignkey(db_field, request, **kwargs)
 
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = super(CartProductMappingAdmin, self) \
+            .get_readonly_fields(request, obj)
+        if obj:
+            readonly_fields = readonly_fields + (
+                'cart_product', 'cart_product_price', 'qty', 'no_of_pieces', 'item_effective_prices'
+            )
+            if obj.approval_status == True:
+                readonly_fields = readonly_fields + (
+                    'discounted_price',
+                )
+        return readonly_fields
     # def get_readonly_fields(self, request, obj=None):
     #     readonly_fields = super(CartProductMappingAdmin, self) \
     #         .get_readonly_fields(request, obj)
@@ -406,7 +418,7 @@ class CartProductMappingAdmin(admin.TabularInline):
     def has_delete_permission(self, request, obj=None):
         return False
 
-class ExportCsvMixin:
+class ExportCsvMixinCart:
     def export_as_csv_cart(self, request, queryset):
         meta = self.model._meta
         list_display = ('order_id','seller_shop', 'buyer_shop', 'cart_status', 'date', 'time', 'seller_contact_no', 'buyer_contact_no')
@@ -421,12 +433,27 @@ class ExportCsvMixin:
 
     export_as_csv_cart.short_description = "Download CSV of Selected Orders"
 
-class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
+class ExportCsvMixinCartProduct:
+    def export_as_csv_cart_product(self, request, queryset):
+        meta = self.model._meta
+        queryset = queryset.last().rt_cart_list.all()
+        list_display = ('cart_product', 'cart_product_price', 'qty', 'no_of_pieces', 'discounted_price', 'item_effective_prices')
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+        writer = csv.writer(response)
+        writer.writerow(list_display)
+        for obj in queryset:
+            row = writer.writerow([getattr(obj, field) for field in list_display])
+        return response
+
+    export_as_csv_cart_product.short_description = "Download CSV of Paticular Cart Products"
+
+class CartAdmin(ExportCsvMixinCart, ExportCsvMixinCartProduct, admin.ModelAdmin):
     inlines = [CartProductMappingAdmin]
-    fields = ('seller_shop', 'buyer_shop', 'offers')
-    actions = ["export_as_csv_cart", ]
+    fields = ('seller_shop', 'buyer_shop', 'offers', 'approval_status')
+    actions = ["export_as_csv_cart", "export_as_csv_cart_product" ]
     form = CartForm
-    list_display = ('order_id', 'seller_shop','buyer_shop','cart_status','created_at',)
+    list_display = ('order_id', 'cart_type', 'approval_status', 'seller_shop','buyer_shop','cart_status','created_at',)
     #change_form_template = 'admin/sp_to_gram/cart/change_form.html'
     list_filter = (SellerShopFilter, BuyerShopFilter,OrderIDFilter)
 
@@ -507,21 +534,31 @@ class CartAdmin(ExportCsvMixin, admin.ModelAdmin):
         return readonly_fields
 
     def save_related(self, request, form, formsets, change):
-        add_cart_user(form, request)
-        create_order_from_cart(form, formsets, request, Order)
         super(CartAdmin, self).save_related(request, form, formsets, change)
+        if change == False:
+            add_cart_user(form, request)
+            create_order_from_cart(form, formsets, request, Order)
+            reserve_order = ReservedOrder(
+                form.cleaned_data.get('seller_shop'),
+                form.cleaned_data.get('buyer_shop'),
+                Cart, CartProductMapping, SpMappedOrderedProductMapping,
+                OrderedProductReserved, request.user)
+            reserve_order.create()
 
-        reserve_order = ReservedOrder(
-            form.cleaned_data.get('seller_shop'),
-            form.cleaned_data.get('buyer_shop'),
-            Cart, CartProductMapping, SpMappedOrderedProductMapping,
-            OrderedProductReserved, request.user)
-        reserve_order.create()
+    def get_readonly_fields(self, request, obj = None):
+        if obj:
+            count_products = obj.rt_cart_list.all().count()
+            count_discounted_prices = obj.rt_cart_list.filter(discounted_price__gt = 0).count()
+            if count_products != count_discounted_prices:
+                return self.readonly_fields+ ('approval_status',)
+            if obj.approval_status == True:
+                return self.readonly_fields+ ('approval_status',)
+        return self.readonly_fields
 
 class BulkOrderAdmin(admin.ModelAdmin):
-    fields = ('seller_shop', 'buyer_shop', 'shipping_address', 'billing_address', 'cart_products_csv')
+    fields = ('seller_shop', 'buyer_shop', 'shipping_address', 'billing_address', 'cart_products_csv', 'order_type')
     form = BulkCartForm
-    list_display = ('cart', 'seller_shop','buyer_shop', 'shipping_address', 'billing_address', 'created_at',)
+    list_display = ('cart', 'order_type', 'seller_shop','buyer_shop', 'shipping_address', 'billing_address', 'created_at',)
     #change_form_template = 'admin/sp_to_gram/cart/change_form.html'
     list_filter = (SellerShopFilter, BuyerShopFilter)
 
@@ -1368,15 +1405,21 @@ class NoteAdmin(admin.ModelAdmin):
         pass
 
     def download_credit_note(self, obj):
-    # if (
-
-    # obj.Note_credit_note.count() > 0
-    # and obj.return_credit_note.filter(status=True)
-    # ):
-        return format_html(
-                    "<a href= '%s' >Download Credit Note</a>" %
-                       (reverse('download_credit_note', args=[obj.pk]))
-        )
+        if obj.credit_note_type == 'RETURN':
+            return format_html(
+                        "<a href= '%s' >Download Credit Note</a>" %
+                           (reverse('download_credit_note', args=[obj.pk]))
+            )
+        elif obj.credit_note_type=='DISCOUNTED':
+            return format_html(
+                        "<a href= '%s' >Download Credit Note</a>" %
+                            (reverse('discounted_credit_note', args=[obj.pk]))
+            )
+        else:
+            return format_html(
+                "<a href= '%s' >Download Credit Note</a>" %
+                (reverse('download_credit_note', args=[obj.pk]))
+            )
 
     download_credit_note.short_description = 'Download Credit Note'
 
