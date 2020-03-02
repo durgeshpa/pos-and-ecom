@@ -858,7 +858,7 @@ class DispatchSerializer(serializers.ModelSerializer):
 
     def get_discounted_credit_note(self, obj):
         if obj.order.ordered_cart.cart_type == 'DISCOUNTED':
-            return obj.credit_note.filter(credit_note_type = 'DISCOUNTED').first()
+            return obj.credit_note.filter(credit_note_type = 'DISCOUNTED').first().credit_note_id
         else:
             return "-"
 
@@ -916,7 +916,7 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
 
     def get_discounted_credit_note(self, obj):
         if obj.order.ordered_cart.cart_type == 'DISCOUNTED':
-            return obj.credit_note.filter(credit_note_type = 'DISCOUNTED').first()
+            return obj.credit_note.filter(credit_note_type = 'DISCOUNTED').first().credit_note_id
         else:
             return "-"
 
