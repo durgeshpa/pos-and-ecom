@@ -1636,13 +1636,21 @@ class RescheduleReason(generics.ListCreateAPIView):
         return serializer.save(created_by=self.request.user)
 
     def update_shipment(self, id):
-        OrderedProduct.objects.filter(pk=id).update(shipment_status=OrderedProduct.RESCHEDULED, trip=None)
+        shipment = OrderedProduct.objects.get(pk=id)
+        shipment.shipment_status = OrderedProduct.RESCHEDULED
+        shipment.trip = None
+        shipment.save()
+
 
 def update_trip_status(trip_id):
     shipment_status_list = ['FULLY_DELIVERED_AND_COMPLETED', 'PARTIALLY_DELIVERED_AND_COMPLETED', 'FULLY_RETURNED_AND_COMPLETED', 'RESCHEDULED']
     order_product = OrderedProduct.objects.filter(trip_id=trip_id)
     if order_product.exclude(shipment_status__in=shipment_status_list).count()==0:
         Trip.objects.filter(pk=trip_id).update(trip_status=Trip.COMPLETED, completed_at=datetime.now())
+        # updating order status when trip is completed
+        trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
+        Order.objects.filter(rt_order_order_product__in=trip_shipments).update(order_status=Order.COMPLETED)
+
 
 class ReturnReason(generics.UpdateAPIView):
     authentication_classes = (authentication.TokenAuthentication,)

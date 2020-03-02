@@ -2057,6 +2057,23 @@ class Feedback(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     status = models.BooleanField(default=False)
 
+
+def update_full_part_order_status(shipment):
+        shipment_products_dict = shipment.order.rt_order_order_product\
+            .aggregate(shipped_qty=Sum('rt_order_product_order_product_mapping__shipped_qty'))
+        cart_products_dict = shipment.order.ordered_cart.rt_cart_list\
+            .aggregate(total_no_of_pieces=Sum('no_of_pieces'))
+        total_shipped_qty = shipment_products_dict.get('shipped_qty')
+        ordered_qty = cart_products_dict.get('total_no_of_pieces')
+
+        order = shipment.order
+        if ordered_qty == total_shipped_qty:
+            order.order_status = Order.FULL_SHIPMENT_CREATED
+        else:
+            order.order_status = Order.PARTIAL_SHIPMENT_CREATED
+        order.save()
+
+
 @task
 def assign_update_picker_to_shipment(shipment_id):
    shipment = OrderedProduct.objects.get(pk=shipment_id)
@@ -2080,21 +2097,14 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
 
 
 @receiver(post_save, sender=Invoice)
-def update_order_status_from_invoice(sender, instance=None, created=False, **kwargs):
+def update_order_status_from_invoice(sender, instance=None, created=False,
+                                     **kwargs):
+    '''
+    Changing Order Status either to FULL SHIPMENT CREATED or PARTIAL SHIPMENT
+    CREATED when shipment status changes to QC PASSED(on creation of Invoice)
+    '''
     if created:
-        shipment_products_dict = instance.shipment.order.rt_order_order_product\
-            .aggregate(shipped_qty=Sum('rt_order_product_order_product_mapping__shipped_qty'))
-        cart_products_dict = instance.shipment.order.ordered_cart.rt_cart_list\
-            .aggregate(total_no_of_pieces=Sum('no_of_pieces'))
-        total_shipped_qty = shipment_products_dict.get('shipped_qty')
-        ordered_qty = cart_products_dict.get('total_no_of_pieces')
-
-        order = instance.shipment.order
-        if ordered_qty == total_shipped_qty:
-            order.order_status = Order.FULL_SHIPMENT_CREATED
-        else:
-            order.order_status = Order.PARTIAL_SHIPMENT_CREATED
-        order.save()
+        update_full_part_order_status(instance.shipment)
 
 
 @receiver(post_save, sender=Order)
@@ -2186,23 +2196,33 @@ def update_order_status_from_picker(sender, instance=None, created=False, **kwar
         instance.order.save()
 
 
-@receiver(post_save, sender=Trip)
-def update_order_status_from_trip(sender, instance=None, created=False, **kwargs):
-    import pdb; pdb.set_trace()
-    if created:
-        order_ids = instance.rt_invoice_trip.values_list('order', flat=True)
-        Order.objects.filter(id__in=order_ids).update(order_status=Order.READY_TO_DISPATCH)
-    if instance.trip_status == Trip.STARTED:
-        order_ids = instance.rt_invoice_trip.values_list('order', flat=True)
-        Order.objects.filter(id__in=order_ids).update(order_status=Order.DISPATCHED)
+# @receiver(post_save, sender=Trip)
+# def update_order_status_from_trip(sender, instance=None, created=False,
+#                                   **kwargs):
+#     '''
+#     Changing order status to READY_TO_DISPATCH or DISPATCHED when trip status
+#     is READY and STARTED
+#     '''
+#     if instance.trip_status == Trip.READY:
+#         order_ids = instance.rt_invoice_trip.values_list('order', flat=True)
+#         Order.objects.filter(id__in=order_ids).update(order_status=Order.READY_TO_DISPATCH)
+#     if instance.trip_status == Trip.STARTED:
+#         order_ids = instance.rt_invoice_trip.values_list('order', flat=True)
+#         Order.objects.filter(id__in=order_ids).update(order_status=Order.DISPATCHED)
 
 
 @receiver(post_save, sender=OrderedProduct)
-def update_order_status_from_shipment(sender, instance=None, created=False, **kwargs):
+def update_order_status_from_shipment(sender, instance=None, created=False,
+                                      **kwargs):
+    '''
+    Changing Order status to COMPLETED when shipment status is in
+    ['FULLY_DELIVERED_AND_COMPLETED', 'FULLY_RETURNED_AND_COMPLETED',
+     'PARTIALLY_DELIVED_AND_COMPLETED'] and changing to FULL_SHIPMENT_CREATED
+    or PARTIAL_SHIPMENT_CREATED when either shipment is removed from trip or
+    shipment status is RESCHEDULED.
+    '''
     if 'COMPLETED' in instance.shipment_status:
-        order_shipments_count = instance.order.rt_order_order_product.count()
-        order_completed_shipments_count = instance.order.rt_order_order_product\
-            .filter(shipment_status__icontains='COMPLETED').count()
-        if order_shipments_count == order_completed_shipments_count:
-            instance.order.order_status = 'COMPLETED'
-            instance.order.save()
+        instance.order.order_status = Order.COMPLETED
+        instance.order.save()
+    if instance.shipment_status == OrderedProduct.RESCHEDULED:
+        update_full_part_order_status(instance)

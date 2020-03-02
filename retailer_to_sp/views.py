@@ -27,7 +27,7 @@ from sp_to_gram.models import (
 from retailer_to_sp.models import (
     Cart, CartProductMapping, Order, OrderedProduct, OrderedProductMapping,
     CustomerCare, Payment, Return, ReturnProductMapping, Note, Trip, Dispatch,
-    ShipmentRescheduling, PickerDashboard
+    ShipmentRescheduling, PickerDashboard, update_full_part_order_status
 )
 from products.models import Product
 from retailer_to_sp.forms import (
@@ -382,8 +382,14 @@ TRIP_SHIPMENT_STATUS_MAP={
     'STARTED':"OUT_FOR_DELIVERY",
     'CANCELLED': "READY_TO_SHIP",
     'COMPLETED': "FULLY_DELIVERED_AND_COMPLETED"
-
 }
+
+TRIP_ORDER_STATUS_MAP = {
+    'READY': Order.READY_TO_DISPATCH,
+    'STARTED': Order.DISPATCHED,
+    'COMPLETED': Order.COMPLETED
+}
+
 def trip_planning_change(request, pk):
     trip_instance = Trip.objects.get(pk=pk)
     trip_status = trip_instance.trip_status
@@ -394,31 +400,50 @@ def trip_planning_change(request, pk):
             if form.is_valid():
                 trip = form.save()
                 current_trip_status = trip.trip_status
+                selected_shipment_ids = form.cleaned_data.get('selected_id', None)
+
                 if trip_status == Trip.STARTED:
                     if current_trip_status == Trip.COMPLETED:
                         trip_instance.rt_invoice_trip.filter(shipment_status='OUT_FOR_DELIVERY').update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
                         OrderedProductMapping.objects.filter(ordered_product__in=trip_instance.rt_invoice_trip.filter(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])).update(delivered_qty=F('shipped_qty'))
+
+                        # updating order status to completed
+                        trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
+                        Order.objects.filter(rt_order_order_product__id__in=trip_shipments).update(order_status=TRIP_ORDER_STATUS_MAP[current_trip_status])
                     else:
                         trip_instance.rt_invoice_trip.all().update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
                     return redirect('/admin/retailer_to_sp/trip/')
 
                 if trip_status == Trip.READY:
+                    # updating order status for shipments removed from Trip
+                    trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
+                    for shipment in trip_shipments:
+                        update_full_part_order_status(OrderedProduct.objects.get(id=shipment))
+
                     trip_instance.rt_invoice_trip.all().update(trip=None, shipment_status='READY_TO_SHIP')
 
                 if current_trip_status == Trip.CANCELLED:
                     trip_instance.rt_invoice_trip.all().update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status], trip=None)
+
+                    # updating order status for shipments when trip is cancelled
+                    trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
+                    for shipment in trip_shipments:
+                        update_full_part_order_status(OrderedProduct.objects.get(id=shipment))
+
                     return redirect('/admin/retailer_to_sp/trip/')
 
                 if current_trip_status == Trip.RETURN_VERIFIED:
                     return redirect('/admin/retailer_to_sp/trip/')
-
-                selected_shipment_ids = form.cleaned_data.get('selected_id', None)
 
                 if selected_shipment_ids:
                     selected_shipment_list = selected_shipment_ids.split(',')
                     selected_shipments = Dispatch.objects.filter(~Q(shipment_status='CANCELLED'),
                                                                  pk__in=selected_shipment_list)
                     selected_shipments.update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status],trip=trip_instance)
+
+                    # updating order status for shipments with respect to trip status
+                    if current_trip_status in TRIP_ORDER_STATUS_MAP.keys():
+                        Order.objects.filter(rt_order_order_product__in=selected_shipment_list).update(order_status=TRIP_ORDER_STATUS_MAP[current_trip_status])
 
                 return redirect('/admin/retailer_to_sp/trip/')
             else:

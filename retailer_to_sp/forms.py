@@ -930,21 +930,7 @@ class OrderForm(forms.ModelForm):
             raise forms.ValidationError(_('This order is already cancelled!'), )
         data = self.cleaned_data
         if self.cleaned_data.get('order_status') == 'CANCELLED':
-            shipments_data = list(self.instance.rt_order_order_product.values(
-                'id', 'shipment_status', 'trip__trip_status'))
-            if len(shipments_data) == 1:
-                # last shipment
-                s = shipments_data[-1]
-                if (s['shipment_status'] not in [i[0] for i in OrderedProduct.SHIPMENT_STATUS[:3]]):
-                    raise forms.ValidationError(
-                        _('Sorry! This order cannot be cancelled'), )
-                elif (s['trip__trip_status'] and s['trip__trip_status'] != Trip.READY):
-                    raise forms.ValidationError(
-                        _('Sorry! This order cannot be cancelled'), )
-            elif len(shipments_data) > 1:
-                status = [x[0] for x in OrderedProduct.SHIPMENT_STATUS[1:]
-                          if x[0] in [x['shipment_status'] for x in shipments_data]]
-                if status:
+            if self.instance.order_status == Order.COMPLETED:
                     raise forms.ValidationError(
                         _('Sorry! This order cannot be cancelled'), )
         return data
