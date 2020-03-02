@@ -81,7 +81,6 @@ function CreateResponseTable(data){
       if (i % 2 === 0) {
           var row = "row1";
       }
-
       var data1 = data['response_data'][i];
       var total_amount = data['response_data'][i]['cash_to_be_collected'];
       var shipment_payment_id = data1['shipment_payment']['shipment_payment_id'];
@@ -95,7 +94,7 @@ function CreateResponseTable(data){
       var online_payment_approval_status = "<td>" + data['response_data'][i]['online_payment_approval_status'] + "</td>";
       //var invoice_no = "<td><a href='/admin/retailer_to_sp/cart/commercial/"+pk+"/shipment-details/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
       var invoice_no = "<td><a href='/admin/payments/shipmentdata/"+pk+"/change/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
-      var credit_note = "<td><a href='/admin/retailer_to_sp/note/' target='_blank'></a></td>";
+      var discounted_credit_note = "<td><a href='/admin/retailer_to_sp/note/"+pk+"/change/' target='_blank'>"+ data['response_data'][i]['discounted_credit_note'] + "</a></td>";
 
       var invoice_amount = "<td>" + data['response_data'][i]['invoice_amount'] + "</td>";
       var cash_to_be_collected = "<td>" + data['response_data'][i]['cash_to_be_collected'] + "</td>";
@@ -113,7 +112,7 @@ function CreateResponseTable(data){
       //var submit_payment_button = "<td><form class='"+ shipment_payment +"' action=''><button class='shipment-payments-submit' type='button' data-id='"+ shipment_payment_id +"' data-total='"+ total_amount +"'>Submit!</button></form></td>";
 
       var append_data = "<tr class="+ row +"><td class='original'></td>" + invoice_no + invoice_amount + cash_to_be_collected + paid_amount_shipment + shipment_status +
-      payment_approval_status + online_payment_approval_status +invoice_city + created_at + order + shipment_address + credit_note + "</tr>";
+      payment_approval_status + online_payment_approval_status +invoice_city + created_at + order + shipment_address + discounted_credit_note + "</tr>";
 
       /*var append_data = "<tr class="+ row +"><td class='original'></td>" + invoice_no + invoice_amount + cash_to_be_collected + cash_payment
       + online_payment_mode + online_payment + reference_no + description +shipment_status +

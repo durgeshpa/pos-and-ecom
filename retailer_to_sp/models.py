@@ -427,7 +427,7 @@ class BulkOrder(models.Model):
     order_type = models.CharField(max_length=50,choices=BULK_ORDER_STATUS, null = True)
     cart_products_csv = models.FileField(
         upload_to='retailer/sp/cart_products_csv',
-        null=True, blank=True
+        null=True, blank=False
     )
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
