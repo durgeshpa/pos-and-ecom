@@ -109,11 +109,12 @@
                             <td class="text-center">{{ m.product.product_short_description}}</td>
                            <td class="text-center">{{ m.product.product_hsn}}</td>
                             <td class="text-center">{% discount m.effective_price m.discounted_price %}</td>
-                                    {% if m.get_products_gst_cess %}
+                            <td class="text-center">{{ m.get_product_tax_json}}</td>
+                                    <!-- {% if m.get_products_gst_cess %}
                             <td class="text-center">{{ m.get_products_gst_tax.last.tax.tax_percentage |add:m.get_products_gst_cess.last.tax.tax_percentage }}%</td>
                                     {% else %}
                                     <td class="text-center">{{ m.get_products_gst_tax.last.tax.tax_percentage}}%</td>
-                                    {% endif %}
+                                    {% endif %} -->
                            <td class="text-center">{{m.basic_rate_discounted |floatformat:2 | intcomma}}</td>
                             <td class="text-center">{{m.delivered_qty}}</td>
                             <td class="text-center">PCS</td>
