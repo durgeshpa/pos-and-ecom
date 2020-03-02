@@ -129,11 +129,12 @@
 										<td class="text-center">{{ m.product.product_sku}}</td>
 											<td class="text-center">{{ m.product.product_short_description}}</td>
     								<td class="text-center">{{ m.product.product_hsn}}</td>
-                    {% if m.get_products_gst_cess %}
+										<td class="text-center">{{ m.get_product_tax_json}}</td>
+                    <!-- {% if m.get_products_gst_cess %}
                    <td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage |add:m.get_products_gst_cess.last.tax.tax_percentage }}%</strong></td>
                     {% else %}
                     <td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage}}%</strong></td>
-                    {% endif %}
+                    {% endif %} -->
 							<td class="text-center"><strong>{% findTax m.price_to_retailer m.get_products_gst_tax.last.tax.tax_percentage %}</strong></td>
 									<td class="text-center"></td>
 
@@ -325,14 +326,13 @@
 
         							<td class="text-left" colspan="5">
 								<strong>Declaration</strong> <br>
-We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.
+We declare that this credit note shows the actual price of the goods described and that all particulars are true and correct.
 									</td>
         							<td class="text-right" colspan="5" height="100">
 
 										<strong>For GFDN Services Pvt Ltd</strong> <br>
 										<img src="{{scheme}}://{{url}}/static/admin/img/stamp.png" width="80" height="80" style="text-align: center">
 										<br>
-										Authorised Signatory
  Authorised Signatory
 									</td>
 

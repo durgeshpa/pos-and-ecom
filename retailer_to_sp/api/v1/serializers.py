@@ -830,6 +830,8 @@ class DispatchSerializer(serializers.ModelSerializer):
     created_at = serializers.DateTimeField()
     shipment_payment = serializers.SerializerMethodField()
     trip_status = serializers.SerializerMethodField()
+    discounted_credit_note = serializers.SerializerMethodField()
+    discounted_credit_note_pk = serializers.SerializerMethodField()
 
     def get_trip_status(self, obj):
         if obj.trip:
@@ -855,16 +857,28 @@ class DispatchSerializer(serializers.ModelSerializer):
     def shipment_weight(self, obj):
         return obj.shipment_weight
 
+    def get_discounted_credit_note_pk(self, obj):
+        if obj.order.ordered_cart.cart_type == 'DISCOUNTED':
+            return obj.credit_note.filter(credit_note_type = 'DISCOUNTED').first().id
+        else:
+            return "-"
+
+    def get_discounted_credit_note(self, obj):
+        if obj.order.ordered_cart.cart_type == 'DISCOUNTED':
+            return obj.credit_note.filter(credit_note_type = 'DISCOUNTED').first().credit_note_id
+        else:
+            return "-"
+
     class Meta:
         model = Dispatch
         fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
                   'shipment_address', 'invoice_city', 'invoice_amount',
                   'created_at', 'shipment_weight','shipment_payment', 'trip_status',
-                  'payment_approval_status', 'online_payment_approval_status')
+                  'payment_approval_status', 'online_payment_approval_status', 'discounted_credit_note', 'discounted_credit_note_pk')
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount',
                  'shipment_payment', 'trip_status', 'shipment_weight',
                  'payment_approval_status', 'online_payment_approval_status',
-                 'invoice_no')
+                 'invoice_no', 'discounted_credit_note', 'discounted_credit_note_pk')
 
 
 
@@ -880,6 +894,8 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
     online_payment_approval_status = serializers.SerializerMethodField()
     trip_status = serializers.SerializerMethodField()
     paid_amount_shipment = serializers.SerializerMethodField()
+    discounted_credit_note = serializers.SerializerMethodField()
+    discounted_credit_note_pk = serializers.SerializerMethodField()
 
     def get_trip_status(self, obj):
         if obj.trip:
@@ -906,17 +922,29 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
     def get_cash_to_be_collected(self, obj):
         return obj.cash_to_be_collected()
 
+    def get_discounted_credit_note_pk(self, obj):
+        if obj.order.ordered_cart.cart_type == 'DISCOUNTED':
+            return obj.credit_note.filter(credit_note_type = 'DISCOUNTED').first().id
+        else:
+            return "-"
+
+    def get_discounted_credit_note(self, obj):
+        if obj.order.ordered_cart.cart_type == 'DISCOUNTED':
+            return obj.credit_note.filter(credit_note_type = 'DISCOUNTED').first().credit_note_id
+        else:
+            return "-"
+
     class Meta:
         model = OrderedProduct
         fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
                   'shipment_address', 'invoice_city', 'invoice_amount',
                   'created_at', 'cash_to_be_collected', 'shipment_payment',
                    'trip_status', 'paid_amount_shipment', 'shipment_weight',
-                   'payment_approval_status', 'online_payment_approval_status')
+                   'payment_approval_status', 'online_payment_approval_status', 'discounted_credit_note', 'discounted_credit_note_pk')
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount',
                     'cash_to_be_collected', 'shipment_payment', 'trip_status',
                      'paid_amount_shipment', 'shipment_weight', 'payment_approval_status',
-                     'online_payment_approval_status', 'invoice_no')
+                     'online_payment_approval_status', 'invoice_no', 'discounted_credit_note', 'discounted_credit_note_pk')
 
 
 class FeedBackSerializer(serializers.ModelSerializer):

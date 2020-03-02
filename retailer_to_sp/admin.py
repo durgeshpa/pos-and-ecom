@@ -1325,7 +1325,7 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
         'vehicle_no', 'trip_status', 'starts_at', 'completed_at',
         'seller_shop',)
     list_display_links = ('dispatch_no', )
-    list_per_page = 50
+    list_per_page = 25
     list_max_show_all = 100
     list_select_related = ('delivery_boy', 'seller_shop')
     readonly_fields = ('dispatch_no','trip_amount', 'delivery_boy', 'seller_shop',
