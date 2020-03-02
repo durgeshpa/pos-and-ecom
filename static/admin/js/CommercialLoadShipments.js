@@ -94,7 +94,8 @@ function CreateResponseTable(data){
       var online_payment_approval_status = "<td>" + data['response_data'][i]['online_payment_approval_status'] + "</td>";
       //var invoice_no = "<td><a href='/admin/retailer_to_sp/cart/commercial/"+pk+"/shipment-details/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
       var invoice_no = "<td><a href='/admin/payments/shipmentdata/"+pk+"/change/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
-      var discounted_credit_note = "<td><a href='/admin/retailer_to_sp/note/"+pk+"/change/' target='_blank'>"+ data['response_data'][i]['discounted_credit_note'] + "</a></td>";
+      var discounted_credit_note_pk = data['response_data'][i]['discounted_credit_note_pk'];
+      var discounted_credit_note = "<td><a href='/admin/retailer_to_sp/note/"+discounted_credit_note_pk+"/change/' target='_blank'>"+ data['response_data'][i]['discounted_credit_note'] + "</a></td>";
 
       var invoice_amount = "<td>" + data['response_data'][i]['invoice_amount'] + "</td>";
       var cash_to_be_collected = "<td>" + data['response_data'][i]['cash_to_be_collected'] + "</td>";
