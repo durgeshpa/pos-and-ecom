@@ -1,8 +1,12 @@
 from django.conf.urls import include, url
 from rest_framework import routers
 
-from .views import (ShipmentPaymentView, SendCreditRequestAPI,
-    CreditOTPResponseAPI, BharatpeCallbackAPI, OrderPaymentView, PaymentImageUploadView)
+from .views import (
+    ShipmentPaymentView, SendCreditRequestAPI,
+    CreditOTPResponseAPI, BharatpeCallbackAPI, OrderPaymentView,
+    PaymentImageUploadView,
+)
+
 
 router = routers.DefaultRouter()
 router.register(r'shipment-payment', ShipmentPaymentView)
@@ -15,9 +19,6 @@ urlpatterns = [
     url('^payment-callback/$', BharatpeCallbackAPI.as_view()),
     url('^payment-image-upload/$', PaymentImageUploadView.as_view(), name='payment-screenshot', ),
     url('^payment-image-upload/(?P<pk>\d{0,50})/$', PaymentImageUploadView.as_view()),
-
-
-
 ]
 
 urlpatterns += router.urls

@@ -33,7 +33,7 @@ table tr td,th,h4,span,address{
 					<div class=" col-sm-12">
 						<h4 style="font-size:20px"><strong>TAX INVOICE</strong></h4>
 					</div>
-					<div class="col-sm-12"> 
+					<div class="col-sm-12">
 						{% if payment_type == 'neft' %}
                 		<h5 style="font-size:20px">Prepaid Order</h5>
             			{% elif payment_type == 'cash_on_delivery' %}
@@ -73,7 +73,7 @@ table tr td,th,h4,span,address{
     			</div>
     			<div class="row">
     				<div class="col-md-12">
-						<div class="col-xs-4"> 
+						<div class="col-xs-4">
 							<address>
 								<span>Dispatch To :</span>
 								<br/>
@@ -108,12 +108,12 @@ table tr td,th,h4,span,address{
 					<address>
 						<span>Supplier :</span><br>
 
-    				<strong>{{shipment.order.seller_shop.shop_name}}</strong><br>
+    				<strong>GFDN SERVICES PVT LTD</strong><br>
     				{{nick_name_gram}}, {{address_line1_gram}}, {{city_gram}}<br>
 						{{address_contact_number}}<br>
 						<strong>GSTIN/UIN:</strong> <span>{{seller_shop_gistin}}</span><br>
 						<strong>State Name:</strong> <span>{{state_gram}} </span><strong>Code:</strong> <span>{{pincode_gram}}</span><br>
-						<strong>CIN:</strong> <span>---</span>
+						<strong>CIN:</strong> <span>U74999HR2018PTC075977</span>
 
     				</address>
 
@@ -181,7 +181,7 @@ table tr td,th,h4,span,address{
 									<td></td>
                   <td></td>
 									<td></td>
-								  <td class="thick-line text-center"><strong>{{shipment.shipped_pieces}} PCS</strong></td>
+								  <td class="thick-line text-center"><strong>{{sum_qty}} PCS</strong></td>
     								<td class="thick-line"></td>
 										<td class="thick-line"></td>
 										<td class="thick-line"></td>
@@ -303,7 +303,7 @@ table tr td,th,h4,span,address{
         							<td class="no-line">E . &amp; O . E</td>
                                 </tr>
 								<tr>
-                        <td colspan="11"><strong>INR {{shipment.invoice_amount | amount }} only</strong></td>
+                        <td colspan="11"><strong>INR {{rupees}} only</strong></td>
                         {% endif %}
 
                                 </tr>
@@ -375,4 +375,3 @@ table tr td,th,h4,span,address{
 
 
 </body></html>
-

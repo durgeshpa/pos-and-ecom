@@ -71,10 +71,16 @@ def get_order_mrp_tax_discount_final_amount(formsets):
 	total_final_amount = []
 	for forms in formsets:
 		for form in forms:
-			product = form.cleaned_data.get('cart_product')
-			ordered_no_of_pieces = float(form.cleaned_data.get('no_of_pieces'))
-			ptr = float(form.cleaned_data.get('cart_product_price').selling_price)
-			mrp = float(form.cleaned_data.get('cart_product_price').mrp)
+			if form.instance:
+				product = form.instance.cart_product
+				ordered_no_of_pieces = float(form.instance.no_of_pieces)
+				ptr = float(form.instance.cart_product_price.selling_price)
+				mrp = float(form.instance.cart_product_price.mrp)
+			else:
+				product = form.cleaned_data.get('cart_product')
+				ordered_no_of_pieces = float(form.cleaned_data.get('no_of_pieces'))
+				ptr = float(form.cleaned_data.get('cart_product_price').selling_price)
+				mrp = float(form.cleaned_data.get('cart_product_price').mrp)
 			tax_amount = get_product_tax_amount(product, ptr, ordered_no_of_pieces)
 
 			total_mrp.append(mrp * ordered_no_of_pieces)
@@ -128,7 +134,7 @@ def order_invoices(shipments):
     return format_html_join(
     "","<a href='/admin/retailer_to_sp/shipment/{}/change/' target='blank'>{}</a><br><br>",
             ((s.pk,
-            s.invoice_no, 
+            s.invoice_no,
             ) for s in shipments)
     )
 
@@ -137,21 +143,21 @@ def picking_statuses(picker_dashboards):
     "","{}<br><br>",
             ((s.get_picking_status_display(),
             ) for s in picker_dashboards)
-    ) 
+    )
 
 def picker_boys(picker_dashboards):
     return format_html_join(
     "","{}<br><br>",
             ((s.picker_boy, #get_picker_boy_display(),
             ) for s in picker_dashboards)
-    )  
-    
+    )
+
 def picklist_ids(picker_dashboards):
     return format_html_join(
     "","{}<br><br>",
             ((s.picklist_id, #get_picklist_id_display(),
             ) for s in picker_dashboards)
-    )        
+    )
 
 
 def order_shipment_status(shipments):
@@ -159,7 +165,7 @@ def order_shipment_status(shipments):
     "","{}<br><br>",
             ((s.get_shipment_status_display(),
             ) for s in shipments)
-    )   
+    )
 
 
 
@@ -168,7 +174,7 @@ def order_shipment_status_reason(shipments):
     "","{}<br><br>",
             ((s.get_return_reason_display(),
             ) for s in shipments)
-    )   
+    )
 
 
 def order_shipment_amount(shipments):
@@ -360,7 +366,7 @@ def create_invoice_data_excel(request, queryset, RoundAmount, ShipmentPayment,
             shipment_paid_amount=Subquery(ShipmentPayment.objects.filter(shipment__invoice__id=OuterRef('pk')).annotate(sum=Sum('paid_amount')).values('sum')[:1]),
             cn_amount=F('shipment__credit_note__amount'),
             invoice_amount=RoundAmount(Sum(
-                F('shipment__rt_order_product_order_product_mapping__effective_price') * 
+                F('shipment__rt_order_product_order_product_mapping__effective_price') *
                 F('shipment__rt_order_product_order_product_mapping__shipped_qty'),
                 output_field=FloatField())))\
         .values(
