@@ -856,7 +856,7 @@ class DispatchSerializer(serializers.ModelSerializer):
     def shipment_weight(self, obj):
         return obj.shipment_weight
 
-    def discounted_credit_note(self, obj):
+    def get_discounted_credit_note(self, obj):
         if obj.order.ordered_cart.cart_type == 'DISCOUNTED':
             return obj.credit_note.filter(credit_note_type = 'DISCOUNTED').first()
         else:
@@ -871,7 +871,7 @@ class DispatchSerializer(serializers.ModelSerializer):
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount',
                  'shipment_payment', 'trip_status', 'shipment_weight',
                  'payment_approval_status', 'online_payment_approval_status',
-                 'invoice_no')
+                 'invoice_no', 'discounted_credit_note')
 
 
 
@@ -914,7 +914,7 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
     def get_cash_to_be_collected(self, obj):
         return obj.cash_to_be_collected()
 
-    def discounted_credit_note(self, obj):
+    def get_discounted_credit_note(self, obj):
         if obj.order.ordered_cart.cart_type == 'DISCOUNTED':
             return obj.credit_note.filter(credit_note_type = 'DISCOUNTED').first()
         else:
@@ -930,7 +930,7 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount',
                     'cash_to_be_collected', 'shipment_payment', 'trip_status',
                      'paid_amount_shipment', 'shipment_weight', 'payment_approval_status',
-                     'online_payment_approval_status', 'invoice_no')
+                     'online_payment_approval_status', 'invoice_no', 'discounted_credit_note')
 
 
 class FeedBackSerializer(serializers.ModelSerializer):
