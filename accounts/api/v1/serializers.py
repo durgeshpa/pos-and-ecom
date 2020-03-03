@@ -33,6 +33,7 @@ class UserDocumentSerializer(serializers.ModelSerializer):
         super().__init__(*args, **kwargs)
         self.fields['user_document_type'].error_messages['required'] = "Please select user document type"
         self.fields['user_document_number'].error_messages['required'] = "Please enter user document no."
+        self.fields['user_document_number'].error_messages['blank'] = "Please enter user document no."
         self.fields['user_document_photo'].error_messages['required'] = "Please upload document photo"
 
     def validate_user_document_number(self, data):
