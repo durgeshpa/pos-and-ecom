@@ -570,6 +570,19 @@ class BulkOrderAdmin(admin.ModelAdmin):
             return self.readonly_fields + ('seller_shop','buyer_shop','shipping_address','billing_address',)
         return self.readonly_fields
 
+    def has_change_permission(self, request, obj=None):
+        if obj:
+            return False
+    # def change_view(self, request, object_id, extra_context=None):
+    #     if object_id:
+    #         extra_context = {
+    #             'show_save_and_add_another': False,
+    #             'show_save_and_continue': False,
+    #             'show_save': False
+    #             }
+    #
+    #     return super(BulkOrderAdmin, self).change_view(request, object_id, extra_context=extra_context)
+
 
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
