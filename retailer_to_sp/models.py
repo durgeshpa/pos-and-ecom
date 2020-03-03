@@ -464,6 +464,8 @@ class BulkOrder(models.Model):
             for sku in product_skus:
                 if Product.objects.filter(product_sku=sku).exists():
                     product_ids.append(Product.objects.get(product_sku=sku).id)
+                else:
+                    raise ValidationError("The SKU %s is invalid" % (sku))
             from sp_to_gram.models import (OrderedProductMapping as SpMappedOrderedProductMapping)
             shop_products_available = SpMappedOrderedProductMapping.get_shop_stock(self.seller_shop).filter(product__in=product_ids,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
             shop_products_dict = {g['product_id']:int(g['available_qty']) for g in shop_products_available}
