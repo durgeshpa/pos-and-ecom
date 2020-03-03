@@ -1651,12 +1651,14 @@ class InvoiceAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
+        shipment_payments = ShipmentPayment.objects.filter(parent_order_payment__order=OuterRef('pk')).order_by().values('parent_order_payment__order')
+        shipment_paid_amount = shipment_payments.annotate(sum=Sum('paid_amount')).values('sum')
         qs = qs.annotate(
             get_order=F('shipment__order__order_no'), shipment_status=F('shipment__shipment_status'),
             trip_no=F('shipment__trip__dispatch_no'), trip_status=F('shipment__trip__trip_status'),
             order_date=F('shipment__order__created_at'), order_status=F('shipment__order__order_status'),
             trip_started_at=F('shipment__trip__starts_at'), trip_completed_at=F('shipment__trip__completed_at'),
-            shipment_paid_amount=Subquery(ShipmentPayment.objects.filter(shipment__invoice__id=OuterRef('pk')).annotate(sum=Sum('paid_amount')).values('sum')[:1]),
+            shipment_paid_amount=Subquery(shipment_paid_amount),
             cn_amount=F('shipment__credit_note__amount'))
         return qs
 
