@@ -313,7 +313,7 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
     for order in orders.iterator():
         offers = order.get('ordered_cart__offers')
         if offers:
-            total_final_amount = sum([i.get('discounted_product_subtotal', 0) for i in offers])
+            total_final_amount = RoundAmount(sum([i.get('discounted_product_subtotal', 0) for i in offers]))
         else:
             total_final_amount = order.get('total_final_amount')
         writer.writerow([
