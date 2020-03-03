@@ -1651,7 +1651,7 @@ class InvoiceAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        shipment_payments = ShipmentPayment.objects.filter(parent_order_payment__order=OuterRef('pk')).order_by().values('parent_order_payment__order')
+        shipment_payments = ShipmentPayment.objects.filter(shipment__invoice__id=OuterRef('pk')).order_by().values('shipment__invoice__id')
         shipment_paid_amount = shipment_payments.annotate(sum=Sum('paid_amount')).values('sum')
         qs = qs.annotate(
             get_order=F('shipment__order__order_no'), shipment_status=F('shipment__shipment_status'),
