@@ -284,8 +284,8 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
 
     orders = queryset\
         .annotate(
-            total_mrp_amount=Sum(F('ordered_cart__rt_cart_list__no_of_pieces') * F('ordered_cart__rt_cart_list__cart_product_price__mrp'), output_field=FloatField()),
-            total_final_amount=Sum(F('ordered_cart__rt_cart_list__no_of_pieces') * F('ordered_cart__rt_cart_list__cart_product_price__selling_price'), output_field=FloatField()),
+            total_mrp_amount=RoundAmount(Sum(F('ordered_cart__rt_cart_list__no_of_pieces') * F('ordered_cart__rt_cart_list__cart_product_price__mrp'), output_field=FloatField())),
+            total_final_amount=RoundAmount(Sum(F('ordered_cart__rt_cart_list__no_of_pieces') * F('ordered_cart__rt_cart_list__cart_product_price__selling_price'), output_field=FloatField())),
             shipment_paid_amount=Subquery(shipment_paid_amount),
             order_paid_amount=Subquery(order_paid_amount),
             invoice_amount=Subquery(OrderedProduct.objects.filter(order=OuterRef('pk')).annotate(sum=RoundAmount(Sum(
