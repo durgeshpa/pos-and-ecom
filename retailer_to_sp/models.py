@@ -22,7 +22,7 @@ from django.utils.crypto import get_random_string
 from accounts.middlewares import get_current_user
 from addresses.models import Address
 from retailer_backend import common_function as CommonFunction
-
+from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from .utils import (order_invoices, order_shipment_status, order_shipment_amount, order_shipment_details_util,
                     order_shipment_date, order_delivery_date, order_cash_to_be_collected, order_cn_amount,
                     order_damaged_amount, order_delivered_value, order_shipment_status_reason,
@@ -434,7 +434,7 @@ class BulkOrder(models.Model):
 
 
     def __str__(self):
-        return self.seller_shop.shop_name
+        return self.cart.order_id
 
     @property
     def cart_products_sample_file(self):
@@ -456,11 +456,38 @@ class BulkOrder(models.Model):
 
     def clean(self, *args, **kwargs):
         if self.cart_products_csv:
+            product_skus = []
             product_ids = []
             reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
-            headers = next(reader)
+            headers = next(reader, None)
+            product_skus = [x[0] for x in reader if x]
+            for sku in product_skus:
+                if Product.objects.filter(product_sku=sku).exists():
+                    product_ids.append(Product.objects.get(product_sku=sku).id)
+            from sp_to_gram.models import (OrderedProductMapping as SpMappedOrderedProductMapping)
+            shop_products_available = SpMappedOrderedProductMapping.get_shop_stock(self.seller_shop).filter(product__in=product_ids,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
+            shop_products_dict = {g['product_id']:int(g['available_qty']) for g in shop_products_available}
+            reader = csv.reader(codecs.iterdecode(self.cart_products_csv, 'utf-8'))
+            headers = next(reader, None)
             duplicate_products = []
+            count = 0
             for id,row in enumerate(reader):
+                if not row[0]:
+                    raise ValidationError("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Product SKU cannot be empty")
+
+                try:
+                    product = Product.objects.get(product_sku=row[0])
+                except:
+                    raise ValidationError("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | "+VALIDATION_ERROR_MESSAGES[
+                    'INVALID_PRODUCT_SKU'])
+                if not row[2] or not re.match("^[\d\,]*$", row[2]):
+                    raise ValidationError("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
+                    'EMPTY']%("qty"))
+
+                if self.order_type == 'DISCOUNTED':
+                    if not row[3] or not re.match("^[1-9][0-9]{0,}(\.\d{0,2})?$", row[3]):
+                        raise ValidationError("Row[" + str(id + 1) + "] | " + headers[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
+                        'EMPTY']%("discounted_price"))
                 if row[0]:
                     product = Product.objects.get(product_sku=row[0])
                     if product in duplicate_products:
@@ -473,6 +500,16 @@ class BulkOrder(models.Model):
                         discounted_price = float(row[3])
                         if product_price.selling_price < discounted_price:
                             raise ValidationError(_("Row["+str(id+1)+"] | "+headers[0]+":"+row[0]+" | Discounted Price can't be more than Product Price."))
+                    product_id = product.id
+                    ordered_pieces = int(row[2]) * int(product.product_inner_case_size)
+                    ordered_qty = int(row[2])
+                    product_availability = shop_products_dict.get(product.id, 0)
+                    product_available = int(int(shop_products_dict.get(product.id, 0))/int(product.product_inner_case_size))
+                    if product_available >= ordered_qty:
+                        count+=1
+                if count == 0:
+                    raise ValidationError(_("Order can't be placed as none of the products uploaded are in stock."))
+
         else:
             super(BulkOrder, self).clean(*args, **kwargs)
 
