@@ -56,7 +56,7 @@
     				{{shop.shipment.order.billing_address.shop_name}}<br>
     				{{shop.shipment.order.billing_address.nick_name}}, {{shop.shipment.order.billing_address.address_line1}}, {{shop.order.shipping_address.city}},
 						{{shop.shipment.order.billing_address.city}}<br>
-						<strong>GSTIN/UIN:</strong> <span>{{ gstinn2 }} </span><br>
+						<strong>GSTIN:</strong> <span>{{ gstinn2 }} </span><br>
 						<strong>State Name:</strong>{{shop.shipment.order.billing_address.state.state_name}}<span>{{shop.shipment.order.invoice_no.order.billing_address.state}} </span><strong>Pincode:</strong> <span>{{shop.shipment.order.billing_address.pincode}}</span><br>
     				</address>
 
@@ -66,7 +66,7 @@
 						<span>Dispatch To :</span><br>
     				{{shop.shipment.order.shipping_address.shop_name}}<br>
     				{{shop.shipment.order.shipping_address.nick_name}}, {{shop.shipment.order.shipping_address.address_line1}}, {{shop.shipment.order.shipping_address.city}}<br>
-						<strong>GSTIN/UIN:</strong> <span>{{gstinn1}}</span><br>
+						<strong>GSTIN:</strong> <span>{{gstinn1}}</span><br>
 						<strong>State Name:</strong> <span>{{shop.shipment.order.shipping_address.state}} </span><strong>Pincode:</strong> <span>{{shop.shipment.order.shipping_address.pincode}}</span><br>
     				</address>
 					</div>
@@ -75,7 +75,7 @@
 							<span>Supplier:</span><br>
 							{{shop_name_gram}}<br>
 							{{nick_name_gram}}, {{address_line1_gram}}, {{city_gram}}<br>
-							<strong>GSTIN/UIN:</strong> <span>{{gstinn3}}</span><br>
+							<strong>GSTIN:</strong> <span>{{gstinn3}}</span><br>
 							<strong>State Name:</strong><span>{{state_gram}}</span><strong>Pincode:</strong><span>{{pincode_gram}}</span><br>
 							<strong>CIN:</strong><span>{{cin}}</span>
 						</address>
@@ -303,7 +303,7 @@
         							<td class="text-left" colspan="10">
 
 
-						<strong>GST No:</strong> <span>{{gst_number}}</span><br>
+						<strong>GST No:</strong> <span>{{gstinn3}}</span><br>
 										<strong>PAN No:</strong> <span>{{pan_no}}</span><br>
 
 									</td>
