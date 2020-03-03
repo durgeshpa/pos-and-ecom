@@ -248,14 +248,11 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                         if isinstance(error, dict):
                             for e in error:
                                 error_msg = error_msg.join(error[e])
-                            result = ''.join('{} : {}'.format(e, error_msg))
-                            errors.append(result)
+                            errors.append(error_msg)
                         else:
-                            result = ''.join('{} : {}'.format(field, error))
-                            errors.append(result)
+                            errors.append(error)
                 else:
-                    result = ''.join('{} : {}'.format(field,error))
-                    errors.append(result)
+                    errors.append(error)
         return errors
 
     def create(self, request, *args, **kwargs):
