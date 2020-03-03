@@ -83,9 +83,8 @@ table tr td,th,h4,span,address{
 								<br/>
 								{{shipment.order.shipping_address.address_contact_number}}
 								<br/>
-								<strong>GSTIN/UIN:</strong> <span>{{ buyer_shop_gistin }}</span><br>
-								<strong>State Name:</strong> <span>{{shipment.order.shipping_address.state}} </span><strong>Code:</strong> <span>{{shipment.order.shipping_address.pincode}}</span><br>
-								<strong>CIN:</strong> <span>---</span><br>
+								<strong>GSTIN:</strong> <span>{{ buyer_shop_gistin }}</span><br>
+								<strong>State Name:</strong> <span>{{shipment.order.shipping_address.state}} </span><strong>Pincode:</strong> <span>{{shipment.order.shipping_address.pincode}}</span><br>
 								<strong>Shop ID:</strong><span><strong>{{ shipment.order.buyer_shop_id }}</strong></span>
     						</address>
 						</div>
@@ -95,9 +94,8 @@ table tr td,th,h4,span,address{
     				<strong>{{shipment.order.billing_address.shop_name.shop_name}}</strong><br>
     				{{shipment.order.billing_address.nick_name}}, {{shipment.order.billing_address.address_line1}}, {{shipment.order.billing_address.city}}<br>
 						{{shipment.order.billing_address.address_contact_number}}<br>
-						<strong>GSTIN/UIN:</strong> <span>{{ buyer_shop_gistin }}</span><br>
-						<strong>State Name:</strong> <span>{{shipment.order.billing_address.state}} </span><strong>Code:</strong> <span>{{shipment.order.billing_address.pincode}}</span><br>
-						<strong>CIN:</strong> <span>---</span>
+						<strong>GSTIN:</strong> <span>{{ buyer_shop_gistin }}</span><br>
+						<strong>State Name:</strong> <span>{{shipment.order.billing_address.state}} </span><strong>Pincode:</strong> <span>{{shipment.order.billing_address.pincode}}</span><br>
     				</address>
 
 					</div>
@@ -108,12 +106,12 @@ table tr td,th,h4,span,address{
 					<address>
 						<span>Supplier :</span><br>
 
-    				<strong>GFDN SERVICES PVT LTD</strong><br>
+    				<strong>{{shop_name_gram}}</strong><br>
     				{{nick_name_gram}}, {{address_line1_gram}}, {{city_gram}}<br>
 						{{address_contact_number}}<br>
-						<strong>GSTIN/UIN:</strong> <span>{{seller_shop_gistin}}</span><br>
-						<strong>State Name:</strong> <span>{{state_gram}} </span><strong>Code:</strong> <span>{{pincode_gram}}</span><br>
-						<strong>CIN:</strong> <span>U74999HR2018PTC075977</span>
+						<strong>GSTIN:</strong> <span>{{seller_shop_gistin}}</span><br>
+						<strong>State Name:</strong> <span>{{state_gram}} </span><strong>Pincode:</strong> <span>{{pincode_gram}}</span><br>
+						<strong>CIN:</strong> <span>{{cin}}</span>
 
     				</address>
 
