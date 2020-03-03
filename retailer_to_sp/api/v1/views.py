@@ -1084,8 +1084,8 @@ class DownloadInvoiceSP(APIView):
             base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
             product_tax_amount = round(float(base_price) * float(get_tax_val),2)
             for z in shipment.order.seller_shop.shop_name_address_mapping.all():
-                cin = 'U74999HR2018PTC075977' if z.id==600 or z.id==172 else '---'
-                shop_name_gram ='GFDN SERVICES PVT LTD' if z.id==600 or z.shop_name==172 else z.shop_name
+                cin = 'U74999HR2018PTC075977' if z.shop_name=='GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name=='GFDN SERVICES PVT LTD (DELHI)' else '---'
+                shop_name_gram ='GFDN SERVICES PVT LTD' if z.shop_name=='GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name=='GFDN SERVICES PVT LTD (DELHI)' else z.shop_name
                 nick_name_gram, address_line1_gram = z.nick_name, z.address_line1
                 city_gram, state_gram, pincode_gram = z.city, z.state, z.pincode
 
