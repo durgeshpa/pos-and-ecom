@@ -509,8 +509,8 @@ class BulkOrder(models.Model):
                     product_available = int(int(shop_products_dict.get(product.id, 0))/int(product.product_inner_case_size))
                     if product_available >= ordered_qty:
                         count+=1
-                if count == 0:
-                    raise ValidationError(_("Order can't be placed as none of the products uploaded are in stock."))
+            if count == 0:
+                raise ValidationError(_("Order can't be placed as none of the products uploaded are in stock."))
 
         else:
             super(BulkOrder, self).clean(*args, **kwargs)
