@@ -1035,7 +1035,6 @@ class DownloadInvoiceSP(APIView):
 
         seller_shop_gistin = 'unregistered'
         buyer_shop_gistin = 'unregistered'
-
         if shipment.order.ordered_cart.seller_shop.shop_name_documents.exists():
             seller_shop_gistin = shipment.order.ordered_cart.seller_shop.shop_name_documents.filter(
             shop_document_type='gstin').last().shop_document_number if shipment.order.ordered_cart.seller_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else 'unregistered'
@@ -1085,7 +1084,9 @@ class DownloadInvoiceSP(APIView):
             base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
             product_tax_amount = round(float(base_price) * float(get_tax_val),2)
             for z in shipment.order.seller_shop.shop_name_address_mapping.all():
-                shop_name_gram, nick_name_gram, address_line1_gram = z.shop_name, z.nick_name, z.address_line1
+                cin = 'U74999HR2018PTC075977' if z.shop_name=='GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name=='GFDN SERVICES PVT LTD (DELHI)' else '---'
+                shop_name_gram ='GFDN SERVICES PVT LTD' if z.shop_name=='GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name=='GFDN SERVICES PVT LTD (DELHI)' else z.shop_name
+                nick_name_gram, address_line1_gram = z.nick_name, z.address_line1
                 city_gram, state_gram, pincode_gram = z.city, z.state, z.pincode
 
             ordered_prodcut = {
@@ -1144,7 +1145,7 @@ class DownloadInvoiceSP(APIView):
                 "barcode":barcode,"product_listing":product_listing,"rupees":rupees,
                 "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
                 "open_time":open_time, "close_time":close_time,  "sum_qty":sum_qty, "shop_name_gram":shop_name_gram, "nick_name_gram":nick_name_gram,
-                "address_line1_gram":address_line1_gram,"city_gram":city_gram,"state_gram":state_gram, "pincode_gram":state_gram, }
+                "address_line1_gram":address_line1_gram,"city_gram":city_gram,"state_gram":state_gram, "pincode_gram":pincode_gram,"cin":cin, }
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
@@ -1180,7 +1181,10 @@ class DownloadCreditNoteDiscounted(APIView):
         taxes_list, gst_tax_list, cess_tax_list, surcharge_tax_list = [], [], [], []
         igst, cgst, sgst, cess, surcharge = 0,0,0,0,0
         for z in credit_note.shipment.order.seller_shop.shop_name_address_mapping.all():
-            shop_name_gram, nick_name_gram, address_line1_gram = z.shop_name, z.nick_name, z.address_line1
+            pan_no = 'AAHCG4891M' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else '---'
+            cin = 'U74999HR2018PTC075977' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else '---'
+            shop_name_gram = 'GFDN SERVICES PVT LTD' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else z.shop_name
+            nick_name_gram, address_line1_gram =z.nick_name, z.address_line1
             city_gram, state_gram, pincode_gram = z.city, z.state, z.pincode
         for m in products:
             sum_qty = sum_qty + (int(m.delivered_qty))
@@ -1206,7 +1210,7 @@ class DownloadCreditNoteDiscounted(APIView):
             "object": credit_note, "products": products,"shop": credit_note,"total_amount_int": total_amount_int,"sum_qty": sum_qty,"sum_amount":total_amount,
             "url": request.get_host(),"scheme": request.is_secure() and "https" or "http","igst": igst,"cgst": cgst,"sgst": sgst,"cess": cess,"surcharge": surcharge,
             "total_amount": round(total_amount,2),"order_id": order_id,"shop_name_gram": shop_name_gram,"nick_name_gram": nick_name_gram,"city_gram": city_gram,
-            "address_line1_gram": address_line1_gram,"pincode_gram": pincode_gram,"state_gram": state_gram,"amount":amount,"gstinn1":gstinn1,"gstinn2":gstinn2, "gstinn3":gstinn3,"gst_number":gst_number,"rupees":rupees,"credit_note_type":credit_note_type,}
+            "address_line1_gram": address_line1_gram,"pincode_gram": pincode_gram,"state_gram": state_gram,"amount":amount,"gstinn1":gstinn1,"gstinn2":gstinn2, "gstinn3":gstinn3,"gst_number":gst_number,"rupees":rupees,"credit_note_type":credit_note_type,"pan_no":pan_no, "cin":cin,}
         cmd_option = {
             "margin-top": 10,
             "zoom": 1,
@@ -1451,16 +1455,16 @@ class ShipmentDeliveryBulkUpdate(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def is_pan_required(self, cash_to_be_collected, shipmentproductmapping):
-        if cash_to_be_collected > 10000:
-            user_pan_exists = shipmentproductmapping.ordered_product.order.\
-                              buyer_shop.shop_owner.user_documents.\
-                              filter(user_document_type='pc').exists()
-            if user_pan_exists:
-                return False
-            if not user_pan_exists:
-                return True
-        return False
+    # def is_pan_required(self, cash_to_be_collected, shipmentproductmapping):
+    #     if cash_to_be_collected > 10000:
+    #         user_pan_exists = shipmentproductmapping.ordered_product.order.\
+    #                           buyer_shop.shop_owner.user_documents.\
+    #                           filter(user_document_type='pc').exists()
+    #         if user_pan_exists:
+    #             return False
+    #         if not user_pan_exists:
+    #             return True
+    #     return False
 
     def post(self, request, *args, **kwargs):
         shipment_id = kwargs.get('shipment')
@@ -1479,11 +1483,11 @@ class ShipmentDeliveryBulkUpdate(APIView):
                 item.save()
 
             cash_to_be_collected = products.last().ordered_product.cash_to_be_collected()
-            is_pan_required = self.is_pan_required(cash_to_be_collected, products.last())
+            #is_pan_required = self.is_pan_required(cash_to_be_collected, products.last())
             msg = {'is_success': True,
                    'message': ['Shipment Details Updated Successfully!'],
                    'response_data': {'cash_to_be_collected': cash_to_be_collected},
-                   'is_pan_required': is_pan_required}
+                   'is_pan_required': False}
             return Response(msg, status=status.HTTP_201_CREATED)
         except Exception as e:
             msg = {'is_success': False,
