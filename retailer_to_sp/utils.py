@@ -276,12 +276,18 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
         'Shipment Return Reason', 'Shipment Created At', 'Shipment Delivered At',
         'Shipment Paid Amount', 'Picking Status', 'Picklist ID', 'Picker Boy'])
 
+    order_payments = OrderPayment.objects.filter(order=OuterRef('pk')).order_by().values('order')
+    order_paid_amount = order_payments.annotate(sum=Sum('paid_amount')).values('sum')
+
+    shipment_payments = ShipmentPayment.objects.filter(parent_order_payment__order=OuterRef('pk')).order_by().values('parent_order_payment__order')
+    shipment_paid_amount = shipment_payments.annotate(sum=Sum('paid_amount')).values('sum')
+
     orders = queryset\
         .annotate(
-            total_mrp_amount=Sum(F('ordered_cart__rt_cart_list__no_of_pieces') * F('ordered_cart__rt_cart_list__cart_product_price__mrp'), output_field=FloatField()),
-            total_final_amount=Sum(F('ordered_cart__rt_cart_list__no_of_pieces') * F('ordered_cart__rt_cart_list__cart_product_price__selling_price'), output_field=FloatField()),
-            shipment_paid_amount=Subquery(ShipmentPayment.objects.filter(parent_order_payment__order=OuterRef('pk')).annotate(sum=Sum('paid_amount')).values('sum')[:1]),
-            order_paid_amount=Subquery(OrderPayment.objects.filter(order=OuterRef('pk')).annotate(sum=Sum('paid_amount')).values('sum')[:1]),
+            total_mrp_amount=RoundAmount(Sum(F('ordered_cart__rt_cart_list__no_of_pieces') * F('ordered_cart__rt_cart_list__cart_product_price__mrp'), output_field=FloatField())),
+            total_final_amount=RoundAmount(Sum(F('ordered_cart__rt_cart_list__no_of_pieces') * F('ordered_cart__rt_cart_list__cart_product_price__selling_price'), output_field=FloatField())),
+            shipment_paid_amount=Subquery(shipment_paid_amount),
+            order_paid_amount=Subquery(order_paid_amount),
             invoice_amount=Subquery(OrderedProduct.objects.filter(order=OuterRef('pk')).annotate(sum=RoundAmount(Sum(
                 F('rt_order_product_order_product_mapping__effective_price') * 
                 F('rt_order_product_order_product_mapping__shipped_qty'),
@@ -308,6 +314,7 @@ def create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment,
         offers = order.get('ordered_cart__offers')
         if offers:
             total_final_amount = sum([i.get('discounted_product_subtotal', 0) for i in offers])
+            total_final_amount = round(total_final_amount)
         else:
             total_final_amount = order.get('total_final_amount')
         writer.writerow([
@@ -357,13 +364,16 @@ def create_invoice_data_excel(request, queryset, RoundAmount, ShipmentPayment,
         'Trip No.', 'Trip Status', 'Delivery Started At',
         'Delivery Completed At', 'Paid Amount', 'CN Amount'])
 
+    shipment_payments = ShipmentPayment.objects.filter(shipment__invoice__id=OuterRef('pk')).order_by().values('shipment__invoice__id')
+    shipment_paid_amount = shipment_payments.annotate(sum=Sum('paid_amount')).values('sum')
+
     invoices = queryset\
         .annotate(
             get_order=F('shipment__order__order_no'), shipment_status=F('shipment__shipment_status'),
             trip_no=F('shipment__trip__dispatch_no'), trip_status=F('shipment__trip__trip_status'),
             order_date=F('shipment__order__created_at'), order_status=F('shipment__order__order_status'),
             trip_started_at=F('shipment__trip__starts_at'), trip_completed_at=F('shipment__trip__completed_at'),
-            shipment_paid_amount=Subquery(ShipmentPayment.objects.filter(shipment__invoice__id=OuterRef('pk')).annotate(sum=Sum('paid_amount')).values('sum')[:1]),
+            shipment_paid_amount=Subquery(shipment_paid_amount),
             cn_amount=F('shipment__credit_note__amount'),
             invoice_amount=RoundAmount(Sum(
                 F('shipment__rt_order_product_order_product_mapping__effective_price') *
