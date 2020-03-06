@@ -114,9 +114,15 @@ def po_pattern(model, field, instance_id, address):
 def order_id_pattern(model, field, instance_id, address):
     return common_pattern(model, field, instance_id, address, "OR")
 
+def order_id_pattern_discounted(model, field, instance_id, address):
+    return common_pattern(model, field, instance_id, address, "DOR")
+
+def order_id_pattern_bulk(model, field, instance_id, address):
+    return common_pattern(model, field, instance_id, address, "BOR")
+
 
 def payment_id_pattern(model, field, instance_id, address):
-    return common_pattern(model, field, instance_id, address, "PA")    
+    return common_pattern(model, field, instance_id, address, "PA")
 
 
 def order_id_pattern_r_gram(order_id):
@@ -161,6 +167,8 @@ def brand_debit_note_pattern(model, field, instance_id, address):
 def brand_credit_note_pattern(model, field, instance_id, address):
     return common_pattern(model, field, instance_id, address, "CN")
 
+def discounted_credit_note_pattern(model, field, instance_id, address):
+    return common_pattern(model, field, instance_id, address, "DCN")
 
 def getcredit_note_id(c_num, invoice_pattern):
     starts_with = invoice_pattern
@@ -203,5 +211,21 @@ def generate_invoice_number(field, instance_id, address, invoice_amount):
     instance, created = RetailerToSPModels.Invoice.objects.get_or_create(shipment_id=instance_id)
     if created:
         invoice_no = common_pattern(RetailerToSPModels.Invoice, field, instance_id, address, "IV", is_invoice=True)
+        instance.invoice_no=invoice_no
+        instance.save()
+
+@task
+def generate_invoice_number_discounted_order(field, instance_id, address, invoice_amount):
+    instance, created = RetailerToSPModels.Invoice.objects.get_or_create(shipment_id=instance_id)
+    if created:
+        invoice_no = common_pattern(RetailerToSPModels.Invoice, field, instance_id, address, "DIV", is_invoice=True)
+        instance.invoice_no=invoice_no
+        instance.save()
+
+@task
+def generate_invoice_number_bulk_order(field, instance_id, address, invoice_amount):
+    instance, created = RetailerToSPModels.Invoice.objects.get_or_create(shipment_id=instance_id)
+    if created:
+        invoice_no = common_pattern(RetailerToSPModels.Invoice, field, instance_id, address, "BIV", is_invoice=True)
         instance.invoice_no=invoice_no
         instance.save()

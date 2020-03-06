@@ -824,12 +824,14 @@ class DispatchSerializer(serializers.ModelSerializer):
                                         source='get_shipment_status_display')
     order = serializers.SlugRelatedField(read_only=True, slug_field='order_no')
     shipment_weight = serializers.SerializerMethodField()
-    payment_approval_status = serializers.SerializerMethodField()    
-    online_payment_approval_status = serializers.SerializerMethodField()    
+    payment_approval_status = serializers.SerializerMethodField()
+    online_payment_approval_status = serializers.SerializerMethodField()
 
     created_at = serializers.DateTimeField()
     shipment_payment = serializers.SerializerMethodField()
     trip_status = serializers.SerializerMethodField()
+    discounted_credit_note = serializers.SerializerMethodField()
+    discounted_credit_note_pk = serializers.SerializerMethodField()
 
     def get_trip_status(self, obj):
         if obj.trip:
@@ -855,16 +857,30 @@ class DispatchSerializer(serializers.ModelSerializer):
     def shipment_weight(self, obj):
         return obj.shipment_weight
 
+    def get_discounted_credit_note_pk(self, obj):
+        if obj.order.ordered_cart.cart_type == 'DISCOUNTED':
+            if obj.credit_note.filter(credit_note_type = 'DISCOUNTED').exists():
+                return obj.credit_note.filter(credit_note_type = 'DISCOUNTED').first().id
+        else:
+            return "-"
+
+    def get_discounted_credit_note(self, obj):
+        if obj.order.ordered_cart.cart_type == 'DISCOUNTED':
+            if obj.credit_note.filter(credit_note_type = 'DISCOUNTED').exists():
+                return obj.credit_note.filter(credit_note_type = 'DISCOUNTED').first().credit_note_id
+        else:
+            return "-"
+
     class Meta:
         model = Dispatch
         fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
                   'shipment_address', 'invoice_city', 'invoice_amount',
                   'created_at', 'shipment_weight','shipment_payment', 'trip_status',
-                  'payment_approval_status', 'online_payment_approval_status')
+                  'payment_approval_status', 'online_payment_approval_status', 'discounted_credit_note', 'discounted_credit_note_pk')
         read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount',
-                 'shipment_payment', 'trip_status', 'shipment_weight', 
+                 'shipment_payment', 'trip_status', 'shipment_weight',
                  'payment_approval_status', 'online_payment_approval_status',
-                 'invoice_no')
+                 'invoice_no', 'discounted_credit_note', 'discounted_credit_note_pk')
 
 
 
@@ -877,9 +893,11 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
     created_at = serializers.DateTimeField()
     shipment_payment = serializers.SerializerMethodField()
     payment_approval_status = serializers.SerializerMethodField()
-    online_payment_approval_status = serializers.SerializerMethodField()        
+    online_payment_approval_status = serializers.SerializerMethodField()
     trip_status = serializers.SerializerMethodField()
     paid_amount_shipment = serializers.SerializerMethodField()
+    discounted_credit_note = serializers.SerializerMethodField()
+    discounted_credit_note_pk = serializers.SerializerMethodField()
 
     def get_trip_status(self, obj):
         if obj.trip:
@@ -887,7 +905,7 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
 
     def get_paid_amount_shipment(self, obj):
         if obj.total_paid_amount:
-            return obj.total_paid_amount    
+            return obj.total_paid_amount
         else:
             return 0
 
@@ -906,17 +924,31 @@ class CommercialShipmentSerializer(serializers.ModelSerializer):
     def get_cash_to_be_collected(self, obj):
         return obj.cash_to_be_collected()
 
+    def get_discounted_credit_note_pk(self, obj):
+        if obj.order.ordered_cart.cart_type == 'DISCOUNTED':
+            if obj.credit_note.filter(credit_note_type = 'DISCOUNTED').exists():
+                return obj.credit_note.filter(credit_note_type = 'DISCOUNTED').first().id
+        else:
+            return "-"
+
+    def get_discounted_credit_note(self, obj):
+        if obj.order.ordered_cart.cart_type == 'DISCOUNTED':
+            if obj.credit_note.filter(credit_note_type = 'DISCOUNTED').exists():
+                return obj.credit_note.filter(credit_note_type = 'DISCOUNTED').first().credit_note_id
+        else:
+            return "-"
+
     class Meta:
         model = OrderedProduct
         fields = ('pk', 'trip', 'order', 'shipment_status', 'invoice_no',
                   'shipment_address', 'invoice_city', 'invoice_amount',
                   'created_at', 'cash_to_be_collected', 'shipment_payment',
                    'trip_status', 'paid_amount_shipment', 'shipment_weight',
-                   'payment_approval_status', 'online_payment_approval_status')
-        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount', 
+                   'payment_approval_status', 'online_payment_approval_status', 'discounted_credit_note', 'discounted_credit_note_pk')
+        read_only_fields = ('shipment_address', 'invoice_city', 'invoice_amount',
                     'cash_to_be_collected', 'shipment_payment', 'trip_status',
                      'paid_amount_shipment', 'shipment_weight', 'payment_approval_status',
-                     'online_payment_approval_status', 'invoice_no')
+                     'online_payment_approval_status', 'invoice_no', 'discounted_credit_note', 'discounted_credit_note_pk')
 
 
 class FeedBackSerializer(serializers.ModelSerializer):
@@ -970,28 +1002,28 @@ class ShipmentOrderSerializer(serializers.ModelSerializer):
 
 class ShipmentSerializer(serializers.ModelSerializer):
     shipment_id = serializers.ReadOnlyField()
-    total_paid_amount = serializers.SerializerMethodField()    
+    total_paid_amount = serializers.SerializerMethodField()
     order = ShipmentOrderSerializer()
     shop_open_time = serializers.SerializerMethodField()
-    shop_close_time = serializers.SerializerMethodField()     
+    shop_close_time = serializers.SerializerMethodField()
     break_start_time = serializers.SerializerMethodField()
     break_end_time = serializers.SerializerMethodField()
     off_day = serializers.SerializerMethodField()
 
     def get_total_paid_amount(self, obj):
         return obj.total_paid_amount
-    
+
     def get_shop_timings(self, obj):
         shop_timing = ShopTiming.objects.filter(shop=obj.order.buyer_shop)
         if shop_timing.exists():
             final_timing = shop_timing.last()
             return [final_timing.open_timing, final_timing.closing_timing,
-            final_timing.break_start_time, final_timing.break_end_time, 
-            final_timing.off_day]        
+            final_timing.break_start_time, final_timing.break_end_time,
+            final_timing.off_day]
 
     def get_shop_open_time(self, obj):
         shop_timings = self.get_shop_timings(obj)
-        if shop_timings:       
+        if shop_timings:
             return shop_timings[0]
 
     def get_shop_close_time(self, obj):
@@ -1001,7 +1033,7 @@ class ShipmentSerializer(serializers.ModelSerializer):
 
     def get_break_start_time(self, obj):
         shop_timings = self.get_shop_timings(obj)
-        if shop_timings:       
+        if shop_timings:
             return shop_timings[2]
 
     def get_break_end_time(self, obj):
@@ -1032,7 +1064,7 @@ class ShipmentDetailSerializer(serializers.ModelSerializer):
     ordered_product_status = serializers.ReadOnlyField()
     product_short_description = serializers.ReadOnlyField()
     mrp = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
-    price_to_retailer = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
+    price_to_retailer = serializers.SerializerMethodField()
     #cash_discount = serializers.ReadOnlyField()
     #loyalty_incentive = serializers.ReadOnlyField()
     #margin = serializers.ReadOnlyField()
@@ -1040,6 +1072,18 @@ class ShipmentDetailSerializer(serializers.ModelSerializer):
 
     def get_product_image(self, obj):
         return obj.product.product_pro_image.last().image.url if obj.product.product_pro_image.last() else ''
+
+    def get_price_to_retailer(self, obj):
+        if obj.ordered_product.order.ordered_cart.cart_type == 'DISCOUNTED':
+            if obj.discounted_price:
+                return obj.discounted_price
+            return obj.ordered_product.order.ordered_cart.rt_cart_list\
+                .get(cart_product=obj.product).discounted_price
+        else:
+            if obj.effective_price:
+                return obj.effective_price
+            return obj.ordered_product.order.ordered_cart.rt_cart_list\
+                .get(cart_product=obj.product).item_effective_prices
 
     class Meta:
         model = RetailerOrderedProductMapping
