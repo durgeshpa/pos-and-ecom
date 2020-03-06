@@ -1,6 +1,7 @@
 from decimal import Decimal
 import logging
 import json
+from num2words import num2words
 from datetime import datetime, timedelta
 from barCodeGenerator import barcodeGen
 from django.core.exceptions import ObjectDoesNotExist
@@ -21,6 +22,8 @@ from rest_framework import status
 from rest_framework import serializers
 from rest_framework import generics, viewsets
 from retailer_backend.utils import SmallOffsetPagination
+from num2words import num2words
+
 from django.core.files.base import ContentFile
 from django.shortcuts import redirect
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,
@@ -46,7 +49,7 @@ from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as 
 )
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
     OrderedProduct, Payment, CustomerCare, Return, Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
-    ShipmentRescheduling
+    ShipmentRescheduling, Note
 )
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,
     Order as GramMappedOrder, OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment,
@@ -455,12 +458,16 @@ class AddToCart(APIView):
                                        cart_status__in=['active', 'pending']).exists():
                     cart = Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
                                                cart_status__in=['active', 'pending']).last()
+                    cart.cart_type = 'RETAIL'
+                    cart.approval_status = False
                     cart.cart_status = 'active'
                     cart.seller_shop = parent_mapping.parent
                     cart.buyer_shop = parent_mapping.retailer
                     cart.save()
                 else:
                     cart = Cart(last_modified_by=self.request.user, cart_status='active')
+                    cart.cart_type = 'RETAIL'
+                    cart.approval_status = False
                     cart.seller_shop = parent_mapping.parent
                     cart.buyer_shop = parent_mapping.retailer
                     cart.save()
@@ -1008,6 +1015,7 @@ class DownloadInvoiceSP(APIView):
             return response
             return redirect(shipment.invoice.invoice_pdf.url)
 
+
         barcode = barcodeGen(shipment.invoice_no)
         payment_type='cash_on_delivery'
         try:
@@ -1025,24 +1033,24 @@ class DownloadInvoiceSP(APIView):
             open_time = '-'
             close_time = '-'
 
-        seller_shop_gistin = '---'
-        buyer_shop_gistin = '---'
-
+        seller_shop_gistin = 'unregistered'
+        buyer_shop_gistin = 'unregistered'
         if shipment.order.ordered_cart.seller_shop.shop_name_documents.exists():
             seller_shop_gistin = shipment.order.ordered_cart.seller_shop.shop_name_documents.filter(
-            shop_document_type='gstin').last().shop_document_number if shipment.order.ordered_cart.seller_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else '---'
+            shop_document_type='gstin').last().shop_document_number if shipment.order.ordered_cart.seller_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else 'unregistered'
 
         if shipment.order.ordered_cart.buyer_shop.shop_name_documents.exists():
             buyer_shop_gistin = shipment.order.ordered_cart.buyer_shop.shop_name_documents.filter(
-            shop_document_type='gstin').last().shop_document_number if shipment.order.ordered_cart.buyer_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else '---'
+            shop_document_type='gstin').last().shop_document_number if shipment.order.ordered_cart.buyer_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else 'unregistered'
 
         product_listing = []
         taxes_list = []
         gst_tax_list= []
         cess_tax_list= []
         surcharge_tax_list=[]
+        sum_qty = 0
         for m in shipment.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
-
+            sum_qty += m.shipped_qty
             # New Code For Product Listing Start
             tax_sum = 0
             basic_rate = 0
@@ -1055,15 +1063,16 @@ class DownloadInvoiceSP(APIView):
             product_tax_amount = 0
             basic_rate = 0
             inline_sum_amount = 0
-
             cart_product_map = shipment.order.ordered_cart.rt_cart_list.filter(cart_product=m.product).last()
             product_price = cart_product_map.get_cart_product_price(
                 shipment.order.ordered_cart.seller_shop,
                 shipment.order.ordered_cart.buyer_shop)
 
-            product_pro_price_ptr = cart_product_map.item_effective_prices
+            if shipment.order.ordered_cart.cart_type == 'DISCOUNTED':
+                product_pro_price_ptr = round(product_price.selling_price,2)
+            else:
+                product_pro_price_ptr = cart_product_map.item_effective_prices
             product_pro_price_mrp = round(product_price.mrp,2)
-
             no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
             cart_qty = m.product.rt_cart_product_mapping.last().qty
 
@@ -1074,6 +1083,11 @@ class DownloadInvoiceSP(APIView):
             basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
             base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
             product_tax_amount = round(float(base_price) * float(get_tax_val),2)
+            for z in shipment.order.seller_shop.shop_name_address_mapping.all():
+                cin = 'U74999HR2018PTC075977' if z.shop_name=='GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name=='GFDN SERVICES PVT LTD (DELHI)' else '---'
+                shop_name_gram ='GFDN SERVICES PVT LTD' if z.shop_name=='GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name=='GFDN SERVICES PVT LTD (DELHI)' else z.shop_name
+                nick_name_gram, address_line1_gram = z.nick_name, z.address_line1
+                city_gram, state_gram, pincode_gram = z.city, z.state, z.pincode
 
             ordered_prodcut = {
                 "product_sku": m.product.product_gf_code,
@@ -1083,7 +1097,7 @@ class DownloadInvoiceSP(APIView):
                 "product_mrp": product_pro_price_mrp,
                 "shipped_qty": m.shipped_qty,
                 "product_inner_case_size": m.product.product_inner_case_size,
-                "product_no_of_pices": int(m.shipped_qty),
+                "product_no_of_pices": int(m.shipped_qty) * int(m.product.product_inner_case_size),
                 "basic_rate": basic_rate,
                 "basic_amount": float(m.shipped_qty) * float(basic_rate),
                 "price_to_retailer": round(product_pro_price_ptr, 2),
@@ -1121,13 +1135,17 @@ class DownloadInvoiceSP(APIView):
 
         total_amount = shipment.invoice_amount
         total_amount_int = total_amount
+        amt = [num2words(i) for i in str(total_amount).split('.')]
+        rupees = amt[0]
 
-        data = {"shipment": shipment,"order": shipment.order, 
+
+        data = {"shipment": shipment,"order": shipment.order,
                 "url":request.get_host(), "scheme": request.is_secure() and "https" or "http" ,
                 "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,
-                "barcode":barcode,"product_listing":product_listing,
+                "barcode":barcode,"product_listing":product_listing,"rupees":rupees,
                 "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
-                "open_time":open_time, "close_time":close_time,}
+                "open_time":open_time, "close_time":close_time,  "sum_qty":sum_qty, "shop_name_gram":shop_name_gram, "nick_name_gram":nick_name_gram,
+                "address_line1_gram":address_line1_gram,"city_gram":city_gram,"state_gram":state_gram, "pincode_gram":pincode_gram,"cin":cin, }
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
@@ -1138,6 +1156,75 @@ class DownloadInvoiceSP(APIView):
             logger.exception(e)
         return response
 
+class DownloadCreditNoteDiscounted(APIView):
+    permission_classes = (AllowAny,)
+    """
+    PDF Download object
+    """
+    filename = 'credit_note.pdf'
+    template_name = 'admin/credit_note/discounted_credit_note.html'
+    def get(self, request, *args, **kwargs):
+        credit_note = get_object_or_404(Note, pk=self.kwargs.get('pk'))
+        for gs in credit_note.shipment.order.seller_shop.shop_name_documents.all():
+            gstinn3 = gs.shop_document_number if gs.shop_document_type=='gstin' else 'Unregistered'
+        for gs in credit_note.shipment.order.billing_address.shop_name.shop_name_documents.all():
+            gstinn2 =gs.shop_document_number if gs.shop_document_type=='gstin' else 'Unregistered'
+        for gs in credit_note.shipment.order.shipping_address.shop_name.shop_name_documents.all():
+            gstinn1 = gs.shop_document_number if gs.shop_document_type=='gstin' else 'Unregistered'
+        gst_number ='07AAHCG4891M1ZZ' if credit_note.shipment.order.seller_shop.shop_name_address_mapping.all().last().state.state_name=='Delhi' else '09AAHCG4891M1ZV'
+        amount = credit_note.amount
+        credit_note_type = credit_note.credit_note_type
+        products = credit_note.shipment.rt_order_product_order_product_mapping.all()
+        # reason = 'Returned' if [i for i in pp if i.returned_qty>0] else 'Damaged' if [i for i in pp if i.damaged_qty>0] else 'Returned and Damaged'
+        order_id = credit_note.shipment.order.order_no
+        sum_qty, sum_amount, tax_inline, product_tax_amount = 0, 0, 0, 0
+        taxes_list, gst_tax_list, cess_tax_list, surcharge_tax_list = [], [], [], []
+        igst, cgst, sgst, cess, surcharge = 0,0,0,0,0
+        for z in credit_note.shipment.order.seller_shop.shop_name_address_mapping.all():
+            pan_no = 'AAHCG4891M' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else '---'
+            cin = 'U74999HR2018PTC075977' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else '---'
+            shop_name_gram = 'GFDN SERVICES PVT LTD' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else z.shop_name
+            nick_name_gram, address_line1_gram =z.nick_name, z.address_line1
+            city_gram, state_gram, pincode_gram = z.city, z.state, z.pincode
+        for m in products:
+            sum_qty = sum_qty + (int(m.delivered_qty))
+            sum_amount = sum_amount + (int(m.delivered_qty) *(m.price_to_retailer))
+            inline_sum_amount = (int(m.delivered_qty) *(m.price_to_retailer))
+            for n in m.get_products_gst_tax():
+                divisor = (1+(n.tax.tax_percentage/100))
+                original_amount = (float(inline_sum_amount)/divisor)
+                tax_amount = float(inline_sum_amount) - original_amount
+                if n.tax.tax_type == 'gst':
+                    gst_tax_list.append(tax_amount)
+                if n.tax.tax_type == 'cess':
+                    cess_tax_list.append(tax_amount)
+                if n.tax.tax_type == 'surcharge':
+                    surcharge_tax_list.append(tax_amount)
+                taxes_list.append(tax_amount)
+                igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list))/2, (sum(gst_tax_list))/2, sum(cess_tax_list), sum(surcharge_tax_list)
+        total_amount = round(credit_note.note_amount)
+        total_amount_int = total_amount
+        amt = [num2words(i) for i in str(total_amount).split('.')]
+        rupees = amt[0]
+        data = {
+            "object": credit_note, "products": products,"shop": credit_note,"total_amount_int": total_amount_int,"sum_qty": sum_qty,"sum_amount":total_amount,
+            "url": request.get_host(),"scheme": request.is_secure() and "https" or "http","igst": igst,"cgst": cgst,"sgst": sgst,"cess": cess,"surcharge": surcharge,
+            "total_amount": round(total_amount,2),"order_id": order_id,"shop_name_gram": shop_name_gram,"nick_name_gram": nick_name_gram,"city_gram": city_gram,
+            "address_line1_gram": address_line1_gram,"pincode_gram": pincode_gram,"state_gram": state_gram,"amount":amount,"gstinn1":gstinn1,"gstinn2":gstinn2, "gstinn3":gstinn3,"gst_number":gst_number,"rupees":rupees,"credit_note_type":credit_note_type,"pan_no":pan_no, "cin":cin,}
+        cmd_option = {
+            "margin-top": 10,
+            "zoom": 1,
+            "javascript-delay": 1000,
+            "footer-center": "[page]/[topage]",
+            "no-stop-slow-scripts": True,
+            "quiet": True
+        }
+        response = PDFTemplateResponse(
+            request=request, template=self.template_name,
+            filename=self.filename, context=data,
+            show_content_in_browser=False, cmd_options=cmd_option
+        )
+        return response
 
 class DownloadNote(APIView):
     permission_classes = (AllowAny,)
@@ -1368,28 +1455,45 @@ class ShipmentDeliveryBulkUpdate(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
+    # def is_pan_required(self, cash_to_be_collected, shipmentproductmapping):
+    #     if cash_to_be_collected > 10000:
+    #         user_pan_exists = shipmentproductmapping.ordered_product.order.\
+    #                           buyer_shop.shop_owner.user_documents.\
+    #                           filter(user_document_type='pc').exists()
+    #         if user_pan_exists:
+    #             return False
+    #         if not user_pan_exists:
+    #             return True
+    #     return False
+
     def post(self, request, *args, **kwargs):
         shipment_id = kwargs.get('shipment')
-        msg = {'is_success': False, 'message': ['shipment id is invalid'], 'response_data': None}
-        try:
-            products = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
-            if not products.exists():
-                return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+        products = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
+        if not products.exists():
+            msg = {'is_success': False,
+                   'message': ['shipment id is invalid'],
+                   'response_data': None,
+                   'is_pan_required': False}
+            return Response(msg, status=status.HTTP_400_BAD_REQUEST)
 
-            #products = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)           
+            #products = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
+        try:
             for item in products:
                 item.delivered_qty = item.shipped_qty - (int(item.returned_qty) + int(item.damaged_qty))
                 item.save()
+
             cash_to_be_collected = products.last().ordered_product.cash_to_be_collected()
-
-
-            msg = {'is_success': True, 'message': ['Shipment Details Updated Successfully!'], 'response_data': {'cash_to_be_collected': cash_to_be_collected},
-                       }
+            #is_pan_required = self.is_pan_required(cash_to_be_collected, products.last())
+            msg = {'is_success': True,
+                   'message': ['Shipment Details Updated Successfully!'],
+                   'response_data': {'cash_to_be_collected': cash_to_be_collected},
+                   'is_pan_required': False}
             return Response(msg, status=status.HTTP_201_CREATED)
         except Exception as e:
             msg = {'is_success': False,
-               'message': [str(e)],
-               'response_data': None}
+                   'message': [str(e)],
+                   'response_data': None,
+                   'is_pan_required': False}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
 
@@ -1608,7 +1712,7 @@ class RescheduleReason(generics.ListCreateAPIView):
             products = ShipmentProducts.objects.filter(ordered_product__id=request.data.get('shipment'))
             for item in products:
                 item.delivered_qty = item.returned_qty = item.damaged_qty = 0
-                item.save()            
+                item.save()
             self.update_shipment(request.data.get('shipment'))
             update_trip_status(request.data.get('trip'))
             msg = {'is_success': True, 'message': None, 'response_data': serializer.data}

@@ -20,6 +20,7 @@ from rest_framework import viewsets
 from rest_framework import permissions, authentication
 from rest_framework.decorators import list_route
 from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework import serializers
 
 from django.db import transaction
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -158,6 +159,8 @@ class CustomError(Exception):
     pass
 
 
+from rest_framework.exceptions import APIException
+
 # class ShipmentPaymentView(DataWrapperViewSet):
 class ShipmentPaymentView(viewsets.ModelViewSet):
     '''
@@ -179,181 +182,97 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
         '''
         serializer_action_classes = {
             'retrieve': ReadShipmentPaymentSerializer,
-            'list':ReadShipmentPaymentSerializer,
-            'create':ShipmentPaymentSerializer,
-            'update':ShipmentPaymentSerializer
+            'list': ReadShipmentPaymentSerializer,
+            'create': ShipmentPaymentSerializer,
+            'update': ShipmentPaymentSerializer
         }
         if hasattr(self, 'action'):
             return serializer_action_classes.get(self.action, self.serializer_class)
         return self.serializer_class
 
-    def create(self, request, *args, **kwargs):
-        try:
-            shipment = request.data.get('shipment', None)
-            cash_collected = request.data.get('amount_collected')
-            trip = request.data.get('trip')
-            return_reason = request.data.get('return_reason', None)
-            #shipment = OrderedProduct.objects.get(id=shipment_id)
-            processed_by = self.request.user #UserWithName.objects.get(id=self.request.user.id)
-            # paid_by = request.data.get('paid_by', None)
-            if not OrderedProduct.objects.filter(pk=int(shipment)).exists():
-                msg = {'is_success': False,
-                                'message': ["Shipment not found"],
-                                'response_data': None }
-                return Response(msg,
-                                status=status.HTTP_406_NOT_ACCEPTABLE)
+    # def is_pan_required(self, shipment):
+    #     if shipment.cash_to_be_collected() > 10000:
+    #         user_pan_exists = shipment.order.\
+    #                           buyer_shop.shop_owner.user_documents.\
+    #                           filter(user_document_type='pc').exists()
+    #         if user_pan_exists:
+    #             return False
+    #         if not user_pan_exists:
+    #             return True
+    #     return False
 
-            serializer = self.get_serializer(data=request.data.get('payment_data'), many=True)
-            if not serializer.is_valid():
-                # format_serializer_errors(serializer.errors)
-                #errors = format_serializer_error(serializer.errors)
-                msg = {'is_success': False,
-                    'message': serializer.errors,#error for error in errors],
-                    'response_data': None }
-                return Response(msg,
-                                status=status.HTTP_406_NOT_ACCEPTABLE)
+    def get_exception_handler(self):
+        default_handler = super().get_exception_handler()
 
-            #shipment = request.data.get('shipment', None)
-            shipment = OrderedProduct.objects.get(pk=int(shipment))
-            if shipment:
-                paid_by = shipment.order.buyer_shop.shop_owner          
-            # paid_by = request.data.get('paid_by', None)
-            # paid_by = UserWithName.objects.get(phone_number=paid_by)
+        def handle_exception(exc, context):
+            if isinstance(exc, APIException):
+                msg = {'is_con': False,
+                       'message': exc.detail['message'] if 'is_context' in exc.detail else exc.detail,
+                       'response_data': None,
+                       #'is_pan_required': False if 'is_context' in exc.detail else self.context.get('is_pan_required')}
+                       'is_pan_required': False}
+                return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+            else:
+                return default_handler(exc, context)
+        return handle_exception
 
-            error_msg = ""
-            for item in request.data.get('payment_data'):
-                    if item.get('paid_amount') is None:
-                        error_msg += "Paid amount is required! "
-                    if item.get('payment_mode_name') is None:
-                        error_msg += "Payment mode name is required! "
-                    if item['payment_mode_name'] == "online_payment":
-                        if item.get('reference_no') is None:
+    def get_serializer_context(self):
+        shipment = self.request.data.get('shipment')
+        shipment = OrderedProduct.objects.filter(pk=int(shipment))
+        if not shipment.exists():
+            msg = {'is_context': True,
+                   'message': ['Shipment ID is not valid.']}
+            raise serializers.ValidationError(msg)
+        shipment = shipment.last()
+        order = shipment.order
+        paid_by = shipment.order.buyer_shop.shop_owner
+        processed_by = self.request.user
 
-                            error_msg += "Reference number is required! "
+        context = super().get_serializer_context()
+        context.update({
+            'paid_by': paid_by, 'processed_by': processed_by,
+            'shipment': shipment, 'order': order,
+            #'is_pan_required': self.is_pan_required(shipment)
+            'is_pan_required': False
+        })
+        return context
+
+    def errors_response(self, serializer_errors):
+        errors = []
+        for field in serializer_errors:
+            for error in serializer_errors[field]:
+                if 'non_field_errors' in field:
+                    result = error
+                    errors.append(result)
+                elif field in ['payment_data', 'user_documents']:
+                    error_msg = ''
+                    if error:
+                        if isinstance(error, dict):
+                            for e in error:
+                                error_msg = error_msg.join(error[e])
+                            errors.append(error_msg)
                         else:
-                            payment = Payment.objects.filter(reference_no = item['reference_no'])
-                            if payment.exists():
-                                error_msg += 'This referece number already exists. '
-
-                        if item.get('online_payment_type') is None:
-                            error_msg += "Online payment type is required! "
-
-                        reference_no = item.get('reference_no', None)#['reference_no']
-                        if reference_no:
-                            if not re.match("^[a-zA-Z0-9_]*$", reference_no):
-                                error_msg += 'Referece number can not have special character! '
-
-            if error_msg:
-                msg = {'is_success': False,
-                    'message': [error_msg] ,
-                    'response_data': None }
-                return Response(msg,
-                                status=status.HTTP_406_NOT_ACCEPTABLE)
-
-            with transaction.atomic():
-                if int(float(cash_collected)) > int(float(shipment.cash_to_be_collected())):
-                    msg = {'is_success': False,
-                        'message': ["Amount to be collected is "+ str(shipment.cash_to_be_collected())],
-                        'response_data': None }
-                    return Response(msg,
-                            status=status.HTTP_406_NOT_ACCEPTABLE)
-                elif int(float(cash_collected)) == int(float(shipment.cash_to_be_collected())):    
-
-                    update_shipment_status_with_id(shipment)
-                    update_trip_status(trip)
+                            errors.append(error)
                 else:
-                    msg = {'is_success': False,
-                        'message': ["Amount collected and amount to be collected must be equal."],
-                        'response_data': None }
-                    return Response(msg,
-                            status=status.HTTP_406_NOT_ACCEPTABLE)
+                    errors.append(error)
+        return errors
 
-                if return_reason:
-                    shipment.return_reason = return_reason
-                    shipment.save() 
-                    #create_credit_note(shipment)
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            msg = {'is_success': True,
+                   'message': ["Payment created successfully"],
+                   'response_data': serializer.data,
+                   'is_pan_required': self.get_serializer_context().get('is_pan_required')}
+            return Response(msg, status=status.HTTP_200_OK)
 
-                for item in request.data.get('payment_data'):
-                    # serializer = self.get_serializer(data=item)
-                    # if serializer.is_valid():
-                    paid_amount = item.get('paid_amount', None)
-                    payment_mode_name = item.get('payment_mode_name', None)
-                    payment_screenshot = item.get('payment_screenshot', None)
-                    if payment_screenshot:
-                        payment_screenshot = PaymentImage.objects.get(id=int(payment_screenshot))
-                    reference_no = item.get('reference_no', None)
-                    online_payment_type = item.get('online_payment_type', None)
-                    description = item.get('description', None)
-                    # create payment
-                    # import pdb; pdb.set_trace()
-                    # multiple checks
-                    if payment_mode_name == "cash_payment":
-                        sp = ShipmentPayment.objects.filter(
-                            shipment=shipment, 
-                            #paid_amount=paid_amount,
-                            parent_order_payment__parent_payment__payment_mode_name=payment_mode_name
-                            ) 
-                        if sp.exists(): # and round(sp.last().paid_amount)==round(sp.last().paid_amount):
-                            continue
-                    else:
-                        sp = ShipmentPayment.objects.filter(
-                            shipment=shipment, 
-                            #paid_amount=paid_amount,
-                            parent_order_payment__parent_payment__payment_mode_name=payment_mode_name,
-                            parent_order_payment__parent_payment__online_payment_type=online_payment_type,
-                            parent_order_payment__parent_payment__reference_no=reference_no
-                            ) 
-                        if sp.exists(): # and round(sp.last().paid_amount)==round(sp.last().paid_amount):
-                            continue
-                    payment = Payment.objects.create(
-                        paid_amount = paid_amount,
-                        payment_mode_name = payment_mode_name,
-                        paid_by = paid_by,
-                        payment_screenshot = payment_screenshot,
-                        description = description,
-                        #reference_no = reference_no,
-                        processed_by = processed_by
-                        )
-                    if payment_mode_name == "online_payment":
-
-                        payment_ = Payment.objects.filter(reference_no=reference_no)
-                        if payment_.exists():
-                            raise CustomError('Duplicate reference number not allowed!') 
-                        payment.reference_no = reference_no
-                        payment.online_payment_type = online_payment_type
-                    payment.save()
-
-                    # create order payment
-                    order_payment = OrderPayment.objects.create(
-                        paid_amount = paid_amount,
-                        parent_payment = payment,
-                        order = shipment.order,
-                        created_by = processed_by,
-                        updated_by = processed_by
-                        )
-                    
-                    # create shipment payment
-                    shipment_payment = ShipmentPayment.objects.create(
-                        paid_amount = paid_amount,
-                        parent_order_payment = order_payment,
-                        shipment = shipment,
-                        created_by = processed_by,
-                        updated_by = processed_by                        
-                        )
-
-                msg = {'is_success': True,
-                        'message': ["Payment created successfully"],
-                        'response_data': None}
-                return Response(msg,
-                        status=status.HTTP_200_OK)
-
-        except Exception as e:
+        else:
             msg = {'is_success': False,
-                    'message': [str(e)], #[error for error in errors],
-                    'response_data': None }
-
-            return Response(msg,
-                            status=status.HTTP_406_NOT_ACCEPTABLE)
+                   'message': [i for i in self.errors_response(serializer.errors)],
+                   'response_data': None,
+                   'is_pan_required': self.get_serializer_context().get('is_pan_required')}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
 
 # class OrderPaymentView(DataWrapperViewSet):

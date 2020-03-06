@@ -730,32 +730,19 @@ class BulkCartForm(forms.ModelForm):
     )
     class Meta:
         model = BulkOrder
-        fields = ('seller_shop', 'buyer_shop', 'shipping_address', 'billing_address', 'cart_products_csv')
+        fields = ('seller_shop', 'buyer_shop', 'shipping_address', 'billing_address', 'cart_products_csv', 'order_type')
 
     def __init__(self, *args, **kwargs):
         super(BulkCartForm, self).__init__(*args, **kwargs)
-        self.fields['cart_products_csv'].help_text = self.instance.\
-            cart_products_sample_file
+        if self.fields:
+            self.fields['cart_products_csv'].help_text = self.instance.\
+                cart_products_sample_file
 
     def clean(self):
-        if self.cleaned_data['cart_products_csv']:
-            if not self.cleaned_data['cart_products_csv'].name[-4:] in ('.csv'):
-                raise forms.ValidationError("Sorry! Only csv file accepted")
-            reader = csv.reader(codecs.iterdecode(self.cleaned_data['cart_products_csv'], 'utf-8'))
-            first_row = next(reader)
-
-            for id,row in enumerate(reader):
-                if not row[0]:
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | Product ID cannot be empty")
-
-                try:
-                    product = Product.objects.get(pk=row[0])
-                except:
-                    raise ValidationError("Row["+str(id+1)+"] | "+first_row[0]+":"+row[0]+" | "+VALIDATION_ERROR_MESSAGES[
-                    'INVALID_PRODUCT_ID'])
-                if not row[2] or not re.match("^[\d\,]*$", row[2]):
-                    raise ValidationError("Row[" + str(id + 1) + "] | " + first_row[0] + ":" + row[0] + " | "+VALIDATION_ERROR_MESSAGES[
-                    'EMPTY']%("qty"))
+        if 'cart_products_csv' in self.cleaned_data:
+            if self.cleaned_data['cart_products_csv']:
+                if not self.cleaned_data['cart_products_csv'].name[-4:] in ('.csv'):
+                    raise forms.ValidationError("Sorry! Only csv file accepted")
 
         return self.cleaned_data
 
