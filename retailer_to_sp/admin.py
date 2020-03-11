@@ -570,6 +570,19 @@ class BulkOrderAdmin(admin.ModelAdmin):
             return self.readonly_fields + ('seller_shop','buyer_shop','shipping_address','billing_address',)
         return self.readonly_fields
 
+    def has_change_permission(self, request, obj=None):
+        if obj:
+            return False
+    # def change_view(self, request, object_id, extra_context=None):
+    #     if object_id:
+    #         extra_context = {
+    #             'show_save_and_add_another': False,
+    #             'show_save_and_continue': False,
+    #             'show_save': False
+    #             }
+    #
+    #     return super(BulkOrderAdmin, self).change_view(request, object_id, extra_context=extra_context)
+
 
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
@@ -924,7 +937,10 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     change_form_template = 'admin/retailer_to_sp/order/change_form.html'
 
     def order_data_excel_action(self, request, queryset):
-        return create_order_data_excel(request, queryset, OrderPayment, ShipmentPayment)
+        return create_order_data_excel(
+            request, queryset, OrderPayment, ShipmentPayment,
+            OrderedProduct, Order, Trip, PickerDashboard,
+            RoundAmount)
     order_data_excel_action.short_description = "Download CSV of selected orders"
 
     def get_urls(self):
@@ -1322,7 +1338,7 @@ class CommercialAdmin(ExportCsvMixin, admin.ModelAdmin):
         'vehicle_no', 'trip_status', 'starts_at', 'completed_at',
         'seller_shop',)
     list_display_links = ('dispatch_no', )
-    list_per_page = 50
+    list_per_page = 25
     list_max_show_all = 100
     list_select_related = ('delivery_boy', 'seller_shop')
     readonly_fields = ('dispatch_no','trip_amount', 'delivery_boy', 'seller_shop',
@@ -1635,12 +1651,14 @@ class InvoiceAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
+        shipment_payments = ShipmentPayment.objects.filter(shipment__invoice__id=OuterRef('pk')).order_by().values('shipment__invoice__id')
+        shipment_paid_amount = shipment_payments.annotate(sum=Sum('paid_amount')).values('sum')
         qs = qs.annotate(
             get_order=F('shipment__order__order_no'), shipment_status=F('shipment__shipment_status'),
             trip_no=F('shipment__trip__dispatch_no'), trip_status=F('shipment__trip__trip_status'),
             order_date=F('shipment__order__created_at'), order_status=F('shipment__order__order_status'),
             trip_started_at=F('shipment__trip__starts_at'), trip_completed_at=F('shipment__trip__completed_at'),
-            shipment_paid_amount=Subquery(ShipmentPayment.objects.filter(shipment__invoice__id=OuterRef('pk')).annotate(sum=Sum('paid_amount')).values('sum')[:1]),
+            shipment_paid_amount=Subquery(shipment_paid_amount),
             cn_amount=F('shipment__credit_note__amount'))
         return qs
 

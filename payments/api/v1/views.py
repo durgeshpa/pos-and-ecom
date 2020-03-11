@@ -190,16 +190,16 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
             return serializer_action_classes.get(self.action, self.serializer_class)
         return self.serializer_class
 
-    def is_pan_required(self, shipment):
-        if shipment.cash_to_be_collected() > 10000:
-            user_pan_exists = shipment.order.\
-                              buyer_shop.shop_owner.user_documents.\
-                              filter(user_document_type='pc').exists()
-            if user_pan_exists:
-                return False
-            if not user_pan_exists:
-                return True
-        return False
+    # def is_pan_required(self, shipment):
+    #     if shipment.cash_to_be_collected() > 10000:
+    #         user_pan_exists = shipment.order.\
+    #                           buyer_shop.shop_owner.user_documents.\
+    #                           filter(user_document_type='pc').exists()
+    #         if user_pan_exists:
+    #             return False
+    #         if not user_pan_exists:
+    #             return True
+    #     return False
 
     def get_exception_handler(self):
         default_handler = super().get_exception_handler()
@@ -209,7 +209,8 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                 msg = {'is_con': False,
                        'message': exc.detail['message'] if 'is_context' in exc.detail else exc.detail,
                        'response_data': None,
-                       'is_pan_required': False if 'is_context' in exc.detail else self.context.get('is_pan_required')}
+                       #'is_pan_required': False if 'is_context' in exc.detail else self.context.get('is_pan_required')}
+                       'is_pan_required': False}
                 return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
             else:
                 return default_handler(exc, context)
@@ -231,7 +232,8 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
         context.update({
             'paid_by': paid_by, 'processed_by': processed_by,
             'shipment': shipment, 'order': order,
-            'is_pan_required': self.is_pan_required(shipment)
+            #'is_pan_required': self.is_pan_required(shipment)
+            'is_pan_required': False
         })
         return context
 
@@ -248,14 +250,11 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
                         if isinstance(error, dict):
                             for e in error:
                                 error_msg = error_msg.join(error[e])
-                            result = ''.join('{} : {}'.format(e, error_msg))
-                            errors.append(result)
+                            errors.append(error_msg)
                         else:
-                            result = ''.join('{} : {}'.format(field, error))
-                            errors.append(result)
+                            errors.append(error)
                 else:
-                    result = ''.join('{} : {}'.format(field,error))
-                    errors.append(result)
+                    errors.append(error)
         return errors
 
     def create(self, request, *args, **kwargs):

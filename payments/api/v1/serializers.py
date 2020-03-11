@@ -30,12 +30,17 @@ class PaymentSerializer(serializers.ModelSerializer):
             'payment_mode_name': {'required': True},
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['paid_amount'].error_messages['required'] = "Please enter paid amount"
+        self.fields['payment_mode_name'].error_messages['required'] = "Please enter payment mode name"
+
     def validate(self, data):
         if data.get('payment_mode_name', None) == 'online_payment':
             if not data.get('reference_no', None):
-                raise serializers.ValidationError({'reference_no': 'This field is required.'})
+                raise serializers.ValidationError({'reference_no': 'Please enter Reference No.'})
             if not data.get('online_payment_type', None):
-                raise serializers.ValidationError({'online_payment_type': 'This field is required.'})                
+                raise serializers.ValidationError({'online_payment_type': 'Please enter online payment type'})                
         return data
 
     def validate_reference_no(self, data):
@@ -77,6 +82,12 @@ class ShipmentPaymentSerializer(serializers.Serializer):
         fields = ['shipment', 'trip', 'amount_collected', 'payment_data',
                   'user_documents', 'return_reason']
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['amount_collected'].error_messages['required'] = "Please enter cash to be collected"
+        self.fields['trip'].error_messages['required'] = "Trip ID is required"
+        self.fields['shipment'].error_messages['required'] = "Shipment ID is required"
+
     def validate_shipment(self, data):
         shipment = OrderedProduct.objects.filter(id=data)
         if not shipment.exists():
@@ -91,7 +102,7 @@ class ShipmentPaymentSerializer(serializers.Serializer):
 
     def validate_payment_data(self, data):
         if not data:
-            raise serializers.ValidationError('This field is required.')
+            raise serializers.ValidationError('Please enter payment details')
         if (sum([i.get('paid_amount') for i in data]) !=
                 self.context.get('shipment').cash_to_be_collected()):
             raise serializers.ValidationError('Sum of paid amount must be equal to amount collected')
@@ -102,13 +113,13 @@ class ShipmentPaymentSerializer(serializers.Serializer):
         shipment = self.context.get('shipment')
         if int(cash_collected) != int(shipment.cash_to_be_collected()):
             raise serializers.ValidationError(
-                {'amount_collected': 'Amount collected and amount to be collected must be equal ({})'.
-                    format(shipment.cash_to_be_collected())})
+                'Amount collected and amount to be collected must be equal ({})'.
+                format(shipment.cash_to_be_collected()))
         return data
 
     def validate_user_documents(self, data):
         if not data and self.context.get('is_pan_required'):
-            raise serializers.ValidationError('This field is required.')
+            raise serializers.ValidationError('Please update PAN details')
         return data
 
     def create(self, validated_data):

@@ -81,7 +81,6 @@ function CreateResponseTable(data){
       if (i % 2 === 0) {
           var row = "row1";
       }
-     
       var data1 = data['response_data'][i];
       var total_amount = data['response_data'][i]['cash_to_be_collected'];
       var shipment_payment_id = data1['shipment_payment']['shipment_payment_id'];
@@ -91,14 +90,16 @@ function CreateResponseTable(data){
       var trip = data['response_data'][i]['trip'];
       var order = "<td>" + data['response_data'][i]['order'] + "</td>";
       var shipment_status = "<td><a href='/admin/retailer_to_sp/orderedproduct/"+pk+"/change/' target='_blank'>" + data['response_data'][i]['shipment_status'] + "</a></td>";
-      var payment_approval_status = "<td>" + data['response_data'][i]['payment_approval_status'] + "</td>";      
-      var online_payment_approval_status = "<td>" + data['response_data'][i]['online_payment_approval_status'] + "</td>";      
+      var payment_approval_status = "<td>" + data['response_data'][i]['payment_approval_status'] + "</td>";
+      var online_payment_approval_status = "<td>" + data['response_data'][i]['online_payment_approval_status'] + "</td>";
       //var invoice_no = "<td><a href='/admin/retailer_to_sp/cart/commercial/"+pk+"/shipment-details/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
       var invoice_no = "<td><a href='/admin/payments/shipmentdata/"+pk+"/change/' target='_blank'>"+ data['response_data'][i]['invoice_no'] + "</a></td>";
-     
+      var discounted_credit_note_pk = data['response_data'][i]['discounted_credit_note_pk'];
+      var discounted_credit_note = "<td><a href='/admin/retailer_to_sp/note/"+discounted_credit_note_pk+"/change/' target='_blank'>"+ data['response_data'][i]['discounted_credit_note'] + "</a></td>";
+
       var invoice_amount = "<td>" + data['response_data'][i]['invoice_amount'] + "</td>";
       var cash_to_be_collected = "<td>" + data['response_data'][i]['cash_to_be_collected'] + "</td>";
-      var paid_amount_shipment = "<td>" + data['response_data'][i]['paid_amount_shipment'] + "</td>";      
+      var paid_amount_shipment = "<td>" + data['response_data'][i]['paid_amount_shipment'] + "</td>";
 /*      var cash_payment = "<td><form class='"+ shipment_payment +"' action=''><input type='number' placeholder='0.0' step='0.01' min='0' name='cash_amount' value='"+ data1['shipment_payment']['cash_payment_amount'] +"'></form></td>";
       var online_payment_mode = "<td><form class='"+ shipment_payment +"' action=''><select name='payment_mode' id='mode_"+ shipment_payment_id +"'><option value=''>Select</option>"+
       "<option value='neft'>NEFT</option><option value='upi'>UPI</option><option value='rtgs'>RTGS</option><option value='imps'>IMPS</option>"+
@@ -109,13 +110,13 @@ function CreateResponseTable(data){
       var invoice_city = "<td>" + data['response_data'][i]['invoice_city'] + "</td>";
       var shipment_address = "<td>" + data['response_data'][i]['shipment_address'] + "</td>";
       var created_at = "<td>" + data['response_data'][i]['created_at'] + "</td>";
-      //var submit_payment_button = "<td><form class='"+ shipment_payment +"' action=''><button class='shipment-payments-submit' type='button' data-id='"+ shipment_payment_id +"' data-total='"+ total_amount +"'>Submit!</button></form></td>";    
+      //var submit_payment_button = "<td><form class='"+ shipment_payment +"' action=''><button class='shipment-payments-submit' type='button' data-id='"+ shipment_payment_id +"' data-total='"+ total_amount +"'>Submit!</button></form></td>";
 
       var append_data = "<tr class="+ row +"><td class='original'></td>" + invoice_no + invoice_amount + cash_to_be_collected + paid_amount_shipment + shipment_status +
-      payment_approval_status + online_payment_approval_status +invoice_city + created_at + order + shipment_address + "</tr>";
-  
-      /*var append_data = "<tr class="+ row +"><td class='original'></td>" + invoice_no + invoice_amount + cash_to_be_collected + cash_payment 
-      + online_payment_mode + online_payment + reference_no + description +shipment_status + 
+      payment_approval_status + online_payment_approval_status +invoice_city + created_at + order + shipment_address + discounted_credit_note + "</tr>";
+
+      /*var append_data = "<tr class="+ row +"><td class='original'></td>" + invoice_no + invoice_amount + cash_to_be_collected + cash_payment
+      + online_payment_mode + online_payment + reference_no + description +shipment_status +
       invoice_city + created_at + order + shipment_address + submit_payment_button +"</tr>"*/
 
       $("tbody#data").append(append_data);
@@ -129,7 +130,7 @@ function CreateResponseTable(data){
 
 
 
-      $('.shipment-payments-submit').on('click',  function(event) { 
+      $('.shipment-payments-submit').on('click',  function(event) {
           //event.preventDefault();
           var id = $(this).attr('data-id');
           var total = $(this).attr('data-total');
@@ -215,7 +216,7 @@ function update_shipment_payment_information(shipment_payment_id, total)
     for(var i=0; i<formarray.length;i++)
     {
         formData[formarray[i].name]=formarray[i].value;
-    }    
+    }
 
     if (formData["cash_amount"] == "")
     {
@@ -238,7 +239,7 @@ function update_shipment_payment_information(shipment_payment_id, total)
       alert("Sum of cash amount, online amount should not be less than amount to be collected!");
       return false;
     }*/
-      
+
     if (formData["payment_mode"]==""){
       //formData["payment_mode"]="none";
       formData["online_amount"]=0.0;
