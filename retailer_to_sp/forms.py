@@ -329,6 +329,13 @@ class EditAssignPickerForm(forms.ModelForm):
         #     choices=self.get_my_choices() )
         # self.fields['picking_status'].choices = self.get_my_choices()
 
+    def clean(self):
+        data = self.cleaned_data
+        if self.instance and self.instance.order:
+            if self.instance.order.order_status == Order.CANCELLED:
+                raise forms.ValidationError("You can't assign picker boy to a Cancelled Order")
+        return data
+
 
 # tbd: test for warehouse manager, superuser, other users
 class AssignPickerForm(forms.ModelForm):
