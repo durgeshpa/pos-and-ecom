@@ -1161,8 +1161,7 @@ class OrderCancellation(object):
                     expiry_date=item['exp_date'],
                 )
                 product_price = product_price_map.get(item['r_product'], 0)
-                credit_amount += (Decimal(item['s_qty']) *
-                                  product_price)
+                credit_amount += (item['s_qty'] * product_price)
         else:
             for item in reserved_qty_queryset:
                 SPOrderedProductMapping.objects.create(
@@ -1177,8 +1176,7 @@ class OrderCancellation(object):
                     expiry_date=item['exp_date'],
                 )
                 product_price = product_price_map.get(item['r_product'], 0)
-                credit_amount += (Decimal(item['s_qty']) *
-                                  product_price)
+                credit_amount += (item['s_qty'] * product_price)
 
         # update credit note amount
         credit_note.amount = credit_amount
