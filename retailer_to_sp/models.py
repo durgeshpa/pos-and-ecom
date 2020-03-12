@@ -162,7 +162,8 @@ class Cart(models.Model):
     #     blank=True, editable=False
     # )
     approval_status = models.BooleanField(default=False, null = True)
-    cart_type = models.CharField(max_length=50,choices=BULK_ORDER_STATUS, null = True)
+    cart_type = models.CharField(
+        max_length=50, choices=BULK_ORDER_STATUS, null=True, default=RETAIL)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
