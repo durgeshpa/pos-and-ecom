@@ -712,6 +712,7 @@ class Order(models.Model):
     FULL_SHIPMENT_CREATED = 'full_ship_created'
     COMPLETED = 'completed'
     READY_TO_DISPATCH = 'ready_to_dispatch'
+    CANCELLED = 'CANCELLED'
 
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'), #1
@@ -727,7 +728,7 @@ class Order(models.Model):
         (ORDER_PLACED_DISPATCH_PENDING, "Order Placed Dispatch Pending"),
         ('PARTIALLY_SHIPPED', 'Partially Shipped'), #3
         ('SHIPPED', 'Shipped'), #4
-        ('CANCELLED', 'Cancelled'),
+        (CANCELLED, 'Cancelled'),
         ('DENIED', 'Denied'),
         (PAYMENT_DONE_APPROVAL_PENDING, "Payment Done Approval Pending"),
         (OPDP, "Order Placed Dispatch Pending"),
