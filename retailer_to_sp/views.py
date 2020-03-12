@@ -1115,7 +1115,7 @@ class OrderCancellation(object):
     def get_cart_products_price(self, products_list):
         cart_products_price = CartProductMapping.objects \
             .values(product_id=F('cart_product'),
-                    product_price=F('cart_product_price__selling_price')) \
+                    product_price=F('effective_price')) \
             .filter(cart_product_id__in=products_list,
                     cart=self.cart)
         product_price_map = {i['product_id']: i['product_price']
