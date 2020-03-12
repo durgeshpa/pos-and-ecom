@@ -286,8 +286,11 @@ def assign_picker(request, shop_id=None):
     form = AssignPickerForm(request.user, shop_id)
     picker_orders = {}
     if shop_id:
-        picker_orders = PickerDashboard.objects.filter(order__seller_shop__id=shop_id,
-                                                       picking_status='picking_pending').order_by('-order__created_at')
+        picker_orders = PickerDashboard.objects.filter(
+            ~Q(order__order_status=Order.CANCELLED),
+            order__seller_shop__id=shop_id,
+            picking_status='picking_pending',
+        ).order_by('-order__created_at')
 
     return render(
         request,
@@ -1337,8 +1340,12 @@ class SellerAutocomplete(autocomplete.Select2QuerySetView):
 class ShipmentOrdersAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qc_pending_orders = OrderedProduct.objects.filter(shipment_status="SHIPMENT_CREATED").values('order')
-        qs = Order.objects.filter(order_status__in=[Order.OPDP, 'ordered', 'PARTIALLY_SHIPPED', 'DISPATCH_PENDING'],
-                                        order_closed=False).exclude(Q(id__in=qc_pending_orders)| Q(ordered_cart__cart_type = 'DISCOUNTED', ordered_cart__approval_status = False))
+        qs = Order.objects.filter(
+            order_status__in=[Order.OPDP, 'ordered', 'PARTIALLY_SHIPPED', 'DISPATCH_PENDING'],
+            order_closed=False
+        ).exclude(
+            Q(id__in=qc_pending_orders)| Q(ordered_cart__cart_type = 'DISCOUNTED', ordered_cart__approval_status=False),
+            order_status=Order.CANCELLED)
         if self.q:
             qs = qs.filter(order_no__icontains=self.q)
         return qs
