@@ -1113,14 +1113,12 @@ class OrderCancellation(object):
         return reserved_qty_queryset
 
     def get_cart_products_price(self, products_list):
-        cart_products_price = CartProductMapping.objects \
-            .values(product_id=F('cart_product'),
-                    product_price=F('effective_price')) \
-            .filter(cart_product_id__in=products_list,
-                    cart=self.cart)
-        product_price_map = {i['product_id']: i['product_price']
-                             for i in cart_products_price}
-
+        product_price_map = {}
+        cart_products = CartProductMapping.objects.filter(
+            cart_product_id__in=products_list,
+            cart=self.cart)
+        for item in cart_products:
+            product_price_map[item.cart_product_id] = item.item_effective_prices
         return product_price_map
 
     def generate_credit_note(self, order_closed):
