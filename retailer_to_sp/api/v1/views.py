@@ -860,7 +860,7 @@ class CreateOrder(APIView):
                     order.buyer_shop = shop
                     order.seller_shop = parent_mapping.parent
                     order.total_tax_amount = float(total_tax_amount)
-                    order.order_status = order.ORDERED
+                    order.order_status = Order.ORDERED
                     order.save()
 
                     # Changes OrderedProductReserved Status

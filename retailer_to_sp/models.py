@@ -2198,19 +2198,19 @@ class Feedback(models.Model):
 
 
 def update_full_part_order_status(shipment):
-        shipment_products_dict = shipment.order.rt_order_order_product\
-            .aggregate(shipped_qty=Sum('rt_order_product_order_product_mapping__shipped_qty'))
-        cart_products_dict = shipment.order.ordered_cart.rt_cart_list\
-            .aggregate(total_no_of_pieces=Sum('no_of_pieces'))
-        total_shipped_qty = shipment_products_dict.get('shipped_qty')
-        ordered_qty = cart_products_dict.get('total_no_of_pieces')
+    shipment_products_dict = shipment.order.rt_order_order_product\
+        .aggregate(shipped_qty=Sum('rt_order_product_order_product_mapping__shipped_qty'))
+    cart_products_dict = shipment.order.ordered_cart.rt_cart_list\
+        .aggregate(total_no_of_pieces=Sum('no_of_pieces'))
+    total_shipped_qty = shipment_products_dict.get('shipped_qty')
+    ordered_qty = cart_products_dict.get('total_no_of_pieces')
 
-        order = shipment.order
-        if ordered_qty == total_shipped_qty:
-            order.order_status = Order.FULL_SHIPMENT_CREATED
-        else:
-            order.order_status = Order.PARTIAL_SHIPMENT_CREATED
-        order.save()
+    order = shipment.order
+    if ordered_qty == total_shipped_qty:
+        order.order_status = Order.FULL_SHIPMENT_CREATED
+    else:
+        order.order_status = Order.PARTIAL_SHIPMENT_CREATED
+    order.save()
 
 
 @task
