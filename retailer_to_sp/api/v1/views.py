@@ -1374,7 +1374,7 @@ class PaymentApi(APIView):
                 payment = Payment(order_id=order,paid_amount=paid_amount,payment_choice=payment_choice,
                               neft_reference_number=neft_reference_number,imei_no=imei_no)
                 payment.save()
-                order.order_status = 'opdp'
+                order.order_status = Order.ORDERED
                 order.save()
             serializer = OrderSerializer(
                 order,context={'parent_mapping_id': parent_mapping.parent.id,
