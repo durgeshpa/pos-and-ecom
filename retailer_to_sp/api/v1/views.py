@@ -1736,6 +1736,7 @@ def update_trip_status(trip_id):
     if order_product.exclude(shipment_status__in=shipment_status_list).count()==0:
         Trip.objects.filter(pk=trip_id).update(trip_status=Trip.COMPLETED, completed_at=datetime.now())
         # updating order status when trip is completed
+        trip_instance = Trip.objects.get(id=trip_id)
         trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
         Order.objects.filter(rt_order_order_product__in=trip_shipments).update(order_status=Order.COMPLETED)
 
