@@ -1207,7 +1207,7 @@ class OrderCancellation(object):
 
             # if invoice created but shipment is not added to trip
             # cancel order and generate credit note
-            elif (self.last_shipment_status == 'READY_TO_SHIP' and
+            elif (self.last_shipment_status in ['READY_TO_SHIP', OrderedProduct.RESCHEDULED] and
                   not self.trip_status):
                 self.generate_credit_note(order_closed=self.order.order_closed)
                 # updating shipment status
