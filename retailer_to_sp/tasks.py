@@ -132,13 +132,13 @@ class UpdateOrderStatusAndCreatePicker(object):
         shipment = OrderedProduct.objects.get(id=shipment_id)
         order =  Order.objects.get(rt_order_order_product=shipment_id)
 
-        self.update_order_status(order, shipment, close_order_checked, changed_data)
-
         if (close_order_checked and
                 (shipment.shipment_status != shipment.CLOSED and
                  not order.order_closed)):
             self.update_sp_qty(order, shipment)
             order.picker_order.update(picking_status="picking_complete")
+
+        self.update_order_status(order, shipment, close_order_checked, changed_data)
 
     def update_order_status(self, order, shipment, close_order_checked, changed_data):
         if close_order_checked and not order.order_closed:

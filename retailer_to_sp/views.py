@@ -1224,17 +1224,17 @@ class OrderCancellation(object):
                 # can't cancel the order
                 pass
         # if there are more than one shipment for an order
-        elif (self.order_shipments_count > 1):
-            shipments_status = set([x.get('shipment_status')
-                                    for x in self.get_shipment_queryset()])
-            shipments_status_count = len(shipments_status)
-            if (shipments_status_count == 1 and
-                    list(shipments_status)[-1] == 'SHIPMENT_CREATED'):
-                self.update_sp_qty_from_cart_or_shipment()
-                self.get_shipment_queryset().update(shipment_status='CANCELLED')
-            else:
-                # can't cancel the order if user have more than one shipment
-                pass
+        # elif (self.order_shipments_count > 1):
+        #     shipments_status = set([x.get('shipment_status')
+        #                             for x in self.get_shipment_queryset()])
+        #     shipments_status_count = len(shipments_status)
+        #     if (shipments_status_count == 1 and
+        #             list(shipments_status)[-1] == 'SHIPMENT_CREATED'):
+        #         self.update_sp_qty_from_cart_or_shipment()
+        #         self.get_shipment_queryset().update(shipment_status='CANCELLED')
+        #     else:
+        #         # can't cancel the order if user have more than one shipment
+        #         pass
         # if there is no shipment for an order
         else:
             # get cart products list

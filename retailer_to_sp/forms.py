@@ -924,7 +924,7 @@ class OrderForm(forms.ModelForm):
             raise forms.ValidationError(_('This order is already cancelled!'), )
         data = self.cleaned_data
         if self.cleaned_data.get('order_status') == 'CANCELLED':
-            if self.instance.order_status == Order.COMPLETED:
+            if self.instance.order_status in [Order.DISPATCHED, Order.COMPLETED]:
                     raise forms.ValidationError(
                         _('Sorry! This order cannot be cancelled'), )
         return data
@@ -933,7 +933,7 @@ class OrderForm(forms.ModelForm):
         super(OrderForm, self).__init__(*args, **kwargs)
         instance = getattr(self, 'instance', None)
         if instance and instance.pk:
-            if instance.order_status in [Order.CANCELLED, Order.COMPLETED]:
+            if instance.order_status in [Order.CANCELLED, Order.DISPATCHED, Order.COMPLETED]:
                 self.fields['order_status'].disabled = True
                 self.fields['cancellation_reason'].disabled = True
             else:
