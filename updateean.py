@@ -24,9 +24,27 @@ def update_ean_code_withgfcode():
         print(products)
         products.update(product_ean_code=product_ean_code)
 
+def updateEanCodeMarch():
+    wb = xlrd.open_workbook('EANMAPMarch.xlsx')
+    sheet = wb.sheet_by_index(0)
+    sheet.cell_value(0,0)
+    for i in range(sheet.nrows-1):
+        product_ean_code = str(sheet.cell_value(i+1, 1)).split('.')[0]
+        product_gf_code = sheet.cell_value(i+1, 0)
+        print(product_gf_code, product_ean_code)
+        products = Product.objects.filter(product_gf_code=sheet.cell_value(i+1,0))
+        print(products)
+        products.update(product_ean_code=product_ean_code)
+
+
+
+
 
 def update():
     update_ean_code()
 
 def updateean():
     update_ean_code_withgfcode()
+
+def updateEanCode():
+    updateEanCodeMarch()
