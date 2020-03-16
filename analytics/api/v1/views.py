@@ -489,7 +489,7 @@ def getStock():
         for product_dt in product_sum:
             daily_stock_dt.append(ShopStock(product_id=product_dt['product'], available_qty=product_dt['product_qty_sum'],
             damage_qty=product_dt['damaged_qty_sum'], shop_id=shop_obj.id, created_at=datetime.datetime.now()))
-        # if daily_stock_dt:
-        #     ShopStock.objects.using('dataanalytics').bulk_create(daily_stock_dt)
+        if daily_stock_dt:
+            ShopStock.objects.bulk_create(daily_stock_dt)
 
 
