@@ -1077,7 +1077,9 @@ class DispatchAdmin(admin.ModelAdmin):
         ('created_at', DateTimeRangeFilter), 'shipment_status',
     ]
     fields = ['order', 'invoice_no', 'invoice_amount','trip', 'shipment_address', 'invoice_city', 'shipment_weight','shipment_status']
-    readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city', 'shipment_weight']
+    readonly_fields = [
+        'order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address',
+        'invoice_city', 'shipment_weight', 'shipment_status']
 
     def get_queryset(self, request):
         qs = super(DispatchAdmin, self).get_queryset(request)

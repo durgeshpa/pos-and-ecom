@@ -348,10 +348,11 @@ def trip_planning(request):
                 selected_shipments = selected_shipments.split(',')
                 selected_shipments = Dispatch.objects.filter(
                     pk__in=selected_shipments)
-                for shipment_instance in selected_shipments:
-                    shipment_instance.trip = trip
-                    shipment_instance.shipment_status = 'READY_TO_DISPATCH'
-                    shipment_instance.save()
+                selected_shipments.update(trip=trip, shipment_status='READY_TO_DISPATCH')
+
+            # updating order status
+            Order.objects.filter(rt_order_order_product__in=selected_shipments)\
+                .update(order_status=Order.READY_TO_DISPATCH)
             return redirect('/admin/retailer_to_sp/trip/')
 
 
