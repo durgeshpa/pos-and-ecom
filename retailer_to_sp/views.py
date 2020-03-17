@@ -280,6 +280,9 @@ def assign_picker(request, shop_id=None):
                     pk__in=selected_orders)
                 selected_orders.update(picker_boy=picker_boy,
                                        picking_status='picking_assigned')
+                #updating order status
+                Order.objects.filter(picker_order__in=selected_orders)\
+                    .update(order_status=Order.DISPATCH_PENDING)
 
             return redirect('/admin/retailer_to_sp/pickerdashboard/')
     # form for assigning picker
