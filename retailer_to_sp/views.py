@@ -393,11 +393,12 @@ def trip_planning_change(request, pk):
                 if trip_status == Trip.STARTED:
                     if current_trip_status == Trip.COMPLETED:
                         trip_instance.rt_invoice_trip.filter(shipment_status='OUT_FOR_DELIVERY').update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
-                        OrderedProductMapping.objects.filter(ordered_product__in=trip_instance.rt_invoice_trip.filter(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])).update(delivered_qty=F('shipped_qty'))
+                        OrderedProductMapping.objects.filter(ordered_product__in=trip_instance.rt_invoice_trip.filter(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])).update(delivered_qty=F('shipped_qty'), damaged_qty=0, returned_qty=0)
 
                         # updating order status to completed
                         trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
                         Order.objects.filter(rt_order_order_product__id__in=trip_shipments).update(order_status=TRIP_ORDER_STATUS_MAP[current_trip_status])
+
                     else:
                         trip_instance.rt_invoice_trip.all().update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
                     return redirect('/admin/retailer_to_sp/trip/')
