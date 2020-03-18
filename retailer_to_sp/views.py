@@ -1114,7 +1114,7 @@ class OrderCancellation(object):
                     r_product=F('product_id'),
                     man_date=F('order_product_reserved__manufacture_date'),
                     exp_date=F('order_product_reserved__expiry_date')) \
-            .filter(cart_id=self.cart)
+            .filter(cart_id=self.cart, reserve_status=OrderedProductReserved.ORDERED)
         return reserved_qty_queryset
 
     def get_cart_products_price(self, products_list):
