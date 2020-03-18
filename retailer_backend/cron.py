@@ -45,7 +45,6 @@ def delete_ordered_reserved_products():
             ro.cart.save()
             ro.reserve_status = 'free'
             ro.save()
-            print(ro.product.product_name, ro.reserve_status)
 
 
 def cron_to_delete_ordered_product_reserved(request):
