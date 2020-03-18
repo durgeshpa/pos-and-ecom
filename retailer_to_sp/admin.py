@@ -437,7 +437,6 @@ class ExportCsvMixinCartProduct:
     def export_as_csv_cart_product(self, request, queryset):
         meta = self.model._meta
         if queryset.count() == 1:
-            import pdb; pdb.set_trace()
             queryset = queryset.last().rt_cart_list.all()
             list_display = ('cart_product', 'cart_product_sku', 'cart_product_price', 'qty', 'no_of_pieces', 'discounted_price', 'item_effective_prices', 'cart_number')
             response = HttpResponse(content_type='text/csv')
