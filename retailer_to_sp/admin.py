@@ -405,6 +405,10 @@ class CartProductMappingAdmin(admin.TabularInline):
                 readonly_fields = readonly_fields + (
                     'discounted_price',
                 )
+            if obj.cart_type != 'DISCOUNTED':
+                readonly_fields = readonly_fields + (
+                    'discounted_price',
+                )
         return readonly_fields
     # def get_readonly_fields(self, request, obj=None):
     #     readonly_fields = super(CartProductMappingAdmin, self) \
