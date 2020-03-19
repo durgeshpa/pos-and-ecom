@@ -66,7 +66,8 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare,
                      Trip, ShipmentRescheduling, Feedback, PickerDashboard,
                      generate_picklist_id, ResponseComment,
                      generate_picklist_id, ResponseComment, Invoice,
-                     ResponseComment, BulkOrder, RoundAmount)
+                     ResponseComment, BulkOrder, RoundAmount,
+                     update_full_part_order_status)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (
@@ -1202,6 +1203,8 @@ class ShipmentAdmin(admin.ModelAdmin):
         super(ShipmentAdmin, self).save_related(request, form, formsets, change)
         shipment_products = form.instance.rt_order_product_order_product_mapping.all().values('product__id').annotate(shipped_items=Sum('shipped_qty'))
         if not self.has_invoice_no:
+            #updating order status while changing shipment status to qc passed
+            update_full_part_order_status(form.instance)
             update_reserved_order.delay(list(shipment_products), form.instance.order.ordered_cart.id)
         update_order_status_and_create_picker.delay(form.instance.id, form.cleaned_data.get('close_order'), form.changed_data)
 
