@@ -37,7 +37,7 @@ from retailer_to_sp.views import (
     LoadDispatches, UpdateSpQuantity, commercial_shipment_details,
     load_dispatches, order_invoices, ordered_product_mapping_shipment,
     trip_planning, trip_planning_change, update_delivered_qty,
-    update_order_status, update_shipment_status, reshedule_update_shipment,
+    update_shipment_status, reshedule_update_shipment,
     RetailerCart, assign_picker, assign_picker_change, assign_picker_data,
     UserWithNameAutocomplete,  SellerAutocomplete, ShipmentOrdersAutocomplete,
     BuyerShopAutocomplete, BuyerParentShopAutocomplete
@@ -66,7 +66,8 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare,
                      Trip, ShipmentRescheduling, Feedback, PickerDashboard,
                      generate_picklist_id, ResponseComment,
                      generate_picklist_id, ResponseComment, Invoice,
-                     ResponseComment, BulkOrder, RoundAmount)
+                     ResponseComment, BulkOrder, RoundAmount,
+                     update_full_part_order_status)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (
@@ -1025,10 +1026,10 @@ class OrderedProductAdmin(admin.ModelAdmin):
         else:
             update_shipment_status(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
             #create_credit_note(form.instance)
-        update_order_status(
-            close_order_checked=False,
-            shipment_id=form_instance.id
-        )
+        # update_order_status(
+        #     close_order_checked=False,
+        #     shipment_id=form_instance.id
+        # )
         super(OrderedProductAdmin, self).save_related(request, form,
                                                       formsets, change)
 
@@ -1077,7 +1078,9 @@ class DispatchAdmin(admin.ModelAdmin):
         ('created_at', DateTimeRangeFilter), 'shipment_status',
     ]
     fields = ['order', 'invoice_no', 'invoice_amount','trip', 'shipment_address', 'invoice_city', 'shipment_weight','shipment_status']
-    readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city', 'shipment_weight']
+    readonly_fields = [
+        'order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address',
+        'invoice_city', 'shipment_weight', 'shipment_status']
 
     def get_queryset(self, request):
         qs = super(DispatchAdmin, self).get_queryset(request)
@@ -1200,6 +1203,8 @@ class ShipmentAdmin(admin.ModelAdmin):
         super(ShipmentAdmin, self).save_related(request, form, formsets, change)
         shipment_products = form.instance.rt_order_product_order_product_mapping.all().values('product__id').annotate(shipped_items=Sum('shipped_qty'))
         if not self.has_invoice_no:
+            #updating order status while changing shipment status to qc passed
+            update_full_part_order_status(form.instance)
             update_reserved_order.delay(list(shipment_products), form.instance.order.ordered_cart.id)
         update_order_status_and_create_picker.delay(form.instance.id, form.cleaned_data.get('close_order'), form.changed_data)
 
