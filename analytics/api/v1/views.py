@@ -479,7 +479,7 @@ def trip_report(trip_id):
                                                     total_trip_amount=total_trip_amount,total_trip_amount_value=total_trip_amount_value,trip_weight=trip_weight)
 
 
-@periodic_task(run_every=(crontab(minute=0, hour=0)), name="getStock", ignore_result=True)
+@periodic_task(run_every=(crontab(minute=2, hour=0)), name="getStock", ignore_result=True)
 def getStock():
     for shop_obj in Shop.objects.filter(shop_type__shop_type='sp'):
         sp_grn_product = OrderedProductMapping.get_shop_stock(shop_obj)
