@@ -2206,7 +2206,6 @@ def update_full_part_order_status(shipment):
         .aggregate(total_no_of_pieces=Sum('no_of_pieces'))
     total_shipped_qty = shipment_products_dict.get('shipped_qty')
     ordered_qty = cart_products_dict.get('total_no_of_pieces')
-
     order = shipment.order
     if ordered_qty == total_shipped_qty:
         order.order_status = Order.FULL_SHIPMENT_CREATED
@@ -2235,18 +2234,6 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
     '''
     #assign_update_picker_to_shipment.delay(instance.id)
     assign_update_picker_to_shipment(instance.id)
-
-
-@receiver(post_save, sender=Invoice)
-def update_order_status_from_invoice(sender, instance=None, created=False,
-                                     **kwargs):
-    '''
-    Changing Order Status either to FULL SHIPMENT CREATED or PARTIAL SHIPMENT
-    CREATED when shipment status changes to QC PASSED(on creation of Invoice)
-    '''
-    if created:
-        update_full_part_order_status(instance.shipment)
-
 
 @receiver(post_save, sender=Order)
 def assign_picklist(sender, instance=None, created=False, **kwargs):
