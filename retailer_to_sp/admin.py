@@ -442,7 +442,7 @@ class ExportCsvMixinCartProduct:
         meta = self.model._meta
         if queryset.count() == 1:
             queryset = queryset.last().rt_cart_list.all()
-            list_display = ('cart_product', 'cart_product_sku', 'cart_product_price', 'qty', 'no_of_pieces', 'discounted_price', 'item_effective_prices', 'cart_number')
+            list_display = ('cart_product', 'cart_product_sku', 'cart_product_price', 'qty', 'no_of_pieces', 'discounted_price', 'item_effective_prices', 'order_number')
             response = HttpResponse(content_type='text/csv')
             response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
             writer = csv.writer(response)

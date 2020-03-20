@@ -651,7 +651,7 @@ class CartProductMapping(models.Model):
         return self.cart_product.product_inner_case_size
 
     @property
-    def cart_number(self):
+    def order_number(self):
         return self.cart.order_id
 
     @property
