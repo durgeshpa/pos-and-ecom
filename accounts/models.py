@@ -31,6 +31,8 @@ USER_DOCUMENTS_TYPE_CHOICES = (
     ("pc", "PAN Card"),
     ("dl", "Driving License"),
     ("uidai", "Aadhaar Card"),
+    ("pp", "Passport"),
+    ("vc", "Voter Card"),
 )
 
 class UserManager(BaseUserManager):

@@ -1,3 +1,5 @@
+import re
+
 from rest_framework import serializers
 
 from shops.models import (RetailerType, ShopType, Shop, ShopPhoto,
@@ -140,13 +142,26 @@ class ShopPhotoSerializer(serializers.ModelSerializer):
         response['shop_name'] = ShopSerializer(instance.shop_name).data
         return response
 
+
 class ShopDocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShopDocument
         fields = ('__all__')
         extra_kwargs = {
             'shop_name': {'required': True},
-            }
+        }
+
+    def validate_shop_document_number(self, data):
+        if ShopDocument.objects.filter(shop_document_number=data).exists():
+            raise serializers.ValidationError('Document number is already registered')
+        return data
+
+    def validate(self, data):
+        if data.get('shop_document_type') == ShopDocument.GSTIN:
+            gst_regex = "^([0]{1}[1-9]{1}|[1-2]{1}[0-9]{1}|[3]{1}[0-7]{1})([a-zA-Z]{5}[0-9]{4}[a-zA-Z]{1}[1-9a-zA-Z]{1}[zZ]{1}[0-9a-zA-Z]{1})+$"
+            if not re.match(gst_regex, data.get('shop_document_number')):
+                raise serializers.ValidationError({'user_document_number': 'Please enter valid pan card no.'})
+        return data
 
     def to_representation(self, instance):
         response = super().to_representation(instance)
