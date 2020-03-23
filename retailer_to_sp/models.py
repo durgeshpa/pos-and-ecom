@@ -651,6 +651,14 @@ class CartProductMapping(models.Model):
         return self.cart_product.product_inner_case_size
 
     @property
+    def order_number(self):
+        return self.cart.order_id
+
+    @property
+    def cart_product_sku(self):
+        return self.cart_product.product_sku
+
+    @property
     def item_effective_prices(self):
         try:
             item_effective_price = 0
