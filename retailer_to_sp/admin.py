@@ -399,16 +399,16 @@ class CartProductMappingAdmin(admin.TabularInline):
             .get_readonly_fields(request, obj)
         if obj:
             readonly_fields = readonly_fields + (
-                'cart_product', 'cart_product_price', 'qty', 'no_of_pieces', 'item_effective_prices'
+                'cart_product', 'cart_product_price', 'qty', 'no_of_pieces', 'item_effective_prices', 'discounted_price'
             )
-            if obj.approval_status == True:
-                readonly_fields = readonly_fields + (
-                    'discounted_price',
-                )
-            if obj.cart_type != 'DISCOUNTED':
-                readonly_fields = readonly_fields + (
-                    'discounted_price',
-                )
+            # if obj.approval_status == True:
+            #     readonly_fields = readonly_fields + (
+            #         'discounted_price',
+            #     )
+            # if obj.cart_type != 'DISCOUNTED':
+            #     readonly_fields = readonly_fields + (
+            #         'discounted_price',
+            #     )
         return readonly_fields
     # def get_readonly_fields(self, request, obj=None):
     #     readonly_fields = super(CartProductMappingAdmin, self) \
@@ -559,6 +559,8 @@ class CartAdmin(ExportCsvMixinCart, ExportCsvMixinCartProduct, admin.ModelAdmin)
             if count_products != count_discounted_prices:
                 return self.readonly_fields+ ('approval_status',)
             if obj.approval_status == True:
+                return self.readonly_fields+ ('approval_status',)
+            if obj.rt_order_cart_mapping.order_status == 'CANCELLED':
                 return self.readonly_fields+ ('approval_status',)
         return self.readonly_fields
 
