@@ -89,7 +89,9 @@
               <!--<p class="paginator">2 states</p>-->
             </form>
           </div>
+          {% if user_has_stock_update_perm %}
           <div>You can <a href="{% url 'admin:StockAdjustment' shop_id=shop.id %}">Upload Stock list</a> to update the stocks </div>
+          {% endif %}
         </div>
         <br class="clear">
       </div>

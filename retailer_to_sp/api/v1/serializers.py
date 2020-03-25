@@ -972,24 +972,11 @@ class CancelOrderSerializer(serializers.ModelSerializer):
         order = self.context.get('order')
         if order.order_status == 'CANCELLED':
             raise serializers.ValidationError(_('This order is already cancelled!'),)
-        shipments_data = list(order.rt_order_order_product.values(
-            'id', 'shipment_status', 'trip__trip_status'))
-        if len(shipments_data) == 1:
-            # last shipment
-            s = shipments_data[-1]
-            if (s['shipment_status'] not in [i[0] for i in OrderedProduct.SHIPMENT_STATUS[:3]]):
-                raise serializers.ValidationError(
-                    _('Sorry! This order cannot be cancelled'),)
-            elif (s['trip__trip_status'] and s['trip__trip_status'] != Trip.READY):
-                raise serializers.ValidationError(
-                    _('Sorry! This order cannot be cancelled'),)
-        elif len(shipments_data) > 1:
-            status = [x[0] for x in OrderedProduct.SHIPMENT_STATUS[1:]
-                      if x[0] in [x['shipment_status'] for x in shipments_data]]
-            if status:
+        if order.order_status == Order.COMPLETED:
                 raise serializers.ValidationError(
                     _('Sorry! This order cannot be cancelled'),)
         return data
+
 
 class ShipmentOrderSerializer(serializers.ModelSerializer):
     ordered_by = UserSerializer()
