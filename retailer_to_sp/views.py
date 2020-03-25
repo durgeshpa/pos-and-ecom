@@ -415,17 +415,6 @@ def trip_planning_change(request, pk):
                             elif shipment.shipped_sum > (shipment.returned_sum + shipment.damaged_sum):
                                 shipment.shipment_status = 'PARTIALLY_DELIVERED_AND_COMPLETED'
                             shipment.save()
-    # .update(
-    #     shipment_status=Case(
-    #         When(shipped_sum=(F('returned_sum')+F('damaged_sum')),
-    #              then=Value('FULLY_RETURNED_AND_COMPLETED')),
-    #         When(shipped_sum=F('delivered_sum'),
-    #              then=Value('FULLY_DELIVERED_AND_COMPLETED')),
-    #         When(shipped_sum__gt=(F('returned_sum')+F('damaged_sum')),
-    #              then=Value('PARTIALLY_DELIVERED_AND_COMPLETED')),
-    #         default=F('shipment_status')
-    #     )
-    # )
 
                         # updating order status to completed
                         trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
