@@ -125,49 +125,68 @@ def release_blocking(parent_shop_type, cart_id):
     return True
 
 
-class UpdateOrderStatusAndCreatePicker(object):
+class UpdateOrderStatusPickerReserveQty(object):
 
-    def __init__(self, shipment_id, close_order_checked, changed_data):
+    def __init__(self, shipment_id, close_order_checked, shipment_products_dict,
+                 total_shipped_qty, total_ordered_qty):
         super().__init__()
-        shipment = OrderedProduct.objects.get(id=shipment_id)
-        order =  Order.objects.get(rt_order_order_product=shipment_id)
+        self.shipment = OrderedProduct.objects.get(id=shipment_id)
+        self.order = Order.objects.get(rt_order_order_product=shipment_id)
+        self.close_order_checked = close_order_checked
+        self.shipment_products_dict = shipment_products_dict
+        self.total_shipped_qty = total_shipped_qty
+        self.total_ordered_qty = total_ordered_qty
+        self.cart_id = self.order.ordered_cart.id
 
-        if (close_order_checked and
-                (shipment.shipment_status != shipment.CLOSED and
-                 not order.order_closed)):
-            self.update_sp_qty(order, shipment)
-            order.picker_order.update(picking_status="picking_complete")
+        self.update_reserved_order()
 
-        self.update_order_status(order, shipment, close_order_checked, changed_data)
+        if (self.close_order_checked and
+                (self.shipment.shipment_status != self.shipment.CLOSED and
+                 not self.order.order_closed)):
+            self.update_sp_qty()
+            self.order.picker_order.update(picking_status="picking_complete")
 
-    def update_order_status(self, order, shipment, close_order_checked, changed_data):
-        if close_order_checked and not order.order_closed:
-            order.order_closed = True
-            order.save()
+        self.update_order_status()
 
-        #self.create_picker(order, shipment, ordered_qty, shipment_products_dict.get('shipped_qty',0), changed_data, close_order_checked)
+    def update_order_status(self):
+        if self.total_ordered_qty == self.total_shipped_qty:
+            self.order.order_status = Order.FULL_SHIPMENT_CREATED
+        else:
+            self.order.order_status = Order.PARTIAL_SHIPMENT_CREATED
 
-    # def create_picker(self, order, shipment, ordered_qty, shipped_qty, changed_data, close_order_checked):
-    #     change_value = shipment.shipment_status == shipment.READY_TO_SHIP
-    #     if 'shipment_status' in changed_data and change_value and (not close_order_checked):
+        if self.close_order_checked and not self.order.order_closed:
+            self.order.order_closed = True
 
-    #         if int(ordered_qty) > shipped_qty:
-    #             try:
-    #                 pincode = "00" #form.instance.order.shipping_address.pincode
-    #             except:
-    #                 pincode = "00"
-    #             PickerDashboard.objects.create(
-    #                 order=order,
-    #                 picking_status="picking_pending",
-    #                 picklist_id= generate_picklist_id(pincode) #get_random_string(12).lower(),#
-    #                 )
+        self.order.save()
 
-    def update_sp_qty(self, order, shipment):
-        cart = order.ordered_cart
-        shipment_products = shipment.rt_order_product_order_product_mapping.all().values_list('product__id', flat=True)
-        reserved_products = OrderedProductReserved.objects.filter(cart=cart, product__id__in=shipment_products, 
-                                                                  reserve_status=OrderedProductReserved.ORDERED,
-                                                                  reserved_qty__gt=0).order_by('reserved_qty')
+    def update_reserved_order(self):
+        shipment_products_mapping = {i['product__id']:i['shipped_items'] for i in self.shipment_products_dict}
+        reserved_products = OrderedProductReserved.objects.filter(
+            cart_id=self.cart_id,
+            reserve_status=OrderedProductReserved.ORDERED,
+            product__id__in=shipment_products_mapping.keys()
+        )
+
+        for rp in reserved_products:
+            reserved_qty = int(rp.reserved_qty)
+            shipped_qty = int(shipment_products_mapping[rp.product.id])
+            if not shipped_qty or (reserved_qty == rp.shipped_qty):
+                continue
+            if reserved_qty > shipped_qty:
+                reserved_shipped_qty = shipped_qty
+            else:
+                reserved_shipped_qty = reserved_qty
+
+            rp.shipped_qty += reserved_shipped_qty
+            shipment_products_mapping[rp.product.id] -= reserved_shipped_qty
+            rp.save()
+
+    def update_sp_qty(self):
+        shipment_products = [i['product__id'] for i in self.shipment_products_dict]
+        reserved_products = OrderedProductReserved.objects.filter(
+            cart_id=self.cart_id, product__id__in=shipment_products,
+            reserve_status=OrderedProductReserved.ORDERED,
+            reserved_qty__gt=0).order_by('reserved_qty')
         for ordered_product_reserved in reserved_products:
             grn = ordered_product_reserved.order_product_reserved
             grn.available_qty += (ordered_product_reserved.reserved_qty -
@@ -176,5 +195,9 @@ class UpdateOrderStatusAndCreatePicker(object):
             ordered_product_reserved.save()
 
 @task
-def update_order_status_and_create_picker(shipment_id, close_order_checked, changed_data):
-    UpdateOrderStatusAndCreatePicker(shipment_id, close_order_checked, changed_data)
+def update_order_status_picker_reserve_qty(
+        shipment_id, close_order_checked, shipment_products_dict,
+        total_shipped_qty, total_ordered_qty):
+    UpdateOrderStatusPickerReserveQty(
+        shipment_id, close_order_checked, shipment_products_dict,
+        total_shipped_qty, total_ordered_qty)

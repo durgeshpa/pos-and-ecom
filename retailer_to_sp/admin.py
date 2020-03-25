@@ -79,7 +79,7 @@ from .filters import (
     InvoiceAdminOrderFilter, InvoiceAdminTripFilter, InvoiceCreatedAt,
     DeliveryStartsAt, DeliveryCompletedAt, OrderCreatedAt)
 
-from .tasks import update_order_status_and_create_picker, update_reserved_order
+from .tasks import update_order_status_picker_reserve_qty, update_reserved_order
 
 from payments.models import OrderPayment, ShipmentPayment
 
@@ -1201,12 +1201,22 @@ class ShipmentAdmin(admin.ModelAdmin):
 
     def save_related(self, request, form, formsets, change):
         super(ShipmentAdmin, self).save_related(request, form, formsets, change)
-        shipment_products = form.instance.rt_order_product_order_product_mapping.all().values('product__id').annotate(shipped_items=Sum('shipped_qty'))
+
+        # when qc passed
         if not self.has_invoice_no:
-            #updating order status while changing shipment status to qc passed
-            update_full_part_order_status(form.instance)
-            update_reserved_order.delay(list(shipment_products), form.instance.order.ordered_cart.id)
-        update_order_status_and_create_picker.delay(form.instance.id, form.cleaned_data.get('close_order'), form.changed_data)
+            shipment_products_dict = form.instance.rt_order_product_order_product_mapping.all()\
+                .values('product__id').annotate(shipped_items=Sum('shipped_qty'))
+            total_shipped_qty = form.instance.order.rt_order_order_product\
+                .aggregate(total_shipped_qty=Sum('rt_order_product_order_product_mapping__shipped_qty'))\
+                .get('total_shipped_qty')
+            total_ordered_qty = form.instance.order.ordered_cart.rt_cart_list\
+                .aggregate(total_ordered_qty=Sum('no_of_pieces'))\
+                .get('total_ordered_qty')
+
+            update_order_status_picker_reserve_qty.delay(
+                form.instance.id, form.cleaned_data.get('close_order'),
+                list(shipment_products_dict), total_shipped_qty,
+                total_ordered_qty)
 
     def get_queryset(self, request):
         qs = super(ShipmentAdmin, self).get_queryset(request)
