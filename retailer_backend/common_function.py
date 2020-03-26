@@ -87,7 +87,7 @@ def get_last_model_invoice(starts_with, field):
         return 0
 
 def common_pattern(model, field, instance_id, address, invoice_type, is_invoice=False):
-    state_code, shop_code, warehouse_code = get_shop_warehouse_state_code(
+    state_code, shop_code, shop_code_bulk, shop_code_discounted, warehouse_code = get_shop_warehouse_state_code(
                                             address)
     financial_year = get_financial_year()
     starts_with = "%s%s%s%s%s" % (
