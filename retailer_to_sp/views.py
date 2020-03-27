@@ -227,6 +227,11 @@ def ordered_product_mapping_shipment(request):
         form = OrderedProductForm(initial={'order': order_id})
 
     if request.method == 'POST':
+        # if order cancelled from backend
+        order = Order.objects.get(id=request.POST.get('order'))
+        if order.order_status == 'CANCELLED':
+            messages.error(request, "This order has been cancelled!")
+
         form_set = ordered_product_set(request.POST)
         form = OrderedProductForm(request.POST)
         if form.is_valid() and form_set.is_valid():
