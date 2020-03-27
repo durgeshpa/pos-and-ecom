@@ -605,6 +605,11 @@ class ShipmentForm(forms.ModelForm):
 
     def clean(self):
         data = self.cleaned_data
+
+        # if order is cancelled don't let the user to save data
+        if self.instance and (self.instance.order.order_status == Order.CANCELLED):
+            raise forms.ValidationError(_('Order for this shipment has been cancelled!'),)
+
         if self.instance and self.instance.order.order_closed:
             return data
         if (data['close_order'] and
