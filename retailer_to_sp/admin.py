@@ -885,9 +885,9 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         'seller_shop','buyer_shop', 'ordered_cart'
         )
     list_display = (
-                    'order_no', 'download_pick_list', 'seller_shop','buyer_shop_id', 'buyer_shop_with_mobile',
+                    'order_no', 'download_pick_list', 'invoice_no', 'seller_shop','buyer_shop_id', 'buyer_shop_with_mobile',
                     'pincode', 'city', 'total_final_amount', 'order_status', 'created_at',
-                    'payment_mode', 'invoice_no', 'shipment_date', 'invoice_amount', 'shipment_status',
+                    'payment_mode', 'shipment_date', 'invoice_amount', 'shipment_status',
                     'shipment_status_reason', 'delivery_date', 'cn_amount', 'cash_collected',
                     'picking_status', 'picklist_id', 'picker_boy',#'damaged_amount',
                     )
