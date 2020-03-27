@@ -48,4 +48,5 @@ def get_tripshipment_report(sender, instance=None, created=False, **kwargs):
     transaction.on_commit(lambda: trip_report.delay(instance.id))
 
 
-getStock()
+if __name__ == '__main__':
+	getStock()
