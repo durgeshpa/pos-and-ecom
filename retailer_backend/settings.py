@@ -328,6 +328,7 @@ TEMPUS_DOMINUS_INCLUDE_ASSETS=False
 CRONJOBS = [
     ('* * * * *', 'retailer_backend.cron.CronToDeleteOrderedProductReserved', '>> /var/log/nginx/cron.log'),
     ('* * * * *', 'retailer_backend.cron.discounted_order_cancellation', '>> /tmp/discounted_cancellation.log')
+    ('* * * * *', 'retailer_backend.cron.delete_ordered_reserved_products')
 
 ]
 
