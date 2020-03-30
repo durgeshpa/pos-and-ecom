@@ -9,7 +9,8 @@ from gram_to_brand.models import OrderedProductReserved as GramOrderedProductRes
 from django.db.models import Sum,Q
 from shops.models import Shop
 from services.models import ShopStock
-from datetime import datetime
+from retailer_to_sp.models import Order
+from datetime import datetime, timedelta
 import logging
 
 logger = logging.getLogger(__name__)
@@ -80,3 +81,17 @@ class DailyStock(APIView):
             # for product_dt in product_sum:
             #     ShopStock.objects.using('gfanalytics').create(product_id=product_dt['product'], available_qty=product_dt['product_qty_sum'],
             #     damage_qty=product_dt['damaged_qty_sum'], shop_id=shop_obj.id, created_at=datetime.now())
+
+def discounted_order_cancellation():
+    print('hello')
+    orders = Order.objects.filter(
+        ~Q(order_status='CANCELLED'),
+        created_at__lt=(datetime.now() - timedelta(minutes=5)),
+        ordered_cart__cart_type='DISCOUNTED',
+        ordered_cart__approval_status=False)
+    print(orders.count())
+    if orders.exists():
+        for order in orders:
+            order.order_status = 'CANCELLED'
+            order.save()
+            print('Raj')
