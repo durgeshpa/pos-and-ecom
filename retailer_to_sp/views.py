@@ -1350,8 +1350,7 @@ class ShipmentOrdersAutocomplete(autocomplete.Select2QuerySetView):
             order_status__in=[Order.OPDP, 'ordered', 'PARTIALLY_SHIPPED', 'DISPATCH_PENDING'],
             order_closed=False
         ).exclude(
-            Q(id__in=qc_pending_orders)| Q(ordered_cart__cart_type = 'DISCOUNTED', ordered_cart__approval_status=False),
-            order_status=Order.CANCELLED)
+            Q(id__in=qc_pending_orders)| Q(ordered_cart__cart_type = 'DISCOUNTED', ordered_cart__approval_status=False)| Q(order_status=Order.CANCELLED))
         if self.q:
             qs = qs.filter(order_no__icontains=self.q)
         return qs
