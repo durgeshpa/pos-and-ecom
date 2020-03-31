@@ -227,6 +227,11 @@ def ordered_product_mapping_shipment(request):
         form = OrderedProductForm(initial={'order': order_id})
 
     if request.method == 'POST':
+        # if order cancelled from backend
+        order = Order.objects.get(id=request.POST.get('order'))
+        if order.order_status == 'CANCELLED':
+            messages.error(request, "This order has been cancelled!")
+
         form_set = ordered_product_set(request.POST)
         form = OrderedProductForm(request.POST)
         if form.is_valid() and form_set.is_valid():
@@ -1371,8 +1376,7 @@ class ShipmentOrdersAutocomplete(autocomplete.Select2QuerySetView):
             order_status__in=[Order.OPDP, 'ordered', 'PARTIALLY_SHIPPED', 'DISPATCH_PENDING'],
             order_closed=False
         ).exclude(
-            Q(id__in=qc_pending_orders)| Q(ordered_cart__cart_type = 'DISCOUNTED', ordered_cart__approval_status=False),
-            order_status=Order.CANCELLED)
+            Q(id__in=qc_pending_orders)| Q(ordered_cart__cart_type = 'DISCOUNTED', ordered_cart__approval_status=False)| Q(order_status=Order.CANCELLED))
         if self.q:
             qs = qs.filter(order_no__icontains=self.q)
         return qs
