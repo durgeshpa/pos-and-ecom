@@ -398,6 +398,11 @@ def trip_planning_change(request, pk):
                             .filter(ordered_product__in=trip_shipments)\
                             .update(delivered_qty=(F('shipped_qty')-(F('damaged_qty')+F('returned_qty'))))
 
+                        # updating return reason for shiments having return and damaged qty but not return reason
+                        trip_instance.rt_invoice_trip.annotate(
+                            sum=Sum(F('rt_order_product_order_product_mapping__returned_qty')+F('rt_order_product_order_product_mapping__damaged_qty'))
+                        ).filter(sum__gt=0, return_reason=None).update(return_reason=OrderedProduct.REASON_NOT_ENTERED_BY_DELIVERY_BOY)
+
                         trip_shipments = trip_shipments\
                             .annotate(
                                 delivered_sum=Sum('rt_order_product_order_product_mapping__delivered_qty'),
