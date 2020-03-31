@@ -103,7 +103,9 @@ class DownloadCreditNote(APIView):
         pp = OrderedProductMapping.objects.filter(ordered_product=credit_note.shipment.id)
 
         # if shipment status is cancelled
-        if credit_note.shipment.shipment_status == 'CANCELLED':
+        shipment_cancelled = True if credit_note.shipment.shipment_status == 'CANCELLED' else False
+
+        if shipment_cancelled:
             products = pp
             reason = 'Cancelled'
         else:
@@ -128,11 +130,11 @@ class DownloadCreditNote(APIView):
             city_gram, state_gram, pincode_gram = z.city, z.state, z.pincode
 
         # if shipment status is Cancelled
-        if credit_note.shipment.shipment_status == 'CANCELLED':
+        if shipment_cancelled:
             for m in products:
-                sum_qty = sum_qty + (int(m.ordered_qty))
-                sum_amount = sum_amount + (int(m.ordered_qty) *(m.price_to_retailer))
-                inline_sum_amount = (int(m.ordered_qty) *(m.price_to_retailer))
+                sum_qty = sum_qty + (int(m.shipped_qty))
+                sum_amount = sum_amount + (int(m.shipped_qty) *(m.price_to_retailer))
+                inline_sum_amount = (int(m.shipped_qty) *(m.price_to_retailer))
                 for n in m.get_products_gst_tax():
                     divisor = (1+(n.tax.tax_percentage/100))
                     original_amount = (float(inline_sum_amount)/divisor)
@@ -175,7 +177,8 @@ class DownloadCreditNote(APIView):
             "object": credit_note, "products": products,"shop": credit_note,"total_amount_int": total_amount_int,"sum_qty": sum_qty,"sum_amount":total_amount,
             "url": request.get_host(),"scheme": request.is_secure() and "https" or "http","igst": igst,"cgst": cgst,"sgst": sgst,"cess": cess,"surcharge": surcharge,
             "total_amount": round(total_amount,2),"order_id": order_id,"shop_name_gram": shop_name_gram,"nick_name_gram": nick_name_gram,"city_gram": city_gram,
-            "address_line1_gram": address_line1_gram,"pincode_gram": pincode_gram,"state_gram": state_gram,"amount":amount,"gstinn1":gstinn1,"gstinn2":gstinn2, "gstinn3":gstinn3,"gst_number":gst_number,"reason":reason,"rupees":rupees,"cin":cin,"pan_no":pan_no,}
+            "address_line1_gram": address_line1_gram,"pincode_gram": pincode_gram,"state_gram": state_gram,"amount":amount,"gstinn1":gstinn1,"gstinn2":gstinn2,
+            "gstinn3":gstinn3,"gst_number":gst_number,"reason":reason,"rupees":rupees,"cin":cin,"pan_no":pan_no, 'shipment_cancelled': shipment_cancelled}
 
         cmd_option = {
             "margin-top": 10,
