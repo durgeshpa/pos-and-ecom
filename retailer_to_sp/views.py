@@ -397,8 +397,34 @@ def trip_planning_change(request, pk):
 
                 if trip_status == Trip.STARTED:
                     if current_trip_status == Trip.COMPLETED:
-                        trip_instance.rt_invoice_trip.filter(shipment_status='OUT_FOR_DELIVERY').update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
-                        OrderedProductMapping.objects.filter(ordered_product__in=trip_instance.rt_invoice_trip.filter(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])).update(delivered_qty=F('shipped_qty'), damaged_qty=0, returned_qty=0)
+                        trip_shipments = trip_instance.rt_invoice_trip.filter(shipment_status='OUT_FOR_DELIVERY')
+
+                        OrderedProductMapping.objects\
+                            .filter(ordered_product__in=trip_shipments)\
+                            .update(delivered_qty=(F('shipped_qty')-(F('damaged_qty')+F('returned_qty'))))
+
+                        # updating return reason for shiments having return and damaged qty but not return reason
+                        trip_shipments.annotate(
+                            sum=Sum(F('rt_order_product_order_product_mapping__returned_qty')+F('rt_order_product_order_product_mapping__damaged_qty'))
+                        ).filter(sum__gt=0, return_reason=None).update(return_reason=OrderedProduct.REASON_NOT_ENTERED_BY_DELIVERY_BOY)
+
+                        trip_shipments = trip_shipments\
+                            .annotate(
+                                delivered_sum=Sum('rt_order_product_order_product_mapping__delivered_qty'),
+                                shipped_sum=Sum('rt_order_product_order_product_mapping__shipped_qty'),
+                                returned_sum=Sum('rt_order_product_order_product_mapping__returned_qty'),
+                                damaged_sum=Sum('rt_order_product_order_product_mapping__damaged_qty'))
+
+                        for shipment in trip_shipments:
+                            if shipment.shipped_sum == (shipment.returned_sum + shipment.damaged_sum):
+                                shipment.shipment_status = 'FULLY_RETURNED_AND_COMPLETED'
+
+                            elif shipment.delivered_sum == shipment.shipped_sum:
+                                shipment.shipment_status = 'FULLY_DELIVERED_AND_COMPLETED'
+
+                            elif shipment.shipped_sum > (shipment.returned_sum + shipment.damaged_sum):
+                                shipment.shipment_status = 'PARTIALLY_DELIVERED_AND_COMPLETED'
+                            shipment.save()
 
                         # updating order status to completed
                         trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
