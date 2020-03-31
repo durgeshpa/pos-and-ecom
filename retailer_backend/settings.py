@@ -326,7 +326,8 @@ TEMPUS_DOMINUS_INCLUDE_ASSETS=False
 # ]
 
 CRONJOBS = [
-    ('* * * * *', 'retailer_backend.cron.CronToDeleteOrderedProductReserved', '>> /var/log/nginx/cron.log')
+    ('* * * * *', 'retailer_backend.cron.CronToDeleteOrderedProductReserved', '>> /var/log/nginx/cron.log'),
+    ('2 0 * * *', 'analytics.api.v1.views.getStock')
 
 ]
 
