@@ -1,4 +1,5 @@
 from retailer_to_sp.models import *
+from django.db.models import Q
 for m in Invoice.objects.filter(Q(invoice_no__startswith='GB') | Q(invoice_no__startswith='PB')).all():
     invoice_no = m.invoice_no[2:]
     Invoice.objects.filter(id = m.id).update(invoice_no = invoice_no)
