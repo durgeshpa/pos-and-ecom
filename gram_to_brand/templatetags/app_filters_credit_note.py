@@ -47,6 +47,10 @@ def addition(qty, unit_price, *args, **kwargs):
 def addMultiplication(qty, unit_price, newqty, *args, **kwargs):
     return round(float(qty) * int(unit_price + newqty),2)
 
+@register.simple_tag(name='multiply_price_with_qty')
+def multiply_price_with_qty(unit_price, qty, *args, **kwargs):
+    return round(float(unit_price) * int(qty),2)
+
 @register.simple_tag(name='addMultiplicationcreditNote')
 def addMultiplicationcreditNote(qty, unit_price, discounted_price, *args, **kwargs):
     return round((float(qty) - float(unit_price)) * int(discounted_price),2)
