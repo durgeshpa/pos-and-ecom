@@ -171,7 +171,7 @@ class Cart(models.Model):
         verbose_name = 'Order Items Detail'
 
     def __str__(self):
-        return "{}".format(self.rt_order_cart_mapping.order_no)
+        return "{}".format(self.order_id)
 
 
     @property
