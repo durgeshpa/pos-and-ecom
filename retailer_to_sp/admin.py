@@ -1,6 +1,6 @@
 import csv
 import json
-
+from django.contrib import messages
 from admin_auto_filters.filters import AutocompleteFilter
 from admin_numeric_filter.admin import (NumericFilterModelAdmin,
                                         RangeNumericFilter,
@@ -37,7 +37,7 @@ from retailer_to_sp.views import (
     LoadDispatches, UpdateSpQuantity, commercial_shipment_details,
     load_dispatches, order_invoices, ordered_product_mapping_shipment,
     trip_planning, trip_planning_change, update_delivered_qty,
-    update_order_status, update_shipment_status, reshedule_update_shipment,
+    update_shipment_status, reshedule_update_shipment,
     RetailerCart, assign_picker, assign_picker_change, assign_picker_data,
     UserWithNameAutocomplete,  SellerAutocomplete, ShipmentOrdersAutocomplete,
     BuyerShopAutocomplete, BuyerParentShopAutocomplete
@@ -66,7 +66,8 @@ from .models import (Cart, CartProductMapping, Commercial, CustomerCare,
                      Trip, ShipmentRescheduling, Feedback, PickerDashboard,
                      generate_picklist_id, ResponseComment,
                      generate_picklist_id, ResponseComment, Invoice,
-                     ResponseComment, BulkOrder, RoundAmount)
+                     ResponseComment, BulkOrder, RoundAmount,
+                     update_full_part_order_status)
 from .resources import OrderResource
 from .signals import ReservedOrder
 from .utils import (
@@ -78,7 +79,7 @@ from .filters import (
     InvoiceAdminOrderFilter, InvoiceAdminTripFilter, InvoiceCreatedAt,
     DeliveryStartsAt, DeliveryCompletedAt, OrderCreatedAt)
 
-from .tasks import update_order_status_and_create_picker, update_reserved_order
+from .tasks import update_order_status_picker_reserve_qty, update_reserved_order
 
 from payments.models import OrderPayment, ShipmentPayment
 
@@ -399,12 +400,16 @@ class CartProductMappingAdmin(admin.TabularInline):
             .get_readonly_fields(request, obj)
         if obj:
             readonly_fields = readonly_fields + (
-                'cart_product', 'cart_product_price', 'qty', 'no_of_pieces', 'item_effective_prices'
+                'cart_product', 'cart_product_price', 'qty', 'no_of_pieces', 'item_effective_prices', 'discounted_price'
             )
-            if obj.approval_status == True:
-                readonly_fields = readonly_fields + (
-                    'discounted_price',
-                )
+            # if obj.approval_status == True:
+            #     readonly_fields = readonly_fields + (
+            #         'discounted_price',
+            #     )
+            # if obj.cart_type != 'DISCOUNTED':
+            #     readonly_fields = readonly_fields + (
+            #         'discounted_price',
+            #     )
         return readonly_fields
     # def get_readonly_fields(self, request, obj=None):
     #     readonly_fields = super(CartProductMappingAdmin, self) \
@@ -436,15 +441,18 @@ class ExportCsvMixinCart:
 class ExportCsvMixinCartProduct:
     def export_as_csv_cart_product(self, request, queryset):
         meta = self.model._meta
-        queryset = queryset.last().rt_cart_list.all()
-        list_display = ('cart_product', 'cart_product_price', 'qty', 'no_of_pieces', 'discounted_price', 'item_effective_prices')
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
-        writer = csv.writer(response)
-        writer.writerow(list_display)
-        for obj in queryset:
-            row = writer.writerow([getattr(obj, field) for field in list_display])
-        return response
+        if queryset.count() == 1:
+            queryset = queryset.last().rt_cart_list.all()
+            list_display = ('cart_product', 'cart_product_sku', 'cart_product_price', 'qty', 'no_of_pieces', 'discounted_price', 'item_effective_prices', 'order_number')
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
+            writer = csv.writer(response)
+            writer.writerow(list_display)
+            for obj in queryset:
+                row = writer.writerow([getattr(obj, field) for field in list_display])
+            return response
+        else:
+            messages.error(request, "Please select only one Cart at a time.")
 
     export_as_csv_cart_product.short_description = "Download CSV of Paticular Cart Products"
 
@@ -552,6 +560,8 @@ class CartAdmin(ExportCsvMixinCart, ExportCsvMixinCartProduct, admin.ModelAdmin)
             if count_products != count_discounted_prices:
                 return self.readonly_fields+ ('approval_status',)
             if obj.approval_status == True:
+                return self.readonly_fields+ ('approval_status',)
+            if obj.rt_order_cart_mapping.order_status == 'CANCELLED':
                 return self.readonly_fields+ ('approval_status',)
         return self.readonly_fields
 
@@ -1025,10 +1035,10 @@ class OrderedProductAdmin(admin.ModelAdmin):
         else:
             update_shipment_status(form_instance, formsets_dict['OrderedProductMappingFormFormSet'])
             #create_credit_note(form.instance)
-        update_order_status(
-            close_order_checked=False,
-            shipment_id=form_instance.id
-        )
+        # update_order_status(
+        #     close_order_checked=False,
+        #     shipment_id=form_instance.id
+        # )
         super(OrderedProductAdmin, self).save_related(request, form,
                                                       formsets, change)
 
@@ -1077,7 +1087,9 @@ class DispatchAdmin(admin.ModelAdmin):
         ('created_at', DateTimeRangeFilter), 'shipment_status',
     ]
     fields = ['order', 'invoice_no', 'invoice_amount','trip', 'shipment_address', 'invoice_city', 'shipment_weight','shipment_status']
-    readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address', 'invoice_city', 'shipment_weight']
+    readonly_fields = [
+        'order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address',
+        'invoice_city', 'shipment_weight', 'shipment_status']
 
     def get_queryset(self, request):
         qs = super(DispatchAdmin, self).get_queryset(request)
@@ -1187,6 +1199,9 @@ class ShipmentAdmin(admin.ModelAdmin):
         return str(city)
 
     def start_qc(self,obj):
+        if obj.order.order_status == Order.CANCELLED:
+            return format_html("<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Order Cancelled</a>" %(obj.id))
+
         return obj.invoice_no if obj.invoice_no != '-' else format_html(
             "<a href='/admin/retailer_to_sp/shipment/%s/change/' class='button'>Start QC</a>" %(obj.id))
     start_qc.short_description = 'Invoice No'
@@ -1198,10 +1213,22 @@ class ShipmentAdmin(admin.ModelAdmin):
 
     def save_related(self, request, form, formsets, change):
         super(ShipmentAdmin, self).save_related(request, form, formsets, change)
-        shipment_products = form.instance.rt_order_product_order_product_mapping.all().values('product__id').annotate(shipped_items=Sum('shipped_qty'))
+
+        # when qc passed
         if not self.has_invoice_no:
-            update_reserved_order.delay(list(shipment_products), form.instance.order.ordered_cart.id)
-        update_order_status_and_create_picker.delay(form.instance.id, form.cleaned_data.get('close_order'), form.changed_data)
+            shipment_products_dict = form.instance.rt_order_product_order_product_mapping.all()\
+                .values('product__id').annotate(shipped_items=Sum('shipped_qty'))
+            total_shipped_qty = form.instance.order.rt_order_order_product\
+                .aggregate(total_shipped_qty=Sum('rt_order_product_order_product_mapping__shipped_qty'))\
+                .get('total_shipped_qty')
+            total_ordered_qty = form.instance.order.ordered_cart.rt_cart_list\
+                .aggregate(total_ordered_qty=Sum('no_of_pieces'))\
+                .get('total_ordered_qty')
+
+            update_order_status_picker_reserve_qty.delay(
+                form.instance.id, form.cleaned_data.get('close_order'),
+                list(shipment_products_dict), total_shipped_qty,
+                total_ordered_qty)
 
     def get_queryset(self, request):
         qs = super(ShipmentAdmin, self).get_queryset(request)

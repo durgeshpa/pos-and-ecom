@@ -122,6 +122,7 @@
     						<tbody>
     							<!-- foreach ($order->lineItems as $line) or some such thing here -->
     							<tr id ="small">
+            {% if shipment_cancelled %}
                     {% for m in products %}
     								<td><strong>{{forloop.counter}}</strong></td>
 										<td class="text-center">{{ m.product.product_sku}}</td>
@@ -137,22 +138,54 @@
 									<td class="text-center"></td>
 
 
-									<td class="text-center">{% addition m.returned_qty m.damaged_qty %}</td>
-									<div style="display:none"> {{m.returned_qty | total_returned_qty }}</div>
+									<td class="text-center">{{ m.shipped_qty }}</td>
+									<div style="display:none"> {{m.shipped_qty | total_returned_qty }}</div>
 <!--									<td class="text-center">{% addMultiplication m.product.product_inner_case_size m.returned_qty m.damaged_qty %}</td>-->
 									<td class="text-center"></td>
 <!--									{% with h=m.price_to_retailer %}-->
     								<td class="text-center">{{m.price_to_retailer}}</td>
 <!--										{% endwith %}-->
     								<td class="text-center">PCS</td>
-										   <div style="display:none"> {{m.returned_qty | total_returned_qty }}</div>
+										   <div style="display:none"> {{m.shipped_qty | total_returned_qty }}</div>
                        <div style="display:none"> {{m.product.product_inner_case_size | total_returned_qty}}</div>
 <!--                    {% with h=m.price_to_retailer %}-->
-    								<td class="text-right">{% addMultiplication m.price_to_retailer m.returned_qty m.damaged_qty %}/</td>
+    								<td class="text-right">{% multiply_price_with_qty m.price_to_retailer m.shipped_qty %}/</td>
 <!--										{% endwith %}-->
     							</tr>
 									{% endfor %}
+            {% else %}
 
+                    {% for m in products %}
+                                    <td><strong>{{forloop.counter}}</strong></td>
+                                        <td class="text-center">{{ m.product.product_sku}}</td>
+                                            <td class="text-center">{{ m.product.product_short_description}}</td>
+                                    <td class="text-center">{{ m.product.product_hsn}}</td>
+                                        <td class="text-center">{{ m.get_product_tax_json}}</td>
+                    <!-- {% if m.get_products_gst_cess %}
+                   <td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage |add:m.get_products_gst_cess.last.tax.tax_percentage }}%</strong></td>
+                    {% else %}
+                    <td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage}}%</strong></td>
+                    {% endif %} -->
+                            <td class="text-center"><strong>{% findTax m.price_to_retailer m.get_products_gst_tax.last.tax.tax_percentage %}</strong></td>
+                                    <td class="text-center"></td>
+
+
+                                    <td class="text-center">{% addition m.returned_qty m.damaged_qty %}</td>
+                                    <div style="display:none"> {{m.returned_qty | total_returned_qty }}</div>
+<!--                                    <td class="text-center">{% addMultiplication m.product.product_inner_case_size m.returned_qty m.damaged_qty %}</td>-->
+                                    <td class="text-center"></td>
+<!--                                    {% with h=m.price_to_retailer %}-->
+                                    <td class="text-center">{{m.price_to_retailer}}</td>
+<!--                                        {% endwith %}-->
+                                    <td class="text-center">PCS</td>
+                                           <div style="display:none"> {{m.returned_qty | total_returned_qty }}</div>
+                       <div style="display:none"> {{m.product.product_inner_case_size | total_returned_qty}}</div>
+<!--                    {% with h=m.price_to_retailer %}-->
+                                    <td class="text-right">{% addMultiplication m.price_to_retailer m.returned_qty m.damaged_qty %}/</td>
+<!--                                        {% endwith %}-->
+                                </tr>
+                                    {% endfor %}
+            {% endif %}
     							<tr>
 									<td></td>
 

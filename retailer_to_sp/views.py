@@ -28,7 +28,7 @@ from sp_to_gram.models import (
 from retailer_to_sp.models import (
     Cart, CartProductMapping, Order, OrderedProduct, OrderedProductMapping,
     CustomerCare, Payment, Return, ReturnProductMapping, Note, Trip, Dispatch,
-    ShipmentRescheduling, PickerDashboard
+    ShipmentRescheduling, PickerDashboard, update_full_part_order_status
 )
 from products.models import Product
 from retailer_to_sp.forms import (
@@ -78,12 +78,13 @@ class ReturnProductAutocomplete(autocomplete.Select2QuerySetView):
 
 
 class DownloadCreditNote(APIView):
-    permission_classes = (AllowAny,)
     """
     PDF Download object
     """
+    permission_classes = (AllowAny,)
     filename = 'credit_note.pdf'
     template_name = 'admin/credit_note/credit_note.html'
+
     def get(self, request, *args, **kwargs):
         credit_note = get_object_or_404(Note, pk=self.kwargs.get('pk'))
         for gs in credit_note.shipment.order.seller_shop.shop_name_documents.all():
@@ -100,8 +101,17 @@ class DownloadCreditNote(APIView):
 
         amount = credit_note.amount
         pp = OrderedProductMapping.objects.filter(ordered_product=credit_note.shipment.id)
-        products = [i for i in pp if(i.returned_qty + i.damaged_qty) != 0]
-        reason = 'Returned' if [i for i in pp if i.returned_qty>0] else 'Damaged' if [i for i in pp if i.damaged_qty>0] else 'Returned and Damaged'
+
+        # if shipment status is cancelled
+        shipment_cancelled = True if credit_note.shipment.shipment_status == 'CANCELLED' else False
+
+        if shipment_cancelled:
+            products = pp
+            reason = 'Cancelled'
+        else:
+            products = [i for i in pp if(i.returned_qty + i.damaged_qty) != 0]
+            reason = 'Returned' if [i for i in pp if i.returned_qty>0] else 'Damaged' if [i for i in pp if i.damaged_qty>0] else 'Returned and Damaged'
+
         order_id = credit_note.shipment.order.order_no
         sum_qty, sum_amount, tax_inline, product_tax_amount = 0, 0, 0, 0
         taxes_list, gst_tax_list, cess_tax_list, surcharge_tax_list = [], [], [], []
@@ -119,23 +129,45 @@ class DownloadCreditNote(APIView):
             nick_name_gram, address_line1_gram =z.nick_name, z.address_line1
             city_gram, state_gram, pincode_gram = z.city, z.state, z.pincode
 
-        for m in products:
-            sum_qty = sum_qty + (int(m.returned_qty + m.damaged_qty))
-            sum_amount = sum_amount + (int(m.returned_qty + m.damaged_qty) *(m.price_to_retailer))
-            inline_sum_amount = (int(m.returned_qty + m.damaged_qty) *(m.price_to_retailer))
-            for n in m.get_products_gst_tax():
-                divisor = (1+(n.tax.tax_percentage/100))
-                original_amount = (float(inline_sum_amount)/divisor)
-                tax_amount = float(inline_sum_amount) - original_amount
-                if n.tax.tax_type == 'gst':
-                    gst_tax_list.append(tax_amount)
-                if n.tax.tax_type == 'cess':
-                    cess_tax_list.append(tax_amount)
-                if n.tax.tax_type == 'surcharge':
-                    surcharge_tax_list.append(tax_amount)
+        # if shipment status is Cancelled
+        if shipment_cancelled:
+            for m in products:
+                sum_qty = sum_qty + (int(m.shipped_qty))
+                sum_amount = sum_amount + (int(m.shipped_qty) *(m.price_to_retailer))
+                inline_sum_amount = (int(m.shipped_qty) *(m.price_to_retailer))
+                for n in m.get_products_gst_tax():
+                    divisor = (1+(n.tax.tax_percentage/100))
+                    original_amount = (float(inline_sum_amount)/divisor)
+                    tax_amount = float(inline_sum_amount) - original_amount
+                    if n.tax.tax_type == 'gst':
+                        gst_tax_list.append(tax_amount)
+                    if n.tax.tax_type == 'cess':
+                        cess_tax_list.append(tax_amount)
+                    if n.tax.tax_type == 'surcharge':
+                        surcharge_tax_list.append(tax_amount)
 
-                taxes_list.append(tax_amount)
-                igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list))/2, (sum(gst_tax_list))/2, sum(cess_tax_list), sum(surcharge_tax_list)
+                    taxes_list.append(tax_amount)
+                    igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list))/2, (sum(gst_tax_list))/2, sum(cess_tax_list), sum(surcharge_tax_list)
+
+        else:
+            for m in products:
+                sum_qty = sum_qty + (int(m.returned_qty + m.damaged_qty))
+                sum_amount = sum_amount + (int(m.returned_qty + m.damaged_qty) *(m.price_to_retailer))
+                inline_sum_amount = (int(m.returned_qty + m.damaged_qty) *(m.price_to_retailer))
+                for n in m.get_products_gst_tax():
+                    divisor = (1+(n.tax.tax_percentage/100))
+                    original_amount = (float(inline_sum_amount)/divisor)
+                    tax_amount = float(inline_sum_amount) - original_amount
+                    if n.tax.tax_type == 'gst':
+                        gst_tax_list.append(tax_amount)
+                    if n.tax.tax_type == 'cess':
+                        cess_tax_list.append(tax_amount)
+                    if n.tax.tax_type == 'surcharge':
+                        surcharge_tax_list.append(tax_amount)
+
+                    taxes_list.append(tax_amount)
+                    igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list))/2, (sum(gst_tax_list))/2, sum(cess_tax_list), sum(surcharge_tax_list)
+
         total_amount = round(credit_note.note_amount)
         total_amount_int = total_amount
         amt = [num2words(i) for i in str(total_amount).split('.')]
@@ -145,7 +177,8 @@ class DownloadCreditNote(APIView):
             "object": credit_note, "products": products,"shop": credit_note,"total_amount_int": total_amount_int,"sum_qty": sum_qty,"sum_amount":total_amount,
             "url": request.get_host(),"scheme": request.is_secure() and "https" or "http","igst": igst,"cgst": cgst,"sgst": sgst,"cess": cess,"surcharge": surcharge,
             "total_amount": round(total_amount,2),"order_id": order_id,"shop_name_gram": shop_name_gram,"nick_name_gram": nick_name_gram,"city_gram": city_gram,
-            "address_line1_gram": address_line1_gram,"pincode_gram": pincode_gram,"state_gram": state_gram,"amount":amount,"gstinn1":gstinn1,"gstinn2":gstinn2, "gstinn3":gstinn3,"gst_number":gst_number,"reason":reason,"rupees":rupees,"cin":cin,"pan_no":pan_no,}
+            "address_line1_gram": address_line1_gram,"pincode_gram": pincode_gram,"state_gram": state_gram,"amount":amount,"gstinn1":gstinn1,"gstinn2":gstinn2,
+            "gstinn3":gstinn3,"gst_number":gst_number,"reason":reason,"rupees":rupees,"cin":cin,"pan_no":pan_no, 'shipment_cancelled': shipment_cancelled}
 
         cmd_option = {
             "margin-top": 10,
@@ -227,6 +260,11 @@ def ordered_product_mapping_shipment(request):
         form = OrderedProductForm(initial={'order': order_id})
 
     if request.method == 'POST':
+        # if order cancelled from backend
+        order = Order.objects.get(id=request.POST.get('order'))
+        if order.order_status == 'CANCELLED':
+            messages.error(request, "This order has been cancelled!")
+
         form_set = ordered_product_set(request.POST)
         form = OrderedProductForm(request.POST)
         if form.is_valid() and form_set.is_valid():
@@ -275,23 +313,25 @@ def assign_picker(request, shop_id=None):
             selected_orders = form.cleaned_data.get('selected_id', None)
             picker_boy = form.cleaned_data.get('picker_boy', None)
             if selected_orders:
-
                 selected_orders = selected_orders.split(',')
                 selected_orders = PickerDashboard.objects.filter(
                     pk__in=selected_orders)
-
-                for picker_instance in selected_orders:
-                    picker_instance.picker_boy = picker_boy
-                    picker_instance.picking_status = 'picking_assigned'
-                    picker_instance.save()
+                selected_orders.update(picker_boy=picker_boy,
+                                       picking_status='picking_assigned')
+                #updating order status
+                Order.objects.filter(picker_order__in=selected_orders)\
+                    .update(order_status=Order.DISPATCH_PENDING)
 
             return redirect('/admin/retailer_to_sp/pickerdashboard/')
     # form for assigning picker
     form = AssignPickerForm(request.user, shop_id)
     picker_orders = {}
     if shop_id:
-        picker_orders = PickerDashboard.objects.filter(order__seller_shop__id=shop_id,
-                                                       picking_status='picking_pending').order_by('-order__created_at')
+        picker_orders = PickerDashboard.objects.filter(
+            ~Q(order__order_status=Order.CANCELLED),
+            order__seller_shop__id=shop_id,
+            picking_status='picking_pending',
+        ).order_by('-order__created_at')
 
     return render(
         request,
@@ -346,10 +386,11 @@ def trip_planning(request):
                 selected_shipments = selected_shipments.split(',')
                 selected_shipments = Dispatch.objects.filter(
                     pk__in=selected_shipments)
-                for shipment_instance in selected_shipments:
-                    shipment_instance.trip = trip
-                    shipment_instance.shipment_status = 'READY_TO_DISPATCH'
-                    shipment_instance.save()
+                selected_shipments.update(trip=trip, shipment_status='READY_TO_DISPATCH')
+
+            # updating order status
+            Order.objects.filter(rt_order_order_product__in=selected_shipments)\
+                .update(order_status=Order.READY_TO_DISPATCH)
             return redirect('/admin/retailer_to_sp/trip/')
 
 
@@ -367,8 +408,14 @@ TRIP_SHIPMENT_STATUS_MAP={
     'STARTED':"OUT_FOR_DELIVERY",
     'CANCELLED': "READY_TO_SHIP",
     'COMPLETED': "FULLY_DELIVERED_AND_COMPLETED"
-
 }
+
+TRIP_ORDER_STATUS_MAP = {
+    'READY': Order.READY_TO_DISPATCH,
+    'STARTED': Order.DISPATCHED,
+    'COMPLETED': Order.COMPLETED
+}
+
 def trip_planning_change(request, pk):
     trip_instance = Trip.objects.get(pk=pk)
     trip_status = trip_instance.trip_status
@@ -379,31 +426,77 @@ def trip_planning_change(request, pk):
             if form.is_valid():
                 trip = form.save()
                 current_trip_status = trip.trip_status
+                selected_shipment_ids = form.cleaned_data.get('selected_id', None)
+
                 if trip_status == Trip.STARTED:
                     if current_trip_status == Trip.COMPLETED:
-                        trip_instance.rt_invoice_trip.filter(shipment_status='OUT_FOR_DELIVERY').update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
-                        OrderedProductMapping.objects.filter(ordered_product__in=trip_instance.rt_invoice_trip.filter(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])).update(delivered_qty=F('shipped_qty'))
+                        trip_shipments = trip_instance.rt_invoice_trip.filter(shipment_status='OUT_FOR_DELIVERY')
+
+                        OrderedProductMapping.objects\
+                            .filter(ordered_product__in=trip_shipments)\
+                            .update(delivered_qty=(F('shipped_qty')-(F('damaged_qty')+F('returned_qty'))))
+
+                        # updating return reason for shiments having return and damaged qty but not return reason
+                        trip_shipments.annotate(
+                            sum=Sum(F('rt_order_product_order_product_mapping__returned_qty')+F('rt_order_product_order_product_mapping__damaged_qty'))
+                        ).filter(sum__gt=0, return_reason=None).update(return_reason=OrderedProduct.REASON_NOT_ENTERED_BY_DELIVERY_BOY)
+
+                        trip_shipments = trip_shipments\
+                            .annotate(
+                                delivered_sum=Sum('rt_order_product_order_product_mapping__delivered_qty'),
+                                shipped_sum=Sum('rt_order_product_order_product_mapping__shipped_qty'),
+                                returned_sum=Sum('rt_order_product_order_product_mapping__returned_qty'),
+                                damaged_sum=Sum('rt_order_product_order_product_mapping__damaged_qty'))
+
+                        for shipment in trip_shipments:
+                            if shipment.shipped_sum == (shipment.returned_sum + shipment.damaged_sum):
+                                shipment.shipment_status = 'FULLY_RETURNED_AND_COMPLETED'
+
+                            elif shipment.delivered_sum == shipment.shipped_sum:
+                                shipment.shipment_status = 'FULLY_DELIVERED_AND_COMPLETED'
+
+                            elif shipment.shipped_sum > (shipment.returned_sum + shipment.damaged_sum):
+                                shipment.shipment_status = 'PARTIALLY_DELIVERED_AND_COMPLETED'
+                            shipment.save()
+
+                        # updating order status to completed
+                        trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
+                        Order.objects.filter(rt_order_order_product__id__in=trip_shipments).update(order_status=TRIP_ORDER_STATUS_MAP[current_trip_status])
+
                     else:
                         trip_instance.rt_invoice_trip.all().update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status])
                     return redirect('/admin/retailer_to_sp/trip/')
 
                 if trip_status == Trip.READY:
+                    # updating order status for shipments removed from Trip
+                    trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
+                    for shipment in trip_shipments:
+                        update_full_part_order_status(OrderedProduct.objects.get(id=shipment))
+
                     trip_instance.rt_invoice_trip.all().update(trip=None, shipment_status='READY_TO_SHIP')
 
                 if current_trip_status == Trip.CANCELLED:
                     trip_instance.rt_invoice_trip.all().update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status], trip=None)
+
+                    # updating order status for shipments when trip is cancelled
+                    trip_shipments = trip_instance.rt_invoice_trip.values_list('id', flat=True)
+                    for shipment in trip_shipments:
+                        update_full_part_order_status(OrderedProduct.objects.get(id=shipment))
+
                     return redirect('/admin/retailer_to_sp/trip/')
 
                 if current_trip_status == Trip.RETURN_VERIFIED:
                     return redirect('/admin/retailer_to_sp/trip/')
-
-                selected_shipment_ids = form.cleaned_data.get('selected_id', None)
 
                 if selected_shipment_ids:
                     selected_shipment_list = selected_shipment_ids.split(',')
                     selected_shipments = Dispatch.objects.filter(~Q(shipment_status='CANCELLED'),
                                                                  pk__in=selected_shipment_list)
                     selected_shipments.update(shipment_status=TRIP_SHIPMENT_STATUS_MAP[current_trip_status],trip=trip_instance)
+
+                    # updating order status for shipments with respect to trip status
+                    if current_trip_status in TRIP_ORDER_STATUS_MAP.keys():
+                        Order.objects.filter(rt_order_order_product__in=selected_shipment_list).update(order_status=TRIP_ORDER_STATUS_MAP[current_trip_status])
 
                 return redirect('/admin/retailer_to_sp/trip/')
             else:
@@ -779,56 +872,55 @@ def update_shipment_status(form_instance, formset):
 
     form_instance.save()
 
+# def update_order_status(close_order_checked, shipment_id):
+#     shipment = OrderedProduct.objects.get(pk=shipment_id)
+#     order = shipment.order
+#     shipment_products_dict = order.rt_order_order_product.aggregate(
+#             delivered_qty = Sum('rt_order_product_order_product_mapping__delivered_qty'),
+#             shipped_qty = Sum('rt_order_product_order_product_mapping__shipped_qty'),
+#             returned_qty = Sum('rt_order_product_order_product_mapping__returned_qty'),
+#             damaged_qty = Sum('rt_order_product_order_product_mapping__damaged_qty'),
 
-def update_order_status(close_order_checked, shipment_id):
-    shipment = OrderedProduct.objects.get(pk=shipment_id)
-    order = shipment.order
-    shipment_products_dict = order.rt_order_order_product.aggregate(
-            delivered_qty = Sum('rt_order_product_order_product_mapping__delivered_qty'),
-            shipped_qty = Sum('rt_order_product_order_product_mapping__shipped_qty'),
-            returned_qty = Sum('rt_order_product_order_product_mapping__returned_qty'),
-            damaged_qty = Sum('rt_order_product_order_product_mapping__damaged_qty'),
+#         )
+#     cart_products_dict = order.ordered_cart.rt_cart_list.aggregate(total_no_of_pieces = Sum('no_of_pieces'))
 
-        )
-    cart_products_dict = order.ordered_cart.rt_cart_list.aggregate(total_no_of_pieces = Sum('no_of_pieces'))
+#     total_delivered_qty = shipment_products_dict.get('delivered_qty')
 
-    total_delivered_qty = shipment_products_dict.get('delivered_qty')
+#     total_shipped_qty = shipment_products_dict.get('shipped_qty')
 
-    total_shipped_qty = shipment_products_dict.get('shipped_qty')
+#     total_returned_qty = shipment_products_dict.get('returned_qty')
 
-    total_returned_qty = shipment_products_dict.get('returned_qty')
+#     total_damaged_qty = shipment_products_dict.get('damaged_qty')
 
-    total_damaged_qty = shipment_products_dict.get('damaged_qty')
+#     ordered_qty = cart_products_dict.get('total_no_of_pieces')
 
-    ordered_qty = cart_products_dict.get('total_no_of_pieces')
+#     order = shipment.order
 
-    order = shipment.order
+#     if ordered_qty == (total_delivered_qty + total_returned_qty + total_damaged_qty):
+#         order.order_status = 'SHIPPED'
 
-    if ordered_qty == (total_delivered_qty + total_returned_qty + total_damaged_qty):
-        order.order_status = 'SHIPPED'
+#     elif (total_returned_qty == total_shipped_qty or
+#           (total_damaged_qty + total_returned_qty) == total_shipped_qty):
+#         if order.order_closed:
+#             order.order_status = Order.DENIED_AND_CLOSED
+#         else:
+#             order.order_status = 'DENIED'
 
-    elif (total_returned_qty == total_shipped_qty or
-          (total_damaged_qty + total_returned_qty) == total_shipped_qty):
-        if order.order_closed:
-            order.order_status = Order.DENIED_AND_CLOSED
-        else:
-            order.order_status = 'DENIED'
+#     elif (total_delivered_qty == 0 and total_shipped_qty > 0 and
+#           total_returned_qty == 0 and total_damaged_qty == 0):
+#         order.order_status = 'DISPATCH_PENDING'
 
-    elif (total_delivered_qty == 0 and total_shipped_qty > 0 and
-          total_returned_qty == 0 and total_damaged_qty == 0):
-        order.order_status = 'DISPATCH_PENDING'
+#     elif (ordered_qty - total_delivered_qty) > 0 and total_delivered_qty > 0:
+#         if order.order_closed:
+#             order.order_status = Order.PARTIALLY_SHIPPED_AND_CLOSED
+#         else:
+#             order.order_status = 'PARTIALLY_SHIPPED'
 
-    elif (ordered_qty - total_delivered_qty) > 0 and total_delivered_qty > 0:
-        if order.order_closed:
-            order.order_status = Order.PARTIALLY_SHIPPED_AND_CLOSED
-        else:
-            order.order_status = 'PARTIALLY_SHIPPED'
+#     if close_order_checked and not order.order_closed:
+#         order.order_closed = True
 
-    if close_order_checked and not order.order_closed:
-        order.order_closed = True
-
-    order.save()
-    return ordered_qty, shipment_products_dict
+#     order.save()
+#     return ordered_qty, shipment_products_dict
 
 class SellerShopAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
@@ -1086,18 +1178,16 @@ class OrderCancellation(object):
                     r_product=F('product_id'),
                     man_date=F('order_product_reserved__manufacture_date'),
                     exp_date=F('order_product_reserved__expiry_date')) \
-            .filter(cart_id=self.cart)
+            .filter(cart_id=self.cart, reserve_status=OrderedProductReserved.ORDERED)
         return reserved_qty_queryset
 
     def get_cart_products_price(self, products_list):
-        cart_products_price = CartProductMapping.objects \
-            .values(product_id=F('cart_product'),
-                    product_price=F('cart_product_price__selling_price')) \
-            .filter(cart_product_id__in=products_list,
-                    cart=self.cart)
-        product_price_map = {i['product_id']: i['product_price']
-                             for i in cart_products_price}
-
+        product_price_map = {}
+        cart_products = CartProductMapping.objects.filter(
+            cart_product_id__in=products_list,
+            cart=self.cart)
+        for item in cart_products:
+            product_price_map[item.cart_product_id] = item.item_effective_prices
         return product_price_map
 
     def generate_credit_note(self, order_closed):
@@ -1138,8 +1228,7 @@ class OrderCancellation(object):
                     expiry_date=item['exp_date'],
                 )
                 product_price = product_price_map.get(item['r_product'], 0)
-                credit_amount += (Decimal(item['s_qty']) *
-                                  product_price)
+                credit_amount += (item['s_qty'] * product_price)
         else:
             for item in reserved_qty_queryset:
                 SPOrderedProductMapping.objects.create(
@@ -1154,8 +1243,7 @@ class OrderCancellation(object):
                     expiry_date=item['exp_date'],
                 )
                 product_price = product_price_map.get(item['r_product'], 0)
-                credit_amount += (Decimal(item['s_qty']) *
-                                  product_price)
+                credit_amount += (item['s_qty'] * product_price)
 
         # update credit note amount
         credit_note.amount = credit_amount
@@ -1188,7 +1276,7 @@ class OrderCancellation(object):
 
             # if invoice created but shipment is not added to trip
             # cancel order and generate credit note
-            elif (self.last_shipment_status == 'READY_TO_SHIP' and
+            elif (self.last_shipment_status in ['READY_TO_SHIP', OrderedProduct.RESCHEDULED] and
                   not self.trip_status):
                 self.generate_credit_note(order_closed=self.order.order_closed)
                 # updating shipment status
@@ -1205,17 +1293,17 @@ class OrderCancellation(object):
                 # can't cancel the order
                 pass
         # if there are more than one shipment for an order
-        elif (self.order_shipments_count > 1):
-            shipments_status = set([x.get('shipment_status')
-                                    for x in self.get_shipment_queryset()])
-            shipments_status_count = len(shipments_status)
-            if (shipments_status_count == 1 and
-                    list(shipments_status)[-1] == 'SHIPMENT_CREATED'):
-                self.update_sp_qty_from_cart_or_shipment()
-                self.get_shipment_queryset().update(shipment_status='CANCELLED')
-            else:
-                # can't cancel the order if user have more than one shipment
-                pass
+        # elif (self.order_shipments_count > 1):
+        #     shipments_status = set([x.get('shipment_status')
+        #                             for x in self.get_shipment_queryset()])
+        #     shipments_status_count = len(shipments_status)
+        #     if (shipments_status_count == 1 and
+        #             list(shipments_status)[-1] == 'SHIPMENT_CREATED'):
+        #         self.update_sp_qty_from_cart_or_shipment()
+        #         self.get_shipment_queryset().update(shipment_status='CANCELLED')
+        #     else:
+        #         # can't cancel the order if user have more than one shipment
+        #         pass
         # if there is no shipment for an order
         else:
             # get cart products list
@@ -1317,8 +1405,11 @@ class SellerAutocomplete(autocomplete.Select2QuerySetView):
 class ShipmentOrdersAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qc_pending_orders = OrderedProduct.objects.filter(shipment_status="SHIPMENT_CREATED").values('order')
-        qs = Order.objects.filter(order_status__in=[Order.OPDP, 'ordered', 'PARTIALLY_SHIPPED', 'DISPATCH_PENDING'],
-                                        order_closed=False).exclude(Q(id__in=qc_pending_orders)| Q(ordered_cart__cart_type = 'DISCOUNTED', ordered_cart__approval_status = False))
+        qs = Order.objects.filter(
+            order_status__in=[Order.OPDP, 'ordered', 'PARTIALLY_SHIPPED', 'DISPATCH_PENDING'],
+            order_closed=False
+        ).exclude(
+            Q(id__in=qc_pending_orders)| Q(ordered_cart__cart_type = 'DISCOUNTED', ordered_cart__approval_status=False)| Q(order_status=Order.CANCELLED))
         if self.q:
             qs = qs.filter(order_no__icontains=self.q)
         return qs
@@ -1328,8 +1419,6 @@ class ShippingAddressAutocomplete(autocomplete.Select2QuerySetView):
         qs = None
         buyer_shop = self.forwarded.get('buyer_shop', None)
         qs = Address.objects.filter(
-            Q(shop_name__shop_owner=self.request.user) |
-            Q(shop_name__related_users=self.request.user),
             shop_name__shop_type__shop_type='r',
             address_type='shipping',
             shop_name = buyer_shop
@@ -1342,8 +1431,6 @@ class BillingAddressAutocomplete(autocomplete.Select2QuerySetView):
         qs = None
         buyer_shop = self.forwarded.get('buyer_shop', None)
         qs = Address.objects.filter(
-            Q(shop_name__shop_owner=self.request.user) |
-            Q(shop_name__related_users=self.request.user),
             shop_name__shop_type__shop_type='r',
             address_type='billing',
             shop_name = buyer_shop
