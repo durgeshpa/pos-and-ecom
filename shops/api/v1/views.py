@@ -25,7 +25,6 @@ from shops.filters import FavouriteProductFilter
 
 from common.data_wrapper_view import DataWrapperViewSet
 from retailer_to_sp.models import OrderedProduct
-from retailer_to_sp.views import update_order_status
 
 from datetime import datetime,timedelta, date
 from django.db.models import Q,Sum,Count,F, FloatField, Avg, Value, IntegerField
@@ -36,8 +35,8 @@ from addresses.api.v1.serializers import AddressSerializer
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.core.exceptions import ObjectDoesNotExist
 from retailer_to_sp.models import OrderedProduct
-from retailer_to_sp.views import update_order_status, update_shipment_status_with_id, \
-update_shipment_status_after_return
+from retailer_to_sp.views import (
+    update_shipment_status_with_id, update_shipment_status_after_return)
 from retailer_to_sp.api.v1.views import update_trip_status
 from dateutil.relativedelta import relativedelta
 

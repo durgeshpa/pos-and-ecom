@@ -24,6 +24,8 @@ from django.contrib.auth import get_user_model
 from shops.models import ShopUserMapping
 from rest_framework.views import APIView
 from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
+from django.contrib.auth.mixins import PermissionRequiredMixin
+
 
 # Create your views here.
 class ShopMappedProduct(TemplateView):
@@ -33,6 +35,7 @@ class ShopMappedProduct(TemplateView):
         shop_obj = get_object_or_404(Shop, pk=self.kwargs.get('pk'))
         context = super().get_context_data(**kwargs)
         context['shop'] = shop_obj
+        context['user_has_stock_update_perm'] = self.request.user.has_perm('sp_to_gram.add_stockadjustment') 
         if shop_obj.shop_type.shop_type=='gf':
             grn_product = GRNOrderProductMapping.objects.filter(grn_order__order__ordered_cart__gf_shipping_address__shop_name=shop_obj)
             product_sum = grn_product.values('product','product__product_name', 'product__product_gf_code', 'product__product_sku').annotate(product_qty_sum=Sum('available_qty'))
@@ -98,7 +101,9 @@ def stock_adjust_sample(request, shop_id):
         writer.writerow([product['product__product_gf_code'],product['product__product_name'],product['product__product_sku'],product['product_qty_sum'],product['damaged_qty_sum'],expired_product])
     return response
 
-class StockAdjustmentView(View):
+
+class StockAdjustmentView(PermissionRequiredMixin, View):
+    permission_required = 'sp_to_gram.add_stockadjustment'
     template_name = 'admin/shop/upload_stock_adjustment.html'
     def get(self, request, shop_id):
         shop = Shop.objects.get(pk=shop_id)

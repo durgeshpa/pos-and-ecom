@@ -103,6 +103,27 @@ class ShopForm(forms.ModelForm):
                                 code='invalid_code_code'
                             ),
                         ])
+
+    shop_code_bulk = forms.CharField(
+                        max_length=1, min_length=1,
+                        required=False, validators=[
+                            RegexValidator(
+                                regex='^[a-zA-Z0-9]*$',
+                                message='Shop Code must be Alphanumeric',
+                                code='invalid_code_code'
+                            ),
+                        ])
+
+    shop_code_discounted = forms.CharField(
+                        max_length=1, min_length=1,
+                        required=False, validators=[
+                            RegexValidator(
+                                regex='^[a-zA-Z0-9]*$',
+                                message='Shop Code must be Alphanumeric',
+                                code='invalid_code_code'
+                            ),
+                        ])
+
     warehouse_code = forms.CharField(
                         max_length=2, min_length=2,
                         required=False, validators=[
@@ -122,7 +143,7 @@ class ShopForm(forms.ModelForm):
         Model = Shop
         fields = (
             'shop_name', 'shop_owner', 'shop_type', 'approval_status',
-            'shop_code', 'warehouse_code','created_by', 'status')
+            'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code','created_by', 'status')
 
     @classmethod
     def get_shop_type(cls, data):
@@ -141,6 +162,18 @@ class ShopForm(forms.ModelForm):
         if not self.shop_type_retailer(self) and not shop_code:
             raise ValidationError(_("This field is required"))
         return shop_code
+
+    def clean_shop_code_bulk(self):
+        shop_code_bulk = self.cleaned_data.get('shop_code_bulk', None)
+        if not self.shop_type_retailer(self) and not shop_code_bulk:
+            raise ValidationError(_("This field is required"))
+        return shop_code_bulk
+
+    def clean_shop_code_discounted(self):
+        shop_code_discounted = self.cleaned_data.get('shop_code_discounted', None)
+        if not self.shop_type_retailer(self) and not shop_code_discounted:
+            raise ValidationError(_("This field is required"))
+        return shop_code_discounted
 
     def clean_warehouse_code(self):
         warehouse_code = self.cleaned_data.get('warehouse_code', None)
@@ -272,6 +305,3 @@ class ShopUserMappingCsvViewForm(forms.Form):
                 raise ValidationError(_('INVALID_GROUP_ID at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
 
             uploaded_employee_list.append(row[2])
-
-
-

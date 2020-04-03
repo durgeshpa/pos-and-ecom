@@ -491,5 +491,3 @@ def getStock():
             damage_qty=product_dt['damaged_qty_sum'], shop_id=shop_obj.id, created_at=datetime.datetime.now()))
         if daily_stock_dt:
             ShopStock.objects.bulk_create(daily_stock_dt)
-
-
