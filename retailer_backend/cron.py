@@ -98,15 +98,12 @@ class DailyStock(APIView):
             #     damage_qty=product_dt['damaged_qty_sum'], shop_id=shop_obj.id, created_at=datetime.now())
 
 def discounted_order_cancellation():
-    print('hello')
     orders = Order.objects.filter(
         ~Q(order_status='CANCELLED'),
-        created_at__lt=(datetime.now() - timedelta(minutes=5)),
+        created_at__lt=(datetime.now() - timedelta(hours=24)),
         ordered_cart__cart_type='DISCOUNTED',
         ordered_cart__approval_status=False)
-    print(orders.count())
     if orders.exists():
         for order in orders:
             order.order_status = 'CANCELLED'
             order.save()
-            print('Raj')
