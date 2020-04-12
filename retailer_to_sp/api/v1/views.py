@@ -218,7 +218,7 @@ class GramGRNProductsList(APIView):
     serializer_class = GramGRNProductsSearchSerializer
 
     def search_query(self, request):
-        filter_list = [{"term":{"status":True}}]
+        filter_list = [{"term":{"status":True}}, "range":{"available":{"gt":0}}]
         if self.product_ids:
             filter_list.append( {"ids":{"type":"product", "values":self.product_ids}})
             query = {"bool":{"filter":filter_list}}

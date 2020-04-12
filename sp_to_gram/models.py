@@ -407,10 +407,11 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
         products_available = db_available_products.aggregate(Sum('available_qty'))['available_qty__sum']
         if products_available and products_available > int(instance.product.product_inner_case_size):
             product_status = True
+            available_qty = int(products_available)/int(instance.product.product_inner_case_size)
         else:
             product_status = False
-            products_available = 0
-        update_shop_product_es.delay(instance.shop.id, instance.product.id, available=products_available, status=product_status)
+            available_qty = 0
+        update_shop_product_es.delay(instance.shop.id, instance.product.id, available=available_qty, status=product_status)
     transaction.on_commit(start_updation)
 
 @receiver(pre_save, sender=SpNote)
