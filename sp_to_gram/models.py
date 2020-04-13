@@ -407,7 +407,7 @@ def update_elasticsearch(sender, instance=None, created=False, **kwargs):
         products_available = db_available_products.aggregate(Sum('available_qty'))['available_qty__sum']
         if products_available and products_available > int(instance.product.product_inner_case_size):
             product_status = True
-            available_qty = int(products_available)/int(instance.product.product_inner_case_size)
+            available_qty = int(int(products_available)/int(instance.product.product_inner_case_size))
         else:
             product_status = False
             available_qty = 0
