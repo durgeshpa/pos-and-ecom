@@ -232,7 +232,6 @@ class OrderedProductMapping(models.Model): #GRN Product
                 raise ValidationError(_("Expiry Date cannot be less than manufacture date"))
 
     def save(self, *args, **kwargs):
-        # super().save(*args, **kwargs)
         if self.ordered_product and self.ordered_product.order:
             self.shop = self.ordered_product.order.ordered_cart.shop
         elif self.ordered_product and self.ordered_product.credit_note:
@@ -399,28 +398,15 @@ class StockAdjustmentMapping(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+def commit_updates_to_es(shop_id, product_id):
+    db_available_products = OrderedProductMapping.get_product_availability(shop, product)
+    products_available = db_available_products.aggregate(Sum('available_qty'))['available_qty__sum']
+    available_qty = int(int(products_available)/int(product.product_inner_case_size))
+    update_shop_product_es.delay(instance.shop.id, instance.product.id, available=available_qty, status=product_status)
 
 @receiver(post_save, sender=OrderedProductMapping)
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
-    def start_updation():
-        logger.exception("No. of items in the current instance : Available {}, Delivered {}".format(instance.available_qty, instance.delivered_qty))
-        logger.exception("current instance id is {}".format(instance.id))
-        db_available_products = instance.get_product_availability(instance.shop, instance.product)
-        available_ids = [str(i.id) for i in db_available_products]
-        logger.exception(", ".join(available_ids))
-        for i in db_available_products:
-            logger.exception(i.id)
-        products_available = db_available_products.aggregate(Sum('available_qty'))['available_qty__sum']
-        logger.exception("Total Available products : {}".format(db_available_products))
-
-        if products_available and products_available > int(instance.product.product_inner_case_size):
-            product_status = True
-            available_qty = int(int(products_available)/int(instance.product.product_inner_case_size))
-        else:
-            product_status = False
-            available_qty = 0
-        update_shop_product_es.delay(instance.shop.id, instance.product.id, available=available_qty, status=product_status)
-    transaction.on_commit(start_updation)
+    transaction.on_commit(commit_updates_to_es(instance.shop, instance.product))
 
 @receiver(pre_save, sender=SpNote)
 def create_brand_note_id(sender, instance=None, created=False, **kwargs):
