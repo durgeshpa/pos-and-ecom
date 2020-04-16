@@ -1253,7 +1253,7 @@ class OrderCancellation(object):
     def update_sp_qty_from_cart_or_shipment(self):
 
         reserved_qty_queryset = self.get_reserved_qty()
-
+        #TODO : JAGJEET Fix this 
         for item in reserved_qty_queryset:
             SPOrderedProductMapping.objects \
                 .filter(id=item['sp_grn']) \
