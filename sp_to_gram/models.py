@@ -402,7 +402,7 @@ def commit_updates_to_es(shop_id, product_id):
     db_available_products = OrderedProductMapping.get_product_availability(shop, product)
     products_available = db_available_products.aggregate(Sum('available_qty'))['available_qty__sum']
     available_qty = int(int(products_available)/int(product.product_inner_case_size))
-    update_shop_product_es.delay(instance.shop.id, instance.product.id, available=available_qty, status=product_status)
+    update_shop_product_es.delay(shop.id, product.id, available=available_qty)
 
 @receiver(post_save, sender=OrderedProductMapping)
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
