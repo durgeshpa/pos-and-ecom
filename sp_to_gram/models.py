@@ -406,7 +406,7 @@ def commit_updates_to_es(shop, product):
 
 @receiver(post_save, sender=OrderedProductMapping)
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
-    transaction.on_commit(commit_updates_to_es(instance.shop, instance.product))
+    transaction.on_commit(lambda: commit_updates_to_es(instance.shop, instance.product))
 
 @receiver(pre_save, sender=SpNote)
 def create_brand_note_id(sender, instance=None, created=False, **kwargs):
