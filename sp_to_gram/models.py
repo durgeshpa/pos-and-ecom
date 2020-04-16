@@ -398,7 +398,7 @@ class StockAdjustmentMapping(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-def commit_updates_to_es(shop_id, product_id):
+def commit_updates_to_es(shop, product):
     db_available_products = OrderedProductMapping.get_product_availability(shop, product)
     products_available = db_available_products.aggregate(Sum('available_qty'))['available_qty__sum']
     available_qty = int(int(products_available)/int(product.product_inner_case_size))
