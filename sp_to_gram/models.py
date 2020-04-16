@@ -399,13 +399,17 @@ class StockAdjustmentMapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
 def commit_updates_to_es(shop, product):
+    status = True
     logger.exception("entering in update ES, shop {} product {}".format(shop, product))
     db_available_products = OrderedProductMapping.get_product_availability(shop, product)
     products_available = db_available_products.aggregate(Sum('available_qty'))['available_qty__sum']
     logger.exception("products available : {}".format(products_available))
     available_qty = int(int(products_available)/int(product.product_inner_case_size))
+    if not available_qty:
+        status = False
+
     logger.exception("upliading update to ES product : {}, available: {}".format(product, available_qty))
-    update_shop_product_es.delay(shop.id, product.id, available=available_qty)
+    update_shop_product_es.delay(shop.id, product.id, available=available_qty, status=status)
 
 @receiver(post_save, sender=OrderedProductMapping)
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
