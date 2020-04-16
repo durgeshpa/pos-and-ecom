@@ -403,8 +403,14 @@ class StockAdjustmentMapping(models.Model):
 @receiver(post_save, sender=OrderedProductMapping)
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
     def start_updation():
+        logger.exception("No. of items in the current instance : Available {}, Delivered {}".format(instance.available_qty, instance.delivered_qty))
+        logger.exception("current instance id is {}".format(instance.id))
         db_available_products = instance.get_product_availability(instance.shop, instance.product)
+        for i in db_available_products:
+            logger.exception(i.id)
         products_available = db_available_products.aggregate(Sum('available_qty'))['available_qty__sum']
+        logger.exception("Total Available products : {}".format(db_available_products))
+
         if products_available and products_available > int(instance.product.product_inner_case_size):
             product_status = True
             available_qty = int(int(products_available)/int(instance.product.product_inner_case_size))
