@@ -413,7 +413,7 @@ def commit_updates_to_es(shop, product):
 
 @receiver(post_save, sender=OrderedProductMapping)
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
-    logger.exception("updated for instance {}".format(instance.id))
+    logger.exception("updated for instance {}, qty: {}".format(instance.id, instance.available_qty))
     transaction.on_commit(lambda: commit_updates_to_es(instance.shop, instance.product))
 
 @receiver(pre_save, sender=SpNote)
