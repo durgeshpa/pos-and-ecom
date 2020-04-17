@@ -97,10 +97,10 @@ class ProductAutocomplete(autocomplete.Select2QuerySetView):
         qs = Product.objects.all()
         order_id = self.forwarded.get('order', None)
         if order_id:
-            order = Order.objects.get(id=order_id)
-            cp_products = CartProductMapping.objects.filter(
-                cart=order.ordered_cart).values('cart_product')
-            qs = qs.filter(id__in=[cp_products]).order_by('product_name')
+            cp_products = Order.objects\
+                .get(id=order_id).ordered_cart.cart_list\
+                .values_list('cart_product', flat=True)
+            qs = qs.filter(id__in=cp_products).order_by('product_name')
 
         if self.q:
             qs = qs.filter(product_name__istartswith=self.q)
