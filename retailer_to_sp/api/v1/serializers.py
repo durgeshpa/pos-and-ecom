@@ -392,12 +392,12 @@ class CartSerializer(serializers.ModelSerializer):
             pro_price = cart_pro.cart_product.get_current_shop_price(
                 self.context.get('parent_mapping_id'),
                 self.context.get('buyer_shop_id'))
-        if pro_price:
-            self.total_amount += (
-                Decimal(pro_price.selling_price) * cart_pro.qty *
-                Decimal(pro_price.product.product_inner_case_size))
-        else:
-            self.total_amount+=0
+            if pro_price:
+                self.total_amount += (
+                    Decimal(pro_price.selling_price) * cart_pro.qty *
+                    Decimal(pro_price.product.product_inner_case_size))
+            else:
+                self.total_amount+=0
         return self.total_amount
 
 
