@@ -770,7 +770,6 @@ class ReservedOrder(generics.ListAPIView):
                             'buyer_shop_id': shop_id
                         })
                     for i in serializer.data['rt_cart_list']:
-                        import pdb;pdb.set_trace()
                         if i['cart_product']['product_mrp']==1:
                             i['qty']=0
                             i['qty_error_msg']=ERROR_MESSAGES['OUT_OF_STOCK'].format(str(i['cart_product']['product_name']))
@@ -801,8 +800,6 @@ class ReservedOrder(generics.ListAPIView):
             serializer = CartSerializer(cart, context={
                 'parent_mapping_id': parent_mapping.parent.id,
                 'buyer_shop_id': shop_id})
-            import pdb;
-            pdb.set_trace()
 
             for i in serializer.data['rt_cart_list']:
                 if i['cart_product']['product_mrp'] == 1:
