@@ -215,11 +215,11 @@ class Product(models.Model):
 
     def getMRP(self, seller_shop_id, buyer_shop_id):
         product_price = self.getPriceByShopId(seller_shop_id, buyer_shop_id)
-        return product_price.mrp
+        return product_price.mrp if product_price else 1
 
     def getRetailerPrice(self, seller_shop_id, buyer_shop_id):
         product_price = self.getPriceByShopId(seller_shop_id, buyer_shop_id)
-        return product_price.selling_price
+        return product_price.selling_price if product_price else 0
 
     def getCashDiscount(self, seller_shop_id, buyer_shop_id):
         return 0

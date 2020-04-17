@@ -769,10 +769,24 @@ class ReservedOrder(generics.ListAPIView):
                             'parent_mapping_id':parent_mapping.parent.id,
                             'buyer_shop_id': shop_id
                         })
-                    msg = {'is_success': True,
-                           'message': [''],
-                           'response_data': serializer.data,
-                           'is_shop_time_entered':False}
+                    for i in serializer.data['rt_cart_list']:
+                        if i['cart_product']['product_mrp']==1:
+                            i['qty']=0
+                            i['qty_error_msg']=ERROR_MESSAGES['OUT_OF_STOCK'].format(str(i['cart_product']['product_name']))
+                            cart_product.qty_error_msg = i['qty_error_msg']
+                            cart_product.qty = 0
+                            cart_product.save()
+                            msg = {
+                                'is_success': True,
+                                'message': [''],
+                                'response_data': serializer.data,
+                                'is_shop_time_entered': False
+                            }
+                        else:
+                            msg = {'is_success': True,
+                                'message': [''],
+                                'response_data': serializer.data,
+                                'is_shop_time_entered':False}
                     return Response(msg, status=status.HTTP_200_OK)
                 else:
                     reserved_args = json.dumps({
@@ -784,12 +798,26 @@ class ReservedOrder(generics.ListAPIView):
             serializer = CartSerializer(cart, context={
                 'parent_mapping_id': parent_mapping.parent.id,
                 'buyer_shop_id': shop_id})
-            msg = {
-                    'is_success': True,
-                    'message': [''],
-                    'response_data': serializer.data,
-                    'is_shop_time_entered': hasattr(parent_mapping.retailer, 'shop_timing'),
-                }
+            for i in serializer.data['rt_cart_list']:
+                if i['cart_product']['product_mrp'] == 1:
+                    i['qty'] = 0
+                    i['qty_error_msg'] = ERROR_MESSAGES['OUT_OF_STOCK'].format(str(i['cart_product']['product_name']))
+                    cart_product.qty_error_msg = i['qty_error_msg']
+                    cart_product.qty = 0
+                    cart_product.save()
+                    msg ={
+                        'is_success': True,
+                        'message': [''],
+                        'response_data': serializer.data,
+                        'is_shop_time_entered': hasattr(parent_mapping.retailer, 'shop_timing'),
+                    }
+                else:
+                    msg = {
+                        'is_success': True,
+                        'message': [''],
+                        'response_data': serializer.data,
+                        'is_shop_time_entered': hasattr(parent_mapping.retailer, 'shop_timing'),
+                    }
             return Response(msg, status=status.HTTP_200_OK)
         else:
             msg = {'is_success': False, 'message': ['Sorry shop is not associated with any Gramfactory or any SP'],

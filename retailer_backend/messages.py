@@ -43,4 +43,5 @@ ERROR_MESSAGES = {
     'INVALID_SP_PRICE': "You cannot upload Service Partner Price greater than Super Retailer",
     'INVALID_SR_PRICE': "You cannot upload Super Retailer Price greater than Retailer",
     'INVALID_MAPPING': "Shop id- %s and employee no- %s , has duplicate entry",
+    'OUT_OF_STOCK': "Sorry {} is out of stock",
 }

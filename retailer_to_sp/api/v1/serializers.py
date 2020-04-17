@@ -332,10 +332,13 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
             get_current_shop_price(self.context.get('parent_mapping_id'),
                              self.context.get('buyer_shop_id'))
         keyValList2 = ['discount_on_product']
-        margin = (((product_price.mrp - product_price.selling_price) / product_price.mrp) * 100)
-        if obj.cart.offers:
-            margin = (((float(product_price.mrp) - obj.item_effective_prices) / float(product_price.mrp)) * 100)
-        return margin
+        if product_price:
+            margin = (((product_price.mrp - product_price.selling_price) / product_price.mrp) * 100)
+            if obj.cart.offers:
+                margin = (((float(product_price.mrp) - obj.item_effective_prices) / float(product_price.mrp)) * 100)
+            return margin
+        else:
+            return 0
 
     class Meta:
         model = CartProductMapping
@@ -389,10 +392,15 @@ class CartSerializer(serializers.ModelSerializer):
             pro_price = cart_pro.cart_product.get_current_shop_price(
                 self.context.get('parent_mapping_id'),
                 self.context.get('buyer_shop_id'))
+        if pro_price:
             self.total_amount += (
                 Decimal(pro_price.selling_price) * cart_pro.qty *
                 Decimal(pro_price.product.product_inner_case_size))
+        else:
+            self.total_amount+=0
         return self.total_amount
+
+
 
     def sub_total_id(self, obj):
         sub_total = float(self.total_amount_id(obj)) - self.get_total_discount(obj)
