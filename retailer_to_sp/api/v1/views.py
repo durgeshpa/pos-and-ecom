@@ -770,9 +770,11 @@ class ReservedOrder(generics.ListAPIView):
                             'buyer_shop_id': shop_id
                         })
                     for i in serializer.data['rt_cart_list']:
+                        import pdb;pdb.set_trace()
                         if i['cart_product']['product_mrp']==1:
                             i['qty']=0
                             i['qty_error_msg']=ERROR_MESSAGES['OUT_OF_STOCK'].format(str(i['cart_product']['product_name']))
+                            CartProductMapping.objects.filter(cart__id=i['cart']['id'], cart_product__id=i['cart_product']['id']).delete()
                             cart_product.qty_error_msg = i['qty_error_msg']
                             cart_product.qty = 0
                             cart_product.save()
@@ -780,13 +782,14 @@ class ReservedOrder(generics.ListAPIView):
                                 'is_success': True,
                                 'message': [''],
                                 'response_data': serializer.data,
-                                'is_shop_time_entered': False
-                            }
+                                'is_shop_time_entered':False}
                         else:
-                            msg = {'is_success': True,
+                            msg = {
+                                'is_success': True,
                                 'message': [''],
                                 'response_data': serializer.data,
-                                'is_shop_time_entered':False}
+                                'is_shop_time_entered': False}
+
                     return Response(msg, status=status.HTTP_200_OK)
                 else:
                     reserved_args = json.dumps({
@@ -798,14 +801,18 @@ class ReservedOrder(generics.ListAPIView):
             serializer = CartSerializer(cart, context={
                 'parent_mapping_id': parent_mapping.parent.id,
                 'buyer_shop_id': shop_id})
+            import pdb;
+            pdb.set_trace()
+
             for i in serializer.data['rt_cart_list']:
                 if i['cart_product']['product_mrp'] == 1:
                     i['qty'] = 0
                     i['qty_error_msg'] = ERROR_MESSAGES['OUT_OF_STOCK'].format(str(i['cart_product']['product_name']))
+                    CartProductMapping.objects.filter(cart__id=i['cart']['id'],cart_product__id=i['cart_product']['id']).delete()
                     cart_product.qty_error_msg = i['qty_error_msg']
                     cart_product.qty = 0
                     cart_product.save()
-                    msg ={
+                    msg = {
                         'is_success': True,
                         'message': [''],
                         'response_data': serializer.data,
@@ -818,6 +825,7 @@ class ReservedOrder(generics.ListAPIView):
                         'response_data': serializer.data,
                         'is_shop_time_entered': hasattr(parent_mapping.retailer, 'shop_timing'),
                     }
+
             return Response(msg, status=status.HTTP_200_OK)
         else:
             msg = {'is_success': False, 'message': ['Sorry shop is not associated with any Gramfactory or any SP'],
