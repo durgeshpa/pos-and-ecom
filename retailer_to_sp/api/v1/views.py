@@ -771,11 +771,11 @@ class ReservedOrder(generics.ListAPIView):
                         })
                     for i in serializer.data['rt_cart_list']:
                         if i['cart_product']['product_mrp']==1:
-                            i['qty']=0
+                            #i['qty']=0
                             i['qty_error_msg']=ERROR_MESSAGES['OUT_OF_STOCK'].format(str(i['cart_product']['product_name']))
                             CartProductMapping.objects.filter(cart__id=i['cart']['id'], cart_product__id=i['cart_product']['id']).delete()
                             cart_product.qty_error_msg = i['qty_error_msg']
-                            cart_product.qty = 0
+                           # cart_product.qty = 0
                             cart_product.save()
                             msg = {
                                 'is_success': True,
@@ -803,11 +803,11 @@ class ReservedOrder(generics.ListAPIView):
 
             for i in serializer.data['rt_cart_list']:
                 if i['cart_product']['product_mrp'] == 1:
-                    i['qty'] = 0
+                    #i['qty'] = 0
                     i['qty_error_msg'] = ERROR_MESSAGES['OUT_OF_STOCK'].format(str(i['cart_product']['product_name']))
                     CartProductMapping.objects.filter(cart__id=i['cart']['id'],cart_product__id=i['cart_product']['id']).delete()
                     cart_product.qty_error_msg = i['qty_error_msg']
-                    cart_product.qty = 0
+                    #cart_product.qty = 0
                     cart_product.save()
                     msg = {
                         'is_success': True,
