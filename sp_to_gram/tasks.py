@@ -37,6 +37,7 @@ def get_warehouse_stock(shop_id=None):
 		user_selected_qty = None
 		no_of_pieces = None
 		sub_total = None
+		available_qty = 0
 		name = p.product.product_name
 		mrp = p.mrp
 		ptr = p.selling_price
@@ -57,6 +58,8 @@ def get_warehouse_stock(shop_id=None):
 		    continue
 		if grn_dict and int(pack_size) > int(grn_dict[p.product.id]):
 		    status = False
+		else:
+			available_qty = int(int(grn_dict[p.product.id])/int(pack_size))
 		try:
 		    for p_o in product_opt:
 		        weight_value = p_o.weight.weight_value if p_o.weight.weight_value else None
@@ -76,9 +79,7 @@ def get_warehouse_stock(shop_id=None):
 		category = [str(c.category) for c in p.product.product_pro_category.filter(status=True)]
 		product_details = {"name":p.product.product_name,"name_lower":p.product.product_name.lower(),"brand":str(p.product.product_brand),"brand_lower":str(p.product.product_brand).lower(),"category": category, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "id":p.product_id,
 		                "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":user_selected_qty, "pack_size":pack_size,
-		               "margin":margin ,"no_of_pieces":no_of_pieces, "sub_total":sub_total}
-		if grn_dict:
-			product_details["available"] = int(grn_dict[p.product.id])
+		               "margin":margin ,"no_of_pieces":no_of_pieces, "sub_total":sub_total, "available": available_qty}
 		yield(product_details)
 
 def create_es_index(index):

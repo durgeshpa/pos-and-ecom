@@ -232,7 +232,6 @@ class OrderedProductMapping(models.Model): #GRN Product
                 raise ValidationError(_("Expiry Date cannot be less than manufacture date"))
 
     def save(self, *args, **kwargs):
-        # super().save(*args, **kwargs)
         if self.ordered_product and self.ordered_product.order:
             self.shop = self.ordered_product.order.ordered_cart.shop
         elif self.ordered_product and self.ordered_product.credit_note:
@@ -399,19 +398,19 @@ class StockAdjustmentMapping(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+def commit_updates_to_es(shop, product):
+    status = True
+    db_available_products = OrderedProductMapping.get_product_availability(shop, product)
+    products_available = db_available_products.aggregate(Sum('available_qty'))['available_qty__sum']
+    available_qty = int(int(products_available)/int(product.product_inner_case_size))
+    if not available_qty:
+        status = False
+
+    update_shop_product_es.delay(shop.id, product.id, available=available_qty, status=status)
 
 @receiver(post_save, sender=OrderedProductMapping)
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
-    def start_updation():
-        db_available_products = instance.get_product_availability(instance.shop, instance.product)
-        products_available = db_available_products.aggregate(Sum('available_qty'))['available_qty__sum']
-        if products_available and products_available > int(instance.product.product_inner_case_size):
-            product_status = True
-        else:
-            product_status = False
-            products_available = 0
-        update_shop_product_es.delay(instance.shop.id, instance.product.id, available=products_available, status=product_status)
-    transaction.on_commit(start_updation)
+    transaction.on_commit(lambda: commit_updates_to_es(instance.shop, instance.product))
 
 @receiver(pre_save, sender=SpNote)
 def create_brand_note_id(sender, instance=None, created=False, **kwargs):
