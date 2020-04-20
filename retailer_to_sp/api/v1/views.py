@@ -496,7 +496,7 @@ class AddToCart(APIView):
                                     cart_mapping.qty_error_msg = ''
                                     cart_mapping.save()
                                 else:
-                                    cart_mapping.qty_error_msg=ERROR_MESSAGES['AVAILABLE_PRODUCT'].format(int(available_qty))
+                                    cart_mapping.qty_error_msg=ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
                                     cart_mapping.save()
                         else:
                             if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
@@ -536,7 +536,7 @@ class AddToCart(APIView):
                             cart_mapping.qty_error_msg = ''
                             cart_mapping.save()
                         else:
-                            cart_mapping.qty_error_msg=ERROR_MESSAGES['AVAILABLE_PRODUCT'].format(int(available_qty))
+                            cart_mapping.qty_error_msg=ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
                             cart_mapping.save()
 
 

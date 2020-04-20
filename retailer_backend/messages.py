@@ -38,6 +38,7 @@ SUCCESS_MESSAGES = {
 }
 
 ERROR_MESSAGES = {
+    'AVAILABLE_QUANTITY': 'AVAILABLE QTY : {0}',
     'AVAILABLE_PRODUCT': 'Available No of Pieces : {0}',
     'INVALID_PRICE_UPLOAD': "You cannot upload Selling Price greater than MRP",
     'INVALID_SP_PRICE': "You cannot upload Service Partner Price greater than Super Retailer",
