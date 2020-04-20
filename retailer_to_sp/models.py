@@ -652,6 +652,14 @@ class CartProductMapping(models.Model):
         return self.cart_product.product_inner_case_size
 
     @property
+    def order_number(self):
+        return self.cart.order_id
+
+    @property
+    def cart_product_sku(self):
+        return self.cart_product.product_sku
+
+    @property
     def item_effective_prices(self):
         try:
             item_effective_price = 0
@@ -1238,6 +1246,7 @@ class OrderedProduct(models.Model): #Shipment
     CUSTOMER_UNAVAILABLE = 'CUS_AVL'
     MANUFACTURING_DEFECT = "DEFECT"
     SHORT = 'SHORT'
+    REASON_NOT_ENTERED_BY_DELIVERY_BOY = 'rsn_not_ent_by_dlv_boy'
 
     RETURN_REASON = (
         (CASH_NOT_AVAILABLE, 'Cash not available'),
@@ -1257,7 +1266,8 @@ class OrderedProduct(models.Model): #Shipment
         (CUSOTMER_CANCEL, 'Cancelled by customer'),
         (CUSTOMER_UNAVAILABLE, 'Customer not available'),
         (MANUFACTURING_DEFECT,'Manufacturing Defect'),
-        (SHORT, 'Item short')
+        (SHORT, 'Item short'),
+        (REASON_NOT_ENTERED_BY_DELIVERY_BOY, 'Reason not entered by Delivery Boy')
     )
     order = models.ForeignKey(
         Order, related_name='rt_order_order_product',

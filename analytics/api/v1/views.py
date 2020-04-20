@@ -479,7 +479,7 @@ def trip_report(trip_id):
                                                     total_trip_amount=total_trip_amount,total_trip_amount_value=total_trip_amount_value,trip_weight=trip_weight)
 
 
-@periodic_task(run_every=(crontab(minute=2, hour=0)), name="getStock", ignore_result=True)
+# @periodic_task(run_every=(crontab(minute=2, hour=0)), name="getStock", ignore_result=True)
 def getStock():
     for shop_obj in Shop.objects.filter(shop_type__shop_type='sp'):
         sp_grn_product = OrderedProductMapping.get_shop_stock(shop_obj)
@@ -491,5 +491,3 @@ def getStock():
             damage_qty=product_dt['damaged_qty_sum'], shop_id=shop_obj.id, created_at=datetime.datetime.now()))
         if daily_stock_dt:
             ShopStock.objects.bulk_create(daily_stock_dt)
-
-
