@@ -449,7 +449,8 @@ class AddToCart(APIView):
                 msg['message'] = ["Qty not Found"]
                 return Response(msg, status=status.HTTP_200_OK)
             #  if shop mapped with SP
-            available=OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product=cart_product,available_qty__gt=0).values('product_id').annotate(available_qty=Sum('available_qty'))
+            available=OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product=cart_product,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
+            shop_products_dict = {g['product_id']: int(g['available_qty']) for g in available}
             if parent_mapping.parent.shop_type.shop_type == 'sp':
                 ordered_qty = 0
                 product = Product.objects.get(id = cart_product)
@@ -489,7 +490,7 @@ class AddToCart(APIView):
                             else:
                                 cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
                                 cart_mapping.qty = qty
-                                available_qty = available[0].get('available_qty')//int(cart_mapping.cart_product.product_inner_case_size)
+                                available_qty = shop_products_dict[int(cart_product)]//int(cart_mapping.cart_product.product_inner_case_size)
                                 if int(qty)<=available_qty:
                                     cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
                                     cart_mapping.capping_error_msg = ''
@@ -528,7 +529,7 @@ class AddToCart(APIView):
 
                     else:
                         cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
-                        available_qty = available[0].get('available_qty')//int(cart_mapping.cart_product.product_inner_case_size)
+                        available_qty = shop_products_dict[int(cart_product)]//int(cart_mapping.cart_product.product_inner_case_size)
                         cart_mapping.qty = qty
                         if int(qty)<=available_qty:
                             cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
