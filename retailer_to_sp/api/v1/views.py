@@ -640,11 +640,21 @@ class CartDetail(APIView):
                                  'buyer_shop_id': shop_id,
                                  'delivery_message': self.delivery_message()}
                     )
-                    msg = {
-                        'is_success': True,
-                        'message': [''],
-                        'response_data': serializer.data
-                    }
+                    for i in serializer.data['rt_cart_list']:
+                        if i['cart_product']['product_mrp']==1:
+                            CartProductMapping.objects.filter(cart__id=i['cart']['id'],cart_product__id=i['cart_product']['id']).delete()
+                            msg = {
+                                'is_success': True,
+                                'message': [''],
+                                'response_data': serializer.data
+                            }
+                        else:
+                            msg = {
+                                'is_success': True,
+                                'message': [''],
+                                'response_data': serializer.data
+                            }
+
                 return Response(msg, status=status.HTTP_200_OK)
             else:
                 msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
