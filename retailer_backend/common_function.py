@@ -79,10 +79,10 @@ def get_last_no_to_increment(model, field, instance_id, starts_with):
         return 0
 
 def get_last_model_invoice(starts_with, field):
-    shipment_instance = RetailerToSPModels.OrderedProduct.objects.filter(invoice_number__icontains=starts_with)
+    shipment_instance = RetailerToSPModels.Invoice.objects.filter(invoice_no__icontains=starts_with)
     if shipment_instance.exists():
-        last_instance_no = shipment_instance.latest('invoice_number')
-        return int(getattr(last_instance_no, field)[-7:])
+        last_instance_no = shipment_instance.latest('invoice_no')
+        return int(getattr(last_instance_no, 'invoice_no')[-7:])
     else:
         return 0
 
