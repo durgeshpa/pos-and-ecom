@@ -641,6 +641,7 @@ class CartDetail(APIView):
                                  'delivery_message': self.delivery_message()}
                     )
                     for i in serializer.data['rt_cart_list']:
+                        i['available_qty']=i['qty_error_msg']
                         if i['cart_product']['product_mrp']==1:
                             CartProductMapping.objects.filter(cart__id=i['cart']['id'],cart_product__id=i['cart_product']['id']).delete()
                             msg = {
