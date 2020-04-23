@@ -56,10 +56,11 @@ def get_warehouse_stock(shop_id=None):
 		except Exception as e:
 		    logger.exception("pack size is not defined for {}".format(p.product.product_name))
 		    continue
-		if grn_dict and int(pack_size) > int(grn_dict[p.product.id]):
-		    status = False
-		else:
-			available_qty = int(int(grn_dict[p.product.id])/int(pack_size))
+		if grn_dict:
+			if int(pack_size) > int(grn_dict[p.product.id]):
+				status = False
+			else:
+				available_qty = int(int(grn_dict[p.product.id])/int(pack_size))
 		try:
 		    for p_o in product_opt:
 		        weight_value = p_o.weight.weight_value if p_o.weight.weight_value else None
