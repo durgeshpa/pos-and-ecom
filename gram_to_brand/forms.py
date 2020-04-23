@@ -171,11 +171,15 @@ class GRNOrderForm(forms.ModelForm):
         readonly_fields = ('order')
 
 class GRNOrderProductForm(forms.ModelForm):
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(),
+        widget=autocomplete.ModelSelect2(url='product-autocomplete',forward=('order',))
+     )
     product_mrp = forms.DecimalField()
     po_product_quantity = forms.IntegerField()
     po_product_price = forms.DecimalField()
     already_grned_product = forms.IntegerField()
-    expiry_date = forms.DateField(required=False,widget=AdminDateWidget())
+    expiry_date = forms.DateField(required=False, widget=AdminDateWidget())
     best_before_year = forms.ChoiceField(choices=BEST_BEFORE_YEAR_CHOICE,)
     best_before_month = forms.ChoiceField(choices=BEST_BEFORE_MONTH_CHOICE,)
 
@@ -183,12 +187,13 @@ class GRNOrderProductForm(forms.ModelForm):
         model = GRNOrderProductMapping
         fields = ('product', 'product_mrp', 'po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date',
                   'expiry_date','best_before_year','best_before_month','product_invoice_qty','delivered_qty','returned_qty')
-        #readonly_fields = ('product','product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product')
-        #autocomplete_fields = ('product',)
+        readonly_fields = ('product','product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product')
+        autocomplete_fields = ('product',)
 
-    # class Media:
-    #     #css = {'all': ('pretty.css',)}
-    #     js = ('/static/admin/js/grn_form.js',)
+
+    class Media:
+        #css = {'all': ('pretty.css',)}
+        js = ('/static/admin/js/grn_form.js', )
 
     def __init__(self, *args, **kwargs):
         super(GRNOrderProductForm, self).__init__(*args, **kwargs)

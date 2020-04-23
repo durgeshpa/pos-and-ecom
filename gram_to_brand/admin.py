@@ -182,13 +182,14 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     form = GRNOrderProductForm
     fields = ('product', 'product_mrp', 'po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date',
               'expiry_date','best_before_year','best_before_month','product_invoice_qty','delivered_qty','returned_qty')
-    #exclude = ('last_modified_by','available_qty',)
+    exclude = ('last_modified_by','available_qty',)
     extra = 0
+    template = 'admin/gram_to_brand/grn_order/tabular.html'
     #readonly_fields = ('po_product_quantity','po_product_price','already_grned_product',)
-    # def get_readonly_fields(self, request, obj=None):
-    #     if obj: # editing an existing object
-    #         return self.readonly_fields + ('product','product_mrp','po_product_quantity','po_product_price','already_grned_product',)
-    #     return self.readonly_fields
+    def get_readonly_fields(self, request, obj=None):
+        if obj: # editing an existing object
+            return self.readonly_fields + ('product','product_mrp','po_product_quantity','po_product_price','already_grned_product',)
+        return self.readonly_fields
 
     def get_formset(self, request, obj=None, **kwargs):
         formset = super(GRNOrderProductMappingAdmin, self).get_formset(request, obj, **kwargs)
@@ -223,6 +224,9 @@ class GRNOrderAdmin(admin.ModelAdmin):
     #fields = ('order','invoice_no','brand_invoice','e_way_bill_no','e_way_bill_document', 'invoice_date', 'invoice_amount')
     fields = ('order','invoice_no','invoice_date', 'invoice_amount')
     change_form_template = 'admin/gram_to_brand/grn_order/change_form.html'
+
+    class Media:
+        js = ('admin/js/admin/CusDateTimeShortcuts.js', )
 
     def po_created_by(self,obj):
         return obj.order.ordered_cart.po_raised_by
