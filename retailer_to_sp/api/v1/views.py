@@ -686,6 +686,8 @@ class ReservedOrder(generics.ListAPIView):
         # if shop mapped with sp
         if parent_shop_type == 'sp':
             ordered_qty = 0
+            item_qty = 0
+            updated_no_of_pieces = 0
             cart = Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
                                        cart_status__in=['active', 'pending'])
             if cart.exists():
@@ -716,6 +718,9 @@ class ReservedOrder(generics.ListAPIView):
                 products_available = {}
                 products_unavailable = []
                 for cart_product in cart_products:
+                    item_qty = CartProductMapping.objects.filter(cart = cart, cart_product=cart_product.cart_product).last().qty
+                    updated_no_of_pieces = (item_qty * int(cart_product.cart_product.product_inner_case_size))
+                    CartProductMapping.objects.filter(cart = cart, cart_product=cart_product.cart_product).update(no_of_pieces = updated_no_of_pieces)
                     coupon_usage_count = 0
                     for i in array:
                         if cart_product.cart_product.id == i['item_id']:
