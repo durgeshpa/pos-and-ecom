@@ -617,6 +617,15 @@ class CartDetail(APIView):
                 cart = Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
                                            cart_status__in=['active', 'pending']).last()
                 Cart.objects.filter(id=cart.id).update(offers=cart.offers_applied())
+                cart_products = CartProductMapping.objects.select_related(
+                    'cart_product'
+                ).filter(
+                    cart=cart
+                )
+                for cart_product in cart_products:
+                    item_qty = CartProductMapping.objects.filter(cart = cart, cart_product=cart_product.cart_product).last().qty
+                    updated_no_of_pieces = (item_qty * int(cart_product.cart_product.product_inner_case_size))
+                    CartProductMapping.objects.filter(cart = cart, cart_product=cart_product.cart_product).update(no_of_pieces = updated_no_of_pieces)
                 if cart.rt_cart_list.count() <= 0:
                     msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
                            'response_data': None}
