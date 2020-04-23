@@ -907,7 +907,11 @@ class CreateOrder(APIView):
                 cart.cart_status = 'ordered'
                 cart.buyer_shop = shop
                 cart.seller_shop = parent_mapping.parent
-                cart.save()
+                try:
+                    cart.save()
+                except:
+                    msg['message'] = ['Some product price expired']
+                    return Response(msg, status=status.HTTP_200_OK)
 
                 if OrderedProductReserved.objects.filter(cart=cart).exists():
                     order,_ = Order.objects.get_or_create(last_modified_by=request.user,ordered_by=request.user, ordered_cart=cart, order_no=cart.order_id)
