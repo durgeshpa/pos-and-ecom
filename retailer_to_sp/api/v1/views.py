@@ -494,7 +494,7 @@ class AddToCart(APIView):
                                 if int(qty)<=available_qty:
                                     cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
                                     cart_mapping.capping_error_msg = ''
-                                    cart_mapping.qty_error_msg = ''
+                                    cart_mapping.qty_error_msg = ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
                                     cart_mapping.save()
                                 else:
                                     cart_mapping.qty_error_msg=ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
@@ -534,7 +534,7 @@ class AddToCart(APIView):
                         if int(qty)<=available_qty:
                             cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
                             cart_mapping.capping_error_msg = ''
-                            cart_mapping.qty_error_msg = ''
+                            cart_mapping.qty_error_msg = ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
                             cart_mapping.save()
                         else:
                             cart_mapping.qty_error_msg=ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
@@ -641,7 +641,6 @@ class CartDetail(APIView):
                                  'delivery_message': self.delivery_message()}
                     )
                     for i in serializer.data['rt_cart_list']:
-                        i['available_qty']=i['qty_error_msg']
                         if i['cart_product']['product_mrp']==1:
                             CartProductMapping.objects.filter(cart__id=i['cart']['id'],cart_product__id=i['cart_product']['id']).delete()
                             msg = {
@@ -795,11 +794,8 @@ class ReservedOrder(generics.ListAPIView):
                         })
                     for i in serializer.data['rt_cart_list']:
                         if i['cart_product']['product_mrp']==1:
-                            #i['qty']=0
-                            i['qty_error_msg']=ERROR_MESSAGES['OUT_OF_STOCK'].format(str(i['cart_product']['product_name']))
+                            i['qty']=0
                             CartProductMapping.objects.filter(cart__id=i['cart']['id'], cart_product__id=i['cart_product']['id']).delete()
-                            cart_product.qty_error_msg = i['qty_error_msg']
-                           # cart_product.qty = 0
                             cart_product.save()
                             msg = {
                                 'is_success': True,
@@ -827,11 +823,8 @@ class ReservedOrder(generics.ListAPIView):
 
             for i in serializer.data['rt_cart_list']:
                 if i['cart_product']['product_mrp'] == 1:
-                    #i['qty'] = 0
-                    i['qty_error_msg'] = ERROR_MESSAGES['OUT_OF_STOCK'].format(str(i['cart_product']['product_name']))
+                    i['qty'] = 0
                     CartProductMapping.objects.filter(cart__id=i['cart']['id'],cart_product__id=i['cart_product']['id']).delete()
-                    cart_product.qty_error_msg = i['qty_error_msg']
-                    #cart_product.qty = 0
                     cart_product.save()
                     msg = {
                         'is_success': True,
@@ -907,11 +900,12 @@ class CreateOrder(APIView):
                 cart.cart_status = 'ordered'
                 cart.buyer_shop = shop
                 cart.seller_shop = parent_mapping.parent
-                try:
-                    cart.save()
-                except:
-                    msg['message'] = ['Some product price expired']
+                if None in [i.cart_product_price for i in cart.rt_cart_list.all()]:
+                    msg['message'] = ["Some product's price expired"]
                     return Response(msg, status=status.HTTP_200_OK)
+                else:
+                    cart.save()
+
 
                 if OrderedProductReserved.objects.filter(cart=cart).exists():
                     order,_ = Order.objects.get_or_create(last_modified_by=request.user,ordered_by=request.user, ordered_cart=cart, order_no=cart.order_id)
