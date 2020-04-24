@@ -901,7 +901,7 @@ class CreateOrder(APIView):
                 cart.buyer_shop = shop
                 cart.seller_shop = parent_mapping.parent
                 if None in [i.cart_product_price for i in cart.rt_cart_list.all()]:
-                    msg['message'] = ["Some product's price expired"]
+                    msg['message'] = ["Some products in cart aren’t available anymore, please update cart and remove product from cart upon revisiting it"]
                     return Response(msg, status=status.HTTP_200_OK)
                 else:
                     cart.save()
