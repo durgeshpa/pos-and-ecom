@@ -775,7 +775,6 @@ class ReservedOrder(generics.ListAPIView):
                             else:
                                 cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
                             cart_product.save()
-
                 if products_unavailable:
                     serializer = CartSerializer(
                         cart,
