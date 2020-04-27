@@ -897,13 +897,16 @@ class CreateOrder(APIView):
             #self.sp_mapping_order_reserve()
             if Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer, id=cart_id).exists():
                 cart = Cart.objects.get(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer, id=cart_id)
-                cart.cart_status = 'ordered'
-                cart.buyer_shop = shop
-                cart.seller_shop = parent_mapping.parent
-                if None in [i.cart_product_price for i in cart.rt_cart_list.all()]:
+                orderitems=[]
+                for i in cart.rt_cart_list.all():
+                    orderitems.append(i.get_cart_product_price(cart.seller_shop, cart.buyer_shop))
+                if None in orderitems:
                     msg['message'] = ["Some products in cart aren’t available anymore, please update cart and remove product from cart upon revisiting it"]
                     return Response(msg, status=status.HTTP_200_OK)
                 else:
+                    cart.cart_status = 'ordered'
+                    cart.buyer_shop = shop
+                    cart.seller_shop = parent_mapping.parent
                     cart.save()
 
 
