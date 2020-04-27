@@ -642,6 +642,8 @@ class CartDetail(APIView):
                     )
                     for i in serializer.data['rt_cart_list']:
                         if i['cart_product']['product_mrp']==1:
+                            i['qty']=0
+                            i['cart_product']['product_mrp']=0
                             CartProductMapping.objects.filter(cart__id=i['cart']['id'],cart_product__id=i['cart_product']['id']).delete()
                             msg = {
                                 'is_success': True,
