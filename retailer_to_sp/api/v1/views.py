@@ -766,7 +766,7 @@ class ReservedOrder(generics.ListAPIView):
                     if product_availability >= ordered_amount:
                         products_available[cart_product.cart_product.id] = ordered_amount
                     else:
-                        cart_product.qty_error_msg = ERROR_MESSAGES['AVAILABLE_PRODUCT'].format(int(product_availability)) #TODO: Needs to be improved
+                        cart_product.qty_error_msg = ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(product_availability)//int(cart_product.product_inner_case_size)) #TODO: Needs to be improved
                         cart_product.save()
                         products_unavailable.append(cart_product.id)
                     capping = cart_product.cart_product.get_current_shop_capping(parent_mapping.parent, parent_mapping.retailer)
