@@ -545,7 +545,12 @@ class AddToCart(APIView):
                     msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],'response_data': None}
                 else:
                     serializer = CartSerializer(Cart.objects.get(id=cart.id),context={'parent_mapping_id': parent_mapping.parent.id, 'buyer_shop_id': shop_id})
-                    msg = {'is_success': True, 'message': ['Data added to cart'], 'response_data': serializer.data}
+                    for i in serializer.data['rt_cart_list']:
+                        if i['cart_product']['product_mrp']==-1:
+                            CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
+                            msg = {'is_success': True, 'message': ['Data added to cart'], 'response_data': serializer.data} 
+                        else:
+                            msg = {'is_success': True, 'message': ['Data added to cart'], 'response_data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
 
             #  if shop mapped with gf
@@ -643,6 +648,7 @@ class CartDetail(APIView):
                     for i in serializer.data['rt_cart_list']:
                         if i['cart_product']['product_mrp']==-1:
                             i['qty']=0
+                            i['cart_product']['product_mrp']=0
                             CartProductMapping.objects.filter(cart__id=i['cart']['id'],cart_product__id=i['cart_product']['id']).delete()
                             msg = {
                                 'is_success': True,
@@ -796,6 +802,7 @@ class ReservedOrder(generics.ListAPIView):
                     for i in serializer.data['rt_cart_list']:
                         if i['cart_product']['product_mrp']==-1:
                             i['qty']=0
+                            i['cart_product']['product_mrp']=0
                             CartProductMapping.objects.filter(cart__id=i['cart']['id'], cart_product__id=i['cart_product']['id']).delete()
                             cart_product.save()
                             msg = {
@@ -825,6 +832,7 @@ class ReservedOrder(generics.ListAPIView):
             for i in serializer.data['rt_cart_list']:
                 if i['cart_product']['product_mrp'] == -1:
                     i['qty'] = 0
+                    i['cart_product']['product_mrp']=0
                     CartProductMapping.objects.filter(cart__id=i['cart']['id'],cart_product__id=i['cart_product']['id']).delete()
                     cart_product.save()
                     msg = {
