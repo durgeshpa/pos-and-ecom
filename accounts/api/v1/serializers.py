@@ -38,7 +38,7 @@ class UserDocumentSerializer(serializers.ModelSerializer):
 
     def validate_user_document_number(self, data):
         if UserDocument.objects.filter(user_document_number=data).exists():
-            raise serializers.ValidationError('The document no. already exists')
+            raise serializers.ValidationError('Document number is already registered')
         return data
 
     def validate(self, data):
