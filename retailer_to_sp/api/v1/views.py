@@ -639,6 +639,10 @@ class CartDetail(APIView):
                     msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
                            'response_data': None}
                 else:
+                    for i in Cart.objects.get(id=cart.id).rt_cart_list.all():
+                        if i.cart_product.getMRP(cart.seller_shop.id, cart.buyer_shop.id)==-1:
+                            CartProductMapping.objects.filter(cart__id=cart.id, cart_product__id=i.cart_product.id).delete()
+
                     serializer = CartSerializer(
                         Cart.objects.get(id=cart.id),
                         context={'parent_mapping_id': parent_mapping.parent.id,
@@ -648,8 +652,7 @@ class CartDetail(APIView):
                     for i in serializer.data['rt_cart_list']:
                         if i['cart_product']['product_mrp']==-1:
                             i['qty']=0
-                            i['cart_product']['product_mrp']=0
-                            CartProductMapping.objects.filter(cart__id=i['cart']['id'],cart_product__id=i['cart_product']['id']).delete()
+                            #CartProductMapping.objects.filter(cart__id=i['cart']['id'],cart_product__id=i['cart_product']['id']).delete()
                             msg = {
                                 'is_success': True,
                                 'message': [''],
