@@ -927,6 +927,9 @@ class CreateOrder(APIView):
                     orderitems.append(i.get_cart_product_price(cart.seller_shop, cart.buyer_shop))
                 if None in orderitems:
                     CartProductMapping.objects.filter(cart__id=cart.id, cart_product_price=None).delete()
+                    for cart_price in cart.rt_cart_list.all():
+                        cart_price.cart_product_price=None
+                        cart_price.save()
                     msg['message'] = ["Some products in cart aren’t available anymore, please update cart and remove product from cart upon revisiting it"]
                     return Response(msg, status=status.HTTP_200_OK)
                 else:
