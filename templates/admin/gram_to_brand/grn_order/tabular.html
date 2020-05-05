@@ -103,6 +103,55 @@
         /**
          * The "Add another MyModel" button below the inline forms.
          */
+        var addMoreExpiryDate = function() {
+
+
+            $(".field-expiry_date input[id$='expiry_date']").each(function() {
+                var expirty_date = $(this);
+                var matches = $(this).attr('id').match(/(\d+)/);
+                if (matches) {
+                    var row_id = matches[0]
+                    var link = "\u00A0|\u00A0 <span id='"+row_id+"-extra-expiry'><a href='#' id='"+row_id+"-extra-expiry' class='addlink'></a></span>"
+
+                   if (! $(this).next("span#"+row_id+"-extra-expiry").length) {
+                        $(expirty_date).after(link);
+                   }
+ 
+                }
+            });
+        };
+
+        var addExpiryDateClickHandler = function() {
+
+            e.preventDefault();
+            var template = $("#" + options.prefix + "-empty");
+            var row = template.clone(true);
+            row.removeClass(options.emptyCssClass)
+                .addClass(options.formCssClass)
+                .attr("id", options.prefix + "-" + nextIndex);
+            addInlineDeleteButton(row);
+            row.find("*").each(function() {
+                updateElementIndex(this, options.prefix, totalForms.val());
+            });
+            // Insert the new form when it has been fully edited.
+            row.insertBefore($(template));
+            // Update number of total forms.
+            $(totalForms).val(parseInt(totalForms.val(), 10) + 1);
+            nextIndex += 1;
+            // Hide the add button if there's a limit and it's been reached.
+            if ((maxForms.val() !== '') && (maxForms.val() - totalForms.val()) <= 0) {
+                addButton.parent().hide();
+            }
+            // Show the remove buttons if there are more than min_num.
+            toggleDeleteButtonVisibility(row.closest('.inline-group'));
+
+            // Pass the new form to the post-add callback, if provided.
+            if (options.added) {
+                options.added(row);
+            }
+            $(document).trigger('formset:added', [row, options.prefix]);
+        };
+
         var addInlineAddButton = function() {
             if (addButton === null) {
                 if ($this.prop("tagName") === "TR") {
@@ -132,8 +181,6 @@
                 updateElementIndex(this, options.prefix, totalForms.val());
             });
             // Insert the new form when it has been fully edited.
-            console.log(row);
-            console.log($(template));
             row.insertBefore($(template));
             // Update number of total forms.
             $(totalForms).val(parseInt(totalForms.val(), 10) + 1);
@@ -234,6 +281,7 @@
         // Create the add button, initially hidden.
         addButton = options.addButton;
         addInlineAddButton();
+        addMoreExpiryDate();
 
         // Show the add button if allowed to add more items.
         // Note that max_num = None translates to a blank string.
@@ -390,12 +438,15 @@
     };
 
     $(document).ready(function() {
-           $(".js-inline-admin-formset").each(function() {
+        $("a[id$='extra-expiry']").click(function(e) {
+                e.preventDefault();
+                alert('fasfafsa');
+            });
+           $("#grn_order_grn_order_product-group").each(function() {
         // $(document.querySelector('[id$="expiry_date"]')).each(function() {
             var data = $(this).data(),
                 inlineOptions = data.inlineFormset,
                 selector;
-            console.log(data);
             switch(data.inlineType) {
             case "stacked":
                 selector = inlineOptions.name + "-group .inline-related";

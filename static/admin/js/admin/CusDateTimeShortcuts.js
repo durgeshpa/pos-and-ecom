@@ -263,7 +263,7 @@
             });
             quickElement(
                 'span', cal_link, '',
-                'class', 'addlink',
+                'class', 'addlink add-row',
                 'title', gettext('Choose a Date')
             );
             //shortcuts_span.appendChild(document.createTextNode('\u00A0'));

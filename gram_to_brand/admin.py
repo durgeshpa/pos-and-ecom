@@ -223,10 +223,10 @@ class GRNOrderAdmin(admin.ModelAdmin):
     form = GRNOrderForm
     #fields = ('order','invoice_no','brand_invoice','e_way_bill_no','e_way_bill_document', 'invoice_date', 'invoice_amount')
     fields = ('order','invoice_no','invoice_date', 'invoice_amount')
-    change_form_template = 'admin/gram_to_brand/grn_order/change_form.html'
+    template = 'admin/gram_to_brand/grn_order/change_form.html'
 
-    class Media:
-        js = ('admin/js/admin/CusDateTimeShortcuts.js', )
+    # class Media:
+    #     js = ('admin/js/admin/CusDateTimeShortcuts.js', )
 
     def po_created_by(self,obj):
         return obj.order.ordered_cart.po_raised_by
