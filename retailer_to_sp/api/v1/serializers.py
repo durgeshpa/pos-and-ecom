@@ -232,7 +232,9 @@ class ProductsSearchSerializer(serializers.ModelSerializer):
         return self.cash_discount
 
     def margin_dt(self, obj):
-        return (((self.product_mrp - self.product_price) / self.product_mrp) * 100)
+        if self.product_mrp:
+            return (((self.product_mrp - self.product_price) / self.product_mrp) * 100)
+        return False
 
 
 
@@ -337,8 +339,7 @@ class CartProductMappingSerializer(serializers.ModelSerializer):
             if obj.cart.offers:
                 margin = (((float(product_price.mrp) - obj.item_effective_prices) / float(product_price.mrp)) * 100)
             return margin
-        else:
-            return 0
+        return False
 
     class Meta:
         model = CartProductMapping

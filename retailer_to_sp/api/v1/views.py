@@ -546,7 +546,7 @@ class AddToCart(APIView):
                 else:
                     serializer = CartSerializer(Cart.objects.get(id=cart.id),context={'parent_mapping_id': parent_mapping.parent.id, 'buyer_shop_id': shop_id})
                     for i in serializer.data['rt_cart_list']:
-                        if i['cart_product']['product_mrp']==-1:
+                        if i['cart_product']['product_mrp']==False:
                             CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
                             msg = {'is_success': True, 'message': ['Data added to cart'], 'response_data': serializer.data} 
                         else:
@@ -649,7 +649,7 @@ class CartDetail(APIView):
                            'response_data': None}
                 else:
                     for i in Cart.objects.get(id=cart.id).rt_cart_list.all():
-                        if i.cart_product.getMRP(cart.seller_shop.id, cart.buyer_shop.id)==-1:
+                        if i.cart_product.getMRP(cart.seller_shop.id, cart.buyer_shop.id)==False:
                             CartProductMapping.objects.filter(cart__id=cart.id, cart_product__id=i.cart_product.id).delete()
 
                     serializer = CartSerializer(
@@ -659,7 +659,7 @@ class CartDetail(APIView):
                                  'delivery_message': self.delivery_message()}
                     )
                     for i in serializer.data['rt_cart_list']:
-                        if i['cart_product']['product_mrp']==-1:
+                        if i['cart_product']['product_mrp']==False:
                             i['qty']=0
                             CartProductMapping.objects.filter(cart__id=i['cart']['id'],cart_product__id=i['cart_product']['id']).delete()
                             msg = {
@@ -816,7 +816,7 @@ class ReservedOrder(generics.ListAPIView):
                             'buyer_shop_id': shop_id
                         })
                     for i in serializer.data['rt_cart_list']:
-                        if i['cart_product']['product_mrp']==-1:
+                        if i['cart_product']['product_mrp']==False:
                             i['qty']=0
                             i['cart_product']['product_mrp']=0
                             CartProductMapping.objects.filter(cart__id=i['cart']['id'], cart_product__id=i['cart_product']['id']).delete()
@@ -846,7 +846,7 @@ class ReservedOrder(generics.ListAPIView):
                 'buyer_shop_id': shop_id})
 
             for i in serializer.data['rt_cart_list']:
-                if i['cart_product']['product_mrp'] == -1:
+                if i['cart_product']['product_mrp'] == False:
                     i['qty'] = 0
                     i['cart_product']['product_mrp']=0
                     CartProductMapping.objects.filter(cart__id=i['cart']['id'],cart_product__id=i['cart_product']['id']).delete()
