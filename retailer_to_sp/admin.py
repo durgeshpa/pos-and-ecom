@@ -562,13 +562,9 @@ class CartAdmin(ExportCsvMixinCart, ExportCsvMixinCartProduct, admin.ModelAdmin)
                 return self.readonly_fields+ ('approval_status',)
             if obj.approval_status == True:
                 return self.readonly_fields+ ('approval_status',)
-            try:
+            if obj.rt_cart_list.exists():
                 if obj.rt_order_cart_mapping.order_status == 'CANCELLED':
                     return self.readonly_fields+ ('approval_status',)
-            except:
-                ObjectDoesNotExist
-            else:
-                return self.readonly_fields + ('approval_status',)
         return self.readonly_fields
 
 class BulkOrderAdmin(admin.ModelAdmin):
