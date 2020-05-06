@@ -14,6 +14,9 @@ from rest_framework import validators
 from products.models import Product, ProductImage
 #from retailer_to_sp.api.v1.serializers import ProductImageSerializer #ProductSerializer
 
+from django.db.models import Q
+
+
 User =  get_user_model()
 
 
@@ -152,7 +155,7 @@ class ShopDocumentSerializer(serializers.ModelSerializer):
         }
 
     def validate_shop_document_number(self, data):
-        if ShopDocument.objects.filter(shop_document_number=data).exists():
+        if ShopDocument.objects.filter(~Q(shop_name_id=self.context.get('request').POST.get('shop_name')), shop_document_number=data).exists():
             raise serializers.ValidationError('Document number is already registered')
         return data
 
