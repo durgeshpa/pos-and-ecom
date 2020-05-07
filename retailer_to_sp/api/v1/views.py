@@ -820,7 +820,6 @@ class ReservedOrder(generics.ListAPIView):
                             i['qty']=0
                             i['cart_product']['product_mrp']=0
                             CartProductMapping.objects.filter(cart__id=i['cart']['id'], cart_product__id=i['cart_product']['id']).delete()
-                            cart_product.save()
                             msg = {
                                 'is_success': True,
                                 'message': [''],
@@ -850,7 +849,6 @@ class ReservedOrder(generics.ListAPIView):
                     i['qty'] = 0
                     i['cart_product']['product_mrp']=0
                     CartProductMapping.objects.filter(cart__id=i['cart']['id'],cart_product__id=i['cart_product']['id']).delete()
-                    cart_product.save()
                     msg = {
                         'is_success': True,
                         'message': [''],
