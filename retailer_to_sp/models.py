@@ -227,6 +227,9 @@ class Cart(models.Model):
         buyer_shop = self.buyer_shop
         if cart_products:
             for m in cart_products:
+                if m.cart_product.get_current_shop_price(shop, buyer_shop)==None:
+                    CartProductMapping.objects.filter(cart__id=self.id, cart_product__id=m.cart_product.id).delete()
+                    continue
                 parent_brand = m.cart_product.product_brand.brand_parent.id if m.cart_product.product_brand.brand_parent else None
                 brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date).filter(Q(rule__brand_ruleset__brand = m.cart_product.product_brand.id)| Q(rule__brand_ruleset__brand = parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
                 b_list  =  [x.coupon_name for x in brand_coupons]
