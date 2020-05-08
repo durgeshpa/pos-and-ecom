@@ -1,5 +1,4 @@
 from django.db import models
-
 from products.models import Product
 from shops.models import Shop
 
