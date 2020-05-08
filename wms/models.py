@@ -2,7 +2,6 @@ from django.db import models
 from products.models import Product
 from shops.models import Shop
 
-
 class InventoryType(models.Model):
     id = models.AutoField(primary_key=True)
     inventory_type = models.CharField(max_length=20, null=True, blank=True)
