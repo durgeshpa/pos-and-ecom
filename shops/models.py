@@ -386,6 +386,9 @@ class ShopUserMapping(models.Model):
             ShopUserMapping.objects.filter(shop=self.shop, employee=self.employee, employee_group=self.employee_group, status=True).update(status=False)
             #ShopUserMapping.objects.filter(shop=self.shop, shop__shop_type__shop_type='r', employee_group=self.employee_group, status=True).update(status=False)
             self.status = True
+        if self.status == True:
+            ShopUserMapping.objects.filter(shop=self.shop, status=True).update(status=False)
+            self.status = True
         super().save(*args, **kwargs)
 
     def __str__(self):

@@ -6,7 +6,7 @@ from dal import autocomplete
 from wkhtmltopdf.views import PDFTemplateResponse
 from products.models import *
 from num2words import num2words
-
+from barCodeGenerator import barcodeGen
 from django.forms import formset_factory, inlineformset_factory, modelformset_factory, BaseFormSet, ValidationError
 from django.shortcuts import render, get_object_or_404, redirect
 from django.db.models import Sum, Q, F, Count, Case, Value, When
@@ -688,6 +688,7 @@ class DownloadPickListPicker(TemplateView, ):
             return redirect('/admin/login/?next=%s' % request.path)
 
         order_obj = get_object_or_404(Order, pk=self.kwargs.get('pk'))
+        barcode = barcodeGen(order_obj.order_no)
         shipment_id = self.kwargs.get('shipment_id')
         # get data for already shipped products
         # find any shipment for the product and loop for shipment products
@@ -755,6 +756,7 @@ class DownloadPickListPicker(TemplateView, ):
             "buyer_contact_no": order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
             "buyer_shipping_address": order_obj.shipping_address.address_line1,
             "buyer_shipping_city": order_obj.shipping_address.city.city_name,
+            "barcode":barcode
         }
         if shipment:
             data["shipment_products"] = shipment_product_list
@@ -789,6 +791,7 @@ class DownloadPickList(TemplateView, ):
             return redirect('/admin/login/?next=%s' % request.path)
 
         order_obj = get_object_or_404(Order, pk=self.kwargs.get('pk'))
+        barcode = barcodeGen(order_obj.order_no)
         cart_products = order_obj.ordered_cart.rt_cart_list.all()
         cart_product_list = []
 
@@ -809,6 +812,7 @@ class DownloadPickList(TemplateView, ):
             "buyer_contact_no": order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
             "buyer_shipping_address": order_obj.shipping_address.address_line1,
             "buyer_shipping_city": order_obj.shipping_address.city.city_name,
+            "barcode":barcode
         }
         cmd_option = {
             "margin-top": 10,
