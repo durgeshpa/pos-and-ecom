@@ -641,7 +641,12 @@ class CartDetail(APIView):
                     cart=cart
                 )
                 for cart_product in cart_products:
+                    available = OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product=cart_product.cart_product.id,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
+                    shop_products_dict = {g['product_id']: int(g['available_qty']) for g in available}
+                    available_qty = shop_products_dict[cart_product.cart_product.id]//int(cart_product.cart_product.product_inner_case_size)
                     item_qty = CartProductMapping.objects.filter(cart = cart, cart_product=cart_product.cart_product).last().qty
+                    cart_product.qty_error_msg=ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
+                    cart_product.save()
                     updated_no_of_pieces = (item_qty * int(cart_product.cart_product.product_inner_case_size))
                     CartProductMapping.objects.filter(cart = cart, cart_product=cart_product.cart_product).update(no_of_pieces = updated_no_of_pieces)
                 if cart.rt_cart_list.count() <= 0:
