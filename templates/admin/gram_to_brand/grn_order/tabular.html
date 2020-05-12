@@ -77,11 +77,36 @@
 <script type="text/javascript">
 (function($) {
     'use strict';
-    $.fn.formset = function(opts) {
+    $.fn.formsetCustom = function(opts) {
         var options = $.extend({}, $.fn.formset.defaults, opts);
         var $this = $(this);
         var $parent = $this.parent();
-        var updateElementIndex = function(el, prefix, ndx) {
+        var updateElementIndexCustom = function(el, prefix, ndx, parent_product_row) {
+
+            if ($(el).is(":input:not([type=hidden])")) {
+                // set value from parent element
+                var el_id_ends_with = el.id.split("__prefix__").pop()
+                var parent_el_val = $(parent_product_row).find($("[id$='"+el_id_ends_with+"']")).val();
+                $(el).val(parent_el_val);
+            }
+
+            if ($(el).is("select")) {
+                // set value from parent element
+                var el_id_ends_with = el.id.split("__prefix__").pop()
+                var parent_el = $(parent_product_row).find($("[id$='"+el_id_ends_with+"']"));
+
+                if ($(el).attr('data-autocomplete-light-url')) {
+                    var parent_el_clone = parent_el.children("option:selected").clone();
+                    $(el).append(parent_el_clone);
+                    var parent_el_val = parent_el.children("option:selected").val();
+                    $(el).val(parent_el_val);
+                }
+                else {
+                    var parent_el_val = parent_el.children("option:selected").val();
+                    $(el).val(parent_el_val);
+                }
+            }
+
             var id_regex = new RegExp("(" + prefix + "-(\\d+|__prefix__))");
             var replacement = prefix + "-" + ndx;
             if ($(el).prop("for")) {
@@ -122,7 +147,7 @@
         };
 
         var addExpiryDateClickHandler = function() {
-
+        $("a[id$='extra-expiry']").click(function(e) {
             e.preventDefault();
             var template = $("#" + options.prefix + "-empty");
             var row = template.clone(true);
@@ -130,11 +155,14 @@
                 .addClass(options.formCssClass)
                 .attr("id", options.prefix + "-" + nextIndex);
             addInlineDeleteButton(row);
+            var parent_product_row = $(this).closest('tr');
             row.find("*").each(function() {
-                updateElementIndex(this, options.prefix, totalForms.val());
+                //console.log(this);
+                //console.log($(parent_product_row).find($(this)).val());
+                updateElementIndexCustom(this, options.prefix, totalForms.val(), parent_product_row);
             });
             // Insert the new form when it has been fully edited.
-            row.insertBefore($(template));
+            row.insertAfter($(parent_product_row));
             // Update number of total forms.
             $(totalForms).val(parseInt(totalForms.val(), 10) + 1);
             nextIndex += 1;
@@ -150,6 +178,7 @@
                 options.added(row);
             }
             $(document).trigger('formset:added', [row, options.prefix]);
+            });
         };
 
         var addInlineAddButton = function() {
@@ -178,7 +207,7 @@
                 .attr("id", options.prefix + "-" + nextIndex);
             addInlineDeleteButton(row);
             row.find("*").each(function() {
-                updateElementIndex(this, options.prefix, totalForms.val());
+                updateElementIndexCustom(this, options.prefix, totalForms.val());
             });
             // Insert the new form when it has been fully edited.
             row.insertBefore($(template));
@@ -229,7 +258,7 @@
             // Remove the parent form containing this button,
             // and also remove the relevant row with non-field errors:
             var prevRow = row.prev();
-            if (prevRow.length && prevRow.hasClass('row-form-errors')) {
+            if (prevRow.length && prevRow.find('ul.errorlist.nonfield').length !== 0) {
                 prevRow.remove();
             }
             row.remove();
@@ -252,10 +281,10 @@
             // they remain in sequence:
             var i, formCount;
             var updateElementCallback = function() {
-                updateElementIndex(this, options.prefix, i);
+                updateElementIndexCustom(this, options.prefix, i);
             };
             for (i = 0, formCount = forms.length; i < formCount; i++) {
-                updateElementIndex($(forms).get(i), options.prefix, i);
+                updateElementIndexCustom($(forms).get(i), options.prefix, i);
                 $(forms.get(i)).find("*").each(updateElementCallback);
             }
         };
@@ -273,24 +302,31 @@
         });
 
         // Create the delete buttons for all unsaved inlines:
-        $this.filter('.' + options.formCssClass + ':not(.has_original):not(.' + options.emptyCssClass + ')').each(function() {
-            addInlineDeleteButton($(this));
-        });
-        toggleDeleteButtonVisibility($this);
+            var tr_rows = $(this);
+            $this.filter('.' + options.formCssClass + ':not(.has_original):not(.' + options.emptyCssClass + ')').each(function() {
+                var product_val=$(this).find("select[id$='product']").children("option:selected").val();
+                var product_rows=tr_rows.find('select option[value="'+product_val+'"]:selected').closest('tr');
+                var current_index = $(product_rows).index($(this));
+                if (current_index !== 0) {
+                    addInlineDeleteButton($(this));
+                }
+            });
+            toggleDeleteButtonVisibility($this);
 
         // Create the add button, initially hidden.
-        addButton = options.addButton;
-        addInlineAddButton();
+                // addButton = options.addButton;
+                // addInlineAddButton();
         addMoreExpiryDate();
+        addExpiryDateClickHandler();
 
         // Show the add button if allowed to add more items.
         // Note that max_num = None translates to a blank string.
-        var showAddButton = maxForms.val() === '' || (maxForms.val() - totalForms.val()) > 0;
-        if ($this.length && showAddButton) {
-            addButton.parent().show();
-        } else {
-            addButton.parent().hide();
-        }
+            // var showAddButton = maxForms.val() === '' || (maxForms.val() - totalForms.val()) > 0;
+            // if ($this.length && showAddButton) {
+            //     addButton.parent().show();
+            // } else {
+            //     addButton.parent().hide();
+            // }
 
         return this;
     };
@@ -311,10 +347,10 @@
 
 
     // Tabular inlines ---------------------------------------------------------
-    $.fn.tabularFormset = function(selector, options) {
+    $.fn.tabularFormsetCustom = function(selector, options) {
         var $rows = $(this);
 
-        var reinitDateTimeShortCuts = function() {
+        var reinitDateTimeShortCutsCustom = function() {
             // Reinitialize the calendar and clock widgets by force
             if (typeof DateTimeShortcuts !== "undefined") {
                 $(".datetimeshortcuts").remove();
@@ -322,7 +358,7 @@
             }
         };
 
-        var updateSelectFilter = function() {
+        var updateSelectFilterCustom = function() {
             // If any SelectFilter widgets are a part of the new form,
             // instantiate a new SelectFilter instance for it.
             if (typeof SelectFilter !== 'undefined') {
@@ -337,7 +373,7 @@
             }
         };
 
-        var initPrepopulatedFields = function(row) {
+        var initPrepopulatedFieldsCustom = function(row) {
             row.find('.prepopulated_field').each(function() {
                 var field = $(this),
                     input = field.find('input, select, textarea'),
@@ -352,7 +388,7 @@
             });
         };
 
-        $rows.formset({
+        $rows.formsetCustom({
             prefix: options.prefix,
             addText: options.addText,
             formCssClass: "dynamic-" + options.prefix,
@@ -360,9 +396,9 @@
             deleteText: options.deleteText,
             emptyCssClass: "empty-form",
             added: function(row) {
-                initPrepopulatedFields(row);
-                reinitDateTimeShortCuts();
-                updateSelectFilter();
+                initPrepopulatedFieldsCustom(row);
+                reinitDateTimeShortCutsCustom();
+                updateSelectFilterCustom();
             },
             addButton: options.addButton
         });
@@ -371,16 +407,16 @@
     };
 
     // Stacked inlines ---------------------------------------------------------
-    $.fn.stackedFormset = function(selector, options) {
+    $.fn.stackedFormsetCustom = function(selector, options) {
         var $rows = $(this);
-        var updateInlineLabel = function(row) {
+        var updateInlineLabelCustom = function(row) {
             $(selector).find(".inline_label").each(function(i) {
                 var count = i + 1;
                 $(this).html($(this).html().replace(/(#\d+)/g, "#" + count));
             });
         };
 
-        var reinitDateTimeShortCuts = function() {
+        var reinitDateTimeShortCutsCustom = function() {
             // Reinitialize the calendar and clock widgets by force, yuck.
             if (typeof DateTimeShortcuts !== "undefined") {
                 $(".datetimeshortcuts").remove();
@@ -388,7 +424,7 @@
             }
         };
 
-        var updateSelectFilter = function() {
+        var updateSelectFilterCustom = function() {
             // If any SelectFilter widgets were added, instantiate a new instance.
             if (typeof SelectFilter !== "undefined") {
                 $(".selectfilter").each(function(index, value) {
@@ -402,7 +438,7 @@
             }
         };
 
-        var initPrepopulatedFields = function(row) {
+        var initPrepopulatedFieldsCustom = function(row) {
             row.find('.prepopulated_field').each(function() {
                 var field = $(this),
                     input = field.find('input, select, textarea'),
@@ -417,19 +453,19 @@
             });
         };
 
-        $rows.formset({
+        $rows.formsetCustom({
             prefix: options.prefix,
             addText: options.addText,
             formCssClass: "dynamic-" + options.prefix,
             deleteCssClass: "inline-deletelink",
             deleteText: options.deleteText,
             emptyCssClass: "empty-form",
-            removed: updateInlineLabel,
+            removed: updateInlineLabelCustom,
             added: function(row) {
-                initPrepopulatedFields(row);
-                reinitDateTimeShortCuts();
-                updateSelectFilter();
-                updateInlineLabel(row);
+                initPrepopulatedFieldsCustom(row);
+                reinitDateTimeShortCutsCustom();
+                updateSelectFilterCustom();
+                updateInlineLabelCustom(row);
             },
             addButton: options.addButton
         });
@@ -438,10 +474,6 @@
     };
 
     $(document).ready(function() {
-        $("a[id$='extra-expiry']").click(function(e) {
-                e.preventDefault();
-                alert('fasfafsa');
-            });
            $("#grn_order_grn_order_product-group").each(function() {
         // $(document.querySelector('[id$="expiry_date"]')).each(function() {
             var data = $(this).data(),
@@ -450,11 +482,11 @@
             switch(data.inlineType) {
             case "stacked":
                 selector = inlineOptions.name + "-group .inline-related";
-                $(selector).stackedFormset(selector, inlineOptions.options);
+                $(selector).stackedFormsetCustom(selector, inlineOptions.options);
                 break;
             case "tabular":
                 selector = inlineOptions.name + "-group .tabular.inline-related tbody:first > tr.form-row";
-                $(selector).tabularFormset(selector, inlineOptions.options);
+                $(selector).tabularFormsetCustom(selector, inlineOptions.options);
                 break;
             }
         });

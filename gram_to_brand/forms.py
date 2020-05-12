@@ -207,18 +207,19 @@ class GRNOrderProductForm(forms.ModelForm):
 
     def clean(self):
         super(GRNOrderProductForm, self).clean()
-        manufacture_date = self.cleaned_data.get('manufacture_date')
-        expiry_date = self.cleaned_data.get('expiry_date')
-        if self.cleaned_data.get('product_invoice_qty') >0:
-            self.fields_required(['manufacture_date'])
-            if self.cleaned_data.get('expiry_date') and self.cleaned_data.get('expiry_date') > self.cleaned_data.get('manufacture_date'):
-                pass
-            elif int(self.cleaned_data.get('best_before_year')) or int(self.cleaned_data.get('best_before_month')):
-                expiry_date = self.cleaned_data.get('manufacture_date') + relativedelta(years=int(self.cleaned_data.get('best_before_year')), months=int(self.cleaned_data.get('best_before_month')))
-                self.cleaned_data['expiry_date'] = expiry_date
-            else:
-                raise ValidationError(_('Please enter either expiry date greater than manufactured date or best before'))
-        return self.cleaned_data
+        if self.cleaned_data.get('product', None):
+            manufacture_date = self.cleaned_data.get('manufacture_date')
+            expiry_date = self.cleaned_data.get('expiry_date')
+            if self.cleaned_data.get('product_invoice_qty') >0:
+                self.fields_required(['manufacture_date'])
+                if self.cleaned_data.get('expiry_date') and self.cleaned_data.get('expiry_date') > self.cleaned_data.get('manufacture_date'):
+                    pass
+                elif int(self.cleaned_data.get('best_before_year')) or int(self.cleaned_data.get('best_before_month')):
+                    expiry_date = self.cleaned_data.get('manufacture_date') + relativedelta(years=int(self.cleaned_data.get('best_before_year')), months=int(self.cleaned_data.get('best_before_month')))
+                    self.cleaned_data['expiry_date'] = expiry_date
+                else:
+                    raise ValidationError(_('Please enter either expiry date greater than manufactured date or best before'))
+            return self.cleaned_data
 
 
 class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
