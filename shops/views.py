@@ -27,6 +27,7 @@ from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
 from django.contrib.auth.mixins import PermissionRequiredMixin
 
 from collections import defaultdict
+import itertools
 # Create your views here.
 class ShopMappedProduct(TemplateView):
     template_name = "admin/shop/change_list.html"
@@ -47,14 +48,12 @@ class ShopMappedProduct(TemplateView):
             sp_grn_product = OrderedProductMapping.get_shop_stock(shop_obj)
             products = sp_grn_product.values('product').distinct()
             for product in products:
-                mrps.append({'product': product['product'], 'mrp' : Product.objects.get(id =product['product']).product_pro_price.filter(seller_shop = shop_obj).last().mrp if Product.objects.get(id =product['product']).product_pro_price.filter(seller_shop = shop_obj).exists() else ''})
+                mrps.append({'product': product['product'], 'mrp' : Product.objects.get(id =product['product']).product_pro_price.filter(seller_shop = shop_obj, approval_status = 2).last().mrp if Product.objects.get(id =product['product']).product_pro_price.filter(seller_shop = shop_obj, approval_status = 2).exists() else ''})
             product_sum = sp_grn_product.values('product','product__product_name', 'product__product_gf_code', 'product__product_sku').annotate(product_qty_sum=Sum('available_qty')).annotate(damaged_qty_sum=Sum('damaged_qty'))
             product_sum = list(product_sum)
             d = defaultdict(dict)
-            for l in (mrps, product_sum):
-                for elem in l:
-                    d[elem['product']].update(elem)
-
+            for elem in itertools.chain(mrps, product_sum):
+                d[elem['product']].update(elem)
             product_sum_final = d.values()
             context['shop_products'] = product_sum_final
         else:
