@@ -5,6 +5,8 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from sp_to_gram.tasks import update_shop_product_es
 from analytics.post_save_signal import get_category_product_report
+from sp_to_gram.models import commit_updates_to_es
+from shops.models import Shop
 
 from .tasks import approve_product_price
 
@@ -43,6 +45,7 @@ def update_product_elasticsearch(sender, instance=None, created=False, **kwargs)
         update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'], name=instance.product_name)
         update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'], pack_size=instance.product_inner_case_size)
         update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'], status=instance.status)
+        commit_updates_to_es(shop=Shop.objects.get(id=prod_price['seller_shop']),product=Product.objects.get(id=prod_price['product']))
 
 post_save.connect(get_category_product_report, sender=Product)
 
