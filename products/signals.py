@@ -39,10 +39,8 @@ def update_product_image_elasticsearch(sender, instance=None, created=False, **k
 
 @receiver(post_save, sender=Product)
 def update_product_elasticsearch(sender, instance=None, created=False, **kwargs):
-    for prod_price in instance.product_pro_price.filter(status=True).values('seller_shop', 'product'):
-        update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'], name=instance.product_name)
-        update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'], pack_size=instance.product_inner_case_size)
-        update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'], status=instance.status)
+    for prod_price in instance.product_pro_price.filter(status=True).values('seller_shop', 'product', 'product__product_name', 'product__product_inner_case_size', 'product__status'):
+        update_shop_product_es.delay(prod_price['seller_shop'], prod_price['product'], name=prod_price['product__product_name'], pack_size=prod_price['product__product_inner_case_size'], status=prod_price['product__status'])
 
 post_save.connect(get_category_product_report, sender=Product)
 
