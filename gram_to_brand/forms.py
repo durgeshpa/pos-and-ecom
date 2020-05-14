@@ -229,7 +229,7 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
         if hasattr(self, 'order') and self.order:
             ordered_cart = self.order
             initial = []
-            for item in ordered_cart.products.all():
+            for item in ordered_cart.products.order_by('product_name'):
                 already_grn = item.product_grn_order_product.filter(grn_order__order__ordered_cart=ordered_cart).aggregate(Sum('delivered_qty'))
                 initial.append({
                     'product' : item,
@@ -243,9 +243,31 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
 
     def clean(self):
         super(GRNOrderProductFormset, self).clean()
+        products_dict = {}
         count=0
         for form in self:
             if form.cleaned_data.get('product_invoice_qty'):
-                count+=1
+                count += 1
+
+            if form.instance.product.id in products_dict:
+                product_data = products_dict[form.instance.product.id]
+                product_data['total_items'] = product_data['total_items'] + (form.cleaned_data.get('delivered_qty') + form.cleaned_data.get('returned_qty'))
+                product_data['product_invoice_qty'] = product_data['product_invoice_qty'] + form.cleaned_data.get('product_invoice_qty')
+            else:
+                products_data = {'total_items':(form.cleaned_data.get('delivered_qty') + form.cleaned_data.get('returned_qty')),
+                                 'diff':(form.instance.po_product_quantity - form.instance.already_grned_product),
+                                 'product_invoice_qty':form.cleaned_data.get('product_invoice_qty'),
+                                 'product_name':form.cleaned_data.get('product')}
+                products_dict[form.instance.product.id] = products_data
+
         if count <1:
             raise ValidationError("Please fill the product invoice quantity of at least one product.")
+
+        for k,v in products_dict.items():
+            if v.get('product_invoice_qty') <= v.get('diff'):
+                if v.get('product_invoice_qty') < v.get('total_items'):
+                    raise ValidationError(_('Product invoice quantity cannot be less than the sum of delivered quantity and returned quantity for %s') % v.get('product_name'))
+                elif v.get('total_items') < v.get('product_invoice_qty'):
+                    raise ValidationError(_('Product invoice quantity must be equal to the sum of delivered quantity and returned quantity for %s') % v.get('product_name'))
+            else:
+                raise ValidationError(_('Product invoice quantity cannot be greater than the difference of PO product quantity and already_grned_product for %s') % v.get('product_name'))
