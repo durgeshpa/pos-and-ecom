@@ -415,6 +415,14 @@ def commit_updates_to_es(shop, product):
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
     transaction.on_commit(lambda: commit_updates_to_es(instance.shop, instance.product))
 
+
+@receiver(post_save, sender=Product)
+def update_elasticsearch_on_product_change(sender, instance=None, created=False, **kwargs):
+    product_prices = instance.product_pro_price.filter(status=True)
+    for product_price in product_prices:
+        transaction.on_commit(lambda: commit_updates_to_es(product_price.seller_shop, product_price.product))
+
+
 @receiver(pre_save, sender=SpNote)
 def create_brand_note_id(sender, instance=None, created=False, **kwargs):
     if instance._state.adding:
