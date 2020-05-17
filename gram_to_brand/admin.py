@@ -30,6 +30,9 @@ from django.contrib.admin.models import LogEntry, ADDITION
 from django.contrib.contenttypes.models import ContentType
 from retailer_backend.messages import SUCCESS_MESSAGES
 
+from barCodeGenerator import barcodeGen
+
+
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
     autocomplete_fields = ('cart_product',)
@@ -181,14 +184,16 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     formset = GRNOrderProductFormset
     form = GRNOrderProductForm
     fields = ('product', 'product_mrp', 'po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date',
-              'expiry_date','best_before_year','best_before_month','product_invoice_qty','delivered_qty','returned_qty')
+              'expiry_date','best_before_year','best_before_month','product_invoice_qty','delivered_qty','returned_qty', 'download_batch_id_barcode')
     exclude = ('last_modified_by','available_qty',)
+    readonly_fields = ('download_batch_id_barcode',)
     extra = 0
+    ordering = ['product__product_name']
     template = 'admin/gram_to_brand/grn_order/tabular.html'
     #readonly_fields = ('po_product_quantity','po_product_price','already_grned_product',)
     def get_readonly_fields(self, request, obj=None):
         if obj: # editing an existing object
-            return self.readonly_fields + ('product','product_mrp','po_product_quantity','po_product_price','already_grned_product',)
+            return self.readonly_fields + ('product_mrp','po_product_quantity','po_product_price','already_grned_product',)
         return self.readonly_fields
 
     def get_formset(self, request, obj=None, **kwargs):
@@ -197,6 +202,14 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
         if cart_id:
             formset.order = Cart.objects.get(pk=int(cart_id))
         return formset
+
+    def download_batch_id_barcode(self, obj):
+        if not obj.batch_id:
+            return format_html("-")
+        return format_html(
+            "<a href='data:image/png;base64,{}' download='{}'>{}</a>".format(barcodeGen(obj.batch_id), obj.batch_id, obj.batch_id)
+        )
+    download_batch_id_barcode.short_description = 'Download Batch ID Barcode'
 
 class BrandNoteAdmin(admin.ModelAdmin):
     model = BrandNote
@@ -223,7 +236,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
     form = GRNOrderForm
     #fields = ('order','invoice_no','brand_invoice','e_way_bill_no','e_way_bill_document', 'invoice_date', 'invoice_amount')
     fields = ('order','invoice_no','invoice_date', 'invoice_amount')
-    template = 'admin/gram_to_brand/grn_order/change_form.html'
+    #template = 'admin/gram_to_brand/grn_order/change_form.html'
 
     # class Media:
     #     js = ('admin/js/admin/CusDateTimeShortcuts.js', )

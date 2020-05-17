@@ -304,10 +304,19 @@
         // Create the delete buttons for all unsaved inlines:
             var tr_rows = $(this);
             $this.filter('.' + options.formCssClass + ':not(.has_original):not(.' + options.emptyCssClass + ')').each(function() {
+
                 var product_val=$(this).find("select[id$='product']").children("option:selected").val();
                 var product_rows=tr_rows.find('select option[value="'+product_val+'"]:selected').closest('tr');
                 var current_index = $(product_rows).index($(this));
                 if (current_index !== 0) {
+                    var previous_row = $(this).prev("tr");
+                    if (previous_row.find(".errorlist").length > 0) {
+                        previous_row.insertAfter($(product_rows[current_index-1]));
+                        $(this).insertAfter(previous_row);
+                    }
+                    else{
+                        $(this).insertAfter($(product_rows[current_index-1]));
+                    }
                     addInlineDeleteButton($(this));
                 }
             });
@@ -327,7 +336,6 @@
             // } else {
             //     addButton.parent().hide();
             // }
-
         return this;
     };
 
@@ -348,7 +356,6 @@
 
     // Tabular inlines ---------------------------------------------------------
     $.fn.tabularFormsetCustom = function(selector, options) {
-        console.log($(this));
         var $rows = $(this);
 
         var reinitDateTimeShortCutsCustom = function() {
@@ -491,6 +498,19 @@
                 break;
             }
         });
+
+            if( $("select[id$='product']").has('option').length > 0 ) {
+            $("select[id$='product']").attr('disabled', true);
+            }
+            $("input[id$='product_mrp']").prop('readonly', true).css('border','none');
+            $("input[id$='po_product_quantity']").prop('readonly', true).css('border','none');
+            $("input[id$='po_product_price']").prop('readonly', true).css('border','none');
+            $("input[id$='already_grned_product']").prop('readonly', true).css('border','none');
+
+            $( "form" ).submit(function( event ) {
+              $("select[id$='product']").attr('disabled', false);
+            });
+
     });
 })(django.jQuery);
 </script>
