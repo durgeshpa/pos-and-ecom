@@ -300,7 +300,7 @@ class GramGRNProductsList(APIView):
                     logger.info("Elastic index %s" %parent_mapping.parent.id)
                     logger.info("Elastic query %s" %body)
                     products_list = es_search(index=parent_mapping.parent.id, body=body)
-                    logger.Info("Elastic Response %s"%products_list)
+                    logger.info("Elastic Response %s"%products_list)
                     cart = Cart.objects.filter(last_modified_by=self.request.user,buyer_shop_id=shop_id,cart_status__in=['active', 'pending']).last()
                     if cart:
                         cart_products = cart.rt_cart_list.all()
