@@ -506,6 +506,7 @@ class AddToCart(APIView):
                                     cart_mapping.qty_error_msg = ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
                                     cart_mapping.save()
                                 else:
+                                    cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
                                     cart_mapping.qty_error_msg=ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
                                     cart_mapping.save()
                         else:
@@ -546,6 +547,7 @@ class AddToCart(APIView):
                             cart_mapping.qty_error_msg = ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
                             cart_mapping.save()
                         else:
+                            cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
                             cart_mapping.qty_error_msg=ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
                             cart_mapping.save()
 
