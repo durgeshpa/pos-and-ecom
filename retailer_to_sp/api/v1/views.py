@@ -371,7 +371,7 @@ class GramGRNProductsList(APIView):
                         p["_source"]["no_of_pieces"] = no_of_pieces
                         p["_source"]["sub_total"] = Decimal(no_of_pieces) * p["_source"]["ptr"]
             p_list.append(p["_source"])
-        logger.info("Final product list %s",p_list)
+        logger.info("Final product list %s"%p_list)
         msg = {'is_store_active': is_store_active,
                 'is_success': True,
                  'message': ['Products found'],
