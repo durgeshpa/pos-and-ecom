@@ -428,41 +428,49 @@ CACHES = {
         "KEY_PREFIX": "gfcache"
     }
 }
+# DataFlair #Logging Information
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'loggers': {
+        'django': {
+            'handlers': ['file-debug','file-info','file-error', 'console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+    'handlers': {
+        'file-debug': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': '/var/log/retailer-backend/debug.log',
+            'formatter': 'verbose',
+        },
+        'file-info': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': '/var/log/retailer-backend/info.log',
+            'formatter': 'verbose',
+        },
+        'file-error': {
+            'level': 'ERROR',
+            'class': 'logging.FileHandler',
+            'filename': '/var/log/retailer-backend/error.log',
+            'formatter': 'verbose',
+        },
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
 
-# LOGGING = {
-#   'version': 1,
-#   'disable_existing_loggers': False,
-#   'formatters': {
-#       'simple': {
-#             'format': 'velname)s %(message)s'
-#         },
-#   },
-#   'handlers': {
-#         'console': {
-#             'level': 'ERROR',
-#             'class': 'logging.StreamHandler',
-#             'formatter': 'simple'
-#         },
-#         'logstash': {
-#             'level': 'ERROR',
-#             'class': 'logstash.TCPLogstashHandler',
-#             'host': '13.234.240.93',
-#             'port': 8002, # Default value: 5959
-#             'version': 1, # Version of logstash event schema. Default value: 0 (for backward compatibility of the library)
-#             'message_type': 'django',  # 'type' field in logstash message. Default value: 'logstash'.
-#             'fqdn': False, # Fully qualified domain name. Default value: false.
-#             'tags': ['django.request'], # list of tags. Default: None.
-#         },
-#   },
-#   'loggers': {
-#         'django.request': {
-#             'handlers': ['logstash'],
-#             'level': 'ERROR',
-#             'propagate': True,
-#         },
-#         'django': {
-#             'handlers': ['logstash'],
-#             'propagate': True,
-#         },
-#     }
-# }
+    },
+    'formatters': {
+        'verbose': {
+            'format': '%(levelname)s|%(asctime)s|%(module)s|%(process)d|%(thread)d|%(message)s',
+            'datefmt' : "%d/%b/%Y %H:%M:%S"
+        },
+        'simple': {
+            'format': '%(levelname)s|%(message)s'
+        },
+    },
+}

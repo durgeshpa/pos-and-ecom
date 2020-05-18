@@ -82,7 +82,7 @@ from products.models import Product
 
 User = get_user_model()
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('django')
 
 today = datetime.today()
 
@@ -253,6 +253,7 @@ class GramGRNProductsList(APIView):
         return query
 
     def post(self, request, format=None):
+        logger.info('grn search %s'%request.data)
         self.product_ids = request.data.get('product_ids')
         self.brand = request.data.get('brands')
         self.category = request.data.get('categories')
@@ -290,12 +291,16 @@ class GramGRNProductsList(APIView):
             # except ObjectDoesNotExist:
             else:
                 parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
+                logger.info("parent shop %s"%parent_mapping)
                 if parent_mapping.parent.shop_type.shop_type == 'sp':
                     '''4th Step
                         SP mapped data shown
                     '''
                     body = {"from" : offset, "size" : page_size, "query":query}
+                    logger.info("Elastic index %s" %parent_mapping.parent.id)
+                    logger.info("Elastic query %s" %body)
                     products_list = es_search(index=parent_mapping.parent.id, body=body)
+                    logger.Info("Elastic Response %s"%products_list)
                     cart = Cart.objects.filter(last_modified_by=self.request.user,buyer_shop_id=shop_id,cart_status__in=['active', 'pending']).last()
                     if cart:
                         cart_products = cart.rt_cart_list.all()
@@ -303,13 +308,17 @@ class GramGRNProductsList(APIView):
                 else:
                     is_store_active = False
         p_list = []
+        logger.info("Is store active %s"%is_store_active)
         if not is_store_active:
             body = {
                 "from" : offset,
                 "size" : page_size,
                 "query":query,"_source":{"includes":["name", "product_images","pack_size","weight_unit","weight_value"]}
                 }
+            logger.info("Elastic index all_products")
+            logger.info("Elastic query %s" %body)
             products_list = es_search(index="all_products", body=body)
+            logger.info("Elastic Response %s" % products_list)
         for p in products_list['hits']['hits']:
             if is_store_active:
                 product = Product.objects.get(id=p["_source"]["id"])
@@ -362,7 +371,7 @@ class GramGRNProductsList(APIView):
                         p["_source"]["no_of_pieces"] = no_of_pieces
                         p["_source"]["sub_total"] = Decimal(no_of_pieces) * p["_source"]["ptr"]
             p_list.append(p["_source"])
-
+        logger.info("Final product list %s"%p_list)
         msg = {'is_store_active': is_store_active,
                 'is_success': True,
                  'message': ['Products found'],
