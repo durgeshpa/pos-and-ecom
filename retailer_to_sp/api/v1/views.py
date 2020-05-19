@@ -750,7 +750,9 @@ class ReservedOrder(generics.ListAPIView):
                                        cart_status__in=['active', 'pending'])
             if cart.exists():
                 cart = cart.last()
-                Cart.objects.filter(id=cart.id).update(offers=cart.offers_applied())
+                # Cart.objects.filter(id=cart.id).update(offers=cart.offers_applied())
+                cart.offers = cart.offers_applied()
+                cart.save()
                 coupon_codes_list = []
                 array = list(filter(lambda d: d['sub_type'] in 'discount_on_product', cart.offers))
 
