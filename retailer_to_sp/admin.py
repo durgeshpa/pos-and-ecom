@@ -33,6 +33,7 @@ from gram_to_brand.models import GRNOrderProductMapping
 from products.admin import ExportCsvMixin
 from products.models import Product
 from retailer_backend.admin import InputFilter
+from retailer_to_sp.api.v1.views import DownloadInvoiceSP
 from retailer_to_sp.views import (
     LoadDispatches, UpdateSpQuantity, commercial_shipment_details,
     load_dispatches, order_invoices, ordered_product_mapping_shipment,
@@ -48,7 +49,8 @@ from sp_to_gram.models import (
     OrderedProductReserved, create_credit_note,
 )
 from sp_to_gram.models import OrderedProductReserved, create_credit_note
-
+from common.constants import DOWNLOAD_BULK_INVOICE, ZERO, FIFTY
+from common.messages import ERROR_CODE
 from .forms import (
     CartForm, CartProductMappingForm, CommercialForm,
     CustomerCareForm, DispatchForm, OrderedProductForm,
@@ -989,6 +991,8 @@ class OrderedProductMappingAdmin(admin.TabularInline):
 
 class OrderedProductAdmin(admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/OrderedProduct/change_list.html'
+    actions = ['download_bulk_invoice']
+    list_per_page = FIFTY
     inlines = [ShipmentReschedulingAdmin, OrderedProductMappingAdmin,]
     list_display = (
         'invoice_no', 'order', 'created_at', 'shipment_address', 'invoice_city',
@@ -1015,6 +1019,20 @@ class OrderedProductAdmin(admin.ModelAdmin):
             (reverse('download_invoice_sp', args=[obj.pk]))
         )
     download_invoice.short_description = 'Download Invoice'
+
+    def download_bulk_invoice(self, request, *args, **kwargs):
+        """
+
+        :param request: request params
+        :param args: argument list
+        :param kwargs: keyword argument
+        :return: response
+        """
+        response = ShipmentAdmin.download_bulk_invoice(self, request, *args, **kwargs)
+        return response
+
+    # download bulk invoice short description
+    download_bulk_invoice.short_description = DOWNLOAD_BULK_INVOICE
 
     def get_queryset(self, request):
         qs = super(OrderedProductAdmin, self).get_queryset(request)
@@ -1145,6 +1163,7 @@ class ShipmentAdmin(admin.ModelAdmin):
     has_invoice_no = True
     inlines = [ShipmentProductMappingAdmin]
     form = ShipmentForm
+    actions = ['download_bulk_invoice']
     list_select_related = (
         'order', 'trip', 'order__seller_shop', 'order__shipping_address',
         'order__shipping_address__city',
@@ -1166,20 +1185,47 @@ class ShipmentAdmin(admin.ModelAdmin):
         'trip__vehicle_no', 'trip__delivery_boy__phone_number']
     readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address',
                        'invoice_city', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
-    list_per_page = 50
+    list_per_page = FIFTY
     ordering = ['-created_at']
 
     def has_delete_permission(self, request, obj=None):
         return False
 
     def download_invoice(self, obj):
-        if obj.shipment_status == 'SHIPMENT_CREATED':
+        if obj.shipment_status == 'SHIPMENT_CREATED' or obj.invoice_no == '-':
             return format_html("-")
         return format_html(
             "<a href= '%s' >Download Invoice</a>" %
             (reverse('download_invoice_sp', args=[obj.pk]))
         )
-    download_invoice.short_description = 'Download Invoice'
+
+    def download_bulk_invoice(self, request, *args, **kwargs):
+        """
+
+        :param request: request parameter
+        :param args: argument list
+        :param kwargs: keyword argument
+        :return: response
+        """
+
+        if len(args[0]) <= FIFTY:
+            # argument_list contains list of pk exclude shipment created and blank invoice
+            argument_list = []
+            for arg in args[ZERO]:
+                if arg.shipment_status == OrderedProduct.SHIPMENT_STATUS[ZERO] or arg.invoice_no == '-':
+                    pass
+                else:
+                    # append pk which are not falling under the shipment created and blank invoice number
+                    argument_list.append(arg.pk)
+            # call get method under the DownloadInvoiceSP class
+            response = DownloadInvoiceSP.get(self, request, argument_list, **kwargs)
+        else:
+            response = messages.error(request, ERROR_CODE['1001'])
+        return response
+    # download single invoice short description
+    download_bulk_invoice.short_description = 'Download Invoice'
+    # download bulk invoice short description
+    download_bulk_invoice.short_description = DOWNLOAD_BULK_INVOICE
 
     def pincode(self, obj):
         return obj.order.shipping_address.pincode
@@ -1580,11 +1626,12 @@ class FeedbackAdmin(admin.ModelAdmin):
 
 
 class InvoiceAdmin(admin.ModelAdmin):
-    actions = ['invoice_data_excel_action']
+    actions = ['invoice_data_excel_action', 'download_bulk_invoice']
     list_display = ('invoice_no', 'created_at', 'get_invoice_amount', 'get_shipment_status',
                     'get_order', 'get_order_date', 'get_order_status', 'get_shipment',
                     'get_trip_no', 'get_trip_status', 'get_trip_started_at',
                     'get_trip_completed_at', 'get_paid_amount', 'get_cn_amount')
+    list_per_page = FIFTY
     fieldsets = (
         ('Invoice', {
             'fields': (('invoice_no', 'get_invoice_amount'), ('created_at', 'invoice_pdf'))
@@ -1617,6 +1664,20 @@ class InvoiceAdmin(admin.ModelAdmin):
                                          ShipmentPayment, OrderedProduct, Trip,
                                          Order)
     invoice_data_excel_action.short_description = "Download CSV of selected Invoices"
+
+    def download_bulk_invoice(self, request, *args, **kwargs):
+        """
+
+        :param request: request params
+        :param args: argument list
+        :param kwargs: keyword argument
+        :return: response
+        """
+        response = ShipmentAdmin.download_bulk_invoice(self, request, *args, **kwargs)
+        return response
+
+    # download bulk invoice short description
+    download_bulk_invoice.short_description = DOWNLOAD_BULK_INVOICE
 
     def get_invoice_amount(self, obj):
         return "%s %s" % (u'\u20B9', str(obj.invoice_amount))

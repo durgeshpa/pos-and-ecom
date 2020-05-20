@@ -1,3 +1,4 @@
+import tempfile
 from decimal import Decimal
 import logging
 import json
@@ -79,6 +80,8 @@ from coupon.serializers import CouponSerializer
 from coupon.models import Coupon, CusotmerCouponUsage
 
 from products.models import Product
+from common.constants import ZERO
+from common.common_utils import create_zip, create_temp_file, create_file_name
 
 User = get_user_model()
 
@@ -997,38 +1000,83 @@ class OrderDetail(generics.RetrieveAPIView):
             msg = {'is_success': True,'message': None,'response_data': serializer.data}
         return Response(msg,status=status.HTTP_200_OK)
 
+
 class DownloadInvoiceSP(APIView):
+    """
+    This class is creating and downloading single pdf and bulk pdf along with zip for Plan Shipment, Invoice and Order
+    Product
+    """
     permission_classes = (AllowAny,)
     """
     PDF Download object
     """
-    filename = 'invoice.pdf'
-    template_name = 'admin/invoice/invoice_sp.html'
 
     def get(self, request, *args, **kwargs):
-        shipment = get_object_or_404(OrderedProduct, pk=self.kwargs.get('pk'))
+        """
 
-        if shipment.invoice.invoice_pdf:
+        :param request: request params
+        :param args: argument list
+        :param kwargs: keyword argument
+        :return: zip folder which contains the pdf files
+        """
+        # check condition for single pdf download using download invoice link
+        if len(args) == ZERO:
+            # get primary key
+            pk = self.kwargs.get('pk')
+            # check pk is exist or not for Order product model
+            shipment = get_object_or_404(OrderedProduct, pk=pk)
+            # call pdf generation method to generate pdf and download the pdf
+            response = pdf_generation(self, request, shipment)
+        else:
+            # create temp dir
+            tmp_dir = tempfile.mkdtemp()
+            # create list for files
+            file_name = []
+            for pk in args[0]:
+                # check pk is exist or not for Order product model
+                shipment = get_object_or_404(OrderedProduct, pk=pk)
+                # call pdf generation method to generate pdf
+                pdf_generation(self, request, shipment)
+                # define the pdf file name
+                filename = create_file_name(shipment)
+                # call temp file method to save the temp pdf file
+                file_name = create_temp_file(shipment, tmp_dir, filename, file_name)
+            # call create zip method to generate zip folder
+            response = create_zip(file_name, tmp_dir)
+        return response
+
+
+def pdf_generation(self, request, shipment):
+    """
+
+    :param self:self
+    :param request: request object
+    :param shipment: shipment object
+    :return: response
+    """
+    filename = create_file_name(shipment)
+    template_name = 'admin/invoice/invoice_sp.html'
+    try:
+        if shipment.invoice.invoice_pdf.url:
             r = requests.get(shipment.invoice.invoice_pdf.url)
             response = HttpResponse(r.content, content_type='application/pdf')
             response['Content-Disposition'] = 'attachment; filename="invoice-{}.pdf"'.format(shipment.invoice_no)
             return response
             return redirect(shipment.invoice.invoice_pdf.url)
-
-
+    except:
         barcode = barcodeGen(shipment.invoice_no)
-        payment_type='cash_on_delivery'
+        # payment_type = 'cash_on_delivery'
         try:
             if shipment.order.buyer_shop.shop_timing:
-                open_time=shipment.order.buyer_shop.shop_timing.open_timing
-                close_time=shipment.order.buyer_shop.shop_timing.closing_timing
-                if open_time=='midnight' and close_time=='midnight':
-                    open_time='-'
-                    close_time='-'
+                open_time = shipment.order.buyer_shop.shop_timing.open_timing
+                close_time = shipment.order.buyer_shop.shop_timing.closing_timing
+                if open_time == 'midnight' and close_time == 'midnight':
+                    open_time = '-'
+                    close_time = '-'
 
             else:
-                open_time='-'
-                close_time='-'
+                open_time = '-'
+                close_time = '-'
         except:
             open_time = '-'
             close_time = '-'
@@ -1037,17 +1085,19 @@ class DownloadInvoiceSP(APIView):
         buyer_shop_gistin = 'unregistered'
         if shipment.order.ordered_cart.seller_shop.shop_name_documents.exists():
             seller_shop_gistin = shipment.order.ordered_cart.seller_shop.shop_name_documents.filter(
-            shop_document_type='gstin').last().shop_document_number if shipment.order.ordered_cart.seller_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else 'unregistered'
+                shop_document_type='gstin').last().shop_document_number if shipment.order.ordered_cart.seller_shop.shop_name_documents.filter(
+                shop_document_type='gstin').exists() else 'unregistered'
 
         if shipment.order.ordered_cart.buyer_shop.shop_name_documents.exists():
             buyer_shop_gistin = shipment.order.ordered_cart.buyer_shop.shop_name_documents.filter(
-            shop_document_type='gstin').last().shop_document_number if shipment.order.ordered_cart.buyer_shop.shop_name_documents.filter(shop_document_type='gstin').exists() else 'unregistered'
+                shop_document_type='gstin').last().shop_document_number if shipment.order.ordered_cart.buyer_shop.shop_name_documents.filter(
+                shop_document_type='gstin').exists() else 'unregistered'
 
         product_listing = []
         taxes_list = []
-        gst_tax_list= []
-        cess_tax_list= []
-        surcharge_tax_list=[]
+        gst_tax_list = []
+        cess_tax_list = []
+        surcharge_tax_list = []
         sum_qty = 0
         for m in shipment.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
             sum_qty += m.shipped_qty
@@ -1055,7 +1105,7 @@ class DownloadInvoiceSP(APIView):
             tax_sum = 0
             basic_rate = 0
             product_tax_amount = 0
-            product_pro_price_mrp =0
+            product_pro_price_mrp = 0
             product_pro_price_ptr = 0
 
             no_of_pieces = 0
@@ -1069,10 +1119,10 @@ class DownloadInvoiceSP(APIView):
                 shipment.order.ordered_cart.buyer_shop)
 
             if shipment.order.ordered_cart.cart_type == 'DISCOUNTED':
-                product_pro_price_ptr = round(product_price.selling_price,2)
+                product_pro_price_ptr = round(product_price.selling_price, 2)
             else:
                 product_pro_price_ptr = cart_product_map.item_effective_prices
-            product_pro_price_mrp = round(product_price.mrp,2)
+            product_pro_price_mrp = round(product_price.mrp, 2)
             no_of_pieces = m.product.rt_cart_product_mapping.last().no_of_pieces
             cart_qty = m.product.rt_cart_product_mapping.last().qty
 
@@ -1082,10 +1132,10 @@ class DownloadInvoiceSP(APIView):
             get_tax_val = tax_sum / 100
             basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
             base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
-            product_tax_amount = round(float(base_price) * float(get_tax_val),2)
+            product_tax_amount = round(float(base_price) * float(get_tax_val), 2)
             for z in shipment.order.seller_shop.shop_name_address_mapping.all():
-                cin = 'U74999HR2018PTC075977' if z.shop_name=='GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name=='GFDN SERVICES PVT LTD (DELHI)' else '---'
-                shop_name_gram ='GFDN SERVICES PVT LTD' if z.shop_name=='GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name=='GFDN SERVICES PVT LTD (DELHI)' else z.shop_name
+                cin = 'U74999HR2018PTC075977' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else '---'
+                shop_name_gram = 'GFDN SERVICES PVT LTD' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else z.shop_name
                 nick_name_gram, address_line1_gram = z.nick_name, z.address_line1
                 city_gram, state_gram, pincode_gram = z.city, z.state, z.pincode
 
@@ -1103,7 +1153,7 @@ class DownloadInvoiceSP(APIView):
                 "price_to_retailer": round(product_pro_price_ptr, 2),
                 "product_sub_total": float(m.shipped_qty) * float(product_pro_price_ptr),
                 "product_tax_amount": product_tax_amount
-                }
+            }
             # total_tax_sum = total_tax_sum + product_tax_amount
             # inline_sum_amount = inline_sum_amount + product_pro_price_ptr
             product_listing.append(ordered_prodcut)
@@ -1114,44 +1164,47 @@ class DownloadInvoiceSP(APIView):
             # inline_sum_amount += int(m.shipped_qty) * product_pro_price_ptr
 
             for n in m.product.product_pro_tax.all():
-                divisor= (1+(n.tax.tax_percentage/100))
-                original_amount= (inline_sum_amount/divisor)
+                divisor = (1 + (n.tax.tax_percentage / 100))
+                original_amount = (inline_sum_amount / divisor)
                 tax_amount = inline_sum_amount - original_amount
-                if n.tax.tax_type=='gst':
+                if n.tax.tax_type == 'gst':
                     gst_tax_list.append(tax_amount)
-                if n.tax.tax_type=='cess':
+                if n.tax.tax_type == 'cess':
                     cess_tax_list.append(tax_amount)
-                if n.tax.tax_type=='surcharge':
+                if n.tax.tax_type == 'surcharge':
                     surcharge_tax_list.append(tax_amount)
 
                 taxes_list.append(tax_amount)
-                igst= sum(gst_tax_list)
-                cgst= (sum(gst_tax_list))/2
-                sgst= (sum(gst_tax_list))/2
-                cess= sum(cess_tax_list)
-                surcharge= sum(surcharge_tax_list)
-                #tax_inline = tax_inline + (inline_sum_amount - original_amount)
-                #tax_inline1 =(tax_inline / 2)
+                igst = sum(gst_tax_list)
+                cgst = (sum(gst_tax_list)) / 2
+                sgst = (sum(gst_tax_list)) / 2
+                cess = sum(cess_tax_list)
+                surcharge = sum(surcharge_tax_list)
+                # tax_inline = tax_inline + (inline_sum_amount - original_amount)
+                # tax_inline1 =(tax_inline / 2)
 
         total_amount = shipment.invoice_amount
         total_amount_int = total_amount
         amt = [num2words(i) for i in str(total_amount).split('.')]
         rupees = amt[0]
 
-
-        data = {"shipment": shipment,"order": shipment.order,
-                "url":request.get_host(), "scheme": request.is_secure() and "https" or "http" ,
-                "igst":igst, "cgst":cgst,"sgst":sgst,"cess":cess,"surcharge":surcharge, "total_amount":total_amount,
-                "barcode":barcode,"product_listing":product_listing,"rupees":rupees,
-                "seller_shop_gistin":seller_shop_gistin,"buyer_shop_gistin":buyer_shop_gistin,
-                "open_time":open_time, "close_time":close_time,  "sum_qty":sum_qty, "shop_name_gram":shop_name_gram, "nick_name_gram":nick_name_gram,
-                "address_line1_gram":address_line1_gram,"city_gram":city_gram,"state_gram":state_gram, "pincode_gram":pincode_gram,"cin":cin, }
+        data = {"shipment": shipment, "order": shipment.order,
+                "url": request.get_host(), "scheme": request.is_secure() and "https" or "http",
+                "igst": igst, "cgst": cgst, "sgst": sgst, "cess": cess, "surcharge": surcharge,
+                "total_amount": total_amount,
+                "barcode": barcode, "product_listing": product_listing, "rupees": rupees,
+                "seller_shop_gistin": seller_shop_gistin, "buyer_shop_gistin": buyer_shop_gistin,
+                "open_time": open_time, "close_time": close_time, "sum_qty": sum_qty, "shop_name_gram": shop_name_gram,
+                "nick_name_gram": nick_name_gram,
+                "address_line1_gram": address_line1_gram, "city_gram": city_gram, "state_gram": state_gram,
+                "pincode_gram": pincode_gram, "cin": cin, }
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
-        response = PDFTemplateResponse(request=request, template=self.template_name, filename=self.filename,
+        response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         try:
-            shipment.invoice.invoice_pdf.save("invoice-{}.pdf".format(shipment.invoice_no), ContentFile(response.rendered_content), save=True)
+            shipment.invoice.invoice_pdf.save("invoice-{}.pdf".format(shipment.invoice_no),
+                                              ContentFile(response.rendered_content), save=True)
         except Exception as e:
             logger.exception(e)
         return response
