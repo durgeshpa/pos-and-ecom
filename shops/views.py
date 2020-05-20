@@ -52,6 +52,7 @@ class ShopMappedProduct(TemplateView):
             product_sum = sp_grn_product.values('product','product__product_name', 'product__product_gf_code', 'product__product_sku').annotate(product_qty_sum=Sum('available_qty')).annotate(damaged_qty_sum=Sum('damaged_qty'))
             product_sum = list(product_sum)
             d = defaultdict(dict)
+            import pdb; pdb.set_trace()
             for elem in itertools.chain(mrps, product_sum):
                 d[elem['product']].update(elem)
             product_sum_final = d.values()
