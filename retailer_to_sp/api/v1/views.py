@@ -656,10 +656,10 @@ class CartDetail(APIView):
                     shop_products_dict = {g['product_id']: int(g['available_qty']) for g in available}
                     available_qty = shop_products_dict[cart_product.cart_product.id]//int(cart_product.cart_product.product_inner_case_size)
                     item_qty = CartProductMapping.objects.filter(cart = cart, cart_product=cart_product.cart_product).last().qty
-                    cart_product.qty_error_msg=ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
-                    cart_product.save()
+                    # cart_product.qty_error_msg=ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
+                    # cart_product.save()
                     updated_no_of_pieces = (item_qty * int(cart_product.cart_product.product_inner_case_size))
-                    CartProductMapping.objects.filter(cart = cart, cart_product=cart_product.cart_product).update(no_of_pieces = updated_no_of_pieces)
+                    CartProductMapping.objects.filter(cart = cart, cart_product=cart_product.cart_product).update(no_of_pieces = updated_no_of_pieces, qty_error_msg = ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty)))
                 if cart.rt_cart_list.count() <= 0:
                     msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
                            'response_data': None}
