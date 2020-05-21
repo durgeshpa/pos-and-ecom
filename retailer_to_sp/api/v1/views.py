@@ -651,9 +651,11 @@ class CartDetail(APIView):
                 ).filter(
                     cart=cart
                 )
+                available = OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product__in=cart_products.values('cart_product'), available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
+                shop_products_dict = {g['product_id']: int(g['available_qty']) for g in available}
                 for cart_product in cart_products:
-                    available = OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product=cart_product.cart_product.id,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
-                    shop_products_dict = {g['product_id']: int(g['available_qty']) for g in available}
+                    # available = OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product=cart_product.cart_product.id,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
+                    # shop_products_dict = {g['product_id']: int(g['available_qty']) for g in available}
                     available_qty = shop_products_dict[cart_product.cart_product.id]//int(cart_product.cart_product.product_inner_case_size)
                     item_qty = CartProductMapping.objects.filter(cart = cart, cart_product=cart_product.cart_product).last().qty
                     # cart_product.qty_error_msg=ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
