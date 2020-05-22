@@ -947,7 +947,7 @@ class CreateOrder(APIView):
                     for cart_price in cart.rt_cart_list.all():
                         cart_price.cart_product_price=None
                         cart_price.save()
-                    msg['message'] = ["Some products in cart aren’t available anymore, please update cart and remove product from cart upon revisiting it"]
+                    msg['message'] = [ERROR_MESSAGES['PRODUCT_REMOVED']]
                     return Response(msg, status=status.HTTP_200_OK)
                 else:
                     cart.cart_status = 'ordered'
