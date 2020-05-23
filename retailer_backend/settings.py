@@ -429,48 +429,48 @@ CACHES = {
     }
 }
 # DataFlair #Logging Information
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'loggers': {
-        'django': {
-            'handlers': ['file-debug','file-info','file-error', 'console'],
-            'level': 'DEBUG',
-            'propagate': True,
-        },
-    },
-    'handlers': {
-        'file-debug': {
-            'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': '/var/log/retailer-backend/debug.log',
-            'formatter': 'verbose',
-        },
-        'file-info': {
-            'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': '/var/log/retailer-backend/info.log',
-            'formatter': 'verbose',
-        },
-        'file-error': {
-            'level': 'ERROR',
-            'class': 'logging.FileHandler',
-            'filename': '/var/log/retailer-backend/error.log',
-            'formatter': 'verbose',
-        },
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'simple',
-        },
+#LOGGING = {
+#    'version': 1,
+#    'disable_existing_loggers': False,
+#    'loggers': {
+#        'django': {
+#            'handlers': ['file-debug','file-info','file-error', 'console'],
+#            'level': 'DEBUG',
+#            'propagate': True,
+#        },
+#    },
+#    'handlers': {
+#        'file-debug': {
+#            'level': 'DEBUG',
+#            'class': 'logging.FileHandler',
+#            'filename': '/var/log/retailer-backend/debug.log',
+#            'formatter': 'verbose',
+#        },
+#        'file-info': {
+#            'level': 'INFO',
+#            'class': 'logging.FileHandler',
+#            'filename': '/var/log/retailer-backend/info.log',
+#            'formatter': 'verbose',
+#        },
+#        'file-error': {
+#            'level': 'ERROR',
+#            'class': 'logging.FileHandler',
+#            'filename': '/var/log/retailer-backend/error.log',
+#            'formatter': 'verbose',
+#        },
+#        'console': {
+#            'class': 'logging.StreamHandler',
+#            'formatter': 'simple',
+#        },
 
-    },
-    'formatters': {
-        'verbose': {
-            'format': '%(levelname)s|%(asctime)s|%(module)s|%(process)d|%(thread)d|%(message)s',
-            'datefmt' : "%d/%b/%Y %H:%M:%S"
-        },
-        'simple': {
-            'format': '%(levelname)s|%(message)s'
-        },
-    },
-}
+#    },
+#    'formatters': {
+#        'verbose': {
+#            'format': '%(levelname)s|%(asctime)s|%(module)s|%(process)d|%(thread)d|%(message)s',
+#            'datefmt' : "%d/%b/%Y %H:%M:%S"
+#        },
+#        'simple': {
+#            'format': '%(levelname)s|%(message)s'
+#        },
+#    },
+#}
