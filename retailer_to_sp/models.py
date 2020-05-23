@@ -150,7 +150,7 @@ class Cart(models.Model):
     )
     cart_status = models.CharField(
         max_length=200, choices=CART_STATUS,
-        null=True, blank=True
+        null=True, blank=True,db_index=True
     )
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_cart',
