@@ -51,7 +51,6 @@ from sp_to_gram.models import (
 )
 from sp_to_gram.models import OrderedProductReserved, create_credit_note
 from common.constants import DOWNLOAD_BULK_INVOICE, ZERO, FIFTY
-from common.messages import ERROR_CODE
 from .forms import (
     CartForm, CartProductMappingForm, CommercialForm,
     CustomerCareForm, DispatchForm, OrderedProductForm,
