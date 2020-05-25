@@ -1220,7 +1220,7 @@ class ShipmentAdmin(admin.ModelAdmin):
             # call get method under the DownloadInvoiceSP class
             response = DownloadInvoiceSP.get(self, request, argument_list, **kwargs)
         else:
-            response = messages.error(request, messages.VALIDATION_ERROR_MESSAGES['1001'])
+            response = messages.error(request, messages.ERROR_MESSAGES['1001'])
         return response
     # download single invoice short description
     download_bulk_invoice.short_description = 'Download Invoice'
