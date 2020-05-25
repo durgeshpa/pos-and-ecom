@@ -25,6 +25,7 @@ VALIDATION_ERROR_MESSAGES = {
     'INVALID_GSTIN_Number': 'Invalid Gstin number',
     'INVALID_MARGIN': '%s has not valid format( eg: 0, 201, 17.11)',
     'ALREADY_ADDED_SHOP':'Already added Sales Executive with this shop',
+    "1001": "Selected records are exceeding system capacity, please keep max records at 50.",
 }
 
 SUCCESS_MESSAGES = {
