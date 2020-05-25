@@ -796,7 +796,7 @@ class DownloadPickList(TemplateView, ):
             product_list = {
                 "product_name": cart_pro.cart_product.product_name,
                 "product_sku": cart_pro.cart_product.product_sku,
-                "product_mrp": cart_pro.get_cart_product_price(order_obj.seller_shop.id, order_obj.buyer_shop.id).mrp,
+                "product_mrp": cart_pro.cart_product_price.mrp,
                 "ordered_qty": cart_pro.qty,
                 "no_of_pieces": cart_pro.no_of_pieces,
             }

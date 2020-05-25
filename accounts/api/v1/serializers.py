@@ -6,6 +6,8 @@ from django.contrib.auth import get_user_model
 from accounts.models import UserDocument, AppVersion
 from django.contrib.auth.models import Group
 
+from django.db.models import Q
+
 User =  get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
@@ -37,8 +39,8 @@ class UserDocumentSerializer(serializers.ModelSerializer):
         self.fields['user_document_photo'].error_messages['required'] = "Please upload document photo"
 
     def validate_user_document_number(self, data):
-        if UserDocument.objects.filter(user_document_number=data).exists():
-            raise serializers.ValidationError('The document no. already exists')
+        if UserDocument.objects.filter(~Q(user_id=self.context.get('request').user.id), user_document_number=data).exists():
+            raise serializers.ValidationError('Document number is already registered')
         return data
 
     def validate(self, data):
