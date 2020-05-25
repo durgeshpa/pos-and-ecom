@@ -184,15 +184,25 @@ class UpdateOrderStatusPickerReserveQty(object):
     def update_sp_qty(self):
         shipment_products = [i['product__id'] for i in self.shipment_products_dict]
         reserved_products = OrderedProductReserved.objects.filter(
-            cart_id=self.cart_id, product__id__in=shipment_products,
+            cart_id=self.cart_id,
             reserve_status=OrderedProductReserved.ORDERED,
             reserved_qty__gt=0).order_by('reserved_qty')
-        for ordered_product_reserved in reserved_products:
+
+        reserved_products_with_shipment = reserved_products.filter(product__id__in=shipment_products)
+        for ordered_product_reserved in reserved_products_with_shipment:
             grn = ordered_product_reserved.order_product_reserved
             grn.available_qty += (ordered_product_reserved.reserved_qty -
                                   ordered_product_reserved.shipped_qty)
             grn.save()
             ordered_product_reserved.save()
+
+        reserved_products_without_shipment = reserved_products.exclude(product__id__in=shipment_products)
+        for ordered_product_reserved in reserved_products_without_shipment:
+            grn = ordered_product_reserved.order_product_reserved
+            grn.available_qty += (ordered_product_reserved.reserved_qty - 0)
+            grn.save()
+            ordered_product_reserved.save()
+
 
 @task
 def update_order_status_picker_reserve_qty(

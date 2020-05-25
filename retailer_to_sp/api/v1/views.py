@@ -85,7 +85,7 @@ from common.common_utils import create_zip, create_temp_file, create_file_name
 
 User = get_user_model()
 
-logger = logging.getLogger(__name__)
+#logger = logging.getLogger('django')
 
 today = datetime.today()
 
@@ -256,6 +256,7 @@ class GramGRNProductsList(APIView):
         return query
 
     def post(self, request, format=None):
+        #logger.info('grn search %s'%request.data)
         self.product_ids = request.data.get('product_ids')
         self.brand = request.data.get('brands')
         self.category = request.data.get('categories')
@@ -293,12 +294,16 @@ class GramGRNProductsList(APIView):
             # except ObjectDoesNotExist:
             else:
                 parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
+                #logger.info("parent shop %s"%parent_mapping)
                 if parent_mapping.parent.shop_type.shop_type == 'sp':
                     '''4th Step
                         SP mapped data shown
                     '''
                     body = {"from" : offset, "size" : page_size, "query":query}
+                    #logger.info("Elastic index %s" %parent_mapping.parent.id)
+                    #logger.info("Elastic query %s" %body)
                     products_list = es_search(index=parent_mapping.parent.id, body=body)
+                    #logger.info("Elastic Response %s"%products_list)
                     cart = Cart.objects.filter(last_modified_by=self.request.user,buyer_shop_id=shop_id,cart_status__in=['active', 'pending']).last()
                     if cart:
                         cart_products = cart.rt_cart_list.all()
@@ -306,13 +311,17 @@ class GramGRNProductsList(APIView):
                 else:
                     is_store_active = False
         p_list = []
+        #logger.info("Is store active %s"%is_store_active)
         if not is_store_active:
             body = {
                 "from" : offset,
                 "size" : page_size,
                 "query":query,"_source":{"includes":["name", "product_images","pack_size","weight_unit","weight_value"]}
                 }
+            #logger.info("Elastic index all_products")
+            #logger.info("Elastic query %s" %body)
             products_list = es_search(index="all_products", body=body)
+            #logger.info("Elastic Response %s" % products_list)
         for p in products_list['hits']['hits']:
             if is_store_active:
                 product = Product.objects.get(id=p["_source"]["id"])
@@ -365,7 +374,17 @@ class GramGRNProductsList(APIView):
                         p["_source"]["no_of_pieces"] = no_of_pieces
                         p["_source"]["sub_total"] = Decimal(no_of_pieces) * p["_source"]["ptr"]
             p_list.append(p["_source"])
-
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        #logger.info("Final product list %s"%p_list)
         msg = {'is_store_active': is_store_active,
                 'is_success': True,
                  'message': ['Products found'],
@@ -452,7 +471,8 @@ class AddToCart(APIView):
                 msg['message'] = ["Qty not Found"]
                 return Response(msg, status=status.HTTP_200_OK)
             #  if shop mapped with SP
-
+            available=OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product=cart_product,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
+            shop_products_dict = {g['product_id']: int(g['available_qty']) for g in available}
             if parent_mapping.parent.shop_type.shop_type == 'sp':
                 ordered_qty = 0
                 product = Product.objects.get(id = cart_product)
@@ -492,9 +512,16 @@ class AddToCart(APIView):
                             else:
                                 cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
                                 cart_mapping.qty = qty
-                                cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
-                                cart_mapping.capping_error_msg = ''
-                                cart_mapping.save()
+                                available_qty = shop_products_dict[int(cart_product)]//int(cart_mapping.cart_product.product_inner_case_size)
+                                if int(qty)<=available_qty:
+                                    cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
+                                    cart_mapping.capping_error_msg = ''
+                                    cart_mapping.qty_error_msg = ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
+                                    cart_mapping.save()
+                                else:
+                                    cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
+                                    cart_mapping.qty_error_msg=ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
+                                    cart_mapping.save()
                         else:
                             if CartProductMapping.objects.filter(cart=cart, cart_product=product).exists():
                                 cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
@@ -525,17 +552,29 @@ class AddToCart(APIView):
 
                     else:
                         cart_mapping, _ = CartProductMapping.objects.get_or_create(cart=cart, cart_product=product)
+                        available_qty = shop_products_dict[int(cart_product)]//int(cart_mapping.cart_product.product_inner_case_size)
                         cart_mapping.qty = qty
-                        cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
-                        cart_mapping.capping_error_msg = ''
-                        cart_mapping.save()
+                        if int(qty)<=available_qty:
+                            cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
+                            cart_mapping.capping_error_msg = ''
+                            cart_mapping.qty_error_msg = ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
+                            cart_mapping.save()
+                        else:
+                            cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
+                            cart_mapping.qty_error_msg=ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
+                            cart_mapping.save()
 
 
                 if cart.rt_cart_list.count() <= 0:
                     msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],'response_data': None}
                 else:
                     serializer = CartSerializer(Cart.objects.get(id=cart.id),context={'parent_mapping_id': parent_mapping.parent.id, 'buyer_shop_id': shop_id})
-                    msg = {'is_success': True, 'message': ['Data added to cart'], 'response_data': serializer.data}
+                    for i in serializer.data['rt_cart_list']:
+                        if i['cart_product']['product_mrp']==False:
+                            CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
+                            msg = {'is_success': True, 'message': ['Data added to cart'], 'response_data': serializer.data} 
+                        else:
+                            msg = {'is_success': True, 'message': ['Data added to cart'], 'response_data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
 
             #  if shop mapped with gf
@@ -620,21 +659,52 @@ class CartDetail(APIView):
                 cart = Cart.objects.filter(last_modified_by=self.request.user, buyer_shop=parent_mapping.retailer,
                                            cart_status__in=['active', 'pending']).last()
                 Cart.objects.filter(id=cart.id).update(offers=cart.offers_applied())
+                cart_products = CartProductMapping.objects.select_related(
+                    'cart_product'
+                ).filter(
+                    cart=cart
+                )
+                available = OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product__in=cart_products.values('cart_product'), available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
+                shop_products_dict = {g['product_id']: int(g['available_qty']) for g in available}
+                for cart_product in cart_products:
+                    # available = OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product=cart_product.cart_product.id,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
+                    # shop_products_dict = {g['product_id']: int(g['available_qty']) for g in available}
+                    available_qty = shop_products_dict[cart_product.cart_product.id]//int(cart_product.cart_product.product_inner_case_size)
+                    item_qty = CartProductMapping.objects.filter(cart = cart, cart_product=cart_product.cart_product).last().qty
+                    # cart_product.qty_error_msg=ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
+                    # cart_product.save()
+                    updated_no_of_pieces = (item_qty * int(cart_product.cart_product.product_inner_case_size))
+                    CartProductMapping.objects.filter(cart = cart, cart_product=cart_product.cart_product).update(no_of_pieces = updated_no_of_pieces, qty_error_msg = ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty)))
                 if cart.rt_cart_list.count() <= 0:
                     msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
                            'response_data': None}
                 else:
+                    for i in Cart.objects.get(id=cart.id).rt_cart_list.all():
+                        if i.cart_product.getMRP(cart.seller_shop.id, cart.buyer_shop.id)==False:
+                            CartProductMapping.objects.filter(cart__id=cart.id, cart_product__id=i.cart_product.id).delete()
+
                     serializer = CartSerializer(
                         Cart.objects.get(id=cart.id),
                         context={'parent_mapping_id': parent_mapping.parent.id,
                                  'buyer_shop_id': shop_id,
                                  'delivery_message': self.delivery_message()}
                     )
-                    msg = {
-                        'is_success': True,
-                        'message': [''],
-                        'response_data': serializer.data
-                    }
+                    for i in serializer.data['rt_cart_list']:
+                        if i['cart_product']['product_mrp']==False:
+                            i['qty']=0
+                            CartProductMapping.objects.filter(cart__id=i['cart']['id'],cart_product__id=i['cart_product']['id']).delete()
+                            msg = {
+                                'is_success': True,
+                                'message': [''],
+                                'response_data': serializer.data
+                            }
+                        else:
+                            msg = {
+                                'is_success': True,
+                                'message': [''],
+                                'response_data': serializer.data
+                            }
+
                 return Response(msg, status=status.HTTP_200_OK)
             else:
                 msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
@@ -689,11 +759,14 @@ class ReservedOrder(generics.ListAPIView):
         # if shop mapped with sp
         if parent_shop_type == 'sp':
             ordered_qty = 0
+            item_qty = 0
+            updated_no_of_pieces = 0
             cart = Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer,
                                        cart_status__in=['active', 'pending'])
             if cart.exists():
                 cart = cart.last()
                 Cart.objects.filter(id=cart.id).update(offers=cart.offers_applied())
+                cart = Cart.objects.filter(id=cart.id).last()
                 coupon_codes_list = []
                 array = list(filter(lambda d: d['sub_type'] in 'discount_on_product', cart.offers))
 
@@ -719,6 +792,9 @@ class ReservedOrder(generics.ListAPIView):
                 products_available = {}
                 products_unavailable = []
                 for cart_product in cart_products:
+                    item_qty = CartProductMapping.objects.filter(cart = cart, cart_product=cart_product.cart_product).last().qty
+                    updated_no_of_pieces = (item_qty * int(cart_product.cart_product.product_inner_case_size))
+                    CartProductMapping.objects.filter(cart = cart, cart_product=cart_product.cart_product).update(no_of_pieces = updated_no_of_pieces)
                     coupon_usage_count = 0
                     for i in array:
                         if cart_product.cart_product.id == i['item_id']:
@@ -739,7 +815,7 @@ class ReservedOrder(generics.ListAPIView):
                     if product_availability >= ordered_amount:
                         products_available[cart_product.cart_product.id] = ordered_amount
                     else:
-                        cart_product.qty_error_msg = ERROR_MESSAGES['AVAILABLE_PRODUCT'].format(int(product_availability)) #TODO: Needs to be improved
+                        cart_product.qty_error_msg = ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(product_availability)//int(cart_product.product_inner_case_size)) #TODO: Needs to be improved
                         cart_product.save()
                         products_unavailable.append(cart_product.id)
                     capping = cart_product.cart_product.get_current_shop_capping(parent_mapping.parent, parent_mapping.retailer)
@@ -764,7 +840,6 @@ class ReservedOrder(generics.ListAPIView):
                             else:
                                 cart_product.capping_error_msg = 'You have already exceeded the purchase limit of this product'
                             cart_product.save()
-
                 if products_unavailable:
                     serializer = CartSerializer(
                         cart,
@@ -772,10 +847,23 @@ class ReservedOrder(generics.ListAPIView):
                             'parent_mapping_id':parent_mapping.parent.id,
                             'buyer_shop_id': shop_id
                         })
-                    msg = {'is_success': True,
-                           'message': [''],
-                           'response_data': serializer.data,
-                           'is_shop_time_entered':False}
+                    for i in serializer.data['rt_cart_list']:
+                        if i['cart_product']['product_mrp']==False:
+                            i['qty']=0
+                            i['cart_product']['product_mrp']=0
+                            CartProductMapping.objects.filter(cart__id=i['cart']['id'], cart_product__id=i['cart_product']['id']).delete()
+                            msg = {
+                                'is_success': True,
+                                'message': [''],
+                                'response_data': serializer.data,
+                                'is_shop_time_entered':False}
+                        else:
+                            msg = {
+                                'is_success': True,
+                                'message': [''],
+                                'response_data': serializer.data,
+                                'is_shop_time_entered': False}
+
                     return Response(msg, status=status.HTTP_200_OK)
                 else:
                     reserved_args = json.dumps({
@@ -787,12 +875,26 @@ class ReservedOrder(generics.ListAPIView):
             serializer = CartSerializer(cart, context={
                 'parent_mapping_id': parent_mapping.parent.id,
                 'buyer_shop_id': shop_id})
-            msg = {
-                    'is_success': True,
-                    'message': [''],
-                    'response_data': serializer.data,
-                    'is_shop_time_entered': hasattr(parent_mapping.retailer, 'shop_timing'),
-                }
+
+            for i in serializer.data['rt_cart_list']:
+                if i['cart_product']['product_mrp'] == False:
+                    i['qty'] = 0
+                    i['cart_product']['product_mrp']=0
+                    CartProductMapping.objects.filter(cart__id=i['cart']['id'],cart_product__id=i['cart_product']['id']).delete()
+                    msg = {
+                        'is_success': True,
+                        'message': [''],
+                        'response_data': serializer.data,
+                        'is_shop_time_entered': hasattr(parent_mapping.retailer, 'shop_timing'),
+                    }
+                else:
+                    msg = {
+                        'is_success': True,
+                        'message': [''],
+                        'response_data': serializer.data,
+                        'is_shop_time_entered': hasattr(parent_mapping.retailer, 'shop_timing'),
+                    }
+
             return Response(msg, status=status.HTTP_200_OK)
         else:
             msg = {'is_success': False, 'message': ['Sorry shop is not associated with any Gramfactory or any SP'],
@@ -850,10 +952,22 @@ class CreateOrder(APIView):
             #self.sp_mapping_order_reserve()
             if Cart.objects.filter(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer, id=cart_id).exists():
                 cart = Cart.objects.get(last_modified_by=self.request.user,buyer_shop=parent_mapping.retailer, id=cart_id)
-                cart.cart_status = 'ordered'
-                cart.buyer_shop = shop
-                cart.seller_shop = parent_mapping.parent
-                cart.save()
+                orderitems=[]
+                for i in cart.rt_cart_list.all():
+                    orderitems.append(i.get_cart_product_price(cart.seller_shop, cart.buyer_shop))
+                if None in orderitems:
+                    CartProductMapping.objects.filter(cart__id=cart.id, cart_product_price=None).delete()
+                    for cart_price in cart.rt_cart_list.all():
+                        cart_price.cart_product_price=None
+                        cart_price.save()
+                    msg['message'] = [ERROR_MESSAGES['PRODUCT_REMOVED']]
+                    return Response(msg, status=status.HTTP_200_OK)
+                else:
+                    cart.cart_status = 'ordered'
+                    cart.buyer_shop = shop
+                    cart.seller_shop = parent_mapping.parent
+                    cart.save()
+
 
                 if OrderedProductReserved.objects.filter(cart=cart).exists():
                     order,_ = Order.objects.get_or_create(last_modified_by=request.user,ordered_by=request.user, ordered_cart=cart, order_no=cart.order_id)
