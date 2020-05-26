@@ -7,3 +7,12 @@ ZIP_FILE_NAME = 'Bulk_Invoice.zip'
 # Constant Numbers
 ZERO = 0
 FIFTY = 50
+
+# Version Number
+Version = 'v1'
+
+# Stream Api Name
+STREAM_API_NAME = 'streamzip'
+
+# Status Api Name
+STATUS_API_NAME = 'status'

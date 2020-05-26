@@ -1,109 +1,119 @@
 # python imports
-import io
-import os
 import datetime
 import hmac
 import hashlib
 import requests
 import logging
-import zipfile
+import ast
 from functools import reduce
-from pathlib import Path
-
+from decouple import config
 # django imports
-from django.http import HttpResponse
+from django.shortcuts import redirect
 
 # app imports
-from common.constants import ZIP_FILE_NAME
+from common.constants import Version, STREAM_API_NAME, STATUS_API_NAME
 
 logger = logging.getLogger(__name__)
 
+
 def convert_date_format_ddmmmyyyy(scheduled_date):
-    #This function converts %Y-%m-%d datetime format to a DD/MMM/YYYY 
+    # This function converts %Y-%m-%d datetime format to a DD/MMM/YYYY
 
-    #logging.info("converting date format from %d/%m/%Y to %Y-%m-%d")
-    return datetime.datetime.strptime(scheduled_date,'%Y-%m-%d').strftime("%d/%b/%Y").__str__()
+    # logging.info("converting date format from %d/%m/%Y to %Y-%m-%d")
+    return datetime.datetime.strptime(scheduled_date, '%Y-%m-%d').strftime("%d/%b/%Y").__str__()
 
 
-def concatenate_values(x1, x2): 
-
-	return str(x1) + "|" + str(x2)
+def concatenate_values(x1, x2):
+    return str(x1) + "|" + str(x2)
 
 
 def generate_message(values):
-
-	reduce(concatenate_values, values)
+    reduce(concatenate_values, values)
 
 
 def convert_hash_using_hmac_sha256(payload):
+    # generate message by concatenating the value of all request parameters
+    # in ascending
+    # order with separator as |
 
-	# generate message by concatenating the value of all request parameters 
-	# in ascending
-	# order with separator as |
-
-	message = sorted(payload.iteritems(), key = lambda x : x[1])
-	message = generate_message(message.values()) #'|'.join(message.values())
-	signature = hmac.new(bytes(API_SECRET , 'latin-1'), msg = bytes(message , 'latin-1'), digestmod = hashlib.sha256).hexdigest().upper()
-	print(signature)
-	return signature
-
-
-def create_temp_file(shipment, tmp_dir, filename, file_name):
-	"""
-
-	:param shipment: shipment object
-	:param tmp_dir: path of temp directory
-	:param filename: filename of individual pdf
-	:param file_name: list objects
-	:return: list of file name
-	"""
-
-	try:
-		# request initiate to get the pdf
-		r = requests.get(shipment.invoice.invoice_pdf.url)
-		filename = tmp_dir + '/' + filename
-		file_h = Path(filename)
-		# write the pdf file
-		file_h.write_bytes(r.content)
-		# append all files in a list
-		file_name.append(filename)
-	except Exception as e:
-		logger.exception(e)
-	return file_name
+    message = sorted(payload.iteritems(), key=lambda x: x[1])
+    message = generate_message(message.values())
+    signature = hmac.new(bytes(API_SECRET, 'latin-1'), msg=bytes(message, 'latin-1'),
+                         digestmod=hashlib.sha256).hexdigest().upper()
+    return signature
 
 
-def create_zip(file_name, tmp_dir):
-	"""
+def create_file_path(shipment, file_path_list):
+    """
 
-	:param file_name: name of individual file
-	:param tmp_dir: path of temp directory
-	:return: zip folder
-	"""
-	try:
-		# initiate the zip folder name
-		zip_filename = ZIP_FILE_NAME
-		zip_buffer = io.BytesIO()
-		with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
-			for file in file_name:
-				# append pdf file in zip folder
-				zip_file.write(file)
-				# remove temp file
-				os.remove(file)
-		zip_buffer.seek(0)
-		# create response for download the zip
-		response = HttpResponse(zip_buffer, content_type='application/zip')
-		response['Content-Disposition'] = 'attachment; filename = %s' % zip_filename
-		# remove temp dir
-		os.rmdir(tmp_dir)
-		return response
-	except Exception as e:
-		logger.exception(e)
+    :param shipment: shipment object
+    :param file_path_list: list objects
+    :return: list of file path
+    """
+
+    try:
+        bucket_name = config('AWS_STORAGE_BUCKET_NAME')
+        file_path = (bucket_name + '/' + shipment.invoice.invoice_pdf.storage.location + '/' + (
+            shipment.invoice.invoice_pdf.name))
+        file_path_list.append(file_path)
+    except Exception as e:
+        logger.exception(e)
+    return file_path_list
+
+
+def create_zip_url(file_path_list):
+    """
+
+    :param file_paths: Collection of files which we need to download
+    :return: :- Response of zip status API
+    """
+    try:
+        # S3zip Server URL
+        api_url = config('S3_ZIP_API')
+        # crete API end point for S3zip stream API
+        stream_api_end_point = api_url + '/' + Version + '/' + STREAM_API_NAME
+        bearer = 'Bearer {}'.format(config('AUTHORIZATION_KEY'))
+        headers = {"Authorization": bearer}
+        # create payload and configure AWS Key, Secret, Bucket Name, Region and collection of files
+        payload = {'awsKey': config('AWS_ACCESS_KEY_ID'), 'awsSecret': config('AWS_SECRET_ACCESS_KEY'),
+                   'awsBucket': config('AWS_STORAGE_BUCKET_NAME'), 'awsRegion': config('AWS_REGION'),
+                   'filePaths': file_path_list}
+        # call S3zip stream API
+        stream_api_response = requests.request("POST", stream_api_end_point, data=payload, headers=headers)
+        # call zip status api and send the parameter as a response of stream api and api url
+        response = s3_zip_status_api(stream_api_response, api_url)
+        return response
+    except Exception as e:
+        logger.exception(e)
+
+
+def s3_zip_status_api(stream_api_response, api_url):
+    """
+    :param stream_api_response: Response of S3ZIP stream API
+    :param api_url: API URL
+    :return: redirect the response URL
+    """
+    try:
+        # crete API end point for S3zip status API
+        status_api_end_point = api_url + '/' + Version + '/' + STATUS_API_NAME
+        bearer = 'Bearer {}'.format(config('AUTHORIZATION_KEY'))
+        headers = {'Content-Type': 'application/json; charset=UTF-8', "Authorization": bearer}
+        # send payload which is S3 stream API response
+        payload = stream_api_response
+        # call S3zip status API
+        response = requests.request("POST", status_api_end_point, data=payload, headers=headers)
+        # convert string dict to string and get the Zip url
+        response = ast.literal_eval(str(response.text))['result']
+        return redirect(response)
+    except Exception as e:
+        logger.exception(e)
 
 
 def create_file_name(unique_id):
-	"""
+    """
 
-	:param unique_id: unique id
-	:return: unique file name
-	"""
-	return 'invoice' + '_' + str(unique_id) + '.pdf'
+    :param unique_id: unique id
+    :return: unique file name
+    """
+    # return unique name of pdf file
+    return 'invoice' + '_' + str(unique_id) + '.pdf'

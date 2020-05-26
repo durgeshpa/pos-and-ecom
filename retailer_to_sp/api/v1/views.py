@@ -1,6 +1,4 @@
-import tempfile
 from decimal import Decimal
-import logging
 import json
 from num2words import num2words
 from datetime import datetime, timedelta
@@ -81,7 +79,7 @@ from coupon.models import Coupon, CusotmerCouponUsage
 
 from products.models import Product
 from common.constants import ZERO
-from common.common_utils import create_zip, create_temp_file, create_file_name
+from common.common_utils import create_zip_url, create_file_path, create_file_name
 
 User = get_user_model()
 
@@ -1142,21 +1140,17 @@ class DownloadInvoiceSP(APIView):
             # call pdf generation method to generate pdf and download the pdf
             response = pdf_generation(self, request, shipment)
         else:
-            # create temp dir
-            tmp_dir = tempfile.mkdtemp()
             # create list for files
-            file_name = []
+            file_path_list = []
             for pk in args[0]:
                 # check pk is exist or not for Order product model
                 shipment = get_object_or_404(OrderedProduct, pk=pk)
                 # call pdf generation method to generate pdf
                 pdf_generation(self, request, shipment)
-                # define the pdf file name
-                filename = create_file_name(shipment)
-                # call temp file method to save the temp pdf file
-                file_name = create_temp_file(shipment, tmp_dir, filename, file_name)
-            # call create zip method to generate zip folder
-            response = create_zip(file_name, tmp_dir)
+                # call create file method for to collect the path of pdf file
+                file_path_list = create_file_path(shipment, file_path_list)
+            # call create zip url method to generate zip url
+            response = create_zip_url(file_path_list)
         return response
 
 
