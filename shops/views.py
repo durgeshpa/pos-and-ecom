@@ -48,14 +48,15 @@ class ShopMappedProduct(TemplateView):
             sp_grn_product = OrderedProductMapping.get_shop_stock(shop_obj)
             products = sp_grn_product.values('product').distinct()
             for product in products:
-                mrps.append({'product': product['product'], 'mrp' : Product.objects.get(id =product['product']).product_pro_price.filter(seller_shop = shop_obj, approval_status = 2).last().mrp if Product.objects.get(id =product['product']).product_pro_price.filter(seller_shop = shop_obj, approval_status = 2).exists() else ''})
+                product_mrp = Product.objects.get(id =product['product']).product_pro_price.filter(seller_shop = shop_obj, approval_status = 2)
+                mrps.append({'product': product['product'], 'mrp' : product_mrp.last().mrp if product_mrp.exists() else ''})
             product_sum = sp_grn_product.values('product','product__product_name', 'product__product_gf_code', 'product__product_sku').annotate(product_qty_sum=Sum('available_qty')).annotate(damaged_qty_sum=Sum('damaged_qty'))
             product_sum = list(product_sum)
             d = defaultdict(dict)
-            import pdb; pdb.set_trace()
             for elem in itertools.chain(mrps, product_sum):
                 d[elem['product']].update(elem)
             product_sum_final = d.values()
+            product_sum_final = sorted(product_sum_final, key = lambda i: i['product__product_gf_code'])
             context['shop_products'] = product_sum_final
         else:
             context['shop_products'] = None
@@ -104,10 +105,12 @@ def stock_adjust_sample(request, shop_id):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(['product_gf_code','product_name','product_sku','Available','Damaged','Expired'])
-    for product in products_available:
+    writer.writerow(['product_gf_code','product_name','product_sku','Available','Damaged','Expired', 'MRP'])
+    for product in products_available.order_by('product__product_gf_code'):
+        product_mrps = Product.objects.get(id =product['product']).product_pro_price.filter(seller_shop = shop, approval_status = 2)
+        mrp = product_mrps.last().mrp if product_mrps else ''
         expired_product = expired_products.get(product['product__product_gf_code'],0)
-        writer.writerow([product['product__product_gf_code'],product['product__product_name'],product['product__product_sku'],product['product_qty_sum'],product['damaged_qty_sum'],expired_product])
+        writer.writerow([product['product__product_gf_code'],product['product__product_name'],product['product__product_sku'],product['product_qty_sum'],product['damaged_qty_sum'],expired_product, mrp])
     return response
 
 
