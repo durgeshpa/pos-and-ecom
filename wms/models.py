@@ -1,9 +1,18 @@
 from django.db import models
 from products.models import Product
 from shops.models import Shop
+from barCodeGenerator import barcode_gen,barcode_decoder
+from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.utils.safestring import mark_safe
+import sys
+
+
+BIN_TYPE_CHOICES = (
+    ('p', 'Pallet'),
+)
 
 class InventoryType(models.Model):
-    id = models.AutoField(primary_key=True)
+    # id = models.AutoField(primary_key=True)
     inventory_type = models.CharField(max_length=20, null=True, blank=True)
 
     class Meta:
@@ -11,7 +20,7 @@ class InventoryType(models.Model):
 
 
 class InventoryState(models.Model):
-    id = models.AutoField(primary_key=True)
+    # id = models.AutoField(primary_key=True)
     inventory_state = models.CharField(max_length=20, null=True, blank=True)
 
     class Meta:
@@ -19,17 +28,35 @@ class InventoryState(models.Model):
 
 
 class Bin(models.Model):
-    id = models.AutoField(primary_key=True)
+    # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     bin_id = models.CharField(max_length=20, null=True, blank=True)
-    bin_type = models.CharField(max_length=20, null=True, blank=True)
+    bin_type = models.CharField(max_length=50, choices=BIN_TYPE_CHOICES, default='p')
     is_active = models.BooleanField()
+    bin_barcode = models.ImageField(upload_to='images/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return self.bin_id
+
+    def save(self, *args, **kwargs):
+        image = barcode_gen(str(self.bin_id))
+        self.bin_barcode = InMemoryUploadedFile(image, 'ImageField', "%s.jpg" % self.bin_id, 'image/jpeg',
+                                            sys.getsizeof(image), None)
+        super(Bin, self).save(*args, **kwargs)
+
+    @property
+    def barcode_image(self):
+        return mark_safe('<img alt="%s" src="%s" />' % (self.bin_id, self.bin_barcode.url))
+
+    @property
+    def decoded_barcode(self):
+        return barcode_decoder(self.bin_barcode)
+
 
 class BinInventory(models.Model):
-    id = models.AutoField(primary_key=True)
+    # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     bin = models.ForeignKey(Bin, null=True, blank=True, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
@@ -45,7 +72,7 @@ class BinInventory(models.Model):
 
 
 class InternalInventoryChange(models.Model):
-    id = models.AutoField(primary_key=True)
+    # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=20, null=True, blank=True)
@@ -62,7 +89,7 @@ class InternalInventoryChange(models.Model):
 
 
 class WarehouseInventory(models.Model):
-    id = models.AutoField(primary_key=True)
+    # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
@@ -77,7 +104,7 @@ class WarehouseInventory(models.Model):
 
 
 class In(models.Model):
-    id = models.AutoField(primary_key=True)
+    # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     in_type = models.CharField(max_length=20, null=True, blank=True)
     in_type_id = models.CharField(max_length=20, null=True, blank=True)
@@ -89,7 +116,7 @@ class In(models.Model):
 
 
 class Putaway(models.Model):
-    id = models.AutoField(primary_key=True)
+    # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     putaway_type = models.CharField(max_length=20, null=True, blank=True)
     putaway_type_id = models.CharField(max_length=20, null=True, blank=True)
@@ -102,7 +129,7 @@ class Putaway(models.Model):
 
 
 class PutawayBinInventory(models.Model):
-    id = models.AutoField(primary_key=True)
+    # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     putaway = models.ForeignKey(Putaway, null=True, blank=True, on_delete=models.DO_NOTHING)
     bin = models.ForeignKey(BinInventory, null=True, blank=True, on_delete=models.DO_NOTHING)
@@ -115,7 +142,7 @@ class PutawayBinInventory(models.Model):
 
 
 class Out(models.Model):
-    id = models.AutoField(primary_key=True)
+    # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     out_type = models.CharField(max_length=20, null=True, blank=True)
     out_type_id = models.CharField(max_length=20, null=True, blank=True)
@@ -126,7 +153,7 @@ class Out(models.Model):
 
 
 class Pickup(models.Model):
-    id = models.AutoField(primary_key=True)
+    # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     pickup_type = models.CharField(max_length=20, null=True, blank=True)
     pickup_type_id = models.CharField(max_length=20, null=True, blank=True)
@@ -139,7 +166,7 @@ class Pickup(models.Model):
 
 
 class PickupBinInventory(models.Model):
-    id = models.AutoField(primary_key=True)
+    # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     pickup = models.ForeignKey(Pickup, null=True, blank=True, on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=20, null=True, blank=True)

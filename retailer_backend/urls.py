@@ -66,6 +66,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     url(r'^ses/bounce/$', csrf_exempt(handle_bounce)),
     url(r'^analytics/', include('analytics.urls')),
+    url(r'^wms/', include('wms.urls')),
 ]
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

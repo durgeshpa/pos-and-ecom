@@ -14,10 +14,10 @@ import barcode
 from barcode.writer import ImageWriter
 import PIL
 from PIL import Image
+from pyzbar.pyzbar import decode
+from io import BytesIO
 import base64
 import io
-
-
 
 def barcodeGen(strVal):
     EAN = barcode.get_barcode_class('code128')
@@ -28,6 +28,22 @@ def barcodeGen(strVal):
     # os.remove(fullname)
     return ret_str
 
+def barcode_gen(value):
+    ean = barcode.get_barcode_class('code128')
+    ean = ean(value, writer=ImageWriter())
+    image = ean.render()
+    output_stream = BytesIO()
+    image_resize = image.resize((900, 300))
+    image_resize.save(output_stream, format='JPEG', quality=150)
+    output_stream.seek(0)
+    return output_stream
+
+
+def barcode_decoder(value):
+    image = Image.open(value)
+    image = image.convert('L')
+    data = decode(image)
+    return str(data[0][0])
 
 
 
