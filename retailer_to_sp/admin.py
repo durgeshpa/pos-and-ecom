@@ -6,6 +6,7 @@ from admin_numeric_filter.admin import (NumericFilterModelAdmin,
                                         RangeNumericFilter,
                                         SingleNumericFilter,
                                         SliderNumericFilter)
+from django.core.exceptions import ObjectDoesNotExist
 from dal import autocomplete
 from dal_admin_filters import AutocompleteFilter
 from django.contrib import admin
@@ -561,8 +562,9 @@ class CartAdmin(ExportCsvMixinCart, ExportCsvMixinCartProduct, admin.ModelAdmin)
                 return self.readonly_fields+ ('approval_status',)
             if obj.approval_status == True:
                 return self.readonly_fields+ ('approval_status',)
-            if obj.rt_order_cart_mapping.order_status == 'CANCELLED':
-                return self.readonly_fields+ ('approval_status',)
+            if obj.rt_cart_list.exists():
+                if obj.rt_order_cart_mapping.order_status == 'CANCELLED':
+                    return self.readonly_fields+ ('approval_status',)
         return self.readonly_fields
 
 class BulkOrderAdmin(admin.ModelAdmin):
@@ -1680,13 +1682,15 @@ class InvoiceAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         shipment_payments = ShipmentPayment.objects.filter(shipment__invoice__id=OuterRef('pk')).order_by().values('shipment__invoice__id')
         shipment_paid_amount = shipment_payments.annotate(sum=Sum('paid_amount')).values('sum')
+        credit_notes = Note.objects.filter(shipment__invoice__id=OuterRef('pk')).order_by().values('shipment__invoice__id')
+        credit_notes_amount = credit_notes.annotate(sum=Sum('amount')).values('sum')
         qs = qs.annotate(
             get_order=F('shipment__order__order_no'), shipment_status=F('shipment__shipment_status'),
             trip_no=F('shipment__trip__dispatch_no'), trip_status=F('shipment__trip__trip_status'),
             order_date=F('shipment__order__created_at'), order_status=F('shipment__order__order_status'),
             trip_started_at=F('shipment__trip__starts_at'), trip_completed_at=F('shipment__trip__completed_at'),
             shipment_paid_amount=Subquery(shipment_paid_amount),
-            cn_amount=F('shipment__credit_note__amount'))
+            cn_amount=Subquery(credit_notes_amount))
         return qs
 
     def has_add_permission(self, request, obj=None):

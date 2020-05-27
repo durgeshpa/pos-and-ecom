@@ -49,10 +49,10 @@ class Coupon(models.Model):
     coupon_code = models.CharField(max_length=255, null=True)
     limit_per_user_per_day = models.PositiveIntegerField(default=0, null=True, blank=True)
     limit_of_usages = models.PositiveIntegerField(default=0, null=True, blank=True)
-    coupon_type = models.CharField(max_length=255, choices=COUPON_TYPE,null=True, blank=True)
+    coupon_type = models.CharField(max_length=255, choices=COUPON_TYPE,null=True, blank=True,db_index=True)
     # no_of_times_used = models.PositiveIntegerField(default=0, null=True, blank=True)
     is_display = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=False,db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     expiry_date = models.DateTimeField()
 
