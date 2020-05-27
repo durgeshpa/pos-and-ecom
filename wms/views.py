@@ -4,44 +4,16 @@ from django.contrib import messages
 from .models import Bin
 from shops.models import Shop
 from django.core.exceptions import ValidationError
-from .forms import BulkBinUpdation
+from .forms import BulkBinUpdation, BinForm
 from django.db import transaction
 import openpyxl
 import re
 
 
-
-# def bins_upload(request):
-#     template = "admin/wms/bulk-bin-updation.html"
-#     data = Bin.objects.all()
-#     prompt = {
-#         'order': 'Order of the CSV should be warehouse, bin_id, bin_type, is_active',
-#         'bins_data': data
-#     }
-#     if request.method == "GET":
-#         return render(request, template, prompt)
-#     if request.FILES:
-#         csv_file = request.FILES['file']
-#         print(csv_file.name.endswith('.csv'))
-#         if csv_file.name.endswith('.csv'):
-#             data_set = csv_file.read().decode('UTF-8')
-#             io_string = io.StringIO(data_set)
-#             next(io_string)
-#             for column in csv.reader(io_string, delimiter=',', quotechar="|"):
-#                 _, created = Bin.objects.update_or_create(
-#                     warehouse=Shop.objects.get(id=int(column[0])),
-#                     bin_id=column[1],
-#                     bin_type=column[2],
-#                     is_active=column[3],
-#                 )
-#         else:
-#             messages.error(request, 'THIS IS NOT A CSV FILE')
-#     context = {}
-#     return render(request, template, context)
-
 def bins_upload(request):
     if request.method == 'POST':
         form = BulkBinUpdation(request.POST, request.FILES)
+        print(request.FILES)
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -86,5 +58,11 @@ def bins_upload(request):
         'admin/wms/bulk-bin-updation.html',
         {'form': form}
     )
+
+
+def put_away(request):
+    form = BinForm
+    bin_id = request.POST.get('bin_id')
+    return render(request, 'admin/wms/putaway.html', {'form':form})
 
 

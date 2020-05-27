@@ -14,3 +14,10 @@ class BulkBinUpdation(forms.Form):
         if not file.name[-5:] == '.xlsx':
             raise forms.ValidationError("Sorry! Only Excel file accepted")
         return file
+
+
+class BinForm(forms.ModelForm):
+    bin_id = forms.CharField(required=True)
+    class Meta:
+        model = Bin
+        fields = ['warehouse', 'bin_id', 'bin_type', 'is_active', ]

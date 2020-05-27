@@ -19,6 +19,7 @@ from io import BytesIO
 import base64
 import io
 
+
 def barcodeGen(strVal):
     EAN = barcode.get_barcode_class('code128')
     ean = EAN(strVal, writer=ImageWriter())
@@ -27,6 +28,7 @@ def barcodeGen(strVal):
         ret_str = base64.b64encode(fp.read()).decode('ascii')
     # os.remove(fullname)
     return ret_str
+
 
 def barcode_gen(value):
     ean = barcode.get_barcode_class('code128')
