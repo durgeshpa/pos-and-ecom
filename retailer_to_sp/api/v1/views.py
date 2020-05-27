@@ -1,3 +1,4 @@
+import logging
 from decimal import Decimal
 import json
 from num2words import num2words
@@ -83,7 +84,7 @@ from common.common_utils import create_zip_url, create_file_path, create_file_na
 
 User = get_user_model()
 
-#logger = logging.getLogger('django')
+logger = logging.getLogger('django')
 
 today = datetime.today()
 
