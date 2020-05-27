@@ -613,7 +613,7 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                     in_type='GRN',
                     in_type_id=instance.grn_order.grn_id,
                     sku=instance.product,
-                    batch_id='1234',
+                    batch_id=instance.batch_id,
                     quantity=int(instance.delivered_qty)
                 )
                 Putaway.objects.create(
@@ -621,7 +621,7 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                     putaway_type='GRN',
                     putaway_type_id=instance.grn_order.grn_id,
                     sku=instance.product,
-                    batch_id='1234',
+                    batch_id=instance.batch_id,
                     quantity=int(instance.delivered_qty),
                     putaway_quantity=int(instance.delivered_qty)
                 )
