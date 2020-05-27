@@ -428,6 +428,7 @@ class GRNOrderProductMapping(models.Model):
     damaged_qty = models.PositiveIntegerField(default=0)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_user_grn_order_product', null=True,blank=True, on_delete=models.CASCADE)
     vendor_product = models.ForeignKey(ProductVendorMapping, related_name='vendor_grn_products', null=True, blank=True,on_delete=models.CASCADE)
+    batch_id = models.CharField(max_length=21, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -482,17 +483,17 @@ class GRNOrderProductMapping(models.Model):
 
     def clean(self):
         super(GRNOrderProductMapping, self).clean()
-        total_items= self.delivered_qty + self.returned_qty
-        diff = self.po_product_quantity - self.already_grned_product
+        # total_items= self.delivered_qty + self.returned_qty
+        # diff = self.po_product_quantity - self.already_grned_product
 
         self.already_grn = self.delivered_qty
-        if self.product_invoice_qty <= diff:
-            if self.product_invoice_qty < total_items:
-                raise ValidationError(_('Product invoice quantity cannot be less than the sum of delivered quantity and returned quantity'))
-            elif total_items < self.product_invoice_qty:
-                raise ValidationError(_('Product invoice quantity must be equal to the sum of delivered quantity and returned quantity'))
-        else:
-            raise ValidationError(_('Product invoice quantity cannot be greater than the difference of PO product quantity and already_grned_product'))
+        # if self.product_invoice_qty <= diff:
+        #     if self.product_invoice_qty < total_items:
+        #         raise ValidationError(_('Product invoice quantity cannot be less than the sum of delivered quantity and returned quantity'))
+        #     elif total_items < self.product_invoice_qty:
+        #         raise ValidationError(_('Product invoice quantity must be equal to the sum of delivered quantity and returned quantity'))
+        # else:
+        #     raise ValidationError(_('Product invoice quantity cannot be greater than the difference of PO product quantity and already_grned_product'))
         if self.manufacture_date :
             if self.manufacture_date >= datetime.date.today():
                 raise ValidationError(_("Manufactured Date cannot be greater than or equal to today's date"))
@@ -507,8 +508,11 @@ class GRNOrderProductMapping(models.Model):
     def save(self, *args, **kwargs):
         if not self.vendor_product and self.grn_order.order.ordered_cart.cart_list.filter(cart_product=self.product).last().vendor_product:
             self.vendor_product = self.grn_order.order.ordered_cart.cart_list.filter(cart_product=self.product).last().vendor_product
-
+        if self.expiry_date and not self.batch_id:
+            self.batch_id = '{}{}'.format(self.product.product_sku,
+                                          self.expiry_date.strftime('%m%y'))
         super(GRNOrderProductMapping, self).save(*args, **kwargs)
+
 
 class BrandNote(models.Model):
     NOTE_TYPE_CHOICES = (
