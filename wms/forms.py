@@ -1,9 +1,9 @@
 from django import forms
-from django.core.exceptions import ValidationError
-from django.contrib.auth import get_user_model
-from .models import Bin
-from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
-from django.core.exceptions import ObjectDoesNotExist
+from .models import Bin, In, Putaway
+from shops.models import Shop
+
+
+warehouse_choices = Shop.objects.filter(shop_type__shop_type='sp')
 
 
 class BulkBinUpdation(forms.Form):
@@ -18,6 +18,27 @@ class BulkBinUpdation(forms.Form):
 
 class BinForm(forms.ModelForm):
     bin_id = forms.CharField(required=True)
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
+
     class Meta:
         model = Bin
         fields = ['warehouse', 'bin_id', 'bin_type', 'is_active', ]
+
+
+class InForm(forms.ModelForm):
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
+
+    class Meta:
+        model = In
+        fields = '__all__'
+
+
+class PutAwayForm(forms.ModelForm):
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
+
+    class Meta:
+        model = Putaway
+        fields = '__all__'
+
+
+

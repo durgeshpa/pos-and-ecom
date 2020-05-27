@@ -4,8 +4,8 @@ from .views import bins_upload, put_away
 from import_export import resources
 import csv
 from django.contrib import messages
-from .models import Bin, InventoryType
-from .forms import BinForm
+from .models import Bin, InventoryType, In, Putaway
+from .forms import (BinForm, InForm, PutAwayForm)
 
 class BinResource(resources.ModelResource):
     class Meta:
@@ -58,6 +58,17 @@ class BinAdmin(admin.ModelAdmin, WMSBIN):
         return urls
 
 
+class InAdmin(admin.ModelAdmin):
+    form = InForm
+    list_display = ('warehouse', 'sku', 'quantity')
+
+
+class PutAwayAdmin(admin.ModelAdmin):
+    form = PutAwayForm
+    list_display = ('warehouse','putaway_type', 'putaway_type_id', 'sku', 'batch_id','quantity','putaway_quantity')
+
 
 admin.site.register(Bin, BinAdmin)
+admin.site.register(In, InAdmin)
 admin.site.register(InventoryType)
+admin.site.register(Putaway, PutAwayAdmin)
