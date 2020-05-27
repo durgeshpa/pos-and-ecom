@@ -43,18 +43,17 @@ def convert_hash_using_hmac_sha256(payload):
     return signature
 
 
-def create_file_path(shipment, file_path_list):
+def create_file_path(file_path_list, bucket_location, file_name):
     """
-
-    :param shipment: shipment object
-    :param file_path_list: list objects
-    :return: list of file path
+    :param file_path_list: list of file path
+    :param bucket_location: location of S3 bucket
+    :param file_name: name of pdf file
+    :return: list of pdf files path
     """
 
     try:
         bucket_name = config('AWS_STORAGE_BUCKET_NAME')
-        file_path = (bucket_name + '/' + shipment.invoice.invoice_pdf.storage.location + '/' + (
-            shipment.invoice.invoice_pdf.name))
+        file_path = bucket_name + '/' + bucket_location + '/' + file_name
         file_path_list.append(file_path)
     except Exception as e:
         logger.exception(e)
@@ -64,8 +63,8 @@ def create_file_path(shipment, file_path_list):
 def create_zip_url(file_path_list):
     """
 
-    :param file_paths: Collection of files which we need to download
-    :return: :- Response of zip status API
+    :param file_path_list: collection of pdf files
+    :return: :- response of zip status api
     """
     try:
         # S3zip Server URL
@@ -89,9 +88,9 @@ def create_zip_url(file_path_list):
 
 def s3_zip_status_api(stream_api_response, api_url):
     """
-    :param stream_api_response: Response of S3ZIP stream API
-    :param api_url: API URL
-    :return: redirect the response URL
+    :param stream_api_response: response of S3ZIP stream API
+    :param api_url: api url
+    :return: redirect the response url
     """
     try:
         # crete API end point for S3zip status API
@@ -109,11 +108,12 @@ def s3_zip_status_api(stream_api_response, api_url):
         logger.exception(e)
 
 
-def create_file_name(unique_id):
+def create_file_name(file_prefix, unique_id):
     """
 
+    :param file_prefix: append the prefix according to object
     :param unique_id: unique id
-    :return: unique file name
+    :return: file name
     """
     # return unique name of pdf file
-    return 'invoice' + '_' + str(unique_id) + '.pdf'
+    return file_prefix + str(unique_id) + '.pdf'

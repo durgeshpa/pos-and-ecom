@@ -78,7 +78,7 @@ from coupon.serializers import CouponSerializer
 from coupon.models import Coupon, CusotmerCouponUsage
 
 from products.models import Product
-from common.constants import ZERO
+from common.constants import ZERO, PREFIX_INVOICE_FILE_NAME
 from common.common_utils import create_zip_url, create_file_path, create_file_name
 
 User = get_user_model()
@@ -1119,9 +1119,6 @@ class DownloadInvoiceSP(APIView):
     Product
     """
     permission_classes = (AllowAny,)
-    """
-    PDF Download object
-    """
 
     def get(self, request, *args, **kwargs):
         """
@@ -1134,7 +1131,7 @@ class DownloadInvoiceSP(APIView):
         # check condition for single pdf download using download invoice link
         if len(args) == ZERO:
             # get primary key
-            pk = self.kwargs.get('pk')
+            pk = kwargs.get('pk')
             # check pk is exist or not for Order product model
             shipment = get_object_or_404(OrderedProduct, pk=pk)
             # call pdf generation method to generate pdf and download the pdf
@@ -1145,10 +1142,14 @@ class DownloadInvoiceSP(APIView):
             for pk in args[0]:
                 # check pk is exist or not for Order product model
                 shipment = get_object_or_404(OrderedProduct, pk=pk)
-                # call pdf generation method to generate pdf
+                # call pdf generation method to generate and save pdf
                 pdf_generation(self, request, shipment)
-                # call create file method for to collect the path of pdf file
-                file_path_list = create_file_path(shipment, file_path_list)
+                # get bucket location
+                bucket_location = shipment.invoice.invoice_pdf.storage.location
+                # get pdf file name
+                file_name = shipment.invoice.invoice_pdf.name
+                # call create file path to get the path of pdf files from S3
+                file_path_list = create_file_path(file_path_list, bucket_location, file_name)
             # call create zip url method to generate zip url
             response = create_zip_url(file_path_list)
         return response
@@ -1157,12 +1158,15 @@ class DownloadInvoiceSP(APIView):
 def pdf_generation(self, request, shipment):
     """
 
-    :param self:self
+    :param self:self object
     :param request: request object
     :param shipment: shipment object
-    :return: response
+    :return: pdf instance
     """
-    filename = create_file_name(shipment)
+    # get prefix of file name
+    file_prefix = PREFIX_INVOICE_FILE_NAME
+    # get the file name along with with prefix name
+    filename = create_file_name(file_prefix, shipment)
     template_name = 'admin/invoice/invoice_sp.html'
     try:
         if shipment.invoice.invoice_pdf.url:

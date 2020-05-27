@@ -16,3 +16,9 @@ STREAM_API_NAME = 'streamzip'
 
 # Status Api Name
 STATUS_API_NAME = 'status'
+
+# Prefix of Invoice file name
+PREFIX_INVOICE_FILE_NAME = 'invoice_'
+
+# Prefix of PickList file name
+PREFIX_PICK_LIST_FILE_NAME = 'PickList_'
