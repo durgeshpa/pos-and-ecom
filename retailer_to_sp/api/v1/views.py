@@ -1212,6 +1212,21 @@ def pdf_generation(self, request, shipment):
         cess_tax_list = []
         surcharge_tax_list = []
         sum_qty = 0
+        igst = sum(gst_tax_list)
+        cgst = (sum(gst_tax_list)) / 2
+        sgst = (sum(gst_tax_list)) / 2
+        cess = sum(cess_tax_list)
+        surcharge = sum(surcharge_tax_list)
+        open_time = '-'
+        close_time = '-'
+        sum_qty = 0
+        shop_name_gram = 'GFDN SERVICES PVT LTD'
+        nick_name_gram = '-'
+        address_line1_gram = '-'
+        city_gram = '-'
+        state_gram = '-'
+        pincode_gram = '-'
+        cin = '-'
         for m in shipment.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
             sum_qty += m.shipped_qty
             # New Code For Product Listing Start
