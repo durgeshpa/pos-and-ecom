@@ -68,6 +68,10 @@
                         <div class="text"><a href="?o=5">Damaged Qty </a></div>
                         <div class="clear"></div>
                       </th>
+                      <th scope="col" class="sortable column-country">
+                        <div class="text"><a href="?o=3">MRP</a></div>
+                        <div class="clear"></div>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -80,6 +84,7 @@
                         <th class="field-country nowrap">{{ dt.product__product_name }}</th>
                         <td class="field-state_name">{{ dt.product_qty_sum }}</td>
                         <td class="field-state_name">{{ dt.damaged_qty_sum }}</td>
+                        <td class="field-state_name">{{ dt.mrp }}</td>
 
                     </tr>
                   {% endfor %}

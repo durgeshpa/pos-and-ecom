@@ -6,6 +6,7 @@ from dal import autocomplete
 from wkhtmltopdf.views import PDFTemplateResponse
 from products.models import *
 from num2words import num2words
+from barCodeGenerator import barcodeGen
 from django.core.files.base import ContentFile
 from django.forms import formset_factory, inlineformset_factory, modelformset_factory, BaseFormSet, ValidationError
 from django.shortcuts import render, get_object_or_404, redirect
@@ -795,19 +796,20 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
             }
             cart_product_list.append(product_list)
 
-    data = {
-        "order_obj": order_obj,
-        "buyer_shop": order_obj.ordered_cart.buyer_shop.shop_name,
-        "buyer_contact_no": order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
-        "buyer_shipping_address": order_obj.shipping_address.address_line1,
-        "buyer_shipping_city": order_obj.shipping_address.city.city_name,
-    }
-    if shipment:
-        data["shipment_products"] = shipment_product_list
-        data["shipment"] = True
-    else:
-        data["cart_products"] = cart_product_list
-        data["shipment"] = False
+        data = {
+            "order_obj": order_obj,
+            "buyer_shop": order_obj.ordered_cart.buyer_shop.shop_name,
+            "buyer_contact_no": order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
+            "buyer_shipping_address": order_obj.shipping_address.address_line1,
+            "buyer_shipping_city": order_obj.shipping_address.city.city_name,
+            "barcode":barcode
+        }
+        if shipment:
+            data["shipment_products"] = shipment_product_list
+            data["shipment"] = True
+        else:
+            data["cart_products"] = cart_product_list
+            data["shipment"] = False
 
     cmd_option = {
         "margin-top": 10,
