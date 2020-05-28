@@ -690,7 +690,7 @@ class DownloadPickListPicker(TemplateView, ):
         :param kwargs: keyword argument
         :return: zip folder which contains the pdf files
         """
-        template_name = 'admin/download/retailer_sp_pick_list.html'
+        template_name = 'admin/download/retailer_sp_picker_pick_list.html'
         # get prefix of file name
         file_prefix = PREFIX_PICK_LIST_FILE_NAME
         # check condition for single pdf download using download invoice link
@@ -699,7 +699,7 @@ class DownloadPickListPicker(TemplateView, ):
             pk = kwargs.get('pk')
             # check pk is exist or not for Order product model
             order_obj = get_object_or_404(Order, pk=pk)
-            # barcode
+            # barcode generation
             barcode = barcodeGen(order_obj.order_no)
             # get shipment id
             shipment_id = self.kwargs.get('shipment_id')
@@ -859,7 +859,7 @@ class DownloadPickList(TemplateView, ):
             pk = kwargs.get('pk')
             # check pk is exist or not for Order product model
             order_obj = get_object_or_404(Order, pk=pk)
-            # barcode
+            # barcode generation
             barcode = barcodeGen(order_obj.order_no)
             # call pick list download method to generate and save the pdf
             response = pick_list_download(request, order_obj, template_name, file_prefix, barcode)
