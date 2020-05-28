@@ -699,10 +699,12 @@ class DownloadPickListPicker(TemplateView, ):
             pk = kwargs.get('pk')
             # check pk is exist or not for Order product model
             order_obj = get_object_or_404(Order, pk=pk)
+            # barcode
+            barcode = barcodeGen(order_obj.order_no)
             # get shipment id
             shipment_id = self.kwargs.get('shipment_id')
             # call pick list dashboard method to generate and save the pdf
-            response = pick_list_dashboard(request, order_obj, shipment_id, template_name, file_prefix)
+            response = pick_list_dashboard(request, order_obj, shipment_id, template_name, file_prefix, barcode)
         else:
             # create list for files
             file_path_list = []
@@ -725,7 +727,7 @@ class DownloadPickListPicker(TemplateView, ):
         return response
 
 
-def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_prefix):
+def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_prefix, barcode):
     """
 
     :param request: request object
@@ -802,7 +804,7 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
             "buyer_contact_no": order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
             "buyer_shipping_address": order_obj.shipping_address.address_line1,
             "buyer_shipping_city": order_obj.shipping_address.city.city_name,
-            "barcode":barcode
+            "barcode": barcode
         }
         if shipment:
             data["shipment_products"] = shipment_product_list
@@ -852,16 +854,20 @@ class DownloadPickList(TemplateView, ):
             pk = kwargs.get('pk')
             # check pk is exist or not for Order product model
             order_obj = get_object_or_404(Order, pk=pk)
+            # barcode
+            barcode = barcodeGen(order_obj.order_no)
             # call pick list download method to generate and save the pdf
-            response = pick_list_download(request, order_obj, template_name, file_prefix )
+            response = pick_list_download(request, order_obj, template_name, file_prefix, barcode)
         else:
             # create list for files
             file_path_list = []
             for pk in args[0]:
                 # check pk is exist or not for Order product model
                 order_obj = get_object_or_404(Order, pk=pk)
+                # barcode
+                barcode = barcodeGen(order_obj.order_no)
                 # call pick list download method to generate and save the pdf
-                pick_list_download(request, order_obj, template_name, file_prefix)
+                pick_list_download(request, order_obj, template_name, file_prefix, barcode)
                 # get the bucket location
                 bucket_location = order_obj.pick_list_pdf.storage.location
                 # get the file name
@@ -873,7 +879,7 @@ class DownloadPickList(TemplateView, ):
         return response
 
 
-def pick_list_download(request, order_obj, template_name, file_prefix):
+def pick_list_download(request, order_obj, template_name, file_prefix, barcode):
     """
 
     :param request: request object
@@ -905,6 +911,7 @@ def pick_list_download(request, order_obj, template_name, file_prefix):
         "buyer_contact_no": order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
         "buyer_shipping_address": order_obj.shipping_address.address_line1,
         "buyer_shipping_city": order_obj.shipping_address.city.city_name,
+        "barcode": barcode
     }
     cmd_option = {
         "margin-top": 10,
