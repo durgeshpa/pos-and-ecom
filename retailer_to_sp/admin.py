@@ -15,6 +15,7 @@ from django.utils.html import format_html
 from django.utils.translation import ugettext_lazy as _
 from django_admin_listfilter_dropdown.filters import (ChoiceDropdownFilter, RelatedDropdownFilter)
 from django.utils.safestring import mark_safe
+from django.shortcuts import redirect
 
 # app imports
 from rangefilter.filter import DateTimeRangeFilter
@@ -856,6 +857,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
                     pass
             # call get method under the DownloadPickListPicker class
             response = DownloadPickListPicker.get(self, request, argument_list, kwargs)
+            return redirect(response)
         else:
             response = messages.error(request, ERROR_MESSAGES['1001'])
         return response
@@ -929,7 +931,6 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         :param kwargs: keyword argument
         :return: response
         """
-        print("hello")
         if len(args[0]) <= FIFTY:
             # argument_list contains list of pk
             argument_list = []
@@ -941,6 +942,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                     pass
             # call get method under the DownloadPickList class
             response = DownloadPickList.get(self, request, argument_list, **kwargs)
+            return redirect(response)
         else:
             response = messages.error(request, ERROR_MESSAGES['1001'])
         return response
@@ -1234,6 +1236,7 @@ class ShipmentAdmin(admin.ModelAdmin):
                     argument_list.append(arg.pk)
             # call get method under the DownloadInvoiceSP class
             response = DownloadInvoiceSP.get(self, request, argument_list, **kwargs)
+            return redirect(response)
         else:
             response = messages.error(request, ERROR_MESSAGES['1001'])
         return response
@@ -1699,6 +1702,7 @@ class InvoiceAdmin(admin.ModelAdmin):
                     argument_list.append(arg.shipment.pk)
             # call get method under the DownloadInvoiceSP class
             response = DownloadInvoiceSP.get(self, request, argument_list, **kwargs)
+            return redirect(response)
         else:
             response = messages.error(request, ERROR_MESSAGES['1001'])
         return response

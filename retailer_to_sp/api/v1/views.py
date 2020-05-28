@@ -79,7 +79,7 @@ from coupon.serializers import CouponSerializer
 from coupon.models import Coupon, CusotmerCouponUsage
 
 from products.models import Product
-from common.constants import ZERO, PREFIX_INVOICE_FILE_NAME
+from common.constants import ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.common_utils import create_zip_url, create_file_path, create_file_name
 
 User = get_user_model()
@@ -1151,8 +1151,10 @@ class DownloadInvoiceSP(APIView):
                 file_name = shipment.invoice.invoice_pdf.name
                 # call create file path to get the path of pdf files from S3
                 file_path_list = create_file_path(file_path_list, bucket_location, file_name)
+            # assign zip name
+            zip_name = INVOICE_DOWNLOAD_ZIP_NAME
             # call create zip url method to generate zip url
-            response = create_zip_url(file_path_list)
+            response = create_zip_url(file_path_list, zip_name)
         return response
 
 
@@ -1173,7 +1175,7 @@ def pdf_generation(self, request, shipment):
         if shipment.invoice.invoice_pdf.url:
             r = requests.get(shipment.invoice.invoice_pdf.url)
             response = HttpResponse(r.content, content_type='application/pdf')
-            response['Content-Disposition'] = 'attachment; filename="invoice-{}.pdf"'.format(shipment.invoice_no)
+            response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
             return response
             return redirect(shipment.invoice.invoice_pdf.url)
     except:
@@ -1331,7 +1333,7 @@ def pdf_generation(self, request, shipment):
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         try:
-            shipment.invoice.invoice_pdf.save("invoice-{}.pdf".format(shipment.invoice_no),
+            shipment.invoice.invoice_pdf.save("{}".format(filename),
                                               ContentFile(response.rendered_content), save=True)
         except Exception as e:
             logger.exception(e)

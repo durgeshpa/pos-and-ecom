@@ -1,6 +1,6 @@
 import datetime
 import logging
-
+import time
 from decimal import Decimal
 from dal import autocomplete
 from wkhtmltopdf.views import PDFTemplateResponse
@@ -59,7 +59,7 @@ from django.contrib.auth import get_user_model
 from retailer_backend.common_function import brand_credit_note_pattern
 from addresses.models import Address
 from accounts.models import UserWithName
-from common.constants import ZERO, PREFIX_PICK_LIST_FILE_NAME
+from common.constants import ZERO, PREFIX_PICK_LIST_FILE_NAME, PICK_LIST_DOWNLOAD_ZIP_NAME, TIME_FORMAT
 from common.common_utils import create_zip_url, create_file_name, create_file_path
 
 class ReturnProductAutocomplete(autocomplete.Select2QuerySetView):
@@ -712,18 +712,24 @@ class DownloadPickListPicker(TemplateView, ):
                 for pk in args[1]:
                     # check pk is exist or not for Order model
                     order_obj = get_object_or_404(Order, pk=pk)
+                    # barcode
+                    barcode = barcodeGen(order_obj.order_no)
                     # get shipment id
                     shipment_id = args[1][pk]
                     # call pick list dashboard method to generate and save the pdf
-                    pick_list_dashboard(request, order_obj, shipment_id, template_name, file_prefix)
+                    pick_list_dashboard(request, order_obj, shipment_id, template_name, file_prefix, barcode)
                     # get the bucket location
                     bucket_location = order_obj.pick_list_pdf.storage.location
                     # get the file name
                     file_name = order_obj.pick_list_pdf.name
                     # call create file path to get the path of pdf files from S3
                     file_path_list = create_file_path(file_path_list, bucket_location, file_name)
+            # assign date time format as %d%m%y_%H%M%S
+            date_time = time.strftime(TIME_FORMAT)
+            # assign zip name
+            zip_name = PICK_LIST_DOWNLOAD_ZIP_NAME + '_' + date_time
             # call create zip url method to generate zip url
-            response = create_zip_url(file_path_list)
+            response = create_zip_url(file_path_list, zip_name)
         return response
 
 
@@ -798,20 +804,20 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
             }
             cart_product_list.append(product_list)
 
-        data = {
-            "order_obj": order_obj,
-            "buyer_shop": order_obj.ordered_cart.buyer_shop.shop_name,
-            "buyer_contact_no": order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
-            "buyer_shipping_address": order_obj.shipping_address.address_line1,
-            "buyer_shipping_city": order_obj.shipping_address.city.city_name,
-            "barcode": barcode
-        }
-        if shipment:
-            data["shipment_products"] = shipment_product_list
-            data["shipment"] = True
-        else:
-            data["cart_products"] = cart_product_list
-            data["shipment"] = False
+    data = {
+        "order_obj": order_obj,
+        "buyer_shop": order_obj.ordered_cart.buyer_shop.shop_name,
+        "buyer_contact_no": order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
+        "buyer_shipping_address": order_obj.shipping_address.address_line1,
+        "buyer_shipping_city": order_obj.shipping_address.city.city_name,
+        "barcode": barcode
+    }
+    if shipment:
+        data["shipment_products"] = shipment_product_list
+        data["shipment"] = True
+    else:
+        data["cart_products"] = cart_product_list
+        data["shipment"] = False
 
     cmd_option = {
         "margin-top": 10,
@@ -826,8 +832,7 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
         show_content_in_browser=False, cmd_options=cmd_option)
     try:
         # save pdf file in pick_list_pdf field
-        order_obj.pick_list_pdf.save("{}".format(file_name),
-                                          ContentFile(response.rendered_content), save=True)
+        order_obj.pick_list_pdf.save("{}".format(file_name), ContentFile(response.rendered_content), save=True)
     except Exception as e:
         logger.exception(e)
     return response
@@ -874,8 +879,12 @@ class DownloadPickList(TemplateView, ):
                 file_name = order_obj.pick_list_pdf.name
                 # call create file path to get the path of pdf files from S3
                 file_path_list = create_file_path(file_path_list, bucket_location, file_name)
+            # assign date time format as %d%m%y_%H%M%S
+            date_time = time.strftime(TIME_FORMAT)
+            # assign zip name
+            zip_name = PICK_LIST_DOWNLOAD_ZIP_NAME + '_' + date_time
             # call create zip url method to generate zip url
-            response = create_zip_url(file_path_list)
+            response = create_zip_url(file_path_list, zip_name)
         return response
 
 
@@ -925,8 +934,7 @@ def pick_list_download(request, order_obj, template_name, file_prefix, barcode):
         filename=file_name, context=data,
         show_content_in_browser=False, cmd_options=cmd_option)
     try:
-        order_obj.pick_list_pdf.save("{}".format(file_name),
-                                          ContentFile(response.rendered_content), save=True)
+        order_obj.pick_list_pdf.save("{}".format(file_name), ContentFile(response.rendered_content), save=True)
     except Exception as e:
         logger.exception(e)
     return response
