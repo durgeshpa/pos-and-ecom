@@ -5,6 +5,7 @@ from barCodeGenerator import barcode_gen,barcode_decoder
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.utils.safestring import mark_safe
 import sys
+from django.core.exceptions import ValidationError
 
 
 BIN_TYPE_CHOICES = (
@@ -123,9 +124,14 @@ class Putaway(models.Model):
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=21, null=True, blank=True)
     quantity = models.PositiveIntegerField()
-    putaway_quantity = models.PositiveIntegerField()
+    putaway_quantity = models.PositiveIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        super(Putaway, self).clean()
+        if self.putaway_quantity > self.quantity:
+            raise ValidationError('Putaway_quantity must be less than or equal to Grned_quantity')
 
 
 class PutawayBinInventory(models.Model):
