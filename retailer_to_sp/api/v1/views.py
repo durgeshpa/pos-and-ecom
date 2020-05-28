@@ -23,7 +23,7 @@ from rest_framework import serializers
 from rest_framework import generics, viewsets
 from retailer_backend.utils import SmallOffsetPagination
 from num2words import num2words
-
+import collections
 from django.core.files.base import ContentFile
 from django.shortcuts import redirect
 from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,
@@ -469,7 +469,7 @@ class AddToCart(APIView):
                 return Response(msg, status=status.HTTP_200_OK)
             #  if shop mapped with SP
             available=OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product=cart_product,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
-            shop_products_dict = {g['product_id']: int(g['available_qty']) for g in available}
+            shop_products_dict =collections.defaultdict(lambda: 0, {g['product_id']: int(g['available_qty']) for g in available})
             if parent_mapping.parent.shop_type.shop_type == 'sp':
                 ordered_qty = 0
                 product = Product.objects.get(id = cart_product)
@@ -662,7 +662,7 @@ class CartDetail(APIView):
                     cart=cart
                 )
                 available = OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product__in=cart_products.values('cart_product'), available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
-                shop_products_dict = {g['product_id']: int(g['available_qty']) for g in available}
+                shop_products_dict = collections.defaultdict(lambda: 0, {g['product_id']: int(g['available_qty']) for g in available})
                 for cart_product in cart_products:
                     # available = OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product=cart_product.cart_product.id,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
                     # shop_products_dict = {g['product_id']: int(g['available_qty']) for g in available}
@@ -784,7 +784,7 @@ class ReservedOrder(generics.ListAPIView):
                 cart_products.update(capping_error_msg ='')
                 cart_product_ids = cart_products.values('cart_product')
                 shop_products_available = OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product__in=cart_product_ids,available_qty__gt=0).values('product_id').annotate(available_qty=Sum('available_qty'))
-                shop_products_dict = {g['product_id']:int(g['available_qty']) for g in shop_products_available}
+                shop_products_dict = collections.defaultdict(lambda: 0, {g['product_id']:int(g['available_qty']) for g in shop_products_available})
 
                 products_available = {}
                 products_unavailable = []
