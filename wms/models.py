@@ -1,7 +1,7 @@
 from django.db import models
 from products.models import Product
 from shops.models import Shop
-from barCodeGenerator import barcode_gen,barcode_decoder
+from common.common_utils import barcode_gen,barcode_decoder
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.utils.safestring import mark_safe
 import sys

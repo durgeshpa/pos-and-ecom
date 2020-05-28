@@ -34,7 +34,11 @@ from sp_to_gram.models import (
     OrderedProduct as SpGRNOrder,
     OrderedProductMapping as SpGRNOrderProductMapping
 )
+<<<<<<< Updated upstream
 from wms.models import In, Putaway
+=======
+
+>>>>>>> Stashed changes
 from base.models import (BaseOrder, BaseCart, BaseShipment)
 #from gram_to_brand.forms import GRNOrderProductForm
 # from analytics.post_save_signal import get_grn_report
@@ -608,6 +612,7 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                     returned_qty=0,
                     damaged_qty=0
                 )
+<<<<<<< Updated upstream
                 In.objects.create(
                     warehouse=shop.retailer,
                     in_type='GRN',
@@ -624,6 +629,8 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                     batch_id=instance.batch_id,
                     quantity=int(instance.product_invoice_qty)
                 )
+=======
+>>>>>>> Stashed changes
 
         # ends here
         instance.available_qty = 0
