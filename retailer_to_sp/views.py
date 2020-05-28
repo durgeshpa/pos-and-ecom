@@ -741,6 +741,7 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
     :param shipment_id: shipment id
     :param template_name: template for pdf file
     :param file_prefix: prefix name for pdf file
+    :param barcode: barcode of the invoice
     :return: pdf file instance
     """
     if not request.user.is_authenticated:
@@ -895,6 +896,7 @@ def pick_list_download(request, order_obj, template_name, file_prefix, barcode):
     :param order_obj: order object
     :param template_name: template for pdf file
     :param file_prefix: prefix name for pdf file
+    :param barcode: barcode of the invoice
     :return: pdf file instance
     """
     if not request.user.is_authenticated:

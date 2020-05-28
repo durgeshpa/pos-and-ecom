@@ -34,4 +34,4 @@ PICK_LIST_DOWNLOAD_ZIP_NAME = 'Bulk_Picklist'
 ZIP_FORMAT = '.zip'
 
 # Time Format
-TIME_FORMAT = "%d%m%y_%H%M%S"
+TIME_FORMAT = "%d%m%y_%H%M"
