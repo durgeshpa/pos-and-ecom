@@ -4,7 +4,7 @@ from .views import bins_upload, put_away
 from import_export import resources
 import csv
 from django.contrib import messages
-from .models import Bin, InventoryType, In, Putaway
+from .models import Bin, InventoryType, In, Putaway, PutawayBinInventory
 from .forms import (BinForm, InForm, PutAwayForm)
 from django.utils.html import format_html
 from barCodeGenerator import barcodeGen
@@ -78,7 +78,12 @@ class PutAwayAdmin(admin.ModelAdmin):
     list_display = ('warehouse','putaway_type', 'putaway_type_id', 'sku', 'batch_id','quantity','putaway_quantity')
 
 
+class PutawayBinInventoryAdmin(admin.ModelAdmin):
+    list_display = ('warehouse', 'putaway', 'bin', 'putaway_quantity', 'created_at')
+
+
 admin.site.register(Bin, BinAdmin)
 admin.site.register(In, InAdmin)
 admin.site.register(InventoryType)
 admin.site.register(Putaway, PutAwayAdmin)
+admin.site.register(PutawayBinInventory, PutawayBinInventoryAdmin)
