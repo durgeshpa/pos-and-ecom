@@ -16,26 +16,7 @@ class BinResource(resources.ModelResource):
         exclude = ('created_at', 'modified_at')
 
 
-<<<<<<< Updated upstream
 class BinAdmin(admin.ModelAdmin):
-    form = BinForm
-=======
-class WMSBIN:
-    def export_as_csv_forbins(self, request, queryset):
-        meta = self.model._meta
-        field_names = [field.name for field in meta.fields]
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename={}.csv'.format(meta)
-        writer = csv.writer(response)
-        writer.writerow(field_names)
-        for obj in queryset:
-            writer.writerow([getattr(obj, field) for field in field_names])
-        return response
-    export_as_csv_forbins.short_description = "Download CSV of selected bins"
-
-
-class BinAdmin(admin.ModelAdmin, WMSBIN):
->>>>>>> Stashed changes
     resource_class = BinResource
     actions = ['download_csv_for_bins',]
     list_display = ('warehouse', 'bin_id', 'bin_type', 'created_at', 'modified_at', 'is_active', 'download_bin_id_barcode')
