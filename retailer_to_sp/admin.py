@@ -1232,7 +1232,7 @@ class ShipmentAdmin(admin.ModelAdmin):
             for arg in args[ZERO]:
                 if len(args[0]) <= 1 and (
                         arg.shipment_status == OrderedProduct.SHIPMENT_STATUS[ZERO] or arg.invoice_no == '-'):
-                    error_message = messages.error(request, ERROR_MESSAGES['1001'])
+                    error_message = messages.error(request, ERROR_MESSAGES['1002'])
                     return error_message
                 elif arg.shipment_status == OrderedProduct.SHIPMENT_STATUS[ZERO] or arg.invoice_no == '-':
                     pass
@@ -1699,18 +1699,23 @@ class InvoiceAdmin(admin.ModelAdmin):
         :param kwargs: keyword argument
         :return: response
         """
+
         if len(args[0]) <= FIFTY:
             # argument_list contains list of pk exclude shipment created and blank invoice
             argument_list = []
             for arg in args[ZERO]:
-                if arg.shipment_status == OrderedProduct.SHIPMENT_STATUS[ZERO] or arg.invoice_no == '-':
+                if len(args[0]) <= 1 and (
+                        arg.shipment_status == OrderedProduct.SHIPMENT_STATUS[ZERO] or arg.invoice_no == '-'):
+                    error_message = messages.error(request, ERROR_MESSAGES['1002'])
+                    return error_message
+                elif arg.shipment_status == OrderedProduct.SHIPMENT_STATUS[ZERO] or arg.invoice_no == '-':
                     pass
                 else:
                     # append pk which are not falling under the shipment created and blank invoice number
                     argument_list.append(arg.shipment.pk)
             # call get method under the DownloadInvoiceSP class
             response = DownloadInvoiceSP.get(self, request, argument_list, **kwargs)
-            return redirect(response)
+            response = redirect(response)
         else:
             response = messages.error(request, ERROR_MESSAGES['1001'])
         return response
