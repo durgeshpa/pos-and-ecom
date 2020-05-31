@@ -736,7 +736,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     list_filter = ['picking_status', PickerBoyFilter, PicklistIdFilter, OrderNumberSearch,('created_at', DateTimeRangeFilter),]
 
     class Media:
-        pass
+        js = ('admin/js/shipment.js', )
         #js = ('admin/js/datetime_filter_collapse.js', )
 
     def get_readonly_fields(self, request, obj=None):
@@ -904,8 +904,8 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     list_filter = [PhoneNumberFilter,SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
         ('created_at', DateTimeRangeFilter), Pincode, ('shipping_address__city', RelatedDropdownFilter)]
 
-    # class Media:
-    #     js = ('admin/js/dynamic_input_box.js', )
+    class Media:
+        js = ('admin/js/shipment.js', )
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
@@ -1079,6 +1079,7 @@ class OrderedProductAdmin(admin.ModelAdmin):
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
+        js = ('admin/js/shipment.js',)
 
 
 class DispatchProductMappingAdmin(admin.TabularInline):
@@ -1229,14 +1230,18 @@ class ShipmentAdmin(admin.ModelAdmin):
             # argument_list contains list of pk exclude shipment created and blank invoice
             argument_list = []
             for arg in args[ZERO]:
-                if arg.shipment_status == OrderedProduct.SHIPMENT_STATUS[ZERO] or arg.invoice_no == '-':
+                if len(args[0]) <= 1 and (
+                        arg.shipment_status == OrderedProduct.SHIPMENT_STATUS[ZERO] or arg.invoice_no == '-'):
+                    error_message = messages.error(request, ERROR_MESSAGES['1001'])
+                    return error_message
+                elif arg.shipment_status == OrderedProduct.SHIPMENT_STATUS[ZERO] or arg.invoice_no == '-':
                     pass
                 else:
                     # append pk which are not falling under the shipment created and blank invoice number
                     argument_list.append(arg.pk)
             # call get method under the DownloadInvoiceSP class
             response = DownloadInvoiceSP.get(self, request, argument_list, **kwargs)
-            return redirect(response)
+            response = redirect(response)
         else:
             response = messages.error(request, ERROR_MESSAGES['1001'])
         return response
@@ -1244,6 +1249,9 @@ class ShipmentAdmin(admin.ModelAdmin):
     download_bulk_invoice.short_description = 'Download Invoice'
     # download bulk invoice short description
     download_bulk_invoice.short_description = DOWNLOAD_BULK_INVOICE
+
+    class Media:
+        js = ('admin/js/shipment.js', )
 
     def pincode(self, obj):
         return obj.order.shipping_address.pincode
@@ -1709,6 +1717,9 @@ class InvoiceAdmin(admin.ModelAdmin):
 
     # download bulk invoice short description
     download_bulk_invoice.short_description = DOWNLOAD_BULK_INVOICE
+
+    class Media:
+        js = ('admin/js/shipment.js',)
 
     def get_invoice_amount(self, obj):
         return "%s %s" % (u'\u20B9', str(obj.invoice_amount))
