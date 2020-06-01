@@ -162,8 +162,8 @@ class PutawayBinInventory(models.Model):
     def save(self, *args, **kwargs):
         check_quantity = PutawayBinInventory.objects.filter(putaway=self.putaway.id).aggregate(total=Sum('putaway_quantity')).get('total')
         if not check_quantity:
-            check_quantity = 0
-        if check_quantity <= Putaway.objects.filter(id=self.putaway.id).last().quantity:
+            check_quantity=0
+        if check_quantity < Putaway.objects.filter(id=self.putaway.id).last().quantity:
             super(PutawayBinInventory, self).save(*args, **kwargs)
 
     class Meta:

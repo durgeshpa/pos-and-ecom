@@ -98,7 +98,7 @@ class PutAwayViewSet(APIView):
                                                           inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(), quantity=put_away_quantity, in_stock='t')
                     PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),bin=bin_inv,putaway_quantity=put_away_quantity)
                 else:
-                    if batch_id[0:-4] in bin_inventory.values_list('sku__product_sku', flat=True):
+                    if batch_id[:17] in bin_inventory.values_list('sku__product_sku', flat=True):
                         return Response({'is_success': False, 'message': ['This product can not be placed in the bin'], 'response_data': None}, status=status.HTTP_200_OK)
                     else:
                         bin_inv = BinInventory.objects.create(warehouse=sh, sku=put_away.last().sku,
@@ -129,6 +129,10 @@ class PutAwayProduct(APIView):
         put_away = Putaway.objects.all()
         serializer = PutAwaySerializer(put_away, many=True, fields=('id', 'batch_id', 'sku', 'product_sku'))
         return Response({"put_away": serializer.data})
+
+
+
+
 
 
 
