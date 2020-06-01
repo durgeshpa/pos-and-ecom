@@ -6,15 +6,28 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.utils.safestring import mark_safe
 import sys
 from django.core.exceptions import ValidationError
+from django.db.models import Sum
+from django.contrib import messages
+
 
 
 BIN_TYPE_CHOICES = (
     ('p', 'Pallet'),
 )
 
+INVENTORY_TYPE_CHOICES = (
+    ('normal', 'NORMAL'),  #Available For Order
+    ('expired', 'EXPIRED'), #Expiry date passed
+    ('damaged', 'DAMAGED'), #Not orderable
+    ('discarded', 'DISCARDED'), #Rejected by warehouse
+    ('disposed', 'DISPOSED'), #Rejected or Expired and removed from warehouse
+)
 class InventoryType(models.Model):
     # id = models.AutoField(primary_key=True)
-    inventory_type = models.CharField(max_length=20, null=True, blank=True)
+    inventory_type = models.CharField(max_length=20,choices=INVENTORY_TYPE_CHOICES, null=True, blank=True)
+
+    def __str__(self):
+        return self.inventory_type
 
     class Meta:
         db_table = "wms_inventory_type"
@@ -58,12 +71,12 @@ class Bin(models.Model):
 
 class BinInventory(models.Model):
     # id = models.AutoField(primary_key=True)
-    warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
+    warehouse = models.ForeignKey(Shop,null=True, blank=True, on_delete=models.DO_NOTHING)
     bin = models.ForeignKey(Bin, null=True, blank=True, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=21, null=True, blank=True)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
-    quantity = models.PositiveIntegerField()
+    quantity = models.PositiveIntegerField(null=True, blank=True)
     in_stock = models.BooleanField()
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -121,12 +134,15 @@ class Putaway(models.Model):
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     putaway_type = models.CharField(max_length=20, null=True, blank=True)
     putaway_type_id = models.CharField(max_length=20, null=True, blank=True)
-    sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
+    sku = models.ForeignKey(Product,to_field='product_sku', on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=21, null=True, blank=True)
     quantity = models.PositiveIntegerField()
     putaway_quantity = models.PositiveIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.sku.product_sku
 
     def clean(self):
         super(Putaway, self).clean()
@@ -143,8 +159,23 @@ class PutawayBinInventory(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+    def save(self, *args, **kwargs):
+        check_quantity = PutawayBinInventory.objects.filter(putaway=self.putaway.id).aggregate(total=Sum('putaway_quantity')).get('total')
+        if check_quantity:
+            if check_quantity >= Putaway.objects.filter(id=self.putaway.id).last().quantity:
+                raise ValidationError('Error')
+            super(PutawayBinInventory, self).save(*args, **kwargs)
+        else:
+            check_quantity=0
+            if check_quantity >= Putaway.objects.filter(id=self.putaway.id).last().quantity:
+                raise ValidationError('Error')
+            super(PutawayBinInventory, self).save(*args, **kwargs)
+
     class Meta:
         db_table = "wms_putaway_bin_inventory"
+
+    def __str__(self):
+        return self.putaway.batch_id
 
 
 class Out(models.Model):
@@ -183,3 +214,4 @@ class PickupBinInventory(models.Model):
 
     class Meta:
         db_table = "wms_pickup_bin_inventory"
+

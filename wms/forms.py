@@ -1,5 +1,5 @@
 from django import forms
-from .models import Bin, In, Putaway
+from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory
 from shops.models import Shop
 
 
@@ -35,10 +35,38 @@ class InForm(forms.ModelForm):
 
 class PutAwayForm(forms.ModelForm):
     warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
+    putaway_quantity = forms.IntegerField(widget=forms.HiddenInput(), initial=0)
 
     class Meta:
         model = Putaway
         fields = '__all__'
+
+
+class PutAwayBinInventoryForm(forms.ModelForm):
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
+
+    class Meta:
+        model = PutawayBinInventory
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super(PutAwayBinInventoryForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+
+        if instance:
+            self.fields['putaway_quantity'].initial = 0
+            # self.fields['putaway_quantity'].disabled = True
+
+
+class BinInventoryForm(forms.ModelForm):
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
+
+    class Meta:
+        model = BinInventory
+        fields = '__all__'
+
+
+
 
 
 

@@ -4,8 +4,8 @@ from .views import bins_upload, put_away
 from import_export import resources
 import csv
 from django.contrib import messages
-from .models import Bin, InventoryType, In, Putaway, PutawayBinInventory
-from .forms import (BinForm, InForm, PutAwayForm)
+from .models import Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory
+from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm)
 from django.utils.html import format_html
 from barCodeGenerator import barcodeGen
 
@@ -17,6 +17,7 @@ class BinResource(resources.ModelResource):
 
 
 class BinAdmin(admin.ModelAdmin):
+    form = BinForm
     resource_class = BinResource
     actions = ['download_csv_for_bins',]
     list_display = ('warehouse', 'bin_id', 'bin_type', 'created_at', 'modified_at', 'is_active', 'download_bin_id_barcode')
@@ -79,11 +80,24 @@ class PutAwayAdmin(admin.ModelAdmin):
 
 
 class PutawayBinInventoryAdmin(admin.ModelAdmin):
+    form = PutAwayBinInventoryForm
     list_display = ('warehouse', 'putaway', 'bin', 'putaway_quantity', 'created_at')
+
+
+class InventoryTypeAdmin(admin.ModelAdmin):
+    list_display = ('inventory_type',)
+
+
+class BinInventoryAdmin(admin.ModelAdmin):
+    form = BinInventoryForm
+    list_select_related = ('warehouse', 'sku', 'bin', 'inventory_type')
+    list_display = ('batch_id','warehouse', 'sku', 'bin','inventory_type', 'quantity', 'in_stock')
 
 
 admin.site.register(Bin, BinAdmin)
 admin.site.register(In, InAdmin)
-admin.site.register(InventoryType)
+admin.site.register(InventoryType, InventoryTypeAdmin)
 admin.site.register(Putaway, PutAwayAdmin)
 admin.site.register(PutawayBinInventory, PutawayBinInventoryAdmin)
+admin.site.register(BinInventory, BinInventoryAdmin)
+
