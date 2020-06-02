@@ -1230,15 +1230,13 @@ class ShipmentAdmin(admin.ModelAdmin):
             # argument_list contains list of pk exclude shipment created and blank invoice
             argument_list = []
             for arg in args[ZERO]:
-                if len(args[0]) <= 1 and (
-                        arg.shipment_status == OrderedProduct.SHIPMENT_STATUS[ZERO] or arg.invoice_no == '-'):
-                    error_message = messages.error(request, ERROR_MESSAGES['1002'])
-                    return error_message
-                elif arg.shipment_status == OrderedProduct.SHIPMENT_STATUS[ZERO] or arg.invoice_no == '-':
+                # check condition for QC pending status file
+                if arg.shipment_status == OrderedProduct.SHIPMENT_STATUS[ZERO] or arg.invoice_no == '-':
                     pass
                 else:
                     # append pk which are not falling under the shipment created and blank invoice number
                     argument_list.append(arg.pk)
+            # if we are getting only QC pending status files for downloading
             if len(argument_list) == 0:
                 response = messages.error(request, ERROR_MESSAGES['1002'])
                 return response
