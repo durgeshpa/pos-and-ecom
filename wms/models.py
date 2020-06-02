@@ -1,7 +1,7 @@
 from django.db import models
 from products.models import Product
 from shops.models import Shop
-from common.common_utils import barcode_gen,barcode_decoder
+from common.common_utils import barcode_gen
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.utils.safestring import mark_safe
 import sys
@@ -64,9 +64,9 @@ class Bin(models.Model):
     def barcode_image(self):
         return mark_safe('<img alt="%s" src="%s" />' % (self.bin_id, self.bin_barcode.url))
 
-    @property
-    def decoded_barcode(self):
-        return barcode_decoder(self.bin_barcode)
+    # @property
+    # def decoded_barcode(self):
+    #     return barcode_decoder(self.bin_barcode)
 
 
 class BinInventory(models.Model):

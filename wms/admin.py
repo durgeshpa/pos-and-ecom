@@ -21,7 +21,7 @@ class BinAdmin(admin.ModelAdmin):
     resource_class = BinResource
     actions = ['download_csv_for_bins',]
     list_display = ('warehouse', 'bin_id', 'bin_type', 'created_at', 'modified_at', 'is_active', 'download_bin_id_barcode')
-    readonly_fields = ['bin_barcode','barcode_image','decoded_barcode','download_bin_id_barcode']
+    readonly_fields = ['bin_barcode','barcode_image','download_bin_id_barcode']
 
     def get_urls(self):
         from django.conf.urls import url

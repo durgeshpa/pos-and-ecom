@@ -8,7 +8,7 @@ import barcode
 from barcode.writer import ImageWriter
 import PIL
 from PIL import Image
-from pyzbar.pyzbar import decode
+# from pyzbar.pyzbar import decode
 from io import BytesIO
 import base64
 import io
@@ -54,9 +54,9 @@ def barcode_gen(value):
 	output_stream.seek(0)
 	return output_stream
 
-
-def barcode_decoder(value):
-	image = Image.open(value)
-	image = image.convert('L')
-	data = decode(image)
-	return str(data[0][0])
+#
+# def barcode_decoder(value):
+# 	image = Image.open(value)
+# 	image = image.convert('L')
+# 	data = decode(image)
+# 	return str(data[0][0])
