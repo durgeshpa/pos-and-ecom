@@ -14,6 +14,7 @@ from django.db.models import Sum, Q, F, Count, Case, Value, When
 from django.db import transaction
 from django.dispatch import receiver
 from django.db.models.signals import post_save
+from django.http import JsonResponse
 
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
@@ -29,7 +30,7 @@ from sp_to_gram.models import (
 from retailer_to_sp.models import (
     Cart, CartProductMapping, Order, OrderedProduct, OrderedProductMapping,
     CustomerCare, Payment, Return, ReturnProductMapping, Note, Trip, Dispatch,
-    ShipmentRescheduling, PickerDashboard, update_full_part_order_status
+    ShipmentRescheduling, PickerDashboard, update_full_part_order_status, Shipment
 )
 from products.models import Product
 from retailer_to_sp.forms import (
@@ -1555,3 +1556,25 @@ class BillingAddressAutocomplete(autocomplete.Select2QuerySetView):
             shop_name = buyer_shop
             )
         return qs
+
+
+def shipment_status(request):
+    """
+
+    :param request: Get Request
+    :return: QC pending invoice count
+    """
+    # get db id from ajax call
+    shipment_id = request.GET.getlist('shipment_id[]')
+    # check shipment id is exist
+    if shipment_id:
+        count = 0
+        # make a dict for response
+        context = {}
+        # get single shipment id from list of shipment ids
+        for shipment in shipment_id:
+            shipment_object = Shipment.objects.filter(id=shipment)
+            if shipment_object[0].shipment_status == OrderedProduct.SHIPMENT_STATUS[ZERO] or shipment_object[0].invoice_no == '-':
+                count = count + 1
+        context['count'] = count
+        return HttpResponse(json.dumps(context))

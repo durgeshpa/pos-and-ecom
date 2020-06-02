@@ -736,7 +736,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     list_filter = ['picking_status', PickerBoyFilter, PicklistIdFilter, OrderNumberSearch,('created_at', DateTimeRangeFilter),]
 
     class Media:
-        js = ('admin/js/shipment.js', )
+        js = ('admin/js/picker.js', )
         #js = ('admin/js/datetime_filter_collapse.js', )
 
     def get_readonly_fields(self, request, obj=None):
@@ -905,7 +905,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         ('created_at', DateTimeRangeFilter), Pincode, ('shipping_address__city', RelatedDropdownFilter)]
 
     class Media:
-        js = ('admin/js/shipment.js', )
+        js = ('admin/js/picker.js', )
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
