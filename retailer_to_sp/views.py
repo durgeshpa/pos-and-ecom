@@ -1567,14 +1567,16 @@ def shipment_status(request):
     # get db id from ajax call
     shipment_id = request.GET.getlist('shipment_id[]')
     # check shipment id is exist
+    context = {}
     if shipment_id:
         count = 0
         # make a dict for response
-        context = {}
         # get single shipment id from list of shipment ids
         for shipment in shipment_id:
             shipment_object = Shipment.objects.filter(id=shipment)
             if shipment_object[0].shipment_status == OrderedProduct.SHIPMENT_STATUS[ZERO] or shipment_object[0].invoice_no == '-':
                 count = count + 1
         context['count'] = count
-        return HttpResponse(json.dumps(context))
+    else:
+        context['count'] = -1
+    return HttpResponse(json.dumps(context))
