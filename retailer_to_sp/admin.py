@@ -1724,7 +1724,7 @@ class InvoiceAdmin(admin.ModelAdmin):
     download_bulk_invoice.short_description = DOWNLOAD_BULK_INVOICE
 
     class Media:
-        js = ('admin/js/shipment.js',)
+        js = ('admin/js/picker.js',)
 
     def get_invoice_amount(self, obj):
         return "%s %s" % (u'\u20B9', str(obj.invoice_amount))
