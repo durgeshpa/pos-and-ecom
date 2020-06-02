@@ -1,88 +1,54 @@
+# python imports
 import csv
-import json
-from django.contrib import messages
-from admin_auto_filters.filters import AutocompleteFilter
-from admin_numeric_filter.admin import (NumericFilterModelAdmin,
-                                        RangeNumericFilter,
-                                        SingleNumericFilter,
-                                        SliderNumericFilter)
-from django.core.exceptions import ObjectDoesNotExist
-from dal import autocomplete
-from dal_admin_filters import AutocompleteFilter
-from django.contrib import admin
-from django.contrib.admin import SimpleListFilter
-from django.core.exceptions import ValidationError
-from django.contrib.admin import SimpleListFilter, helpers
-from django.utils.html import format_html, format_html_join
-from django.urls import reverse
-from django.db.models import Q
-from django.db.models import F, FloatField, Sum, FloatField, OuterRef, Subquery
 
+# django imports
+from admin_numeric_filter.admin import (NumericFilterModelAdmin, SliderNumericFilter)
+from dal_admin_filters import AutocompleteFilter
+from django.contrib import messages, admin
+from django.core.exceptions import ValidationError
+from django.db.models import Q
+from django.db.models import F, Sum, OuterRef, Subquery
 from django.forms.models import BaseInlineFormSet
-from django import forms
 from django.http import HttpResponse
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import ugettext_lazy as _
-from django_admin_listfilter_dropdown.filters import (ChoiceDropdownFilter, RelatedDropdownFilter, DropdownFilter)
-from django_select2.forms import ModelSelect2Widget, Select2MultipleWidget
+from django_admin_listfilter_dropdown.filters import (ChoiceDropdownFilter, RelatedDropdownFilter)
 from django.utils.safestring import mark_safe
+from django.shortcuts import redirect
 
-from rangefilter.filter import DateRangeFilter, DateTimeRangeFilter
-
-from gram_to_brand.models import GRNOrderProductMapping
-from products.admin import ExportCsvMixin
-from products.models import Product
+# app imports
+from rangefilter.filter import DateTimeRangeFilter
 from retailer_backend.admin import InputFilter
-from retailer_to_sp.views import (
-    LoadDispatches, UpdateSpQuantity, commercial_shipment_details,
-    load_dispatches, order_invoices, ordered_product_mapping_shipment,
-    trip_planning, trip_planning_change, update_delivered_qty,
-    update_shipment_status, reshedule_update_shipment,
-    RetailerCart, assign_picker, assign_picker_change, assign_picker_data,
-    UserWithNameAutocomplete,  SellerAutocomplete, ShipmentOrdersAutocomplete,
-    BuyerShopAutocomplete, BuyerParentShopAutocomplete
-)
-from shops.models import ParentRetailerMapping, Shop
+from retailer_to_sp.api.v1.views import DownloadInvoiceSP
+from retailer_to_sp.views import (LoadDispatches, commercial_shipment_details, load_dispatches, order_invoices,
+                                  ordered_product_mapping_shipment, trip_planning, trip_planning_change,
+                                  update_shipment_status, reshedule_update_shipment, RetailerCart, assign_picker,
+                                  assign_picker_change, UserWithNameAutocomplete, SellerAutocomplete,
+                                  ShipmentOrdersAutocomplete, BuyerShopAutocomplete, BuyerParentShopAutocomplete,
+                                  DownloadPickList, DownloadPickListPicker)
 from sp_to_gram.models import (
     OrderedProductMapping as SpMappedOrderedProductMapping,
-    OrderedProductReserved, create_credit_note,
 )
-from sp_to_gram.models import OrderedProductReserved, create_credit_note
-
-from .forms import (
-    CartForm, CartProductMappingForm, CommercialForm,
-    CustomerCareForm, DispatchForm, OrderedProductForm,
-    OrderedProductMappingForm,
-    OrderedProductMappingShipmentForm,
-    ReturnProductMappingForm, ShipmentForm,
-    ShipmentProductMappingForm, TripForm, ShipmentReschedulingForm,
-    OrderedProductReschedule, OrderedProductMappingRescheduleForm,
-    OrderForm, EditAssignPickerForm, ResponseCommentForm, BulkCartForm
-)
-from .models import (Cart, CartProductMapping, Commercial, CustomerCare,
-                     Dispatch, DispatchProductMapping, Note, Order,
-                     OrderedProduct, OrderedProductMapping, Payment, Return,
-                     ReturnProductMapping, Shipment, ShipmentProductMapping,
-                     Trip, ShipmentRescheduling, Feedback, PickerDashboard,
-                     generate_picklist_id, ResponseComment,
-                     generate_picklist_id, ResponseComment, Invoice,
-                     ResponseComment, BulkOrder, RoundAmount,
-                     update_full_part_order_status)
+from sp_to_gram.models import OrderedProductReserved
+from common.constants import DOWNLOAD_BULK_INVOICE, ZERO, FIFTY
+from .forms import (CartForm, CartProductMappingForm, CommercialForm, CustomerCareForm,
+                    ReturnProductMappingForm, ShipmentForm, ShipmentProductMappingForm, ShipmentReschedulingForm,
+                    OrderedProductReschedule, OrderedProductMappingRescheduleForm, OrderForm, EditAssignPickerForm,
+                    ResponseCommentForm, BulkCartForm)
+from .models import (Cart, CartProductMapping, Commercial, CustomerCare, Dispatch, DispatchProductMapping, Note, Order,
+                     OrderedProduct, OrderedProductMapping, Payment, ReturnProductMapping, Shipment,
+                     ShipmentProductMapping, Trip, ShipmentRescheduling, Feedback, PickerDashboard, Invoice,
+                     ResponseComment, BulkOrder, RoundAmount)
 from .resources import OrderResource
 from .signals import ReservedOrder
-from .utils import (
-    GetPcsFromQty, add_cart_user, create_order_from_cart,
-    reschedule_shipment_button, create_order_data_excel,
-    create_invoice_data_excel
-)
-from .filters import (
-    InvoiceAdminOrderFilter, InvoiceAdminTripFilter, InvoiceCreatedAt,
-    DeliveryStartsAt, DeliveryCompletedAt, OrderCreatedAt)
-
-from .tasks import update_order_status_picker_reserve_qty, update_reserved_order
-
+from .utils import (GetPcsFromQty, add_cart_user, create_order_from_cart, create_order_data_excel,
+                    create_invoice_data_excel)
+from .filters import (InvoiceAdminOrderFilter, InvoiceAdminTripFilter, InvoiceCreatedAt, DeliveryStartsAt,
+                      DeliveryCompletedAt, OrderCreatedAt)
+from .tasks import update_order_status_picker_reserve_qty
 from payments.models import OrderPayment, ShipmentPayment
+from retailer_backend.messages import ERROR_MESSAGES
 
 
 class InvoiceNumberFilter(AutocompleteFilter):
@@ -658,11 +624,6 @@ class BuyerShopFilter(AutocompleteFilter):
     autocomplete_url = 'buyer-shop-autocomplete'
 
 
-# class PickerBoyFilter(AutocompleteFilter):
-#     title = 'Picker Boy'
-#     field_name = 'picker_boy'
-#     autocomplete_url = 'picker-name-autocomplete'
-
 class PickerBoyFilter(InputFilter):
     title = 'Picker Boy'
     parameter_name = 'picker_boy'
@@ -757,7 +718,8 @@ from django.contrib.admin.views.main import ChangeList
 
 class PickerDashboardAdmin(admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/picker/change_list.html'
-    #actions = ["change_picking_status"]
+    actions = ["download_bulk_pick_list"]
+    list_per_page = FIFTY
     model = PickerDashboard
     raw_id_fields = ['order', 'shipment']
 
@@ -774,7 +736,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
     list_filter = ['picking_status', PickerBoyFilter, PicklistIdFilter, OrderNumberSearch,('created_at', DateTimeRangeFilter),]
 
     class Media:
-        pass
+        js = ('admin/js/picker.js', )
         #js = ('admin/js/datetime_filter_collapse.js', )
 
     def get_readonly_fields(self, request, obj=None):
@@ -870,17 +832,46 @@ class PickerDashboardAdmin(admin.ModelAdmin):
             else:
                 return format_html(
                     "<a href= '/retailer/sp/download-pick-list-picker-sp/%s/0/list/' >Download Pick List</a>" %
-                    (obj.order.pk)
-                )
+                    obj.order.pk)
+
+    def download_bulk_pick_list(self, request, *args, **kwargs):
+        """
+
+        :param request: request params
+        :param args: argument list
+        :param kwargs: keyword argument
+        :return: response
+        """
+        if len(args[0]) <= FIFTY:
+            # argument_list contains list of pk
+            kwargs = {}
+            argument_list = []
+            for arg in args[ZERO]:
+                if arg.order.order_status not in ["active", "pending"]:
+                    if arg.shipment:
+                        # append pk which are not falling under the order active and pending
+                        kwargs.update({arg.order.pk: arg.shipment.pk})
+                    else:
+                        kwargs.update({arg.order.pk: '0'})
+                else:
+                    pass
+            # call get method under the DownloadPickListPicker class
+            response = DownloadPickListPicker.get(self, request, argument_list, kwargs)
+            return redirect(response)
+        else:
+            response = messages.error(request, ERROR_MESSAGES['1001'])
+        return response
+
     download_pick_list.short_description = 'Download Pick List'
+    download_bulk_pick_list.short_description = 'Download Pick List for Selected Orders'
 
 
 class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
-    actions = ['order_data_excel_action']#, "assign_picker"]
+    actions = ['order_data_excel_action', "download_bulk_pick_list"]
     resource_class = OrderResource
     search_fields = ('order_no', 'seller_shop__shop_name', 'buyer_shop__shop_name','order_status')
     form = OrderForm
-    list_per_page = 50
+    list_per_page = FIFTY
     fieldsets = (
         (_('Shop Details'), {
             'fields': ('seller_shop', 'buyer_shop',
@@ -913,8 +904,8 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
     list_filter = [PhoneNumberFilter,SKUFilter, GFCodeFilter, ProductNameFilter, SellerShopFilter,BuyerShopFilter,OrderNoSearch, OrderInvoiceSearch, ('order_status', ChoiceDropdownFilter),
         ('created_at', DateTimeRangeFilter), Pincode, ('shipping_address__city', RelatedDropdownFilter)]
 
-    # class Media:
-    #     js = ('admin/js/dynamic_input_box.js', )
+    class Media:
+        js = ('admin/js/picker.js', )
 
     def get_queryset(self, request):
         qs = super(OrderAdmin, self).get_queryset(request)
@@ -931,7 +922,33 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                 "<a href= '%s' >Download Pick List</a>" %
                 (reverse('download_pick_list_sp', args=[obj.pk]))
             )
+
+    def download_bulk_pick_list(self, request, *args, **kwargs):
+        """
+
+        :param request: request params
+        :param args: argument list
+        :param kwargs: keyword argument
+        :return: response
+        """
+        if len(args[0]) <= FIFTY:
+            # argument_list contains list of pk
+            argument_list = []
+            for arg in args[ZERO]:
+                if arg.order_status not in ["active", "pending"]:
+                    # append pk which are not falling under the order active and pending
+                    argument_list.append(arg.pk)
+                else:
+                    pass
+            # call get method under the DownloadPickList class
+            response = DownloadPickList.get(self, request, argument_list, **kwargs)
+            return redirect(response)
+        else:
+            response = messages.error(request, ERROR_MESSAGES['1001'])
+        return response
+
     download_pick_list.short_description = 'Download Pick List'
+    download_bulk_pick_list.short_description = 'Download Pick List for Selected Orders'
 
     def order_products(self, obj):
         p=[]
@@ -991,6 +1008,8 @@ class OrderedProductMappingAdmin(admin.TabularInline):
 
 class OrderedProductAdmin(admin.ModelAdmin):
     change_list_template = 'admin/retailer_to_sp/OrderedProduct/change_list.html'
+    actions = ['download_bulk_invoice']
+    list_per_page = FIFTY
     inlines = [ShipmentReschedulingAdmin, OrderedProductMappingAdmin,]
     list_display = (
         'invoice_no', 'order', 'created_at', 'shipment_address', 'invoice_city',
@@ -1017,6 +1036,20 @@ class OrderedProductAdmin(admin.ModelAdmin):
             (reverse('download_invoice_sp', args=[obj.pk]))
         )
     download_invoice.short_description = 'Download Invoice'
+
+    def download_bulk_invoice(self, request, *args, **kwargs):
+        """
+
+        :param request: request params
+        :param args: argument list
+        :param kwargs: keyword argument
+        :return: response
+        """
+        response = ShipmentAdmin.download_bulk_invoice(self, request, *args, **kwargs)
+        return response
+
+    # download bulk invoice short description
+    download_bulk_invoice.short_description = DOWNLOAD_BULK_INVOICE
 
     def get_queryset(self, request):
         qs = super(OrderedProductAdmin, self).get_queryset(request)
@@ -1046,6 +1079,7 @@ class OrderedProductAdmin(admin.ModelAdmin):
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
+        js = ('admin/js/shipment.js',)
 
 
 class DispatchProductMappingAdmin(admin.TabularInline):
@@ -1147,6 +1181,7 @@ class ShipmentAdmin(admin.ModelAdmin):
     has_invoice_no = True
     inlines = [ShipmentProductMappingAdmin]
     form = ShipmentForm
+    actions = ['download_bulk_invoice']
     list_select_related = (
         'order', 'trip', 'order__seller_shop', 'order__shipping_address',
         'order__shipping_address__city',
@@ -1168,20 +1203,56 @@ class ShipmentAdmin(admin.ModelAdmin):
         'trip__vehicle_no', 'trip__delivery_boy__phone_number']
     readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address',
                        'invoice_city', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
-    list_per_page = 50
+    list_per_page = FIFTY
     ordering = ['-created_at']
 
     def has_delete_permission(self, request, obj=None):
         return False
 
     def download_invoice(self, obj):
-        if obj.shipment_status == 'SHIPMENT_CREATED':
+        if obj.shipment_status == 'SHIPMENT_CREATED' or obj.invoice_no == '-':
             return format_html("-")
         return format_html(
             "<a href= '%s' >Download Invoice</a>" %
             (reverse('download_invoice_sp', args=[obj.pk]))
         )
-    download_invoice.short_description = 'Download Invoice'
+
+    def download_bulk_invoice(self, request, *args, **kwargs):
+        """
+
+        :param request: request parameter
+        :param args: argument list
+        :param kwargs: keyword argument
+        :return: response
+        """
+
+        if len(args[0]) <= FIFTY:
+            # argument_list contains list of pk exclude shipment created and blank invoice
+            argument_list = []
+            for arg in args[ZERO]:
+                # check condition for QC pending status file
+                if arg.shipment_status == OrderedProduct.SHIPMENT_STATUS[ZERO] or arg.invoice_no == '-':
+                    pass
+                else:
+                    # append pk which are not falling under the shipment created and blank invoice number
+                    argument_list.append(arg.pk)
+            # if we are getting only QC pending status files for downloading
+            if len(argument_list) == 0:
+                response = messages.error(request, ERROR_MESSAGES['1002'])
+                return response
+            # call get method under the DownloadInvoiceSP class
+            response = DownloadInvoiceSP.get(self, request, argument_list, **kwargs)
+            response = redirect(response)
+        else:
+            response = messages.error(request, ERROR_MESSAGES['1001'])
+        return response
+    # download single invoice short description
+    download_bulk_invoice.short_description = 'Download Invoice'
+    # download bulk invoice short description
+    download_bulk_invoice.short_description = DOWNLOAD_BULK_INVOICE
+
+    class Media:
+        js = ('admin/js/shipment.js', )
 
     def pincode(self, obj):
         return obj.order.shipping_address.pincode
@@ -1582,11 +1653,12 @@ class FeedbackAdmin(admin.ModelAdmin):
 
 
 class InvoiceAdmin(admin.ModelAdmin):
-    actions = ['invoice_data_excel_action']
+    actions = ['invoice_data_excel_action', 'download_bulk_invoice']
     list_display = ('invoice_no', 'created_at', 'get_invoice_amount', 'get_shipment_status',
                     'get_order', 'get_order_date', 'get_order_status', 'get_shipment',
                     'get_trip_no', 'get_trip_status', 'get_trip_started_at',
                     'get_trip_completed_at', 'get_paid_amount', 'get_cn_amount')
+    list_per_page = FIFTY
     fieldsets = (
         ('Invoice', {
             'fields': (('invoice_no', 'get_invoice_amount'), ('created_at', 'invoice_pdf'))
@@ -1619,6 +1691,41 @@ class InvoiceAdmin(admin.ModelAdmin):
                                          ShipmentPayment, OrderedProduct, Trip,
                                          Order)
     invoice_data_excel_action.short_description = "Download CSV of selected Invoices"
+
+    def download_bulk_invoice(self, request, *args, **kwargs):
+        """
+
+        :param request: request params
+        :param args: argument list
+        :param kwargs: keyword argument
+        :return: response
+        """
+
+        if len(args[0]) <= FIFTY:
+            # argument_list contains list of pk exclude shipment created and blank invoice
+            argument_list = []
+            for arg in args[ZERO]:
+                if len(args[0]) <= 1 and (
+                        arg.shipment_status == OrderedProduct.SHIPMENT_STATUS[ZERO] or arg.invoice_no == '-'):
+                    error_message = messages.error(request, ERROR_MESSAGES['1002'])
+                    return error_message
+                elif arg.shipment_status == OrderedProduct.SHIPMENT_STATUS[ZERO] or arg.invoice_no == '-':
+                    pass
+                else:
+                    # append pk which are not falling under the shipment created and blank invoice number
+                    argument_list.append(arg.shipment.pk)
+            # call get method under the DownloadInvoiceSP class
+            response = DownloadInvoiceSP.get(self, request, argument_list, **kwargs)
+            response = redirect(response)
+        else:
+            response = messages.error(request, ERROR_MESSAGES['1001'])
+        return response
+
+    # download bulk invoice short description
+    download_bulk_invoice.short_description = DOWNLOAD_BULK_INVOICE
+
+    class Media:
+        js = ('admin/js/picker.js',)
 
     def get_invoice_amount(self, obj):
         return "%s %s" % (u'\u20B9', str(obj.invoice_amount))

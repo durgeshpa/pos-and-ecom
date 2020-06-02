@@ -1,9 +1,8 @@
 from django.conf.urls import include, url
-from django.contrib import admin
 
 from .views import (
     ReturnProductAutocomplete, DownloadCreditNote, DownloadPickList, DownloadTripPdf, SellerShopAutocomplete, BuyerShopAutocomplete,
-    RetailerCart, PickerNameAutocomplete, DownloadPickListPicker, ShippingAddressAutocomplete, BillingAddressAutocomplete
+    RetailerCart, PickerNameAutocomplete, DownloadPickListPicker, ShippingAddressAutocomplete, BillingAddressAutocomplete, shipment_status
 )
 urlpatterns = [
     url(r'^api/', include('retailer_to_sp.api.urls')),
@@ -25,5 +24,6 @@ urlpatterns = [
     url('^retailer-cart/$', RetailerCart.as_view(), name='retailer_cart'),
     url(r'^picker-name-autocomplete/$', PickerNameAutocomplete.as_view(), name='picker-name-autocomplete'),
     url(r'^bulk-shipping-address-autocomplete/$',ShippingAddressAutocomplete.as_view(),name='bulk-shipping-address-autocomplete',),
-    url(r'^bulk-billing-address-autocomplete/$',BillingAddressAutocomplete.as_view(),name='bulk-billing-address-autocomplete',),    
+    url(r'^bulk-billing-address-autocomplete/$',BillingAddressAutocomplete.as_view(),name='bulk-billing-address-autocomplete',),
+    url(r'^shipment_status/$', shipment_status, name='shipment-status'),
     ]
