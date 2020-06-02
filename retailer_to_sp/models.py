@@ -150,7 +150,7 @@ class Cart(models.Model):
     )
     cart_status = models.CharField(
         max_length=200, choices=CART_STATUS,
-        null=True, blank=True
+        null=True, blank=True,db_index=True
     )
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_cart',
@@ -227,6 +227,9 @@ class Cart(models.Model):
         buyer_shop = self.buyer_shop
         if cart_products:
             for m in cart_products:
+                if m.cart_product.get_current_shop_price(shop, buyer_shop)==None:
+                    CartProductMapping.objects.filter(cart__id=self.id, cart_product__id=m.cart_product.id).delete()
+                    continue
                 parent_brand = m.cart_product.product_brand.brand_parent.id if m.cart_product.product_brand.brand_parent else None
                 brand_coupons = Coupon.objects.filter(coupon_type = 'brand', is_active = True, expiry_date__gte = date).filter(Q(rule__brand_ruleset__brand = m.cart_product.product_brand.id)| Q(rule__brand_ruleset__brand = parent_brand)).order_by('rule__cart_qualifying_min_sku_value')
                 b_list  =  [x.coupon_name for x in brand_coupons]
@@ -235,7 +238,7 @@ class Cart(models.Model):
                 sku_qty = int(m.qty)
                 sku_no_of_pieces = int(m.cart_product.product_inner_case_size) * int(m.qty)
                 price = m.cart_product.get_current_shop_price(shop, buyer_shop)
-                sku_ptr = float(price.selling_price)
+                sku_ptr = float(price.selling_price) if price else False
                 coupon_times_used = CusotmerCouponUsage.objects.filter(shop = buyer_shop, product = m.cart_product, created_at__date = date.date()).count() if CusotmerCouponUsage.objects.filter(shop = buyer_shop, product = m.cart_product, created_at__date = date.date()) else 0
                 for n in m.cart_product.purchased_product_coupon.filter(rule__is_active = True, rule__expiry_date__gte = date ):
                     for o in n.rule.coupon_ruleset.filter(is_active=True, expiry_date__gte = date):
@@ -311,7 +314,7 @@ class Cart(models.Model):
             if self.cart_status in ['active', 'pending']:
                 cart_value = 0
                 for product in self.rt_cart_list.all():
-                    cart_value += float(product.cart_product.get_current_shop_price(self.seller_shop, self.buyer_shop).selling_price * product.no_of_pieces)
+                    cart_value += float(product.cart_product.get_current_shop_price(self.seller_shop, self.buyer_shop).selling_price * product.no_of_pieces) if product.cart_product.get_current_shop_price(self.seller_shop, self.buyer_shop) else 0
                 cart_value -= discount_sum_sku
             if self.cart_status in ['ordered']:
                 cart_value = (self.rt_cart_list.aggregate(value=Sum(F('cart_product_price__selling_price') * F('no_of_pieces'),output_field=FloatField()))['value']) - discount_sum_sku

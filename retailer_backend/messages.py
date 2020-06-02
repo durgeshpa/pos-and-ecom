@@ -38,9 +38,11 @@ SUCCESS_MESSAGES = {
 }
 
 ERROR_MESSAGES = {
+    'AVAILABLE_QUANTITY': 'Available Qty : {0}',
     'AVAILABLE_PRODUCT': 'Available No of Pieces : {0}',
     'INVALID_PRICE_UPLOAD': "You cannot upload Selling Price greater than MRP",
     'INVALID_SP_PRICE': "You cannot upload Service Partner Price greater than Super Retailer",
     'INVALID_SR_PRICE': "You cannot upload Super Retailer Price greater than Retailer",
     'INVALID_MAPPING': "Shop id- %s and employee no- %s , has duplicate entry",
+    'PRODUCT_REMOVED': "Some products in cart aren’t available anymore, please update cart",
 }
