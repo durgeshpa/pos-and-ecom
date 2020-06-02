@@ -1239,6 +1239,9 @@ class ShipmentAdmin(admin.ModelAdmin):
                 else:
                     # append pk which are not falling under the shipment created and blank invoice number
                     argument_list.append(arg.pk)
+            if len(argument_list) == 0:
+                response = messages.error(request, ERROR_MESSAGES['1002'])
+                return response
             # call get method under the DownloadInvoiceSP class
             response = DownloadInvoiceSP.get(self, request, argument_list, **kwargs)
             response = redirect(response)
