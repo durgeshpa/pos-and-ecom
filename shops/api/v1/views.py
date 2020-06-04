@@ -536,7 +536,6 @@ class SellerShopOrder(generics.ListAPIView):
 
         shop_list = shop_user_obj.values('shop', 'shop__id', 'shop__shop_name').order_by('shop__shop_name')
         shops_list = shop_user_obj.values('shop').distinct('shop')
-        import pdb; pdb.set_trace()
         order_obj = self.get_order(shops_list, to_date, from_date)
         if self.request.user.shop_employee.last().employee_group.name == 'Sales Executive':
             order_obj = order_obj.filter(ordered_by = self.request.user)
