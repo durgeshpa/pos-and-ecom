@@ -30,6 +30,7 @@ from .utils import (order_invoices, order_shipment_status, order_shipment_amount
 from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
+from wms.models import Out, Pickup
 from brand.models import Brand
 from otp.sms import SendSms
 from products.models import Product, ProductPrice
@@ -2380,3 +2381,24 @@ def update_order_status_from_shipment(sender, instance=None, created=False,
         instance.order.save()
     if instance.shipment_status == OrderedProduct.RESCHEDULED:
         update_full_part_order_status(instance)
+
+
+@receiver(post_save, sender=Order)
+def update_wms_out_table(sender, instance=None, created=False, **kwargs):
+    sh = Shop.objects.filter(id=instance.seller_shop_id).last()
+    for i in instance.ordered_cart.rt_cart_list.all():
+        Out.objects.create(
+            warehouse=sh,
+            out_type='Order',
+            out_type_id=instance.order_no,
+            sku=i.cart_product,
+            quantity=i.no_of_pieces
+        )
+        Pickup.objects.create(
+            warehouse=sh,
+            pickup_type='Order',
+            pickup_type_id=instance.order_no,
+            sku=i.cart_product,
+            quantity=i.no_of_pieces,
+            pickup_quantity=i.no_of_pieces
+        )

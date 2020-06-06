@@ -1,5 +1,5 @@
 from django import forms
-from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory
+from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup
 from shops.models import Shop
 
 
@@ -66,7 +66,20 @@ class BinInventoryForm(forms.ModelForm):
         fields = '__all__'
 
 
+class OutForm(forms.ModelForm):
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
 
+    class Meta:
+        model = Out
+        fields = '__all__'
+
+
+class PickupForm(forms.ModelForm):
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
+
+    class Meta:
+        model = Pickup
+        fields = '__all__'
 
 
 

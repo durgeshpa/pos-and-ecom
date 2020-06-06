@@ -13,6 +13,7 @@ from django.contrib import messages
 
 BIN_TYPE_CHOICES = (
     ('p', 'Pallet'),
+    ('sr', 'Slotted Rack'),
 )
 
 INVENTORY_TYPE_CHOICES = (
@@ -21,6 +22,12 @@ INVENTORY_TYPE_CHOICES = (
     ('damaged', 'DAMAGED'), #Not orderable
     ('discarded', 'DISCARDED'), #Rejected by warehouse
     ('disposed', 'DISPOSED'), #Rejected or Expired and removed from warehouse
+)
+
+INVENTORY_STATE_CHOICES = (
+    ('available', 'AVAILABLE'),
+    ('reserved', 'RESERVED'),
+    ('shipped', 'SHIPPED'),
 )
 class InventoryType(models.Model):
     # id = models.AutoField(primary_key=True)
@@ -35,7 +42,7 @@ class InventoryType(models.Model):
 
 class InventoryState(models.Model):
     # id = models.AutoField(primary_key=True)
-    inventory_state = models.CharField(max_length=20, null=True, blank=True)
+    inventory_state = models.CharField(max_length=20, choices=INVENTORY_STATE_CHOICES,null=True, blank=True)
 
     class Meta:
         db_table = "wms_inventory_state"
@@ -73,7 +80,7 @@ class BinInventory(models.Model):
     # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop,null=True, blank=True, on_delete=models.DO_NOTHING)
     bin = models.ForeignKey(Bin, null=True, blank=True, on_delete=models.DO_NOTHING)
-    sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
+    sku = models.ForeignKey(Product, to_field='product_sku',related_name='rt_product_sku', on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=21, null=True, blank=True)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField(null=True, blank=True)
@@ -191,7 +198,7 @@ class Pickup(models.Model):
     pickup_type_id = models.CharField(max_length=20, null=True, blank=True)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
-    pickup_quantity = models.PositiveIntegerField()
+    pickup_quantity = models.PositiveIntegerField(null=True, blank=True)
     out = models.ForeignKey(Out, null=True, blank=True, on_delete=models.DO_NOTHING)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)

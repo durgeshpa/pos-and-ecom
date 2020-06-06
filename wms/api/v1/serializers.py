@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from wms.models import Bin, Putaway
+from wms.models import Bin, Putaway, Out, Pickup
 from shops.api.v1.serializers import ShopSerializer
 from retailer_to_sp.api.v1.serializers import ProductSerializer
 
@@ -48,4 +48,24 @@ class PutAwaySerializer(DynamicFieldsModelSerializer):
 
     def product_sku_dt(self, obj):
         return obj.sku.product_sku
+
+
+class OutSerializer(serializers.ModelSerializer):
+    warehouse = ShopSerializer()
+    sku=ProductSerializer()
+
+    class Meta:
+        model = Out
+        fields = ('id', 'warehouse', 'out_type', 'out_type_id', 'sku', 'quantity', 'created_at')
+
+
+class PickupSerializer(serializers.ModelSerializer):
+    warehouse = ShopSerializer()
+    sku = ProductSerializer()
+    out = OutSerializer()
+
+    class Meta:
+        model = Pickup
+        fields = ('id', 'warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity', 'pickup_quantity','out', )
+
 

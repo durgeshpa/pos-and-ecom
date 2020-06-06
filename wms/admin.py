@@ -1,11 +1,11 @@
 from django.contrib import admin
 from django.http import HttpResponse
-from .views import bins_upload, put_away
+from .views import bins_upload, put_away,CreatePickList
 from import_export import resources
 import csv
 from django.contrib import messages
-from .models import Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory
-from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm)
+from .models import Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup
+from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm)
 from django.utils.html import format_html
 from barCodeGenerator import barcodeGen
 
@@ -92,6 +92,29 @@ class BinInventoryAdmin(admin.ModelAdmin):
     form = BinInventoryForm
     list_select_related = ('warehouse', 'sku', 'bin', 'inventory_type')
     list_display = ('batch_id','warehouse', 'sku', 'bin','inventory_type', 'quantity', 'in_stock')
+    readonly_fields = ('batch_id','warehouse', 'sku', 'bin','inventory_type', 'in_stock')
+
+
+class OutAdmin(admin.ModelAdmin):
+    form = OutForm
+    list_display = ('warehouse', 'out_type', 'out_type_id', 'sku', 'quantity')
+    readonly_fields = ('warehouse', 'out_type', 'out_type_id', 'sku', 'quantity')
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(OutAdmin, self).get_urls()
+        urls = [
+            url(
+                r'^create-pick-list/$', CreatePickList.as_view(), name='create-picklist'
+            )
+               ] + urls
+        return urls
+
+
+class PickupAdmin(admin.ModelAdmin):
+    form = PickupForm
+    list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity','pickup_quantity')
+    # readonly_fields = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity','pickup_quantity')
 
 
 admin.site.register(Bin, BinAdmin)
@@ -100,4 +123,5 @@ admin.site.register(InventoryType, InventoryTypeAdmin)
 admin.site.register(Putaway, PutAwayAdmin)
 admin.site.register(PutawayBinInventory, PutawayBinInventoryAdmin)
 admin.site.register(BinInventory, BinInventoryAdmin)
-
+admin.site.register(Out, OutAdmin)
+admin.site.register(Pickup, PickupAdmin)
