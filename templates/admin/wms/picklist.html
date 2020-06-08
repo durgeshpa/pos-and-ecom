@@ -1,0 +1,94 @@
+<!--{% load i18n %}-->
+<!--{% load static %}-->
+<!--{% load staticfiles %}-->
+<!--{% load app_filters_credit_note %}-->
+<!--{% load humanize %}-->
+
+<!--<html>-->
+
+<!--	<head>-->
+<!--<meta charset="UTF-8">-->
+<!--<title>PickList</title>-->
+<!--    <meta name="viewport" content="width=device-width, initial-scale=1">-->
+<!--	<link href="{{scheme}}://{{url}}/static/admin/css/bootstrap.css" rel="stylesheet" id="bootstrap-css">-->
+<!--   <link rel="stylesheet" type="text/css" href="{{scheme}}://{{url}}/static/admin/css/style.css">-->
+
+<!--	<style>-->
+
+<!--	</style>-->
+<!--</head>-->
+
+
+
+<!--<body>-->
+<!--{% for m in data_list %}-->
+<!--    <td class="text-center">{{ m.product_name }}</td>-->
+<!--    <td class="text-center">{{ m.sku }}</td>-->
+<!--    <td class="text-center">{{ m.product_mrp }}</td>-->
+<!--    <td class="text-center">{{ m.batch_id }}</td>-->
+<!--    <td class="text-center">{{ m.bin_id  }}</td>-->
+<!--{% endfor %}-->
+
+
+<!--</body>-->
+<!--</html>-->
+
+
+{% load i18n %}
+{% load static %}
+{% load staticfiles %}
+<html lang="en">
+<head>
+  <title>Pick List</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" type="text/css" href="{% static 'admin/css/bootstrap.css' %}">
+  <link rel="stylesheet" type="text/css" href="{% static 'admin/css/style2.css' %}">
+</head>
+<body>
+
+  <table class="table table-bordered">
+    <thead>
+      <tr>
+          <th><strong>Sl No.</strong></th>
+          <th>Product Name</th>
+          <th>Product SKU</th>
+          <th>Prod MRP</th>
+          <th>Picked Qty</th>
+          <th>Batch ID</th>
+          <th>BIN ID</th>
+          <th>Remark</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for cart in data_list %}
+      <tr>
+        <td>{{forloop.counter}}</td>
+        <td>{{ cart.product }}</td>
+        <td>{{ cart.sku }}</td>
+        <td>{{ cart.mrp }}</td>
+        <td>{{ cart.qty }}</td>
+        <td>{{ cart.batch_id }}</td>
+        <td>{{ cart.bin }}</td>
+        <td>--------</td>
+        <td></td>
+		<td></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <table class="table table-bordered" colspan=6>
+    <thead>
+      <th> Picker Signature:</th>
+    </thead>
+  </table>
+  <table class="table table-bordered" colspan=6>
+    <thead>
+      <th> Biller Signature:</th>
+    </thead>
+  </table>
+</div>
+
+</body>
+</html>
+
