@@ -8,6 +8,7 @@ from .models import Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInv
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm)
 from django.utils.html import format_html
 from barCodeGenerator import barcodeGen
+from django.urls import reverse
 
 
 class BinResource(resources.ModelResource):
@@ -105,7 +106,7 @@ class OutAdmin(admin.ModelAdmin):
         urls = super(OutAdmin, self).get_urls()
         urls = [
             url(
-                r'^create-pick-list/$', CreatePickList.as_view(), name='create-picklist'
+                r'^create-pick-list/(?P<pk>\d+)/picklist/$', CreatePickList.as_view(), name='create-picklist'
             )
                ] + urls
         return urls
@@ -115,6 +116,14 @@ class PickupAdmin(admin.ModelAdmin):
     form = PickupForm
     list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity','pickup_quantity')
     # readonly_fields = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity','pickup_quantity')
+
+    def download_picklist(self, obj):
+        return format_html(
+            "<a href= '%s' >Download Picklist</a>" %
+            (reverse('create-picklist', args=[obj.pk]))
+        )
+
+    download_picklist.short_description = 'Download Picklist'
 
 
 admin.site.register(Bin, BinAdmin)

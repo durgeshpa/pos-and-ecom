@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 from wkhtmltopdf.views import PDFTemplateResponse
 from .forms import BulkBinUpdation, BinForm, OutForm, PickupForm
 from .models import Out, Pickup, BinInventory
+from retailer_to_sp.models import Order
 from django.db import transaction
 from django.http import HttpResponse
 import openpyxl
@@ -72,18 +73,6 @@ def put_away(request):
     return render(request, 'admin/wms/putaway.html', {'form':form})
 
 
-def return_batch_id():
-    for i in Out.objects.filter(out_type_id='POR1901080000005'):
-        for j in i.sku.rt_product_sku.all().order_by('quantity', 'created_at'):
-            return j.batch_id if j.quantity > 0 else 'Not Available'
-
-
-def return_bin_id():
-    for i in Out.objects.filter(out_type_id='POR1901080000005'):
-        for j in i.sku.rt_product_sku.all().order_by('quantity', 'created_at'):
-            return j.quantity, j.bin.bin_id if j.quantity>0 else 'Not Available'
-
-
 class CreatePickList(APIView):
     permission_classes = (AllowAny,)
     filename = 'picklist.pdf'
@@ -91,8 +80,8 @@ class CreatePickList(APIView):
     new_list = []
 
     def get(self, request, *args, **kwargs):
-        import pdb;pdb.set_trace()
-        pu = Pickup.objects.all()
+        pick_list = get_object_or_404(Pickup, pk=self.kwargs.get('pk'))
+        pu = Pickup.objects.filter(pickup_type_id=pick_list.pickup_type_id)
         data_list=[]
         product, sku, bin_id, batch_id, pickup_type_id = '', '', '', '', ''
         mrp, already_picked, remaining_qty, pickup_id, qty, qty_in_bin, ids = 0, 0, 0, 0, 0, 0, 0
@@ -103,7 +92,7 @@ class CreatePickList(APIView):
             pickup_type_id = i.pickup_type_id
             product = i.sku.product_name
             sku = i.sku.product_sku
-            mrp = i.sku.rt_cart_product_mapping.all().last().cart_product_price.mrp
+            mrp = i.sku.rt_cart_product_mapping.all().last().cart_product_price.mrp if i.sku.rt_cart_product_mapping.all().last().cart_product_price else None
             batch_id = pikachu.batch_id if pikachu else None
             qty_in_bin = pikachu.quantity if pikachu else 0
             ids = pikachu.id if pikachu else None

@@ -1,12 +1,17 @@
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Out, Pickup
 from rest_framework import viewsets
-from .serializers import BinSerializer, PutAwaySerializer, OutSerializer, PickupSerializer
+from .serializers import BinSerializer, PutAwaySerializer, OutSerializer, PickupSerializer, OrderSerializer
 from rest_framework.response import Response
 from rest_framework import status
 from shops.models import Shop
+from retailer_to_sp.models import Order, PickerDashboard
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import Q
+import datetime
+import json
+import random
 
 
 class BinViewSet(APIView):
@@ -75,7 +80,7 @@ class PutAwayViewSet(APIView):
         put_away_quantity = self.request.POST.get('put_away_quantity')
         if not put_away_quantity:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
-        batch_id = self.request.POST.get('batch_id')
+            batch_id = self.request.POST.get('batch_id')
         if not batch_id:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         bin_id = self.request.POST.get('bin_id')
@@ -138,15 +143,61 @@ class PickupList(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def post(self, request):
-        order_no = self.request.POST.get('out_type_id')
-        pickup_quantity = self.request.POST.get('pickup_quantity')
-        order_detail = Pickup.objects.filter(out_type_id='order_no')
+    def get(self, request):
+        date = ''.join(self.request.GET.get('date')).split('-0')
+        date = [int(i) for i in date]
+        print(date)
+        picker_boy = self.request.GET.get('picker_boy')
+        orders = Order.objects.filter(Q(picker_order__picker_boy__first_name=picker_boy),
+                                      Q(picker_order__picking_status='picking_assigned'),
+                                      Q(created_at__startswith=datetime.date(date[0], date[1], date[2])))
 
-        for i in order_detail:
-            for j in i.sku.rt_product_sku.all().order_by('quantity', 'created_at'):
-                if j.quantity > 0:
-                    return j.batch_id
+        serializer = OrderSerializer(orders, many=True)
+        return Response({'orders': serializer.data})
+
+
+class BinIDList(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        order_no = self.request.POST.get('order_no')
+        bin_objects=[]
+        quantity=[]
+        pickup_orders = Order.objects.filter(order_no=order_no).last()
+        for i in pickup_orders.ordered_cart.rt_cart_list.all():
+            for j in i.cart_product.rt_product_sku.filter(quantity__gt=0).order_by('-batch_id', '-quantity'):
+                bin_objects.append(j.bin.bin_id)
+
+        bin_lists = Bin.objects.filter(bin_id__in=bin_objects)
+
+        serializer = BinSerializer(bin_lists, many=True,fields=('id', 'bin_id'))
+        return Response({'Bins_list': serializer.data})
+
+
+class PickupDetail(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        bin_id = self.request.POST.get('bin_id')
+        picking = Pickup.objects.filter(sku__rt_product_sku__bin__bin_id=bin_id)
+        picking_details = picking.last()
+        pickup_quantity = int(self.request.POST.get('pickup_quantity'))
+        if pickup_quantity > picking_details.quantity:
+            msg = {'is_success': False, 'message': ['Picked_quantity cannot be greater than to be picked quantity'], 'response_data': None}
+            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+        else:
+            picking.update(pickup_quantity=pickup_quantity)
+
+        serializer = PickupSerializer(picking_details,fields=('id','batch_id_with_sku','quantity', 'pickup_quantity'))
+        return Response({'picking_details' : serializer.data})
+
+
+
+
+
+
 
 
 

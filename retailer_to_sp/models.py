@@ -726,6 +726,7 @@ class Order(models.Model):
     COMPLETED = 'completed'
     READY_TO_DISPATCH = 'ready_to_dispatch'
     CANCELLED = 'CANCELLED'
+    PICKING_COMPLETE = 'picking_complete'
 
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'), #1
@@ -750,7 +751,8 @@ class Order(models.Model):
         (PARTIAL_SHIPMENT_CREATED, 'Partial Shipment Created'),
         (FULL_SHIPMENT_CREATED, 'Full Shipment Created'),
         (READY_TO_DISPATCH, 'Ready to Dispatch'),
-        (COMPLETED, 'Completed')
+        (COMPLETED, 'Completed'),
+        (PICKING_COMPLETE, 'Picking Complete'),
     )
 
     CASH_NOT_AVAILABLE = 'cna'
@@ -2383,22 +2385,14 @@ def update_order_status_from_shipment(sender, instance=None, created=False,
         update_full_part_order_status(instance)
 
 
-@receiver(post_save, sender=Order)
+@receiver(post_save, sender=PickerDashboard)
 def update_wms_out_table(sender, instance=None, created=False, **kwargs):
-    sh = Shop.objects.filter(id=instance.seller_shop_id).last()
-    for i in instance.ordered_cart.rt_cart_list.all():
-        Out.objects.create(
-            warehouse=sh,
-            out_type='Order',
-            out_type_id=instance.order_no,
-            sku=i.cart_product,
-            quantity=i.no_of_pieces
-        )
+    sh = Shop.objects.filter(id=instance.order.seller_shop_id).last()
+    for i in instance.order.ordered_cart.rt_cart_list.all():
         Pickup.objects.create(
             warehouse=sh,
             pickup_type='Order',
-            pickup_type_id=instance.order_no,
+            pickup_type_id=instance.order.order_no,
             sku=i.cart_product,
-            quantity=i.no_of_pieces,
-            pickup_quantity=i.no_of_pieces
+            quantity=i.no_of_pieces
         )

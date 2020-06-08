@@ -1,15 +1,8 @@
 from rest_framework import serializers
 from wms.models import Bin, Putaway, Out, Pickup
+from retailer_to_sp.models import Order
 from shops.api.v1.serializers import ShopSerializer
 from retailer_to_sp.api.v1.serializers import ProductSerializer
-
-
-class BinSerializer(serializers.ModelSerializer):
-    warehouse = ShopSerializer()
-
-    class Meta:
-        model = Bin
-        fields = ('id','warehouse', 'bin_id', 'bin_type', 'is_active', 'bin_barcode', 'created_at', 'modified_at')
 
 
 class DynamicFieldsModelSerializer(serializers.ModelSerializer):
@@ -59,13 +52,47 @@ class OutSerializer(serializers.ModelSerializer):
         fields = ('id', 'warehouse', 'out_type', 'out_type_id', 'sku', 'quantity', 'created_at')
 
 
-class PickupSerializer(serializers.ModelSerializer):
+class PickupSerializer(DynamicFieldsModelSerializer):
     warehouse = ShopSerializer()
     sku = ProductSerializer()
     out = OutSerializer()
+    bin_ids = serializers.SerializerMethodField('bin_ids_dt')
+    batch_id_with_sku = serializers.SerializerMethodField('batch_sku')
 
     class Meta:
         model = Pickup
-        fields = ('id', 'warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity', 'pickup_quantity','out', )
+        fields = ('id', 'warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity', 'pickup_quantity','out','bin_ids','batch_id_with_sku')
+
+    def bin_ids_dt(self, obj):
+        pickup_obj = [i.bin.bin_id for i in obj.sku.rt_product_sku.all()]
+        return pickup_obj
+
+    def batch_sku(self, obj):
+        batch_id = obj.sku.rt_product_sku.filter(quantity__gt=0).order_by('-batch_id', '-quantity').last().batch_id
+        sku = obj.sku.product_name
+        return '{}:{}'.format(batch_id, sku)
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    picker_status = serializers.SerializerMethodField('picker_status_dt')
+
+    class Meta:
+        model = Order
+        fields = ('id', 'order_no', 'picker_status')
+
+    def picker_status_dt(self, obj):
+        return obj.picker_order.all().last().picking_status
+
+
+class BinSerializer(DynamicFieldsModelSerializer):
+    warehouse = ShopSerializer()
+
+    class Meta:
+        model = Bin
+        fields = ('id','warehouse', 'bin_id', 'bin_type', 'is_active', 'bin_barcode', 'created_at', 'modified_at')
+
+
+
+
 
 
