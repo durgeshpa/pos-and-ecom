@@ -1146,15 +1146,11 @@ class DownloadInvoiceSP(APIView):
                 # call pdf generation method to generate and save pdf
                 pdf_generation(self, request, shipment)
                 # get bucket location
-                try:
-                    bucket_location = shipment.invoice.invoice_pdf.storage.location
-                    # get pdf file name
-                    file_name = shipment.invoice.invoice_pdf.name
-                    # call create file path to get the path of pdf files from S3
-                    file_path_list = create_file_path(file_path_list, bucket_location, file_name)
-                except Exception as e:
-                    logger.exception(e)
-                    pass
+                bucket_location = shipment.invoice.invoice_pdf.storage.location
+                # get pdf file name
+                file_name = shipment.invoice.invoice_pdf.name
+                # call create file path to get the path of pdf files from S3
+                file_path_list = create_file_path(file_path_list, bucket_location, file_name)
             # assign zip name
             zip_name = INVOICE_DOWNLOAD_ZIP_NAME
             # call create zip url method to generate zip url
@@ -1316,15 +1312,11 @@ def pdf_generation(self, request, shipment):
                 surcharge = sum(surcharge_tax_list)
                 # tax_inline = tax_inline + (inline_sum_amount - original_amount)
                 # tax_inline1 =(tax_inline / 2)
-        try:
-            total_amount = shipment.invoice_amount
-            total_amount_int = total_amount
-            amt = [num2words(i) for i in str(total_amount).split('.')]
-            rupees = amt[0]
-        except Exception as e:
-            total_amount = float(0.0)
-            rupees = 'zero'
-            logger.exception(e)
+
+        total_amount = shipment.invoice_amount
+        total_amount_int = total_amount
+        amt = [num2words(i) for i in str(total_amount).split('.')]
+        rupees = amt[0]
 
         data = {"shipment": shipment, "order": shipment.order,
                 "url": request.get_host(), "scheme": request.is_secure() and "https" or "http",
