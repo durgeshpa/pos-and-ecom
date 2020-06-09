@@ -1,6 +1,6 @@
-from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Out, Pickup
+from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Out, Pickup, PickupBinInventory
 from rest_framework import viewsets
-from .serializers import BinSerializer, PutAwaySerializer, OutSerializer, PickupSerializer, OrderSerializer
+from .serializers import BinSerializer, PutAwaySerializer, OutSerializer, PickupSerializer, OrderSerializer, BinInventorySerializer
 from rest_framework.response import Response
 from rest_framework import status
 from shops.models import Shop
@@ -175,25 +175,85 @@ class BinIDList(APIView):
         return Response({'Bins_list': serializer.data})
 
 
+# class PickupDetail(APIView):
+#     authentication_classes = (authentication.TokenAuthentication,)
+#     permission_classes = (permissions.IsAuthenticated,)
+#
+#     def post(self, request):
+#         bin_id = self.request.POST.get('bin_id')
+#         order_no = self.request.POST.get('order_no')
+#         picking = Pickup.objects.filter(pickup_type_id=order_no,sku__rt_product_sku__bin__bin_id=bin_id)
+#         picking_details = picking.last()
+#         pickup_quantity = int(self.request.POST.get('pickup_quantity'))
+#         if pickup_quantity > picking_details.quantity:
+#             msg = {'is_success': False, 'message': ['Picked_quantity cannot be greater than to be picked quantity'], 'response_data': None}
+#             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
+#         else:
+#             picking.update(pickup_quantity=pickup_quantity)
+#         get_batch = picking_details.sku.rt_product_sku.filter(quantity__gt=0).order_by('-batch_id', '-quantity').last()
+#         batch_id = get_batch.batch_id if get_batch else None
+#         id = get_batch.id if get_batch else 0
+#         bin = get_batch if get_batch else None
+#         bin_inventory = BinInventory.objects.filter(batch_id=batch_id, id=id)
+#         quantity = bin_inventory.last().quantity
+#         if quantity-pickup_quantity >=0:
+#             bin_inventory.update(quantity=(quantity - pickup_quantity))
+#
+#         else:
+#             bin_inventory.update(quantity=0)
+#
+#         PickupBinInventory.objects.create(warehouse=picking_details.warehouse,pickup=picking_details,batch_id=batch_id, bin=bin, pickup_quantity=pickup_quantity)
+#
+#
+#         serializer = PickupSerializer(picking_details,fields=('id','batch_id_with_sku','quantity', 'pickup_quantity'))
+#         return Response({'picking_details' : serializer.data})
+
 class PickupDetail(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
+    def update_pickup_inventory(self, bin_id, order_no, pickup_quantity):
+        qty, qty_in_pickup, picked_p = 0, 0, 0
+        binid, id = 0, 0
+        binInv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0).order_by('-batch_id', '-quantity')
+        for i in binInv:
+            for j in i.sku.rt_product_pickup.filter(pickup_type_id=order_no):
+                already_picked = 0
+                qty = j.pickup_quantity
+                id = j.id
+                qty_in_pickup = j.quantity
+                if pickup_quantity == qty:
+                    msg = {'is_success': False, 'message': ['Picked_quantity cannot be greater than to be picked quantity'], 'response_data': None}
+                    return Response(msg, status=status.HTTP_404_NOT_FOUND)
+                else:
+                    if pickup_quantity - already_picked <= i.quantity:
+                        already_picked += pickup_quantity
+                        picked_p += already_picked
+                        remaining_qty = i.quantity - already_picked
+                        BinInventory.objects.filter(id=i.id).update(quantity=remaining_qty)
+                        Pickup.objects.filter(id=id).update(pickup_quantity=already_picked)
+                    else:
+                        already_picked = i.quantity
+                        picked_p += already_picked
+                        remaining_qty = pickup_quantity - already_picked
+                        BinInventory.objects.filter(id=i.id).update(quantity=0)
+                        Pickup.objects.filter(id=id).update(pickup_quantity=picked_p)
+                        pickup_quantity -= i.quantity
+                        self.update_pickup_inventory(bin_id, order_no, pickup_quantity)
+
     def post(self, request):
         bin_id = self.request.POST.get('bin_id')
-        picking = Pickup.objects.filter(sku__rt_product_sku__bin__bin_id=bin_id)
-        picking_details = picking.last()
+        order_no = self.request.POST.get('order_no')
         pickup_quantity = int(self.request.POST.get('pickup_quantity'))
-        if pickup_quantity > picking_details.quantity:
-            msg = {'is_success': False, 'message': ['Picked_quantity cannot be greater than to be picked quantity'], 'response_data': None}
-            return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-        else:
-            picking.update(pickup_quantity=pickup_quantity)
+        self.update_pickup_inventory(bin_id, order_no, pickup_quantity)
+        picking_details = Pickup.objects.filter(pickup_type_id=order_no)
+        bin_inv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0).order_by('-batch_id', '-quantity').last()
+        batch_id=bin_inv.batch_id if bin_inv else None
+        for i in picking_details:
+            PickupBinInventory.objects.create(warehouse=i.warehouse,pickup=i,batch_id=batch_id, bin=bin_inv, pickup_quantity=pickup_quantity)
 
-        serializer = PickupSerializer(picking_details,fields=('id','batch_id_with_sku','quantity', 'pickup_quantity'))
+        serializer = PickupSerializer(picking_details, many=True,fields=('id','batch_id_with_sku','quantity', 'pickup_quantity'))
         return Response({'picking_details' : serializer.data})
-
-
 
 
 

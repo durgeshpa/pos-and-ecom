@@ -4,7 +4,7 @@ from .views import bins_upload, put_away,CreatePickList
 from import_export import resources
 import csv
 from django.contrib import messages
-from .models import Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup
+from .models import Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, PickupBinInventory
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm)
 from django.utils.html import format_html
 from barCodeGenerator import barcodeGen
@@ -125,6 +125,11 @@ class PickupAdmin(admin.ModelAdmin):
 
     download_picklist.short_description = 'Download Picklist'
 
+class PickupBinInventoryAdmin(admin.ModelAdmin):
+    list_display = ('warehouse', 'pickup', 'batch_id', 'bin', 'pickup_quantity','created_at')
+    list_select_related = ('warehouse', 'pickup', 'bin')
+    readonly_fields = ('warehouse', 'pickup', 'batch_id', 'bin','created_at')
+
 
 admin.site.register(Bin, BinAdmin)
 admin.site.register(In, InAdmin)
@@ -134,3 +139,4 @@ admin.site.register(PutawayBinInventory, PutawayBinInventoryAdmin)
 admin.site.register(BinInventory, BinInventoryAdmin)
 admin.site.register(Out, OutAdmin)
 admin.site.register(Pickup, PickupAdmin)
+admin.site.register(PickupBinInventory, PickupBinInventoryAdmin)

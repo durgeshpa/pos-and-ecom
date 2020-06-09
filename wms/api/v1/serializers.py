@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from wms.models import Bin, Putaway, Out, Pickup
+from wms.models import Bin, Putaway, Out, Pickup, BinInventory
 from retailer_to_sp.models import Order
 from shops.api.v1.serializers import ShopSerializer
 from retailer_to_sp.api.v1.serializers import ProductSerializer
@@ -68,7 +68,7 @@ class PickupSerializer(DynamicFieldsModelSerializer):
         return pickup_obj
 
     def batch_sku(self, obj):
-        batch_id = obj.sku.rt_product_sku.filter(quantity__gt=0).order_by('-batch_id', '-quantity').last().batch_id
+        batch_id = obj.sku.rt_product_sku.filter(quantity__gt=0).order_by('-batch_id', '-quantity').last().batch_id if obj.sku.rt_product_sku.filter(quantity__gt=0).order_by('-batch_id', '-quantity').last() else None
         sku = obj.sku.product_name
         return '{}:{}'.format(batch_id, sku)
 
@@ -90,6 +90,16 @@ class BinSerializer(DynamicFieldsModelSerializer):
     class Meta:
         model = Bin
         fields = ('id','warehouse', 'bin_id', 'bin_type', 'is_active', 'bin_barcode', 'created_at', 'modified_at')
+
+
+
+class BinInventorySerializer(serializers.ModelSerializer):
+    bin = BinSerializer()
+    sku = ProductSerializer()
+
+    class Meta:
+        model = BinInventory
+        fields = ('id', 'bin', 'batch_id', 'sku',)
 
 
 
