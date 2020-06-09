@@ -1,5 +1,5 @@
 from django import forms
-from .models import ParentRetailerMapping, Shop, ShopType, ShopUserMapping, ShopTiming
+from .models import ParentRetailerMapping, Shop, ShopType, ShopUserMapping, ShopTiming, BeatPlanning
 from addresses.models import Address
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
@@ -15,6 +15,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from django.core.exceptions import ObjectDoesNotExist
+from accounts.middlewares import get_current_user
 
 class ParentRetailerMappingForm(forms.ModelForm):
     parent = forms.ModelChoiceField(
@@ -305,3 +306,27 @@ class ShopUserMappingCsvViewForm(forms.Form):
                 raise ValidationError(_('INVALID_GROUP_ID at Row[%(value)s]. It should be numeric'), params={'value': id+1},)
 
             uploaded_employee_list.append(row[2])
+
+
+class BeatPlanningAdminForm(forms.ModelForm):
+    """
+    Beat Planning Admin Form
+    """
+    class Meta:
+        model = BeatPlanning
+        fields = ('executive',)
+
+    def __init__(self, *args, **kwargs):
+        """
+
+        :param args: non-keyword arguments
+        :param kwargs: keyword arguments
+        """
+        super(BeatPlanningAdminForm, self).__init__(*args, **kwargs)
+        shop_mapping_object = ShopUserMapping.objects.filter(employee=self.current_user.shop_employee.instance).last()
+        if self.current_user.shop_employee.instance.is_superuser:
+            self.fields['executive'] = forms.ModelChoiceField(
+                queryset=get_user_model().objects.filter(user_type=6, is_active=True))
+        else:
+            self.fields['executive'].queryset = ShopUserMapping.objects.filter(
+                manager=shop_mapping_object).distinct('employee_id')

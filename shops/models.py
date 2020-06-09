@@ -1,5 +1,5 @@
 import logging
-
+from datetime import date
 from django.db import models
 from django.contrib.auth import get_user_model
 #from django.conf import settings
@@ -437,3 +437,31 @@ class ShopTiming(models.Model):
 
 
 # post_save.connect(get_retailer_report, sender=ParentRetailerMapping)
+
+class BeatPlanning(models.Model):
+
+    shop_category_choice = (
+        ("P1", "P1"),
+        ("P2", "P2"),
+        ("P3", "P3"),
+        ("P4", "P4")
+    )
+
+    beat_day_choices = (
+        ('SUNDAY', 'SUNDAY'),
+        ('MONDAY', 'MONDAY'),
+        ('TUESDAY', 'TUESDAY'),
+        ('WEDNESDAY', 'WEDNESDAY'),
+        ('THURSDAY', 'THURSDAY'),
+        ('FRIDAY', 'FRIDAY'),
+        ('SATURDAY', 'SATURDAY')
+    )
+    manager = models.ForeignKey(get_user_model(), related_name='shop_manager', on_delete=models.CASCADE)
+    executive = models.ForeignKey(get_user_model(), related_name='shop_executive', on_delete=models.CASCADE,
+                                  verbose_name="Sales Executive",)
+    shop_category = models.CharField(max_length=25, choices=shop_category_choice, default="P1")
+    beat_plan_date = models.DateField(default=date.today)
+    shop = models.ForeignKey(Shop, related_name='shop_id', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)

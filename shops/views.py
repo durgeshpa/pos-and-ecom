@@ -361,3 +361,60 @@ class ShopUserMappingCsvSample(View):
         writer.writerow(['shop', 'manager', 'employee', 'employee_group'])
         writer.writerow(['23', '8989787878', '8989898989', '2'])
         return response
+
+
+from django.views.generic import View
+class BeatUserMappingCsvSample(View):
+    """
+    This class is used to download the sample beat csv file for individual executive
+    """
+    def get(self, request, *args, **kwargs):
+        """
+
+        :param request: GET request
+        :param args: non keyword argument
+        :param kwargs: keyword argument
+        :return: csv file
+        """
+        if request.user.is_superuser:
+            # get the executive id
+            query_set = ShopUserMapping.objects.filter(
+                employee=request.GET['shop_user_mapping']).values_list('employee').last()
+
+            # get the shop queryset assigned with executive
+            shops = ShopUserMapping.objects.filter(employee=query_set).all()
+        else:
+            query_set = ShopUserMapping.objects.filter(
+                id=request.GET['shop_user_mapping']).values_list('employee').last()
+
+            # get the shop queryset assigned with executive
+            shops = ShopUserMapping.objects.filter(employee=query_set[0]).all()
+
+        # name of the csv file
+        filename = "beat_user_list.csv"
+
+        # The response gets a special MIME type, text/csv. This tells browsers that the document is a CSV file,
+        # rather than an HTML file. If you leave this off, browsers will probably interpret the output as HTML,
+        # which will result in ugly, scary gobbledygook in the browser window.
+        response = HttpResponse(content_type='text/csv')
+
+        # The response gets an additional Content-Disposition header, which contains the name of the CSV file.
+        # This filename is arbitrary; call it whatever you want. It’ll be used by browsers in the “Save as…” dialog,
+        # etc.
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+
+        # We can hook into the CSV-generation API by passing response as the first argument to csv.writer.
+        # The csv.writer function expects a file-like object, and HttpResponse objects fit the bill.
+        writer = csv.writer(response)
+
+        # header of csv file
+        writer.writerow(['Sales Executive (Number - Name)', 'Shop Name', 'Shop ID ', 'Contact Number', 'Address',
+                         'Pin Code', 'Category', 'Date (dd/mm/yy)'])
+        for shop in shops:
+            if shop.shop.approval_status == 2:
+                writer.writerow([shop.employee, shop.shop.shop_name, shop.shop.pk,
+                                 shop.shop.shipping_address.address_contact_number,
+                                 shop.shop.shipping_address.address_line1, shop.shop.shipping_address.pincode, '', ''])
+            else:
+                pass
+        return response

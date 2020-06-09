@@ -1,0 +1,41 @@
+{% extends "admin/change_form.html" %}
+{% block submit_buttons_bottom %}
+        <div class="form-row field-upload-csv">
+            <label class = "required">
+                Day Wise Shop Mapping CSV
+            </label>
+                <input type="file" name="file" required id="id_file">
+        </div>
+        <div class="form-row field-download-csv">
+        <li>
+            <a href="javascript:void(0);" id="id_download"> Download Sample CSV file</a>
+        </li>
+    </div>
+
+{{ block.super }}
+<script type="text/javascript" >
+(function($) {
+    $(document).ready(function() {
+    $("#id_download").click(function( event )
+    {
+        var shop_user_mapping = document.getElementById('id_executive').value;
+        if(shop_user_mapping.length < 1)
+        {
+        alert("Please select one of the Sales Executive to download the sample csv file.");
+        }
+        else
+        {
+        window.location="/shops/upload/beat_csv/sample/?shop_user_mapping="+ shop_user_mapping
+        }
+    });
+  });
+})(django.jQuery);
+
+</script>
+{% endblock %}
+
+
+
+
+
+
