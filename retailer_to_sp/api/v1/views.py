@@ -38,7 +38,7 @@ from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializ
     ShipmentReschedulingSerializer, ShipmentReturnSerializer
 )
 
-from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
+from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping, ProductCapping
 from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
                                 OrderedProduct as SPOrderedProduct, StockAdjustment, create_credit_note)
 
@@ -373,16 +373,16 @@ class GramGRNProductsList(APIView):
                         p["_source"]["no_of_pieces"] = no_of_pieces
                         p["_source"]["sub_total"] = Decimal(no_of_pieces) * p["_source"]["ptr"]
             p_list.append(p["_source"])
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
+
+
+
         #logger.info("Final product list %s"%p_list)
         msg = {'is_store_active': is_store_active,
                 'is_success': True,
@@ -495,9 +495,30 @@ class AddToCart(APIView):
                     cart.save()
 
                 if capping:
-                    capping_start_date = capping.start_date
-                    capping_end_date = capping.end_date
-                    capping_range_orders = Order.objects.filter(buyer_shop = parent_mapping.retailer, created_at__gte = capping_start_date, created_at__lte = capping_end_date)
+                    capping_start_date = capping.start_date.date
+                    capping_end_date = capping.end_date.date
+                    date = datetime.now().date()
+                    if capping.capping_type == 'daily':
+                        end_date = date + timedelta(days=1)
+                        capping_range_orders = Order.objects.filter(buyer_shop = parent_mapping.retailer, created_at__date__gte = date, created_at__date__lt = end_date)
+                    elif capping.capping_type == 'weekly':
+                        if date - capping_start_date >= 7:
+                            capping_start_date = capping_start_date + timedelta(days = 7)
+                            new_end_date = capping_start_date + timedelta(days=7)
+                            capping_range_orders = Order.objects.filter(buyer_shop = parent_mapping.retailer, created_at__date__gte = capping_start_date, created_at__date__lt = new_end_date)
+                            ProductCapping.objects.filter(id = capping.id).update(start_date = capping_start_date)
+                        else:
+                            end_date = capping_start_date + timedelta(days=7)
+                            capping_range_orders = Order.objects.filter(buyer_shop = parent_mapping.retailer, created_at__date__gte = capping_start_date, created_at__date__lt = end_date)
+                    elif capping.capping_type == 'monthly':
+                        if date - capping_start_date >= 30:
+                            capping_start_date = capping_start_date + timedelta(days = 30)
+                            new_end_date = capping_start_date + timedelta(days=30)
+                            capping_range_orders = Order.objects.filter(buyer_shop = parent_mapping.retailer, created_at__date__gte = capping_start_date, created_at__date__lt = new_end_date)
+                            ProductCapping.objects.filter(id = capping.id).update(start_date = capping_start_date)
+                        else:
+                            end_date = capping_start_date + timedelta(days=30)
+                            capping_range_orders = Order.objects.filter(buyer_shop = parent_mapping.retailer, created_at__date__gte = capping_start_date, created_at__date__lt = end_date)
                     if capping_range_orders:
                         for order in capping_range_orders:
                             if order.ordered_cart.rt_cart_list.filter(cart_product = product).exists():
@@ -571,7 +592,7 @@ class AddToCart(APIView):
                     for i in serializer.data['rt_cart_list']:
                         if i['cart_product']['product_mrp']==False:
                             CartProductMapping.objects.filter(cart=cart, cart_product=product).delete()
-                            msg = {'is_success': True, 'message': ['Data added to cart'], 'response_data': serializer.data} 
+                            msg = {'is_success': True, 'message': ['Data added to cart'], 'response_data': serializer.data}
                         else:
                             msg = {'is_success': True, 'message': ['Data added to cart'], 'response_data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)

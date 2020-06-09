@@ -555,6 +555,12 @@ def create_product_sku(sender, instance=None, created=False, **kwargs):
         product.save()
 
 class ProductCapping(models.Model):
+    CAPPING_TYPE_CHOICES = (
+            ("daily", "Daily"),
+            ("weekly", "Weekly"),
+            ("monthly", "Monthly"),
+        )
+
     product = models.ForeignKey(Product, related_name='product_pro_capping',
                                 on_delete=models.CASCADE)
     seller_shop = models.ForeignKey(Shop, related_name='shop_product_capping',
@@ -570,6 +576,7 @@ class ProductCapping(models.Model):
                                 null=True, blank=True,
                                 on_delete=models.CASCADE)
     capping_qty = models.PositiveIntegerField(default=0, null=True)
+    capping_type = models.CharField(max_length=255, choices=CAPPING_TYPE_CHOICES, null=True)
     start_date = models.DateTimeField(null=True, blank=True)
     end_date = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
