@@ -87,6 +87,7 @@ class Cart(BaseCart):
     DELIVERED = "DLVR"
     CANCELED = "CNCL"
     PARTIAL_RETURN = 'PARR'
+    CLOSE = "CLS"
     ORDER_STATUS = (
         (OPEN,"Open"),
         (APPROVAL_AWAITED, "Waiting For Finance Approval"),
@@ -97,6 +98,7 @@ class Cart(BaseCart):
         (PARTIAL_RETURN, "Partial Return"),
         (DELIVERED, "Completely delivered and Closed"),
         (CANCELED, "Canceled"),
+        (CLOSE, "Closed"),
     )
 
     brand = models.ForeignKey(
