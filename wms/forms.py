@@ -76,10 +76,14 @@ class OutForm(forms.ModelForm):
 
 class PickupForm(forms.ModelForm):
     warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
+    pickup_quantity = forms.IntegerField(initial=0)
 
     class Meta:
         model = Pickup
         fields = '__all__'
+
+
+
 
 
 

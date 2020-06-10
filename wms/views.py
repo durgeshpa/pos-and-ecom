@@ -16,6 +16,23 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 
+def update_bin_inventory(id, quantity=0):
+    """
+    :param id:
+    :param quantity:
+    :return:
+    """
+    BinInventory.objects.filter(id=id).update(quantity=quantity)
+
+
+def update_pickup_inventory(id, pickup_quantity=0):
+    """
+    :param id:
+    :param pickup_quantity:
+    :return:
+    """
+    Pickup.objects.filter(id=id).update(pickup_quantity=pickup_quantity)
+
 
 def bins_upload(request):
     if request.method == 'POST':
@@ -132,3 +149,41 @@ class CreatePickList(APIView):
             show_content_in_browser=False, cmd_options=cmd_option
         )
         return response
+
+
+def pickup_bin_inventory(bin_id, order_no, pickup_quantity_new):
+    """
+    :param self:
+    :param bin_id:
+    :param order_no:
+    :param pickup_quantity_new:
+    :return:
+    """
+    qty, qty_in_pickup, picked_p = 0, 0, 0
+    pickup_quantity = pickup_quantity_new
+    binid, id = 0, 0
+    binInv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0).order_by('-batch_id', 'quantity')
+    for i in binInv:
+        for j in i.sku.rt_product_pickup.filter(pickup_type_id=order_no):
+            already_picked = 0
+            remaining_qty = 0
+            qty = j.pickup_quantity if j.pickup_quantity else 0
+            id = j.id
+            qty_in_pickup = j.quantity
+            if pickup_quantity_new == qty:
+                return None
+            else:
+                if pickup_quantity - already_picked <= i.quantity:
+                    already_picked += pickup_quantity
+                    remaining_qty = i.quantity - already_picked
+                    update_bin_inventory(i.id, remaining_qty)
+                    updated_pickup = qty+already_picked
+                    update_pickup_inventory(id,updated_pickup)
+                else:
+                    already_picked = i.quantity
+                    picked_p += already_picked
+                    remaining_qty = pickup_quantity - already_picked
+                    update_bin_inventory(i.id)
+                    update_pickup_inventory(id, picked_p)
+                    pickup_quantity -= i.quantity
+                    pickup_bin_inventory(bin_id, order_no, pickup_quantity)

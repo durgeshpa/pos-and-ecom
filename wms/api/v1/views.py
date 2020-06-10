@@ -1,6 +1,7 @@
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Out, Pickup, PickupBinInventory
 from rest_framework import viewsets
 from .serializers import BinSerializer, PutAwaySerializer, OutSerializer, PickupSerializer, OrderSerializer, BinInventorySerializer
+from wms.views import pickup_bin_inventory
 from rest_framework.response import Response
 from rest_framework import status
 from shops.models import Shop
@@ -146,7 +147,6 @@ class PickupList(APIView):
     def get(self, request):
         date = ''.join(self.request.GET.get('date')).split('-0')
         date = [int(i) for i in date]
-        print(date)
         picker_boy = self.request.GET.get('picker_boy')
         orders = Order.objects.filter(Q(picker_order__picker_boy__first_name=picker_boy),
                                       Q(picker_order__picking_status='picking_assigned'),
@@ -212,40 +212,11 @@ class PickupDetail(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def update_pickup_inventory(self, bin_id, order_no, pickup_quantity):
-        qty, qty_in_pickup, picked_p = 0, 0, 0
-        binid, id = 0, 0
-        binInv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0).order_by('-batch_id', '-quantity')
-        for i in binInv:
-            for j in i.sku.rt_product_pickup.filter(pickup_type_id=order_no):
-                already_picked = 0
-                qty = j.pickup_quantity
-                id = j.id
-                qty_in_pickup = j.quantity
-                if pickup_quantity == qty:
-                    msg = {'is_success': False, 'message': ['Picked_quantity cannot be greater than to be picked quantity'], 'response_data': None}
-                    return Response(msg, status=status.HTTP_404_NOT_FOUND)
-                else:
-                    if pickup_quantity - already_picked <= i.quantity:
-                        already_picked += pickup_quantity
-                        picked_p += already_picked
-                        remaining_qty = i.quantity - already_picked
-                        BinInventory.objects.filter(id=i.id).update(quantity=remaining_qty)
-                        Pickup.objects.filter(id=id).update(pickup_quantity=already_picked)
-                    else:
-                        already_picked = i.quantity
-                        picked_p += already_picked
-                        remaining_qty = pickup_quantity - already_picked
-                        BinInventory.objects.filter(id=i.id).update(quantity=0)
-                        Pickup.objects.filter(id=id).update(pickup_quantity=picked_p)
-                        pickup_quantity -= i.quantity
-                        self.update_pickup_inventory(bin_id, order_no, pickup_quantity)
-
     def post(self, request):
         bin_id = self.request.POST.get('bin_id')
         order_no = self.request.POST.get('order_no')
         pickup_quantity = int(self.request.POST.get('pickup_quantity'))
-        self.update_pickup_inventory(bin_id, order_no, pickup_quantity)
+        pickup_bin_inventory(bin_id, order_no, pickup_quantity)
         picking_details = Pickup.objects.filter(pickup_type_id=order_no)
         bin_inv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0).order_by('-batch_id', '-quantity').last()
         batch_id=bin_inv.batch_id if bin_inv else None
