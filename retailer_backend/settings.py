@@ -329,7 +329,8 @@ CRONJOBS = [
     ('* * * * *', 'retailer_backend.cron.CronToDeleteOrderedProductReserved', '>> /var/log/nginx/cron.log'),
     ('* * * * *', 'retailer_backend.cron.discounted_order_cancellation', '>> /tmp/discounted_cancellation.log'),
     ('* * * * *', 'retailer_backend.cron.delete_ordered_reserved_products'),
-    ('2 0 * * *', 'analytics.api.v1.views.getStock')
+    ('2 0 * * *', 'analytics.api.v1.views.getStock'),
+    ('*/5 * * * *', 'retailer_backend.cron.POStatusChangeExceedsPOValidityDate')
 ]
 
 INTERNAL_IPS = ['127.0.0.1','localhost']
