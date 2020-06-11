@@ -1,5 +1,7 @@
 # python imports
 import csv
+import logging
+from io import StringIO
 from import_export import resources
 from admin_auto_filters.filters import AutocompleteFilter
 from rangefilter.filter import DateTimeRangeFilter
@@ -13,7 +15,7 @@ from django.http import HttpResponse
 from .models import (
     Shop, ShopType, RetailerType, ParentRetailerMapping,
     ShopPhoto, ShopDocument, ShopInvoicePattern, ShopUserMapping,
-    ShopRequestBrand, SalesAppVersion, ShopTiming, FavouriteProduct, BeatPlanning)
+    ShopRequestBrand, SalesAppVersion, ShopTiming, FavouriteProduct, BeatPlanning, DayBeatPlanning)
 from addresses.models import Address
 from addresses.forms import AddressForm
 from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
@@ -26,6 +28,9 @@ from retailer_backend.admin import InputFilter
 from services.views import SalesReportFormView, SalesReport
 from .utils import create_shops_excel
 from retailer_backend.filters import ShopFilter, EmployeeFilter, ManagerFilter
+from common.constants import DOWNLOAD_BEAT_PLAN_CSV, FIFTY
+
+logger = logging.getLogger('shop-admin')
 
 
 class ShopResource(resources.ModelResource):
@@ -435,6 +440,8 @@ class BeatPlanningAdmin(admin.ModelAdmin):
     form = BeatPlanningAdminForm
     list_display = ('manager', 'executive', 'created_at', 'status')
     list_display_links = None
+    actions = ['download_bulk_beat_plan_csv']
+    list_per_page = FIFTY
     search_fields = ('executive__phone_number', 'manager__phone_number')
 
     def render_change_form(self, request, context, *args, **kwargs):
@@ -461,8 +468,44 @@ class BeatPlanningAdmin(admin.ModelAdmin):
         form.current_user = request.user
         return form
 
+    def download_bulk_beat_plan_csv(self, request, queryset):
+        """
+
+        :param request: get request
+        :param queryset: Beat plan queryset
+        :return: csv file
+        """
+        f = StringIO()
+        writer = csv.writer(f)
+        # set the header name
+        writer.writerow(["Sales Executive (Number - Name)", "Sales Manager (Number - Name)", "Shop ID ",
+                         "Contact Number", "Address", "Pin Code", "Category", "Date (dd/mm/yy)", "Status"])
+
+        for query in queryset:
+            # get day beat plan queryset
+            day_beat_plan_query_set = DayBeatPlanning.objects.filter(beat_plan=query)
+            # get object from queryset
+            for plan_obj in day_beat_plan_query_set:
+                # write data into csv file
+                writer.writerow([plan_obj.beat_plan.executive, plan_obj.beat_plan.manager,
+                                 plan_obj.shop_id, plan_obj.shop.shipping_address.address_contact_number,
+                                 plan_obj.shop.shipping_address.address_line1,
+                                 plan_obj.shop.shipping_address.pincode,
+                                 plan_obj.shop_category,
+                                 plan_obj.beat_plan_date.strftime("%d/%m/%y"),
+                                 'Active' if plan_obj.beat_plan.status is True else 'Inactive'])
+
+        f.seek(0)
+        response = HttpResponse(f, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=executive_beat_plan.csv'
+        return response
+
+    # download bulk invoice short description
+    download_bulk_beat_plan_csv.short_description = DOWNLOAD_BEAT_PLAN_CSV
+
+    # Media file
     class Media:
-        pass
+        js = ('admin/js/beat_plan_list.js', )
 
 
 admin.site.register(ParentRetailerMapping, ParentRetailerMappingAdmin)
