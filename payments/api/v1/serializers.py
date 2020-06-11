@@ -123,7 +123,7 @@ class ShipmentPaymentSerializer(serializers.Serializer):
                             if i.get('payment_mode_name') == 'cash_payment'])
         user_pan_card = self.context['paid_by'].user_documents.\
             filter(user_document_type='pc').exists()
-        if int(cash_amount) > 10000 and not user_pan_card:
+        if int(cash_amount) >= 10000 and not user_pan_card:
             return True
         return False
 
