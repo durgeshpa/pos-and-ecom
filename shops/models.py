@@ -439,6 +439,9 @@ class ShopTiming(models.Model):
 # post_save.connect(get_retailer_report, sender=ParentRetailerMapping)
 
 class BeatPlanning(models.Model):
+    """
+    This model is used for Beat Planning
+    """
 
     shop_category_choice = (
         ("P1", "P1"),
@@ -447,15 +450,6 @@ class BeatPlanning(models.Model):
         ("P4", "P4")
     )
 
-    beat_day_choices = (
-        ('SUNDAY', 'SUNDAY'),
-        ('MONDAY', 'MONDAY'),
-        ('TUESDAY', 'TUESDAY'),
-        ('WEDNESDAY', 'WEDNESDAY'),
-        ('THURSDAY', 'THURSDAY'),
-        ('FRIDAY', 'FRIDAY'),
-        ('SATURDAY', 'SATURDAY')
-    )
     manager = models.ForeignKey(get_user_model(), related_name='shop_manager', on_delete=models.CASCADE)
     executive = models.ForeignKey(get_user_model(), related_name='shop_executive', on_delete=models.CASCADE,
                                   verbose_name="Sales Executive",)

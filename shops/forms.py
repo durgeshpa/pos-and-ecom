@@ -16,6 +16,7 @@ from django.contrib.auth.models import Group, Permission
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from django.core.exceptions import ObjectDoesNotExist
 from accounts.middlewares import get_current_user
+from common.common_utils import find_day
 
 class ParentRetailerMappingForm(forms.ModelForm):
     parent = forms.ModelChoiceField(
@@ -323,10 +324,80 @@ class BeatPlanningAdminForm(forms.ModelForm):
         :param kwargs: keyword arguments
         """
         super(BeatPlanningAdminForm, self).__init__(*args, **kwargs)
-        shop_mapping_object = ShopUserMapping.objects.filter(employee=self.current_user.shop_employee.instance).last()
+        # get manager object
+        shop_mapping_object = (ShopUserMapping.objects.filter(
+            employee=self.current_user.shop_employee.instance,
+            employee_group__permissions__codename='can_sales_manager_add_shop', status=True).last())
+        # condition to check the current user is super user  or manager
         if self.current_user.shop_employee.instance.is_superuser:
             self.fields['executive'] = forms.ModelChoiceField(
-                queryset=get_user_model().objects.filter(user_type=6, is_active=True))
+                queryset=get_user_model().objects.filter(user_type=6, is_active=True),
+                widget=autocomplete.ModelSelect2())
         else:
-            self.fields['executive'].queryset = ShopUserMapping.objects.filter(
-                manager=shop_mapping_object).distinct('employee_id')
+            self.fields['executive'] = forms.ModelChoiceField(queryset=ShopUserMapping.objects.filter(
+                manager=shop_mapping_object).distinct('employee_id'), widget=autocomplete.ModelSelect2())
+
+
+class BeatUserMappingCsvViewForm(forms.Form):
+    """
+    This Form class is used to upload csv for particular sales executive in Beat Planning
+    """
+    file = forms.FileField()
+
+    def clean_file(self):
+        """
+
+        :return: Form is valid otherwise validation error message
+        """
+
+        # Validate to check the file format, It should be csv file.
+        if not self.cleaned_data['file'].name[-4:] in ('.csv'):
+            raise forms.ValidationError("Sorry! Only csv file accepted.")
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        first_row = next(reader)
+        # list which contains csv data and pass into the view file
+        form_data_list = []
+        for row_id, row in enumerate(reader):
+
+            # validation for shop id, it should be numeric.
+            if not row[2] or not re.match("^[\d]*$", row[2]):
+                raise ValidationError(_('INVALID_SHOP_ID at Row number [%(value)s]. It should be numeric.'),
+                                      params={'value': row_id+1},)
+
+            # validation for shop id to check that is exist or not in the database
+            if not Shop.objects.filter(pk=row[2]).exists():
+                raise ValidationError(_('INVALID_SHOP_ID at Row number [%(value)s]. Shop Id not exists.'),
+                                      params={'value': row_id+1},)
+
+            # validation for executive to check that is exist or not in the database
+            if not get_user_model().objects.filter(phone_number=row[0].split('-')[0].split(' ')[0]).exists():
+                raise ValidationError(_('INVALID_EMPLOYEE_NO at Row number [%(value)s]. Employee is not exists.'),
+                                      params={'value': row_id+1},)
+
+            # validation for shop id is associate with executive
+            if not ShopUserMapping.objects.filter(employee__phone_number=row[0].split('-')[0].split(' ')[0],
+                                                  shop__shop_user__shop_id=row[2]).distinct().exists():
+                raise ValidationError(_('Row number [%(value)s] | Shop not mapped to the selected Sales executive.'),
+                                      params={'value': row_id+1},)
+
+            # validation for category name
+            if not row[6] in ['P1', 'P2', 'P3']:
+                raise ValidationError(_('INVALID Category at Row number [%(value)s]. It should be only P1, P2 and P3.'),
+                                      params={'value': row_id+1},)
+
+            # validation to check that date is not empty
+            if row[7] is '':
+                raise ValidationError(_('Row number [%(value)s] | Date is not entered.'),
+                                      params={'value': row_id+1},)
+
+            # validation to check the day is not sunday
+            if not row[7] is '':
+                day = find_day(row[7])
+                if day == 'Sunday':
+                    raise ValidationError(_('Row number [%(value)s] | Date cannot be a Sunday.'),
+                                          params={'value': row_id+1},)
+            # append csv date in a list
+            form_data_list.append(row)
+
+        # return list
+        return form_data_list

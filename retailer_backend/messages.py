@@ -46,5 +46,8 @@ ERROR_MESSAGES = {
     'INVALID_MAPPING': "Shop id- %s and employee no- %s , has duplicate entry",
     'PRODUCT_REMOVED': "Some products in cart aren’t available anymore, please update cart",
     "1001": "Selected records are exceeding system capacity, please keep max records at 50.",
-    "1002": "Selected file status is QC pending, you can't download this file."
+    "1002": "Selected file status is QC pending, you can't download this file.",
+    "1003": "Oops! Something went wrong, Please check the data of csv file.",
+    "1004": "row number- %s data is already exists in the sheet.",
+    "1005": "API request is not Authorized"
 }

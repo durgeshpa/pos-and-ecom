@@ -1,4 +1,5 @@
 # python imports
+import calendar
 import datetime
 import time
 import hmac
@@ -120,3 +121,13 @@ def create_file_name(file_prefix, unique_id):
     """
     # return unique name of pdf file
     return file_prefix + str(unique_id) + '.pdf'
+
+
+def find_day(date):
+    """
+
+    :param date: date format %d/%m/%y, example:- 14/06/20
+    :return: day of particular date
+    """
+    born = datetime.datetime.strptime(date, '%d/%m/%y').weekday()
+    return calendar.day_name[born]

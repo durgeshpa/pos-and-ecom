@@ -433,9 +433,8 @@ class BeatPlanningAdmin(admin.ModelAdmin):
     This class is used to view the Beat Planning Admin Form
     """
     form = BeatPlanningAdminForm
-    list_display = ('manager', 'executive', 'shop_category', 'created_at', 'modified_at')
-    list_filter = [ShopFilter, ManagerFilter, EmployeeFilter, ('created_at', DateTimeRangeFilter), ]
-    search_fields = ('shop__shop_name', 'employee_group__permissions__codename', 'employee__phone_number')
+    list_display = ('manager', 'executive', 'created_at', 'status')
+    search_fields = ('executive__phone_number', 'manager__phone_number')
 
     def render_change_form(self, request, context, *args, **kwargs):
         """
@@ -453,8 +452,8 @@ class BeatPlanningAdmin(admin.ModelAdmin):
         """
 
         :param request: request
-        :param args: non keyowrd argument
-        :param kwargs: jeyowrd argument
+        :param args: non keyword argument
+        :param kwargs: keyword argument
         :return: form
         """
         form = super(BeatPlanningAdmin, self).get_form(request, *args, **kwargs)

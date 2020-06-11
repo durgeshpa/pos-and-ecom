@@ -1,19 +1,19 @@
 import openpyxl
 import re
-
+import logging
 from django.shortcuts import render
 from django.views.generic.base import TemplateView
 from django.http import HttpResponse
 from django.views import View
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
-from shops.models import Shop, ShopType
+from shops.models import Shop, ShopType, BeatPlanning
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
 from sp_to_gram.models import OrderedProduct, OrderedProductMapping, StockAdjustment, StockAdjustmentMapping,OrderedProductReserved
 from django.db.models import Sum,Q
 from dal import autocomplete
-from .forms import StockAdjustmentUploadForm, BulkShopUpdation, ShopUserMappingCsvViewForm
+from .forms import StockAdjustmentUploadForm, BulkShopUpdation, ShopUserMappingCsvViewForm, BeatUserMappingCsvViewForm
 from django.views.generic.edit import FormView
 import csv
 import codecs
@@ -25,10 +25,13 @@ from shops.models import ShopUserMapping
 from rest_framework.views import APIView
 from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
 from django.contrib.auth.mixins import PermissionRequiredMixin
-
+from django.http import JsonResponse
 from collections import defaultdict
 import itertools
 # Create your views here.
+
+logger = logging.getLogger('shop')
+
 class ShopMappedProduct(TemplateView):
     template_name = "admin/shop/change_list.html"
 
@@ -391,7 +394,7 @@ class BeatUserMappingCsvSample(View):
             shops = ShopUserMapping.objects.filter(employee=query_set[0]).all()
 
         # name of the csv file
-        filename = "beat_user_list.csv"
+        filename = shops[0].employee.first_name+'_'+datetime.datetime.today().strftime('%d-%m-%y') + ".csv"
 
         # The response gets a special MIME type, text/csv. This tells browsers that the document is a CSV file,
         # rather than an HTML file. If you leave this off, browsers will probably interpret the output as HTML,
@@ -418,3 +421,78 @@ class BeatUserMappingCsvSample(View):
             else:
                 pass
         return response
+
+
+class BeatUserMappingCsvView(FormView):
+    """
+    This class is used to upload csv file for sales executive to set the Beat Plan
+    """
+    form_class = BeatUserMappingCsvViewForm
+
+    def post(self, request, *args, **kwarg):
+        """
+
+        :param request: POST or ajax call
+        :param args: non keyword argument
+        :param kwarg: keyword argument
+        :return: success and error message based on the logical condition
+        """
+        if request.method == 'POST' and request.is_ajax():
+            form_class = self.get_form_class()
+            form = self.get_form(form_class)
+            # to verify the form
+            try:
+                if form.is_valid():
+                    # get the list of csv data
+                    upload_data = form.cleaned_data['file']
+                    # get sale executive id
+                    executive_id = get_user_model().objects.filter(
+                        phone_number=upload_data[0][0].split('-')[0].split(' ')[0])
+
+                    # set status false for sales executive if executive is exist in the beat planning model
+                    executive_beat_plan = BeatPlanning.objects.filter(executive=executive_id[0])
+                    if executive_beat_plan:
+                        for executive in executive_beat_plan:
+                            # set the status False
+                            executive.status = False
+                            # save the data
+                            executive.save()
+                    # list of those ids which are either duplicate or already exists in a database
+                    not_uploaded_list = []
+                    for row, data in enumerate(upload_data):
+                        # convert the string date to django model date field
+                        date = datetime.datetime.strptime(data[7], '%d/%m/%y').strftime("%Y-%m-%d")
+
+                        # beat plan created for sales executive
+                        beat_plan_object, created = (BeatPlanning.objects.get_or_create(
+                            executive=executive_id[0], shop_id=data[2], beat_plan_date=date, shop_category=data[6],
+                            status=True, manager=request.user))
+
+                        # append the data in a list which is already exist in the database
+                        if not created:
+                            not_uploaded_list.append(ERROR_MESSAGES['1004'] % (row+1))
+
+                    # return success message while csv data is successfully saved
+                    if not not_uploaded_list:
+                        result = {'message': SUCCESS_MESSAGES['CSV_UPLOADED']}
+                        status = '200'
+                    else:
+                        result = {'message': SUCCESS_MESSAGES['CSV_UPLOADED_EXCEPT'] % not_uploaded_list}
+                        status = '400'
+                # return validation error message while uploading csv file
+                else:
+                    result = {'message': form.errors['file'][0]}
+                    status = '400'
+
+                return JsonResponse(result, status=status)
+            # exception block
+            except Exception as e:
+                logger.exception(e)
+                result = {'message': ERROR_MESSAGES["1003"]}
+                status = '400'
+                return JsonResponse(result, status)
+
+        else:
+            result = {'message': ERROR_MESSAGES["1005"]}
+            status = '400'
+        return JsonResponse(result, status)
