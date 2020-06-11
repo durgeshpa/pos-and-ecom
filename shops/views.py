@@ -478,7 +478,7 @@ class BeatUserMappingCsvView(FormView):
                         status = '200'
                     else:
                         result = {'message': SUCCESS_MESSAGES['CSV_UPLOADED_EXCEPT'] % not_uploaded_list}
-                        status = '400'
+                        status = '200'
                 # return validation error message while uploading csv file
                 else:
                     result = {'message': form.errors['file'][0]}

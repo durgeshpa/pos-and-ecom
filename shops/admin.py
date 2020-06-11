@@ -434,6 +434,7 @@ class BeatPlanningAdmin(admin.ModelAdmin):
     """
     form = BeatPlanningAdminForm
     list_display = ('manager', 'executive', 'created_at', 'status')
+    list_display_links = None
     search_fields = ('executive__phone_number', 'manager__phone_number')
 
     def render_change_form(self, request, context, *args, **kwargs):

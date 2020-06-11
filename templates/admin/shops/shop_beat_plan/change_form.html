@@ -56,12 +56,14 @@
                 success: function (data) {
                     $("#message").show();
                     $('#message').html(data.message);
+                    $('#message').css('color','green');
                     $("#message").delay(6000).hide("slow");
                     return true;
                 },
                 error: function (data) {
                     $("#message").show();
                     $('#message').html(data.responseJSON.message);
+                    $('#message').css('color','red');
                     $("#message").delay(6000).hide("slow");
                     return true;
                 },
