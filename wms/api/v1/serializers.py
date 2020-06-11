@@ -58,10 +58,12 @@ class PickupSerializer(DynamicFieldsModelSerializer):
     out = OutSerializer()
     bin_ids = serializers.SerializerMethodField('bin_ids_dt')
     batch_id_with_sku = serializers.SerializerMethodField('batch_sku')
+    product_mrp = serializers.SerializerMethodField('product_mrp_dt')
 
     class Meta:
         model = Pickup
-        fields = ('id', 'warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity', 'pickup_quantity','out','bin_ids','batch_id_with_sku')
+        fields = ('id', 'warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity', 'pickup_quantity','out',
+                  'product_mrp', 'bin_ids','batch_id_with_sku')
 
     def bin_ids_dt(self, obj):
         pickup_obj = [i.bin.bin_id for i in obj.sku.rt_product_sku.all()]
@@ -71,6 +73,11 @@ class PickupSerializer(DynamicFieldsModelSerializer):
         batch_id = obj.sku.rt_product_sku.filter(quantity__gt=0).order_by('-batch_id', '-quantity').last().batch_id if obj.sku.rt_product_sku.filter(quantity__gt=0).order_by('-batch_id', '-quantity').last() else None
         sku = obj.sku.product_name
         return '{}:{}'.format(batch_id, sku)
+
+    def product_mrp_dt(self, obj):
+        mrp = obj.sku.rt_cart_product_mapping.all().last().cart_product_price.mrp
+        return mrp
+
 
 
 class OrderSerializer(serializers.ModelSerializer):
