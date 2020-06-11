@@ -12,6 +12,7 @@ from django.db import transaction
 from django.http import HttpResponse
 import openpyxl
 import re
+from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
@@ -171,6 +172,8 @@ def pickup_bin_inventory(bin_id, order_no, pickup_quantity_new):
             id = j.id
             qty_in_pickup = j.quantity
             if pickup_quantity_new == qty:
+                return None
+            if pickup_quantity > j.quantity:
                 return None
             else:
                 if pickup_quantity - already_picked <= i.quantity:

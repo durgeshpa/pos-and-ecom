@@ -115,7 +115,7 @@ class OutAdmin(admin.ModelAdmin):
 class PickupAdmin(admin.ModelAdmin):
     form = PickupForm
     list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity','pickup_quantity')
-    readonly_fields = ('quantity','pickup_quantity',)
+    # readonly_fields = ('quantity','pickup_quantity',)
 
     def download_picklist(self, obj):
         return format_html(
