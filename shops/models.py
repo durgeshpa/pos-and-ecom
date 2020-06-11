@@ -443,19 +443,28 @@ class BeatPlanning(models.Model):
     This model is used for Beat Planning
     """
 
+    manager = models.ForeignKey(get_user_model(), related_name='shop_manager', on_delete=models.CASCADE)
+    executive = models.ForeignKey(get_user_model(), related_name='shop_executive', on_delete=models.CASCADE,
+                                  verbose_name="Sales Executive",)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
+
+
+class DayBeatPlanning(models.Model):
+    """
+    This model is used for to store day wise beat plan for sales executive
+    """
     shop_category_choice = (
         ("P1", "P1"),
         ("P2", "P2"),
         ("P3", "P3"),
         ("P4", "P4")
     )
-
-    manager = models.ForeignKey(get_user_model(), related_name='shop_manager', on_delete=models.CASCADE)
-    executive = models.ForeignKey(get_user_model(), related_name='shop_executive', on_delete=models.CASCADE,
-                                  verbose_name="Sales Executive",)
+    beat_plan = models.ForeignKey(BeatPlanning, related_name='beat_plan', null=True, blank=True,
+                                  on_delete=models.CASCADE)
     shop_category = models.CharField(max_length=25, choices=shop_category_choice, default="P1")
     beat_plan_date = models.DateField(default=date.today)
-    shop = models.ForeignKey(Shop, related_name='shop_id', on_delete=models.CASCADE)
+    shop = models.ForeignKey(Shop, related_name='shop_id', null=True, blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-    status = models.BooleanField(default=True)

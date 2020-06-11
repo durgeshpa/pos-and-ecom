@@ -7,7 +7,7 @@ from django.http import HttpResponse
 from django.views import View
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
-from shops.models import Shop, ShopType, BeatPlanning
+from shops.models import Shop, ShopType, BeatPlanning, DayBeatPlanning
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
 from sp_to_gram.models import OrderedProduct, OrderedProductMapping, StockAdjustment, StockAdjustmentMapping,OrderedProductReserved
@@ -457,16 +457,18 @@ class BeatUserMappingCsvView(FormView):
                             executive.status = False
                             # save the data
                             executive.save()
+                    # beat plan created for sales executive
+                    beat_plan_object = BeatPlanning.objects.get_or_create(executive=executive_id[0],
+                                                                          status=True, manager=request.user)
                     # list of those ids which are either duplicate or already exists in a database
                     not_uploaded_list = []
                     for row, data in enumerate(upload_data):
                         # convert the string date to django model date field
                         date = datetime.datetime.strptime(data[7], '%d/%m/%y').strftime("%Y-%m-%d")
 
-                        # beat plan created for sales executive
-                        beat_plan_object, created = (BeatPlanning.objects.get_or_create(
-                            executive=executive_id[0], shop_id=data[2], beat_plan_date=date, shop_category=data[6],
-                            status=True, manager=request.user))
+                        # day wise beat plan created for sales executive
+                        day_beat_plan_object, created = DayBeatPlanning.objects.get_or_create(
+                            beat_plan=beat_plan_object[0], shop_id=data[2], beat_plan_date=date, shop_category=data[6])
 
                         # append the data in a list which is already exist in the database
                         if not created:
