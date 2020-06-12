@@ -49,3 +49,6 @@ static_root
 media/
 */migrations/
 **/migrations/**
+.mypy_cache/
+.vscode/
+celerybeat-schedule
