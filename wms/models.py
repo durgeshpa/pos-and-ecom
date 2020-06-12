@@ -207,6 +207,11 @@ class Pickup(models.Model):
         if self.pickup_quantity <= self.quantity:
             super(Pickup, self).save(*args, *kwargs)
 
+    def clean(self):
+        super(Pickup, self).clean()
+        if self.pickup_quantity>self.quantity:
+            self.pickup_quantity=self.quantity
+
 
 class PickupBinInventory(models.Model):
     # id = models.AutoField(primary_key=True)

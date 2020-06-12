@@ -172,7 +172,7 @@ def pickup_bin_inventory(bin_id, order_no, pickup_quantity_new):
             id = j.id
             qty_in_pickup = j.quantity
             if pickup_quantity_new == qty:
-                return None
+                break
             if pickup_quantity > j.quantity:
                 return None
             else:
@@ -188,5 +188,8 @@ def pickup_bin_inventory(bin_id, order_no, pickup_quantity_new):
                     remaining_qty = pickup_quantity - already_picked
                     update_bin_inventory(i.id)
                     update_pickup_inventory(id, picked_p)
-                    pickup_quantity -= i.quantity
+                    if i.sku in [k.sku for k in BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0).order_by('-batch_id', 'quantity')]:
+                        pickup_quantity -= i.quantity
+                    else:
+                        pickup_quantity=pickup_quantity_new
                     pickup_bin_inventory(bin_id, order_no, pickup_quantity)
