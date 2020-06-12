@@ -145,8 +145,12 @@ class PickupList(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
-        date = ''.join(self.request.GET.get('date')).split('-0')
-        date = [int(i) for i in date]
+        date = ''.join(self.request.GET.get('date')).split('-')
+        if date[1] in ['10', '11', '12'] or int(date[2]) in range(10, 32):
+            date = [int(date[0]), int(date[1]), int(date[2])]
+        else:
+            date = [int(date[0]), int(date[1][1]), int(date[2][1])]
+
         picker_boy = self.request.GET.get('picker_boy')
         orders = Order.objects.filter(Q(picker_order__picker_boy__first_name=picker_boy),
                                       Q(picker_order__picking_status='picking_assigned'),
@@ -160,8 +164,8 @@ class BinIDList(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def post(self, request):
-        order_no = self.request.POST.get('order_no')
+    def get(self, request):
+        order_no = self.request.GET.get('order_no')
         bin_objects=[]
         quantity=[]
         pickup_orders = Order.objects.filter(order_no=order_no).last()
@@ -220,8 +224,8 @@ class PickupDetail(APIView):
         picking_details = Pickup.objects.filter(pickup_type_id=order_no)
         bin_inv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0).order_by('-batch_id', '-quantity').last()
         batch_id = bin_inv.batch_id if bin_inv else None
-        for i in picking_details:
-            PickupBinInventory.objects.create(warehouse=i.warehouse,pickup=i,batch_id=batch_id, bin=bin_inv, pickup_quantity=pickup_quantity)
+        # for i in picking_details:
+        #     PickupBinInventory.objects.create(warehouse=i.warehouse,pickup=i,batch_id=batch_id, bin=bin_inv, pickup_quantity=pickup_quantity)
 
         serializer = PickupSerializer(picking_details, many=True,fields=('id','batch_id_with_sku','product_mrp','quantity', 'pickup_quantity'))
         return Response({'picking_details': serializer.data})
