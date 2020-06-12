@@ -507,6 +507,12 @@ class BeatPlanningAdmin(admin.ModelAdmin):
     class Media:
         js = ('admin/js/beat_plan_list.js', )
 
+    def get_queryset(self, request):
+        qs = super(BeatPlanningAdmin, self).get_queryset(request)
+        if not request.user.is_superuser:
+            return qs.filter(manager=request.user)
+        return qs
+
 
 admin.site.register(ParentRetailerMapping, ParentRetailerMappingAdmin)
 admin.site.register(ShopType)
