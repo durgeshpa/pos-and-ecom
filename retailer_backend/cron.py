@@ -1,4 +1,4 @@
-
+from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
@@ -6,8 +6,9 @@ from rest_framework.views import APIView
 from django.utils import timezone
 from sp_to_gram.models import OrderedProductMapping,OrderedProductReserved
 from gram_to_brand.models import OrderedProductReserved as GramOrderedProductReserved
-from django.db.models import Sum,Q
+from django.db.models import Sum,Q,Case, CharField, Value, When, F
 from shops.models import Shop
+from gram_to_brand.models import Cart
 from services.models import ShopStock
 from retailer_to_sp.models import Order
 from datetime import datetime, timedelta
@@ -107,3 +108,18 @@ def discounted_order_cancellation():
         for order in orders:
             order.order_status = 'CANCELLED'
             order.save()
+
+
+def po_status_change_exceeds_validity_date():
+    queryset = Cart.objects.filter(
+        Q(po_status=Cart.OPEN) | Q(po_status=Cart.FINANCE_APPROVED) |
+        Q(po_status=Cart.APPROVAL_AWAITED) | Q(po_status=Cart.PARTIAL_DELIVERED),
+        po_validity_date__lt=timezone.now())
+    if queryset.exists():
+        queryset.update(po_status=Case(
+            When((Q(po_status=Cart.OPEN) | Q(po_status=Cart.APPROVAL_AWAITED) |
+                  Q(po_status=Cart.FINANCE_APPROVED)),
+                 then=Value(Cart.CLOSE)),
+            When(po_status=Cart.PARTIAL_DELIVERED,
+                 then=Value(Cart.PARTIAL_DELIVERED_CLOSE)),
+            default=F('po_status')))
