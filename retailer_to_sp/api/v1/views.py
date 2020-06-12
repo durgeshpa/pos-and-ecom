@@ -38,7 +38,7 @@ from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializ
     ShipmentReschedulingSerializer, ShipmentReturnSerializer
 )
 
-from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping, ProductCapping
+from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
 from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
                                 OrderedProduct as SPOrderedProduct, StockAdjustment, create_credit_note)
 
@@ -82,7 +82,7 @@ from products.models import Product
 
 User = get_user_model()
 
-#logger = logging.getLogger('django')
+logger = logging.getLogger(__name__)
 
 today = datetime.today()
 
@@ -253,7 +253,6 @@ class GramGRNProductsList(APIView):
         return query
 
     def post(self, request, format=None):
-        #logger.info('grn search %s'%request.data)
         self.product_ids = request.data.get('product_ids')
         self.brand = request.data.get('brands')
         self.category = request.data.get('categories')
@@ -291,16 +290,12 @@ class GramGRNProductsList(APIView):
             # except ObjectDoesNotExist:
             else:
                 parent_mapping = ParentRetailerMapping.objects.get(retailer=shop_id, status=True)
-                #logger.info("parent shop %s"%parent_mapping)
                 if parent_mapping.parent.shop_type.shop_type == 'sp':
                     '''4th Step
                         SP mapped data shown
                     '''
                     body = {"from" : offset, "size" : page_size, "query":query}
-                    #logger.info("Elastic index %s" %parent_mapping.parent.id)
-                    #logger.info("Elastic query %s" %body)
                     products_list = es_search(index=parent_mapping.parent.id, body=body)
-                    #logger.info("Elastic Response %s"%products_list)
                     cart = Cart.objects.filter(last_modified_by=self.request.user,buyer_shop_id=shop_id,cart_status__in=['active', 'pending']).last()
                     if cart:
                         cart_products = cart.rt_cart_list.all()
@@ -308,17 +303,13 @@ class GramGRNProductsList(APIView):
                 else:
                     is_store_active = False
         p_list = []
-        #logger.info("Is store active %s"%is_store_active)
         if not is_store_active:
             body = {
                 "from" : offset,
                 "size" : page_size,
                 "query":query,"_source":{"includes":["name", "product_images","pack_size","weight_unit","weight_value"]}
                 }
-            #logger.info("Elastic index all_products")
-            #logger.info("Elastic query %s" %body)
             products_list = es_search(index="all_products", body=body)
-            #logger.info("Elastic Response %s" % products_list)
         for p in products_list['hits']['hits']:
             if is_store_active:
                 product = Product.objects.get(id=p["_source"]["id"])
@@ -372,16 +363,6 @@ class GramGRNProductsList(APIView):
                         p["_source"]["sub_total"] = Decimal(no_of_pieces) * p["_source"]["ptr"]
             p_list.append(p["_source"])
 
-
-
-
-
-
-
-
-
-
-        #logger.info("Final product list %s"%p_list)
         msg = {'is_store_active': is_store_active,
                 'is_success': True,
                  'message': ['Products found'],
@@ -493,30 +474,9 @@ class AddToCart(APIView):
                     cart.save()
 
                 if capping:
-                    capping_start_date = capping.start_date.date
-                    capping_end_date = capping.end_date.date
-                    date = datetime.now().date()
-                    if capping.capping_type == 'daily':
-                        end_date = date + timedelta(days=1)
-                        capping_range_orders = Order.objects.filter(buyer_shop = parent_mapping.retailer, created_at__date__gte = date, created_at__date__lt = end_date)
-                    elif capping.capping_type == 'weekly':
-                        if date - capping_start_date >= 7:
-                            capping_start_date = capping_start_date + timedelta(days = 7)
-                            new_end_date = capping_start_date + timedelta(days=7)
-                            capping_range_orders = Order.objects.filter(buyer_shop = parent_mapping.retailer, created_at__date__gte = capping_start_date, created_at__date__lt = new_end_date)
-                            ProductCapping.objects.filter(id = capping.id).update(start_date = capping_start_date)
-                        else:
-                            end_date = capping_start_date + timedelta(days=7)
-                            capping_range_orders = Order.objects.filter(buyer_shop = parent_mapping.retailer, created_at__date__gte = capping_start_date, created_at__date__lt = end_date)
-                    elif capping.capping_type == 'monthly':
-                        if date - capping_start_date >= 30:
-                            capping_start_date = capping_start_date + timedelta(days = 30)
-                            new_end_date = capping_start_date + timedelta(days=30)
-                            capping_range_orders = Order.objects.filter(buyer_shop = parent_mapping.retailer, created_at__date__gte = capping_start_date, created_at__date__lt = new_end_date)
-                            ProductCapping.objects.filter(id = capping.id).update(start_date = capping_start_date)
-                        else:
-                            end_date = capping_start_date + timedelta(days=30)
-                            capping_range_orders = Order.objects.filter(buyer_shop = parent_mapping.retailer, created_at__date__gte = capping_start_date, created_at__date__lt = end_date)
+                    capping_start_date = capping.start_date
+                    capping_end_date = capping.end_date
+                    capping_range_orders = Order.objects.filter(buyer_shop = parent_mapping.retailer, created_at__gte = capping_start_date, created_at__lte = capping_end_date)
                     if capping_range_orders:
                         for order in capping_range_orders:
                             if order.ordered_cart.rt_cart_list.filter(cart_product = product).exists():
@@ -537,7 +497,6 @@ class AddToCart(APIView):
                                     cart_mapping.qty_error_msg = ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
                                     cart_mapping.save()
                                 else:
-                                    cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
                                     cart_mapping.qty_error_msg=ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
                                     cart_mapping.save()
                         else:
@@ -578,7 +537,6 @@ class AddToCart(APIView):
                             cart_mapping.qty_error_msg = ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
                             cart_mapping.save()
                         else:
-                            cart_mapping.no_of_pieces = int(qty) * int(product.product_inner_case_size)
                             cart_mapping.qty_error_msg=ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
                             cart_mapping.save()
 
@@ -682,17 +640,10 @@ class CartDetail(APIView):
                 ).filter(
                     cart=cart
                 )
-                available = OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product__in=cart_products.values('cart_product'), available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
-                shop_products_dict = {g['product_id']: int(g['available_qty']) for g in available}
                 for cart_product in cart_products:
-                    # available = OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product=cart_product.cart_product.id,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
-                    # shop_products_dict = {g['product_id']: int(g['available_qty']) for g in available}
-                    available_qty = shop_products_dict[cart_product.cart_product.id]//int(cart_product.cart_product.product_inner_case_size)
                     item_qty = CartProductMapping.objects.filter(cart = cart, cart_product=cart_product.cart_product).last().qty
-                    # cart_product.qty_error_msg=ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty))
-                    # cart_product.save()
                     updated_no_of_pieces = (item_qty * int(cart_product.cart_product.product_inner_case_size))
-                    CartProductMapping.objects.filter(cart = cart, cart_product=cart_product.cart_product).update(no_of_pieces = updated_no_of_pieces, qty_error_msg = ERROR_MESSAGES['AVAILABLE_QUANTITY'].format(int(available_qty)))
+                    CartProductMapping.objects.filter(cart = cart, cart_product=cart_product.cart_product).update(no_of_pieces = updated_no_of_pieces)
                 if cart.rt_cart_list.count() <= 0:
                     msg = {'is_success': False, 'message': ['Sorry no any product yet added to this cart'],
                            'response_data': None}
@@ -784,7 +735,6 @@ class ReservedOrder(generics.ListAPIView):
             if cart.exists():
                 cart = cart.last()
                 Cart.objects.filter(id=cart.id).update(offers=cart.offers_applied())
-                cart = Cart.objects.filter(id=cart.id).last()
                 coupon_codes_list = []
                 array = list(filter(lambda d: d['sub_type'] in 'discount_on_product', cart.offers))
 
@@ -978,7 +928,7 @@ class CreateOrder(APIView):
                     for cart_price in cart.rt_cart_list.all():
                         cart_price.cart_product_price=None
                         cart_price.save()
-                    msg['message'] = [ERROR_MESSAGES['PRODUCT_REMOVED']]
+                    msg['message'] = ["Some products in cart aren’t available anymore, please update cart and remove product from cart upon revisiting it"]
                     return Response(msg, status=status.HTTP_200_OK)
                 else:
                     cart.cart_status = 'ordered'
