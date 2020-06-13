@@ -152,44 +152,55 @@ class CreatePickList(APIView):
         return response
 
 
-def pickup_bin_inventory(bin_id, order_no, pickup_quantity_new):
-    """
-    :param self:
-    :param bin_id:
-    :param order_no:
-    :param pickup_quantity_new:
-    :return:
-    """
-    qty, qty_in_pickup, picked_p = 0, 0, 0
-    pickup_quantity = pickup_quantity_new
-    binid, id = 0, 0
-    binInv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0).order_by('-batch_id', 'quantity')
-    for i in binInv:
-        for j in i.sku.rt_product_pickup.filter(pickup_type_id=order_no):
-            already_picked = 0
-            remaining_qty = 0
-            qty = j.pickup_quantity if j.pickup_quantity else 0
-            id = j.id
-            qty_in_pickup = j.quantity
-            if pickup_quantity_new == qty:
-                break
-            if pickup_quantity > j.quantity:
-                return None
-            else:
-                if pickup_quantity - already_picked <= i.quantity:
-                    already_picked += pickup_quantity
-                    remaining_qty = i.quantity - already_picked
-                    update_bin_inventory(i.id, remaining_qty)
-                    updated_pickup = qty+already_picked
-                    update_pickup_inventory(id,updated_pickup)
+class PickupInventoryManagement:
+
+    def __init__(self):
+        self.count = 0
+        self.qty, self.qty_in_pickup, self.picked_p = 0, 0, 0
+        self.pickup_quantity = 0
+        self.binid, self.id = 0, 0
+
+    def pickup_bin_inventory(self, bin_id, order_no, pickup_quantity_new, sku=False):
+        """
+        :param bin_id:
+        :param order_no:
+        :param pickup_quantity_new:
+        :param sku:
+        :return:
+        """
+        self.count += 1
+        self.pickup_quantity = pickup_quantity_new
+        if self.count == 1:
+            bin_inv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0).order_by('-batch_id', 'quantity')
+        else:
+            bin_inv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0, sku__id=sku).order_by('-batch_id', 'quantity')
+        for i in bin_inv:
+            for j in i.sku.rt_product_pickup.filter(pickup_type_id=order_no):
+                already_picked = 0
+                remaining_qty = 0
+                self.qty = j.pickup_quantity if j.pickup_quantity else 0
+                self.id = j.id
+                qty_in_pickup = j.quantity
+                if pickup_quantity_new == self.qty:
+                    break
+                if self.pickup_quantity > j.quantity:
+                    return None
                 else:
-                    already_picked = i.quantity
-                    picked_p += already_picked
-                    remaining_qty = pickup_quantity - already_picked
-                    update_bin_inventory(i.id)
-                    update_pickup_inventory(id, picked_p)
-                    if i.sku in [k.sku for k in BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0).order_by('-batch_id', 'quantity')]:
-                        pickup_quantity -= i.quantity
+                    if self.pickup_quantity - already_picked <= i.quantity:
+                        already_picked += self.pickup_quantity
+                        remaining_qty = i.quantity - already_picked
+                        update_bin_inventory(i.id, remaining_qty)
+                        updated_pickup = self.qty+already_picked
+                        update_pickup_inventory(self.id, updated_pickup)
                     else:
-                        pickup_quantity=pickup_quantity_new
-                    pickup_bin_inventory(bin_id, order_no, pickup_quantity)
+                        already_picked = i.quantity
+                        self.picked_p += already_picked
+                        remaining_qty = self.pickup_quantity - already_picked
+                        update_bin_inventory(i.id)
+                        update_pickup_inventory(self.id, self.picked_p)
+                        if i.sku in [k.sku for k in BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0
+                                                                                ).order_by('-batch_id', 'quantity')]:
+                            self.pickup_quantity -= i.quantity
+                        else:
+                            self.pickup_quantity = pickup_quantity_new
+                        self.pickup_bin_inventory(bin_id, order_no, self.pickup_quantity, sku=i.sku.id)

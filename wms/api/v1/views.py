@@ -1,7 +1,7 @@
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Out, Pickup, PickupBinInventory
 from rest_framework import viewsets
 from .serializers import BinSerializer, PutAwaySerializer, OutSerializer, PickupSerializer, OrderSerializer, BinInventorySerializer
-from wms.views import pickup_bin_inventory
+from wms.views import PickupInventoryManagement
 from rest_framework.response import Response
 from rest_framework import status
 from shops.models import Shop
@@ -211,6 +211,8 @@ class BinIDList(APIView):
 #
 #         serializer = PickupSerializer(picking_details,fields=('id','batch_id_with_sku','quantity', 'pickup_quantity'))
 #         return Response({'picking_details' : serializer.data})
+pickup = PickupInventoryManagement()
+
 
 class PickupDetail(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
@@ -220,7 +222,7 @@ class PickupDetail(APIView):
         bin_id = self.request.POST.get('bin_id')
         order_no = self.request.POST.get('order_no')
         pickup_quantity = int(self.request.POST.get('pickup_quantity'))
-        pickup_bin_inventory(bin_id, order_no, pickup_quantity)
+        pickup.pickup_bin_inventory(bin_id, order_no, pickup_quantity)
         picking_details = Pickup.objects.filter(pickup_type_id=order_no)
         bin_inv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0).order_by('-batch_id', '-quantity').last()
         batch_id = bin_inv.batch_id if bin_inv else None
