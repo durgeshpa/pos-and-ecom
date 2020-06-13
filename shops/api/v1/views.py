@@ -537,7 +537,6 @@ class SellerShopOrder(generics.ListAPIView):
         shop_list = shop_user_obj.values('shop', 'shop__id', 'shop__shop_name').order_by('shop__shop_name')
         shops_list = shop_user_obj.values('shop').distinct('shop')
         order_obj = self.get_order(shops_list, to_date, from_date)
-
         buyer_order_obj = self.get_shop_count(shops_list, to_date, from_date)
         buyer_order_map = {i['buyer_shop']: (i['buyer_shop_count'],) for i in buyer_order_obj}
         order_map = {i['buyer_shop']: (i['buyer_shop_count'], i['no_of_ordered_sku'], i['no_of_ordered_sku_pieces'],i['ordered_amount']) for i in order_obj}
@@ -622,7 +621,6 @@ class SellerShopProfile(generics.ListAPIView):
         order_list = self.get_order(shops_list)
         avg_order_obj = self.get_avg_order_count(shops_list)
         buyer_order_obj = self.get_buyer_shop_count(shops_list)
-
         buyer_order_map = {i['buyer_shop']: (i['buyer_shop_count'],) for i in buyer_order_obj}
         avg_order_map = {i['buyer_shop']: (i['sum_no_of_ordered_sku'], i['ordered_amount']) for i in avg_order_obj}
         order_map = {i['buyer_shop']: (i['buyer_shop_count'], i['sum_no_of_ordered_sku'], i['avg_ordered_amount'], i['created_at'], i['ordered_amount']) for i in order_list}

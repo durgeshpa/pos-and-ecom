@@ -89,36 +89,55 @@ class ShipmentPaymentSerializer(serializers.Serializer):
         self.fields['shipment'].error_messages['required'] = "Shipment ID is required"
 
     def validate_shipment(self, data):
-        shipment = OrderedProduct.objects.filter(id=data)
-        if not shipment.exists():
+        try:
+            shipment = OrderedProduct.objects.get(id=data)
+        except:
             raise serializers.ValidationError('Shipment ID is not valid.')
-        return data
+        else:
+            self.context['shipment'] = shipment
+            self.context['order'] = shipment.order
+            self.context['paid_by'] = shipment.order.buyer_shop.shop_owner
+            self.context['processed_by'] = self.context['request'].user
+            self.context['cash_to_be_collected'] = shipment.cash_to_be_collected()
+            return data
 
     def validate_trip(self, data):
-        trip = Trip.objects.filter(id=data)
-        if not trip.exists():
+        try:
+            trip = Trip.objects.get(id=data)
+        except:
             raise serializers.ValidationError('Trip ID is not valid.')
-        return data
+        else:
+            return data
 
     def validate_payment_data(self, data):
         if not data:
             raise serializers.ValidationError('Please enter payment details')
         if (sum([i.get('paid_amount') for i in data]) !=
-                self.context.get('shipment').cash_to_be_collected()):
+                self.context.get('cash_to_be_collected')):
             raise serializers.ValidationError('Sum of paid amount must be equal to amount collected')
         return data
 
+    def is_pan_required(self, data):
+        payment_data = data.get('payment_data')
+        cash_amount = sum([i.get('paid_amount') for i in payment_data
+                            if i.get('payment_mode_name') == 'cash_payment'])
+        user_pan_card = self.context['paid_by'].user_documents.\
+            filter(user_document_type='pc').exists()
+        if int(cash_amount) >= 10000 and not user_pan_card:
+            return True
+        return False
+
     def validate(self, data):
         cash_collected = data.get('amount_collected')
-        shipment = self.context.get('shipment')
-        if int(cash_collected) != int(shipment.cash_to_be_collected()):
+        cash_to_be_collected = self.context.get('cash_to_be_collected')
+
+        if int(cash_collected) != int(cash_to_be_collected):
             raise serializers.ValidationError(
                 'Amount collected and amount to be collected must be equal ({})'.
-                format(shipment.cash_to_be_collected()))
-        return data
+                format(int(cash_to_be_collected)))
 
-    def validate_user_documents(self, data):
-        if not data and self.context.get('is_pan_required'):
+        if self.is_pan_required(data) and not data.get('user_documents'):
+            self.context['is_pan_required'] = True
             raise serializers.ValidationError('Please update PAN details')
         return data
 

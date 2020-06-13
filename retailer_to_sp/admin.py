@@ -1,6 +1,6 @@
 # python imports
 import csv
-
+import logging
 # django imports
 from admin_numeric_filter.admin import (NumericFilterModelAdmin, SliderNumericFilter)
 from dal_admin_filters import AutocompleteFilter
@@ -50,6 +50,7 @@ from .tasks import update_order_status_picker_reserve_qty
 from payments.models import OrderPayment, ShipmentPayment
 from retailer_backend.messages import ERROR_MESSAGES
 
+logger = logging.getLogger('django')
 
 class InvoiceNumberFilter(AutocompleteFilter):
     title = 'Invoice Number'
@@ -1231,7 +1232,7 @@ class ShipmentAdmin(admin.ModelAdmin):
             argument_list = []
             for arg in args[ZERO]:
                 # check condition for QC pending status file
-                if arg.shipment_status == OrderedProduct.SHIPMENT_STATUS[ZERO] or arg.invoice_no == '-':
+                if arg.shipment_status == OrderedProduct.SHIPMENT_STATUS[ZERO][ZERO] or arg.invoice_no == '-':
                     pass
                 else:
                     # append pk which are not falling under the shipment created and blank invoice number
@@ -1241,8 +1242,12 @@ class ShipmentAdmin(admin.ModelAdmin):
                 response = messages.error(request, ERROR_MESSAGES['1002'])
                 return response
             # call get method under the DownloadInvoiceSP class
-            response = DownloadInvoiceSP.get(self, request, argument_list, **kwargs)
-            response = redirect(response)
+            try:
+                response = DownloadInvoiceSP.get(self, request, argument_list, **kwargs)
+                response = redirect(response)
+            except Exception as e:
+                logger.exception(e)
+                return redirect(request.META['HTTP_REFERER'])
         else:
             response = messages.error(request, ERROR_MESSAGES['1001'])
         return response

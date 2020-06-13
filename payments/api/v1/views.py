@@ -166,15 +166,11 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
     '''
     This class handles all operation of ordered product mapping
     '''
-    #permission_classes = (AllowAny,)
     model = ShipmentPayment
     serializer_class = ShipmentPaymentSerializer
     queryset = ShipmentPayment.objects.all()
-    #parser_classes = (FormParser, MultiPartParser)
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
-    # filter_backends = (filters.DjangoFilterBackend,)
-    # filter_class = ShipmentPaymentFilter
 
     def get_serializer_class(self):
         '''
@@ -189,53 +185,6 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
         if hasattr(self, 'action'):
             return serializer_action_classes.get(self.action, self.serializer_class)
         return self.serializer_class
-
-    # def is_pan_required(self, shipment):
-    #     if shipment.cash_to_be_collected() > 10000:
-    #         user_pan_exists = shipment.order.\
-    #                           buyer_shop.shop_owner.user_documents.\
-    #                           filter(user_document_type='pc').exists()
-    #         if user_pan_exists:
-    #             return False
-    #         if not user_pan_exists:
-    #             return True
-    #     return False
-
-    def get_exception_handler(self):
-        default_handler = super().get_exception_handler()
-
-        def handle_exception(exc, context):
-            if isinstance(exc, APIException):
-                msg = {'is_con': False,
-                       'message': exc.detail['message'] if 'is_context' in exc.detail else exc.detail,
-                       'response_data': None,
-                       #'is_pan_required': False if 'is_context' in exc.detail else self.context.get('is_pan_required')}
-                       'is_pan_required': False}
-                return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
-            else:
-                return default_handler(exc, context)
-        return handle_exception
-
-    def get_serializer_context(self):
-        shipment = self.request.data.get('shipment')
-        shipment = OrderedProduct.objects.filter(pk=int(shipment))
-        if not shipment.exists():
-            msg = {'is_context': True,
-                   'message': ['Shipment ID is not valid.']}
-            raise serializers.ValidationError(msg)
-        shipment = shipment.last()
-        order = shipment.order
-        paid_by = shipment.order.buyer_shop.shop_owner
-        processed_by = self.request.user
-
-        context = super().get_serializer_context()
-        context.update({
-            'paid_by': paid_by, 'processed_by': processed_by,
-            'shipment': shipment, 'order': order,
-            #'is_pan_required': self.is_pan_required(shipment)
-            'is_pan_required': False
-        })
-        return context
 
     def errors_response(self, serializer_errors):
         errors = []
@@ -264,14 +213,14 @@ class ShipmentPaymentView(viewsets.ModelViewSet):
             msg = {'is_success': True,
                    'message': ["Payment created successfully"],
                    'response_data': serializer.data,
-                   'is_pan_required': self.get_serializer_context().get('is_pan_required')}
+                   'is_pan_required': serializer.context.get('is_pan_required', False)}
             return Response(msg, status=status.HTTP_200_OK)
 
         else:
             msg = {'is_success': False,
                    'message': [i for i in self.errors_response(serializer.errors)],
                    'response_data': None,
-                   'is_pan_required': self.get_serializer_context().get('is_pan_required')}
+                   'is_pan_required': serializer.context.get('is_pan_required', False)}
             return Response(msg, status=status.HTTP_406_NOT_ACCEPTABLE)
 
 
