@@ -171,10 +171,10 @@ class PickupInventoryManagement:
         self.count += 1
         self.pickup_quantity = pickup_quantity_new
         if self.count == 1:
-            bin_inv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0).order_by('-batch_id', 'quantity')
+            binInv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0).order_by('-batch_id', 'quantity')
         else:
-            bin_inv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0, sku__id=sku).order_by('-batch_id', 'quantity')
-        for i in bin_inv:
+            binInv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0, sku__id=sku).order_by('-batch_id', 'quantity')
+        for i in binInv:
             for j in i.sku.rt_product_pickup.filter(pickup_type_id=order_no):
                 already_picked = 0
                 remaining_qty = 0
@@ -198,8 +198,7 @@ class PickupInventoryManagement:
                         remaining_qty = self.pickup_quantity - already_picked
                         update_bin_inventory(i.id)
                         update_pickup_inventory(self.id, self.picked_p)
-                        if i.sku in [k.sku for k in BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0
-                                                                                ).order_by('-batch_id', 'quantity')]:
+                        if i.sku in [k.sku for k in BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0).order_by('-batch_id', 'quantity')]:
                             self.pickup_quantity -= i.quantity
                         else:
                             self.pickup_quantity = pickup_quantity_new
