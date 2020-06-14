@@ -17,6 +17,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 
+
 def update_bin_inventory(id, quantity=0):
     """
     :param id:
@@ -171,7 +172,7 @@ class PickupInventoryManagement:
         self.count += 1
         self.pickup_quantity = pickup_quantity_new
         if self.count == 1:
-            binInv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0).order_by('-batch_id', 'quantity')
+            binInv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0, sku__id=sku).order_by('-batch_id', 'quantity')
         else:
             binInv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0, sku__id=sku).order_by('-batch_id', 'quantity')
         for i in binInv:
@@ -183,7 +184,7 @@ class PickupInventoryManagement:
                 qty_in_pickup = j.quantity
                 if pickup_quantity_new == self.qty:
                     break
-                if self.pickup_quantity > j.quantity:
+                if self.pickup_quantity > j.quantity - self.qty:
                     return None
                 else:
                     if self.pickup_quantity - already_picked <= i.quantity:
@@ -202,4 +203,4 @@ class PickupInventoryManagement:
                             self.pickup_quantity -= i.quantity
                         else:
                             self.pickup_quantity = pickup_quantity_new
-                        self.pickup_bin_inventory(bin_id, order_no, self.pickup_quantity, sku=i.sku.id)
+                        self.pickup_bin_inventory(bin_id, order_no, self.pickup_quantity, sku=sku)

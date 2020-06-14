@@ -219,10 +219,20 @@ class PickupDetail(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request):
+        msg = {'is_success': False, 'message': ['Some Required field empty'], 'response_data': None}
         bin_id = self.request.POST.get('bin_id')
+        if not bin_id:
+            return Response(msg, status=status.HTTP_404_NOT_FOUND)
         order_no = self.request.POST.get('order_no')
-        pickup_quantity = int(self.request.POST.get('pickup_quantity'))
-        pickup.pickup_bin_inventory(bin_id, order_no, pickup_quantity)
+        if not order_no:
+            return Response(msg, status=status.HTTP_404_NOT_FOUND)
+        pickup_quantity = self.request.POST.get('pickup_quantity')
+        if not pickup_quantity:
+            return Response(msg, status=status.HTTP_404_NOT_FOUND)
+        sku_id = self.request.POST.get('sku_id')
+        if not sku_id:
+            return Response(msg, status=status.HTTP_404_NOT_FOUND)
+        pickup.pickup_bin_inventory(bin_id, order_no, int(pickup_quantity), int(sku_id))
         picking_details = Pickup.objects.filter(pickup_type_id=order_no)
         bin_inv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0).order_by('-batch_id', '-quantity').last()
         batch_id = bin_inv.batch_id if bin_inv else None
