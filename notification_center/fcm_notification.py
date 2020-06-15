@@ -37,7 +37,8 @@ class SendFCMNotification:
 			# print (self.registration_id, self.message_title, self.message_body)
 			my_phone = Device.objects.get(reg_id=self.registration_id)
 			my_phone.send_message(
-				{'message':self.message_body,'deep_link_url':self.message_deep_link_url,'title':self.message_title},
+				{'message':self.message_body,'deep_link_url':self.message_deep_link_url,'title':self.message_title,
+				 'imageUrl':self.message_image},
 				collapse_key='something')
 
 		except Exception as e:
