@@ -10,7 +10,7 @@ from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetai
 from shops.api.v1.views import (RetailerTypeView, ShopTypeView,ShopView, ShopPhotoView, ShopDocumentView, ShopTimingView,
         TeamListView, SellerShopView, SellerShopOrder, SellerShopProfile, SalesPerformanceView,
         SellerShopListView, CheckUser, CheckAppVersion, StatusChangedAfterAmountCollected, SalesPerformanceUserView, ShopRequestBrandViewSet,
-        FavouriteProductView, FavouriteProductListView
+        FavouriteProductView, FavouriteProductListView, DayBeatPlan
 )
 from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetail, SellerShopAddress
 
@@ -43,6 +43,7 @@ urlpatterns = [
     path('seller-check-user/', CheckUser.as_view(), name='seller-check-user', ),
     path('seller-shop-address/', SellerShopAddress.as_view(), name='seller-shop-address', ),
     path('check-app-version/', CheckAppVersion.as_view(), name='check-app-version', ),
+    path('beat-plan-user/', DayBeatPlan.as_view(), name='beat-plan-user', ),
 #------------------------------------------------------------------------------------------------------------------------
     url('^amount-collected/(?P<shipment>\d+)/$', StatusChangedAfterAmountCollected.as_view(), name='amount-collected'),
 

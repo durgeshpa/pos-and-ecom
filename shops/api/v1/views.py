@@ -8,10 +8,10 @@ from .serializers import (RetailerTypeSerializer, ShopTypeSerializer,
         ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer, ShopTimingSerializer, ShopUserMappingSerializer,
         SellerShopSerializer, AppVersionSerializer, ShopUserMappingUserSerializer, ShopRequestBrandSerializer,
         FavouriteProductSerializer, AddFavouriteProductSerializer,
-        ListFavouriteProductSerializer
+        ListFavouriteProductSerializer, BeatPlanSerializer
 )
 from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping, SalesAppVersion, ShopRequestBrand, ShopTiming,
-    FavouriteProduct)
+    FavouriteProduct, BeatPlanning, DayBeatPlanning)
 from rest_framework import generics
 from addresses.models import City, Area, Address
 from rest_framework import status
@@ -789,3 +789,23 @@ class StatusChangedAfterAmountCollected(APIView):
         else:
             msg = {'is_success': False, 'message': ['Amount is different'], 'response_data': None}
         return Response(msg, status=status.HTTP_201_CREATED)
+
+
+class DayBeatPlan(generics.ListAPIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = BeatPlanSerializer
+
+    def get(self, *args, **kwargs):
+        beat_user = BeatPlanning.objects.filter(executive=self.request.user,
+                                                executive__user_type=self.request.user.user_type,
+                                                status=True)
+        if beat_user.exists():
+            try:
+                beat_user_obj = DayBeatPlanning.objects.filter(beat_plan=beat_user[0])
+            except ObjectDoesNotExist:
+                Response({"detail": 'You are not authorized'}, status=status.HTTP_401_UNAUTHORIZED)
+            beat_plan_serializer = BeatPlanSerializer(beat_user_obj, many=True)
+            return Response({"is_success": True, "detail": beat_plan_serializer.data}, status=status.HTTP_200_OK)
+        else:
+            Response({"detail": 'You are not authorized'}, status=status.HTTP_401_UNAUTHORIZED)

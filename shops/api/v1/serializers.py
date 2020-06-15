@@ -4,7 +4,7 @@ from rest_framework import serializers
 
 from shops.models import (RetailerType, ShopType, Shop, ShopPhoto,
     ShopRequestBrand, ShopDocument, ShopUserMapping, SalesAppVersion, ShopTiming,
-    FavouriteProduct
+    FavouriteProduct, DayBeatPlanning, BeatPlanning
 )
 from django.contrib.auth import get_user_model
 from accounts.api.v1.serializers import UserSerializer,GroupSerializer
@@ -234,3 +234,27 @@ class ShopTimingSerializer(serializers.ModelSerializer):
         model = ShopTiming
         fields = ('shop','open_timing','closing_timing','break_start_time','break_end_time','off_day')
         read_only_fields = ('shop',)
+
+
+class DayShopSerializer(serializers.ModelSerializer):
+    shop_id = serializers.SerializerMethodField('my_shop_id')
+    # shop_address= serializers.SerializerMethodField
+
+    def my_shop_id(self, obj):
+        return obj.id
+
+    class Meta:
+        model = Shop
+        fields = ('id', 'shop_name')
+
+
+class BeatPlanSerializer(serializers.ModelSerializer):
+    """
+    Recruiter feedback by organization
+    """
+    shop = DayShopSerializer()
+
+    class Meta:
+        """ Meta class """
+        model = DayBeatPlanning
+        fields = ('id', 'beat_plan', 'shop_category', 'beat_plan_date', 'shop')
