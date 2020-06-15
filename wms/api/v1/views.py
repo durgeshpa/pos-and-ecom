@@ -81,7 +81,7 @@ class PutAwayViewSet(APIView):
         put_away_quantity = self.request.POST.get('put_away_quantity')
         if not put_away_quantity:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
-            batch_id = self.request.POST.get('batch_id')
+        batch_id = self.request.POST.get('batch_id')
         if not batch_id:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         bin_id = self.request.POST.get('bin_id')
