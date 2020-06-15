@@ -203,14 +203,9 @@ class Pickup(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-    def save(self, *args, **kwargs):
-        if self.pickup_quantity <= self.quantity:
-            super(Pickup, self).save(*args, *kwargs)
-
-    def clean(self):
-        super(Pickup, self).clean()
-        if self.pickup_quantity>self.quantity:
-            self.pickup_quantity=self.quantity
+    # def save(self, *args, **kwargs):
+    #     if self.pickup_quantity <= self.quantity:
+    #         super(Pickup, self).save(*args, *kwargs)
 
 
 class PickupBinInventory(models.Model):
