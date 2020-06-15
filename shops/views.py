@@ -472,7 +472,7 @@ class BeatUserMappingCsvView(FormView):
 
                         # append the data in a list which is already exist in the database
                         if not created:
-                            not_uploaded_list.append(ERROR_MESSAGES['1004'] % (row+1))
+                            not_uploaded_list.append(ERROR_MESSAGES["4004"] % (row+1))
 
                     # return success message while csv data is successfully saved
                     if not not_uploaded_list:
@@ -490,11 +490,11 @@ class BeatUserMappingCsvView(FormView):
             # exception block
             except Exception as e:
                 logger.exception(e)
-                result = {'message': ERROR_MESSAGES["1003"]}
+                result = {'message': ERROR_MESSAGES["4003"]}
                 status = '400'
                 return JsonResponse(result, status)
 
         else:
-            result = {'message': ERROR_MESSAGES["1005"]}
+            result = {'message': ERROR_MESSAGES["4005"]}
             status = '400'
         return JsonResponse(result, status)

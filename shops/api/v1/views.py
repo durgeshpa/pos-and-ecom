@@ -1,3 +1,4 @@
+import logging
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
@@ -39,7 +40,9 @@ from retailer_to_sp.views import (
     update_shipment_status_with_id, update_shipment_status_after_return)
 from retailer_to_sp.api.v1.views import update_trip_status
 from dateutil.relativedelta import relativedelta
+from retailer_backend import messages
 
+logger = logging.getLogger('shop-api')
 
 class ShopRequestBrandViewSet(DataWrapperViewSet):
     '''
@@ -792,20 +795,37 @@ class StatusChangedAfterAmountCollected(APIView):
 
 
 class DayBeatPlan(generics.ListAPIView):
+    """
+    This class is used to get the beat plan for sales executive
+    """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
     serializer_class = BeatPlanSerializer
+    http_method_names = ('get',)
 
     def get(self, *args, **kwargs):
-        beat_user = BeatPlanning.objects.filter(executive=self.request.user,
-                                                executive__user_type=self.request.user.user_type,
-                                                status=True)
-        if beat_user.exists():
-            try:
-                beat_user_obj = DayBeatPlanning.objects.filter(beat_plan=beat_user[0])
-            except ObjectDoesNotExist:
-                Response({"detail": 'You are not authorized'}, status=status.HTTP_401_UNAUTHORIZED)
-            beat_plan_serializer = BeatPlanSerializer(beat_user_obj, many=True)
-            return Response({"is_success": True, "detail": beat_plan_serializer.data}, status=status.HTTP_200_OK)
-        else:
-            Response({"detail": 'You are not authorized'}, status=status.HTTP_401_UNAUTHORIZED)
+        """
+
+        :param args: non-keyowrd argument
+        :param kwargs: keyword argument
+        :return: Beat Plan for Sales executive otherwise error message
+        """
+        try:
+            beat_user = BeatPlanning.objects.filter(executive=self.request.user,
+                                                    executive__user_type=self.request.user.user_type,
+                                                    status=True)
+            if beat_user.exists():
+                try:
+                    beat_user_obj = DayBeatPlanning.objects.filter(beat_plan=beat_user[0],
+                                                                   beat_plan_date=self.request.GET['beat_plan_date'])
+                except Exception as error:
+                    logger.exception(error)
+                    return Response({"detail": messages.ERROR_MESSAGES["4006"] % self.request.GET['beat_plan_date']},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                beat_plan_serializer = BeatPlanSerializer(beat_user_obj, many=True)
+                return Response({"is_success": True, "detail": beat_plan_serializer.data}, status=status.HTTP_200_OK)
+            else:
+                Response({"detail": messages.ERROR_MESSAGES["4007"]}, status=status.HTTP_401_UNAUTHORIZED)
+        except Exception as error:
+            logger.exception(error)
+            return Response({"detail": messages.ERROR_MESSAGES["4008"]}, status=status.HTTP_401_UNAUTHORIZED)

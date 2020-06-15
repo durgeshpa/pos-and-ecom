@@ -236,23 +236,32 @@ class ShopTimingSerializer(serializers.ModelSerializer):
         read_only_fields = ('shop',)
 
 
-class DayShopSerializer(serializers.ModelSerializer):
-    shop_id = serializers.SerializerMethodField('my_shop_id')
-    # shop_address= serializers.SerializerMethodField
+class BeatShopSerializer(serializers.ModelSerializer):
+    """
+    Shop Serializer for Beat Plan
+    """
+    contact_number = serializers.SerializerMethodField()
 
-    def my_shop_id(self, obj):
-        return obj.id
+    @staticmethod
+    def get_contact_number(obj):
+        """
+
+        :param obj: day beat plan object
+        :return: shop contact number
+        """
+        return obj.shipping_address.address_contact_number
 
     class Meta:
+        """ Meta class """
         model = Shop
-        fields = ('id', 'shop_name')
+        fields = ('id', 'shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'contact_number')
 
 
 class BeatPlanSerializer(serializers.ModelSerializer):
     """
-    Recruiter feedback by organization
+    Beat Plan Serializer
     """
-    shop = DayShopSerializer()
+    shop = BeatShopSerializer()
 
     class Meta:
         """ Meta class """
