@@ -26,7 +26,7 @@ def send_notification(*args, **kwargs):
         logging.error(str(e))
 
 
-@task
+# @task
 def schedule_notification(*args, **kwargs):
 
     try:
