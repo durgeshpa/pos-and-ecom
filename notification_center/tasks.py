@@ -26,7 +26,7 @@ def send_notification(*args, **kwargs):
         logging.error(str(e))
 
 
-# @task
+@task
 def schedule_notification(*args, **kwargs):
 
     try:
@@ -62,7 +62,7 @@ def schedule_notification(*args, **kwargs):
         elif shop_owners_mapped_data and not shop_owners_data:
             shop_owners_all = shop_owners_mapped            
 
-        for shop_owner in shop_owners_all: #(set(shop_owners) & set(shop_owners_mapped)):
+        for shop_owner in shop_owners_all.distinct(): #(set(shop_owners) & set(shop_owners_mapped)):
             user_id = shop_owner[0]
             # user_id = shop.shop_owner.id
             # print (Shop.objects.filter(shop_owner=shop_owner[0])[0].get_shop_parent)

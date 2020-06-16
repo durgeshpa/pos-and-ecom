@@ -182,12 +182,17 @@ class SendNotification:
                 reg_id = device.reg_id
                 message_title = self.data['message_title']#template.gcm_title
                 message_body = self.data['message_body']
+                try:
+                    message_image = self.data['message_image']
+                except:
+                    message_image = self.data['message_image']
                 message_deep_link_url = self.data['gcm_deep_link_url']
                 notification = SendFCMNotification(
                     registration_id=reg_id,
                     message_title=message_title,
                     message_body=message_body,
-                    message_deep_link_url=message_deep_link_url
+                    message_deep_link_url=message_deep_link_url,
+                    message_image=message_image
                     )            
                 notification.send()
         except Exception as e:

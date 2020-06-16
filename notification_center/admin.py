@@ -273,7 +273,7 @@ class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
             data['activity_type'] = obj.template.id#.type
             # repeat until
 
-            schedule_notification(**data)
+            schedule_notification.delay(**data)
 
             # schedule= IntervalSchedule.objects.create(every=obj.repeat, period=IntervalSchedule.SECONDS)
 
