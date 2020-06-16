@@ -468,7 +468,8 @@ class BeatUserMappingCsvView(FormView):
 
                         # day wise beat plan created for sales executive
                         day_beat_plan_object, created = DayBeatPlanning.objects.get_or_create(
-                            beat_plan=beat_plan_object[0], shop_id=data[2], beat_plan_date=date, shop_category=data[6])
+                            beat_plan=beat_plan_object[0], shop_id=data[2], beat_plan_date=date, shop_category=data[6],
+                            next_plan_date=date)
 
                         # append the data in a list which is already exist in the database
                         if not created:

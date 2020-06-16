@@ -17,6 +17,7 @@ from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetai
 router = routers.DefaultRouter()
 router.register(r'request-brand', ShopRequestBrandViewSet)
 router.register(r'favourite-product', FavouriteProductView)
+router.register('beat-plan-user', DayBeatPlan)
 #router.register(r'list-favourite-product', FavouriteProductListView)
 
 urlpatterns = [
@@ -43,7 +44,7 @@ urlpatterns = [
     path('seller-check-user/', CheckUser.as_view(), name='seller-check-user', ),
     path('seller-shop-address/', SellerShopAddress.as_view(), name='seller-shop-address', ),
     path('check-app-version/', CheckAppVersion.as_view(), name='check-app-version', ),
-    path('beat-plan-user/', DayBeatPlan.as_view(), name='beat-plan-user', ),
+    # path('beat-plan-user/', DayBeatPlan.as_view(), name='beat-plan-user', ),
 #------------------------------------------------------------------------------------------------------------------------
     url('^amount-collected/(?P<shipment>\d+)/$', StatusChangedAfterAmountCollected.as_view(), name='amount-collected'),
 

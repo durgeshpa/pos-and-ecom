@@ -1,10 +1,10 @@
 import re
-
+import datetime
 from rest_framework import serializers
 
 from shops.models import (RetailerType, ShopType, Shop, ShopPhoto,
     ShopRequestBrand, ShopDocument, ShopUserMapping, SalesAppVersion, ShopTiming,
-    FavouriteProduct, DayBeatPlanning, BeatPlanning
+    FavouriteProduct, DayBeatPlanning, ExecutiveFeedback
 )
 from django.contrib.auth import get_user_model
 from accounts.api.v1.serializers import UserSerializer,GroupSerializer
@@ -13,7 +13,7 @@ from rest_framework import validators
 
 from products.models import Product, ProductImage
 #from retailer_to_sp.api.v1.serializers import ProductImageSerializer #ProductSerializer
-
+from retailer_backend.messages import ERROR_MESSAGES, SUCCESS_MESSAGES
 from django.db.models import Q
 
 
@@ -257,13 +257,124 @@ class BeatShopSerializer(serializers.ModelSerializer):
         fields = ('id', 'shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'contact_number')
 
 
-class BeatPlanSerializer(serializers.ModelSerializer):
+class FeedBackSerializer(serializers.ModelSerializer):
+    """
+    Beat Plan Serializer
+    """
+
+    class Meta:
+        """ Meta class """
+        model = ExecutiveFeedback
+        fields = ('id', 'day_beat_plan', 'executive_feedback', 'feedback_date',)
+
+
+class DayBeatPlanSerializer(serializers.ModelSerializer):
     """
     Beat Plan Serializer
     """
     shop = BeatShopSerializer()
+    feedback = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_feedback(obj):
+        """
+
+        :param obj: day beat plan obj
+        :return: serializer of feedback model
+        """
+        serializer = FeedBackSerializer(obj.day_beat_plan, many=True).data
+        return serializer
 
     class Meta:
         """ Meta class """
         model = DayBeatPlanning
-        fields = ('id', 'beat_plan', 'shop_category', 'beat_plan_date', 'shop')
+        fields = ('id', 'beat_plan', 'shop_category', 'beat_plan_date', 'next_plan_date', 'temp_status',
+                  'shop', 'feedback')
+
+
+class FeedbackCreateSerializers(serializers.ModelSerializer):
+    """
+    Applied Sales Executive Feedback
+    """
+    day_beat_plan = serializers.SlugRelatedField(queryset=DayBeatPlanning.objects.all(), slug_field='id', required=True)
+    executive_feedback = serializers.CharField(required=True, max_length=25)
+    feedback_date = serializers.DateField(required=True)
+
+    class Meta:
+        """
+        Applied executive feedback create meta class
+        """
+        model = ExecutiveFeedback
+        fields = ('id', 'day_beat_plan', 'executive_feedback', 'feedback_date', 'created_at', 'modified_at')
+
+    def create(self, validated_data):
+        """
+
+        :param validated_data: data which comes from post method
+        :return: instance otherwise error message
+        """
+
+        # condition to check same reference of Day Beat Plan with same date is exist or not
+        executive_feedback = ExecutiveFeedback.objects.filter(day_beat_plan=validated_data['day_beat_plan'],
+                                                              feedback_date=validated_data['feedback_date'])
+        if not executive_feedback:
+            # create instance of Executive Feedback
+            instance, created = (ExecutiveFeedback.objects.get_or_create(
+                day_beat_plan=validated_data['day_beat_plan'], executive_feedback=validated_data['executive_feedback'],
+                feedback_date=validated_data['feedback_date']))
+            if created:
+                # condition to check if executive apply "Could Not Visit" for less than equal to 5 within the same date
+                # then assign next visit date and beat plan date accordingly
+                if (ExecutiveFeedback.objects.filter(executive_feedback=5, feedback_date=validated_data['feedback_date']
+                                                     ).count() <= 5) and instance.executive_feedback == '5':
+                    day_beat_plan = DayBeatPlanning.objects.filter(id=validated_data['day_beat_plan'].id)
+                    if day_beat_plan[0].shop_category == "P1":
+                        next_visit_date = validated_data['feedback_date'] + datetime.timedelta(days=1)
+                        beat_plan_date = day_beat_plan[0].beat_plan_date + datetime.timedelta(days=7)
+                        temp_status = True
+                    elif day_beat_plan[0].shop_category == "P2":
+                        next_visit_date = validated_data['feedback_date'] + datetime.timedelta(days=2)
+                        beat_plan_date = day_beat_plan[0].beat_plan_date + datetime.timedelta(days=14)
+                        temp_status = True
+                    else:
+                        next_visit_date = validated_data['feedback_date'] + datetime.timedelta(days=3)
+                        beat_plan_date = day_beat_plan[0].beat_plan_date + datetime.timedelta(days=28)
+                        temp_status = True
+
+                # condition to check if executive apply feedback which is not related to "Could Not Visit" and also
+                # check next visit date condition for rest of the feedback
+                else:
+                    day_beat_plan = DayBeatPlanning.objects.filter(id=validated_data['day_beat_plan'].id)
+                    if day_beat_plan[0].shop_category == "P1" and day_beat_plan[0].temp_status is False:
+                        next_visit_date = day_beat_plan[0].beat_plan_date + datetime.timedelta(days=7)
+                        beat_plan_date = next_visit_date
+                        temp_status = False
+
+                    elif day_beat_plan[0].shop_category == "P2" and day_beat_plan[0].temp_status is False:
+                        next_visit_date = day_beat_plan[0].beat_plan_date + datetime.timedelta(days=14)
+                        beat_plan_date = next_visit_date
+                        temp_status = False
+
+                    elif day_beat_plan[0].shop_category == "P3" and day_beat_plan[0].temp_status is False:
+                        next_visit_date = day_beat_plan[0].beat_plan_date + datetime.timedelta(days=28)
+                        beat_plan_date = next_visit_date
+                        temp_status = False
+                    else:
+                        next_visit_date = day_beat_plan[0].beat_plan_date
+                        beat_plan_date = next_visit_date
+                        temp_status = False
+
+                # Create Data for next visit in Day Beat Planning
+                DayBeatPlanning.objects.get_or_create(shop_category=day_beat_plan[0].shop_category,
+                                                      next_plan_date=next_visit_date,
+                                                      beat_plan_date=beat_plan_date,
+                                                      shop=day_beat_plan[0].shop,
+                                                      beat_plan=day_beat_plan[0].beat_plan,
+                                                      temp_status=temp_status)
+
+                # return executive feedback instance
+                return instance
+            # return error message
+            raise serializers.ValidationError(ERROR_MESSAGES['4011'])
+        # return error message
+        raise serializers.ValidationError(ERROR_MESSAGES['4011'])

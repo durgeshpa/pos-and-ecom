@@ -9,7 +9,7 @@ from .serializers import (RetailerTypeSerializer, ShopTypeSerializer,
         ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer, ShopTimingSerializer, ShopUserMappingSerializer,
         SellerShopSerializer, AppVersionSerializer, ShopUserMappingUserSerializer, ShopRequestBrandSerializer,
         FavouriteProductSerializer, AddFavouriteProductSerializer,
-        ListFavouriteProductSerializer, BeatPlanSerializer
+        ListFavouriteProductSerializer, DayBeatPlanSerializer, FeedbackCreateSerializers
 )
 from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping, SalesAppVersion, ShopRequestBrand, ShopTiming,
     FavouriteProduct, BeatPlanning, DayBeatPlanning)
@@ -41,6 +41,10 @@ from retailer_to_sp.views import (
 from retailer_to_sp.api.v1.views import update_trip_status
 from dateutil.relativedelta import relativedelta
 from retailer_backend import messages
+from rest_framework.viewsets import GenericViewSet
+from rest_framework.decorators import action
+from rest_framework import mixins, viewsets
+
 
 logger = logging.getLogger('shop-api')
 
@@ -794,38 +798,53 @@ class StatusChangedAfterAmountCollected(APIView):
         return Response(msg, status=status.HTTP_201_CREATED)
 
 
-class DayBeatPlan(generics.ListAPIView):
+class DayBeatPlan(viewsets.ModelViewSet):
     """
     This class is used to get the beat plan for sales executive
     """
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
-    serializer_class = BeatPlanSerializer
-    http_method_names = ('get',)
+    serializer_class = DayBeatPlanSerializer
+    queryset = BeatPlanning.objects.filter(status=True)
+    http_method_names = ['get', 'post']
 
-    def get(self, *args, **kwargs):
+    def list(self, *args, **kwargs):
         """
 
-        :param args: non-keyowrd argument
+        :param args: non-keyword argument
         :param kwargs: keyword argument
         :return: Beat Plan for Sales executive otherwise error message
         """
         try:
-            beat_user = BeatPlanning.objects.filter(executive=self.request.user,
-                                                    executive__user_type=self.request.user.user_type,
-                                                    status=True)
+            beat_user = self.queryset.filter(executive=self.request.user,
+                                             executive__user_type=self.request.user.user_type,
+                                             executive__is_active=True)
             if beat_user.exists():
                 try:
                     beat_user_obj = DayBeatPlanning.objects.filter(beat_plan=beat_user[0],
-                                                                   beat_plan_date=self.request.GET['beat_plan_date'])
+                                                                   next_plan_date=self.request.GET['next_plan_date'])
                 except Exception as error:
                     logger.exception(error)
-                    return Response({"detail": messages.ERROR_MESSAGES["4006"] % self.request.GET['beat_plan_date']},
+                    return Response({"detail": messages.ERROR_MESSAGES["4006"] % self.request.GET['next_plan_date']},
                                     status=status.HTTP_400_BAD_REQUEST)
-                beat_plan_serializer = BeatPlanSerializer(beat_user_obj, many=True)
-                return Response({"is_success": True, "detail": beat_plan_serializer.data}, status=status.HTTP_200_OK)
+                beat_plan_serializer = self.serializer_class(beat_user_obj, many=True)
+                return Response({"detail": beat_plan_serializer.data}, status=status.HTTP_200_OK)
             else:
                 Response({"detail": messages.ERROR_MESSAGES["4007"]}, status=status.HTTP_401_UNAUTHORIZED)
         except Exception as error:
             logger.exception(error)
             return Response({"detail": messages.ERROR_MESSAGES["4008"]}, status=status.HTTP_401_UNAUTHORIZED)
+
+    def create(self, request, *args, **kwargs):
+        """
+
+        :param request: request params
+        :param args: non-keyword argument
+        :param kwargs: keyword argument
+        :return: serialized data of executive feedback
+        """
+        serializer = FeedbackCreateSerializers(data=request.data, context={'request': request})
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            return Response({"detail": serializer.data}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

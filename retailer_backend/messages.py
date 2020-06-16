@@ -53,4 +53,7 @@ ERROR_MESSAGES = {
     "4006": "%s value has an invalid date format. It must be in YYYY-MM-DD format.",
     "4007": "This User is not Authorized.",
     "4008": "beat_plan_date key is missing in param",
+    "4009": "Issue in Feedback value",
+    "4010": "Issue in DateField",
+    "4011":  "Already submitted the Feedback",
 }
