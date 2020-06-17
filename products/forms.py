@@ -1,18 +1,29 @@
+import codecs
+import csv
+import datetime
+import re
+
+from dal import autocomplete
 from django import forms
-from addresses.models import City, State, Pincode
-from shops.models import Shop, ShopType
-from tempus_dominus.widgets import DatePicker, TimePicker, DateTimePicker
-import datetime, csv, codecs, re
-from retailer_backend.validators import *
 from django.core.exceptions import ValidationError
-from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
-from products.models import ProductCategory, Tax, Size, Color, Fragrance, Weight, Flavor, PackageSize
+from django.utils.translation import gettext_lazy as _
+from django.http import HttpResponse
+from django.db.models import Value, Case, When, F
+from django.db import transaction
+
+from tempus_dominus.widgets import DatePicker, DateTimePicker, TimePicker
+
+from addresses.models import City, Pincode, State
 from brand.models import Brand, Vendor
 from categories.models import Category
-from django.utils.translation import gettext_lazy as _
-from products.models import Product, ProductImage, ProductPrice, ProductVendorMapping
-from shops.models import Shop
-from dal import autocomplete
+from products.models import (Color, Flavor, Fragrance, PackageSize, Product,
+                             ProductCategory, ProductImage, ProductPrice,
+                             ProductVendorMapping, Size, Tax, Weight,
+                             BulkProductTaxUpdate, ProductTaxMapping)
+from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
+from retailer_backend.validators import *
+from shops.models import Shop, ShopType
+
 
 class ProductImageForm(forms.ModelForm):
     class Meta:
@@ -602,3 +613,105 @@ class ProductCappingForm(forms.ModelForm):
         queryset=Shop.objects.filter(shop_type__shop_type='sp'),
         widget=autocomplete.ModelSelect2(url='admin:seller_shop_autocomplete')
     )
+
+
+class BulkProductTaxUpdateForm(forms.ModelForm):
+
+    class Meta:
+        model = BulkProductTaxUpdate
+        fields = ('file', 'updated_by')
+        readonly_fields = ('updated_by',)
+
+    def sample_file(self):
+        filename = "bulk_product_tax_update_sample.csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        writer = csv.writer(response)
+        writer.writerow(['SKU No.', 'GST', 'Cess'])
+        return response
+
+    def clean_file(self):
+        if not self.cleaned_data['file'].name[-4:] in ('.csv'):
+            raise forms.ValidationError("Sorry! Only csv file accepted")
+        return self.cleaned_data['file']
+
+    def validate_row(self, columns, row, row_id):
+        row_errors = []
+        # check SKU No.
+        if not row[0]:
+            row_errors.append(('Please enter SKU No. at row %s') % (row_id))
+        else:
+            try:
+                product = Product.objects.values('id').get(product_sku=row[0])
+            except:
+                row_errors.append(('Please enter valid SKU No. at row %s') %
+                                  (row_id))
+            else:
+                product_id = product.get('id')
+        # check GST
+        if not row[1]:
+            row_errors.append(
+                ("Please enter GST percentage at row %s for SKU No. %s") %
+                (row_id, row[0]))
+        else:
+            if int(row[1]) not in [0, 5, 12, 18, 28]:
+                row_errors.append(
+                    ('Please enter a valid GST percentage at row %s for SKU No. %s') %
+                    (row_id, row[0]))
+            try:
+                gst_tax = Tax.objects.values('id')\
+                    .get(tax_type='gst', tax_percentage=float(row[1]))
+            except:
+                row_errors.append(
+                    ('Tax with type GST and percentage %s does not exists at row %s for SKU No. %s') %
+                    (float(row[1]), row_id, row[0]))
+            else:
+                gst_tax_id = gst_tax.get('id')
+        # check Cess
+        if row[2]:
+            if int(row[2]) not in [0, 12]:
+                row_errors.append(('Please enter a valid Cess percentage at row %s for SKU No. %s') %
+                              (row_id, row[0]))
+            try:
+                cess_tax = Tax.objects.values('id')\
+                    .get(tax_type='cess', tax_percentage=float(row[2]))
+            except:
+                row_errors.append(
+                    ('Tax with type Cess and percentage %s does not exists at row %s for SKU No. %s') %
+                    (float(row[2]), row_id, row[0]))
+            else:
+                cess_tax_id = cess_tax.get('id')
+        else:
+            cess_tax_id = None
+        # if file errors
+        if row_errors:
+            raise ValidationError(
+                [ValidationError(_(error)) for error in row_errors]
+            )
+        else:
+            self.product_tax_details[product_id] = {'gst_tax_id': gst_tax_id,
+                                                    'cess_tax_id': cess_tax_id}
+
+    def read_file(self, file):
+        reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+        columns = next(reader)
+        for row_id, row in enumerate(reader):
+            self.validate_row(columns, row, row_id + 2)
+
+    def update_products_tax(self, file):
+        for product_id, taxes in self.product_tax_details.items():
+            queryset = ProductTaxMapping.objects.filter(product_id=product_id)
+            if queryset.exists():
+                queryset.filter(tax__tax_type='gst').update(tax_id=taxes['gst_tax_id'])
+                if taxes['cess_tax_id']:
+                    queryset.filter(tax__tax_type='cess').update(tax_id=taxes['cess_tax_id'])
+
+    def clean(self):
+        self.product_tax_details = {}
+        self.read_file(self.cleaned_data.get('file'))
+        try:
+            with transaction.atomic():
+                self.update_products_tax(self.cleaned_data.get('file'))
+        except Exception as e:
+            raise ValidationError(e)
+        return self.cleaned_data
