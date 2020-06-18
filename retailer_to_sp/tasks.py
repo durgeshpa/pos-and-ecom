@@ -1,3 +1,4 @@
+import logging
 import datetime
 import json
 from celery.task import task
@@ -8,6 +9,8 @@ from gram_to_brand.models import (
 from retailer_to_sp.models import (Cart, Order, OrderedProduct, generate_picklist_id, PickerDashboard)
 from django.db.models import Sum, Q, F
 from celery.contrib import rdb
+
+logging.getLogger('retail_to_sp_task')
 
 @task
 def create_reserved_order(reserved_args):
@@ -161,23 +164,29 @@ class UpdateOrderStatusPickerReserveQty(object):
 
     def update_reserved_order(self):
         shipment_products_mapping = {i['product__id']:i['shipped_items'] for i in self.shipment_products_dict}
+        logging.info(shipment_products_mapping, "update_reserved_order-Shipment Product Mapping")
         reserved_products = OrderedProductReserved.objects.filter(
             cart_id=self.cart_id,
             reserve_status=OrderedProductReserved.ORDERED,
             product__id__in=shipment_products_mapping.keys()
         )
-
+        logging.info(reserved_products, "update_reserved_order-Reserved Product")
         for rp in reserved_products:
             reserved_qty = int(rp.reserved_qty)
+            logging.info(reserved_qty, "update_reserved_order-Reserved Quantity")
             shipped_qty = int(shipment_products_mapping[rp.product.id])
+            logging.info(shipped_qty, "update_reserved_order-Shipped Quantity")
             if not shipped_qty or (reserved_qty == rp.shipped_qty):
                 continue
             if reserved_qty > shipped_qty:
                 reserved_shipped_qty = shipped_qty
+                logging.info(reserved_shipped_qty, "update_reserved_order-if block-Shipped Quantity")
             else:
                 reserved_shipped_qty = reserved_qty
+                logging.info(reserved_shipped_qty, "update_reserved_order-else block-Shipped Quantity")
 
             rp.shipped_qty += reserved_shipped_qty
+            logging.info(rp.shipped_qty, "update_reserved_order-finally-RP Shipped Quantity")
             shipment_products_mapping[rp.product.id] -= reserved_shipped_qty
             rp.save()
 

@@ -45,4 +45,6 @@ ERROR_MESSAGES = {
     'INVALID_SR_PRICE': "You cannot upload Super Retailer Price greater than Retailer",
     'INVALID_MAPPING': "Shop id- %s and employee no- %s , has duplicate entry",
     'PRODUCT_REMOVED': "Some products in cart aren’t available anymore, please update cart",
+    "1001": "Selected records are exceeding system capacity, please keep max records at 50.",
+    "1002": "Selected file status is QC pending, you can't download this file."
 }
