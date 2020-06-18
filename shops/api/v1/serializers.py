@@ -11,7 +11,7 @@ from django.contrib.auth import get_user_model
 from accounts.api.v1.serializers import UserSerializer,GroupSerializer
 from retailer_backend.validators import MobileNumberValidator
 from rest_framework import validators
-
+from retailer_to_sp.models import Order
 from products.models import Product, ProductImage
 #from retailer_to_sp.api.v1.serializers import ProductImageSerializer #ProductSerializer
 from retailer_backend.messages import ERROR_MESSAGES, SUCCESS_MESSAGES
@@ -294,6 +294,9 @@ class DayBeatPlanSerializer(serializers.ModelSerializer):
 
 
 class ExecutiveReportSerializer(serializers.ModelSerializer):
+    """
+    This is Serializer to ger Report for Sales Executive
+    """
     executive_name = serializers.SerializerMethodField()
     shop_mapped = serializers.SerializerMethodField()
     shop_visited = serializers.SerializerMethodField()
@@ -304,76 +307,211 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
     def get_executive_name(self, obj):
         """
 
-        :param obj: day beat plan obj
-        :return: serializer of feedback model
+        :param obj: object of shop user mapping
+        :return: executive first name
         """
         return obj.employee.first_name
 
     def get_shop_mapped(self, obj):
         """
 
-        :param obj: day beat plan obj
-        :return: serializer of feedback model
+        :param obj: object of shop user mapping
+        :return: count of shop map
         """
-        date_var = datetime.today() - timedelta(days=2)
-        date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
-                                                            next_plan_date=date_var).count()
-        return date_beat_planning
+        # condition to check past day
+        if self._context['report'] is '1':
+            previous_day_date = datetime.today() - timedelta(days=1)
+            shop_map_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+                                                            next_plan_date=previous_day_date).count()
 
+        # condition to check past week
+        elif self._context['report'] is '2':
+            previous_day_date = datetime.today() - timedelta(days=1)
+            week_end_date = previous_day_date-timedelta(7)
+            shop_map_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+                                                            next_plan_date__range=(week_end_date,
+                                                                                   previous_day_date)).count()
+        # condition to check past month
+        else:
+            previous_day_date = datetime.today() - timedelta(days=1)
+            week_end_date = previous_day_date - timedelta(30)
+            shop_map_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+                                                            next_plan_date__range=(week_end_date,
+                                                                                   previous_day_date)).count()
+
+        return shop_map_count
 
     def get_shop_visited(self, obj):
         """
 
-        :param obj: day beat plan obj
-        :return: serializer of feedback model
+        :param obj: object of shop user mapping
+        :return: count of shop visit
         """
-        date_var = datetime.today() - timedelta(days=2)
-        count = 0
-        date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, next_plan_date=date_var)
-        for date_beat in date_beat_planning:
-            shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat, feedback_date=date_var).count()
-            count = count+shop_visited
-        return count
+        # condition to check past day
+        if self._context['report'] is '1':
+            previous_day_date = datetime.today() - timedelta(days=1)
+            shop_visit_count = 0
+            date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+                                                                next_plan_date=previous_day_date)
+            for date_beat in date_beat_planning:
+                shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
+                                                                feedback_date=previous_day_date).count()
+                shop_visit_count = shop_visit_count+shop_visited
 
+        # condition to check past week
+        elif self._context['report'] is '2':
+            previous_day_date = datetime.today() - timedelta(days=1)
+            week_end_date = previous_day_date - timedelta(7)
+            shop_visit_count = 0
+            date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+                                                                next_plan_date__range=(week_end_date,
+                                                                                       previous_day_date))
+            for date_beat in date_beat_planning:
+                shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
+                                                                feedback_date__range=(week_end_date,
+                                                                                      previous_day_date)).count()
+                shop_visit_count = shop_visit_count + shop_visited
+        # condition to check past week
+        else:
+            previous_day_date = datetime.today() - timedelta(days=1)
+            week_end_date = previous_day_date - timedelta(30)
+            shop_visit_count = 0
+            date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+                                                                next_plan_date__range=(
+                                                                    week_end_date, previous_day_date))
+            for date_beat in date_beat_planning:
+                shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
+                                                                feedback_date__range=(
+                                                                    week_end_date, previous_day_date)).count()
+                shop_visit_count = shop_visit_count + shop_visited
+
+        return shop_visit_count
 
     def get_productivity(self, obj):
         """
 
-        :param obj: day beat plan obj
-        :return: serializer of feedback model
+        :param obj: object of shop user mapping
+        :return: productivity of sales executive
         """
-        date_var = datetime.today() - timedelta(days=2)
-        shop_mapped_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
-                                                           next_plan_date=date_var).count()
-        count = 0
-        date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, next_plan_date=date_var)
-        for date_beat in date_beat_planning:
-            shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat, feedback_date=date_var).count()
-            count = count + shop_visited
+        # condition to check past day
+        if self._context['report'] is '1':
+            previous_day_date = datetime.today() - timedelta(days=1)
+            shop_mapped_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+                                                               next_plan_date=previous_day_date).count()
+            shop_visit_count = 0
+            date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, next_plan_date=previous_day_date)
+            for date_beat in date_beat_planning:
+                shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat, feedback_date=previous_day_date).count()
+                shop_visit_count = shop_visit_count + shop_visited
 
-        if count != 0:
-            result = str((count/shop_mapped_count)*100) + '%'
+            if shop_visit_count != 0:
+                productivity = str(round(shop_visit_count/shop_mapped_count)*100) + '%'
+            else:
+                productivity = str(0) + '%'
+        # condition to check past week
+        elif self._context['report'] is '2':
+            previous_day_date = datetime.today() - timedelta(days=1)
+            week_end_date = previous_day_date - timedelta(7)
+            shop_mapped_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+                                                               next_plan_date__range=(week_end_date,
+                                                                                      previous_day_date)).count()
+            shop_visit_count = 0
+            date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+                                                                next_plan_date__range=(week_end_date,
+                                                                                       previous_day_date))
+            for date_beat in date_beat_planning:
+                shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
+                                                                feedback_date__range=(week_end_date,
+                                                                                      previous_day_date)).count()
+                shop_visit_count = shop_visit_count + shop_visited
+
+            if shop_visit_count != 0:
+                productivity = str(round(shop_visit_count / shop_mapped_count) * 100) + '%'
+            else:
+                productivity = str(0) + '%'
+        # condition to check past month
         else:
-            result = str(0.0) + '%'
-        return result
+            previous_day_date = datetime.today() - timedelta(days=1)
+            week_end_date = previous_day_date - timedelta(30)
+            shop_mapped_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+                                                               next_plan_date__range=(week_end_date,
+                                                                                      previous_day_date)).count()
+            shop_visit_count = 0
+            date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+                                                                next_plan_date__range=(week_end_date,
+                                                                                       previous_day_date))
+            for date_beat in date_beat_planning:
+                shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat, feedback_date__range=(
+                    week_end_date, previous_day_date)).count()
+                shop_visit_count = shop_visit_count + shop_visited
 
+            if shop_visit_count != 0:
+                productivity = str(round(shop_visit_count / shop_mapped_count) * 100) + '%'
+            else:
+                productivity = str(0) + '%'
+        return productivity
 
     def get_num_of_order(self, obj):
         """
 
-        :param obj: day beat plan obj
-        :return: serializer of feedback model
+        :param obj: object of shop user mapping
+        :return: count of orders
         """
-        return ''
+        # condition to check past day
+        if self._context['report'] is '1':
+            previous_day_date = datetime.today() - timedelta(days=1)
+            order_count = Order.objects.filter(ordered_by=obj.employee, created_at__date=previous_day_date).count()
 
+        # condition to check past week
+        elif self._context['report'] is '2':
+            previous_day_date = datetime.today() - timedelta(days=1)
+            week_end_date = previous_day_date - timedelta(7)
+            order_count = Order.objects.filter(ordered_by=obj.employee, created_at__date__range=(
+                week_end_date, previous_day_date)).count()
+        # condition to check past month
+        else:
+            previous_day_date = datetime.today() - timedelta(days=1)
+            week_end_date = previous_day_date - timedelta(30)
+            order_count = Order.objects.filter(ordered_by=obj.employee, created_at__date__range=(
+                week_end_date, previous_day_date)).count()
+
+        return order_count
 
     def get_order_amount(self, obj):
         """
 
-        :param obj: day beat plan obj
-        :return: serializer of feedback model
+        :param obj: object of shop user mapping
+        :return: total amount of order
         """
-        return ''
+        # condition to check past day
+        if self._context['report'] is '1':
+            previous_day_date = datetime.today() - timedelta(days=1)
+            order_object = Order.objects.filter(ordered_by=obj.employee, created_at__date=previous_day_date)
+            total_amount = 0
+            for order in order_object:
+                total_amount = round(total_amount + order.total_mrp)
+
+        # condition to check past week
+        elif self._context['report'] is '2':
+            previous_day_date = datetime.today() - timedelta(days=1)
+            week_end_date = previous_day_date - timedelta(7)
+            order_object = Order.objects.filter(ordered_by=obj.employee, created_at__date__range=(
+                week_end_date, previous_day_date))
+            total_amount = 0
+            for order in order_object:
+                total_amount = round(total_amount + order.total_mrp)
+
+        # condition to check past month
+        else:
+            previous_day_date = datetime.today() - timedelta(days=1)
+            week_end_date = previous_day_date - timedelta(30)
+            order_object = Order.objects.filter(ordered_by=obj.employee, created_at__date__range=(
+                week_end_date, previous_day_date))
+            total_amount = 0
+            for order in order_object:
+                total_amount = round(total_amount + order.total_mrp)
+
+        return total_amount
 
     class Meta:
         """ Meta class """
