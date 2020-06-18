@@ -1,3 +1,4 @@
+import datetime
 from django import forms
 from .models import ParentRetailerMapping, Shop, ShopType, ShopUserMapping, ShopTiming, BeatPlanning
 from addresses.models import Address
@@ -392,10 +393,14 @@ class BeatUserMappingCsvViewForm(forms.Form):
 
             # validation to check the day is not sunday
             if not row[7] is '':
-                day = find_day(row[7])
-                if day == 'Sunday':
-                    raise ValidationError(_('Row number [%(value)s] | Date cannot be a Sunday.'),
-                                          params={'value': row_id+1},)
+                try:
+                    day = find_day(row[7])
+                    if day == 'Sunday':
+                        raise ValidationError(_('Row number [%(value)s] | Date cannot be a Sunday.'),
+                                              params={'value': row_id+1},)
+                except Exception as e:
+                    raise ValidationError(_('Row number [%(value)s] | Date Format is not correct.'),
+                                      params={'value': row_id + 1}, )
             # append csv date in a list
             form_data_list.append(row)
 
