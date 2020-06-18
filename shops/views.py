@@ -393,8 +393,13 @@ class BeatUserMappingCsvSample(View):
             # get the shop queryset assigned with executive
             shops = ShopUserMapping.objects.filter(employee=query_set[0]).all()
 
-        # name of the csv file
-        filename = shops[0].employee.first_name+'_'+datetime.datetime.today().strftime('%d-%m-%y') + ".csv"
+        try:
+            # name of the csv file
+            filename = shops[0].employee.first_name+'_'+datetime.datetime.today().strftime('%d-%m-%y') + ".csv"
+        except Exception as e:
+            logger.exception(e)
+            user = get_user_model().objects.filter(id=request.GET['shop_user_mapping'])
+            filename = user[0].first_name + '_' + datetime.datetime.today().strftime('%d-%m-%y') + ".csv"
 
         # The response gets a special MIME type, text/csv. This tells browsers that the document is a CSV file,
         # rather than an HTML file. If you leave this off, browsers will probably interpret the output as HTML,

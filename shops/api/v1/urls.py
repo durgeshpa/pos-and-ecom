@@ -9,15 +9,15 @@ from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetai
 
 from shops.api.v1.views import (RetailerTypeView, ShopTypeView,ShopView, ShopPhotoView, ShopDocumentView, ShopTimingView,
         TeamListView, SellerShopView, SellerShopOrder, SellerShopProfile, SalesPerformanceView,
-        SellerShopListView, CheckUser, CheckAppVersion, StatusChangedAfterAmountCollected, SalesPerformanceUserView, ShopRequestBrandViewSet,
-        FavouriteProductView, FavouriteProductListView, DayBeatPlan
-)
+        SellerShopListView, CheckUser, CheckAppVersion, StatusChangedAfterAmountCollected, SalesPerformanceUserView,
+        ShopRequestBrandViewSet, FavouriteProductView, FavouriteProductListView, DayBeatPlan, ExecutiveReport)
 from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetail, SellerShopAddress
 
 router = routers.DefaultRouter()
 router.register(r'request-brand', ShopRequestBrandViewSet)
 router.register(r'favourite-product', FavouriteProductView)
 router.register('beat-plan-user', DayBeatPlan)
+router.register('executive-report', ExecutiveReport)
 #router.register(r'list-favourite-product', FavouriteProductListView)
 
 urlpatterns = [

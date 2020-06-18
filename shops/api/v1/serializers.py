@@ -1,6 +1,7 @@
 import re
 import datetime
 from rest_framework import serializers
+from datetime import datetime, timedelta
 
 from shops.models import (RetailerType, ShopType, Shop, ShopPhoto,
     ShopRequestBrand, ShopDocument, ShopUserMapping, SalesAppVersion, ShopTiming,
@@ -292,6 +293,95 @@ class DayBeatPlanSerializer(serializers.ModelSerializer):
                   'shop', 'feedback')
 
 
+class ExecutiveReportSerializer(serializers.ModelSerializer):
+    executive_name = serializers.SerializerMethodField()
+    shop_mapped = serializers.SerializerMethodField()
+    shop_visited = serializers.SerializerMethodField()
+    productivity = serializers.SerializerMethodField()
+    num_of_order = serializers.SerializerMethodField()
+    order_amount = serializers.SerializerMethodField()
+
+    def get_executive_name(self, obj):
+        """
+
+        :param obj: day beat plan obj
+        :return: serializer of feedback model
+        """
+        return obj.employee.first_name
+
+    def get_shop_mapped(self, obj):
+        """
+
+        :param obj: day beat plan obj
+        :return: serializer of feedback model
+        """
+        date_var = datetime.today() - timedelta(days=2)
+        date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+                                                            next_plan_date=date_var).count()
+        return date_beat_planning
+
+
+    def get_shop_visited(self, obj):
+        """
+
+        :param obj: day beat plan obj
+        :return: serializer of feedback model
+        """
+        date_var = datetime.today() - timedelta(days=2)
+        count = 0
+        date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, next_plan_date=date_var)
+        for date_beat in date_beat_planning:
+            shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat, feedback_date=date_var).count()
+            count = count+shop_visited
+        return count
+
+
+    def get_productivity(self, obj):
+        """
+
+        :param obj: day beat plan obj
+        :return: serializer of feedback model
+        """
+        date_var = datetime.today() - timedelta(days=2)
+        shop_mapped_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+                                                           next_plan_date=date_var).count()
+        count = 0
+        date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee, next_plan_date=date_var)
+        for date_beat in date_beat_planning:
+            shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat, feedback_date=date_var).count()
+            count = count + shop_visited
+
+        if count != 0:
+            result = str((count/shop_mapped_count)*100) + '%'
+        else:
+            result = str(0.0) + '%'
+        return result
+
+
+    def get_num_of_order(self, obj):
+        """
+
+        :param obj: day beat plan obj
+        :return: serializer of feedback model
+        """
+        return ''
+
+
+    def get_order_amount(self, obj):
+        """
+
+        :param obj: day beat plan obj
+        :return: serializer of feedback model
+        """
+        return ''
+
+    class Meta:
+        """ Meta class """
+        model = ShopUserMapping
+        fields = ('id', 'executive_name', 'shop_mapped', 'shop_visited', 'productivity', 'num_of_order',
+                  'order_amount')
+
+
 class FeedbackCreateSerializers(serializers.ModelSerializer):
     """
     Applied Sales Executive Feedback
@@ -325,9 +415,9 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
             if created:
                 # condition to check if executive apply "Could Not Visit" for less than equal to 5 within the same date
                 # then assign next visit date and beat plan date accordingly
+                day_beat_plan = DayBeatPlanning.objects.filter(id=validated_data['day_beat_plan'].id)
                 if (ExecutiveFeedback.objects.filter(executive_feedback=5, feedback_date=validated_data['feedback_date']
                                                      ).count() <= 5) and instance.executive_feedback == '5':
-                    day_beat_plan = DayBeatPlanning.objects.filter(id=validated_data['day_beat_plan'].id)
                     if day_beat_plan[0].shop_category == "P1":
                         next_visit_date = validated_data['feedback_date'] + datetime.timedelta(days=1)
                         beat_plan_date = day_beat_plan[0].beat_plan_date + datetime.timedelta(days=7)
@@ -344,7 +434,6 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
                 # condition to check if executive apply feedback which is not related to "Could Not Visit" and also
                 # check next visit date condition for rest of the feedback
                 else:
-                    day_beat_plan = DayBeatPlanning.objects.filter(id=validated_data['day_beat_plan'].id)
                     if day_beat_plan[0].shop_category == "P1" and day_beat_plan[0].temp_status is False:
                         next_visit_date = day_beat_plan[0].beat_plan_date + datetime.timedelta(days=7)
                         beat_plan_date = next_visit_date

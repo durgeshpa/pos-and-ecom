@@ -97,6 +97,12 @@ class Template(models.Model):
         verbose_name='Banner for push notification',
         null=True, blank=True
     )
+
+    gcm_deep_link_url = models.URLField(
+        verbose_name='Deep Linking for push notification',
+        null=True,
+        blank=True)
+
     email_alert = models.BooleanField(
         default=True,
         verbose_name='Enable/Disable email notification'

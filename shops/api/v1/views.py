@@ -9,7 +9,7 @@ from .serializers import (RetailerTypeSerializer, ShopTypeSerializer,
         ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer, ShopTimingSerializer, ShopUserMappingSerializer,
         SellerShopSerializer, AppVersionSerializer, ShopUserMappingUserSerializer, ShopRequestBrandSerializer,
         FavouriteProductSerializer, AddFavouriteProductSerializer,
-        ListFavouriteProductSerializer, DayBeatPlanSerializer, FeedbackCreateSerializers
+        ListFavouriteProductSerializer, DayBeatPlanSerializer, FeedbackCreateSerializers, ExecutiveReportSerializer
 )
 from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping, SalesAppVersion, ShopRequestBrand, ShopTiming,
     FavouriteProduct, BeatPlanning, DayBeatPlanning)
@@ -830,7 +830,7 @@ class DayBeatPlan(viewsets.ModelViewSet):
                 beat_plan_serializer = self.serializer_class(beat_user_obj, many=True)
                 return Response({"detail": beat_plan_serializer.data}, status=status.HTTP_200_OK)
             else:
-                Response({"detail": messages.ERROR_MESSAGES["4007"]}, status=status.HTTP_401_UNAUTHORIZED)
+                return Response({"detail": messages.ERROR_MESSAGES["4007"]}, status=status.HTTP_401_UNAUTHORIZED)
         except Exception as error:
             logger.exception(error)
             return Response({"detail": messages.ERROR_MESSAGES["4008"]}, status=status.HTTP_401_UNAUTHORIZED)
@@ -848,3 +848,40 @@ class DayBeatPlan(viewsets.ModelViewSet):
             serializer.save()
             return Response({"detail": serializer.data}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ExecutiveReport(viewsets.ModelViewSet):
+    """
+    This class is used to get the report for sales executive
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = ExecutiveReportSerializer
+    queryset = ShopUserMapping.objects.all()
+    http_method_names = ['get']
+
+    def list(self, *args, **kwargs):
+        """
+
+        :param args: non-keyword argument
+        :param kwargs: keyword argument
+        :return: Report for Sales executive otherwise error message
+        """
+        try:
+            if self.request.user.user_type == 7 and self.request.GET['report'] in ['1', '2', '3']:
+                shop_mapping_object = (self.queryset.filter(
+                    employee=self.request.user.shop_employee.instance,
+                    employee_group__permissions__codename='can_sales_manager_add_shop', status=True))
+                feedback_executive_list = []
+                for shop_mapping in shop_mapping_object:
+                    executive_list = self.queryset.filter(manager=shop_mapping).distinct('employee_id')
+                    feedback_executive_list.append(executive_list)
+                for feedback_executive in feedback_executive_list:
+                    executive_report_serializer = self.serializer_class(feedback_executive, many=True,
+                                                                        context={'report': self.request.GET['report']})
+                    return Response({"detail": executive_report_serializer.data}, status=status.HTTP_200_OK)
+            else:
+                return Response({"detail": messages.ERROR_MESSAGES["4007"]}, status=status.HTTP_401_UNAUTHORIZED)
+        except Exception as error:
+            logger.exception(error)
+            return Response({"detail": messages.ERROR_MESSAGES["4007"]}, status=status.HTTP_401_UNAUTHORIZED)
