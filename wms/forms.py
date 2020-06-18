@@ -35,11 +35,16 @@ class InForm(forms.ModelForm):
 
 class PutAwayForm(forms.ModelForm):
     warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
-    putaway_quantity = forms.IntegerField(widget=forms.HiddenInput(), initial=0)
 
     class Meta:
         model = Putaway
-        fields = '__all__'
+        fields = ['warehouse','putaway_type', 'putaway_type_id', 'sku', 'batch_id','quantity','putaway_quantity']
+
+    def __init__(self, *args, **kwargs):
+        super(PutAwayForm, self).__init__(*args, **kwargs)
+        instance = getattr(self, 'instance', None)
+        self.fields['putaway_quantity'].initial = 0
+        # self.fields['putaway_quantity'].disabled = True
 
 
 class PutAwayBinInventoryForm(forms.ModelForm):

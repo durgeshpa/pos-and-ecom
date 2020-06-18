@@ -153,6 +153,7 @@ class Putaway(models.Model):
 
     def clean(self):
         super(Putaway, self).clean()
+        self.putaway_quantity = 0 if not self.putaway_quantity else self.putaway_quantity
         if self.putaway_quantity > self.quantity:
             raise ValidationError('Putaway_quantity must be less than or equal to Grned_quantity')
 
