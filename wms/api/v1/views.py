@@ -75,21 +75,17 @@ class PutAwayViewSet(APIView):
 
     def post(self, request):
         msg = {'is_success': False, 'message': ['Some Required field empty'], 'response_data': None}
-        warehouse = self.request.POST.get('warehouse')
-        if not warehouse:
+        bin_id = self.request.POST.get('bin_id')
+        if not bin_id:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
+        warehouse = Bin.objects.filter(bin_id=bin_id).last().warehouse.id
         put_away_quantity = self.request.POST.get('put_away_quantity')
         if not put_away_quantity:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         batch_id = self.request.POST.get('batch_id')
         if not batch_id:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
-        bin_id = self.request.POST.get('bin_id')
-        if not bin_id:
-            return Response(msg, status=status.HTTP_404_NOT_FOUND)
-        inventory_type = self.request.POST.get('inventory_type')
-        if not inventory_type:
-            return Response(msg, status=status.HTTP_404_NOT_FOUND)
+        inventory_type = 'normal'
 
         put_away = Putaway.objects.filter(batch_id=batch_id, warehouse=warehouse)
         updated_putaway_value = put_away.values_list('putaway_quantity', flat=True).last() if put_away.values_list('putaway_quantity', flat=True).last() else 0
@@ -98,12 +94,12 @@ class PutAwayViewSet(APIView):
             put_away_quantity = put_away.last().quantity - updated_putaway_value
         if updated_putaway_value == put_away.last().quantity:
             put_away_quantity = 0
-            return Response({'is_success': False, 'message': ["Putaway Complete, Can't add more items"], 'response_data': None})
+            return Response({'is_success': False, 'message': ["Putaway Complete, Can't add more items"], 'response_data': None}, status=status.HTTP_406_NOT_ACCEPTABLE)
 
         if put_away.last().quantity < int(put_away_quantity):
             return Response({'is_success': False, 'message': ['Put_away_quantity should be equal to or'
                                                               ' less than quantity'], 'response_data': None},
-                            status=status.HTTP_200_OK)
+                            status=status.HTTP_400_BAD_REQUEST)
         bin_skus = PutawayBinInventory.objects.values_list('putaway__sku__product_sku', flat=True)
         sh = Shop.objects.filter(id=int(warehouse)).last()
         if sh.shop_type.shop_type == 'sp':
