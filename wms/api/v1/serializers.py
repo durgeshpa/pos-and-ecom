@@ -32,7 +32,7 @@ class DynamicFieldsModelSerializer(serializers.ModelSerializer):
 
 class PutAwaySerializer(DynamicFieldsModelSerializer):
     warehouse = ShopSerializer()
-    sku = ProductSerializer()
+    sku = ProductSerializer(many=True)
     product_sku = serializers.SerializerMethodField('product_sku_dt')
 
     class Meta:
