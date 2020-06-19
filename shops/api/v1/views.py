@@ -899,4 +899,6 @@ class ExecutiveReport(viewsets.ModelViewSet):
                 return Response({"detail": messages.ERROR_MESSAGES["4007"]}, status=status.HTTP_401_UNAUTHORIZED)
         except Exception as error:
             logger.exception(error)
+            if error.args[0] == 'report':
+                return Response({"detail": messages.ERROR_MESSAGES["4012"]}, status=status.HTTP_400_BAD_REQUEST)
             return Response({"detail": messages.ERROR_MESSAGES["4007"]}, status=status.HTTP_401_UNAUTHORIZED)

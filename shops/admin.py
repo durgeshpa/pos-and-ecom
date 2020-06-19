@@ -508,6 +508,11 @@ class BeatPlanningAdmin(admin.ModelAdmin):
         js = ('admin/js/beat_plan_list.js', )
 
     def get_queryset(self, request):
+        """
+
+        :param request: get request
+        :return: queryset
+        """
         qs = super(BeatPlanningAdmin, self).get_queryset(request)
         if not request.user.is_superuser:
             return qs.filter(manager=request.user)
