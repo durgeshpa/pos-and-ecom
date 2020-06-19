@@ -92,7 +92,7 @@ class PutAwayViewSet(APIView):
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
 
         put_away = Putaway.objects.filter(batch_id=batch_id, warehouse=warehouse)
-        updated_putaway_value = put_away.values_list('putaway_quantity', flat=True).last()
+        updated_putaway_value = put_away.values_list('putaway_quantity', flat=True).last() if put_away.values_list('putaway_quantity', flat=True).last() else 0
         updated_putaway_value = put_away.last().quantity if updated_putaway_value>put_away.last().quantity else updated_putaway_value
         if updated_putaway_value + int(put_away_quantity)>put_away.last().quantity:
             put_away_quantity = put_away.last().quantity - updated_putaway_value
