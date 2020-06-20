@@ -75,14 +75,14 @@ class PutAwayViewSet(APIView):
 
     def post(self, request):
         msg = {'is_success': False, 'message': ['Some Required field empty'], 'response_data': None}
-        bin_id = self.request.POST.get('bin_id')
+        bin_id = self.request.data.get('bin_id')
         if not bin_id:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         warehouse = Bin.objects.filter(bin_id=bin_id).last().warehouse.id
-        put_away_quantity = self.request.POST.get('put_away_quantity')
+        put_away_quantity = self.request.data.get('put_away_quantity')
         if not put_away_quantity:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
-        batch_id = self.request.POST.get('batch_id')
+        batch_id = self.request.data.get('batch_id')
         if not batch_id:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         inventory_type = 'normal'
