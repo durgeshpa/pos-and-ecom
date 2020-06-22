@@ -12,10 +12,13 @@ from fcm.utils import get_device_model
 from .serializers import (DeviceSerializer, NotificationSerializer,
     UserNotificationSerializer)
 from notification_center.models import (Notification, UserNotification)
+from rest_framework.decorators import authentication_classes, permission_classes
 
 Device = get_device_model()
 
 
+@authentication_classes([])
+@permission_classes([])
 class DeviceViewSet(viewsets.ModelViewSet):
     # permission_classes = (AllowAny,)
     queryset = Device.objects.all()
