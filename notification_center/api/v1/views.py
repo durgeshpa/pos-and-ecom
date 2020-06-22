@@ -20,8 +20,8 @@ class DeviceViewSet(viewsets.ModelViewSet):
     # permission_classes = (AllowAny,)
     queryset = Device.objects.all()
     serializer_class = DeviceSerializer
-    # authentication_classes = (authentication.TokenAuthentication,)
-    # permission_classes = (permissions.IsAuthenticated,)
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
