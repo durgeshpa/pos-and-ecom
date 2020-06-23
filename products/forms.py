@@ -630,12 +630,7 @@ class BulkProductTaxUpdateForm(forms.ModelForm):
         writer.writerow(['SKU No.', 'GST', 'Cess'])
         return response
 
-    def clean_file(self):
-        if not self.cleaned_data['file'].name[-4:] in ('.csv'):
-            raise forms.ValidationError("Sorry! Only csv file accepted")
-        return self.cleaned_data['file']
-
-    def validate_row(self, columns, row, row_id):
+    def validate_row(self, columns, row, row_id, file):
         row_errors = []
         # check SKU No.
         if not row[0]:
@@ -648,6 +643,13 @@ class BulkProductTaxUpdateForm(forms.ModelForm):
                                   (row_id))
             else:
                 product_id = product.get('id')
+                csv_reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
+                csv_columns = next(csv_reader)
+                for reader_id, reader_row in enumerate(csv_reader):
+                    if (reader_id + 2 != row_id) and row[0] == reader_row[0]:
+                        row_errors.append(
+                            ('Duplicate entry for SKU %s exists at row %s') %
+                            (row[0], reader_id + 2))
         # check GST
         if not row[1]:
             row_errors.append(
@@ -698,7 +700,7 @@ class BulkProductTaxUpdateForm(forms.ModelForm):
         reader = csv.reader(codecs.iterdecode(file, 'utf-8'))
         columns = next(reader)
         for row_id, row in enumerate(reader):
-            self.validate_row(columns, row, row_id + 2)
+            self.validate_row(columns, row, row_id + 2, file)
 
     def update_products_tax(self, file):
         for product_id, taxes in self.product_tax_details.items():
@@ -706,14 +708,24 @@ class BulkProductTaxUpdateForm(forms.ModelForm):
             if queryset.exists():
                 queryset.filter(tax__tax_type='gst').update(tax_id=taxes['gst_tax_id'])
                 if taxes['cess_tax_id']:
-                    queryset.filter(tax__tax_type='cess').update(tax_id=taxes['cess_tax_id'])
+                    product_cess_tax = queryset.filter(tax__tax_type='cess')
+                    if product_cess_tax.exists():
+                        product_cess_tax.update(tax_id=taxes['cess_tax_id'])
+                    else:
+                        ProductTaxMapping.objects.create(
+                            product_id=product_id, tax_id=taxes['cess_tax_id'])
 
     def clean(self):
-        self.product_tax_details = {}
-        self.read_file(self.cleaned_data.get('file'))
-        try:
-            with transaction.atomic():
-                self.update_products_tax(self.cleaned_data.get('file'))
-        except Exception as e:
-            raise ValidationError(e)
-        return self.cleaned_data
+        if self.cleaned_data.get('file'):
+            if not self.cleaned_data.get('file').name[-4:] in ('.csv'):
+                raise forms.ValidationError("Sorry! Only csv file accepted")
+            self.product_tax_details = {}
+            self.read_file(self.cleaned_data.get('file'))
+            try:
+                with transaction.atomic():
+                    self.update_products_tax(self.cleaned_data.get('file'))
+            except Exception as e:
+                raise ValidationError(e)
+            return self.cleaned_data
+        else:
+            raise forms.ValidationError("CSV file is required!")
