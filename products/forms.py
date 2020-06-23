@@ -654,11 +654,7 @@ class BulkProductTaxUpdateForm(forms.ModelForm):
                 ("Please enter GST percentage at row %s for SKU No. %s") %
                 (row_id, row[0]))
         else:
-            if row[1].isdigit() and int(row[1]) not in [0, 5, 12, 18, 28]:
-                row_errors.append(
-                    ('Please enter a valid GST percentage at row %s for SKU No. %s') %
-                    (row_id, row[0]))
-            else:
+            if row[1].isdigit() and int(row[1]) in [0, 5, 12, 18, 28]:
                 try:
                     gst_tax = Tax.objects.values('id')\
                         .get(tax_type='gst', tax_percentage=float(row[1]))
@@ -668,12 +664,13 @@ class BulkProductTaxUpdateForm(forms.ModelForm):
                         (float(row[1]), row_id, row[0]))
                 else:
                     gst_tax_id = gst_tax.get('id')
+            else:
+                row_errors.append(
+                    ('Please enter a valid GST percentage at row %s for SKU No. %s') %
+                    (row_id, row[0]))
         # check Cess
         if row[2]:
-            if row[2].isdigit() and int(row[2]) not in [0, 12]:
-                row_errors.append(('Please enter a valid Cess percentage at row %s for SKU No. %s') %
-                                  (row_id, row[0]))
-            else:
+            if row[2].isdigit() and int(row[2]) in [0, 12]:
                 try:
                     cess_tax = Tax.objects.values('id')\
                         .get(tax_type='cess', tax_percentage=float(row[2]))
@@ -683,6 +680,9 @@ class BulkProductTaxUpdateForm(forms.ModelForm):
                         (float(row[2]), row_id, row[0]))
                 else:
                     cess_tax_id = cess_tax.get('id')
+            else:
+                row_errors.append(('Please enter a valid Cess percentage at row %s for SKU No. %s') %
+                                  (row_id, row[0]))
         else:
             cess_tax_id = None
         # if file errors
