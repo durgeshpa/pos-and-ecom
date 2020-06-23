@@ -658,29 +658,31 @@ class BulkProductTaxUpdateForm(forms.ModelForm):
                 row_errors.append(
                     ('Please enter a valid GST percentage at row %s for SKU No. %s') %
                     (row_id, row[0]))
-            try:
-                gst_tax = Tax.objects.values('id')\
-                    .get(tax_type='gst', tax_percentage=float(row[1]))
-            except:
-                row_errors.append(
-                    ('Tax with type GST and percentage %s does not exists at row %s for SKU No. %s') %
-                    (float(row[1]), row_id, row[0]))
             else:
-                gst_tax_id = gst_tax.get('id')
+                try:
+                    gst_tax = Tax.objects.values('id')\
+                        .get(tax_type='gst', tax_percentage=float(row[1]))
+                except:
+                    row_errors.append(
+                        ('Tax with type GST and percentage %s does not exists at row %s for SKU No. %s') %
+                        (float(row[1]), row_id, row[0]))
+                else:
+                    gst_tax_id = gst_tax.get('id')
         # check Cess
         if row[2]:
             if row[2].isdigit() and int(row[2]) not in [0, 12]:
                 row_errors.append(('Please enter a valid Cess percentage at row %s for SKU No. %s') %
                                   (row_id, row[0]))
-            try:
-                cess_tax = Tax.objects.values('id')\
-                    .get(tax_type='cess', tax_percentage=float(row[2]))
-            except:
-                row_errors.append(
-                    ('Tax with type Cess and percentage %s does not exists at row %s for SKU No. %s') %
-                    (float(row[2]), row_id, row[0]))
             else:
-                cess_tax_id = cess_tax.get('id')
+                try:
+                    cess_tax = Tax.objects.values('id')\
+                        .get(tax_type='cess', tax_percentage=float(row[2]))
+                except:
+                    row_errors.append(
+                        ('Tax with type Cess and percentage %s does not exists at row %s for SKU No. %s') %
+                        (float(row[2]), row_id, row[0]))
+                else:
+                    cess_tax_id = cess_tax.get('id')
         else:
             cess_tax_id = None
         # if file errors
