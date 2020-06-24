@@ -16,6 +16,7 @@ from shops.models import ShopUserMapping
 from addresses.models import Address
 from copy import copy, deepcopy
 from products.models import ProductPrice
+from retailer_backend import cron
 
 
 def set_shop_user_mappping(sp_shop, new_sp_shop):
@@ -129,4 +130,7 @@ for shop_mapping in shop_mapping_list:
 
     #Change existing shop parent_cat_sku_code
     set_buyer_shop_new_retailer(sp_shop,new_sp_shop)
+
+    #sync es data
+    cron.sync_es_products()
 
