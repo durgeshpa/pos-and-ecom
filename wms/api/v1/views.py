@@ -163,7 +163,8 @@ class PickupList(APIView):
                                       Q(created_at__startswith=datetime.date(date[0], date[1], date[2])))
 
         serializer = OrderSerializer(orders, many=True)
-        return Response({'orders': serializer.data})
+        msg = {'is_success': True, 'message': ['Order list with picking status'], 'orders': serializer.data}
+        return Response(msg, status=status.HTTP_200_OK)
 
 
 class BinIDList(APIView):
@@ -182,7 +183,8 @@ class BinIDList(APIView):
         bin_lists = Bin.objects.filter(bin_id__in=bin_objects)
 
         serializer = BinSerializer(bin_lists, many=True,fields=('id', 'bin_id'))
-        return Response({'Bins_list': serializer.data})
+        msg = {'is_success': True, 'message': ['list of bins for order'], 'Bins_list': serializer.data}
+        return Response(msg, status=status.HTTP_200_OK)
 
 
 # class PickupDetail(APIView):
@@ -226,27 +228,28 @@ class PickupDetail(APIView):
 
     def post(self, request):
         msg = {'is_success': False, 'message': ['Some Required field empty'], 'response_data': None}
-        bin_id = self.request.POST.get('bin_id')
+        bin_id = self.request.data.get('bin_id')
         if not bin_id:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
-        order_no = self.request.POST.get('order_no')
+        order_no = self.request.data.get('order_no')
         if not order_no:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
-        pickup_quantity = self.request.POST.get('pickup_quantity')
+        pickup_quantity = self.request.data.get('pickup_quantity')
         if not pickup_quantity:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
-        sku_id = self.request.POST.get('sku_id')
+        sku_id = self.request.data.get('sku_id')
         if not sku_id:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         pickup.pickup_bin_inventory(bin_id, order_no, int(pickup_quantity), int(sku_id))
-        picking_details = Pickup.objects.filter(pickup_type_id=order_no)
+        picking_details = Pickup.objects.filter(pickup_type_id=order_no, sku__id=sku_id)
         bin_inv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0).order_by('-batch_id', '-quantity').last()
         batch_id = bin_inv.batch_id if bin_inv else None
         # for i in picking_details:
         #     PickupBinInventory.objects.create(warehouse=i.warehouse,pickup=i,batch_id=batch_id, bin=bin_inv, pickup_quantity=pickup_quantity)
 
-        serializer = PickupSerializer(picking_details, many=True,fields=('id','batch_id_with_sku','product_mrp','quantity', 'pickup_quantity'))
-        return Response({'picking_details': serializer.data})
+        serializer = PickupSerializer(picking_details, many=True,fields=('id','batch_id_with_sku','product_mrp','quantity', 'pickup_quantity', 'sku_id'))
+        msg = {'is_success': True, 'message': ['picking details'], 'picking_details': serializer.data}
+        return Response(msg, status=status.HTTP_200_OK)
 
 
 
