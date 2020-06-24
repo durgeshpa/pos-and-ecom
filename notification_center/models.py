@@ -97,6 +97,12 @@ class Template(models.Model):
         verbose_name='Banner for push notification',
         null=True, blank=True
     )
+
+    gcm_deep_link_url = models.URLField(
+        verbose_name='Deep Linking for push notification',
+        null=True,
+        blank=True)
+
     email_alert = models.BooleanField(
         default=True,
         verbose_name='Enable/Disable email notification'
@@ -268,6 +274,7 @@ class GroupNotificationScheduler(models.Model):
     repeat = models.BigIntegerField(choices=REPEAT_CHOICES, default=NEVER) #in seconds
     repeat_until = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-created_at']

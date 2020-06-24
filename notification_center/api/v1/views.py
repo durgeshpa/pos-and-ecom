@@ -16,6 +16,7 @@ from notification_center.models import (Notification, UserNotification)
 Device = get_device_model()
 
 
+
 class DeviceViewSet(viewsets.ModelViewSet):
     # permission_classes = (AllowAny,)
     queryset = Device.objects.all()
