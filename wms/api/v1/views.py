@@ -96,8 +96,9 @@ class PutAwayViewSet(APIView):
                 value = put_away.last().quantity - updated_putaway_value
             if updated_putaway_value == put_away.last().quantity:
                 value = 0
+                msg = {'is_success': False, 'message': ["Putaway Complete, Can't add more items"], 'response_data': None}
+                lis_data.append(msg)
                 continue
-                # return Response({'is_success': False, 'message': ["Putaway Complete, Can't add more items"], 'response_data': None}, status=status.HTTP_406_NOT_ACCEPTABLE)
 
             if put_away.last().quantity < int(value):
                 return Response({'is_success': False, 'message': ['Put_away_quantity should be equal to or'
