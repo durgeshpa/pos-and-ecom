@@ -2,35 +2,36 @@ import logging
 
 from django.db import models
 from django.contrib.auth import get_user_model
-#from django.conf import settings
+# from django.conf import settings
 from django.utils.safestring import mark_safe
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from otp.sms import SendSms
-import datetime,re
+import datetime, re
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from retailer_backend.validators import *
 import datetime
 from django.core.validators import MinLengthValidator
 from django.contrib.auth.models import Group
+
 # from analytics.post_save_signal import get_retailer_report
 
 Product = 'products.product'
 logger = logging.getLogger(__name__)
 
-
 SHOP_TYPE_CHOICES = (
-    ("sp","Service Partner"),
-    ("r","Retailer"),
-    ("sr","Super Retailer"),
-    ("gf","Gram Factory"),
+    ("sp", "Service Partner"),
+    ("r", "Retailer"),
+    ("sr", "Super Retailer"),
+    ("gf", "Gram Factory"),
 )
 
 RETAILER_TYPE_CHOICES = (
     ("gm", "General Merchant"),
     ("ps", "Pan Shop"),
 )
+
 
 class RetailerType(models.Model):
     retailer_type_name = models.CharField(max_length=100, choices=RETAILER_TYPE_CHOICES, default='gm')
@@ -44,13 +45,16 @@ class RetailerType(models.Model):
 
 class ShopType(models.Model):
     shop_type = models.CharField(max_length=50, choices=SHOP_TYPE_CHOICES, default='r')
-    shop_sub_type = models.ForeignKey(RetailerType, related_name='shop_sub_type_shop', null=True, blank=True,on_delete=models.CASCADE)
+    shop_sub_type = models.ForeignKey(RetailerType, related_name='shop_sub_type_shop', null=True, blank=True,
+                                      on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
     def __str__(self):
-        return "%s - %s"%(self.get_shop_type_display(),self.shop_sub_type.retailer_type_name) if self.shop_sub_type else "%s"%(self.get_shop_type_display())
+        return "%s - %s" % (
+        self.get_shop_type_display(), self.shop_sub_type.retailer_type_name) if self.shop_sub_type else "%s" % (
+            self.get_shop_type_display())
 
 
 class Shop(models.Model):
@@ -61,12 +65,13 @@ class Shop(models.Model):
         (APPROVAL_AWAITING, 'Awaiting Approval'),
         (APPROVED, 'Approved'),
         (DISAPPROVED, 'Disapproved'),
-        )
+    )
     shop_name = models.CharField(max_length=255)
-    shop_owner = models.ForeignKey(get_user_model(), related_name='shop_owner_shop',on_delete=models.CASCADE)
-    shop_type = models.ForeignKey(ShopType,related_name='shop_type_shop',on_delete=models.CASCADE)
-    related_users = models.ManyToManyField(get_user_model(),blank=True, related_name='related_shop_user')
-    created_by = models.ForeignKey(get_user_model(), related_name='shop_created_by',null=True,blank=True, on_delete=models.DO_NOTHING)
+    shop_owner = models.ForeignKey(get_user_model(), related_name='shop_owner_shop', on_delete=models.CASCADE)
+    shop_type = models.ForeignKey(ShopType, related_name='shop_type_shop', on_delete=models.CASCADE)
+    related_users = models.ManyToManyField(get_user_model(), blank=True, related_name='related_shop_user')
+    created_by = models.ForeignKey(get_user_model(), related_name='shop_created_by', null=True, blank=True,
+                                   on_delete=models.DO_NOTHING)
     shop_code = models.CharField(max_length=1, blank=True, null=True)
     shop_code_bulk = models.CharField(max_length=1, blank=True, null=True)
     shop_code_discounted = models.CharField(max_length=1, blank=True, null=True)
@@ -77,21 +82,22 @@ class Shop(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     approval_status = models.IntegerField(choices=APPROVAL_STATUS_CHOICES, default=1)
     status = models.BooleanField(default=False)
-    #last_order_at = models.DateTimeField(auto_now_add=True)
-    #last_login_at = models.DateTimeField(auto_now_add=True)
+
+    # last_order_at = models.DateTimeField(auto_now_add=True)
+    # last_login_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        #return "%s-%s"%(self.shop_name, self.shop_owner)
+        # return "%s-%s"%(self.shop_name, self.shop_owner)
         if self.shop_owner.first_name and self.shop_owner.last_name:
             return "%s - %s - %s %s" % (self.shop_name,
-                str(self.shop_owner.phone_number), self.shop_owner.first_name, self.shop_owner.last_name
-            )
+                                        str(self.shop_owner.phone_number), self.shop_owner.first_name,
+                                        self.shop_owner.last_name
+                                        )
 
         elif self.shop_owner.first_name:
             return "%s - %s - %s" % (self.shop_name, str(self.shop_owner.phone_number), self.shop_owner.first_name)
 
         return "%s - %s" % (self.shop_name, str(self.shop_owner.phone_number))
-
 
     def __init__(self, *args, **kwargs):
         super(Shop, self).__init__(*args, **kwargs)
@@ -110,51 +116,59 @@ class Shop(models.Model):
     @property
     def get_shop_shipping_address(self):
         if self.shop_name_address_mapping.exists():
-            for address in self.shop_name_address_mapping.filter(address_type ='shipping').all():
+            for address in self.shop_name_address_mapping.filter(address_type='shipping').all():
                 return address.address_line1
+
     get_shop_shipping_address.fget.short_description = 'Shipping Address'
 
     @property
     def get_shop_pin_code(self):
         if self.shop_name_address_mapping.exists():
-            for address in self.shop_name_address_mapping.filter(address_type ='shipping').all():
+            for address in self.shop_name_address_mapping.filter(address_type='shipping').all():
                 return address.pincode
+
     get_shop_pin_code.fget.short_description = 'PinCode'
 
     @property
     def get_shop_city(self):
         if self.shop_name_address_mapping.exists():
-            return self.shop_name_address_mapping.filter(address_type ='shipping').last().city
+            return self.shop_name_address_mapping.filter(address_type='shipping').last().city
+
     get_shop_city.fget.short_description = 'Shop City'
 
     @property
     def get_shop_parent(self):
         if self.retiler_mapping.exists():
             return self.retiler_mapping.last().parent
+
     get_shop_parent.fget.short_description = 'Parent Shop'
 
     @property
     def shop_approved(self):
-        return True if self.status==True and self.retiler_mapping.filter(status=True).exists() and self.approval_status==self.APPROVED else False
+        return True if self.status == True and self.retiler_mapping.filter(
+            status=True).exists() and self.approval_status == self.APPROVED else False
 
     @property
     def shipping_address(self):
-       return self.shop_name_address_mapping.filter(address_type='shipping').last()
+        return self.shop_name_address_mapping.filter(address_type='shipping').last()
+
     @property
     def get_shop_parent_name(self):
         if self.retiler_mapping.exists():
             return self.retiler_mapping.last().parent.shop_name
+
     get_shop_parent_name.fget.short_description = 'Parent Shop Name'
 
     def get_orders(self):
         return self.rt_buyer_shop_order.all()
 
     def save(self, force_insert=False, force_update=False, *args, **kwargs):
-        if self.status != self.__original_status and self.status is True and ParentRetailerMapping.objects.filter(retailer=self, status=True).exists():
+        if self.status != self.__original_status and self.status is True and ParentRetailerMapping.objects.filter(
+                retailer=self, status=True).exists():
             username = self.shop_owner.first_name if self.shop_owner.first_name else self.shop_owner.phone_number
             shop_title = str(self.shop_name)
 
-            activity_type = "SHOP_VERIFIED" #SHOP_VERIFIED
+            activity_type = "SHOP_VERIFIED"  # SHOP_VERIFIED
             user_id = self.shop_owner.id
             data = {}
             data['username'] = username
@@ -191,7 +205,7 @@ class Shop(models.Model):
 
 
 class FavouriteProduct(models.Model):
-    #user = models.ForeignKey(get_user_model(), related_name='user_favourite',on_delete=models.CASCADE)
+    # user = models.ForeignKey(get_user_model(), related_name='user_favourite',on_delete=models.CASCADE)
     buyer_shop = models.ForeignKey(Shop, related_name='shop_favourite', on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='product_favourite', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -208,15 +222,20 @@ class ShopNameDisplay(Shop):
     def __str__(self):
         return "%s - %s" % (self.shop_name.split()[0], self.shop_name.split()[-1])
 
+
 class ShopPhoto(models.Model):
     shop_name = models.ForeignKey(Shop, related_name='shop_name_photos', on_delete=models.CASCADE)
     shop_photo = models.FileField(upload_to='shop_photos/shop_name/')
 
     def shop_photo_thumbnail(self):
-        return mark_safe('<a href="{}"><img alt="{}" src="{}" height="200px" width="300px"/></a>'.format(self.shop_photo.url,self.shop_name, self.shop_photo.url))
+        return mark_safe(
+            '<a href="{}"><img alt="{}" src="{}" height="200px" width="300px"/></a>'.format(self.shop_photo.url,
+                                                                                            self.shop_name,
+                                                                                            self.shop_photo.url))
 
     def __str__(self):
         return "{}".format(self.shop_name)
+
 
 class ShopDocument(models.Model):
     GSTIN = 'gstin'
@@ -250,17 +269,21 @@ class ShopDocument(models.Model):
     shop_document_photo = models.FileField(upload_to='shop_photos/shop_name/documents/')
 
     def shop_document_photo_thumbnail(self):
-        return mark_safe('<a href="{}"><img alt="{}" src="{}" height="200px" width="300px"/></a>'.format(self.shop_document_photo.url,self.shop_name,self.shop_document_photo.url))
+        return mark_safe('<a href="{}"><img alt="{}" src="{}" height="200px" width="300px"/></a>'.format(
+            self.shop_document_photo.url, self.shop_name, self.shop_document_photo.url))
 
     def __str__(self):
-        return "%s - %s"%(self.shop_document_number, self.shop_document_photo.url)
+        return "%s - %s" % (self.shop_document_number, self.shop_document_photo.url)
 
     def clean(self):
         super(ShopDocument, self).clean()
-        if self.shop_document_type == 'gstin' and len(self.shop_document_number) >15 or self.shop_document_type == 'gstin' and len(self.shop_document_number) <15:
+        if self.shop_document_type == 'gstin' and len(
+                self.shop_document_number) > 15 or self.shop_document_type == 'gstin' and len(
+                self.shop_document_number) < 15:
             raise ValidationError(_("GSTIN Number must be equal to 15 digits only"))
-        if self.shop_document_type =='gstin' and not re.match("^[a-zA-Z0-9]*$", self.shop_document_number):
+        if self.shop_document_type == 'gstin' and not re.match("^[a-zA-Z0-9]*$", self.shop_document_number):
             raise ValidationError(_("GSTIN values must be alphanumeric only"))
+
 
 class ShopInvoicePattern(models.Model):
     ACTIVE = 'ACT'
@@ -268,7 +291,7 @@ class ShopInvoicePattern(models.Model):
     SHOP_INVOICE_CHOICES = (
         (ACTIVE, 'Active'),
         (DISABLED, 'Disabled'),
-        )
+    )
     shop = models.ForeignKey(Shop, related_name='invoice_pattern', on_delete=models.CASCADE)
     pattern = models.CharField(max_length=15, null=True, blank=True)
     start_date = models.DateTimeField(null=True, blank=True)
@@ -285,8 +308,8 @@ class ShopInvoicePattern(models.Model):
 
 
 class ParentRetailerMapping(models.Model):
-    parent = models.ForeignKey(Shop,related_name='parrent_mapping',on_delete=models.CASCADE)
-    retailer = models.ForeignKey(Shop,related_name='retiler_mapping',on_delete=models.CASCADE)
+    parent = models.ForeignKey(Shop, related_name='parrent_mapping', on_delete=models.CASCADE)
+    retailer = models.ForeignKey(Shop, related_name='retiler_mapping', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
@@ -295,7 +318,10 @@ class ParentRetailerMapping(models.Model):
         unique_together = ('parent', 'retailer',)
 
     def __str__(self):
-        return "%s(%s) --mapped to-- %s(%s)(%s)"%(self.retailer.shop_name,self.retailer.shop_type,self.parent.shop_name,self.parent.shop_type,"Active" if self.status else "Inactive")
+        return "%s(%s) --mapped to-- %s(%s)(%s)" % (
+        self.retailer.shop_name, self.retailer.shop_type, self.parent.shop_name, self.parent.shop_type,
+        "Active" if self.status else "Inactive")
+
 
 @receiver(post_save, sender=ParentRetailerMapping)
 def shop_verification_notification1(sender, instance=None, created=False, **kwargs):
@@ -347,17 +373,18 @@ def shop_verification_notification1(sender, instance=None, created=False, **kwar
 class ShopAdjustmentFile(models.Model):
     shop = models.ForeignKey(Shop, related_name='stock_adjustment_shop', on_delete=models.CASCADE)
     stock_adjustment_file = models.FileField(upload_to='stock_adjustment')
-    created_by = models.ForeignKey(get_user_model(),null=True,blank=True, related_name='stock_adjust_by',on_delete=models.CASCADE)
+    created_by = models.ForeignKey(get_user_model(), null=True, blank=True, related_name='stock_adjust_by',
+                                   on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
 
 class ShopRequestBrand(models.Model):
     shop = models.ForeignKey(Shop, related_name='shop_request_brand',
-        on_delete=models.CASCADE)
+                             on_delete=models.CASCADE)
     brand_name = models.CharField(max_length=100, blank=True, null=True)
     product_sku = models.CharField(max_length=100, blank=True, null=True)
-    request_count = models.IntegerField(default = 0)
+    request_count = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -365,17 +392,20 @@ class ShopRequestBrand(models.Model):
         # if self.brand_name:
         #     return "%s - %s"%(self.shop.shop_name,self.brand_name)
         # else:
-        return "%s - %s"%(self.shop.shop_name,self.id)
+        return "%s - %s" % (self.shop.shop_name, self.id)
 
     def __init__(self, *args, **kwargs):
         super(ShopRequestBrand, self).__init__(*args, **kwargs)
 
+
 class ShopUserMapping(models.Model):
     shop = models.ForeignKey(Shop, related_name='shop_user', on_delete=models.CASCADE)
-    manager = models.ForeignKey('self', null=True, blank=True, related_name='employee_list', on_delete=models.DO_NOTHING,
-                                limit_choices_to={'manager': None,'status':True, 'employee_group__permissions__codename':'can_sales_manager_add_shop'},)
+    manager = models.ForeignKey('self', null=True, blank=True, related_name='employee_list',
+                                on_delete=models.DO_NOTHING,
+                                limit_choices_to={'manager': None, 'status': True,
+                                                  'employee_group__permissions__codename': 'can_sales_manager_add_shop'}, )
     employee = models.ForeignKey(get_user_model(), related_name='shop_employee', on_delete=models.CASCADE)
-    employee_group = models.ForeignKey(Group, related_name='shop_user_group',default='1', on_delete=models.SET_DEFAULT)
+    employee_group = models.ForeignKey(Group, related_name='shop_user_group', default='1', on_delete=models.SET_DEFAULT)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
@@ -387,16 +417,19 @@ class ShopUserMapping(models.Model):
         if self.manager == self:
             raise ValidationError(_('Manager and Employee cannot be same'))
         else:
-            ShopUserMapping.objects.filter(shop=self.shop, employee=self.employee, employee_group=self.employee_group, status=True).update(status=False)
-            #ShopUserMapping.objects.filter(shop=self.shop, shop__shop_type__shop_type='r', employee_group=self.employee_group, status=True).update(status=False)
+            ShopUserMapping.objects.filter(shop=self.shop, employee=self.employee, employee_group=self.employee_group,
+                                           status=True).update(status=False)
+            # ShopUserMapping.objects.filter(shop=self.shop, shop__shop_type__shop_type='r', employee_group=self.employee_group, status=True).update(status=False)
             self.status = True
         if self.status == True and self.employee_group.name == 'Sales Executive':
-            ShopUserMapping.objects.filter(shop=self.shop, manager = self.manager, employee_group__name = 'Sales Executive', status=True).update(status=False)
+            ShopUserMapping.objects.filter(shop=self.shop, manager=self.manager, employee_group__name='Sales Executive',
+                                           status=True).update(status=False)
             self.status = True
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return "%s"%(self.employee)
+        return "%s" % (self.employee)
+
 
 class SalesAppVersion(models.Model):
     app_version = models.CharField(max_length=200)
@@ -408,7 +441,9 @@ class SalesAppVersion(models.Model):
     def __str__(self):
         return self.app_version
 
+
 from django.contrib.postgres.fields import ArrayField
+
 
 class ShopTiming(models.Model):
     SUN = 'SUN'
@@ -428,12 +463,18 @@ class ShopTiming(models.Model):
         (FRI, 'FRI'),
         (SAT, 'FRI'),
     )
-    shop = models.OneToOneField(Shop, related_name='shop_timing',null=True,blank=True, on_delete=models.DO_NOTHING)
+    shop = models.OneToOneField(Shop, related_name='shop_timing', null=True, blank=True, on_delete=models.DO_NOTHING)
     open_timing = models.TimeField()
     closing_timing = models.TimeField()
     break_start_time = models.TimeField(null=True, blank=True)
     break_end_time = models.TimeField(null=True, blank=True)
-    off_day = ArrayField(models.CharField(max_length=25,choices=off_day_choices, null=True, blank=True), null=True, blank=True)
+    off_day = ArrayField(models.CharField(max_length=25, choices=off_day_choices, null=True, blank=True), null=True,
+                         blank=True)
+
+class ShopMigrationMapp(models.Model):
+    gf_addistro_shop = models.IntegerField(default=0)
+    sp_gfdn_shop = models.IntegerField(default=0)
+    new_sp_addistro_shop = models.IntegerField(default=0)
 
 
 # post_save.connect(get_retailer_report, sender=ParentRetailerMapping)

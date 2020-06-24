@@ -390,7 +390,7 @@ def create_grn_id(sender, instance=None, created=False, **kwargs):
             status=True
         )
         for shop in connected_shops:
-            if shop.retailer.shop_type.shop_type == 'sp':
+            if shop.retailer.shop_type.shop_type == 'sp' and shop.retailer.status == True:
                 sp_po = SpPO.objects.create(
                     shop=shop.retailer,
                     po_validity_date=datetime.date.today() + timedelta(days=15)
@@ -557,7 +557,7 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
             status=True
         )
         for shop in connected_shops:
-            if shop.retailer.shop_type.shop_type == 'sp':
+            if shop.retailer.shop_type.shop_type == 'sp' and shop.retailer.status == True:
                 sp_po = SpPO.objects.filter(
                     shop=shop.retailer
                 ).last()
