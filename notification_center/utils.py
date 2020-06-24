@@ -136,11 +136,13 @@ class SendNotification:
         self.template_data = {**self.template_data, **self.data}
 
         message_title = template.gcm_title
+        message_deep_link_url = template.gcm_deep_link_url
         message_body = self.merge_template_with_data(template.gcm_description)
         # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
         notification = SendFCMNotification(
             message_title=message_title,
-            message_body=message_body
+            message_body=message_body,
+            message_deep_link_url=message_deep_link_url
             )            
         notification.send_to_all()
 
@@ -180,10 +182,17 @@ class SendNotification:
                 reg_id = device.reg_id
                 message_title = self.data['message_title']#template.gcm_title
                 message_body = self.data['message_body']
+                try:
+                    message_image = self.data['message_image']
+                except:
+                    message_image = self.data['message_image']
+                message_deep_link_url = self.data['gcm_deep_link_url']
                 notification = SendFCMNotification(
                     registration_id=reg_id,
                     message_title=message_title,
-                    message_body=message_body
+                    message_body=message_body,
+                    message_deep_link_url=message_deep_link_url,
+                    message_image=message_image
                     )            
                 notification.send()
         except Exception as e:
@@ -215,14 +224,19 @@ class SendNotification:
                     #reg_id = Device.objects.get(user_id=self.user_id).reg_id
                     reg_id = device.reg_id
                     message_title = template.gcm_title
-                    message_image = template.gcm_image
+                    try:
+                        message_image = template.gcm_image.url
+                    except:
+                        message_image = template.gcm_image
+                    message_deep_link_url = template.gcm_deep_link_url
                     message_body = self.merge_template_with_data(template.gcm_description)
                     # sms_content = self.merge_template_with_data("Dear {{ username }}, You have successfully signed up in GramFactory, India's No. 1 Retailers' App for ordering. Thanks, Team GramFactory", self.sms_variable)
                     notification = SendFCMNotification(
                         registration_id=reg_id,
                         message_title=message_title,
                         message_image=message_image,
-                        message_body=message_body
+                        message_body=message_body,
+                        message_deep_link_url = message_deep_link_url,
                         )            
                     notification.send()
 
