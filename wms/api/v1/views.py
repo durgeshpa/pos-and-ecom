@@ -74,7 +74,7 @@ class PutAwayViewSet(APIView):
             return Response({"put_away": serializer.data})
 
     def post(self, request):
-        lis_data=[]
+        data, key ={}, 0
         msg = {'is_success': False, 'message': ['Some Required field empty'], 'response_data': None}
         bin_id = self.request.data.get('bin_id')
         if not bin_id:
@@ -89,6 +89,7 @@ class PutAwayViewSet(APIView):
         inventory_type = 'normal'
         diction = {i[0]: i[1] for i in zip(batch_id, put_away_quantity)}
         for i, value in diction.items():
+            key+=1
             put_away = Putaway.objects.filter(batch_id=i, warehouse=warehouse)
             updated_putaway_value = put_away.values_list('putaway_quantity', flat=True).last() if put_away.values_list('putaway_quantity', flat=True).last() else 0
             updated_putaway_value = put_away.last().quantity if updated_putaway_value>put_away.last().quantity else updated_putaway_value
@@ -97,7 +98,7 @@ class PutAwayViewSet(APIView):
             if updated_putaway_value == put_away.last().quantity:
                 value = 0
                 msg = {'is_success': False, 'message': ["Putaway Complete, Can't add more items"], 'response_data': None}
-                lis_data.append(msg)
+                data['data'+str(key)] = msg
                 continue
 
             if put_away.last().quantity < int(value):
@@ -132,8 +133,8 @@ class PutAwayViewSet(APIView):
 
             serializer = (PutAwaySerializer(Putaway.objects.filter(batch_id=i, warehouse=warehouse).last()))
             msg = {'is_success': True, 'message': ['quantity to be put away updated'], 'response_data': serializer.data}
-            lis_data.append(msg)
-        return Response(lis_data, status=status.HTTP_200_OK)
+            data['data'+str(key)] = msg
+        return Response(data, status=status.HTTP_200_OK)
 
 
 class PutAwayProduct(APIView):
