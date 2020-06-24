@@ -2,78 +2,53 @@ import logging
 from decimal import Decimal
 import json
 import jsonpickle
-from num2words import num2words
 from datetime import datetime, timedelta
 from barCodeGenerator import barcodeGen
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import F,Sum, Q
+from django.db.models import Sum, Q
 from wkhtmltopdf.views import PDFTemplateResponse
-from django.shortcuts import get_object_or_404, get_list_or_404
-from django.utils import timezone
-from django.contrib.postgres.search import SearchVector
-from django_filters import rest_framework as filters
+from django.shortcuts import get_object_or_404
 from rest_framework import permissions, authentication
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.parsers import JSONParser
+from rest_framework.permissions import AllowAny
 import requests
-from django.http import HttpResponse
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
-from rest_framework import serializers
-from rest_framework import generics, viewsets
+from rest_framework import generics
 from retailer_backend.utils import SmallOffsetPagination
 from num2words import num2words
 import collections
 from django.core.files.base import ContentFile
-from django.shortcuts import redirect
-from .serializers import (ProductsSearchSerializer,GramGRNProductsSearchSerializer,
-    CartProductMappingSerializer,CartSerializer, OrderSerializer,
-    CustomerCareSerializer, OrderNumberSerializer, PaymentCodSerializer,
-    PaymentNeftSerializer,GramPaymentCodSerializer,GramPaymentNeftSerializer,
-    GramMappedCartSerializer,GramMappedOrderSerializer,ProductDetailSerializer,
-    OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
-    RetailerShopSerializer, SellerOrderListSerializer,OrderListSerializer,
-    ReadOrderedProductSerializer,FeedBackSerializer, CancelOrderSerializer,
-    ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
-    ShipmentReschedulingSerializer, ShipmentReturnSerializer
-)
+from .serializers import (ProductsSearchSerializer, GramGRNProductsSearchSerializer, CartSerializer, OrderSerializer,
+                          CustomerCareSerializer, OrderNumberSerializer, GramPaymentCodSerializer,
+                          GramMappedCartSerializer, GramMappedOrderSerializer,
+                          OrderDetailSerializer, OrderedProductSerializer, OrderedProductMappingSerializer,
+                          RetailerShopSerializer, SellerOrderListSerializer, OrderListSerializer,
+                          ReadOrderedProductSerializer, FeedBackSerializer, CancelOrderSerializer,
+                          ShipmentDetailSerializer, TripSerializer, ShipmentSerializer, PickerDashboardSerializer,
+                          ShipmentReschedulingSerializer, ShipmentReturnSerializer)
 
-from products.models import Product, ProductPrice, ProductOption,ProductImage, ProductTaxMapping
-from sp_to_gram.models import (OrderedProductMapping,OrderedProductReserved, OrderedProductMapping as SpMappedOrderedProductMapping,
-                                OrderedProduct as SPOrderedProduct, StockAdjustment, create_credit_note)
-
+from products.models import ProductPrice, ProductOption
+from sp_to_gram.models import (OrderedProductMapping, OrderedProductReserved,)
 from categories import models as categorymodel
-
-from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as GramCartProductMapping,
-    OrderedProductReserved as GramOrderedProductReserved, PickList, PickListItems
-)
+from gram_to_brand.models import (GRNOrderProductMapping,OrderedProductReserved as GramOrderedProductReserved,
+                                  PickList,)
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
-    OrderedProduct, Payment, CustomerCare, Return, Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
-    ShipmentRescheduling, Note
-)
+    OrderedProduct, Payment, CustomerCare, Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
+    ShipmentRescheduling, Note)
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,
-    Order as GramMappedOrder, OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment,
-    CustomerCare as GramMappedCustomerCare
-)
+    Order as GramMappedOrder,)
 
-from shops.models import Shop, ParentRetailerMapping
 from shops.models import Shop,ParentRetailerMapping, ShopUserMapping
 from brand.models import Brand
-from products.models import ProductCategory
 from addresses.models import Address
 from retailer_backend.common_function import getShopMapping,checkNotShopAndMapping,getShop
 from retailer_backend.messages import ERROR_MESSAGES
 
-from retailer_to_sp.tasks import (
-    ordered_product_available_qty_update, release_blocking, create_reserved_order
-)
-from .filters import OrderedProductMappingFilter, OrderedProductFilter
-from retailer_to_sp.filters import PickerDashboardFilter
+from retailer_to_sp.tasks import (create_reserved_order)
 from common.data_wrapper_view import DataWrapperViewSet
 
 from django.contrib.auth import get_user_model
-from django.utils.translation import ugettext_lazy as _
 from common.data_wrapper import format_serializer_errors
 from sp_to_gram.tasks import es_search
 from coupon.serializers import CouponSerializer
@@ -81,8 +56,10 @@ from coupon.models import Coupon, CusotmerCouponUsage
 
 from products.models import Product
 from common.constants import ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
-from common.common_utils import create_zip_url, create_file_path, create_file_name
+from common.common_utils import create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files
 from retailer_to_sp.views import pick_list_download
+from celery.task import task
+
 User = get_user_model()
 
 logger = logging.getLogger(__name__)
@@ -1117,57 +1094,74 @@ class DownloadInvoiceSP(APIView):
             # get primary key
             pk = kwargs.get('pk')
             # check pk is exist or not for Order product model
-            shipment = get_object_or_404(OrderedProduct, pk=pk)
+            ordered_product = get_object_or_404(OrderedProduct, pk=pk)
             # call pdf generation method to generate pdf and download the pdf
-            response = pdf_generation(self, request, shipment)
+            pdf_generation(request, ordered_product)
+            result = requests.get(ordered_product.invoice.invoice_pdf.url)
+            file_prefix = PREFIX_INVOICE_FILE_NAME
+            # generate pdf file
+            response = single_pdf_file(ordered_product, result, file_prefix)
+            # return response
         else:
-            # create list for files
+            # list of file path for every pdf file
             file_path_list = []
+            # list of created date for every pdf file
+            pdf_created_date = []
             for pk in args[0]:
                 # check pk is exist or not for Order product model
-                shipment = get_object_or_404(OrderedProduct, pk=pk)
+                ordered_product = get_object_or_404(OrderedProduct, pk=pk)
                 # call pdf generation method to generate and save pdf
-                pdf_generation(self, request, shipment)
-                # get bucket location
-                bucket_location = shipment.invoice.invoice_pdf.storage.location
-                # get pdf file name
-                file_name = shipment.invoice.invoice_pdf.name
-                # call create file path to get the path of pdf files from S3
-                file_path_list = create_file_path(file_path_list, bucket_location, file_name)
-            # assign zip name
-            zip_name = INVOICE_DOWNLOAD_ZIP_NAME
-            # call create zip url method to generate zip url
-            response = create_zip_url(file_path_list, zip_name)
+                pdf_generation(request, ordered_product)
+                # append the pdf file path
+                file_path_list.append(ordered_product.invoice.invoice_pdf.url)
+                # append created date for pdf file
+                pdf_created_date.append(ordered_product.created_at)
+            # condition to check the download file count
+            if len(pdf_created_date) == 1:
+                result = requests.get(ordered_product.invoice.invoice_pdf.url)
+                file_prefix = PREFIX_INVOICE_FILE_NAME
+                # generate pdf file
+                response = single_pdf_file(ordered_product, result, file_prefix)
+                return response, False
+            else:
+                # get merged pdf file name
+                prefix_file_name = INVOICE_DOWNLOAD_ZIP_NAME
+                merge_pdf_name = create_merge_pdf_name(prefix_file_name, pdf_created_date)
+                # call function to merge pdf files
+                response = merge_pdf_files(file_path_list, merge_pdf_name)
+            return response, True
         return response
 
 
-def pdf_generation(self, request, shipment):
+@task
+def pdf_generation(request, ordered_product):
     """
-
-    :param self:self object
     :param request: request object
-    :param shipment: shipment object
+    :param ordered_product: Order product object
     :return: pdf instance
     """
     # get prefix of file name
     file_prefix = PREFIX_INVOICE_FILE_NAME
     # get the file name along with with prefix name
-    filename = create_file_name(file_prefix, shipment)
+    filename = create_file_name(file_prefix, ordered_product)
     template_name = 'admin/invoice/invoice_sp.html'
+    if type(request) is str:
+        request = None
+        ordered_product = get_object_or_404(OrderedProduct, pk=ordered_product)
+    else:
+        request = request
+        ordered_product = ordered_product
     try:
-        if shipment.invoice.invoice_pdf.url:
-            r = requests.get(shipment.invoice.invoice_pdf.url)
-            response = HttpResponse(r.content, content_type='application/pdf')
-            response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
-            return response
-            return redirect(shipment.invoice.invoice_pdf.url)
-    except:
-        barcode = barcodeGen(shipment.invoice_no)
+        if ordered_product.invoice.invoice_pdf.url:
+            pass
+    except Exception as e:
+        logger.exception(e)
+        barcode = barcodeGen(ordered_product.invoice_no)
         # payment_type = 'cash_on_delivery'
         try:
-            if shipment.order.buyer_shop.shop_timing:
-                open_time = shipment.order.buyer_shop.shop_timing.open_timing
-                close_time = shipment.order.buyer_shop.shop_timing.closing_timing
+            if ordered_product.order.buyer_shop.shop_timing:
+                open_time = ordered_product.order.buyer_shop.shop_timing.open_timing
+                close_time = ordered_product.order.buyer_shop.shop_timing.closing_timing
                 if open_time == 'midnight' and close_time == 'midnight':
                     open_time = '-'
                     close_time = '-'
@@ -1181,14 +1175,14 @@ def pdf_generation(self, request, shipment):
 
         seller_shop_gistin = 'unregistered'
         buyer_shop_gistin = 'unregistered'
-        if shipment.order.ordered_cart.seller_shop.shop_name_documents.exists():
-            seller_shop_gistin = shipment.order.ordered_cart.seller_shop.shop_name_documents.filter(
-                shop_document_type='gstin').last().shop_document_number if shipment.order.ordered_cart.seller_shop.shop_name_documents.filter(
+        if ordered_product.order.ordered_cart.seller_shop.shop_name_documents.exists():
+            seller_shop_gistin = ordered_product.order.ordered_cart.seller_shop.shop_name_documents.filter(
+                shop_document_type='gstin').last().shop_document_number if ordered_product.order.ordered_cart.seller_shop.shop_name_documents.filter(
                 shop_document_type='gstin').exists() else 'unregistered'
 
-        if shipment.order.ordered_cart.buyer_shop.shop_name_documents.exists():
-            buyer_shop_gistin = shipment.order.ordered_cart.buyer_shop.shop_name_documents.filter(
-                shop_document_type='gstin').last().shop_document_number if shipment.order.ordered_cart.buyer_shop.shop_name_documents.filter(
+        if ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.exists():
+            buyer_shop_gistin = ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.filter(
+                shop_document_type='gstin').last().shop_document_number if ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.filter(
                 shop_document_type='gstin').exists() else 'unregistered'
 
         product_listing = []
@@ -1212,7 +1206,7 @@ def pdf_generation(self, request, shipment):
         state_gram = '-'
         pincode_gram = '-'
         cin = '-'
-        for m in shipment.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
+        for m in ordered_product.rt_order_product_order_product_mapping.filter(shipped_qty__gt=0):
             sum_qty += m.shipped_qty
             # New Code For Product Listing Start
             tax_sum = 0
@@ -1226,12 +1220,12 @@ def pdf_generation(self, request, shipment):
             product_tax_amount = 0
             basic_rate = 0
             inline_sum_amount = 0
-            cart_product_map = shipment.order.ordered_cart.rt_cart_list.filter(cart_product=m.product).last()
+            cart_product_map = ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=m.product).last()
             product_price = cart_product_map.get_cart_product_price(
-                shipment.order.ordered_cart.seller_shop,
-                shipment.order.ordered_cart.buyer_shop)
+                ordered_product.order.ordered_cart.seller_shop,
+                ordered_product.order.ordered_cart.buyer_shop)
 
-            if shipment.order.ordered_cart.cart_type == 'DISCOUNTED':
+            if ordered_product.order.ordered_cart.cart_type == 'DISCOUNTED':
                 product_pro_price_ptr = round(product_price.selling_price, 2)
             else:
                 product_pro_price_ptr = cart_product_map.item_effective_prices
@@ -1246,7 +1240,7 @@ def pdf_generation(self, request, shipment):
             basic_rate = (float(product_pro_price_ptr)) / (float(get_tax_val) + 1)
             base_price = (float(product_pro_price_ptr) * float(m.shipped_qty)) / (float(get_tax_val) + 1)
             product_tax_amount = round(float(base_price) * float(get_tax_val), 2)
-            for z in shipment.order.seller_shop.shop_name_address_mapping.all():
+            for z in ordered_product.order.seller_shop.shop_name_address_mapping.all():
                 cin = 'U74999HR2018PTC075977' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else '---'
                 shop_name_gram = 'GFDN SERVICES PVT LTD' if z.shop_name == 'GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name == 'GFDN SERVICES PVT LTD (DELHI)' else z.shop_name
                 nick_name_gram, address_line1_gram = z.nick_name, z.address_line1
@@ -1296,13 +1290,12 @@ def pdf_generation(self, request, shipment):
                 # tax_inline = tax_inline + (inline_sum_amount - original_amount)
                 # tax_inline1 =(tax_inline / 2)
 
-        total_amount = shipment.invoice_amount
+        total_amount = ordered_product.invoice_amount
         total_amount_int = total_amount
         amt = [num2words(i) for i in str(total_amount).split('.')]
         rupees = amt[0]
 
-        data = {"shipment": shipment, "order": shipment.order,
-                "url": request.get_host(), "scheme": request.is_secure() and "https" or "http",
+        data = {"shipment": ordered_product, "order": ordered_product.order,
                 "igst": igst, "cgst": cgst, "sgst": sgst, "cess": cess, "surcharge": surcharge,
                 "total_amount": total_amount,
                 "barcode": barcode, "product_listing": product_listing, "rupees": rupees,
@@ -1316,11 +1309,10 @@ def pdf_generation(self, request, shipment):
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         try:
-            shipment.invoice.invoice_pdf.save("{}".format(filename),
+            ordered_product.invoice.invoice_pdf.save("{}".format(filename),
                                               ContentFile(response.rendered_content), save=True)
         except Exception as e:
             logger.exception(e)
-        return response
 
 class DownloadCreditNoteDiscounted(APIView):
     permission_classes = (AllowAny,)

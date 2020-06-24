@@ -696,8 +696,10 @@ class DownloadPickListPicker(TemplateView, ):
                 shipment_id = self.kwargs.get('shipment_id')
                 # call pick list dashboard method for create and save the pdf file in database if pdf is not exist
                 pick_list_dashboard(request, order_obj, shipment_id, template_name, file_prefix, barcode)
+                result = requests.get(order_obj.pick_list_pdf.url)
+                file_prefix = PREFIX_PICK_LIST_FILE_NAME
                 # generate pdf file
-                response = single_pdf_file(order_obj)
+                response = single_pdf_file(order_obj, result, file_prefix)
                 # return response
                 return response
             else:
@@ -722,7 +724,10 @@ class DownloadPickListPicker(TemplateView, ):
                         pdf_created_date.append(order_obj.created_at)
                     # condition to check the download file count
                     if len(pdf_created_date) == 1:
-                        response = single_pdf_file(order_obj)
+                        result = requests.get(order_obj.pick_list_pdf.url)
+                        file_prefix = PREFIX_PICK_LIST_FILE_NAME
+                        # generate pdf file
+                        response = single_pdf_file(order_obj, result, file_prefix)
                         return response, False
                     else:
                         # get merged pdf file name
@@ -859,8 +864,10 @@ class DownloadPickList(TemplateView, ):
                 order_obj = get_object_or_404(Order, pk=pk)
                 # call pick list download method to create and save the pdf
                 pick_list_download(request, order_obj)
+                result = requests.get(order_obj.pick_list_pdf.url)
+                file_prefix = PREFIX_PICK_LIST_FILE_NAME
                 # generate pdf file
-                response = single_pdf_file(order_obj)
+                response = single_pdf_file(order_obj, result, file_prefix)
                 # return response
                 return response
             else:
@@ -879,7 +886,10 @@ class DownloadPickList(TemplateView, ):
                     pdf_created_date.append(order_obj.created_at)
                 # condition to check the download file count
                 if len(pdf_created_date) <= 1:
-                    response = single_pdf_file(order_obj)
+                    result = requests.get(order_obj.pick_list_pdf.url)
+                    file_prefix = PREFIX_PICK_LIST_FILE_NAME
+                    # generate pdf file
+                    response = single_pdf_file(order_obj, result, file_prefix)
                     return response, False
                 else:
                     prefix_file_name = PICK_LIST_DOWNLOAD_ZIP_NAME

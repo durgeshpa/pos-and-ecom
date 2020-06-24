@@ -48,23 +48,6 @@ def convert_hash_using_hmac_sha256(payload):
     return signature
 
 
-def create_file_path(file_path_list, bucket_location, file_name):
-    """
-    :param file_path_list: list of file path
-    :param bucket_location: location of S3 bucket
-    :param file_name: name of pdf file
-    :return: list of pdf files path
-    """
-
-    try:
-        bucket_name = config('AWS_STORAGE_BUCKET_NAME')
-        file_path = bucket_name + '/' + bucket_location + '/' + file_name
-        file_path_list.append(file_path)
-    except Exception as e:
-        logger.exception(e)
-    return file_path_list
-
-
 def merge_pdf_files(file_path_list, merge_pdf_name):
     """
 
@@ -76,58 +59,6 @@ def merge_pdf_files(file_path_list, merge_pdf_name):
         a2p_client = Api2Pdf(config('API2PDF_KEY'))
         merge_result = a2p_client.merge(file_path_list, file_name=merge_pdf_name)
         return merge_result.result['pdf']
-    except Exception as e:
-        logger.exception(e)
-
-
-def create_zip_url(file_path_list, zip_name):
-    """
-
-    :param file_path_list: collection of pdf files
-    :param zip_name: name of zip file
-    :return: :- response of zip status api
-    """
-    try:
-        # S3zip Server URL
-        api_url = config('S3_ZIP_API')
-        zip_to = config('AWS_STORAGE_BUCKET_NAME') + '/' + zip_name + ZIP_FORMAT
-        # crete API end point for S3zip Zip API
-        stream_api_end_point = api_url + '/' + Version + '/' + S3_ZIP_API_NAME
-        bearer = 'Bearer {}'.format(config('AUTHORIZATION_KEY'))
-        headers = {"Authorization": bearer}
-        # create payload and configure AWS Key, Secret, Bucket Name, Region and collection of files
-        payload = {'awsKey': config('AWS_ACCESS_KEY_ID'), 'awsSecret': config('AWS_SECRET_ACCESS_KEY'),
-                   'awsBucket': config('AWS_STORAGE_BUCKET_NAME'), 'awsRegion': config('AWS_REGION'),
-                   'filePaths': file_path_list, 'bucketAsDir': False, 'zipTo': zip_to}
-        # call S3zip Zip API
-        s3_zip_api_response = requests.request("POST", stream_api_end_point, data=payload, headers=headers)
-        # call S3zip status api and send the parameter as a response of stream api and api url
-        time.sleep(FIVE)
-        response = s3_zip_status_api(s3_zip_api_response, api_url)
-        return response
-    except Exception as e:
-        logger.exception(e)
-
-
-def s3_zip_status_api(s3_zip_api_response, api_url):
-    """
-    :param s3_zip_api_response: response of S3zip ZIP API
-    :param api_url: api url
-    :return: redirect the response url
-    """
-    try:
-        # crete API end point for S3zip status API
-        status_api_end_point = api_url + '/' + Version + '/' + STATUS_API_NAME
-        bearer = 'Bearer {}'.format(config('AUTHORIZATION_KEY'))
-        headers = {'Content-Type': 'application/json; charset=UTF-8', "Authorization": bearer}
-        # payload as is S3zip ZIP API response
-        payload = s3_zip_api_response
-        # call S3zip status API
-        response = requests.request("POST", status_api_end_point, data=payload, headers=headers)
-        # convert string dict to string and get the Zip url
-        response = ast.literal_eval(str(response.text))['result']
-        response = response.split('["')[1].split('"]')[0]
-        return response
     except Exception as e:
         logger.exception(e)
 
@@ -159,17 +90,17 @@ def create_merge_pdf_name(prefix_file_name, pdf_created_date):
     return file_name
 
 
-def single_pdf_file(order_obj):
+def single_pdf_file(obj, result, file_prefix):
     """
 
-    :param order_obj: Object of Order
-    :return: pdf file
+    :param obj: object of order/ordered product
+    :param result: pdf data
+    :param file_prefix: prefix of file name for single file
+    :return: pdf file object
     """
     try:
-        file_prefix = PREFIX_PICK_LIST_FILE_NAME
-        filename = create_file_name(file_prefix, order_obj)
-        r = requests.get(order_obj.pick_list_pdf.url)
-        response = HttpResponse(r.content, content_type='application/pdf')
+        filename = create_file_name(file_prefix, obj)
+        response = HttpResponse(result.content, content_type='application/pdf')
         response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
         return response
     except Exception as e:

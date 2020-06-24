@@ -1,6 +1,7 @@
 # python imports
 import csv
 import logging
+import jsonpickle
 # django imports
 from admin_numeric_filter.admin import (NumericFilterModelAdmin, SliderNumericFilter)
 from dal_admin_filters import AutocompleteFilter
@@ -20,7 +21,7 @@ from django.shortcuts import redirect
 # app imports
 from rangefilter.filter import DateTimeRangeFilter
 from retailer_backend.admin import InputFilter
-from retailer_to_sp.api.v1.views import DownloadInvoiceSP
+from retailer_to_sp.api.v1.views import DownloadInvoiceSP, pdf_generation
 from retailer_to_sp.views import (LoadDispatches, commercial_shipment_details, load_dispatches, order_invoices,
                                   ordered_product_mapping_shipment, trip_planning, trip_planning_change,
                                   update_shipment_status, reshedule_update_shipment, RetailerCart, assign_picker,
@@ -1250,7 +1251,10 @@ class ShipmentAdmin(admin.ModelAdmin):
             # call get method under the DownloadInvoiceSP class
             try:
                 response = DownloadInvoiceSP.get(self, request, argument_list, **kwargs)
-                response = redirect(response)
+                if response[1] is True:
+                    return redirect(response[0])
+                else:
+                    return response[0]
             except Exception as e:
                 logger.exception(e)
                 return redirect(request.META['HTTP_REFERER'])
@@ -1313,6 +1317,9 @@ class ShipmentAdmin(admin.ModelAdmin):
                 form.instance.id, form.cleaned_data.get('close_order'),
                 list(shipment_products_dict), total_shipped_qty,
                 total_ordered_qty)
+            # delay function to generate pdf from qc pending to qa passed
+            # request = jsonpickle.encode(request, unpicklable=False)
+            # pdf_generation.delay(request, form.instance.pk)
 
     def get_queryset(self, request):
         qs = super(ShipmentAdmin, self).get_queryset(request)
@@ -1727,7 +1734,10 @@ class InvoiceAdmin(admin.ModelAdmin):
                     argument_list.append(arg.shipment.pk)
             # call get method under the DownloadInvoiceSP class
             response = DownloadInvoiceSP.get(self, request, argument_list, **kwargs)
-            response = redirect(response)
+            if response[1] is True:
+                return redirect(response[0])
+            else:
+                return response[0]
         else:
             response = messages.error(request, ERROR_MESSAGES['1001'])
         return response
