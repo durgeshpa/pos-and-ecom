@@ -858,7 +858,10 @@ class PickerDashboardAdmin(admin.ModelAdmin):
                     pass
             # call get method under the DownloadPickListPicker class
             response = DownloadPickListPicker.get(self, request, argument_list, kwargs)
-            return redirect(response)
+            if response[1] is True:
+                return redirect(response[0])
+            else:
+                return response[0]
         else:
             response = messages.error(request, ERROR_MESSAGES['1001'])
         return response
@@ -943,7 +946,10 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                     pass
             # call get method under the DownloadPickList class
             response = DownloadPickList.get(self, request, argument_list, **kwargs)
-            return redirect(response)
+            if response[1] is True:
+                return redirect(response[0])
+            else:
+                return response[0]
         else:
             response = messages.error(request, ERROR_MESSAGES['1001'])
         return response

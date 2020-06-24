@@ -9,8 +9,14 @@ import ast
 from functools import reduce
 from decouple import config
 
+# django imports
+from django.http import HttpResponse
+
 # app imports
-from common.constants import Version, S3_ZIP_API_NAME, STATUS_API_NAME, FIVE, ZIP_FORMAT
+from common.constants import Version, S3_ZIP_API_NAME, STATUS_API_NAME, FIVE, ZIP_FORMAT, PREFIX_PICK_LIST_FILE_NAME
+
+# third party imports
+from api2pdf import Api2Pdf
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +63,21 @@ def create_file_path(file_path_list, bucket_location, file_name):
     except Exception as e:
         logger.exception(e)
     return file_path_list
+
+
+def merge_pdf_files(file_path_list, merge_pdf_name):
+    """
+
+    :param file_path_list: list of pdf file path
+    :param merge_pdf_name: name of merged file name
+    :return:
+    """
+    try:
+        a2p_client = Api2Pdf(config('API2PDF_KEY'))
+        merge_result = a2p_client.merge(file_path_list, file_name=merge_pdf_name)
+        return merge_result.result['pdf']
+    except Exception as e:
+        logger.exception(e)
 
 
 def create_zip_url(file_path_list, zip_name):
@@ -120,3 +141,36 @@ def create_file_name(file_prefix, unique_id):
     """
     # return unique name of pdf file
     return file_prefix + str(unique_id) + '.pdf'
+
+
+def create_merge_pdf_name(prefix_file_name, pdf_created_date):
+    """
+
+    :param prefix_file_name: Prefix of File name
+    :param pdf_created_date: list of created date of every pdf files
+    :return: merged file name
+    """
+    # return unique name of pdf file
+    if len(pdf_created_date) <= 1:
+        file_name = prefix_file_name+'_'+pdf_created_date[0].strftime("%d_%b_%y_%H_%M")+'.pdf'
+    else:
+        file_name = prefix_file_name + '_' + pdf_created_date[0].strftime(
+            "%d_%b_%y_%H_%M")+'-'+pdf_created_date[-1].strftime("%d_%b_%y_%H_%M")+'.pdf'
+    return file_name
+
+
+def single_pdf_file(order_obj):
+    """
+
+    :param order_obj: Object of Order
+    :return: pdf file
+    """
+    try:
+        file_prefix = PREFIX_PICK_LIST_FILE_NAME
+        filename = create_file_name(file_prefix, order_obj)
+        r = requests.get(order_obj.pick_list_pdf.url)
+        response = HttpResponse(r.content, content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        return response
+    except Exception as e:
+        logger.exception(e)

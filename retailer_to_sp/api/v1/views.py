@@ -1,6 +1,7 @@
 import logging
 from decimal import Decimal
 import json
+import jsonpickle
 from num2words import num2words
 from datetime import datetime, timedelta
 from barCodeGenerator import barcodeGen
@@ -81,7 +82,7 @@ from coupon.models import Coupon, CusotmerCouponUsage
 from products.models import Product
 from common.constants import ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
 from common.common_utils import create_zip_url, create_file_path, create_file_name
-
+from retailer_to_sp.views import pick_list_download
 User = get_user_model()
 
 logger = logging.getLogger(__name__)
@@ -966,6 +967,13 @@ class CreateOrder(APIView):
                                  'buyer_shop_id': shop_id,
                                  'current_url':current_url})
                     msg = {'is_success': True, 'message': [''], 'response_data': serializer.data}
+                    try:
+                        request = jsonpickle.encode(request, unpicklable=False)
+                        order = jsonpickle.encode(order, unpicklable=False)
+                        pick_list_download.delay(request, order)
+                    except:
+                        msg = {'is_success': False, 'message': ['Pdf is not uploaded for Order'], 'response_data': None}
+                        return Response(msg, status=status.HTTP_200_OK)
                 else:
                     msg = {'is_success': False, 'message': ['available_qty is none'], 'response_data': None}
                     return Response(msg, status=status.HTTP_200_OK)
