@@ -81,13 +81,13 @@ from coupon.models import Coupon, CusotmerCouponUsage
 
 from products.models import Product
 from common.constants import ZERO, PREFIX_INVOICE_FILE_NAME, INVOICE_DOWNLOAD_ZIP_NAME
-from common.common_utils import create_file_name, single_pdf_file,create_merge_pdf_name, merge_pdf_files
+from common.common_utils import (create_file_name, single_pdf_file, create_merge_pdf_name, merge_pdf_files,
+                                 create_invoice_data)
 from retailer_to_sp.views import pick_list_download
 from celery.task import task
 
 User = get_user_model()
 
-logger = logging.getLogger(__name__)
 logger = logging.getLogger('django')
 
 today = datetime.today()
@@ -1334,6 +1334,7 @@ def pdf_generation(request, ordered_product):
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
                                        context=data, show_content_in_browser=False, cmd_options=cmd_option)
         try:
+            create_invoice_data(ordered_product)
             ordered_product.invoice.invoice_pdf.save("{}".format(filename),
                                               ContentFile(response.rendered_content), save=True)
         except Exception as e:

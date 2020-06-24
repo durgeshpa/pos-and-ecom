@@ -13,7 +13,8 @@ from decouple import config
 from django.http import HttpResponse
 
 # app imports
-from common.constants import Version, S3_ZIP_API_NAME, STATUS_API_NAME, FIVE, ZIP_FORMAT, PREFIX_PICK_LIST_FILE_NAME
+from retailer_to_sp.models import OrderedProduct
+from retailer_backend import common_function as CommonFunction
 
 # third party imports
 from api2pdf import Api2Pdf
@@ -103,5 +104,41 @@ def single_pdf_file(obj, result, file_prefix):
         response = HttpResponse(result.content, content_type='application/pdf')
         response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
         return response
+    except Exception as e:
+        logger.exception(e)
+
+
+def create_invoice_data(ordered_product):
+    """
+
+    :param ordered_product: object of ordered_product
+    :return:
+    """
+    try:
+        if ordered_product.order.ordered_cart.cart_type == 'RETAIL':
+            if ordered_product.shipment_status == OrderedProduct.READY_TO_SHIP:
+                CommonFunction.generate_invoice_number(
+                    'invoice_no', ordered_product.pk,
+                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
+                    ordered_product.invoice_amount)
+        elif ordered_product.order.ordered_cart.cart_type == 'DISCOUNTED':
+            if ordered_product.shipment_status == OrderedProduct.READY_TO_SHIP:
+                CommonFunction.generate_invoice_number_discounted_order(
+                    'invoice_no', ordered_product.pk,
+                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
+                    ordered_product.invoice_amount)
+        elif ordered_product.order.ordered_cart.cart_type == 'BULK':
+            if ordered_product.shipment_status == OrderedProduct.READY_TO_SHIP:
+                CommonFunction.generate_invoice_number_bulk_order(
+                    'invoice_no', ordered_product.pk,
+                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
+                    ordered_product.invoice_amount)
+
+        if ordered_product.no_of_crates is None:
+            ordered_product.no_of_crates = 0
+        if ordered_product.no_of_packets is None:
+            ordered_product.no_of_packets = 0
+        if ordered_product.no_of_sacks is None:
+            ordered_product.no_of_sacks = 0
     except Exception as e:
         logger.exception(e)
