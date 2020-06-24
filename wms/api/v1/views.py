@@ -74,6 +74,7 @@ class PutAwayViewSet(APIView):
             return Response({"put_away": serializer.data})
 
     def post(self, request):
+        lis_data=[]
         msg = {'is_success': False, 'message': ['Some Required field empty'], 'response_data': None}
         bin_id = self.request.data.get('bin_id')
         if not bin_id:
@@ -86,49 +87,52 @@ class PutAwayViewSet(APIView):
         if not batch_id:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         inventory_type = 'normal'
+        diction = {i[0]: i[1] for i in zip(batch_id, put_away_quantity)}
+        for i, value in diction.items():
+            put_away = Putaway.objects.filter(batch_id=i, warehouse=warehouse)
+            updated_putaway_value = put_away.values_list('putaway_quantity', flat=True).last() if put_away.values_list('putaway_quantity', flat=True).last() else 0
+            updated_putaway_value = put_away.last().quantity if updated_putaway_value>put_away.last().quantity else updated_putaway_value
+            if updated_putaway_value + int(value)>put_away.last().quantity:
+                value = put_away.last().quantity - updated_putaway_value
+            if updated_putaway_value == put_away.last().quantity:
+                value = 0
+                continue
+                # return Response({'is_success': False, 'message': ["Putaway Complete, Can't add more items"], 'response_data': None}, status=status.HTTP_406_NOT_ACCEPTABLE)
 
-        put_away = Putaway.objects.filter(batch_id=batch_id, warehouse=warehouse)
-        updated_putaway_value = put_away.values_list('putaway_quantity', flat=True).last() if put_away.values_list('putaway_quantity', flat=True).last() else 0
-        updated_putaway_value = put_away.last().quantity if updated_putaway_value>put_away.last().quantity else updated_putaway_value
-        if updated_putaway_value + int(put_away_quantity)>put_away.last().quantity:
-            put_away_quantity = put_away.last().quantity - updated_putaway_value
-        if updated_putaway_value == put_away.last().quantity:
-            put_away_quantity = 0
-            return Response({'is_success': False, 'message': ["Putaway Complete, Can't add more items"], 'response_data': None}, status=status.HTTP_406_NOT_ACCEPTABLE)
-
-        if put_away.last().quantity < int(put_away_quantity):
-            return Response({'is_success': False, 'message': ['Put_away_quantity should be equal to or'
-                                                              ' less than quantity'], 'response_data': None},
-                            status=status.HTTP_400_BAD_REQUEST)
-        bin_skus = PutawayBinInventory.objects.values_list('putaway__sku__product_sku', flat=True)
-        sh = Shop.objects.filter(id=int(warehouse)).last()
-        if sh.shop_type.shop_type == 'sp':
-            bin_inventory = BinInventory.objects.filter(bin__bin_id=bin_id)
-            if bin_inventory.exists():
-                if batch_id in bin_inventory.values_list('batch_id', flat=True):
-                    bin_inv = BinInventory.objects.create(warehouse=sh, sku=put_away.last().sku,bin=Bin.objects.filter(bin_id=bin_id).last(), batch_id=batch_id,
-                                                          inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(), quantity=put_away_quantity, in_stock='t')
-                    PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),bin=bin_inv,putaway_quantity=put_away_quantity)
-                    put_away.update(putaway_quantity=updated_putaway_value + int(put_away_quantity))
-                else:
-                    if batch_id[:17] in bin_inventory.values_list('sku__product_sku', flat=True):
-                        return Response({'is_success': False, 'message': ['This product can not be placed in the bin'], 'response_data': None}, status=status.HTTP_200_OK)
+            if put_away.last().quantity < int(value):
+                return Response({'is_success': False, 'message': ['Put_away_quantity should be equal to or'
+                                                                  ' less than quantity'], 'response_data': None},
+                                status=status.HTTP_400_BAD_REQUEST)
+            bin_skus = PutawayBinInventory.objects.values_list('putaway__sku__product_sku', flat=True)
+            sh = Shop.objects.filter(id=int(warehouse)).last()
+            if sh.shop_type.shop_type == 'sp':
+                bin_inventory = BinInventory.objects.filter(bin__bin_id=bin_id)
+                if bin_inventory.exists():
+                    if i in bin_inventory.values_list('batch_id', flat=True):
+                        bin_inv = BinInventory.objects.create(warehouse=sh, sku=put_away.last().sku,bin=Bin.objects.filter(bin_id=bin_id).last(), batch_id=i,
+                                                              inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(), quantity=value, in_stock='t')
+                        PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),bin=bin_inv,putaway_quantity=value)
+                        put_away.update(putaway_quantity=updated_putaway_value + int(value))
                     else:
-                        bin_inv = BinInventory.objects.create(warehouse=sh, sku=put_away.last().sku,
-                                                              bin=Bin.objects.filter(bin_id=bin_id).last(),
-                                                              batch_id=batch_id,inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(), quantity=put_away_quantity, in_stock='t')
-                        PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(), bin=bin_inv,
-                                                           putaway_quantity=put_away_quantity)
-                        put_away.update(putaway_quantity= updated_putaway_value+int(put_away_quantity))
-            else:
-                bin_inv = BinInventory.objects.create(warehouse=sh, sku=put_away.last().sku, bin=Bin.objects.filter(bin_id=bin_id).last(),batch_id=batch_id, inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(), quantity=put_away_quantity, in_stock='t')
-                PutawayBinInventory.objects.create(warehouse=sh,putaway=put_away.last(), bin=bin_inv,
-                                                   putaway_quantity=put_away_quantity)
-                put_away.update(putaway_quantity=updated_putaway_value + int(put_away_quantity))
+                        if i[:17] in bin_inventory.values_list('sku__product_sku', flat=True):
+                            return Response({'is_success': False, 'message': ['This product can not be placed in the bin'], 'response_data': None}, status=status.HTTP_200_OK)
+                        else:
+                            bin_inv = BinInventory.objects.create(warehouse=sh, sku=put_away.last().sku,
+                                                                  bin=Bin.objects.filter(bin_id=bin_id).last(),
+                                                                  batch_id=i,inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(), quantity=value, in_stock='t')
+                            PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(), bin=bin_inv,
+                                                               putaway_quantity=value)
+                            put_away.update(putaway_quantity= updated_putaway_value+int(value))
+                else:
+                    bin_inv = BinInventory.objects.create(warehouse=sh, sku=put_away.last().sku, bin=Bin.objects.filter(bin_id=bin_id).last(),batch_id=i, inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(), quantity=value, in_stock='t')
+                    PutawayBinInventory.objects.create(warehouse=sh,putaway=put_away.last(), bin=bin_inv,
+                                                       putaway_quantity=value)
+                    put_away.update(putaway_quantity=updated_putaway_value + int(value))
 
-            serializer = (PutAwaySerializer(Putaway.objects.filter(batch_id=batch_id, warehouse=warehouse).last()))
-        msg = {'is_success': True, 'message': ['quantity to be put away updated'], 'response_data': serializer.data}
-        return Response(msg, status=status.HTTP_200_OK)
+            serializer = (PutAwaySerializer(Putaway.objects.filter(batch_id=i, warehouse=warehouse).last()))
+            msg = {'is_success': True, 'message': ['quantity to be put away updated'], 'response_data': serializer.data}
+            lis_data.append(msg)
+        return Response(lis_data, status=status.HTTP_200_OK)
 
 
 class PutAwayProduct(APIView):
@@ -226,6 +230,19 @@ class PickupDetail(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
+    def get(self, request):
+        order_no = self.request.GET.get('order_no')
+        bin_id = self.request.GET.get('bin_id')
+        pickup_orders = Order.objects.filter(order_no=order_no).last()
+        sku_list = []
+        for i in pickup_orders.ordered_cart.rt_cart_list.all():
+            sku_list.append(i.cart_product.id)
+        picking_details = Pickup.objects.filter(pickup_type_id=order_no, sku__id__in=sku_list)
+
+        serializer = PickupSerializer(picking_details, many=True, fields=('id','batch_id_with_sku','product_mrp','quantity', 'sku_id'))
+        msg = {'is_success': True, 'message': ['pickup-details'], 'pickup-details': serializer.data}
+        return Response(msg, status=status.HTTP_200_OK)
+
     def post(self, request):
         msg = {'is_success': False, 'message': ['Some Required field empty'], 'response_data': None}
         bin_id = self.request.data.get('bin_id')
@@ -250,6 +267,7 @@ class PickupDetail(APIView):
         serializer = PickupSerializer(picking_details, many=True,fields=('id','batch_id_with_sku','product_mrp','quantity', 'pickup_quantity', 'sku_id'))
         msg = {'is_success': True, 'message': ['picking details'], 'picking_details': serializer.data}
         return Response(msg, status=status.HTTP_200_OK)
+
 
 
 
