@@ -226,6 +226,18 @@ class PickupDetail(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
+    def get(self, request):
+        order_no = self.request.GET.get('order_no')
+        bin_id = self.request.GET.get('bin_id')
+        pickup_orders = Order.objects.filter(order_no=order_no).last()
+        sku_list = []
+        for i in pickup_orders.ordered_cart.rt_cart_list.all():
+            sku_list.append(i.cart_product.id)
+        picking_details = Pickup.objects.filter(pickup_type_id=order_no, sku__id__in=sku_list)
+        serializer = PickupSerializer(picking_details, many=True, fields=('id','batch_id_with_sku','product_mrp','quantity', 'sku_id'))
+        msg = {'is_success': True, 'message': ['pickup-details'], 'pickup-details': serializer.data}
+        return Response(msg, status=status.HTTP_200_OK)
+
     def post(self, request):
         msg = {'is_success': False, 'message': ['Some Required field empty'], 'response_data': None}
         bin_id = self.request.data.get('bin_id')
