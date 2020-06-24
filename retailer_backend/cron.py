@@ -4,15 +4,18 @@ from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.utils import timezone
+
+import sp_to_gram
 from sp_to_gram.models import OrderedProductMapping,OrderedProductReserved
 from gram_to_brand.models import OrderedProductReserved as GramOrderedProductReserved
 from django.db.models import Sum,Q,Case, CharField, Value, When, F
-from shops.models import Shop
+from shops.models import Shop, ShopType
 from gram_to_brand.models import Cart
 from services.models import ShopStock
 from retailer_to_sp.models import Order
 from datetime import datetime, timedelta
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -123,3 +126,12 @@ def po_status_change_exceeds_validity_date():
             When(po_status=Cart.PARTIAL_DELIVERED,
                  then=Value(Cart.PARTIAL_DELIVERED_CLOSE)),
             default=F('po_status')))
+
+def sync_es_products():
+    sp_shop_type = ShopType.objects.all().filter(pk=3).last()
+    shop_list = Shop.objects.filter(shop_type=sp_shop_type).all()
+    for shop in shop_list:
+        logger.info("sync shop: %s",shop)
+        sp_to_gram.tasks.upload_shop_stock(shop.pk)
+        logger.info("sleep 10")
+        time.sleep(10)
