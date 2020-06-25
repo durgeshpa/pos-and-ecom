@@ -102,13 +102,17 @@ class PutAwayViewSet(APIView):
                 value = put_away.last().quantity - updated_putaway_value
             if updated_putaway_value == put_away.last().quantity:
                 value = 0
-                msg = {'is_success': False, 'message': ["Putaway Complete, for batch_id {} Can't add more items".format(i)], 'response_data': None}
-                return Response(msg, status=status.HTTP_400_BAD_REQUEST)
+                msg = {'is_success':False,"Putaway":"Complete, for batch_id {} Can't add more items".format(i), 'batch_id':i}
+                lis_data.append(msg)
+                continue
+
 
             if put_away.last().quantity < int(value):
-                return Response({'is_success': False, 'message': ['Put_away_quantity for batch_id {} should be equal to or'
-                                                                  ' less than quantity'.format(i)], 'response_data': None},
-                                status=status.HTTP_400_BAD_REQUEST)
+                msg ={'is_success':False, 'Putaway':'Put_away_quantity for batch_id {} should be equal to or less than quantity'.format(i), 'batch_id':i}
+                lis_data.append(msg)
+                continue
+
+
             bin_skus = PutawayBinInventory.objects.values_list('putaway__sku__product_sku', flat=True)
             sh = Shop.objects.filter(id=int(warehouse)).last()
             if sh.shop_type.shop_type == 'sp':
@@ -121,7 +125,10 @@ class PutAwayViewSet(APIView):
                         put_away.update(putaway_quantity=updated_putaway_value + int(value))
                     else:
                         if i[:17] in bin_inventory.values_list('sku__product_sku', flat=True):
-                            return Response({'is_success': False, 'message': ['This product with sku {} can not be placed in the bin'.format(i[:17])], 'response_data': None}, status=status.HTTP_400_BAD_REQUEST)
+                            msg ={'is_success':False,'Putaway':'This product with sku {} and batch_id {} can not be placed in the bin'.format(i[:17], i),'batch_id':i}
+                            lis_data.append(msg)
+                            continue
+
                         else:
                             bin_inv = BinInventory.objects.create(warehouse=sh, sku=put_away.last().sku,
                                                                   bin=Bin.objects.filter(bin_id=bin_id).last(),
@@ -138,8 +145,12 @@ class PutAwayViewSet(APIView):
             serializer = (PutAwaySerializer(Putaway.objects.filter(batch_id=i, warehouse=warehouse).last()))
             msg = serializer.data
             lis_data.append(msg)
-            data.update({'is_success':True,'message':["quantity to be put away updated"],'put-away':lis_data})
-        return Response(data, status=status.HTTP_200_OK)
+        if len(lis_data)==len(batch_id):
+            data.update({'is_success': True, 'message': "quantity to be put away updated", 'data': lis_data})
+            return Response(data, status=status.HTTP_200_OK)
+        else:
+            data.update({'is_success': True, 'message' : "quantity to be put away updated", 'data' : lis_data})
+            return Response(data, status=status.HTTP_200_OK)
 
 
 class PutAwayProduct(APIView):
