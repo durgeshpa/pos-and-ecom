@@ -17,7 +17,7 @@ class BulkBinUpdation(forms.Form):
 
 
 class BinForm(forms.ModelForm):
-    bin_id = forms.CharField(required=True)
+    bin_id = forms.CharField(required=True, max_length=20)
     warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
 
     class Meta:
