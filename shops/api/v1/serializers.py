@@ -571,33 +571,33 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
                 if (ExecutiveFeedback.objects.filter(executive_feedback=5, feedback_date=validated_data['feedback_date']
                                                      ).count() <= 5) and instance.executive_feedback == '5':
                     if day_beat_plan[0].shop_category == "P1":
-                        next_visit_date = validated_data['feedback_date'] + datetime.timedelta(days=1)
-                        beat_plan_date = day_beat_plan[0].beat_plan_date + datetime.timedelta(days=7)
+                        next_visit_date = validated_data['feedback_date'] + timedelta(days=1)
+                        beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=7)
                         temp_status = True
                     elif day_beat_plan[0].shop_category == "P2":
-                        next_visit_date = validated_data['feedback_date'] + datetime.timedelta(days=2)
-                        beat_plan_date = day_beat_plan[0].beat_plan_date + datetime.timedelta(days=14)
+                        next_visit_date = validated_data['feedback_date'] + timedelta(days=2)
+                        beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=14)
                         temp_status = True
                     else:
-                        next_visit_date = validated_data['feedback_date'] + datetime.timedelta(days=3)
-                        beat_plan_date = day_beat_plan[0].beat_plan_date + datetime.timedelta(days=28)
+                        next_visit_date = validated_data['feedback_date'] + timedelta(days=3)
+                        beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=28)
                         temp_status = True
 
                 # condition to check if executive apply feedback which is not related to "Could Not Visit" and also
                 # check next visit date condition for rest of the feedback
                 else:
                     if day_beat_plan[0].shop_category == "P1" and day_beat_plan[0].temp_status is False:
-                        next_visit_date = day_beat_plan[0].beat_plan_date + datetime.timedelta(days=7)
+                        next_visit_date = day_beat_plan[0].beat_plan_date + timedelta(days=7)
                         beat_plan_date = next_visit_date
                         temp_status = False
 
                     elif day_beat_plan[0].shop_category == "P2" and day_beat_plan[0].temp_status is False:
-                        next_visit_date = day_beat_plan[0].beat_plan_date + datetime.timedelta(days=14)
+                        next_visit_date = day_beat_plan[0].beat_plan_date + timedelta(days=14)
                         beat_plan_date = next_visit_date
                         temp_status = False
 
                     elif day_beat_plan[0].shop_category == "P3" and day_beat_plan[0].temp_status is False:
-                        next_visit_date = day_beat_plan[0].beat_plan_date + datetime.timedelta(days=28)
+                        next_visit_date = day_beat_plan[0].beat_plan_date + timedelta(days=28)
                         beat_plan_date = next_visit_date
                         temp_status = False
                     else:
@@ -615,7 +615,7 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
 
                 # return executive feedback instance
                 return instance
-            # return error message
+            # raise error
             raise serializers.ValidationError(ERROR_MESSAGES['4011'])
-        # return error message
+        # raise error
         raise serializers.ValidationError(ERROR_MESSAGES['4011'])

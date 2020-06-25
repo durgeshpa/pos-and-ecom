@@ -35,6 +35,8 @@ SUCCESS_MESSAGES = {
     'CHANGED_STATUS': 'Po_Status changed to %s',
     'CSV_UPLOADED': 'CSV file has been successfully uploaded.',
     'CSV_UPLOADED_EXCEPT': 'CSV file has been successfully uploaded, except these ids:-%s',
+    "2001": "Ok",
+    "2002": "Executive Feedback saved successfully.",
 }
 
 ERROR_MESSAGES = {
@@ -55,6 +57,6 @@ ERROR_MESSAGES = {
     "4008": "beat_plan_date key is missing in param",
     "4009": "Issue in Feedback value",
     "4010": "Issue in DateField",
-    "4011":  "Already submitted the Feedback",
+    "4011": "Executive has already submitted the feedback for same date",
     "4012": "Report param is missing.",
 }
