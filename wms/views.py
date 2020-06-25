@@ -161,7 +161,8 @@ class PickupInventoryManagement:
         self.pickup_quantity = 0
         self.binid, self.id = 0, 0
 
-    def pickup_bin_inventory(self, bin_id, order_no, pickup_quantity_new, sku=False):
+    def pickup_bin_inventory(self, bin_id, order_no, pickup_quantity_new, sku):
+        lis_data, data = [], {}
         """
         :param bin_id:
         :param order_no:
@@ -170,37 +171,49 @@ class PickupInventoryManagement:
         :return:
         """
         self.count += 1
-        self.pickup_quantity = pickup_quantity_new
-        if self.count == 1:
-            binInv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0, sku__id=sku).order_by('-batch_id', 'quantity')
-        else:
-            binInv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0, sku__id=sku).order_by('-batch_id', 'quantity')
-        for i in binInv:
-            for j in i.sku.rt_product_pickup.filter(pickup_type_id=order_no):
-                already_picked = 0
-                remaining_qty = 0
-                self.qty = j.pickup_quantity if j.pickup_quantity else 0
-                self.id = j.id
-                qty_in_pickup = j.quantity
-                if pickup_quantity_new == self.qty:
-                    break
-                if self.pickup_quantity > j.quantity - self.qty:
-                    return None
-                else:
-                    if self.pickup_quantity - already_picked <= i.quantity:
-                        already_picked += self.pickup_quantity
-                        remaining_qty = i.quantity - already_picked
-                        update_bin_inventory(i.id, remaining_qty)
-                        updated_pickup = self.qty+already_picked
-                        update_pickup_inventory(self.id, updated_pickup)
+        diction = {i[1]:i[0] for i in zip(pickup_quantity_new, sku)}
+        for value, i in diction.items():
+            self.pickup_quantity = i
+            if self.count == 1:
+                binInv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0, sku__id=value).order_by('-batch_id', 'quantity')
+            else:
+                binInv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0, sku__id=value).order_by('-batch_id', 'quantity')
+            for b in binInv:
+                for c in b.sku.rt_product_pickup.filter(pickup_type_id=order_no):
+                    already_picked = 0
+                    remaining_qty = 0
+                    self.qty = c.pickup_quantity if c.pickup_quantity else 0
+                    self.id = c.id
+                    qty_in_pickup = c.quantity
+                    # if i == self.qty:
+                    #     msg = {'is_success': False,
+                    #            'Pickup': 'pickup complete for {}'.format(value), 'sku_id':value}
+                    #     # lis_data.append(msg)
+                    #     continue
+
+                    if self.pickup_quantity > c.quantity - self.qty:
+                        msg = {'is_success': False,
+                               'Pickup':"Can add only {} more items for {}".format((c.quantity-c.pickup_quantity), value),'sku_id':value}
+                        lis_data.append(msg)
+                        continue
                     else:
-                        already_picked = i.quantity
-                        self.picked_p += already_picked
-                        remaining_qty = self.pickup_quantity - already_picked
-                        update_bin_inventory(i.id)
-                        update_pickup_inventory(self.id, self.picked_p)
-                        if i.sku in [k.sku for k in BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0).order_by('-batch_id', 'quantity')]:
-                            self.pickup_quantity -= i.quantity
+                        if self.pickup_quantity - already_picked <= b.quantity:
+                            already_picked += self.pickup_quantity
+                            remaining_qty = b.quantity - already_picked
+                            update_bin_inventory(b.id, remaining_qty)
+                            updated_pickup = self.qty+already_picked
+                            update_pickup_inventory(self.id, updated_pickup)
                         else:
-                            self.pickup_quantity = pickup_quantity_new
-                        self.pickup_bin_inventory(bin_id, order_no, self.pickup_quantity, sku=sku)
+                            already_picked = b.quantity
+                            self.picked_p += already_picked
+                            remaining_qty = self.pickup_quantity - already_picked
+                            update_bin_inventory(b.id)
+                            update_pickup_inventory(self.id, self.picked_p)
+                            if b.value in [d.value for d in BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0).order_by('-batch_id', 'quantity')]:
+                                self.pickup_quantity -= b.quantity
+                            else:
+                                self.pickup_quantity = i
+                            self.pickup_bin_inventory(bin_id, order_no, self.pickup_quantity, sku=value)
+        data.update({'data':lis_data})
+        return data
+
