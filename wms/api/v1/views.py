@@ -87,6 +87,10 @@ class PutAwayViewSet(APIView):
         if not batch_id:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         inventory_type = 'normal'
+
+        if len(batch_id) != len(put_away_quantity):
+            
+            return Response({'is_success': False, 'message': ['The number of batches entered should be equal to number of qty entered'], 'response_data': None}, status=status.HTTP_400_BAD_REQUEST)
         diction = {i[0]: i[1] for i in zip(batch_id, put_away_quantity)}
         for i, value in diction.items():
             key+=1
