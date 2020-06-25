@@ -132,5 +132,4 @@ for shop_mapping in shop_mapping_list:
     set_buyer_shop_new_retailer(sp_shop,new_sp_shop)
 
     #sync es data
-    cron.sync_es_products()
 
