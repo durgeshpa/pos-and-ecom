@@ -223,7 +223,7 @@ class GroupNotificationSchedulerAdmin(admin.ModelAdmin):
     model = GroupNotificationScheduler
     #raw_id_fields = ('buyer_shop')
     #autocomplete_fields = ('buyer_shops',)
-    list_display = ('id', 'template', 'seller_shop', 'city', 'created_at')# 'run_at', 'repeat', 'created_at')
+    list_display = ('id', 'template', 'seller_shop', 'city', 'created_at', 'updated_at')# 'run_at', 'repeat', 'created_at')
     search_fields = ('id', 'template')
     list_filter = (CityFilter, SellerShopFilter, ('created_at', DateTimeRangeFilter),)
 
