@@ -51,12 +51,14 @@ ERROR_MESSAGES = {
     "4002": "Selected file status is QC pending, you can't download this file.",
     "4003": "Oops! Something went wrong, Please check the data of csv file.",
     "4004": "row number- %s data is already exists in the sheet.",
-    "4005": "API request is not Authorized",
+    "4005": "API request is not Authorized.",
     "4006": "%s value has an invalid date format. It must be in YYYY-MM-DD format.",
     "4007": "This User is not Authorized.",
-    "4008": "beat_plan_date key is missing in param",
-    "4009": "Issue in Feedback value",
-    "4010": "Issue in DateField",
-    "4011": "Executive has already submitted the feedback for same date",
+    "4008": "beat_plan_date key is missing in param.",
+    "4009": "Issue in Feedback value.",
+    "4010": "Issue in DateField.",
+    "4011": "Executive has already submitted the feedback for same date.",
     "4012": "Report param is missing.",
+    "4013": ("Please put the correct value in report parameters to get day, monthly and"
+             " weekly report.param values are 1, 2 & 3.")
 }

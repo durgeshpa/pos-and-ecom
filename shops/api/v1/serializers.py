@@ -262,11 +262,31 @@ class FeedBackSerializer(serializers.ModelSerializer):
     """
     Beat Plan Serializer
     """
+    executive_feedback_value = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_executive_feedback_value(obj):
+        """
+
+        :param obj: day beat plan obj
+        :return: serializer of feedback model
+        """
+        if obj.executive_feedback == '1':
+            executive_feedback = "Place Order"
+        if obj.executive_feedback == '2':
+            executive_feedback = "No Order For Today"
+        if obj.executive_feedback == '3':
+            executive_feedback = "Price Not Matching"
+        if obj.executive_feedback == '4':
+            executive_feedback = "Stock Not Available"
+        if obj.executive_feedback == '5':
+            executive_feedback = "Could Not Visit"
+        return executive_feedback
 
     class Meta:
         """ Meta class """
         model = ExecutiveFeedback
-        fields = ('id', 'day_beat_plan', 'executive_feedback', 'feedback_date',)
+        fields = ('id', 'day_beat_plan', 'executive_feedback', 'executive_feedback_value', 'feedback_date',)
 
 
 class DayBeatPlanSerializer(serializers.ModelSerializer):
@@ -539,8 +559,7 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
     Applied Sales Executive Feedback
     """
     day_beat_plan = serializers.SlugRelatedField(queryset=DayBeatPlanning.objects.all(), slug_field='id', required=True)
-    executive_feedback = serializers.CharField(required=True, max_length=25)
-    feedback_date = serializers.DateField(required=True)
+    executive_feedback = serializers.CharField(required=True, max_length=1)
 
     class Meta:
         """
@@ -555,7 +574,7 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
         :param validated_data: data which comes from post method
         :return: instance otherwise error message
         """
-
+        validated_data['feedback_date'] = datetime.today().strftime("%Y-%m-%d")
         # condition to check same reference of Day Beat Plan with same date is exist or not
         executive_feedback = ExecutiveFeedback.objects.filter(day_beat_plan=validated_data['day_beat_plan'],
                                                               feedback_date=validated_data['feedback_date'])
@@ -616,6 +635,6 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
                 # return executive feedback instance
                 return instance
             # raise error
-            raise serializers.ValidationError(ERROR_MESSAGES['4011'])
+            raise serializers.ValidationError({"detail": ERROR_MESSAGES['4011']}, code="validation_error")
         # raise error
-        raise serializers.ValidationError(ERROR_MESSAGES['4011'])
+        raise serializers.ValidationError({"detail": ERROR_MESSAGES['4011']}, code="validation_error")

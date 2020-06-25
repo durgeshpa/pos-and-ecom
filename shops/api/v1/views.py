@@ -864,7 +864,6 @@ class DayBeatPlan(viewsets.ModelViewSet):
             serializer.save()
             return Response({"detail": SUCCESS_MESSAGES["2002"],
                              "data": serializer.data}, status=status.HTTP_201_CREATED)
-        return Response({"detail": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ExecutiveReport(viewsets.ModelViewSet):
@@ -899,7 +898,7 @@ class ExecutiveReport(viewsets.ModelViewSet):
                     return Response({"detail": messages.SUCCESS_MESSAGES["2001"],
                                      "data": executive_report_serializer.data}, status=status.HTTP_200_OK)
             else:
-                return Response({"detail": messages.ERROR_MESSAGES["4007"]}, status=status.HTTP_401_UNAUTHORIZED)
+                return Response({"detail": messages.ERROR_MESSAGES["4013"]}, status=status.HTTP_401_UNAUTHORIZED)
         except Exception as error:
             logger.exception(error)
             if error.args[0] == 'report':
