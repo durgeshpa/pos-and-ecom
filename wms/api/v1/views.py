@@ -138,7 +138,7 @@ class PutAwayViewSet(APIView):
             serializer = (PutAwaySerializer(Putaway.objects.filter(batch_id=i, warehouse=warehouse).last()))
             msg = serializer.data
             lis_data.append(msg)
-            data.update({'is_success':True, 'put-away':lis_data})
+            data.update({'is_success':True,'message':["quantity to be put away updated"],'put-away':lis_data})
         return Response(data, status=status.HTTP_200_OK)
 
 
