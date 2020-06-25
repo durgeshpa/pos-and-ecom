@@ -28,6 +28,7 @@ from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.http import JsonResponse
 from collections import defaultdict
 import itertools
+from io import StringIO
 # Create your views here.
 
 logger = logging.getLogger('shop')
@@ -404,28 +405,30 @@ class BeatUserMappingCsvSample(View):
         # The response gets a special MIME type, text/csv. This tells browsers that the document is a CSV file,
         # rather than an HTML file. If you leave this off, browsers will probably interpret the output as HTML,
         # which will result in ugly, scary gobbledygook in the browser window.
-        response = HttpResponse(content_type='text/csv')
-
         # The response gets an additional Content-Disposition header, which contains the name of the CSV file.
         # This filename is arbitrary; call it whatever you want. It’ll be used by browsers in the “Save as…” dialog,
         # etc.
-        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
-
         # We can hook into the CSV-generation API by passing response as the first argument to csv.writer.
         # The csv.writer function expects a file-like object, and HttpResponse objects fit the bill.
-        writer = csv.writer(response)
-
-        # header of csv file
-        writer.writerow(['Sales Executive (Number - Name)', 'Shop Name', 'Shop ID ', 'Contact Number', 'Address',
-                         'Pin Code', 'Category', 'Date (dd/mm/yy)'])
-        for shop in shops:
-            if shop.shop.approval_status == 2:
-                writer.writerow([shop.employee, shop.shop.shop_name, shop.shop.pk,
-                                 shop.shop.shipping_address.address_contact_number,
-                                 shop.shop.shipping_address.address_line1, shop.shop.shipping_address.pincode, '', ''])
-            else:
-                pass
-        return response
+        try:
+            f = StringIO()
+            writer = csv.writer(f)
+            # header of csv file
+            writer.writerow(['Sales Executive (Number - Name)', 'Shop Name', 'Shop ID ', 'Contact Number', 'Address',
+                             'Pin Code', 'Category', 'Date (dd/mm/yy)'])
+            for shop in shops:
+                if shop.shop.approval_status == 2:
+                    writer.writerow([shop.employee, shop.shop.shop_name, shop.shop.pk,
+                                     shop.shop.shipping_address.address_contact_number,
+                                     shop.shop.shipping_address.address_line1, shop.shop.shipping_address.pincode, '', ''])
+                else:
+                    pass
+            f.seek(0)
+            response = HttpResponse(f, content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+            return response
+        except Exception as e:
+            logger.exception(e)
 
 
 class BeatUserMappingCsvView(FormView):
