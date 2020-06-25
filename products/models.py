@@ -1,25 +1,31 @@
-from django.db import models
-from django.db.models import Q
-from retailer_backend.validators import *
-from addresses.models import Country, State, City, Area, Pincode, Address
-from categories.models import Category
-from shops.models import Shop
+import codecs
+import csv
+import datetime
+import re
+import urllib.request
+
 from django.conf import settings
 from django.contrib.sites.shortcuts import get_current_site
-import urllib.request
-import datetime, csv, codecs, re
-from brand.models import Brand,Vendor
+from django.core.exceptions import ValidationError
+from django.db import models
+from django.db.models import Q
+from django.db.models.signals import post_save, pre_save
+from django.dispatch import receiver
 from django.utils.safestring import mark_safe
 from django.utils.text import slugify
-from django.dispatch import receiver
-from django.db.models.signals import pre_save, post_save
 from django.utils.translation import gettext_lazy as _
-from django.core.exceptions import ValidationError
-from retailer_backend.messages import VALIDATION_ERROR_MESSAGES,ERROR_MESSAGES
+from django.contrib.auth import get_user_model
+
+from addresses.models import Address, Area, City, Country, Pincode, State
+from brand.models import Brand, Vendor
+from categories.models import Category
+from coupon.models import Coupon
+from retailer_backend.messages import ERROR_MESSAGES, VALIDATION_ERROR_MESSAGES
+from retailer_backend.validators import *
+from shops.models import Shop
+
 # from analytics.post_save_signal import get_category_product_report, get_master_report
 
-
-from coupon.models import Coupon
 
 SIZE_UNIT_CHOICES = (
         ('mm', 'Millimeter'),
@@ -576,5 +582,19 @@ class ProductCapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
 
-# post_save.connect(get_category_product_report, sender=Product)
-# post_save.connect(get_master_report, sender=ProductPrice)
+
+class BulkProductTaxUpdate(models.Model):
+    file = models.FileField(upload_to='products/producttaxmapping/')
+    updated_by = models.ForeignKey(
+        get_user_model(), related_name='bulk_product_tax_update',
+        on_delete=models.DO_NOTHING
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = 'Bulk Product Tax Update'
+
+    def __str__(self):
+        return "Product Tax Mapping updated at %s by %s" % (self.created_at,
+                                                            self.updated_by)
