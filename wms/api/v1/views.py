@@ -196,20 +196,29 @@ class PickupList(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
-        date = ''.join(request.GET.get('date')).split('-')
-        if date[1] in ['10', '11', '12'] or int(date[2]) in range(10, 32):
-            date = [int(date[0]), int(date[1]), int(date[2])]
-        else:
-            date = [int(date[0]), int(date[1][1]), int(date[2][1])]
-
+        msg = {'is_success': False, 'message': 'Some Required field empty', 'data': None}
+        if not request.GET.get('date'):
+            return Response(msg, status=status.HTTP_404_NOT_FOUND)
+        picker_boy = request.GET.get('picker_boy')
+        if not picker_boy:
+            return Response(msg, status=status.HTTP_404_NOT_FOUND)
+        try:
+            date = datetime.datetime.strptime(request.GET.get('date'), "%Y-%m-%d")
+        except:
+            msg = {'is_success': False, 'message': 'date format is not correct, It should be YYYY-mm-dd', 'data': None}
+            return Response(msg, status=status.HTTP_404_NOT_FOUND)
         picker_boy = request.GET.get('picker_boy')
         orders = Order.objects.filter(Q(picker_order__picker_boy__first_name=picker_boy),
                                       Q(picker_order__picking_status='picking_assigned'),
-                                      Q(created_at__startswith=datetime.date(date[0], date[1], date[2])))
+                                      Q(created_at__startswith=date.date()))
 
-        serializer = OrderSerializer(orders, many=True)
-        msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
-        return Response(msg, status=status.HTTP_200_OK)
+        if not orders:
+            msg = {'is_success': True, 'message': 'Name of Picker Boy does not exist in the database.', 'data': None}
+            return Response(msg, status=status.HTTP_404_NOT_FOUND)
+        else:
+            serializer = OrderSerializer(orders, many=True)
+            msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
+            return Response(msg, status=status.HTTP_200_OK)
 
 
 class BinIDList(APIView):
@@ -218,18 +227,24 @@ class BinIDList(APIView):
 
     def get(self, request):
         order_no = request.GET.get('order_no')
+        if not order_no:
+            msg = {'is_success': True, 'message': 'Order number field is empty.', 'data': None}
+            return Response(msg, status=status.HTTP_404_NOT_FOUND)
         bin_objects = []
-        quantity = []
         pickup_orders = Order.objects.filter(order_no=order_no).last()
-        for i in pickup_orders.ordered_cart.rt_cart_list.all():
-            for j in i.cart_product.rt_product_sku.filter(quantity__gt=0).order_by('-batch_id', '-quantity'):
-                bin_objects.append(j.bin.bin_id)
+        if pickup_orders is None:
+            msg = {'is_success': True, 'message': 'Order number does not exist.', 'data': None}
+            return Response(msg, status=status.HTTP_404_NOT_FOUND)
+        else:
+            for i in pickup_orders.ordered_cart.rt_cart_list.all():
+                for j in i.cart_product.rt_product_sku.filter(quantity__gt=0).order_by('-batch_id', '-quantity'):
+                    bin_objects.append(j.bin.bin_id)
 
-        bin_lists = Bin.objects.filter(bin_id__in=bin_objects)
+            bin_lists = Bin.objects.filter(bin_id__in=bin_objects)
 
-        serializer = BinSerializer(bin_lists, many=True, fields=('id', 'bin_id'))
-        msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
-        return Response(msg, status=status.HTTP_200_OK)
+            serializer = BinSerializer(bin_lists, many=True, fields=('id', 'bin_id'))
+            msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
+            return Response(msg, status=status.HTTP_200_OK)
 
 
 pickup = PickupInventoryManagement()
