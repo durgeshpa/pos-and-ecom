@@ -64,10 +64,11 @@ class PickupSerializer(DynamicFieldsModelSerializer):
     batch_id_with_sku = serializers.SerializerMethodField('batch_sku')
     product_mrp = serializers.SerializerMethodField('product_mrp_dt')
     sku_id = serializers.SerializerMethodField('sku_id_dt')
+    is_success = serializers.SerializerMethodField('is_success_dt')
 
     class Meta:
         model = Pickup
-        fields = ('id', 'warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity', 'pickup_quantity','out',
+        fields = ('is_success','id', 'warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity', 'pickup_quantity','out',
                   'product_mrp', 'bin_ids','batch_id_with_sku', 'sku_id')
 
     def bin_ids_dt(self, obj):
@@ -86,6 +87,9 @@ class PickupSerializer(DynamicFieldsModelSerializer):
     def sku_id_dt(self, obj):
         sku_id = obj.sku.id
         return sku_id
+
+    def is_success_dt(self, obj):
+        return True
 
 
 

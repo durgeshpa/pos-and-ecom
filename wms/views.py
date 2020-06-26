@@ -215,5 +215,5 @@ class PickupInventoryManagement:
                                 self.pickup_quantity = i
                             self.pickup_bin_inventory(bin_id, order_no, self.pickup_quantity, sku=value)
         data.update({'data':lis_data})
-        return data
+        return lis_data
 
