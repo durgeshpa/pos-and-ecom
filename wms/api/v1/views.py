@@ -208,7 +208,7 @@ class PickupList(APIView):
             msg = {'is_success': False, 'message': 'date format is not correct, It should be YYYY-mm-dd', 'data': None}
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         picker_boy = request.GET.get('picker_boy')
-        orders = Order.objects.filter(Q(picker_order__picker_boy__first_name=picker_boy),
+        orders = Order.objects.filter(Q(picker_order__picker_boy__phone_number=picker_boy),
                                       Q(picker_order__picking_status='picking_assigned'),
                                       Q(created_at__startswith=date.date()))
 
