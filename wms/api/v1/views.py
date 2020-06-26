@@ -213,7 +213,7 @@ class PickupList(APIView):
                                       Q(created_at__startswith=date.date()))
 
         if not orders:
-            msg = {'is_success': True, 'message': 'Name of Picker Boy does not exist in the database.', 'data': None}
+            msg = {'is_success': False, 'message': 'No data found.', 'data': None}
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         else:
             serializer = OrderSerializer(orders, many=True)
