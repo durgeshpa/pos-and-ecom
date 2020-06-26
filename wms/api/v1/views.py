@@ -284,19 +284,31 @@ class PickupDetail(APIView):
         pickup_quantity = request.data.get('pickup_quantity')
         if not pickup_quantity:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
+        negative_value = [i for i in pickup_quantity if i < 0]
+        if len(negative_value) > 0:
+            return Response({'is_success': False,
+                             'message': 'Pickup quantity can not be negative.',
+                             'data': None}, status=status.HTTP_400_BAD_REQUEST)
+
         sku_id = request.data.get('sku_id')
         if not sku_id:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         pick_data = pickup.pickup_bin_inventory(bin_id, order_no, pickup_quantity, sku_id)
+        if len(pick_data) == 0:
+            return Response({'is_success': False,
+                             'message': 'Post parameters values are not valid for pickup.',
+                             'data': None}, status=status.HTTP_400_BAD_REQUEST)
         for i in [i['sku_id'] for i in pick_data]:
             if i in sku_id:
                 sku_id.remove(i)
         picking_details = Pickup.objects.filter(pickup_type_id=order_no, sku__id__in=sku_id)
-        bin_inv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0).order_by('-batch_id', '-quantity').last()
-        serializer = PickupSerializer(picking_details,many=True, fields=('id','batch_id_with_sku','product_mrp',
-                                                                         'quantity', 'pickup_quantity', 'sku_id', 'is_success'))
+        bin_inv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0).order_by('-batch_id',
+                                                                                           '-quantity').last()
+        serializer = PickupSerializer(picking_details, many=True, fields=('id', 'batch_id_with_sku', 'product_mrp',
+                                                                          'quantity', 'pickup_quantity', 'sku_id',
+                                                                          'is_success'))
         msg = {'is_success': True, 'message': 'Pick up data saved successfully.',
-               'data': serializer.data, 'pick_data':pick_data}
+               'data': serializer.data, 'pick_data': pick_data}
         msg['data'].extend(msg['pick_data'])
         del msg['pick_data']
         return Response(msg, status=status.HTTP_200_OK)
