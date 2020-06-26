@@ -256,7 +256,13 @@ class PickupDetail(APIView):
 
     def get(self, request):
         order_no = request.GET.get('order_no')
+        if not order_no:
+            msg = {'is_success': True, 'message': 'Order number field is empty.', 'data': None}
+            return Response(msg, status=status.HTTP_404_NOT_FOUND)
         pickup_orders = Order.objects.filter(order_no=order_no).last()
+        if pickup_orders is None:
+            msg = {'is_success': True, 'message': 'Order number does not exist.', 'data': None}
+            return Response(msg, status=status.HTTP_404_NOT_FOUND)
         sku_list = []
         for i in pickup_orders.ordered_cart.rt_cart_list.all():
             sku_list.append(i.cart_product.id)
