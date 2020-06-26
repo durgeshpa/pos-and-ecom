@@ -294,9 +294,13 @@ class PickupDetail(APIView):
         if not sku_id:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         pick_data = pickup.pickup_bin_inventory(bin_id, order_no, pickup_quantity, sku_id)
-        if len(pick_data) == 0:
+        if pick_data == 0:
             return Response({'is_success': False,
-                             'message': 'Post parameters values are not valid for pickup.',
+                             'message': 'Order number is not valid.',
+                             'data': None}, status=status.HTTP_400_BAD_REQUEST)
+        if pick_data == 1:
+            return Response({'is_success': False,
+                             'message': 'Bin/SKU id is not valid.',
                              'data': None}, status=status.HTTP_400_BAD_REQUEST)
         for i in [i['sku_id'] for i in pick_data]:
             if i in sku_id:

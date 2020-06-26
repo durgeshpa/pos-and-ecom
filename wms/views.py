@@ -174,11 +174,12 @@ class PickupInventoryManagement:
         diction = {i[1]:i[0] for i in zip(pickup_quantity_new, sku)}
         for value, i in diction.items():
             self.pickup_quantity = i
-            if self.count == 1:
-                binInv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0, sku__id=value).order_by('-batch_id', 'quantity')
-            else:
-                binInv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0, sku__id=value).order_by('-batch_id', 'quantity')
+            binInv = BinInventory.objects.filter(bin__bin_id=bin_id, quantity__gt=0, sku__id=value).order_by('-batch_id', 'quantity')
+            if len(binInv) == 0:
+                return 1
             for b in binInv:
+                if len(b.sku.rt_product_pickup.filter(pickup_type_id=order_no)) == 0:
+                    return 0
                 for c in b.sku.rt_product_pickup.filter(pickup_type_id=order_no):
                     already_picked = 0
                     remaining_qty = 0
