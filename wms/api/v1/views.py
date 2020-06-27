@@ -10,6 +10,13 @@ from rest_framework import permissions, authentication
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
 import datetime
+import logging
+
+logging.basicConfig(filename="newfile.log",
+                    format='%(asctime)s %(message)s',
+                    filemode='a')
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
 
 
 class BinViewSet(APIView):
@@ -26,10 +33,12 @@ class BinViewSet(APIView):
         :return: Bin Data
         """
         ids = request.GET.get('id')
+
         if ids:
             try:
                 bins = Bin.objects.get(id=ids)
-            except ObjectDoesNotExist:
+            except ObjectDoesNotExist as e:
+                logging.exception(e, exc_info=True)
                 msg = {'is_success': False, 'message': "Bin id doesn't exist", 'data': None}
                 return Response(msg, status=status.HTTP_404_NOT_FOUND)
             else:
@@ -38,6 +47,8 @@ class BinViewSet(APIView):
         else:
             bins = Bin.objects.all()
             serializer = BinSerializer(bins, many=True)
+            logging.debug(serializer.data)
+
             return Response({"data": serializer.data, "message": "OK"}, status=status.HTTP_200_OK)
 
     def post(self, request):
@@ -68,15 +79,13 @@ class PutAwayViewSet(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
-        try:
-            ids = int(request.GET.get('id'))
-        except:
-            msg = {'is_success': False, 'message': 'id must be integer', 'data': None}
-            return Response(msg, status=status.HTTP_404_NOT_FOUND)
+
+        ids = request.GET.get('id')
         if ids:
             try:
                 put_away = Putaway.objects.get(id=ids)
-            except ObjectDoesNotExist:
+            except ObjectDoesNotExist as e:
+                logging.exception(e, exc_info=True)
                 msg = {'is_success': False, 'message': 'Put Away id does not exist', 'data': None}
                 return Response(msg, status=status.HTTP_404_NOT_FOUND)
             else:
@@ -98,7 +107,8 @@ class PutAwayViewSet(APIView):
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         try:
             warehouse = Bin.objects.filter(bin_id=bin_id).last().warehouse.id
-        except:
+        except Exception as e:
+            logging.exception(e, exc_info=True)
             return Response({'is_success': False,
                              'message': 'Bin id does not exist.',
                              'data': None}, status=status.HTTP_400_BAD_REQUEST)
@@ -132,7 +142,8 @@ class PutAwayViewSet(APIView):
                     msg = {'is_success':False, "message":"Complete, for batch_id {} Can't add more items".format(i), 'batch_id':i}
                     lis_data.append(msg)
                     continue
-            except:
+            except Exception as e:
+                logging.exception(e, exc_info=True)
                 return Response({'is_success': False,
                                  'message': 'Batch id does not exist.',
                                  'data': None}, status=status.HTTP_400_BAD_REQUEST)
@@ -210,7 +221,9 @@ class PickupList(APIView):
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         try:
             date = datetime.datetime.strptime(request.GET.get('date'), "%Y-%m-%d")
-        except:
+        except Exception as e:
+            logging.exception(e, exc_info=True)
+            logging.info(e)
             msg = {'is_success': False, 'message': 'date format is not correct, It should be YYYY-mm-dd', 'data': None}
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         picker_boy = request.GET.get('picker_boy')
