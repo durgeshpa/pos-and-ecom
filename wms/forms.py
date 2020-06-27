@@ -3,7 +3,6 @@ from django import forms
 from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup
 from shops.models import Shop
 from django.utils.translation import ugettext_lazy as _
-from django.core.exceptions import ValidationError
 
 warehouse_choices = Shop.objects.filter(shop_type__shop_type='sp')
 
