@@ -68,7 +68,11 @@ class PutAwayViewSet(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
-        ids = request.GET.get('id')
+        try:
+            ids = int(request.GET.get('id'))
+        except:
+            msg = {'is_success': False, 'message': 'id must be integer', 'data': None}
+            return Response(msg, status=status.HTTP_404_NOT_FOUND)
         if ids:
             try:
                 put_away = Putaway.objects.get(id=ids)
@@ -77,11 +81,13 @@ class PutAwayViewSet(APIView):
                 return Response(msg, status=status.HTTP_404_NOT_FOUND)
             else:
                 serializer = PutAwaySerializer(put_away)
-                return Response({"data": serializer.data, 'message': 'OK'}, status=status.HTTP_200_OK)
+                msg = {'is_success': True, 'message': 'Putaway details', 'data': serializer.data}
+                return Response(msg, status=status.HTTP_200_OK)
         else:
             put_away = Putaway.objects.all()
             serializer = PutAwaySerializer(put_away, many=True)
-            return Response({"data": serializer.data, 'message': 'OK'}, status=status.HTTP_200_OK)
+            msg = {'is_success': True, 'message': 'Putaway details', 'data': serializer.data}
+            return Response(msg, status=status.HTTP_200_OK)
 
     def post(self, request):
         data, key ={}, 0
