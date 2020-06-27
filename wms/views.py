@@ -16,13 +16,6 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-import logging
-
-logging.basicConfig(filename="newfile.log",
-                    format='%(asctime)s %(message)s',
-                    filemode='a')
-logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
 
 
 def update_bin_inventory(id, quantity=0):
@@ -137,7 +130,6 @@ def bins_upload(request):
                 return redirect('/admin/wms/bin/')
 
             except Exception as e:
-                logging.exception(e, exc_info=True)
                 messages.error(request, '{} (Shop: {})'.format(e, row[0]))
         else:
             raise Exception(form.errors['file'][0])
