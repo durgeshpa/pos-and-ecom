@@ -1,6 +1,4 @@
 import re
-import csv
-import codecs
 from django import forms
 from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup
 from shops.models import Shop
