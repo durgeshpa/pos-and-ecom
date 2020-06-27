@@ -50,25 +50,60 @@ def bins_upload(request):
                             values_only=True
                     ):
 
-                        if not [0]:
-                            raise ValidationError("warehouse field must not be empty. It should be Integer")
+                        if not row[0]:
+                            raise ValidationError("warehouse field must not be empty. It should be Integer.")
 
                         if not row[2]:
-                            raise ValidationError("Bin Type must not be empty")
+                            raise ValidationError("Bin Type must not be empty.")
 
-                        if not [3]:
-                            raise ValidationError("Is Active field must not be empty")
+                        if not row[2] in ['p', 'sr']:
+                            raise ValidationError("Bin Type must be start with either p or sr.")
 
-                        if not [1]:
-                            raise ValidationError("Bin ID must not be empty")
+                        if not row[3]:
+                            raise ValidationError("Is Active field must not be empty.")
 
-                        warehouse =Shop.objects.filter(id=int(row[0]))
+                        if not row[3] in ['t']:
+                            raise ValidationError("Active field should be start with t char only.")
+
+                        if not row[1]:
+                            raise ValidationError("Bin ID must not be empty.")
+
+                        if len(row[1]) < 14:
+                            raise ValidationError('Bin Id min and max char limit is 14.Example:-B2BZ01SR01-001')
+
+                        if not row[1][0:3] in ['B2B', 'B2C']:
+                            raise ValidationError('First three letter should be start with either B2B and B2C.'
+                                                  'Example:-B2BZ01SR01-001')
+                        if not row[1][3] in ['Z']:
+                            raise ValidationError('Zone should be start with char Z.Example:-B2BZ01SR01-001')
+                        if not bool(re.match('^[0-9]+$', row[1][4:6]
+                                             ) and not row[1][4:6] == '00'):
+                            raise ValidationError(
+                                'Zone number should be start in between 01 to 99.Example:-B2BZ01SR01-001')
+                        if not row[1][6:8] in ['SR', 'PA']:
+                            raise ValidationError('Rack type should be start with either SR and RA char only. '
+                                                  'Example:-B2BZ01SR01-001')
+                        if not bool(re.match('^[0-9]+$', row[1][8:10]
+                                             ) and not row[1][8:10] == '00'):
+                            raise ValidationError('Rack number should be start in between 01 to 99.'
+                                                  'Example:- B2BZ01SR01-001')
+                        if not row[1][10] in ['-']:
+                            raise ValidationError('Only - allowed in between Rack number and Bin Number.'
+                                                  'Example:-B2BZ01SR01-001')
+                        if not bool(re.match('^[0-9]+$', row[1][11:14]
+                                             ) and not row[1][11:14] == '000'):
+                            raise ValidationError('Bin number should be start in between 001 to 999.'
+                                                  'Example:-B2BZ01SR01-001')
+
+                        warehouse = Shop.objects.filter(id=int(row[0]))
                         if warehouse.exists():
-                            Bin.objects.update_or_create(warehouse=warehouse.last(),
+                            bin_obj, created = Bin.objects.update_or_create(warehouse=warehouse.last(),
                                                         bin_id=row[1],
                                                         bin_type=row[2],
                                                         is_active=row[3],
                                                         )
+                            if not created:
+                                raise Exception('Duplicate Bin Entry.')
                         else:
                             raise Exception('Warehouse Does"t Exists')
 
@@ -76,6 +111,8 @@ def bins_upload(request):
 
             except Exception as e:
                 messages.error(request, '{} (Shop: {})'.format(e, row[0]))
+        else:
+            raise Exception(form.errors['file'][0])
     else:
         form = BulkBinUpdation()
 

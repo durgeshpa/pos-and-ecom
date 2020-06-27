@@ -1,7 +1,8 @@
+import re
 from django import forms
 from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup
 from shops.models import Shop
-
+from django.utils.translation import ugettext_lazy as _
 
 warehouse_choices = Shop.objects.filter(shop_type__shop_type='sp')
 
@@ -17,12 +18,38 @@ class BulkBinUpdation(forms.Form):
 
 
 class BinForm(forms.ModelForm):
-    bin_id = forms.CharField(required=True, max_length=20)
+    bin_id = forms.CharField(required=True, max_length=14)
     warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
 
     class Meta:
         model = Bin
         fields = ['warehouse', 'bin_id', 'bin_type', 'is_active', ]
+
+    def clean_bin_id(self):
+        if len(self.cleaned_data['bin_id']) < 14:
+            raise forms.ValidationError(_('Bin Id min and max char limit is 14.Example:-B2BZ01SR01-001'),)
+        if not self.cleaned_data['bin_id'][0:3] in ['B2B', 'B2C']:
+            raise forms.ValidationError(_('First three letter should be start with either B2B and B2C.'
+                                          'Example:-B2BZ01SR01-001'),)
+        if not self.cleaned_data['bin_id'][3] in ['Z']:
+            raise forms.ValidationError(_('Zone should be start with char Z.Example:-B2BZ01SR01-001'), )
+        if not bool(re.match('^[0-9]+$', self.cleaned_data['bin_id'][4:6]
+                             ) and not self.cleaned_data['bin_id'][4:6] == '00'):
+            raise forms.ValidationError(_('Zone number should be start in between 01 to 99.Example:-B2BZ01SR01-001'), )
+        if not self.cleaned_data['bin_id'][6:8] in ['SR', 'PA']:
+            raise forms.ValidationError(_('Rack type should be start with either SR and RA char only.'
+                                          'Example:-B2BZ01SR01-001'),)
+        if not bool(re.match('^[0-9]+$', self.cleaned_data['bin_id'][8:10]
+                             )and not self.cleaned_data['bin_id'][8:10] == '00'):
+            raise forms.ValidationError(_('Rack number should be start in between 01 to 99.'
+                                          'Example:- B2BZ01SR01-001'), )
+        if not self.cleaned_data['bin_id'][10] in ['-']:
+            raise forms.ValidationError(_('Only - allowed in between Rack number and Bin Number.'
+                                          'Example:-B2BZ01SR01-001'),)
+        if not bool(re.match('^[0-9]+$', self.cleaned_data['bin_id'][11:14]
+                             )and not self.cleaned_data['bin_id'][11:14] == '000'):
+            raise forms.ValidationError(_('Bin number should be start in between 001 to 999.Example:-B2BZ01SR01-001'), )
+        return self.cleaned_data['bin_id']
 
 
 class InForm(forms.ModelForm):
