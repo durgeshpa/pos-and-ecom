@@ -6,7 +6,7 @@ from shops.models import Shop
 from django.core.exceptions import ValidationError
 from wkhtmltopdf.views import PDFTemplateResponse
 from .forms import BulkBinUpdation, BinForm, OutForm, PickupForm
-from .models import Out, Pickup, BinInventory
+from .models import Out, Pickup, BinInventory, Putaway
 from retailer_to_sp.models import Order
 from django.db import transaction
 from django.http import HttpResponse
@@ -41,6 +41,26 @@ def update_pickup_inventory(id, pickup_quantity=0):
     :return:
     """
     Pickup.objects.filter(id=id).update(pickup_quantity=pickup_quantity)
+
+
+put_quantity = 0
+
+
+def update_putaway(id, batch_id, warehouse, put_quantity):
+    """
+    :param id:
+    :param batch_id:
+    :param warehouse:
+    :return:
+    """
+    pu = Putaway.objects.filter(id=id, batch_id=batch_id, warehouse=warehouse)
+    put_away_new = put_quantity if pu.last().quantity >= put_quantity else put_quantity -(put_quantity - pu.last().quantity)
+    updated_putaway=pu.last().putaway_quantity
+    if updated_putaway==pu.last().quantity:
+        return put_quantity
+    pu.update(putaway_quantity=updated_putaway+put_away_new)
+    put_quantity = put_quantity - put_away_new
+    return put_quantity
 
 
 def bins_upload(request):

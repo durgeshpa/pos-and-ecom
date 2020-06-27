@@ -3,6 +3,7 @@ from wms.models import Bin, Putaway, Out, Pickup, BinInventory
 from retailer_to_sp.models import Order
 from shops.api.v1.serializers import ShopSerializer
 from retailer_to_sp.api.v1.serializers import ProductSerializer
+from django.db.models import Sum
 
 
 class DynamicFieldsModelSerializer(serializers.ModelSerializer):
@@ -35,16 +36,24 @@ class PutAwaySerializer(DynamicFieldsModelSerializer):
     sku = ProductSerializer()
     product_sku = serializers.SerializerMethodField('product_sku_dt')
     is_success= serializers.SerializerMethodField('is_success_dt')
+    grned_quantity = serializers.SerializerMethodField('grned_quantity_dt')
+    put_away_quantity = serializers.SerializerMethodField('putaway_quantity_dt')
 
     class Meta:
         model = Putaway
-        fields = ('is_success','id','warehouse', 'putaway_type', 'putaway_type_id', 'sku','product_sku', 'batch_id', 'quantity', 'putaway_quantity', 'created_at', 'modified_at')
+        fields = ('is_success','id','warehouse', 'putaway_type', 'putaway_type_id', 'sku','product_sku', 'batch_id', 'quantity', 'putaway_quantity', 'created_at', 'modified_at', 'grned_quantity', 'put_away_quantity')
 
     def product_sku_dt(self, obj):
         return obj.sku.product_sku
 
     def is_success_dt(self,obj):
         return True
+
+    def grned_quantity_dt(self, obj):
+        return Putaway.objects.filter(batch_id=obj.batch_id).aggregate(total=Sum('quantity'))['total']
+
+    def putaway_quantity_dt(self, obj):
+        return Putaway.objects.filter(batch_id=obj.batch_id).aggregate(total=Sum('putaway_quantity'))['total']
 
 
 class OutSerializer(serializers.ModelSerializer):
