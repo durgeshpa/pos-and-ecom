@@ -36,12 +36,12 @@ class PutAwaySerializer(DynamicFieldsModelSerializer):
     sku = ProductSerializer()
     product_sku = serializers.SerializerMethodField('product_sku_dt')
     is_success= serializers.SerializerMethodField('is_success_dt')
-    grned_quantity = serializers.SerializerMethodField('grned_quantity_dt')
-    put_away_quantity = serializers.SerializerMethodField('putaway_quantity_dt')
+    quantity = serializers.SerializerMethodField('grned_quantity_dt')
+    putaway_quantity = serializers.SerializerMethodField('putaway_quantity_dt')
 
     class Meta:
         model = Putaway
-        fields = ('is_success','id','warehouse', 'putaway_type', 'putaway_type_id', 'sku','product_sku', 'batch_id', 'quantity', 'putaway_quantity', 'created_at', 'modified_at', 'grned_quantity', 'put_away_quantity')
+        fields = ('is_success','id','warehouse', 'putaway_type', 'putaway_type_id', 'sku','product_sku', 'batch_id', 'quantity', 'putaway_quantity', 'created_at', 'modified_at')
 
     def product_sku_dt(self, obj):
         return obj.sku.product_sku

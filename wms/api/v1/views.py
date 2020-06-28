@@ -75,7 +75,7 @@ class PutAwayViewSet(APIView):
         if batch_id:
             put_away = Putaway.objects.filter(batch_id=batch_id)
             if put_away.exists():
-                serializer = PutAwaySerializer(put_away.last(), fields=('is_success', 'product_sku', 'batch_id', 'grned_quantity', 'put_away_quantity'))
+                serializer = PutAwaySerializer(put_away.last(), fields=('is_success', 'product_sku', 'batch_id', 'quantity', 'putaway_quantity'))
                 msg = {'is_success': True, 'message': 'Putaway details', 'data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
             else:
@@ -83,7 +83,7 @@ class PutAwayViewSet(APIView):
                 return Response(msg, status=status.HTTP_404_NOT_FOUND)
         else:
             put_away = Putaway.objects.all()
-            serializer = PutAwaySerializer(put_away, many=True, fields=('is_success', 'product_sku', 'batch_id', 'grned_quantity', 'put_away_quantity'))
+            serializer = PutAwaySerializer(put_away, many=True, fields=('is_success', 'product_sku', 'batch_id', 'quantity', 'putaway_quantity'))
             msg = {'is_success': True, 'message': 'Putaway details', 'data': serializer.data}
             return Response(msg, status=status.HTTP_200_OK)
 
@@ -177,7 +177,7 @@ class PutAwayViewSet(APIView):
                         update_putaway(ids[0], i, warehouse, int(value))
                         ids.remove(ids[0])
 
-            serializer = (PutAwaySerializer(Putaway.objects.filter(batch_id=i, warehouse=warehouse).last(), fields=('is_success', 'product_sku', 'batch_id', 'grned_quantity', 'put_away_quantity')))
+            serializer = (PutAwaySerializer(Putaway.objects.filter(batch_id=i, warehouse=warehouse).last(), fields=('is_success', 'product_sku', 'batch_id', 'quantity', 'putaway_quantity')))
             msg = serializer.data
             lis_data.append(msg)
         if len(lis_data)==len(batch_id):
