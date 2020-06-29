@@ -10,6 +10,7 @@ from rest_framework import permissions, authentication
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q, Sum
 import datetime
+from collections import defaultdict
 
 
 class BinViewSet(APIView):
@@ -103,7 +104,13 @@ class PutAwayViewSet(APIView):
         for i in self.request.data.get('items'):
             for j, k in zip(i.keys(), i.values()):
                 batch_id.append(j)
-                put_away_quantity.append(k['put_away_quantity'])
+                if 'put_away_quantity' in k.keys():
+                    put_away_quantity.append(k['put_away_quantity'])
+                else:
+                    return Response({'is_success': False,
+                                     'message': 'put_away_quantity does not exist.',
+                                     'data': None}, status=status.HTTP_400_BAD_REQUEST)
+
         if not put_away_quantity:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         negative_value = [i for i in put_away_quantity if i<0]
@@ -183,7 +190,7 @@ class PutAwayViewSet(APIView):
             msg = serializer.data
             lis_data.append(msg)
         if len(lis_data)==len(batch_id):
-            data.update({'is_success': True, 'message': "quantity to be put away updated", 'data': {bin_id:lis_data}})
+            data.update({'is_success': True, 'message': "quantity to be put away updated", 'bin_id': bin_id,'items':lis_data})
             return Response(data, status=status.HTTP_200_OK)
         else:
             data.update({'is_success': True, 'message' : "quantity to be put away updated", 'data' :{bin_id:lis_data}})
@@ -299,7 +306,12 @@ class PickupDetail(APIView):
         for i in self.request.data.get('items'):
             for j, k in zip(i.keys(), i.values()):
                 sku_id.append(int(j))
-                pickup_quantity.append(k['pickup_quantity'])
+                if 'pickup_quantity' in k.keys():
+                    pickup_quantity.append(k['pickup_quantity'])
+                else:
+                    return Response({'is_success': False,
+                                     'message': 'pickup_quantity does not exist.',
+                                     'data': None}, status=status.HTTP_400_BAD_REQUEST)
         if not pickup_quantity:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         negative_value = [i for i in pickup_quantity if i < 0]
