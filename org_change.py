@@ -11,8 +11,8 @@ from shops.models import ShopUserMapping
 from addresses.models import Address
 from copy import copy, deepcopy
 from products.models import ProductPrice
-from banner.models import BannerPosition
-from brand.models import BrandPosition
+from banner.models import BannerPosition, BannerData
+from brand.models import BrandPosition, BrandData
 
 def set_shop_user_mappping(sp_shop, new_sp_shop):
     ShopUserMapping.objects.all().filter(shop=new_sp_shop).delete()
@@ -88,21 +88,36 @@ def set_buyer_shop_new_retailer(sp_shop, new_sp_shop):
 
 
 def set_banner_brand_position(sp_shop, new_sp_shop):
-    BannerPosition.objects.all().filter(shop=new_sp_shop).delete()
-    banner_list = BannerPosition.objects.all().filter(shop=sp_shop).all()
-    for banner in banner_list:
-        new_banner = deepcopy(banner)
-        new_banner.pk = None
-        new_banner.shop = new_sp_shop
-        new_banner.save()
-    BrandPosition.objects.all().filter(shop=new_sp_shop).delete()
-    brand_list = BrandPosition.objects.all().filter(shop=sp_shop).all()
-    for brand in brand_list:
-        new_brand = deepcopy(brand)
-        new_brand.pk = None
-        new_brand.shop = new_sp_shop
-        new_brand.save()
-
+    banner_position = BannerPosition.objects.all().filter(shop=new_sp_shop)
+    BannerData.objects.all().filter(slot__in=banner_position).delete()
+    banner_position.delete()
+    banner_position_list = BannerPosition.objects.all().filter(shop=sp_shop)
+    for banner_position in banner_position_list:
+        new_banner_position = deepcopy(banner_position)
+        new_banner_position.pk = None
+        new_banner_position.shop = new_sp_shop
+        new_banner_position.save()
+        banner_data_list = BannerData.objects.all().filter(slot=banner_position)
+        for banner_data in banner_data_list:
+            new_banner_data = deepcopy(banner_data)
+            new_banner_data.pk = None
+            new_banner_data.slot = new_banner_position
+            new_banner_data.save()
+    brand_position=BrandPosition.objects.all().filter(shop=new_sp_shop)
+    BrandData.objects.all().filter(slot__in=brand_position).delete()
+    brand_position.delete()
+    brand_position_list = BrandPosition.objects.all().filter(shop=sp_shop).all()
+    for brand_position in brand_position_list:
+        new_brand_position = deepcopy(brand_position)
+        new_brand_position.pk = None
+        new_brand_position.shop = new_sp_shop
+        new_brand_position.save()
+        brand_data_list = BrandData.objects.all().filter(slot=brand_position).all()
+        for brand_data in brand_data_list:
+            new_brand_data = deepcopy(brand_data)
+            new_brand_data.pk = None
+            new_brand_data.slot = new_brand_position
+            new_brand_data.save()
 
 
 
