@@ -12,6 +12,7 @@ from addresses.models import Address
 from copy import copy, deepcopy
 from products.models import ProductPrice
 from banner.models import BannerPosition
+from brand.models import BrandPosition
 
 def set_shop_user_mappping(sp_shop, new_sp_shop):
     ShopUserMapping.objects.all().filter(shop=new_sp_shop).delete()
@@ -86,7 +87,7 @@ def set_buyer_shop_new_retailer(sp_shop, new_sp_shop):
 
 
 
-def set_banner_position(sp_shop, new_sp_shop):
+def set_banner_brand_position(sp_shop, new_sp_shop):
     BannerPosition.objects.all().filter(shop=new_sp_shop).delete()
     banner_list = BannerPosition.objects.all().filter(shop=sp_shop).all()
     for banner in banner_list:
@@ -94,6 +95,13 @@ def set_banner_position(sp_shop, new_sp_shop):
         new_banner.pk = None
         new_banner.shop = new_sp_shop
         new_banner.save()
+    BrandPosition.objects.all().filter(shop=new_sp_shop).delete()
+    brand_list = BrandPosition.objects.all().filter(shop=sp_shop).all()
+    for brand in brand_list:
+        new_brand = deepcopy(brand)
+        new_brand.pk = None
+        new_brand.shop = new_sp_shop
+        new_brand.save()
 
 
 
@@ -133,5 +141,5 @@ for shop_mapping in shop_mapping_list:
     # set_buyer_shop_new_retailer(sp_shop,new_sp_shop)
 
     #Copy banner position
-    set_banner_position(sp_shop,new_sp_shop)
+    set_banner_brand_position(sp_shop,new_sp_shop)
 
