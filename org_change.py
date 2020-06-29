@@ -6,18 +6,12 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'retailer_backend.settings')
 django.setup()
 
 from shops.models import Shop
-from shops.models import ShopType
-from shops.models import ShopMigrationMapp
-from shops.models import ShopPhoto
-from shops.models import ShopDocument
-from shops.models import ShopInvoicePattern
-from shops.models import ParentRetailerMapping
+from shops.models import ShopType, ShopMigrationMapp, ShopPhoto, ShopDocument, ShopInvoicePattern, ParentRetailerMapping
 from shops.models import ShopUserMapping
 from addresses.models import Address
 from copy import copy, deepcopy
 from products.models import ProductPrice
-from retailer_backend import cron
-
+from banner.models import BannerPosition
 
 def set_shop_user_mappping(sp_shop, new_sp_shop):
     ShopUserMapping.objects.all().filter(shop=new_sp_shop).delete()
@@ -78,8 +72,6 @@ def set_photo_doc_address(gf_shop, new_sp_shop):
 
 
 def set_shop_pricing(sp_shop, new_sp_shop):
-    print(new_sp_shop.pk)
-    pass
     ProductPrice.objects.all().filter(seller_shop=new_sp_shop).delete()
     price_list = sp_shop.shop_product_price.all()
     for price in price_list:
@@ -93,15 +85,24 @@ def set_buyer_shop_new_retailer(sp_shop, new_sp_shop):
 
 
 
+
+def set_banner_position(sp_shop, new_sp_shop):
+    BannerPosition.objects.all().filter(shop=new_sp_shop).delete()
+    banner_list = BannerPosition.objects.all().filter(shop=sp_shop).all()
+    for banner in banner_list:
+        new_banner = deepcopy(banner)
+        new_banner.pk = None
+        new_banner.shop = new_sp_shop
+        new_banner.save()
+
+
+
+
 # get shop mapping
 shop_mapping_list = ShopMigrationMapp.objects.all()
 
 # create Addistro shops
 sp_shop_type = ShopType.objects.all().filter(pk=3).last()
-
-
-
-
 
 for shop_mapping in shop_mapping_list:
     gf_shop = Shop.objects.all().filter(pk=shop_mapping.gf_addistro_shop).last()
@@ -117,19 +118,20 @@ for shop_mapping in shop_mapping_list:
     else:
         new_sp_shop = Shop.objects.all().filter(pk=shop_mapping.new_sp_addistro_shop).last()
 
-    # set Releated users
-    set_related_user_invoice_parent(sp_shop, new_sp_shop)
-    # set shop photos and documents
-    set_photo_doc_address(gf_shop, new_sp_shop)
+    # # set Releated users
+    # set_related_user_invoice_parent(sp_shop, new_sp_shop)
+    # # set shop photos and documents
+    # set_photo_doc_address(gf_shop, new_sp_shop)
+    #
+    # #set shop user mapping
+    # set_shop_user_mappping(sp_shop,new_sp_shop)
+    #
+    # #For models other them shop
+    # set_shop_pricing(sp_shop, new_sp_shop)
+    #
+    # #Change existing shop parent_cat_sku_code
+    # set_buyer_shop_new_retailer(sp_shop,new_sp_shop)
 
-    #set shop user mapping
-    set_shop_user_mappping(sp_shop,new_sp_shop)
-
-    #For models other them shop
-    set_shop_pricing(sp_shop, new_sp_shop)
-
-    #Change existing shop parent_cat_sku_code
-    set_buyer_shop_new_retailer(sp_shop,new_sp_shop)
-
-    #sync es data
+    #Copy banner position
+    set_banner_position(sp_shop,new_sp_shop)
 
