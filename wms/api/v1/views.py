@@ -1,6 +1,6 @@
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Pickup
 from .serializers import BinSerializer, PutAwaySerializer, PickupSerializer, OrderSerializer
-from wms.views import PickupInventoryManagement
+from wms.views import PickupInventoryManagement, update_putaway
 from rest_framework.response import Response
 from rest_framework import status
 from shops.models import Shop
@@ -8,7 +8,7 @@ from retailer_to_sp.models import Order
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import Q
+from django.db.models import Q, Sum
 import datetime
 
 
@@ -26,10 +26,11 @@ class BinViewSet(APIView):
         :return: Bin Data
         """
         ids = request.GET.get('id')
+
         if ids:
             try:
                 bins = Bin.objects.get(id=ids)
-            except ObjectDoesNotExist:
+            except ObjectDoesNotExist as e:
                 msg = {'is_success': False, 'message': "Bin id doesn't exist", 'data': None}
                 return Response(msg, status=status.HTTP_404_NOT_FOUND)
             else:
@@ -68,35 +69,41 @@ class PutAwayViewSet(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
-        ids = request.GET.get('id')
-        if ids:
-            try:
-                put_away = Putaway.objects.get(id=ids)
-            except ObjectDoesNotExist:
-                msg = {'is_success': False, 'message': 'Put Away id does not exist', 'data': None}
-                return Response(msg, status=status.HTTP_404_NOT_FOUND)
+
+        batch_id = request.GET.get('batch_id')
+
+        if batch_id:
+            put_away = Putaway.objects.filter(batch_id=batch_id)
+            if put_away.exists():
+                serializer = PutAwaySerializer(put_away.last(), fields=('is_success', 'product_sku', 'batch_id', 'quantity', 'putaway_quantity'))
+                msg = {'is_success': True, 'message': 'Putaway details', 'data': serializer.data}
+                return Response(msg, status=status.HTTP_200_OK)
             else:
-                serializer = PutAwaySerializer(put_away)
-                return Response({"data": serializer.data, 'message': 'OK'}, status=status.HTTP_200_OK)
+                msg = {'is_success': False, 'message': 'Put Away batch_id does not exist', 'data': None}
+                return Response(msg, status=status.HTTP_404_NOT_FOUND)
         else:
             put_away = Putaway.objects.all()
-            serializer = PutAwaySerializer(put_away, many=True)
-            return Response({"data": serializer.data, 'message': 'OK'}, status=status.HTTP_200_OK)
+            serializer = PutAwaySerializer(put_away, many=True, fields=('is_success', 'product_sku', 'batch_id', 'quantity', 'putaway_quantity'))
+            msg = {'is_success': True, 'message': 'Putaway details', 'data': serializer.data}
+            return Response(msg, status=status.HTTP_200_OK)
 
     def post(self, request):
-        data, key ={}, 0
-        lis_data = []
+        data,batch_id,put_away_quantity, key ={},[],[], 0
+        lis_data  = []
         msg = {'is_success': False, 'message': 'Some Required field empty', 'data': None}
         bin_id = self.request.data.get('bin_id')
         if not bin_id:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         try:
             warehouse = Bin.objects.filter(bin_id=bin_id).last().warehouse.id
-        except:
+        except Exception as e:
             return Response({'is_success': False,
                              'message': 'Bin id does not exist.',
                              'data': None}, status=status.HTTP_400_BAD_REQUEST)
-        put_away_quantity = self.request.data.get('put_away_quantity')
+        for i in self.request.data.get('items'):
+            for j, k in zip(i.keys(), i.values()):
+                batch_id.append(j)
+                put_away_quantity.append(k['put_away_quantity'])
         if not put_away_quantity:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         negative_value = [i for i in put_away_quantity if i<0]
@@ -104,7 +111,6 @@ class PutAwayViewSet(APIView):
             return Response({'is_success': False,
                              'message': 'Put away quantity can not be negative.',
                              'data': None}, status=status.HTTP_400_BAD_REQUEST)
-        batch_id = self.request.data.get('batch_id')
         if not batch_id:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         inventory_type = 'normal'
@@ -115,22 +121,23 @@ class PutAwayViewSet(APIView):
         diction = {i[0]: i[1] for i in zip(batch_id, put_away_quantity)}
         for i, value in diction.items():
             key+=1
-            put_away = Putaway.objects.filter(batch_id=i, warehouse=warehouse)
-            updated_putaway_value = put_away.values_list('putaway_quantity', flat=True).last() if put_away.values_list('putaway_quantity', flat=True).last() else 0
+            put_away = Putaway.objects.filter(batch_id=i, warehouse=warehouse).order_by('created_at')
+            ids = [i.id for i in put_away]
+            updated_putaway_value = put_away.aggregate(total=Sum('putaway_quantity'))['total'] if put_away.aggregate(total=Sum('putaway_quantity'))['total'] else 0
             try:
-                updated_putaway_value = put_away.last().quantity if updated_putaway_value>put_away.last().quantity else updated_putaway_value
-                if updated_putaway_value + int(value)>put_away.last().quantity:
-                    value = put_away.last().quantity - updated_putaway_value
-                if updated_putaway_value == put_away.last().quantity:
+                updated_putaway_value = put_away.aggregate(total=Sum('quantity'))['total'] if updated_putaway_value>put_away.aggregate(total=Sum('quantity'))['total'] else updated_putaway_value
+                if updated_putaway_value + int(value)>put_away.aggregate(total=Sum('quantity'))['total']:
+                    value = put_away.aggregate(total=Sum('quantity'))['total'] - updated_putaway_value
+                if updated_putaway_value == put_away.aggregate(total=Sum('quantity'))['total']:
                     value = 0
                     msg = {'is_success':False, "message":"Complete, for batch_id {} Can't add more items".format(i), 'batch_id':i}
                     lis_data.append(msg)
                     continue
-            except:
+            except Exception as e:
                 return Response({'is_success': False,
                                  'message': 'Batch id does not exist.',
                                  'data': None}, status=status.HTTP_400_BAD_REQUEST)
-            if put_away.last().quantity < int(value):
+            if put_away.aggregate(total=Sum('quantity'))['total'] < int(value):
                 msg ={'is_success':False, 'message':'Put_away_quantity for batch_id {} should be equal to or less than quantity'.format(i), 'batch_id':i}
                 lis_data.append(msg)
                 continue
@@ -145,7 +152,10 @@ class PutAwayViewSet(APIView):
                         bin_inv = BinInventory.objects.create(warehouse=sh, sku=put_away.last().sku,bin=Bin.objects.filter(bin_id=bin_id).last(), batch_id=i,
                                                               inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(), quantity=value, in_stock='t')
                         PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),bin=bin_inv,putaway_quantity=value)
-                        put_away.update(putaway_quantity=updated_putaway_value + int(value))
+                        while len(ids):
+                            put_away_done = update_putaway(ids[0], i, warehouse, int(value))
+                            value = put_away_done
+                            ids.remove(ids[0])
                     else:
                         if i[:17] in bin_inventory.values_list('sku__product_sku', flat=True):
                             msg ={'is_success':False,'Putaway':'This product with sku {} and batch_id {} can not be placed in the bin'.format(i[:17], i),'batch_id':i}
@@ -158,21 +168,25 @@ class PutAwayViewSet(APIView):
                                                                   batch_id=i,inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(), quantity=value, in_stock='t')
                             PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(), bin=bin_inv,
                                                                putaway_quantity=value)
-                            put_away.update(putaway_quantity= updated_putaway_value+int(value))
+                            while len(ids):
+                                update_putaway(ids[0], i, warehouse, int(value))
+                                ids.remove(ids[0])
                 else:
                     bin_inv = BinInventory.objects.create(warehouse=sh, sku=put_away.last().sku, bin=Bin.objects.filter(bin_id=bin_id).last(),batch_id=i, inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(), quantity=value, in_stock='t')
                     PutawayBinInventory.objects.create(warehouse=sh,putaway=put_away.last(), bin=bin_inv,
                                                        putaway_quantity=value)
-                    put_away.update(putaway_quantity=updated_putaway_value + int(value))
+                    while len(ids):
+                        update_putaway(ids[0], i, warehouse, int(value))
+                        ids.remove(ids[0])
 
-            serializer = (PutAwaySerializer(Putaway.objects.filter(batch_id=i, warehouse=warehouse).last()))
+            serializer = (PutAwaySerializer(Putaway.objects.filter(batch_id=i, warehouse=warehouse).last(), fields=('is_success', 'product_sku', 'batch_id', 'quantity', 'putaway_quantity')))
             msg = serializer.data
             lis_data.append(msg)
         if len(lis_data)==len(batch_id):
-            data.update({'is_success': True, 'message': "quantity to be put away updated", 'data': lis_data})
+            data.update({'is_success': True, 'message': "quantity to be put away updated", 'data': {bin_id:lis_data}})
             return Response(data, status=status.HTTP_200_OK)
         else:
-            data.update({'is_success': True, 'message' : "quantity to be put away updated", 'data' : lis_data})
+            data.update({'is_success': True, 'message' : "quantity to be put away updated", 'data' :{bin_id:lis_data}})
             return Response(data, status=status.HTTP_200_OK)
 
 
@@ -204,7 +218,7 @@ class PickupList(APIView):
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         try:
             date = datetime.datetime.strptime(request.GET.get('date'), "%Y-%m-%d")
-        except:
+        except Exception as e:
             msg = {'is_success': False, 'message': 'date format is not correct, It should be YYYY-mm-dd', 'data': None}
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         picker_boy = request.GET.get('picker_boy')
@@ -275,13 +289,17 @@ class PickupDetail(APIView):
 
     def post(self, request):
         msg = {'is_success': False, 'message': 'Missing Required field', 'data': None}
+        sku_id,pickup_quantity = [],[]
         bin_id = request.data.get('bin_id')
         if not bin_id:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         order_no = request.data.get('order_no')
         if not order_no:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
-        pickup_quantity = request.data.get('pickup_quantity')
+        for i in self.request.data.get('items'):
+            for j, k in zip(i.keys(), i.values()):
+                sku_id.append(int(j))
+                pickup_quantity.append(k['pickup_quantity'])
         if not pickup_quantity:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         negative_value = [i for i in pickup_quantity if i < 0]
@@ -289,8 +307,6 @@ class PickupDetail(APIView):
             return Response({'is_success': False,
                              'message': 'Pickup quantity can not be negative.',
                              'data': None}, status=status.HTTP_400_BAD_REQUEST)
-
-        sku_id = request.data.get('sku_id')
         if not sku_id:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         pick_data = pickup.pickup_bin_inventory(bin_id, order_no, pickup_quantity, sku_id)

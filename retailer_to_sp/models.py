@@ -2388,12 +2388,13 @@ def update_order_status_from_shipment(sender, instance=None, created=False,
 
 @receiver(post_save, sender=PickerDashboard)
 def update_wms_out_table(sender, instance=None, created=False, **kwargs):
-    sh = Shop.objects.filter(id=instance.order.seller_shop_id).last()
-    for i in instance.order.ordered_cart.rt_cart_list.all():
-        Pickup.objects.create(
-            warehouse=sh,
-            pickup_type='Order',
-            pickup_type_id=instance.order.order_no,
-            sku=i.cart_product,
-            quantity=i.no_of_pieces
-        )
+    if instance.picking_status == 'picking_assigned':
+        sh = Shop.objects.filter(id=instance.order.seller_shop_id).last()
+        for i in instance.order.ordered_cart.rt_cart_list.all():
+            Pickup.objects.create(
+                warehouse=sh,
+                pickup_type='Order',
+                pickup_type_id=instance.order.order_no,
+                sku=i.cart_product,
+                quantity=i.no_of_pieces
+            )
