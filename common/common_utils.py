@@ -86,8 +86,9 @@ def create_merge_pdf_name(prefix_file_name, pdf_created_date):
     if len(pdf_created_date) <= 1:
         file_name = prefix_file_name+'_'+pdf_created_date[0].strftime("%d_%b_%y_%H_%M")+'.pdf'
     else:
-        file_name = prefix_file_name + '_' + pdf_created_date[0].strftime(
-            "%d_%b_%y_%H_%M")+'-'+pdf_created_date[-1].strftime("%d_%b_%y_%H_%M")+'.pdf'
+        pdf_created_date = sorted(pdf_created_date)
+        file_name = prefix_file_name + '_' + pdf_created_date[-1].strftime(
+            "%d_%b_%y_%H_%M")+'-'+pdf_created_date[0].strftime("%d_%b_%y_%H_%M")+'.pdf'
     return file_name
 
 
