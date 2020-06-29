@@ -127,7 +127,6 @@ SITE_ID = 1
 if DEBUG:
     MIDDLEWARE = [
         'debug_toolbar.middleware.DebugToolbarMiddleware',
-        'request_logging.middleware.LoggingMiddleware',
     ]
 else:
     MIDDLEWARE = []
