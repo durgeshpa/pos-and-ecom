@@ -305,6 +305,10 @@ class PickupDetail(APIView):
         sku_id = request.data.get('sku_id')
         if not sku_id:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
+        if len(sku_id) != len(pickup_quantity):
+            return Response({'is_success': False,
+                             'message': 'The number of sku ids entered should be equal to number of pickup qty entered',
+                             'data': None}, status=status.HTTP_400_BAD_REQUEST)
         pick_data = pickup.pickup_bin_inventory(bin_id, order_no, pickup_quantity, sku_id)
         if pick_data == 0:
             return Response({'is_success': False,
