@@ -88,8 +88,8 @@ class PutAwayViewSet(APIView):
             return Response(msg, status=status.HTTP_200_OK)
 
     def post(self, request):
-        data, key ={}, 0
-        lis_data = []
+        data,batch_id,put_away_quantity, key ={},[],[], 0
+        lis_data  = []
         msg = {'is_success': False, 'message': 'Some Required field empty', 'data': None}
         bin_id = self.request.data.get('bin_id')
         if not bin_id:
@@ -100,7 +100,10 @@ class PutAwayViewSet(APIView):
             return Response({'is_success': False,
                              'message': 'Bin id does not exist.',
                              'data': None}, status=status.HTTP_400_BAD_REQUEST)
-        put_away_quantity = self.request.data.get('put_away_quantity')
+        for i in self.request.data.get('items'):
+            for j, k in zip(i.keys(), i.values()):
+                batch_id.append(j)
+                put_away_quantity.append(k['put_away_quantity'])
         if not put_away_quantity:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         negative_value = [i for i in put_away_quantity if i<0]
@@ -108,7 +111,6 @@ class PutAwayViewSet(APIView):
             return Response({'is_success': False,
                              'message': 'Put away quantity can not be negative.',
                              'data': None}, status=status.HTTP_400_BAD_REQUEST)
-        batch_id = self.request.data.get('batch_id')
         if not batch_id:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         inventory_type = 'normal'
@@ -181,10 +183,10 @@ class PutAwayViewSet(APIView):
             msg = serializer.data
             lis_data.append(msg)
         if len(lis_data)==len(batch_id):
-            data.update({'is_success': True, 'message': "quantity to be put away updated", 'data': lis_data})
+            data.update({'is_success': True, 'message': "quantity to be put away updated", 'data': {bin_id:lis_data}})
             return Response(data, status=status.HTTP_200_OK)
         else:
-            data.update({'is_success': True, 'message' : "quantity to be put away updated", 'data' : lis_data})
+            data.update({'is_success': True, 'message' : "quantity to be put away updated", 'data' :{bin_id:lis_data}})
             return Response(data, status=status.HTTP_200_OK)
 
 
@@ -287,13 +289,17 @@ class PickupDetail(APIView):
 
     def post(self, request):
         msg = {'is_success': False, 'message': 'Missing Required field', 'data': None}
+        sku_id,pickup_quantity = [],[]
         bin_id = request.data.get('bin_id')
         if not bin_id:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         order_no = request.data.get('order_no')
         if not order_no:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
-        pickup_quantity = request.data.get('pickup_quantity')
+        for i in self.request.data.get('items'):
+            for j, k in zip(i.keys(), i.values()):
+                sku_id.append(int(j))
+                pickup_quantity.append(k['pickup_quantity'])
         if not pickup_quantity:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         negative_value = [i for i in pickup_quantity if i < 0]
@@ -301,8 +307,6 @@ class PickupDetail(APIView):
             return Response({'is_success': False,
                              'message': 'Pickup quantity can not be negative.',
                              'data': None}, status=status.HTTP_400_BAD_REQUEST)
-
-        sku_id = request.data.get('sku_id')
         if not sku_id:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         pick_data = pickup.pickup_bin_inventory(bin_id, order_no, pickup_quantity, sku_id)
