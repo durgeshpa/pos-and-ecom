@@ -696,7 +696,7 @@ class DownloadPickListPicker(TemplateView, ):
                 shipment_id = self.kwargs.get('shipment_id')
                 # call pick list dashboard method for create and save the pdf file in database if pdf is not exist
                 pick_list_dashboard(request, order_obj, shipment_id, template_name, file_prefix, barcode)
-                result = requests.get(order_obj.pick_list_pdf.url)
+                result = requests.get(order_obj.picker_order.all()[0].pick_list_pdf.url)
                 file_prefix = PREFIX_PICK_LIST_FILE_NAME
                 # generate pdf file
                 response = single_pdf_file(order_obj, result, file_prefix)
@@ -751,7 +751,6 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
     :param barcode: barcode of the invoice
     :return: pdf file instance
     """
-    # condition to check it order has pdf file otherwise else block executed
     try:
         if order_obj.picker_order.all()[0].pick_list_pdf.url:
             pass
@@ -776,6 +775,7 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
                     "product_sku": cart_pro.cart_product.product_sku,
                     "product_mrp": cart_pro.get_cart_product_price(order_obj.seller_shop.id, order_obj.buyer_shop.id).mrp,
                     "to_be_shipped_qty": int(cart_pro.no_of_pieces),
+                    # "no_of_pieces":cart_pro.no_of_pieces,
                 }
 
                 shipment_product_list.append(product_list)
@@ -785,7 +785,9 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
                     "product_name": shipment_pro.product.product_name,
                     "product_sku": shipment_pro.product.product_sku,
                     "product_mrp": round(shipment_pro.mrp, 2),
+                    # "to_be_shipped_qty": int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_quantity),
                 }
+                # product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_qty_exclude_current)
                 if shipment_id != "0":
                     #  quantity excluding current
                     product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty) - int(
@@ -806,7 +808,9 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
                     "product_name": cart_pro.cart_product.product_name,
                     "product_sku": cart_pro.cart_product.product_sku,
                     "product_mrp": cart_pro.get_cart_product_price(order_obj.seller_shop.id, order_obj.buyer_shop.id).mrp,
+                    # "ordered_qty": int(cart_pro.qty),
                     "ordered_qty": int(cart_pro.no_of_pieces),
+                    # "no_of_pieces":cart_pro.no_of_pieces,
                 }
                 cart_product_list.append(product_list)
 
