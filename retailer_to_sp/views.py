@@ -752,9 +752,10 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
     :return: pdf file instance
     """
     # condition to check it order has pdf file otherwise else block executed
-    if order_obj.pick_list_pdf.url:
-        pass
-    else:
+    try:
+        if order_obj.pick_list_pdf.url:
+            pass
+    except:
         # get the file name along with with prefix name
         file_name = create_file_name(file_prefix, order_obj)
         if shipment_id != "0":
