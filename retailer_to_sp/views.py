@@ -719,12 +719,12 @@ class DownloadPickListPicker(TemplateView, ):
                         # database if pdf is not exist
                         pick_list_dashboard(request, order_obj, shipment_id, template_name, file_prefix, barcode)
                         # append the pdf file path
-                        file_path_list.append(order_obj.pick_list_pdf.url)
+                        file_path_list.append(order_obj.picker_order.all()[0].pick_list_pdf.url)
                         # append created date for pdf file
                         pdf_created_date.append(order_obj.created_at)
                     # condition to check the download file count
                     if len(pdf_created_date) == 1:
-                        result = requests.get(order_obj.pick_list_pdf.url)
+                        result = requests.get(order_obj.picker_order.all()[0].pick_list_pdf.url)
                         file_prefix = PREFIX_PICK_LIST_FILE_NAME
                         # generate pdf file
                         response = single_pdf_file(order_obj, result, file_prefix)
@@ -753,7 +753,7 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
     """
     # condition to check it order has pdf file otherwise else block executed
     try:
-        if order_obj.pick_list_pdf.url:
+        if order_obj.picker_order.all()[0].pick_list_pdf.url:
             pass
     except:
         # get the file name along with with prefix name
@@ -838,7 +838,7 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
             show_content_in_browser=False, cmd_options=cmd_option)
         try:
             # save pdf file in pick_list_pdf field
-            order_obj.pick_list_pdf.save("{}".format(file_name), ContentFile(response.rendered_content), save=True)
+            order_obj.picker_order.all()[0].pick_list_pdf.save("{}".format(file_name), ContentFile(response.rendered_content), save=True)
         except Exception as e:
             logger.exception(e)
         return response

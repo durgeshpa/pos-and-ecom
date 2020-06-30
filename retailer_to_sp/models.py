@@ -1584,6 +1584,7 @@ class PickerDashboard(models.Model):
         on_delete=models.DO_NOTHING, verbose_name='Picker Boy',
         null=True, blank=True
     )
+    pick_list_pdf = models.FileField(upload_to='shop_photos/shop_name/documents/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
