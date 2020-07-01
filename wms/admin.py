@@ -1,3 +1,4 @@
+import logging
 from django.contrib import admin
 from django.http import HttpResponse
 from .views import bins_upload, put_away,CreatePickList
@@ -10,14 +11,21 @@ from django.utils.html import format_html
 from barCodeGenerator import barcodeGen
 from django.urls import reverse
 
+# Logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
+
 
 class BinResource(resources.ModelResource):
+    info_logger.info("Bin Resource Admin has been called.")
     class Meta:
         model = Bin
         exclude = ('created_at', 'modified_at')
 
 
 class BinAdmin(admin.ModelAdmin):
+    info_logger.info("Bin Admin has been called.")
     form = BinForm
     resource_class = BinResource
     actions = ['download_csv_for_bins',]
@@ -42,6 +50,7 @@ class BinAdmin(admin.ModelAdmin):
         return urls
 
     def download_bin_id_barcode(self, obj):
+        info_logger.info("download bin barcode method has been called.")
         if not obj.bin_barcode:
             return format_html("-")
         return format_html(
@@ -57,6 +66,7 @@ class BinAdmin(admin.ModelAdmin):
         :param queryset:
         :return:
         """
+        info_logger.info("download csv for bin method has been called.")
         meta = self.model._meta
         field_names = [field.name for field in meta.fields]
         response = HttpResponse(content_type='text/csv')
@@ -71,25 +81,30 @@ class BinAdmin(admin.ModelAdmin):
 
 
 class InAdmin(admin.ModelAdmin):
+    info_logger.info("In Admin has been called.")
     form = InForm
     list_display = ('warehouse', 'sku', 'quantity')
 
 
 class PutAwayAdmin(admin.ModelAdmin):
+    info_logger.info("Put Away Admin has been called.")
     form = PutAwayForm
     list_display = ('warehouse','putaway_type', 'putaway_type_id', 'sku', 'batch_id','quantity','putaway_quantity')
 
 
 class PutawayBinInventoryAdmin(admin.ModelAdmin):
+    info_logger.info("Put Away Bin Inventory Admin has been called.")
     form = PutAwayBinInventoryForm
     list_display = ('warehouse', 'putaway', 'bin', 'putaway_quantity', 'created_at')
 
 
 class InventoryTypeAdmin(admin.ModelAdmin):
+    info_logger.info("Inventory Type Admin has been called.")
     list_display = ('inventory_type',)
 
 
 class BinInventoryAdmin(admin.ModelAdmin):
+    info_logger.info("Bin Inventory Admin has been called.")
     form = BinInventoryForm
     list_select_related = ('warehouse', 'sku', 'bin', 'inventory_type')
     list_display = ('batch_id','warehouse', 'sku', 'bin','inventory_type', 'quantity', 'in_stock')
@@ -97,6 +112,7 @@ class BinInventoryAdmin(admin.ModelAdmin):
 
 
 class OutAdmin(admin.ModelAdmin):
+    info_logger.info("Out Admin has been called.")
     form = OutForm
     list_display = ('warehouse', 'out_type', 'out_type_id', 'sku', 'quantity')
     readonly_fields = ('warehouse', 'out_type', 'out_type_id', 'sku', 'quantity')
@@ -113,11 +129,13 @@ class OutAdmin(admin.ModelAdmin):
 
 
 class PickupAdmin(admin.ModelAdmin):
+    info_logger.info("Pick up Admin has been called.")
     form = PickupForm
     list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity','pickup_quantity')
     # readonly_fields = ('quantity','pickup_quantity',)
 
     def download_picklist(self, obj):
+        info_logger.info("download picklist method has been called.")
         return format_html(
             "<a href= '%s' >Download Picklist</a>" %
             (reverse('create-picklist', args=[obj.pk]))
@@ -126,6 +144,8 @@ class PickupAdmin(admin.ModelAdmin):
     download_picklist.short_description = 'Download Picklist'
 
 class PickupBinInventoryAdmin(admin.ModelAdmin):
+    info_logger.info("Pick up Bin Inventory Admin has been called.")
+
     list_display = ('warehouse', 'pickup', 'batch_id', 'bin', 'pickup_quantity','created_at')
     list_select_related = ('warehouse', 'pickup', 'bin')
     readonly_fields = ('warehouse', 'pickup', 'batch_id', 'bin','created_at')

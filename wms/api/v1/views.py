@@ -1,3 +1,4 @@
+import logging
 from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Pickup
 from .serializers import BinSerializer, PutAwaySerializer, PickupSerializer, OrderSerializer
 from wms.views import PickupInventoryManagement, update_putaway
@@ -10,6 +11,11 @@ from rest_framework import permissions, authentication
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q, Sum
 import datetime
+
+# Logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 
 
 class BinViewSet(APIView):
@@ -25,12 +31,14 @@ class BinViewSet(APIView):
         :param request: Get request
         :return: Bin Data
         """
+        info_logger.info("Bin View GET api called.")
         ids = request.GET.get('id')
 
         if ids:
             try:
                 bins = Bin.objects.get(id=ids)
             except ObjectDoesNotExist as e:
+                error_logger.error(e.message)
                 msg = {'is_success': False, 'message': "Bin id doesn't exist.", 'data': None}
                 return Response(msg, status=status.HTTP_200_OK)
             else:
@@ -47,6 +55,7 @@ class BinViewSet(APIView):
         :param request: Post request
         :return: Bin Data
         """
+        info_logger.info("Bin View POST api called.")
         msg = {'is_success': False, 'message': 'Some Required field empty.', 'data': None}
         warehouse = request.POST.get('warehouse')
         bin_id = request.POST.get('bin_id')
@@ -69,7 +78,7 @@ class PutAwayViewSet(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
-
+        info_logger.info("Put Away View GET api called.")
         batch_id = request.GET.get('batch_id')
 
         if batch_id:
@@ -88,6 +97,7 @@ class PutAwayViewSet(APIView):
             return Response(msg, status=status.HTTP_200_OK)
 
     def post(self, request):
+        info_logger.info("Put Away View POST api called.")
         data, key ={}, 0
         lis_data = []
         msg = {'is_success': False, 'message': 'Some Required field empty.', 'data': None}
@@ -97,6 +107,7 @@ class PutAwayViewSet(APIView):
         try:
             warehouse = Bin.objects.filter(bin_id=bin_id).last().warehouse.id
         except Exception as e:
+            error_logger.error(e.message)
             return Response({'is_success': False,
                              'message': 'Bin id does not exist.',
                              'data': None}, status=status.HTTP_200_OK)
@@ -132,6 +143,7 @@ class PutAwayViewSet(APIView):
                     lis_data.append(msg)
                     continue
             except Exception as e:
+                error_logger.error(e.message)
                 return Response({'is_success': False,
                                  'message': 'Batch id does not exist.',
                                  'data': None}, status=status.HTTP_200_OK)
@@ -198,6 +210,7 @@ class PutAwayProduct(APIView):
         :param request:
         :return:
         """
+        info_logger.info("Put Away Product GET api called.")
         put_away = Putaway.objects.all()
         serializer = PutAwaySerializer(put_away, many=True, fields=('id', 'batch_id', 'sku', 'product_sku'))
         return Response({"data": serializer.data}, status=status.HTTP_200_OK)
@@ -208,6 +221,7 @@ class PickupList(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
+        info_logger.info("Pick up list GET api called.")
         msg = {'is_success': False, 'message': 'Some Required field empty.', 'data': None}
         if not request.GET.get('date'):
             return Response(msg, status=status.HTTP_200_OK)
@@ -217,6 +231,7 @@ class PickupList(APIView):
         try:
             date = datetime.datetime.strptime(request.GET.get('date'), "%Y-%m-%d")
         except Exception as e:
+            error_logger.error(e.message)
             msg = {'is_success': False, 'message': 'date format is not correct, It should be YYYY-mm-dd format.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         picker_boy = request.GET.get('picker_boy')
@@ -238,6 +253,7 @@ class BinIDList(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
+        info_logger.info("Bin ID List GET API called.")
         order_no = request.GET.get('order_no')
         if not order_no:
             msg = {'is_success': True, 'message': 'Order number field is empty.', 'data': None}
@@ -267,6 +283,7 @@ class PickupDetail(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
+        info_logger.info("Pick up detail GET API called.")
         order_no = request.GET.get('order_no')
         if not order_no:
             msg = {'is_success': True, 'message': 'Order number field is empty.', 'data': None}
@@ -286,6 +303,7 @@ class PickupDetail(APIView):
         return Response(msg, status=status.HTTP_200_OK)
 
     def post(self, request):
+        info_logger.info("Pick up detail POST API called.")
         msg = {'is_success': False, 'message': 'Missing Required field.', 'data': None}
         bin_id = request.data.get('bin_id')
         if not bin_id:
