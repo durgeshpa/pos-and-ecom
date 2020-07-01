@@ -1,15 +1,20 @@
 # python imports
+import csv
+from io import StringIO
+
 import openpyxl
 import re
 import logging
 
 # django imports
+from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
+from django.http import JsonResponse
 
 # app imports
 from .models import Bin
@@ -17,7 +22,7 @@ from shops.models import Shop
 
 # third party imports
 from wkhtmltopdf.views import PDFTemplateResponse
-from .forms import BulkBinUpdation, BinForm
+from .forms import BulkBinUpdation, BinForm, StockMovementCsvViewForm
 from .models import Pickup, BinInventory, Putaway
 
 # Logger
@@ -305,3 +310,94 @@ class PickupInventoryManagement:
         except Exception as e:
             error_logger.error(e.message)
 
+
+from django.views.generic import View, FormView
+
+
+class StockMovementCsvSample(View):
+    """
+    This class is used to download the sample file for different stock movement
+    """
+    def get(self, request, *args, **kwargs):
+        """
+
+        :param request: GET request
+        :param args: non keyword argument
+        :param kwargs: keyword argument
+        :return: csv file
+        """
+        try:
+            if request.GET['inventory_movement_type'] == '2':
+                # name of the csv file
+                filename = 'bin_stock_movement' + ".csv"
+                f = StringIO()
+                writer = csv.writer(f)
+                # header of csv file
+                writer.writerow(['Warehouse ID', 'SKU', 'Batch ID ', 'Initial Type', 'Final Type', 'Initial Bin ID',
+                                 'Final Bin ID', 'Quantity'])
+                writer.writerow(['88', 'ORCPCRTOY00000002', 'ORCPCRTOY000000020820', 'normal', 'damaged',
+                                 'B2BZ01SR01-001', 'B2BZ01SR01-002', '100'])
+            elif request.GET['inventory_movement_type'] == '3':
+                filename = 'stock_correction' + ".csv"
+                f = StringIO()
+                writer = csv.writer(f)
+                # header of csv file
+                writer.writerow(['Warehouse ID', 'SKU', 'Bin ID', 'Batch ID', 'Expiry Date(MM-YYYY)', 'In/Out',
+                                 'Quantity'])
+                writer.writerow(['88', 'ORCPCRTOY00000002', 'B2BZ01SR01-001', 'ORCPCRTOY000000020820', '02-2020', 'In',
+                                 '100'])
+
+            elif request.GET['inventory_movement_type'] == '4':
+                filename = 'warehouse_inventory_change' + ".csv"
+                f = StringIO()
+                writer = csv.writer(f)
+                # header of csv file
+                writer.writerow(['Warehouse ID', 'SKU', 'Initial Stage', 'Final Stage', 'Quantity', 'Inventory Type'])
+                writer.writerow(['88', 'ORCPCRTOY00000002', 'available', 'reserved', '100', 'normal'])
+
+            f.seek(0)
+            response = HttpResponse(f, content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+            return response
+        except Exception as e:
+            error_logger.error(e.message)
+
+
+class StockMovementCsvView(FormView):
+    """
+    This class is used to upload csv file for different stock movement
+    """
+    form_class = StockMovementCsvViewForm
+
+    def post(self, request, *args, **kwarg):
+        """
+
+        :param request: POST or ajax call
+        :param args: non keyword argument
+        :param kwarg: keyword argument
+        :return: success and error message based on the logical condition
+        """
+        if request.method == 'POST' and request.is_ajax():
+            form_class = self.get_form_class()
+            form = self.get_form(form_class)
+            # to verify the form
+            try:
+                if form.is_valid():
+                    result = {'message': 'CSV uploaded successfully.'}
+                    status = '200'
+                # return validation error message while uploading csv file
+                else:
+                    result = {'message': form.errors['file'][0]}
+                    status = '400'
+
+                return JsonResponse(result, status=status)
+            # exception block
+            except Exception as e:
+                error_logger.exception(e)
+                result = {'message': "Issue in file"}
+                status = '400'
+                return JsonResponse(result, status)
+        else:
+            result = {'message': "This method is not allowed"}
+            status = '400'
+        return JsonResponse(result, status)

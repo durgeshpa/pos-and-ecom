@@ -1,13 +1,14 @@
 import logging
 from django.contrib import admin
 from django.http import HttpResponse
-from .views import bins_upload, put_away, CreatePickList, products_csv_upload_view
+from .views import bins_upload, put_away, CreatePickList
 from import_export import resources
 import csv
 from django.contrib import messages
 from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup,
                      PickupBinInventory, StockMovementCSVUpload)
-from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm)
+from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
+                    StockMovementCSVUploadAdminForm)
 from django.utils.html import format_html
 from barCodeGenerator import barcodeGen
 from django.urls import reverse
@@ -154,7 +155,49 @@ class PickupBinInventoryAdmin(admin.ModelAdmin):
 
 
 class StockMovementCSVUploadAdmin(admin.ModelAdmin):
-    info_logger.info("Stock Movement CSV Upload Admin has been called.")
+    """
+    This class is used to view the Stock(Movement) form Admin Panel
+    """
+    form = StockMovementCSVUploadAdminForm
+    list_display = ('uploaded_by', 'created_at', 'status')
+    list_display_links = None
+    list_per_page = 50
+
+    def render_change_form(self, request, context, *args, **kwargs):
+        """
+
+        :param request: request
+        :param context: context processor
+        :param args: non keyword argument
+        :param kwargs: keyword argument
+        :return: Stock Movement Admin form
+        """
+        self.change_form_template = 'admin/wms/stock_movement_change_from.html'
+        return super(StockMovementCSVUploadAdmin, self).render_change_form(request, context, *args, **kwargs)
+
+    def get_form(self, request, *args, **kwargs):
+        """
+
+        :param request: request
+        :param args: non keyword argument
+        :param kwargs: keyword argument
+        :return: form
+        """
+        form = super(StockMovementCSVUploadAdmin, self).get_form(request, *args, **kwargs)
+        form.current_user = request.user
+        return form
+
+    def get_queryset(self, request):
+        """
+
+        :param request: get request
+        :return: queryset
+        """
+        qs = super(StockMovementCSVUploadAdmin, self).get_queryset(request)
+        if not request.user.is_superuser:
+            return qs.filter(manager=request.user)
+        return qs
+
 
 
 admin.site.register(Bin, BinAdmin)

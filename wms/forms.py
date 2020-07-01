@@ -1,9 +1,12 @@
 import logging
 import re
+import csv
+import codecs
 from django import forms
-from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup
+from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload
 from shops.models import Shop
 from django.utils.translation import ugettext_lazy as _
+from django.core.exceptions import ValidationError
 # Logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -132,3 +135,30 @@ class PickupForm(forms.ModelForm):
     class Meta:
         model = Pickup
         fields = '__all__'
+
+
+class StockMovementCSVUploadAdminForm(forms.ModelForm):
+    """
+      Stock Movement Admin Form
+      """
+
+    class Meta:
+        model = StockMovementCSVUpload
+        fields = ('inventory_movement_type',)
+
+
+class StockMovementCsvViewForm(forms.Form):
+    """
+    This Form class is used to upload csv for different stock movement
+    """
+    file = forms.FileField()
+
+    def clean_file(self):
+        """
+
+        :return: Form is valid otherwise validation error message
+        """
+
+        # Validate to check the file format, It should be csv file.
+        if not self.cleaned_data['file'].name[-4:] in ('.csv'):
+            raise forms.ValidationError("Sorry! Only csv file accepted.")

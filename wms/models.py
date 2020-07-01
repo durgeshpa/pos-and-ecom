@@ -225,11 +225,20 @@ class PickupBinInventory(models.Model):
 
 
 class StockMovementCSVUpload(models.Model):
+    upload_inventory_type = (
+        (1, "-"),
+        (2, "Bin Stock Movement"),
+        (3, "Stock Correction"),
+        (4, "WareHouse Inventory Change"),
+
+    )
+
     uploaded_by = models.ForeignKey(get_user_model(), related_name='inventory_manager', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     status = models.BooleanField(default=True)
     upload_csv = models.FileField(upload_to='shop_photos/shop_name/documents/inventory/', null=True, blank=True)
+    inventory_movement_type = models.CharField(max_length=25, choices=upload_inventory_type, default=1)
 
     class Meta:
         db_table = "wms_stock_movement_csv_upload"
