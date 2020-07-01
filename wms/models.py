@@ -7,7 +7,7 @@ from django.utils.safestring import mark_safe
 import sys
 from django.core.exceptions import ValidationError
 from django.db.models import Sum
-from django.contrib import messages
+from django.contrib.auth import get_user_model
 
 
 
@@ -83,6 +83,7 @@ class BinInventory(models.Model):
     sku = models.ForeignKey(Product, to_field='product_sku',related_name='rt_product_sku', on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=21, null=True, blank=True)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
+    inventory_state = models.ForeignKey(InventoryState, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField(null=True, blank=True)
     in_stock = models.BooleanField()
     created_at = models.DateTimeField(auto_now_add=True)
@@ -222,3 +223,13 @@ class PickupBinInventory(models.Model):
     class Meta:
         db_table = "wms_pickup_bin_inventory"
 
+
+class StockMovementCSVUpload(models.Model):
+    uploaded_by = models.ForeignKey(get_user_model(), related_name='inventory_manager', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
+    upload_csv = models.FileField(upload_to='shop_photos/shop_name/documents/inventory/', null=True, blank=True)
+
+    class Meta:
+        db_table = "wms_stock_movement_csv_upload"
