@@ -81,7 +81,7 @@ def update_putaway(id, batch_id, warehouse, put_quantity):
         info_logger.info(put_quantity, "Put away quantity updated successfully.")
         return put_quantity
     except Exception as e:
-        error_logger.error(e.message)
+        error_logger.error(e)
 
 
 def bins_upload(request):

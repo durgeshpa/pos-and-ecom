@@ -34,7 +34,7 @@ from sp_to_gram.models import (
     OrderedProduct as SpGRNOrder,
     OrderedProductMapping as SpGRNOrderProductMapping
 )
-from wms.models import In, Putaway
+from wms.common_functions import PutawayCommonFunctions, InCommonFunctions
 from base.models import (BaseOrder, BaseCart, BaseShipment)
 #from gram_to_brand.forms import GRNOrderProductForm
 # from analytics.post_save_signal import get_grn_report
@@ -610,22 +610,8 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                     returned_qty=0,
                     damaged_qty=0
                 )
-                In.objects.create(
-                    warehouse=shop.retailer,
-                    in_type='GRN',
-                    in_type_id=instance.grn_order.grn_id,
-                    sku=instance.product,
-                    batch_id=instance.batch_id,
-                    quantity=int(instance.delivered_qty)
-                )
-                Putaway.objects.create(
-                    warehouse=shop.retailer,
-                    putaway_type='GRN',
-                    putaway_type_id=instance.grn_order.grn_id,
-                    sku=instance.product,
-                    batch_id=instance.batch_id,
-                    quantity=int(instance.product_invoice_qty)
-                )
+                InCommonFunctions.create_In(shop.retailer, 'GRN', instance.grn_order.grn_id,instance.product, instance.batch_id, int(instance.delivered_qty), 0)
+                PutawayCommonFunctions.create_putaway(shop.retailer, 'GRN',instance.grn_order.grn_id, instance.product, instance.batch_id, int(instance.product_invoice_qty))
 
         # ends here
         instance.available_qty = 0
