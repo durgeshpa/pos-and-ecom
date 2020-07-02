@@ -6,8 +6,11 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.utils.safestring import mark_safe
 import sys
 from django.core.exceptions import ValidationError
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from django.contrib import messages
+from django.db.models.signals import post_save, pre_save
+from django.dispatch import receiver
+from datetime import datetime, timedelta
 
 
 
@@ -43,6 +46,9 @@ class InventoryType(models.Model):
 class InventoryState(models.Model):
     # id = models.AutoField(primary_key=True)
     inventory_state = models.CharField(max_length=20, choices=INVENTORY_STATE_CHOICES,null=True, blank=True)
+
+    def __str__(self):
+        return self.inventory_state
 
     class Meta:
         db_table = "wms_inventory_state"
@@ -88,6 +94,14 @@ class BinInventory(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
+    @classmethod
+    def available_qty(cls, shop_id, sku_id):
+        return cls.objects.filter(Q(warehouse__id=shop_id),
+                                  Q(sku__id=sku_id),
+                                  Q(quantity__gt=0)).aggregate(total=Sum('quantity')).get('total')
+
+
+
     class Meta:
         db_table = "wms_bin_inventory"
 
@@ -112,7 +126,7 @@ class InternalInventoryChange(models.Model):
 class WarehouseInventory(models.Model):
     # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
-    sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
+    sku = models.ForeignKey(Product, to_field='product_sku', related_name='related_sku', on_delete=models.DO_NOTHING)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
     inventory_state = models.ForeignKey(InventoryState, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
@@ -221,4 +235,31 @@ class PickupBinInventory(models.Model):
 
     class Meta:
         db_table = "wms_pickup_bin_inventory"
+
+class WarehouseInventoryChange(models.Model):
+    warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
+    sku = models.ForeignKey(Product, null=True, blank=True, on_delete=models.DO_NOTHING)
+    transaction_type = models.CharField(max_length=25, null=True, blank=True)
+    transaction_id = models.CharField(max_length=25, null=True, blank=True)
+    initial_stage = models.CharField(max_length=25, null=True, blank=True)
+    final_stage = models.CharField(max_length=25, null=True, blank=True)
+    quantity = models.PositiveIntegerField(null=True, blank=True, default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.transaction_id
+
+
+@receiver(post_save, sender=BinInventory)
+def create_warehouse_inventory(sender, instance=None, created=False, *args, **kwargs):
+
+    if created:
+        WarehouseInventory.objects.update_or_create(warehouse=instance.warehouse,sku=instance.sku,
+                                                    inventory_state=InventoryState.objects.filter(inventory_state='available').last(),
+                                                    defaults={
+                                                             'inventory_type':InventoryType.objects.filter(inventory_type='normal').last(),
+                                                             'inventory_state':InventoryState.objects.filter(inventory_state='available').last(),
+                                                             'quantity':BinInventory.available_qty(instance.warehouse.id, instance.sku.id),
+                                                             'in_stock':instance.in_stock})
 

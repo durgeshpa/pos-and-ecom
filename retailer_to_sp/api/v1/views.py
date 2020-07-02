@@ -65,8 +65,9 @@ from retailer_backend.common_function import getShopMapping,checkNotShopAndMappi
 from retailer_backend.messages import ERROR_MESSAGES
 
 from retailer_to_sp.tasks import (
-    ordered_product_available_qty_update, release_blocking, create_reserved_order
+    ordered_product_available_qty_update, release_blocking
 )
+from wms.common_functions import OrderManagement, get_stock
 from .filters import OrderedProductMappingFilter, OrderedProductFilter
 from retailer_to_sp.filters import PickerDashboardFilter
 from common.data_wrapper_view import DataWrapperViewSet
@@ -452,8 +453,8 @@ class AddToCart(APIView):
                 msg['message'] = ["Qty not Found"]
                 return Response(msg, status=status.HTTP_200_OK)
             #  if shop mapped with SP
-            available=OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product=cart_product,available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
-            shop_products_dict =collections.defaultdict(lambda: 0, {g['product_id']: int(g['available_qty']) for g in available})
+            available=get_stock(parent_mapping.parent).filter(sku__id=cart_product,quantity__gt=0).values('sku__id').annotate(quantity=Sum('quantity'))
+            shop_products_dict =collections.defaultdict(lambda: 0, {g['sku__id']: int(g['quantity']) for g in available})
             if parent_mapping.parent.shop_type.shop_type == 'sp':
                 ordered_qty = 0
                 product = Product.objects.get(id = cart_product)
@@ -644,8 +645,8 @@ class CartDetail(APIView):
                     cart=cart
                 )
 
-                available = OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product__id__in=cart_products.values('cart_product'), available_qty__gte=0).values('product_id').annotate(available_qty=Sum('available_qty'))
-                shop_products_dict = collections.defaultdict(lambda: 0, {g['product_id']: int(g['available_qty']) for g in available})
+                available = get_stock(parent_mapping.parent).filter(sku__id__in=cart_products.values('cart_product'), quantity__gt=0).values('sku__id').annotate(quantity=Sum('quantity'))
+                shop_products_dict = collections.defaultdict(lambda: 0, {g['sku__id']: int(g['quantity']) for g in available})
                 for cart_product in cart_products:
                     item_qty = CartProductMapping.objects.filter(cart = cart, cart_product=cart_product.cart_product).last().qty
                     updated_no_of_pieces = (item_qty * int(cart_product.cart_product.product_inner_case_size))
@@ -760,8 +761,8 @@ class ReservedOrder(generics.ListAPIView):
                 cart_products.update(qty_error_msg='')
                 cart_products.update(capping_error_msg ='')
                 cart_product_ids = cart_products.values('cart_product')
-                shop_products_available = OrderedProductMapping.get_shop_stock(parent_mapping.parent).filter(product__id__in=cart_product_ids,available_qty__gt=0).values('product_id').annotate(available_qty=Sum('available_qty'))
-                shop_products_dict = collections.defaultdict(lambda: 0, {g['product_id']:int(g['available_qty']) for g in shop_products_available})
+                shop_products_available = get_stock(parent_mapping.parent).filter(sku__id__in=cart_product_ids,quantity__gt=0).values('sku__id').annotate(quantity=Sum('quantity'))
+                shop_products_dict = collections.defaultdict(lambda: 0, {g['sku__id']:int(g['quantity']) for g in shop_products_available})
 
                 products_available = {}
                 products_unavailable = []
@@ -842,10 +843,11 @@ class ReservedOrder(generics.ListAPIView):
                 else:
                     reserved_args = json.dumps({
                         'shop_id': parent_mapping.parent.id,
-                        'cart_id': cart.id,
-                        'products': products_available
+                        'transaction_id': cart.order_id,
+                        'products': products_available,
+                        'transaction_type': 'order_reserved'
                         })
-                    create_reserved_order(reserved_args)
+                    OrderManagement.create_reserved_order(reserved_args)
             serializer = CartSerializer(cart, context={
                 'parent_mapping_id': parent_mapping.parent.id,
                 'buyer_shop_id': shop_id})
@@ -1552,6 +1554,8 @@ class ReleaseBlocking(APIView):
         cart_id = self.request.POST.get('cart_id')
         msg = {'is_success': False, 'message': ['Have some error in shop or mapping'], 'response_data': None}
 
+        products_available = {}
+
         if checkNotShopAndMapping(shop_id):
             return Response(msg, status=status.HTTP_200_OK)
 
@@ -1564,12 +1568,21 @@ class ReleaseBlocking(APIView):
             return Response(msg, status=status.HTTP_200_OK)
 
         if parent_mapping.parent.shop_type.shop_type == 'sp':
-            if OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved').exists():
-                for ordered_reserve in OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved'):
-                    ordered_reserve.order_product_reserved.available_qty = int(
-                        ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
-                    ordered_reserve.order_product_reserved.save()
-                    ordered_reserve.delete()
+            cart = Cart.objects.filter(id=cart_id).last()
+            sku_id = [i.cart_product.id for i in cart.rt_cart_list.all()]
+            reserved_args = json.dumps({
+                'shop_id': parent_mapping.parent.id,
+                'transaction_id': cart.order_id,
+                'transaction_type':'available'
+            })
+
+            OrderManagement.release_blocking(reserved_args, sku_id)
+            # if OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved').exists():
+            #     for ordered_reserve in OrderedProductReserved.objects.filter(cart__id=cart_id,reserve_status='reserved'):
+            #         ordered_reserve.order_product_reserved.available_qty = int(
+            #             ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
+            #         ordered_reserve.order_product_reserved.save()
+            #         ordered_reserve.delete()
             if CusotmerCouponUsage.objects.filter(cart__id = cart_id, shop__id=shop_id).exists():
                 CusotmerCouponUsage.objects.filter(cart__id = cart_id, shop__id=shop_id).delete()
 

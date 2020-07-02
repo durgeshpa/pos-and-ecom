@@ -4,7 +4,8 @@ from .views import bins_upload, put_away,CreatePickList
 from import_export import resources
 import csv
 from django.contrib import messages
-from .models import Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, PickupBinInventory
+from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, PickupBinInventory,
+                     WarehouseInventory, InventoryState, WarehouseInventoryChange)
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm)
 from django.utils.html import format_html
 from barCodeGenerator import barcodeGen
@@ -131,6 +132,23 @@ class PickupBinInventoryAdmin(admin.ModelAdmin):
     readonly_fields = ('warehouse', 'pickup', 'batch_id', 'bin','created_at')
 
 
+class WarehouseInventoryAdmin(admin.ModelAdmin):
+    list_display = ('warehouse', 'sku', 'inventory_type', 'inventory_state', 'quantity', 'in_stock', 'created_at', 'modified_at')
+    list_select_related = ('warehouse', 'inventory_type', 'inventory_state', 'sku')
+    readonly_fields = ('warehouse', 'sku', 'inventory_type', 'inventory_state', 'quantity', 'in_stock', 'created_at', 'modified_at')
+
+
+class InventoryStateAdmin(admin.ModelAdmin):
+    list_display = ('inventory_state',)
+    readonly_fields = ('inventory_state',)
+
+
+class WarehouseInventoryChangeAdmin(admin.ModelAdmin):
+    list_display = ('warehouse', 'sku', 'transaction_type', 'transaction_id', 'initial_stage', 'final_stage', 'quantity', 'created_at', 'modified_at')
+    list_select_related = ('warehouse', 'sku')
+    readonly_fields = ('warehouse', 'sku', 'transaction_type', 'transaction_id', 'initial_stage', 'final_stage', 'quantity', 'created_at', 'modified_at')
+
+
 admin.site.register(Bin, BinAdmin)
 admin.site.register(In, InAdmin)
 admin.site.register(InventoryType, InventoryTypeAdmin)
@@ -140,3 +158,6 @@ admin.site.register(BinInventory, BinInventoryAdmin)
 admin.site.register(Out, OutAdmin)
 admin.site.register(Pickup, PickupAdmin)
 admin.site.register(PickupBinInventory, PickupBinInventoryAdmin)
+admin.site.register(WarehouseInventory, WarehouseInventoryAdmin)
+admin.site.register(InventoryState, InventoryStateAdmin)
+admin.site.register(WarehouseInventoryChange, WarehouseInventoryChangeAdmin)

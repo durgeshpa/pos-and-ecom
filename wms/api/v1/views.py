@@ -112,6 +112,9 @@ class PutAwayViewSet(APIView):
         if not batch_id:
             return Response(msg, status=status.HTTP_404_NOT_FOUND)
         inventory_type = 'normal'
+        if not InventoryType.objects.filter(inventory_type=inventory_type).exists():
+            InventoryType.objects.create(inventory_type=inventory_type)
+
 
         if len(batch_id) != len(put_away_quantity):
             
