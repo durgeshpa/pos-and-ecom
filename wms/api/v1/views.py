@@ -38,7 +38,7 @@ class BinViewSet(APIView):
             try:
                 bins = Bin.objects.get(id=ids)
             except ObjectDoesNotExist as e:
-                error_logger.error(e.message)
+                error_logger.error(e)
                 msg = {'is_success': False, 'message': "Bin id doesn't exist.", 'data': None}
                 return Response(msg, status=status.HTTP_200_OK)
             else:
@@ -107,7 +107,7 @@ class PutAwayViewSet(APIView):
         try:
             warehouse = Bin.objects.filter(bin_id=bin_id).last().warehouse.id
         except Exception as e:
-            error_logger.error(e.message)
+            error_logger.error(e)
             return Response({'is_success': False,
                              'message': 'Bin id does not exist.',
                              'data': None}, status=status.HTTP_200_OK)
@@ -146,7 +146,7 @@ class PutAwayViewSet(APIView):
                     lis_data.append(msg)
                     continue
             except Exception as e:
-                error_logger.error(e.message)
+                error_logger.error(e)
                 return Response({'is_success': False,
                                  'message': 'Batch id does not exist.',
                                  'data': None}, status=status.HTTP_200_OK)
@@ -234,7 +234,7 @@ class PickupList(APIView):
         try:
             date = datetime.datetime.strptime(request.GET.get('date'), "%Y-%m-%d")
         except Exception as e:
-            error_logger.error(e.message)
+            error_logger.error(e)
             msg = {'is_success': False, 'message': 'date format is not correct, It should be YYYY-mm-dd format.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         picker_boy = request.GET.get('picker_boy')
