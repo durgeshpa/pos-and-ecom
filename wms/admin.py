@@ -1,20 +1,22 @@
+# python imports
 import logging
+import csv
+
+# django imports
 from django.contrib import admin
 from django.http import HttpResponse
+from django.utils.html import format_html
+from django.urls import reverse
+
+# app imports
 from .views import bins_upload, put_away, CreatePickList
 from import_export import resources
-import csv
-from django.contrib import messages
-from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup,
-                     PickupBinInventory, StockMovementCSVUpload)
+from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, PickupBinInventory,
+                     WarehouseInventory, InventoryState, WarehouseInternalInventoryChange, StockMovementCSVUpload)
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
                     StockMovementCSVUploadAdminForm)
-from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, PickupBinInventory,
-                     WarehouseInventory, InventoryState, WarehouseInternalInventoryChange)
-from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm)
-from django.utils.html import format_html
 from barCodeGenerator import barcodeGen
-from django.urls import reverse
+
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -202,7 +204,6 @@ class StockMovementCSVUploadAdmin(admin.ModelAdmin):
         return qs
 
 
-
 class WarehouseInventoryAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'sku', 'inventory_type', 'inventory_state', 'quantity', 'in_stock', 'created_at', 'modified_at')
     list_select_related = ('warehouse', 'inventory_type', 'inventory_state', 'sku')
@@ -230,7 +231,6 @@ admin.site.register(Out, OutAdmin)
 admin.site.register(Pickup, PickupAdmin)
 admin.site.register(PickupBinInventory, PickupBinInventoryAdmin)
 admin.site.register(StockMovementCSVUpload, StockMovementCSVUploadAdmin)
-
 admin.site.register(WarehouseInventory, WarehouseInventoryAdmin)
 admin.site.register(InventoryState, InventoryStateAdmin)
 admin.site.register(WarehouseInternalInventoryChange, WarehouseInternalInventoryChangeAdmin)
