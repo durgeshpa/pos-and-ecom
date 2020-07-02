@@ -11,6 +11,8 @@ from django.contrib import messages
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from datetime import datetime, timedelta
+from django.db.models import Sum
+from django.contrib.auth import get_user_model
 
 
 
@@ -89,6 +91,7 @@ class BinInventory(models.Model):
     sku = models.ForeignKey(Product, to_field='product_sku',related_name='rt_product_sku', on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=21, null=True, blank=True)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
+    # inventory_state = models.ForeignKey(InventoryState, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField(null=True, blank=True)
     in_stock = models.BooleanField()
     created_at = models.DateTimeField(auto_now_add=True)
@@ -106,7 +109,7 @@ class BinInventory(models.Model):
         db_table = "wms_bin_inventory"
 
 
-class InternalInventoryChange(models.Model):
+class BinInternalInventoryChange(models.Model):
     # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
@@ -120,7 +123,7 @@ class InternalInventoryChange(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = "wms_internal_inventory_change"
+        db_table = "wms_bin_internal_inventory_change"
 
 
 class WarehouseInventory(models.Model):
@@ -236,7 +239,28 @@ class PickupBinInventory(models.Model):
     class Meta:
         db_table = "wms_pickup_bin_inventory"
 
-class WarehouseInventoryChange(models.Model):
+
+class StockMovementCSVUpload(models.Model):
+    upload_inventory_type = (
+        (1, "-"),
+        (2, "Bin Stock Movement"),
+        (3, "Stock Correction"),
+        (4, "WareHouse Inventory Change"),
+
+    )
+
+    uploaded_by = models.ForeignKey(get_user_model(), related_name='inventory_manager', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
+    upload_csv = models.FileField(upload_to='shop_photos/shop_name/documents/inventory/', null=True, blank=True)
+    inventory_movement_type = models.CharField(max_length=25, choices=upload_inventory_type, default=1)
+
+    class Meta:
+        db_table = "wms_stock_movement_csv_upload"
+
+
+class WarehouseInternalInventoryChange(models.Model):
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, null=True, blank=True, on_delete=models.DO_NOTHING)
     transaction_type = models.CharField(max_length=25, null=True, blank=True)
@@ -250,6 +274,9 @@ class WarehouseInventoryChange(models.Model):
     def __str__(self):
         return self.transaction_id
 
+    class Meta:
+        db_table = "wms_warehouse_internal_inventory_change"
+
 
 @receiver(post_save, sender=BinInventory)
 def create_warehouse_inventory(sender, instance=None, created=False, *args, **kwargs):
@@ -262,4 +289,3 @@ def create_warehouse_inventory(sender, instance=None, created=False, *args, **kw
                                                              'inventory_state':InventoryState.objects.filter(inventory_state='available').last(),
                                                              'quantity':BinInventory.available_qty(instance.warehouse.id, instance.sku.id),
                                                              'in_stock':instance.in_stock})
-

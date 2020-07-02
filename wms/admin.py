@@ -1,24 +1,36 @@
+import logging
 from django.contrib import admin
 from django.http import HttpResponse
-from .views import bins_upload, put_away,CreatePickList
+from .views import bins_upload, put_away, CreatePickList
 from import_export import resources
 import csv
 from django.contrib import messages
+from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup,
+                     PickupBinInventory, StockMovementCSVUpload)
+from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
+                    StockMovementCSVUploadAdminForm)
 from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, PickupBinInventory,
-                     WarehouseInventory, InventoryState, WarehouseInventoryChange)
+                     WarehouseInventory, InventoryState, WarehouseInternalInventoryChange)
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm)
 from django.utils.html import format_html
 from barCodeGenerator import barcodeGen
 from django.urls import reverse
 
+# Logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
+
 
 class BinResource(resources.ModelResource):
+    info_logger.info("Bin Resource Admin has been called.")
     class Meta:
         model = Bin
         exclude = ('created_at', 'modified_at')
 
 
 class BinAdmin(admin.ModelAdmin):
+    info_logger.info("Bin Admin has been called.")
     form = BinForm
     resource_class = BinResource
     actions = ['download_csv_for_bins',]
@@ -43,6 +55,7 @@ class BinAdmin(admin.ModelAdmin):
         return urls
 
     def download_bin_id_barcode(self, obj):
+        info_logger.info("download bin barcode method has been called.")
         if not obj.bin_barcode:
             return format_html("-")
         return format_html(
@@ -58,6 +71,7 @@ class BinAdmin(admin.ModelAdmin):
         :param queryset:
         :return:
         """
+        info_logger.info("download csv for bin method has been called.")
         meta = self.model._meta
         field_names = [field.name for field in meta.fields]
         response = HttpResponse(content_type='text/csv')
@@ -72,25 +86,30 @@ class BinAdmin(admin.ModelAdmin):
 
 
 class InAdmin(admin.ModelAdmin):
+    info_logger.info("In Admin has been called.")
     form = InForm
     list_display = ('warehouse', 'sku', 'quantity')
 
 
 class PutAwayAdmin(admin.ModelAdmin):
+    info_logger.info("Put Away Admin has been called.")
     form = PutAwayForm
     list_display = ('warehouse','putaway_type', 'putaway_type_id', 'sku', 'batch_id','quantity','putaway_quantity')
 
 
 class PutawayBinInventoryAdmin(admin.ModelAdmin):
+    info_logger.info("Put Away Bin Inventory Admin has been called.")
     form = PutAwayBinInventoryForm
     list_display = ('warehouse', 'putaway', 'bin', 'putaway_quantity', 'created_at')
 
 
 class InventoryTypeAdmin(admin.ModelAdmin):
+    info_logger.info("Inventory Type Admin has been called.")
     list_display = ('inventory_type',)
 
 
 class BinInventoryAdmin(admin.ModelAdmin):
+    info_logger.info("Bin Inventory Admin has been called.")
     form = BinInventoryForm
     list_select_related = ('warehouse', 'sku', 'bin', 'inventory_type')
     list_display = ('batch_id','warehouse', 'sku', 'bin','inventory_type', 'quantity', 'in_stock')
@@ -98,6 +117,7 @@ class BinInventoryAdmin(admin.ModelAdmin):
 
 
 class OutAdmin(admin.ModelAdmin):
+    info_logger.info("Out Admin has been called.")
     form = OutForm
     list_display = ('warehouse', 'out_type', 'out_type_id', 'sku', 'quantity')
     readonly_fields = ('warehouse', 'out_type', 'out_type_id', 'sku', 'quantity')
@@ -114,11 +134,13 @@ class OutAdmin(admin.ModelAdmin):
 
 
 class PickupAdmin(admin.ModelAdmin):
+    info_logger.info("Pick up Admin has been called.")
     form = PickupForm
     list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity','pickup_quantity')
     # readonly_fields = ('quantity','pickup_quantity',)
 
     def download_picklist(self, obj):
+        info_logger.info("download picklist method has been called.")
         return format_html(
             "<a href= '%s' >Download Picklist</a>" %
             (reverse('create-picklist', args=[obj.pk]))
@@ -126,10 +148,59 @@ class PickupAdmin(admin.ModelAdmin):
 
     download_picklist.short_description = 'Download Picklist'
 
+
 class PickupBinInventoryAdmin(admin.ModelAdmin):
+    info_logger.info("Pick up Bin Inventory Admin has been called.")
+
     list_display = ('warehouse', 'pickup', 'batch_id', 'bin', 'pickup_quantity','created_at')
     list_select_related = ('warehouse', 'pickup', 'bin')
     readonly_fields = ('warehouse', 'pickup', 'batch_id', 'bin','created_at')
+
+
+class StockMovementCSVUploadAdmin(admin.ModelAdmin):
+    """
+    This class is used to view the Stock(Movement) form Admin Panel
+    """
+    form = StockMovementCSVUploadAdminForm
+    list_display = ('uploaded_by', 'created_at', 'status')
+    list_display_links = None
+    list_per_page = 50
+
+    def render_change_form(self, request, context, *args, **kwargs):
+        """
+
+        :param request: request
+        :param context: context processor
+        :param args: non keyword argument
+        :param kwargs: keyword argument
+        :return: Stock Movement Admin form
+        """
+        self.change_form_template = 'admin/wms/stock_movement_change_from.html'
+        return super(StockMovementCSVUploadAdmin, self).render_change_form(request, context, *args, **kwargs)
+
+    def get_form(self, request, *args, **kwargs):
+        """
+
+        :param request: request
+        :param args: non keyword argument
+        :param kwargs: keyword argument
+        :return: form
+        """
+        form = super(StockMovementCSVUploadAdmin, self).get_form(request, *args, **kwargs)
+        form.current_user = request.user
+        return form
+
+    def get_queryset(self, request):
+        """
+
+        :param request: get request
+        :return: queryset
+        """
+        qs = super(StockMovementCSVUploadAdmin, self).get_queryset(request)
+        if not request.user.is_superuser:
+            return qs.filter(manager=request.user)
+        return qs
+
 
 
 class WarehouseInventoryAdmin(admin.ModelAdmin):
@@ -143,7 +214,7 @@ class InventoryStateAdmin(admin.ModelAdmin):
     readonly_fields = ('inventory_state',)
 
 
-class WarehouseInventoryChangeAdmin(admin.ModelAdmin):
+class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'sku', 'transaction_type', 'transaction_id', 'initial_stage', 'final_stage', 'quantity', 'created_at', 'modified_at')
     list_select_related = ('warehouse', 'sku')
     readonly_fields = ('warehouse', 'sku', 'transaction_type', 'transaction_id', 'initial_stage', 'final_stage', 'quantity', 'created_at', 'modified_at')
@@ -158,6 +229,8 @@ admin.site.register(BinInventory, BinInventoryAdmin)
 admin.site.register(Out, OutAdmin)
 admin.site.register(Pickup, PickupAdmin)
 admin.site.register(PickupBinInventory, PickupBinInventoryAdmin)
+admin.site.register(StockMovementCSVUpload, StockMovementCSVUploadAdmin)
+
 admin.site.register(WarehouseInventory, WarehouseInventoryAdmin)
 admin.site.register(InventoryState, InventoryStateAdmin)
-admin.site.register(WarehouseInventoryChange, WarehouseInventoryChangeAdmin)
+admin.site.register(WarehouseInternalInventoryChange, WarehouseInternalInventoryChangeAdmin)

@@ -1,5 +1,5 @@
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
-                     InventoryState, InventoryType, WarehouseInventoryChange, In, PickupBinInventory)
+                     InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory)
 
 from gram_to_brand.models import GRNOrderProductMapping
 from shops.models import Shop
@@ -89,7 +89,7 @@ class OrderManagement(object):
                                               quantity=ordered_qty, in_stock='t')
             win = WarehouseInventory.objects.filter(sku__id=int(prod_id), quantity__gt=0,
                                                     inventory_state__inventory_state='available').order_by('created_at')
-            WarehouseInventoryChange.objects.create(warehouse=Shop.objects.get(id=shop_id),
+            WarehouseInternalInventoryChange.objects.create(warehouse=Shop.objects.get(id=shop_id),
                                                     sku=Product.objects.get(id=int(prod_id)),
                                                     transaction_type=transaction_type,
                                                     transaction_id=transaction_id, initial_stage='available',
@@ -125,86 +125,12 @@ class OrderManagement(object):
                 available_qty = wim.last().quantity
                 wim.update(quantity=available_qty+reserved_qty)
                 WarehouseInventory.objects.filter(id=ordered_id).update(quantity=0)
-                WarehouseInventoryChange.objects.create(warehouse=Shop.objects.get(id=shop_id),
+                WarehouseInternalInventoryChange.objects.create(warehouse=Shop.objects.get(id=shop_id),
                                                         sku=Product.objects.get(id=i),
                                                         transaction_type=transaction_type,
                                                         transaction_id=transaction_id,
                                                         initial_stage='reserved', final_stage='available',
                                                         quantity=reserved_qty)
-
-
-# def get_warehouse_stock(shop_id=None):
-#     grn_dict = None
-#     if shop_id:
-#         shop = Shop.objects.get(id=shop_id)
-#         grn = WarehouseInventory.get_shop_stock(shop).filter(available_qty__gt=0).values('product_id').annotate(available_qty=Sum('available_qty'))
-# 	    grn_dict = {g['product_id']:g['available_qty'] for g in grn}
-# 	    grn_list = grn_dict.keys()
-#
-# 	else:
-# 		grn_list = models.OrderedProductMapping.objects.values('product_id').distinct()
-# 	products = Product.objects.filter(pk__in=grn_list).order_by('product_name')
-# 	if shop_id:
-# 		products_price = ProductPrice.objects.filter(product__in=products, seller_shop=shop, status=True).order_by('product_id', '-created_at').distinct('product')
-# 	else:
-# 		products_price = ProductPrice.objects.filter(product__in=products, status=True).order_by('product_id', '-created_at').distinct('product')
-# 	p_list = []
-#
-# 	for p in products_price:
-# 		user_selected_qty = None
-# 		no_of_pieces = None
-# 		sub_total = None
-# 		available_qty = 0 if shop_id else 1
-# 		name = p.product.product_name
-# 		mrp = p.mrp
-# 		ptr = p.selling_price
-# 		try:
-# 			margin = (((p.mrp - p.selling_price) / p.mrp) * 100)
-# 		except:
-# 			margin = 0
-#
-# 		status = p.product.status
-# 		product_opt = p.product.product_opt_product.all()
-# 		weight_value = None
-# 		weight_unit = None
-# 		pack_size = None
-# 		try:
-# 		    pack_size = p.product.product_inner_case_size if p.product.product_inner_case_size else None
-# 		except Exception as e:
-# 		    logger.exception("pack size is not defined for {}".format(p.product.product_name))
-# 		    continue
-# 		if grn_dict:
-# 			if int(pack_size) > int(grn_dict[p.product.id]):
-# 				status = False
-# 			else:
-# 				available_qty = int(int(grn_dict[p.product.id])/int(pack_size))
-# 		try:
-# 		    for p_o in product_opt:
-# 		        weight_value = p_o.weight.weight_value if p_o.weight.weight_value else None
-# 		        weight_unit = p_o.weight.weight_unit if p_o.weight.weight_unit else None
-# 		except:
-# 		    weight_value = None
-# 		    weight_unit = None
-# 		product_img = p.product.product_pro_image.all()
-# 		product_images = [
-# 		                    {
-# 		                        "image_name":p_i.image_name,
-# 		                        "image_alt":p_i.image_alt_text,
-# 		                        "image_url":p_i.image.url
-# 		                    }
-# 		                    for p_i in product_img
-# 		                ]
-# 		category = [str(c.category) for c in p.product.product_pro_category.filter(status=True)]
-# 		product_details = {"name":p.product.product_name,"name_lower":p.product.product_name.lower(),"brand":str(p.product.product_brand),"brand_lower":str(p.product.product_brand).lower(),"category": category, "mrp":mrp, "ptr":ptr, "status":status, "pack_size":pack_size, "id":p.product_id,
-# 		                "weight_value":weight_value,"weight_unit":weight_unit,"product_images":product_images,"user_selected_qty":user_selected_qty, "pack_size":pack_size,
-# 		               "margin":margin ,"no_of_pieces":no_of_pieces, "sub_total":sub_total, "available": available_qty}
-# 		yield(product_details)
-
-
-
-
-
-
 
 
 
