@@ -36,7 +36,7 @@ def update_bin_inventory(id, quantity=0):
     try:
         BinInventory.objects.filter(id=id).update(quantity=quantity)
     except Exception as e:
-        error_logger.error(e.message)
+        error_logger.error(e)
     info_logger.info(quantity, "Bin Inventory quantity updated successfully.")
 
 
@@ -50,7 +50,7 @@ def update_pickup_inventory(id, pickup_quantity=0):
     try:
         Pickup.objects.filter(id=id).update(pickup_quantity=pickup_quantity)
     except Exception as e:
-        error_logger.error(e.message)
+        error_logger.error(e)
     info_logger.info(pickup_quantity, "Pick up quantity updated successfully.")
 
 
@@ -76,7 +76,7 @@ def update_putaway(id, batch_id, warehouse, put_quantity):
         info_logger.info(put_quantity, "Put away quantity updated successfully.")
         return put_quantity
     except Exception as e:
-        error_logger.error(e.message)
+        error_logger.error(e)
 
 
 def bins_upload(request):
@@ -155,7 +155,7 @@ def bins_upload(request):
                 return redirect('/admin/wms/bin/')
 
             except Exception as e:
-                error_logger.error(e.message)
+                error_logger.error(e)
                 messages.error(request, '{} (Shop: {})'.format(e.message, row[0]))
         else:
             raise Exception(form.errors['file'][0])
@@ -303,5 +303,5 @@ class PickupInventoryManagement:
             data.update({'data':lis_data})
             return lis_data
         except Exception as e:
-            error_logger.error(e.message)
+            error_logger.error(e)
 

@@ -22,7 +22,7 @@ class BulkBinUpdation(forms.Form):
         if not file.name[-5:] == '.xlsx':
             error_logger.error("File Format is not correct.")
             raise forms.ValidationError("Sorry! Only Excel file accepted.")
-        error_logger.info("Validation of File format successfully passed.")
+        info_logger.info("Validation of File format successfully passed.")
         return file
 
 
@@ -62,7 +62,7 @@ class BinForm(forms.ModelForm):
                 raise forms.ValidationError(_('Bin number should be start in between 001 to 999.Example:-B2BZ01SR01-001'), )
             return self.cleaned_data['bin_id']
         except Exception as e:
-            error_logger.info(e.message)
+            error_logger.info(e)
 
 
 class InForm(forms.ModelForm):
