@@ -333,27 +333,25 @@ class StockMovementCsvSample(View):
                 f = StringIO()
                 writer = csv.writer(f)
                 # header of csv file
-                writer.writerow(['Warehouse ID', 'SKU', 'Batch ID ', 'Initial Type', 'Final Type', 'Initial Bin ID',
-                                 'Final Bin ID', 'Quantity'])
-                writer.writerow(['88', 'ORCPCRTOY00000002', 'ORCPCRTOY000000020820', 'normal', 'damaged',
-                                 'B2BZ01SR01-001', 'B2BZ01SR01-002', '100'])
+                writer.writerow(['Warehouse ID', 'SKU', 'Batch ID ', 'Initial Bin ID',
+                                 'Final Bin ID', 'Initial Type', 'Final Type', 'Quantity'])
+                writer.writerow(['1393', 'ORCPCRTOY00000002', 'ORCPCRTOY000000020820', 'B2BZ01SR01-001', 'B2BZ01SR01-002',
+                                 'normal', 'damaged', '100'])
             elif request.GET['inventory_movement_type'] == '3':
                 filename = 'stock_correction' + ".csv"
                 f = StringIO()
                 writer = csv.writer(f)
                 # header of csv file
-                writer.writerow(['Warehouse ID', 'SKU', 'Bin ID', 'Batch ID', 'Expiry Date(MM-YYYY)', 'In/Out',
-                                 'Quantity'])
-                writer.writerow(['88', 'ORCPCRTOY00000002', 'B2BZ01SR01-001', 'ORCPCRTOY000000020820', '02-2020', 'In',
-                                 '100'])
+                writer.writerow(['Warehouse ID', 'SKU', 'Batch ID', 'Bin ID', 'In/Out', 'Quantity'])
+                writer.writerow(['1393', 'ORCPCRTOY00000002', 'ORCPCRTOY000000020820', 'B2BZ01SR01-001', 'In', '100'])
 
             elif request.GET['inventory_movement_type'] == '4':
                 filename = 'warehouse_inventory_change' + ".csv"
                 f = StringIO()
                 writer = csv.writer(f)
                 # header of csv file
-                writer.writerow(['Warehouse ID', 'SKU', 'Initial Stage', 'Final Stage', 'Quantity', 'Inventory Type'])
-                writer.writerow(['88', 'ORCPCRTOY00000002', 'available', 'reserved', '100', 'normal'])
+                writer.writerow(['Warehouse ID', 'SKU', 'Initial Stage', 'Final Stage', 'Inventory Type', 'Quantity'])
+                writer.writerow(['1393', 'ORCPCRTOY00000002', 'available', 'reserved', 'normal', '100'])
 
             f.seek(0)
             response = HttpResponse(f, content_type='text/csv')

@@ -3,8 +3,11 @@ import re
 import csv
 import codecs
 from django import forms
-from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload
+from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload,\
+    InventoryType, InventoryState
+from products.models import Product
 from shops.models import Shop
+from gram_to_brand.models import GRNOrderProductMapping
 from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ValidationError
 # Logger
@@ -158,7 +161,230 @@ class StockMovementCsvViewForm(forms.Form):
 
         :return: Form is valid otherwise validation error message
         """
-
         # Validate to check the file format, It should be csv file.
         if not self.cleaned_data['file'].name[-4:] in ('.csv'):
             raise forms.ValidationError("Sorry! Only csv file accepted.")
+
+        if self.data['inventory_movement_type'] == '2' and self.cleaned_data['file'].name == 'bin_stock_movement.csv':
+            data = validation_bin_stock_movement(self)
+
+        elif self.data['inventory_movement_type'] == '3' and self.cleaned_data['file'].name == 'stock_correction.csv':
+            data = validation_stock_correction(self)
+
+        elif self.data['inventory_movement_type'] == '4' and self.cleaned_data['file'].name == 'warehouse_inventory_change.csv':
+            data = validation_warehouse_inventory(self)
+        else:
+            raise forms.ValidationError("Inventory movement type and file name is not correct, Please re-verify it at"
+                                        " your end .")
+
+        return data
+
+
+def validation_bin_stock_movement(self):
+    reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+    first_row = next(reader)
+    # list which contains csv data and pass into the view file
+    form_data_list = []
+    for row_id, row in enumerate(reader):
+
+        # validation for shop id, it should be numeric.
+        if not row[0] or not re.match("^[\d]*$", row[0]):
+            raise ValidationError(_('Invalid Warehouse id at Row number [%(value)s]. It should be numeric.'),
+                                  params={'value': row_id + 1}, )
+
+        # validation for shop id to check that is exist or not in the database
+        if not Shop.objects.filter(pk=row[0]).exists():
+            raise ValidationError(_('Invalid Warehouse id at Row number [%(value)s].'
+                                    'Warehouse Id does not exists in the system.Please re-verify at your end.'),
+                                  params={'value': row_id + 1},)
+
+        if not row[1]:
+            raise ValidationError(_('Product SKU can not be blank at Row number [%(value)s].'),
+                                  params={'value': row_id + 1},)
+
+        if not Product.objects.filter(product_sku=row[1]).exists():
+            raise ValidationError(_('Invalid Product SKU at Row number [%(value)s].'
+                                    'Product SKU does not exists in the system.Please re-verify at your end.'),
+                                  params={'value': row_id + 1},)
+
+        if not row[2]:
+            raise ValidationError(_('Batch Id can not be blank at Row number [%(value)s].'),
+                                  params={'value': row_id + 1},)
+
+        if not GRNOrderProductMapping.objects.filter(batch_id=row[2]).exists():
+            raise ValidationError(_('Invalid Batch Id at Row number [%(value)s].'
+                                    'Batch Id does not exists in the system.Please re-verify at your end.'),
+                                  params={'value': row_id + 1},)
+
+        if not row[3]:
+            raise ValidationError(_('Initial Bin Id can not be blank at Row number [%(value)s].'),
+                                  params={'value': row_id + 1},)
+
+        if not Bin.objects.filter(bin_id=row[3]).exists():
+            raise ValidationError(_('Invalid Initial Bin Id at Row number [%(value)s]. '
+                                    'Initial Bin Id does not exists in the system.Please re-verify at your end.'),
+                                  params={'value': row_id + 1},)
+
+        if not row[4]:
+            raise ValidationError(_('Final Bin Id can not be blank at Row number [%(value)s].'),
+                                  params={'value': row_id + 1},)
+
+        if not Bin.objects.filter(bin_id=row[4]).exists():
+            raise ValidationError(_('Invalid Final Bin Id at Row number [%(value)s]. '
+                                    'Final Bin Id does not exists in the system.Please re-verify at your end.'),
+                                  params={'value': row_id + 1},)
+
+        if not row[5]:
+            raise ValidationError(_('Initial Type can not be blank at Row number [%(value)s].'),
+                                  params={'value': row_id + 1},)
+
+        if not row[5] in ['normal', 'expired', 'damaged', 'discarded', 'disposed']:
+            raise ValidationError(_('Invalid Initial Type at Row number [%(value)s].'
+                                    'Initial Type does not exists in the system.Please re-verify at your end.'),
+                                  params={'value': row_id + 1},)
+
+        if not row[6]:
+            raise ValidationError(_('Final Type can not be blank at Row number [%(value)s].'),
+                                  params={'value': row_id + 1}, )
+
+        if not row[6] in ['normal', 'expired', 'damaged', 'discarded', 'disposed']:
+            raise ValidationError(_('Invalid Final Type at Row number [%(value)s]. '
+                                    'Final Type does not exists in the system.Please re-verify at your end.'),
+                                  params={'value': row_id + 1}, )
+
+        if not row[7] or not re.match("^[\d]*$", row[7]):
+            raise ValidationError(_('Invalid Quantity at Row number [%(value)s]. It should be numeric.'),
+                                  params={'value': row_id + 1}, )
+
+        if not BinInventory.objects.filter(warehouse=row[0], sku=row[1], batch_id=row[2],
+                                           inventory_type__inventory_type=row[5]).exists():
+            raise ValidationError(_('Data is not valid for [%(value)s]. '
+                                    'Initial Inventory type [%(initial_inventory_type)s] is not exist for'
+                                    ' [%(warehouse)s],'' [%(sku)s],'' [%(batch_id)s].'),
+                                  params={'value': row_id + 1, 'warehouse': row[0], 'sku': row[1],
+                                          'batch_id': row[2], 'initial_inventory_type': row[5]},)
+        form_data_list.append(row)
+
+    return form_data_list
+
+
+def validation_stock_correction(self):
+    reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+    first_row = next(reader)
+    # list which contains csv data and pass into the view file
+    form_data_list = []
+    for row_id, row in enumerate(reader):
+        # validation for shop id, it should be numeric.
+        if not row[0] or not re.match("^[\d]*$", row[0]):
+            raise ValidationError(_('Invalid Warehouse id at Row number [%(value)s]. It should be numeric.'),
+                                  params={'value': row_id + 1}, )
+
+        # validation for shop id to check that is exist or not in the database
+        if not Shop.objects.filter(pk=row[0]).exists():
+            raise ValidationError(_('Invalid Warehouse id at Row number [%(value)s].'
+                                    'Warehouse Id does not exists in the system.Please re-verify at your end.'),
+                                  params={'value': row_id + 1}, )
+
+        if not row[1]:
+            raise ValidationError(_('Product SKU can not be blank at Row number [%(value)s].'),
+                                  params={'value': row_id + 1}, )
+
+        if not Product.objects.filter(product_sku=row[1]).exists():
+            raise ValidationError(_('Invalid Product SKU at Row number [%(value)s].'
+                                    'Product SKU does not exists in the system.Please re-verify at your end.'),
+                                  params={'value': row_id + 1}, )
+
+        if not row[2]:
+            raise ValidationError(_('Batch Id can not be blank at Row number [%(value)s].'),
+                                  params={'value': row_id + 1}, )
+
+        if not GRNOrderProductMapping.objects.filter(batch_id=row[2]).exists():
+            raise ValidationError(_('Invalid Batch Id at Row number [%(value)s].'
+                                    'Batch Id does not exists in the system.Please re-verify at your end.'),
+                                  params={'value': row_id + 1}, )
+
+        if not row[3]:
+            raise ValidationError(_('Initial Bin Id can not be blank at Row number [%(value)s].'),
+                                  params={'value': row_id + 1}, )
+
+        if not Bin.objects.filter(bin_id=row[3]).exists():
+            raise ValidationError(_('Invalid Initial Bin Id at Row number [%(value)s]. '
+                                    'Initial Bin Id does not exists in the system.Please re-verify at your end.'),
+                                  params={'value': row_id + 1}, )
+
+        if not row[4]:
+            raise ValidationError(_('In/Out can not be blank at Row number [%(value)s].'),
+                                  params={'value': row_id + 1},)
+
+        if not row[4] in ['In', 'Out']:
+            raise ValidationError(_('Invalid options for In/Out at Row number [%(value)s].'
+                                    'It should be either In or Out. Please re-verify at your end.'),
+                                  params={'value': row_id + 1},)
+
+        if not row[5] or not re.match("^[\d]*$", row[5]):
+            raise ValidationError(_('Invalid Quantity at Row number [%(value)s]. It should be numeric.'),
+                                  params={'value': row_id + 1}, )
+        form_data_list.append(row)
+    return form_data_list
+
+
+def validation_warehouse_inventory(self):
+    reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+    first_row = next(reader)
+    # list which contains csv data and pass into the view file
+    form_data_list = []
+    for row_id, row in enumerate(reader):
+
+        # validation for shop id, it should be numeric.
+        if not row[0] or not re.match("^[\d]*$", row[0]):
+            raise ValidationError(_('Invalid Warehouse id at Row number [%(value)s]. It should be numeric.'),
+                                  params={'value': row_id + 1}, )
+
+        # validation for shop id to check that is exist or not in the database
+        if not Shop.objects.filter(pk=row[0]).exists():
+            raise ValidationError(_('Invalid Warehouse id at Row number [%(value)s].'
+                                    'Warehouse Id does not exists in the system.Please re-verify at your end.'),
+                                  params={'value': row_id + 1}, )
+
+        if not row[1]:
+            raise ValidationError(_('Product SKU can not be blank at Row number [%(value)s].'),
+                                  params={'value': row_id + 1}, )
+
+        if not Product.objects.filter(product_sku=row[1]).exists():
+            raise ValidationError(_('Invalid Product SKU at Row number [%(value)s].'
+                                    'Product SKU does not exists in the system.Please re-verify at your end.'),
+                                  params={'value': row_id + 1}, )
+
+        if not row[2]:
+            raise ValidationError(_('Initial State can not be blank at Row number [%(value)s].'),
+                                  params={'value': row_id + 1}, )
+
+        if not row[2] in ['available', 'reserved', 'shipped']:
+            raise ValidationError(_('Invalid Initial State at Row number [%(value)s]. '
+                                    'Initial State does not exists in the system.Please re-verify at your end.'),
+                                  params={'value': row_id + 1}, )
+
+        if not row[3]:
+            raise ValidationError(_('Final State can not be blank at Row number [%(value)s].'),
+                                  params={'value': row_id + 1}, )
+
+        if not row[3] in ['available', 'reserved', 'shipped']:
+            raise ValidationError(_('Invalid Final State at Row number [%(value)s].'
+                                    'Final State does not exists in the system.Please re-verify at your end.'),
+                                  params={'value': row_id + 1}, )
+
+        if not row[4]:
+            raise ValidationError(_('Inventory Type can not be blank at Row number [%(value)s].'),
+                                  params={'value': row_id + 1},)
+
+        if not row[4] in ['normal', 'expired', 'damaged', 'discarded', 'disposed']:
+            raise ValidationError(_('Invalid Inventory Type at Row number [%(value)s].'
+                                    'Inventory Type does not exists in the system.Please re-verify at your end.'),
+                                  params={'value': row_id + 1},)
+
+        if not row[5] or not re.match("^[\d]*$", row[5]):
+            raise ValidationError(_('Invalid Quantity at Row number [%(value)s]. It should be numeric.'),
+                                  params={'value': row_id + 1}, )
+
+        form_data_list.append(row)
+    return form_data_list

@@ -44,6 +44,9 @@ class InventoryState(models.Model):
     # id = models.AutoField(primary_key=True)
     inventory_state = models.CharField(max_length=20, choices=INVENTORY_STATE_CHOICES,null=True, blank=True)
 
+    def __str__(self):
+        return self.inventory_state
+
     class Meta:
         db_table = "wms_inventory_state"
 
@@ -93,7 +96,7 @@ class BinInventory(models.Model):
         db_table = "wms_bin_inventory"
 
 
-class InternalInventoryChange(models.Model):
+class BinInventoryChange(models.Model):
     # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
@@ -242,3 +245,21 @@ class StockMovementCSVUpload(models.Model):
 
     class Meta:
         db_table = "wms_stock_movement_csv_upload"
+
+
+class WarehouseInventoryChange(models.Model):
+    warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
+    sku = models.ForeignKey(Product, null=True, blank=True, on_delete=models.DO_NOTHING)
+    transaction_type = models.CharField(max_length=25, null=True, blank=True)
+    transaction_id = models.CharField(max_length=25, null=True, blank=True)
+    initial_stage = models.CharField(max_length=25, null=True, blank=True)
+    final_stage = models.CharField(max_length=25, null=True, blank=True)
+    quantity = models.PositiveIntegerField(null=True, blank=True, default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.transaction_id
+
+    class Meta:
+        db_table = "wms_stock_warehouse_inventory_change"
