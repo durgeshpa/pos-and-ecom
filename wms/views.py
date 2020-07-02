@@ -17,13 +17,15 @@ from rest_framework.permissions import AllowAny
 from django.http import JsonResponse
 
 # app imports
-from .models import Bin
+from .models import Bin, InventoryType
 from shops.models import Shop
+from products.models import Product
 
 # third party imports
 from wkhtmltopdf.views import PDFTemplateResponse
 from .forms import BulkBinUpdation, BinForm, StockMovementCsvViewForm
 from .models import Pickup, BinInventory, Putaway
+from .common_functions import InternalInventoryChange, CommonBinInventoryFunctions
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -381,21 +383,81 @@ class StockMovementCsvView(FormView):
             # to verify the form
             try:
                 if form.is_valid():
-                    result = {'message': 'CSV uploaded successfully.'}
-                    status = '200'
+                    upload_data = form.cleaned_data['file']
+                    try:
+                        for data in upload_data:
+                            try:
+                                if request.POST['inventory_movement_type'] == '2':
+                                    bin_stock_movement_data(data)
+                                elif request.POST['inventory_movement_type'] == '3':
+                                    bin_stock_movement_data(data)
+                                else:
+                                    bin_stock_movement_data(data)
+                            except Exception as e:
+                                error_logger.exception(e)
+                                result = {'message': 'Something went wrong! Please verify the data.'}
+                                status = '400'
+                                return JsonResponse(result, status)
+                        result = {'message': 'CSV uploaded successfully.'}
+                        status = '200'
+                    except Exception as e:
+                        error_logger.exception(e)
+                        result = {'message': 'Something went wrong! Please verify the data.'}
+                        status = '400'
+                        return JsonResponse(result, status)
                 # return validation error message while uploading csv file
                 else:
                     result = {'message': form.errors['file'][0]}
                     status = '400'
-
                 return JsonResponse(result, status=status)
             # exception block
             except Exception as e:
                 error_logger.exception(e)
-                result = {'message': "Issue in file"}
+                result = {'message': 'Something went wrong! Please verify the data.'}
                 status = '400'
                 return JsonResponse(result, status)
         else:
-            result = {'message': "This method is not allowed"}
+            result = {'message': "This method is not allowed."}
             status = '400'
         return JsonResponse(result, status)
+
+
+def bin_stock_movement_data(data):
+    try:
+        with transaction.atomic():
+            # condition to get the queryset for Initial Bin ID
+            initial_inventory_object = CommonBinInventoryFunctions.filter_bin_inventory(data[0], data[1], data[2],
+                                                                                        Bin.objects.get(bin_id=data[3]),
+                                                                                        data[5])
+            initial_quantity = initial_inventory_object[0].quantity
+
+            # get the quantity of Initial bin
+            quantity = initial_quantity - int(data[7])
+
+            # update the quantity of Initial Bin ID
+            CommonBinInventoryFunctions.update_or_create_bin_inventory(
+                data[0], Bin.objects.get(bin_id=data[3]), Product.objects.get(product_sku=data[1]),
+                data[2], InventoryType.objects.get(inventory_type=data[5]), quantity, True)
+
+            # condition to get the queryset for Final Bin ID
+            final_inventory_object = CommonBinInventoryFunctions.filter_bin_inventory(data[0], data[1], data[2],
+                                                                                      Bin.objects.get(bin_id=data[4]),
+                                                                                      data[6])
+            if not final_inventory_object:
+                final_quantity = int(data[7])
+            else:
+                final_quantity = final_inventory_object[0].quantity + int(data[7])
+
+            # update the quantity of Final Bin ID
+            CommonBinInventoryFunctions.update_or_create_bin_inventory(
+                Shop.objects.get(id=data[0]), Bin.objects.get(bin_id=data[4]),
+                Product.objects.get(product_sku=data[1]), data[2],
+                InventoryType.objects.get(inventory_type=data[6]), final_quantity, True)
+
+            # Create data in Internal Inventory Change Model
+            InternalInventoryChange.create_bin_internal_inventory_change(data[0], data[1], data[2],
+                                                                         data[3], data[4], data[5],
+                                                                         data[6], data[7])
+    except Exception as e:
+        error_logger.error(e)
+    return

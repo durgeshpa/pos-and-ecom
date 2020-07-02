@@ -1,5 +1,7 @@
+import logging
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
-                     InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory)
+                     InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
+                     BinInternalInventoryChange)
 
 # from gram_to_brand.models import GRNOrderProductMapping
 from shops.models import Shop
@@ -13,6 +15,11 @@ import json
 from celery.task import task
 from datetime import datetime, timedelta
 
+
+# Logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 
 class PutawayCommonFunctions(object):
 
@@ -57,7 +64,18 @@ class CommonBinInventoryFunctions(object):
     @classmethod
     def update_or_create_bin_inventory(cls, warehouse, bin, sku, batch_id, inventory_type, quantity, in_stock):
         BinInventory.objects.update_or_create(warehouse=warehouse, bin=bin, sku=sku, batch_id=batch_id,
-                                      defaults={'inventory_type':inventory_type,'quantity':quantity, 'in_stock':in_stock})
+                                              inventory_type=inventory_type,
+                                              defaults={'quantity':quantity, 'in_stock':in_stock})
+
+    @classmethod
+    def create_bin_inventory(cls, warehouse, bin, sku, batch_id, inventory_type, quantity, in_stock):
+        BinInventory.objects.get_or_create(warehouse=warehouse, bin=bin, sku=sku, batch_id=batch_id,
+                                    inventory_type=inventory_type, quantity=quantity, in_stock=in_stock)
+
+    @classmethod
+    def filter_bin_inventory(cls, warehouse, sku, batch_id, bin_obj, inventory_type):
+        return BinInventory.objects.filter(warehouse=warehouse, sku=sku, batch_id=batch_id, bin=bin_obj,
+                                           inventory_type__inventory_type=inventory_type)
 
 
 def stock_decorator(wid, skuid):
@@ -179,9 +197,19 @@ class OrderManagement(object):
                                                         quantity=reserved_qty)
 
 
-
-
-
-
-
-
+class InternalInventoryChange(object):
+    @classmethod
+    def create_bin_internal_inventory_change(cls, shop_id, sku, batch_id, bin_id, final_bin_id, initial_type,
+                                             final_type, quantity):
+        try:
+            BinInternalInventoryChange.objects.create(warehouse_id=shop_id, sku=Product.objects.get(product_sku=sku),
+                                                      batch_id=batch_id,
+                                                      initial_bin=Bin.objects.get(bin_id=bin_id),
+                                                      final_bin=Bin.objects.get(bin_id=final_bin_id),
+                                                      initial_inventory_type=InventoryType.objects.get(
+                                                          inventory_type=initial_type),
+                                                      final_inventory_type=InventoryType.objects.get(
+                                                          inventory_type=final_type),
+                                                      quantity=quantity)
+        except Exception as e:
+            error_logger.error(e)

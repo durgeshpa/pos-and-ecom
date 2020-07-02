@@ -263,6 +263,15 @@ def validation_bin_stock_movement(self):
                                     ' [%(warehouse)s],'' [%(sku)s],'' [%(batch_id)s].'),
                                   params={'value': row_id + 1, 'warehouse': row[0], 'sku': row[1],
                                           'batch_id': row[2], 'initial_inventory_type': row[5]},)
+        else:
+            bin_inventory = BinInventory.objects.filter(warehouse=row[0], sku=row[1], batch_id=row[2],
+                                                        inventory_type__inventory_type=row[5])
+            quantity = bin_inventory[0].quantity
+            if quantity < int(row[7]):
+                raise ValidationError(_('Quantity is greater than Available Quantity [%(value)s].'
+                                        ' It should be less then Available Quantity.'),
+                                      params={'value': row_id + 1}, )
+
         form_data_list.append(row)
 
     return form_data_list
