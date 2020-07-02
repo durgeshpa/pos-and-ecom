@@ -158,7 +158,7 @@ class Putaway(models.Model):
     sku = models.ForeignKey(Product,to_field='product_sku', on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=21, null=True, blank=True)
     quantity = models.PositiveIntegerField()
-    putaway_quantity = models.PositiveIntegerField(null=True, blank=True)
+    putaway_quantity = models.PositiveIntegerField(null=True, blank=True, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 

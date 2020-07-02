@@ -1,7 +1,7 @@
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory)
 
-from gram_to_brand.models import GRNOrderProductMapping
+# from gram_to_brand.models import GRNOrderProductMapping
 from shops.models import Shop
 from products.models import Product
 from retailer_to_sp.models import Cart, Order, OrderedProduct
@@ -12,6 +12,52 @@ import functools
 import json
 from celery.task import task
 from datetime import datetime, timedelta
+
+
+class PutawayCommonFunctions(object):
+
+    @classmethod
+    def create_putaway(cls, warehouse, putaway_type, putaway_type_id, sku, batch_id, quantity, putaway_quantity):
+        if warehouse.shop_type.shop_type=='sp':
+            Putaway.objects.create(warehouse=warehouse, putaway_type=putaway_type, putaway_type_id=putaway_type_id, sku=sku,
+                                   batch_id=batch_id, quantity=quantity, putaway_quantity=putaway_quantity)
+
+    @classmethod
+    def get_filtered_putaways(cls, **kwargs):
+        putaway_data = Putaway.objects.filter(**kwargs)
+        return putaway_data
+
+    @classmethod
+    def get_available_qty_for_batch(cls, warehouse_id, sku_id, batch_id):
+        batches = Putaway.objects.filter(Q(warehouse__id=warehouse_id),
+                                              Q(sku__id=sku_id),
+                                              Q(batch_id=batch_id))
+        if batches.exists():
+            return batches.aggregate(total=Sum('putaway_quantity')).get('total')
+        else:
+            return 0
+
+
+class InCommonFunctions(object):
+
+    @classmethod
+    def create_In(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity):
+        if warehouse.shop_type.shop_type == 'sp':
+            In.objects.create(warehouse=warehouse, in_type=in_type, in_type_id=in_type_id,
+                                   sku=sku,batch_id=batch_id, quantity=quantity)
+
+    @classmethod
+    def get_filtered_in(cls, **kwargs):
+        in_data = In.objects.filter(**kwargs)
+        return in_data
+
+
+class CommonBinInventoryFunctions(object):
+
+    @classmethod
+    def update_or_create_bin_inventory(cls, warehouse, bin, sku, batch_id, inventory_type, quantity, in_stock):
+        BinInventory.objects.update_or_create(warehouse=warehouse, bin=bin, sku=sku, batch_id=batch_id,
+                                      defaults={'inventory_type':inventory_type,'quantity':quantity, 'in_stock':in_stock})
 
 
 def stock_decorator(wid, skuid):
