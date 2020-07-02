@@ -86,7 +86,7 @@ class BinInventory(models.Model):
     sku = models.ForeignKey(Product, to_field='product_sku',related_name='rt_product_sku', on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=21, null=True, blank=True)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
-    inventory_state = models.ForeignKey(InventoryState, null=True, blank=True, on_delete=models.DO_NOTHING)
+    # inventory_state = models.ForeignKey(InventoryState, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField(null=True, blank=True)
     in_stock = models.BooleanField()
     created_at = models.DateTimeField(auto_now_add=True)
@@ -96,7 +96,7 @@ class BinInventory(models.Model):
         db_table = "wms_bin_inventory"
 
 
-class BinInventoryChange(models.Model):
+class BinInternalInventoryChange(models.Model):
     # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
@@ -110,7 +110,7 @@ class BinInventoryChange(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = "wms_internal_inventory_change"
+        db_table = "wms_bin_internal_inventory_change"
 
 
 class WarehouseInventory(models.Model):
@@ -247,7 +247,7 @@ class StockMovementCSVUpload(models.Model):
         db_table = "wms_stock_movement_csv_upload"
 
 
-class WarehouseInventoryChange(models.Model):
+class WarehouseInternalInventoryChange(models.Model):
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, null=True, blank=True, on_delete=models.DO_NOTHING)
     transaction_type = models.CharField(max_length=25, null=True, blank=True)
@@ -262,4 +262,4 @@ class WarehouseInventoryChange(models.Model):
         return self.transaction_id
 
     class Meta:
-        db_table = "wms_stock_warehouse_inventory_change"
+        db_table = "wms_warehouse_internal_inventory_change"
