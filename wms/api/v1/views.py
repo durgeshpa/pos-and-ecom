@@ -11,7 +11,8 @@ from rest_framework import permissions, authentication
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q, Sum
 import datetime
-from wms.common_functions import CommonBinInventoryFunctions, PutawayCommonFunctions
+from wms.common_functions import (CommonBinInventoryFunctions, PutawayCommonFunctions, CommonBinFunctions, CommonWarehouseInventoryFunctions as CWIF,
+CommonBinInventoryFunctions as CBIF)
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -37,16 +38,16 @@ class BinViewSet(APIView):
 
         if ids:
             try:
-                bins = Bin.objects.get(id=ids)
+                bins = CommonBinFunctions.get_filtered_bins(id=ids)
             except ObjectDoesNotExist as e:
                 error_logger.error(e.message)
                 msg = {'is_success': False, 'message': "Bin id doesn't exist.", 'data': None}
                 return Response(msg, status=status.HTTP_200_OK)
             else:
-                serializer = BinSerializer(bins)
+                serializer = BinSerializer(bins, many=True)
                 return Response({"data": serializer.data, "message": "OK"}, status=status.HTTP_200_OK)
         else:
-            bins = Bin.objects.all()
+            bins = CommonBinFunctions.get_filtered_bins()
             serializer = BinSerializer(bins, many=True)
             return Response({"data": serializer.data, "message": "OK"}, status=status.HTTP_200_OK)
 
@@ -66,7 +67,7 @@ class BinViewSet(APIView):
             return Response(msg, status=status.HTTP_204_NO_CONTENT)
         sh = Shop.objects.filter(id=int(warehouse)).last()
         if sh.shop_type.shop_type == 'sp':
-            bin_data = Bin.objects.create(warehouse=sh, bin_id=bin_id, bin_type=bin_type, is_active=is_active)
+            bin_data = CommonBinFunctions.create_bin(sh, bin_id, bin_type,is_active)
             serializer = (BinSerializer(bin_data))
             msg = {'is_success': True, 'message': 'Bin data added successfully.', 'data': serializer.data}
             return Response(msg, status=status.HTTP_201_CREATED)
@@ -83,16 +84,16 @@ class PutAwayViewSet(APIView):
         batch_id = request.GET.get('batch_id')
 
         if batch_id:
-            put_away = Putaway.objects.filter(batch_id=batch_id)
+            put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id)
             if put_away.exists():
-                serializer = PutAwaySerializer(put_away.last(), fields=('is_success', 'product_sku', 'batch_id', 'quantity', 'putaway_quantity'))
+                serializer = PutAwaySerializer(put_away, many=True, fields=('is_success', 'product_sku', 'batch_id', 'quantity', 'putaway_quantity'))
                 msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
             else:
                 msg = {'is_success': False, 'message': 'Batch id does not exist.', 'data': None}
                 return Response(msg, status=status.HTTP_200_OK)
         else:
-            put_away = Putaway.objects.all()
+            put_away = PutawayCommonFunctions.get_filtered_putaways()
             serializer = PutAwaySerializer(put_away, many=True, fields=('is_success', 'product_sku', 'batch_id', 'quantity', 'putaway_quantity'))
             msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
             return Response(msg, status=status.HTTP_200_OK)
@@ -106,7 +107,7 @@ class PutAwayViewSet(APIView):
         if not bin_id:
             return Response(msg, status=status.HTTP_200_OK)
         try:
-            warehouse = Bin.objects.filter(bin_id=bin_id).last().warehouse.id
+            warehouse = CommonBinFunctions.get_filtered_bins(bin_id=bin_id).last().warehouse.id
         except Exception as e:
             error_logger.error(e.message)
             return Response({'is_success': False,
@@ -134,7 +135,7 @@ class PutAwayViewSet(APIView):
         diction = {i[0]: i[1] for i in zip(batch_id, put_away_quantity)}
         for i, value in diction.items():
             key+=1
-            put_away = Putaway.objects.filter(batch_id=i, warehouse=warehouse).order_by('created_at')
+            put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=i, warehouse=warehouse).order_by('created_at')
             ids = [i.id for i in put_away]
             updated_putaway_value = put_away.aggregate(total=Sum('putaway_quantity'))['total'] if put_away.aggregate(total=Sum('putaway_quantity'))['total'] else 0
             try:
@@ -160,7 +161,7 @@ class PutAwayViewSet(APIView):
             bin_skus = PutawayBinInventory.objects.values_list('putaway__sku__product_sku', flat=True)
             sh = Shop.objects.filter(id=int(warehouse)).last()
             if sh.shop_type.shop_type == 'sp':
-                bin_inventory = BinInventory.objects.filter(bin__bin_id=bin_id)
+                bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(bin__bin_id=bin_id)
                 if bin_inventory.exists():
                     if i in bin_inventory.values_list('batch_id', flat=True):
                         while len(ids):
@@ -169,13 +170,8 @@ class PutAwayViewSet(APIView):
                             ids.remove(ids[0])
                         bin_inv = CommonBinInventoryFunctions.update_or_create_bin_inventory(sh, Bin.objects.filter(bin_id=bin_id).last(),put_away.last().sku,i,InventoryType.objects.filter(inventory_type=inventory_type).last(),
                                                                                              PutawayCommonFunctions.get_available_qty_for_batch(sh.id, put_away.last().sku.id, i), 't')
-                        # bin_inv = BinInventory.objects.create(warehouse=sh, sku=put_away.last().sku,bin=Bin.objects.filter(bin_id=bin_id).last(), batch_id=i,
-                        #                                       inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(), quantity=value, in_stock='t')
                         PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),bin=bin_inv,putaway_quantity=value)
-                        # while len(ids):
-                        #     put_away_done = update_putaway(ids[0], i, warehouse, int(value))
-                        #     value = put_away_done
-                        #     ids.remove(ids[0])
+                        CWIF.create_warehouse_inventory(sh, put_away.last().sku, 'available','normal', BinInventory.available_qty(sh.id, put_away.last().sku.id),'t')
                     else:
                         if i[:17] in bin_inventory.values_list('sku__product_sku', flat=True):
                             msg ={'is_success':False,'message':'This product with sku {} and batch_id {} can not be placed in the bin'.format(i[:17], i),'batch_id':i}
@@ -187,14 +183,9 @@ class PutAwayViewSet(APIView):
                                 update_putaway(ids[0], i, warehouse, int(value))
                                 ids.remove(ids[0])
                             bin_inv = CommonBinInventoryFunctions.update_or_create_bin_inventory(sh, Bin.objects.filter(bin_id=bin_id).last(),put_away.last().sku,i, InventoryType.objects.filter(inventory_type=inventory_type).last(), PutawayCommonFunctions.get_available_qty_for_batch(sh.id, put_away.last().sku.id, i), 't')
-                            # bin_inv = BinInventory.objects.create(warehouse=sh, sku=put_away.last().sku,
-                            #                                       bin=Bin.objects.filter(bin_id=bin_id).last(),
-                            #                                       batch_id=i,inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(), quantity=value, in_stock='t')
                             PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(), bin=bin_inv,
                                                                putaway_quantity=value)
-                            # while len(ids):
-                            #     update_putaway(ids[0], i, warehouse, int(value))
-                            #     ids.remove(ids[0])
+                            CWIF.create_warehouse_inventory(sh, put_away.last().sku, 'available','normal', BinInventory.available_qty(sh.id, put_away.last().sku.id),'t')
                 else:
                     while len(ids):
                         update_putaway(ids[0], i, warehouse, int(value))
@@ -204,12 +195,9 @@ class PutAwayViewSet(APIView):
                                                                                          InventoryType.objects.filter(
                                                                                              inventory_type=inventory_type).last(),
                                                                                          PutawayCommonFunctions.get_available_qty_for_batch(sh.id, put_away.last().sku.id, i), 't')
-                    # bin_inv = BinInventory.objects.create(warehouse=sh, sku=put_away.last().sku, bin=Bin.objects.filter(bin_id=bin_id).last(),batch_id=i, inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(), quantity=value, in_stock='t')
                     PutawayBinInventory.objects.create(warehouse=sh,putaway=put_away.last(), bin=bin_inv,
                                                        putaway_quantity=value)
-                    # while len(ids):
-                    #     update_putaway(ids[0], i, warehouse, int(value))
-                    #     ids.remove(ids[0])
+                    CWIF.create_warehouse_inventory(sh, put_away.last().sku, 'available','normal', BinInventory.available_qty(sh.id, put_away.last().sku.id),'t')
 
             serializer = (PutAwaySerializer(Putaway.objects.filter(batch_id=i, warehouse=warehouse).last(), fields=('is_success', 'product_sku', 'batch_id', 'quantity', 'putaway_quantity')))
             msg = serializer.data

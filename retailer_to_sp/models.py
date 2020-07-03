@@ -34,7 +34,7 @@ from wms.models import Out, Pickup
 from brand.models import Brand
 from otp.sms import SendSms
 from products.models import Product, ProductPrice
-
+from wms.common_functions import CommonPickupFunctions
 from shops.models import Shop, ShopNameDisplay
 
 from .utils import (order_invoices, order_shipment_amount,
@@ -2391,10 +2391,11 @@ def update_wms_out_table(sender, instance=None, created=False, **kwargs):
     if instance.picking_status == 'picking_assigned':
         sh = Shop.objects.filter(id=instance.order.seller_shop_id).last()
         for i in instance.order.ordered_cart.rt_cart_list.all():
-            Pickup.objects.create(
-                warehouse=sh,
-                pickup_type='Order',
-                pickup_type_id=instance.order.order_no,
-                sku=i.cart_product,
-                quantity=i.no_of_pieces
-            )
+            CommonPickupFunctions.create_pickup_entry(sh, 'Order', instance.order.order_no, i.cart_product, i.no_of_pieces)
+            # Pickup.objects.create(
+            #     warehouse=sh,
+            #     pickup_type='Order',
+            #     pickup_type_id=instance.order.order_no,
+            #     sku=i.cart_product,
+            #     quantity=i.no_of_pieces
+            # )

@@ -15,9 +15,15 @@ from django.db import transaction
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from django.http import JsonResponse
+from .common_functions import PutawayCommonFunctions, CommonBinInventoryFunctions, get_product_stock
+from sp_to_gram.tasks import update_shop_product_es
+from django.db.models.signals import post_save, pre_save
+from django.db.models import Sum
+from django.dispatch import receiver
+from django.db import transaction
 
 # app imports
-from .models import Bin
+from .models import Bin, WarehouseInventory
 from shops.models import Shop
 
 # third party imports
@@ -39,7 +45,7 @@ def update_bin_inventory(id, quantity=0):
     """
     info_logger.info(quantity, "Bin Inventory quantity update function has been started.")
     try:
-        BinInventory.objects.filter(id=id).update(quantity=quantity)
+        CommonBinInventoryFunctions.get_filtered_bin_inventory(id=id).update(quantity=quantity)
     except Exception as e:
         error_logger.error(e.message)
     info_logger.info(quantity, "Bin Inventory quantity updated successfully.")
@@ -71,7 +77,7 @@ def update_putaway(id, batch_id, warehouse, put_quantity):
     """
     try:
         info_logger.info("Put away quantity update function has started.")
-        pu = Putaway.objects.filter(id=id, batch_id=batch_id, warehouse=warehouse)
+        pu = PutawayCommonFunctions.get_filtered_putaways(id=id, batch_id=batch_id, warehouse=warehouse)
         put_away_new = put_quantity if pu.last().quantity >= put_quantity else put_quantity -(put_quantity - pu.last().quantity)
         updated_putaway=pu.last().putaway_quantity
         if updated_putaway==pu.last().quantity:
@@ -399,3 +405,26 @@ class StockMovementCsvView(FormView):
             result = {'message': "This method is not allowed"}
             status = '400'
         return JsonResponse(result, status)
+
+
+def commit_updates_to_es(shop, product):
+    """
+    :param shop:
+    :param product:
+    :return:
+    """
+    status = True
+    db_available_products = get_product_stock(shop, product)
+    products_available = db_available_products.aggregate(Sum('quantity'))['quantity__sum']
+    try:
+        available_qty = int(int(products_available)/int(product.product_inner_case_size))
+    except Exception as e:
+        return False
+    if not available_qty:
+        status = False
+    update_shop_product_es.delay(shop.id, product.id, available=available_qty, status=status)
+
+
+@receiver(post_save, sender=WarehouseInventory)
+def update_elasticsearch(sender, instance=None, created=False, **kwargs):
+    transaction.on_commit(lambda: commit_updates_to_es(instance.warehouse, instance.sku))

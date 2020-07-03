@@ -8,8 +8,6 @@ import sys
 from django.core.exceptions import ValidationError
 from django.db.models import Sum, Q
 from django.contrib import messages
-from django.db.models.signals import post_save, pre_save
-from django.dispatch import receiver
 from datetime import datetime, timedelta
 from django.db.models import Sum
 from django.contrib.auth import get_user_model
@@ -278,14 +276,3 @@ class WarehouseInternalInventoryChange(models.Model):
         db_table = "wms_warehouse_internal_inventory_change"
 
 
-@receiver(post_save, sender=BinInventory)
-def create_warehouse_inventory(sender, instance=None, created=False, *args, **kwargs):
-
-    if created:
-        WarehouseInventory.objects.update_or_create(warehouse=instance.warehouse,sku=instance.sku,
-                                                    inventory_state=InventoryState.objects.filter(inventory_state='available').last(),
-                                                    defaults={
-                                                             'inventory_type':InventoryType.objects.filter(inventory_type='normal').last(),
-                                                             'inventory_state':InventoryState.objects.filter(inventory_state='available').last(),
-                                                             'quantity':BinInventory.available_qty(instance.warehouse.id, instance.sku.id),
-                                                             'in_stock':instance.in_stock})
