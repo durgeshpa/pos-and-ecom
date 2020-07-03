@@ -24,9 +24,9 @@ from products.models import Product
 # third party imports
 from wkhtmltopdf.views import PDFTemplateResponse
 from .forms import BulkBinUpdation, BinForm, StockMovementCsvViewForm
-from .models import Pickup, BinInventory, Putaway
+from .models import Pickup, BinInventory, Putaway, InventoryState
 from .common_functions import InternalInventoryChange, CommonBinInventoryFunctions, PutawayCommonFunctions, \
-    InCommonFunctions
+    InCommonFunctions, WareHouseCommonFunction, InternalWarehouseChange, StockMovementCSV, InternalStockCorrectionChange
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -386,19 +386,17 @@ class StockMovementCsvView(FormView):
                 if form.is_valid():
                     upload_data = form.cleaned_data['file']
                     try:
-                        for data in upload_data:
-                            try:
-                                if request.POST['inventory_movement_type'] == '2':
-                                    bin_stock_movement_data(data)
-                                elif request.POST['inventory_movement_type'] == '3':
-                                    stock_correction_data(data)
-                                else:
-                                    bin_stock_movement_data(data)
-                            except Exception as e:
-                                error_logger.exception(e)
-                                result = {'message': 'Something went wrong! Please verify the data.'}
-                                status = '400'
-                                return JsonResponse(result, status)
+                        # create date in Stock Movement Csv Upload Model
+                        stock_movement_obj = StockMovementCSV.create_stock_movement_csv(request.user,
+                                                                                        request.FILES['file'],
+                                                                                        request.POST[
+                                                                                            'inventory_movement_type'])
+                        if request.POST['inventory_movement_type'] == '2':
+                            bin_stock_movement_data(upload_data, stock_movement_obj)
+                        elif request.POST['inventory_movement_type'] == '3':
+                            stock_correction_data(upload_data, stock_movement_obj)
+                        else:
+                            warehouse_inventory_change_data(upload_data, stock_movement_obj)
                         result = {'message': 'CSV uploaded successfully.'}
                         status = '200'
                     except Exception as e:
@@ -423,61 +421,115 @@ class StockMovementCsvView(FormView):
         return JsonResponse(result, status)
 
 
-def bin_stock_movement_data(data):
+def bin_stock_movement_data(upload_data, stock_movement_obj):
     try:
         with transaction.atomic():
-            # condition to get the queryset for Initial Bin ID
-            initial_inventory_object = CommonBinInventoryFunctions.filter_bin_inventory(data[0], data[1], data[2],
-                                                                                        Bin.objects.get(bin_id=data[3]),
-                                                                                        data[5])
-            initial_quantity = initial_inventory_object[0].quantity
+            for data in upload_data:
+                # condition to get the queryset for Initial Bin ID
+                initial_inventory_object = CommonBinInventoryFunctions.filter_bin_inventory(data[0], data[1], data[2],
+                                                                                            Bin.objects.get(bin_id=data[3]),
+                                                                                            data[5])
+                initial_quantity = initial_inventory_object[0].quantity
 
-            # get the quantity of Initial bin
-            quantity = initial_quantity - int(data[7])
+                # get the quantity of Initial bin
+                quantity = initial_quantity - int(data[7])
 
-            # update the quantity of Initial Bin ID
-            CommonBinInventoryFunctions.update_or_create_bin_inventory(
-                data[0], Bin.objects.get(bin_id=data[3]), Product.objects.get(product_sku=data[1]),
-                data[2], InventoryType.objects.get(inventory_type=data[5]), quantity, True)
+                # update the quantity of Initial Bin ID
+                CommonBinInventoryFunctions.update_or_create_bin_inventory(
+                    data[0], Bin.objects.get(bin_id=data[3]), Product.objects.get(product_sku=data[1]),
+                    data[2], InventoryType.objects.get(inventory_type=data[5]), quantity, True)
 
-            # condition to get the queryset for Final Bin ID
-            final_inventory_object = CommonBinInventoryFunctions.filter_bin_inventory(data[0], data[1], data[2],
-                                                                                      Bin.objects.get(bin_id=data[4]),
-                                                                                      data[6])
-            if not final_inventory_object:
-                final_quantity = int(data[7])
-            else:
-                final_quantity = final_inventory_object[0].quantity + int(data[7])
+                # condition to get the queryset for Final Bin ID
+                final_inventory_object = CommonBinInventoryFunctions.filter_bin_inventory(data[0], data[1], data[2],
+                                                                                          Bin.objects.get(bin_id=data[4]),
+                                                                                          data[6])
+                if not final_inventory_object:
+                    final_quantity = int(data[7])
+                else:
+                    final_quantity = final_inventory_object[0].quantity + int(data[7])
 
-            # update the quantity of Final Bin ID
-            CommonBinInventoryFunctions.update_or_create_bin_inventory(
-                Shop.objects.get(id=data[0]), Bin.objects.get(bin_id=data[4]),
-                Product.objects.get(product_sku=data[1]), data[2],
-                InventoryType.objects.get(inventory_type=data[6]), final_quantity, True)
+                # update the quantity of Final Bin ID
+                CommonBinInventoryFunctions.update_or_create_bin_inventory(
+                    Shop.objects.get(id=data[0]), Bin.objects.get(bin_id=data[4]),
+                    Product.objects.get(product_sku=data[1]), data[2],
+                    InventoryType.objects.get(inventory_type=data[6]), final_quantity, True)
 
-            # Create data in Internal Inventory Change Model
-            InternalInventoryChange.create_bin_internal_inventory_change(data[0], data[1], data[2],
-                                                                         data[3], data[4], data[5],
-                                                                         data[6], data[7])
+                # create data in Internal Inventory Change Model
+                InternalInventoryChange.create_bin_internal_inventory_change(data[0], data[1], data[2],
+                                                                             data[3], data[4], data[5],
+                                                                             data[6], data[7], stock_movement_obj[0])
+            return
     except Exception as e:
         error_logger.error(e)
-    error_logger.error(e)
 
 
-def stock_correction_data(data):
+def stock_correction_data(upload_data, stock_movement_obj):
     try:
         with transaction.atomic():
-            stock_correction_type = 'stock_adjustment'
-            try:
-                stock_correction_id = 'stock_' + data[4] + data[0] + data[3][11:] + data[2][16:]
-            except Exception as e:
-                error_logger.error(e)
-                stock_correction_id = 'st_' + '00001'
-            PutawayCommonFunctions.create_putaway(Shop.objects.get(id=data[0]), stock_correction_type,
-                                                  stock_correction_id, Product.objects.get(product_sku=data[1]), data[2],
-                                                  data[5], 0)
-            InCommonFunctions.create_In(Shop.objects.get(id=data[0]), stock_correction_type, stock_correction_id,
-                                        Product.objects.get(product_sku=data[1]), data[2], data[5])
+            for data in upload_data:
+                stock_correction_type = 'stock_adjustment'
+                try:
+                    stock_correction_id = 'stock_' + data[4] + data[0] + data[3][11:] + data[2][16:]
+                except Exception as e:
+                    error_logger.error(e)
+                    stock_correction_id = 'stock_' + '00001'
+
+                InCommonFunctions.create_in(Shop.objects.get(id=data[0]), stock_correction_type,
+                                            stock_correction_id, Product.objects.get(product_sku=data[1]), data[2], data[5])
+
+                InternalStockCorrectionChange.create_stock_inventory_change(Shop.objects.get(id=data[0]),
+                                                                            Product.objects.get(product_sku=data[1]),
+                                                                            data[2], Bin.objects.get(bin_id=data[3]),
+                                                                            data[4], data[5], stock_movement_obj[0])
+            return
     except Exception as e:
         error_logger.error(e)
-    return
+
+
+def warehouse_inventory_change_data(upload_data, stock_movement_obj):
+    try:
+        with transaction.atomic():
+            for data in upload_data:
+                # condition to get the queryset for Initial Bin ID
+                initial_inventory_object = WareHouseCommonFunction.filter_warehouse_inventory(data[0], data[1], data[2],
+                                                                                              data[4])
+                initial_quantity = initial_inventory_object[0].quantity
+
+                # get the quantity of Initial bin
+                quantity = initial_quantity - int(data[5])
+
+                # update the quantity of Initial Bin ID
+                WareHouseCommonFunction.update_or_create_warehouse_inventory(
+                    data[0], data[1], data[2], data[4], quantity, True)
+
+                # condition to get the queryset for Final Bin ID
+                final_inventory_object = WareHouseCommonFunction.filter_warehouse_inventory(data[0], data[1], data[3],
+                                                                                            data[4])
+                if not final_inventory_object:
+                    final_quantity = int(data[5])
+                else:
+                    final_quantity = final_inventory_object[0].quantity + int(data[5])
+
+                # update the quantity of Final Bin ID
+                WareHouseCommonFunction.update_or_create_warehouse_inventory(
+                    Shop.objects.get(id=data[0]), Product.objects.get(product_sku=data[1]), data[3], data[4],
+                    final_quantity, True)
+
+                # Create data in Internal Inventory Change Model
+                transaction_type = 'war_house_adjustment'
+                try:
+                    transaction_id = 'war_' + data[0] + data[1][14:] + data[2][0:5] + data[3][0:4] + data[4][0:4] + data[5]
+                except Exception as e:
+                    error_logger.error(e)
+                    transaction_id = 'war_tran_' + '00001'
+                InternalWarehouseChange.create_warehouse_inventory_change(Shop.objects.get(id=data[0]).id,
+                                                                          Product.objects.get(product_sku=data[1]),
+                                                                          transaction_type,
+                                                                          transaction_id,
+                                                                          InventoryState.objects.get(inventory_state=data[2]),
+                                                                          InventoryState.objects.get(inventory_state=data[3]),
+                                                                          InventoryType.objects.get(inventory_type=data[4]),
+                                                                          int(data[5]), stock_movement_obj[0])
+            return
+    except Exception as e:
+        error_logger.error(e)
