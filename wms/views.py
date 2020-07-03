@@ -25,7 +25,8 @@ from products.models import Product
 from wkhtmltopdf.views import PDFTemplateResponse
 from .forms import BulkBinUpdation, BinForm, StockMovementCsvViewForm
 from .models import Pickup, BinInventory, Putaway
-from .common_functions import InternalInventoryChange, CommonBinInventoryFunctions
+from .common_functions import InternalInventoryChange, CommonBinInventoryFunctions, PutawayCommonFunctions, \
+    InCommonFunctions
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -390,7 +391,7 @@ class StockMovementCsvView(FormView):
                                 if request.POST['inventory_movement_type'] == '2':
                                     bin_stock_movement_data(data)
                                 elif request.POST['inventory_movement_type'] == '3':
-                                    bin_stock_movement_data(data)
+                                    stock_correction_data(data)
                                 else:
                                     bin_stock_movement_data(data)
                             except Exception as e:
@@ -458,6 +459,25 @@ def bin_stock_movement_data(data):
             InternalInventoryChange.create_bin_internal_inventory_change(data[0], data[1], data[2],
                                                                          data[3], data[4], data[5],
                                                                          data[6], data[7])
+    except Exception as e:
+        error_logger.error(e)
+    error_logger.error(e)
+
+
+def stock_correction_data(data):
+    try:
+        with transaction.atomic():
+            stock_correction_type = 'stock_adjustment'
+            try:
+                stock_correction_id = 'stock_' + data[4] + data[0] + data[3][11:] + data[2][16:]
+            except Exception as e:
+                error_logger.error(e)
+                stock_correction_id = 'st_' + '00001'
+            PutawayCommonFunctions.create_putaway(Shop.objects.get(id=data[0]), stock_correction_type,
+                                                  stock_correction_id, Product.objects.get(product_sku=data[1]), data[2],
+                                                  data[5], 0)
+            InCommonFunctions.create_In(Shop.objects.get(id=data[0]), stock_correction_type, stock_correction_id,
+                                        Product.objects.get(product_sku=data[1]), data[2], data[5])
     except Exception as e:
         error_logger.error(e)
     return
