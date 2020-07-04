@@ -1305,8 +1305,8 @@ class ShipmentAdmin(admin.ModelAdmin):
         # when qc passed
         if not self.has_invoice_no:
             # delay function to generate pdf from qc pending to qa passed
-            request = jsonpickle.encode(request, unpicklable=False)
-            pdf_generation(request, form.instance.pk)
+            # request = jsonpickle.encode(request, unpicklable=False)
+            # pdf_generation(request, form.instance.pk)
             shipment_products_dict = form.instance.rt_order_product_order_product_mapping.all()\
                 .values('product__id').annotate(shipped_items=Sum('shipped_qty'))
             total_shipped_qty = form.instance.order.rt_order_order_product\
