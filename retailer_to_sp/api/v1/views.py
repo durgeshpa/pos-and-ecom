@@ -1321,6 +1321,7 @@ def pdf_generation(request, ordered_product):
         rupees = amt[0]
 
         data = {"shipment": ordered_product, "order": ordered_product.order,
+                "url": request.get_host(), "scheme": request.is_secure() and "https" or "http",
                 "igst": igst, "cgst": cgst, "sgst": sgst, "cess": cess, "surcharge": surcharge,
                 "total_amount": total_amount,
                 "barcode": barcode, "product_listing": product_listing, "rupees": rupees,
@@ -1329,6 +1330,7 @@ def pdf_generation(request, ordered_product):
                 "nick_name_gram": nick_name_gram,
                 "address_line1_gram": address_line1_gram, "city_gram": city_gram, "state_gram": state_gram,
                 "pincode_gram": pincode_gram, "cin": cin, }
+
         cmd_option = {"margin-top": 10, "zoom": 1, "javascript-delay": 1000, "footer-center": "[page]/[topage]",
                       "no-stop-slow-scripts": True, "quiet": True}
         response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
