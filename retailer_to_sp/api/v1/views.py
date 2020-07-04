@@ -1158,7 +1158,7 @@ class DownloadInvoiceSP(APIView):
         return response
 
 
-@task
+# @task
 def pdf_generation(request, ordered_product):
     """
     :param request: request object
