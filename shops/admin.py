@@ -479,7 +479,7 @@ class BeatPlanningAdmin(admin.ModelAdmin):
         writer = csv.writer(f)
         # set the header name
         writer.writerow(["Sales Executive (Number - Name)", "Sales Manager (Number - Name)", "Shop ID ",
-                         "Contact Number", "Address", "Pin Code", "Category", "Date (dd/mm/yy)", "Status"])
+                         "Contact Number", "Address", "Pin Code", "Category", "Date (dd/mm/yyyy)", "Status"])
 
         for query in queryset:
             # get day beat plan queryset
