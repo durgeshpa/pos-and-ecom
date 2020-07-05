@@ -840,16 +840,20 @@ class DayBeatPlan(viewsets.ModelViewSet):
                                                                    next_plan_date=self.request.GET['next_plan_date'])
                 except Exception as error:
                     logger.exception(error)
-                    return Response({"detail": messages.ERROR_MESSAGES["4006"] % self.request.GET['next_plan_date']},
-                                    status=status.HTTP_400_BAD_REQUEST)
+                    return Response({"detail": messages.ERROR_MESSAGES["4006"] % self.request.GET['next_plan_date'],
+                                     'is_success': False},
+                                    status=status.HTTP_200_OK)
                 beat_plan_serializer = self.serializer_class(beat_user_obj, many=True)
-                return Response({"detail": SUCCESS_MESSAGES["2001"], "data": beat_plan_serializer.data},
+                return Response({"detail": SUCCESS_MESSAGES["2001"], "data": beat_plan_serializer.data,
+                                 'is_success': True},
                                 status=status.HTTP_200_OK)
             else:
-                return Response({"detail": messages.ERROR_MESSAGES["4007"]}, status=status.HTTP_401_UNAUTHORIZED)
+                return Response({"detail": messages.ERROR_MESSAGES["4007"], 'is_success': False},
+                                status=status.HTTP_200_OK)
         except Exception as error:
             logger.exception(error)
-            return Response({"detail": messages.ERROR_MESSAGES["4008"]}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({"detail": messages.ERROR_MESSAGES["4008"],
+                             'is_success': False}, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
         """
@@ -862,7 +866,7 @@ class DayBeatPlan(viewsets.ModelViewSet):
         serializer = FeedbackCreateSerializers(data=request.data, context={'request': request})
         if serializer.is_valid(raise_exception=True):
             serializer.save()
-            return Response({"detail": SUCCESS_MESSAGES["2002"],
+            return Response({"detail": SUCCESS_MESSAGES["2002"], 'is_success': True,
                              "data": serializer.data}, status=status.HTTP_201_CREATED)
 
 
@@ -896,11 +900,15 @@ class ExecutiveReport(viewsets.ModelViewSet):
                     executive_report_serializer = self.serializer_class(feedback_executive, many=True,
                                                                         context={'report': self.request.GET['report']})
                     return Response({"detail": messages.SUCCESS_MESSAGES["2001"],
-                                     "data": executive_report_serializer.data}, status=status.HTTP_200_OK)
+                                     "data": executive_report_serializer.data,
+                                     'is_success': True}, status=status.HTTP_200_OK)
             else:
-                return Response({"detail": messages.ERROR_MESSAGES["4013"]}, status=status.HTTP_401_UNAUTHORIZED)
+                return Response({"detail": messages.ERROR_MESSAGES["4013"],
+                                 'is_success': False}, status=status.HTTP_200_OK)
         except Exception as error:
             logger.exception(error)
             if error.args[0] == 'report':
-                return Response({"detail": messages.ERROR_MESSAGES["4012"]}, status=status.HTTP_400_BAD_REQUEST)
-            return Response({"detail": messages.ERROR_MESSAGES["4007"]}, status=status.HTTP_401_UNAUTHORIZED)
+                return Response({"detail": messages.ERROR_MESSAGES["4012"],
+                                 'is_success': False}, status=status.HTTP_200_OK)
+            return Response({"detail": messages.ERROR_MESSAGES["4007"],
+                             'is_success': False}, status=status.HTTP_200_OK)
