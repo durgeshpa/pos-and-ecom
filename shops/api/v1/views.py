@@ -17,7 +17,7 @@ from rest_framework import generics
 from addresses.models import City, Area, Address
 from rest_framework import status
 from django.contrib.auth import get_user_model
-from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES
+from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from rest_framework.parsers import FormParser, MultiPartParser
 from common.data_wrapper_view import DataWrapperViewSet
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -864,10 +864,12 @@ class DayBeatPlan(viewsets.ModelViewSet):
         :return: serialized data of executive feedback
         """
         serializer = FeedbackCreateSerializers(data=request.data, context={'request': request})
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            return Response({"detail": SUCCESS_MESSAGES["2002"], 'is_success': True,
-                             "data": serializer.data}, status=status.HTTP_201_CREATED)
+        if serializer.is_valid():
+            result = serializer.save()
+            if result:
+                return Response({"detail": SUCCESS_MESSAGES["2002"], 'is_success': True,
+                                 "data": serializer.data}, status=status.HTTP_201_CREATED)
+            return Response({"detail": ERROR_MESSAGES['4011'], 'is_success': False}, status=status.HTTP_200_OK)
 
 
 class ExecutiveReport(viewsets.ModelViewSet):

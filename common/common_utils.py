@@ -123,11 +123,11 @@ def create_file_name(file_prefix, unique_id):
     return file_prefix + str(unique_id) + '.pdf'
 
 
-def find_day(date):
+def find_sunday(date):
     """
 
-    :param date: date format %d/%m/%y, example:- 14/06/20
+    :param date: date format %d/%m/%y, example:- 14/06/2020
     :return: day of particular date
     """
-    born = datetime.datetime.strptime(date, '%d/%m/%y').weekday()
-    return calendar.day_name[born]
+    sunday_day = datetime.datetime.strptime(date, '%d/%m/%y').weekday()
+    return calendar.day_name[sunday_day]

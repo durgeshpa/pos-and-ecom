@@ -17,7 +17,7 @@ from django.contrib.auth.models import Group, Permission
 from retailer_backend.messages import VALIDATION_ERROR_MESSAGES
 from django.core.exceptions import ObjectDoesNotExist
 from accounts.middlewares import get_current_user
-from common.common_utils import find_day
+from common.common_utils import find_sunday
 
 class ParentRetailerMappingForm(forms.ModelForm):
     parent = forms.ModelChoiceField(
@@ -394,13 +394,17 @@ class BeatUserMappingCsvViewForm(forms.Form):
             # validation to check the day is not sunday
             if not row[7] is '':
                 try:
-                    day = find_day(row[7])
-                    if day == 'Sunday':
-                        raise ValidationError(_('Row number [%(value)s] | Date cannot be a Sunday.'),
-                                              params={'value': row_id+1},)
+                    datetime.datetime.strptime(row[7], '%d/%m/%y')
                 except Exception as e:
                     raise ValidationError(_('Row number [%(value)s] | Date Format is not correct.'),
                                       params={'value': row_id + 1}, )
+
+            if not row[7] is '':
+                day = find_sunday(row[7])
+                if day == 'Sunday':
+                    raise ValidationError(_('Row number [%(value)s] | Date cannot be a Sunday.'),
+                                          params={'value': row_id + 1}, )
+
             # append csv date in a list
             form_data_list.append(row)
 

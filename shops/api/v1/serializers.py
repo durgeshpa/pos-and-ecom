@@ -293,8 +293,18 @@ class DayBeatPlanSerializer(serializers.ModelSerializer):
     """
     Beat Plan Serializer
     """
+    day_beat_plan = serializers.SerializerMethodField()
     shop = BeatShopSerializer()
     feedback = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_day_beat_plan(obj):
+        """
+
+        :param obj: day beat plan obj
+        :return: day beat plan id
+        """
+        return obj.id
 
     @staticmethod
     def get_feedback(obj):
@@ -309,7 +319,7 @@ class DayBeatPlanSerializer(serializers.ModelSerializer):
     class Meta:
         """ Meta class """
         model = DayBeatPlanning
-        fields = ('id', 'beat_plan', 'shop_category', 'beat_plan_date', 'next_plan_date', 'temp_status',
+        fields = ('day_beat_plan', 'beat_plan', 'shop_category', 'beat_plan_date', 'next_plan_date', 'temp_status',
                   'shop', 'feedback')
 
 
@@ -634,7 +644,7 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
 
                 # return executive feedback instance
                 return instance
-            # raise error
-            raise serializers.ValidationError({"detail": ERROR_MESSAGES['4011']}, code="validation_error")
-        # raise error
-        raise serializers.ValidationError({"detail": ERROR_MESSAGES['4011']}, code="validation_error")
+            # return False
+            return False
+        # return False
+        return False

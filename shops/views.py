@@ -415,7 +415,7 @@ class BeatUserMappingCsvSample(View):
             writer = csv.writer(f)
             # header of csv file
             writer.writerow(['Sales Executive (Number - Name)', 'Shop Name', 'Shop ID ', 'Contact Number', 'Address',
-                             'Pin Code', 'Category', 'Date (dd/mm/yy)'])
+                             'Pin Code', 'Category', 'Date (dd/mm/yyyy)'])
             for shop in shops:
                 if shop.shop.approval_status == 2:
                     writer.writerow([shop.employee, shop.shop.shop_name, shop.shop.pk,
