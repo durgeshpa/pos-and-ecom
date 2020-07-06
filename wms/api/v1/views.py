@@ -161,7 +161,6 @@ class PutAwayViewSet(APIView):
             bin_skus = PutawayBinInventory.objects.values_list('putaway__sku__product_sku', flat=True)
             sh = Shop.objects.filter(id=int(warehouse)).last()
             if sh.shop_type.shop_type == 'sp':
-                import pdb;pdb.set_trace()
                 bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(bin__bin_id=bin_id)
                 if bin_inventory.exists():
                     if i in bin_inventory.values_list('batch_id', flat=True):

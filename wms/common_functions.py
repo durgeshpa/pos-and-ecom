@@ -200,7 +200,7 @@ def get_warehouse_product_availability(sku_id, shop_id=False):
             Q(sku__id=sku_id),
             Q(warehouse__id=shop_id),
             Q(quantity__gt=0),
-            Q(inventory_state='available'),
+            Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
             Q(in_stock='t')
         ).aggregate(total=Sum('quantity')).get('total')
 
@@ -210,7 +210,7 @@ def get_warehouse_product_availability(sku_id, shop_id=False):
         product_availability = WarehouseInventory.objects.filter(
             Q(sku__id=sku_id),
             Q(quantity__gt=0),
-            Q(inventory_state='available'),
+            Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
             Q(in_stock='t')
         ).aggregate(total=Sum('quantity')).get('total')
 
@@ -239,8 +239,8 @@ class OrderManagement(object):
             WarehouseInternalInventoryChange.objects.create(warehouse=Shop.objects.get(id=shop_id),
                                                     sku=Product.objects.get(id=int(prod_id)),
                                                     transaction_type=transaction_type,
-                                                    transaction_id=transaction_id, initial_stage='available',
-                                                    final_stage='reserved', quantity=ordered_qty)
+                                                    transaction_id=transaction_id, initial_stage=InventoryState.objects.filter(inventory_state='available').last(),
+                                                    final_stage=InventoryState.objects.filter(inventory_state='reserved').last(), quantity=ordered_qty)
             for k in win:
                 wu = WarehouseInventory.objects.filter(id=k.id)
                 qty = wu.last().quantity
@@ -276,7 +276,7 @@ class OrderManagement(object):
                                                         sku=Product.objects.get(id=i),
                                                         transaction_type=transaction_type,
                                                         transaction_id=transaction_id,
-                                                        initial_stage='reserved', final_stage='available',
+                                                        initial_stage=InventoryState.objects.filter(inventory_state='reserved').last(), final_stage=InventoryState.objects.filter(inventory_state='available').last(),
                                                         quantity=reserved_qty)
 
 
