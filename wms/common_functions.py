@@ -128,14 +128,13 @@ class CommonWarehouseInventoryFunctions(object):
 
     @classmethod
     def create_warehouse_inventory(cls, warehouse, sku, inventory_state,inventory_type,quantity,in_stock):
-        if type_choices[inventory_type] and state_choices[inventory_state]:
-            WarehouseInventory.objects.update_or_create(warehouse=warehouse, sku=sku,
-                                                        inventory_state=InventoryState.objects.filter(inventory_state=inventory_state).last(),
-                                                        defaults={
-                                                                'inventory_type': InventoryType.objects.filter(inventory_type=inventory_type).last(),
-                                                                'inventory_state':InventoryState.objects.filter(inventory_state=inventory_state).last(),
-                                                                'quantity':quantity,
-                                                                'in_stock': in_stock})
+        WarehouseInventory.objects.update_or_create(warehouse=warehouse, sku=sku,
+                                                    inventory_state=InventoryState.objects.filter(inventory_state=inventory_state).last(),
+                                                    defaults={
+                                                             'inventory_type': InventoryType.objects.filter(inventory_type=inventory_type).last(),
+                                                             'inventory_state':InventoryState.objects.filter(inventory_state=inventory_state).last(),
+                                                             'quantity':quantity,
+                                                             'in_stock': in_stock})
 
     @classmethod
     def filtered_warehouse_inventory_items(cls, **kwargs):
@@ -183,7 +182,7 @@ def get_product_stock(shop, sku):
             Q(sku=sku),
             Q(warehouse=shop),
             Q(quantity__gt=0),
-            Q(inventory_state='available'),
+            Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
             Q(in_stock='t')
     )
 

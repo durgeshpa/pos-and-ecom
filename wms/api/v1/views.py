@@ -1,5 +1,5 @@
 import logging
-from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Pickup
+from wms.models import Bin, Putaway, PutawayBinInventory, BinInventory, InventoryType, Pickup, InventoryState
 from .serializers import BinSerializer, PutAwaySerializer, PickupSerializer, OrderSerializer
 from wms.views import PickupInventoryManagement, update_putaway
 from rest_framework.response import Response
@@ -11,7 +11,7 @@ from rest_framework import permissions, authentication
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q, Sum
 import datetime
-from wms.common_functions import (CommonBinInventoryFunctions, PutawayCommonFunctions, CommonBinFunctions, CommonWarehouseInventoryFunctions as CWIF,
+from wms.common_functions import (CommonBinInventoryFunctions, PutawayCommonFunctions, CommonBinFunctions, CommonWarehouseInventoryFunctions as CWIF, CommonInventoryStateFunctions as CISF,
 CommonBinInventoryFunctions as CBIF)
 
 # Logger
@@ -161,6 +161,7 @@ class PutAwayViewSet(APIView):
             bin_skus = PutawayBinInventory.objects.values_list('putaway__sku__product_sku', flat=True)
             sh = Shop.objects.filter(id=int(warehouse)).last()
             if sh.shop_type.shop_type == 'sp':
+                import pdb;pdb.set_trace()
                 bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(bin__bin_id=bin_id)
                 if bin_inventory.exists():
                     if i in bin_inventory.values_list('batch_id', flat=True):
@@ -171,7 +172,7 @@ class PutAwayViewSet(APIView):
                         bin_inv = CommonBinInventoryFunctions.update_or_create_bin_inventory(sh, Bin.objects.filter(bin_id=bin_id).last(),put_away.last().sku,i,InventoryType.objects.filter(inventory_type=inventory_type).last(),
                                                                                              PutawayCommonFunctions.get_available_qty_for_batch(sh.id, put_away.last().sku.id, i), 't')
                         PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),bin=bin_inv,putaway_quantity=value)
-                        CWIF.create_warehouse_inventory(sh, put_away.last().sku, 'available','normal', BinInventory.available_qty(sh.id, put_away.last().sku.id),'t')
+                        CWIF.create_warehouse_inventory(sh, put_away.last().sku, CISF.filter_inventory_state(inventory_state='available').last(),InventoryType.objects.filter(inventory_type='normal').last(), BinInventory.available_qty(sh.id, put_away.last().sku.id),'t')
                     else:
                         if i[:17] in bin_inventory.values_list('sku__product_sku', flat=True):
                             msg ={'is_success':False,'message':'This product with sku {} and batch_id {} can not be placed in the bin'.format(i[:17], i),'batch_id':i}
@@ -185,7 +186,7 @@ class PutAwayViewSet(APIView):
                             bin_inv = CommonBinInventoryFunctions.update_or_create_bin_inventory(sh, Bin.objects.filter(bin_id=bin_id).last(),put_away.last().sku,i, InventoryType.objects.filter(inventory_type=inventory_type).last(), PutawayCommonFunctions.get_available_qty_for_batch(sh.id, put_away.last().sku.id, i), 't')
                             PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(), bin=bin_inv,
                                                                putaway_quantity=value)
-                            CWIF.create_warehouse_inventory(sh, put_away.last().sku, 'available','normal', BinInventory.available_qty(sh.id, put_away.last().sku.id),'t')
+                            CWIF.create_warehouse_inventory(sh, put_away.last().sku,CISF.filter_inventory_state(inventory_state='available').last(),InventoryType.objects.filter(inventory_type='normal').last(), BinInventory.available_qty(sh.id, put_away.last().sku.id),'t')
                 else:
                     while len(ids):
                         update_putaway(ids[0], i, warehouse, int(value))
@@ -197,7 +198,7 @@ class PutAwayViewSet(APIView):
                                                                                          PutawayCommonFunctions.get_available_qty_for_batch(sh.id, put_away.last().sku.id, i), 't')
                     PutawayBinInventory.objects.create(warehouse=sh,putaway=put_away.last(), bin=bin_inv,
                                                        putaway_quantity=value)
-                    CWIF.create_warehouse_inventory(sh, put_away.last().sku, 'available','normal', BinInventory.available_qty(sh.id, put_away.last().sku.id),'t')
+                    CWIF.create_warehouse_inventory(sh, put_away.last().sku,CISF.filter_inventory_state(inventory_state='available').last(),InventoryType.objects.filter(inventory_type='normal').last(), BinInventory.available_qty(sh.id, put_away.last().sku.id),'t')
 
             serializer = (PutAwaySerializer(Putaway.objects.filter(batch_id=i, warehouse=warehouse).last(), fields=('is_success', 'product_sku', 'batch_id', 'quantity', 'putaway_quantity')))
             msg = serializer.data
