@@ -23,13 +23,17 @@ from django.dispatch import receiver
 from django.db import transaction
 
 # app imports
+from .models import Bin, InventoryType
 from .models import Bin, WarehouseInventory
 from shops.models import Shop
+from products.models import Product
 
 # third party imports
 from wkhtmltopdf.views import PDFTemplateResponse
 from .forms import BulkBinUpdation, BinForm, StockMovementCsvViewForm
-from .models import Pickup, BinInventory, Putaway
+from .models import Pickup, BinInventory, Putaway, InventoryState
+from .common_functions import InternalInventoryChange, CommonBinInventoryFunctions, PutawayCommonFunctions, \
+    InCommonFunctions, WareHouseCommonFunction, InternalWarehouseChange, StockMovementCSV, InternalStockCorrectionChange
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -47,7 +51,7 @@ def update_bin_inventory(id, quantity=0):
     try:
         CommonBinInventoryFunctions.get_filtered_bin_inventory(id=id).update(quantity=quantity)
     except Exception as e:
-        error_logger.error(e.message)
+        error_logger.error(e)
     info_logger.info(quantity, "Bin Inventory quantity updated successfully.")
 
 
@@ -61,7 +65,7 @@ def update_pickup_inventory(id, pickup_quantity=0):
     try:
         Pickup.objects.filter(id=id).update(pickup_quantity=pickup_quantity)
     except Exception as e:
-        error_logger.error(e.message)
+        error_logger.error(e)
     info_logger.info(pickup_quantity, "Pick up quantity updated successfully.")
 
 
@@ -166,7 +170,7 @@ def bins_upload(request):
                 return redirect('/admin/wms/bin/')
 
             except Exception as e:
-                error_logger.error(e.message)
+                error_logger.error(e)
                 messages.error(request, '{} (Shop: {})'.format(e.message, row[0]))
         else:
             raise Exception(form.errors['file'][0])
@@ -314,7 +318,7 @@ class PickupInventoryManagement:
             data.update({'data':lis_data})
             return lis_data
         except Exception as e:
-            error_logger.error(e.message)
+            error_logger.error(e)
 
 
 from django.views.generic import View, FormView
@@ -387,22 +391,39 @@ class StockMovementCsvView(FormView):
             # to verify the form
             try:
                 if form.is_valid():
-                    result = {'message': 'CSV uploaded successfully.'}
-                    status = '200'
+                    upload_data = form.cleaned_data['file']
+                    try:
+                        # create date in Stock Movement Csv Upload Model
+                        stock_movement_obj = StockMovementCSV.create_stock_movement_csv(request.user,
+                                                                                        request.FILES['file'],
+                                                                                        request.POST[
+                                                                                            'inventory_movement_type'])
+                        if request.POST['inventory_movement_type'] == '2':
+                            bin_stock_movement_data(upload_data, stock_movement_obj)
+                        elif request.POST['inventory_movement_type'] == '3':
+                            stock_correction_data(upload_data, stock_movement_obj)
+                        else:
+                            warehouse_inventory_change_data(upload_data, stock_movement_obj)
+                        result = {'message': 'CSV uploaded successfully.'}
+                        status = '200'
+                    except Exception as e:
+                        error_logger.exception(e)
+                        result = {'message': 'Something went wrong! Please verify the data.'}
+                        status = '400'
+                        return JsonResponse(result, status)
                 # return validation error message while uploading csv file
                 else:
                     result = {'message': form.errors['file'][0]}
                     status = '400'
-
                 return JsonResponse(result, status=status)
             # exception block
             except Exception as e:
                 error_logger.exception(e)
-                result = {'message': "Issue in file"}
+                result = {'message': 'Something went wrong! Please verify the data.'}
                 status = '400'
                 return JsonResponse(result, status)
         else:
-            result = {'message': "This method is not allowed"}
+            result = {'message': "This method is not allowed."}
             status = '400'
         return JsonResponse(result, status)
 
@@ -428,3 +449,142 @@ def commit_updates_to_es(shop, product):
 @receiver(post_save, sender=WarehouseInventory)
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
     transaction.on_commit(lambda: commit_updates_to_es(instance.warehouse, instance.sku))
+
+
+def bin_stock_movement_data(upload_data, stock_movement_obj):
+    """
+
+        :param upload_data: Collection of csv data
+        :param stock_movement_obj: object of CSV file
+        :return: result
+    """
+    try:
+        with transaction.atomic():
+            for data in upload_data:
+                # condition to get the queryset for Initial Bin ID
+                initial_inventory_object = CommonBinInventoryFunctions.filter_bin_inventory(data[0], data[1], data[2],
+                                                                                            Bin.objects.get(bin_id=data[3]),
+                                                                                            data[5])
+                initial_quantity = initial_inventory_object[0].quantity
+
+                # get the quantity of Initial bin
+                quantity = initial_quantity - int(data[7])
+
+                # update the quantity of Initial Bin ID
+                CommonBinInventoryFunctions.update_or_create_bin_inventory(
+                    data[0], Bin.objects.get(bin_id=data[3]), Product.objects.get(product_sku=data[1]),
+                    data[2], InventoryType.objects.get(inventory_type=data[5]), quantity, True)
+
+                # condition to get the queryset for Final Bin ID
+                final_inventory_object = CommonBinInventoryFunctions.filter_bin_inventory(data[0], data[1], data[2],
+                                                                                          Bin.objects.get(bin_id=data[4]),
+                                                                                          data[6])
+                if not final_inventory_object:
+                    final_quantity = int(data[7])
+                else:
+                    final_quantity = final_inventory_object[0].quantity + int(data[7])
+
+                # update the quantity of Final Bin ID
+                CommonBinInventoryFunctions.update_or_create_bin_inventory(
+                    Shop.objects.get(id=data[0]), Bin.objects.get(bin_id=data[4]),
+                    Product.objects.get(product_sku=data[1]), data[2],
+                    InventoryType.objects.get(inventory_type=data[6]), final_quantity, True)
+
+                # create data in Internal Inventory Change Model
+                InternalInventoryChange.create_bin_internal_inventory_change(data[0], data[1], data[2],
+                                                                             data[3], data[4], data[5],
+                                                                             data[6], data[7], stock_movement_obj[0])
+            return
+    except Exception as e:
+        error_logger.error(e)
+
+
+def stock_correction_data(upload_data, stock_movement_obj):
+    """
+
+    :param upload_data: Collection of csv data
+    :param stock_movement_obj: object of CSV file
+    :return: result
+    """
+    try:
+        with transaction.atomic():
+            for data in upload_data:
+                # get the type of stock
+                stock_correction_type = 'stock_adjustment'
+                try:
+                    # create stock correction id
+                    stock_correction_id = 'stock_' + data[4] + data[0] + data[3][11:] + data[2][16:]
+                except Exception as e:
+                    error_logger.error(e)
+                    # default correction id
+                    stock_correction_id = 'stock_' + '00001'
+
+                # Create data in IN Model
+                InCommonFunctions.create_in(Shop.objects.get(id=data[0]), stock_correction_type,
+                                            stock_correction_id, Product.objects.get(product_sku=data[1]), data[2],
+                                            data[5])
+
+                # Create data in Stock Correction change Model
+                InternalStockCorrectionChange.create_stock_inventory_change(Shop.objects.get(id=data[0]),
+                                                                            Product.objects.get(product_sku=data[1]),
+                                                                            data[2], Bin.objects.get(bin_id=data[3]),
+                                                                            data[4], data[5], stock_movement_obj[0])
+            return
+    except Exception as e:
+        error_logger.error(e)
+
+
+def warehouse_inventory_change_data(upload_data, stock_movement_obj):
+    """
+
+        :param upload_data: Collection of csv data
+        :param stock_movement_obj: object of CSV file
+        :return: result
+    """
+    try:
+        with transaction.atomic():
+            for data in upload_data:
+                # condition to get the queryset for warehouse queryset
+                initial_inventory_object = WareHouseCommonFunction.filter_warehouse_inventory(data[0], data[1], data[2],
+                                                                                              data[4])
+                # get the initial quantity of warehouse
+                initial_quantity = initial_inventory_object[0].quantity
+
+                # get the quantity from initial to updated quantity which comes from csv
+                quantity = initial_quantity - int(data[5])
+
+                # update the quantity of initial warehouse
+                WareHouseCommonFunction.update_or_create_warehouse_inventory(
+                    data[0], data[1], data[2], data[4], quantity, True)
+
+                # condition to get the queryset for new warehouse id
+                final_inventory_object = WareHouseCommonFunction.filter_warehouse_inventory(data[0], data[1], data[3],
+                                                                                            data[4])
+                if not final_inventory_object:
+                    final_quantity = int(data[5])
+                else:
+                    final_quantity = final_inventory_object[0].quantity + int(data[5])
+
+                # update the quantity of new warehouse id
+                WareHouseCommonFunction.update_or_create_warehouse_inventory(
+                    Shop.objects.get(id=data[0]), Product.objects.get(product_sku=data[1]), data[3], data[4],
+                    final_quantity, True)
+
+                # Create data in Internal Warehouse change Model
+                transaction_type = 'war_house_adjustment'
+                try:
+                    transaction_id = 'war_' + data[0] + data[1][14:] + data[2][0:5] + data[3][0:4] + data[4][0:4] + data[5]
+                except Exception as e:
+                    error_logger.error(e)
+                    transaction_id = 'war_tran_' + '00001'
+                InternalWarehouseChange.create_warehouse_inventory_change(Shop.objects.get(id=data[0]).id,
+                                                                          Product.objects.get(product_sku=data[1]),
+                                                                          transaction_type,
+                                                                          transaction_id,
+                                                                          InventoryState.objects.get(inventory_state=data[2]),
+                                                                          InventoryState.objects.get(inventory_state=data[3]),
+                                                                          InventoryType.objects.get(inventory_type=data[4]),
+                                                                          int(data[5]), stock_movement_obj[0])
+            return
+    except Exception as e:
+        error_logger.error(e)

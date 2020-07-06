@@ -1,20 +1,23 @@
+# python imports
 import logging
+import csv
+
+# django imports
 from django.contrib import admin
 from django.http import HttpResponse
+from django.utils.html import format_html
+from django.urls import reverse
+
+# app imports
 from .views import bins_upload, put_away, CreatePickList
 from import_export import resources
-import csv
-from django.contrib import messages
-from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup,
-                     PickupBinInventory, StockMovementCSVUpload)
+from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, PickupBinInventory,
+                     WarehouseInventory, InventoryState, WarehouseInternalInventoryChange, StockMovementCSVUpload,
+                     BinInternalInventoryChange, StockCorrectionChange)
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
                     StockMovementCSVUploadAdminForm)
-from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, PickupBinInventory,
-                     WarehouseInventory, InventoryState, WarehouseInternalInventoryChange)
-from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm)
-from django.utils.html import format_html
 from barCodeGenerator import barcodeGen
-from django.urls import reverse
+
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -162,7 +165,7 @@ class StockMovementCSVUploadAdmin(admin.ModelAdmin):
     This class is used to view the Stock(Movement) form Admin Panel
     """
     form = StockMovementCSVUploadAdminForm
-    list_display = ('uploaded_by', 'created_at', 'status')
+    list_display = ('id', 'uploaded_by', 'created_at', 'upload_csv')
     list_display_links = None
     list_per_page = 50
 
@@ -197,10 +200,7 @@ class StockMovementCSVUploadAdmin(admin.ModelAdmin):
         :return: queryset
         """
         qs = super(StockMovementCSVUploadAdmin, self).get_queryset(request)
-        if not request.user.is_superuser:
-            return qs.filter(manager=request.user)
         return qs
-
 
 
 class WarehouseInventoryAdmin(admin.ModelAdmin):
@@ -215,9 +215,19 @@ class InventoryStateAdmin(admin.ModelAdmin):
 
 
 class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
-    list_display = ('warehouse', 'sku', 'transaction_type', 'transaction_id', 'initial_stage', 'final_stage', 'quantity', 'created_at', 'modified_at')
+    list_display = ('warehouse', 'sku', 'transaction_type', 'transaction_id', 'initial_stage', 'final_stage', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
     list_select_related = ('warehouse', 'sku')
     readonly_fields = ('warehouse', 'sku', 'transaction_type', 'transaction_id', 'initial_stage', 'final_stage', 'quantity', 'created_at', 'modified_at')
+
+
+class BinInternalInventoryChangeAdmin(admin.ModelAdmin):
+    list_display = ('warehouse', 'sku', 'batch_id', 'initial_inventory_type', 'final_inventory_type', 'initial_bin',
+                    'final_bin', 'quantity','created_at', 'modified_at', 'inventory_csv')
+
+
+class StockCorrectionChangeAdmin(admin.ModelAdmin):
+    list_display = ('warehouse', 'stock_sku', 'batch_id', 'stock_bin_id',
+                    'correction_type', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
 
 
 admin.site.register(Bin, BinAdmin)
@@ -230,7 +240,8 @@ admin.site.register(Out, OutAdmin)
 admin.site.register(Pickup, PickupAdmin)
 admin.site.register(PickupBinInventory, PickupBinInventoryAdmin)
 admin.site.register(StockMovementCSVUpload, StockMovementCSVUploadAdmin)
-
 admin.site.register(WarehouseInventory, WarehouseInventoryAdmin)
 admin.site.register(InventoryState, InventoryStateAdmin)
 admin.site.register(WarehouseInternalInventoryChange, WarehouseInternalInventoryChangeAdmin)
+admin.site.register(BinInternalInventoryChange, BinInternalInventoryChangeAdmin)
+admin.site.register(StockCorrectionChange, StockCorrectionChangeAdmin)

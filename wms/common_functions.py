@@ -1,5 +1,8 @@
+import logging
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
-                     InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory)
+                     InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
+                     BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange)
+
 from shops.models import Shop
 from django.db.models import Sum, Q
 import functools
@@ -35,6 +38,11 @@ class CommonBinFunctions(object):
         return bins
 
 
+# Logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
+
 class PutawayCommonFunctions(object):
 
     @classmethod
@@ -65,10 +73,10 @@ class InCommonFunctions(object):
     @classmethod
     def create_in(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity):
         if warehouse.shop_type.shop_type == 'sp':
-            in_obj = In.objects.create(warehouse=warehouse, in_type=in_type, in_type_id=in_type_id,
-                                   sku=sku, batch_id=batch_id, quantity=quantity)
-
-            PutawayCommonFunctions.create_putaway(in_obj.warehouse, in_obj.in_type, in_obj.id, in_obj.sku, in_obj.batch_id, in_obj.quantity, 0)
+            in_obj = In.objects.create(warehouse=warehouse, in_type=in_type, in_type_id=in_type_id, sku=sku,
+                                       batch_id=batch_id, quantity=quantity)
+            PutawayCommonFunctions.create_putaway(in_obj.warehouse, in_obj.in_type, in_obj.id, in_obj.sku,
+                                                  in_obj.batch_id, in_obj.quantity, 0)
             return in_obj
 
     @classmethod
@@ -82,7 +90,18 @@ class CommonBinInventoryFunctions(object):
     @classmethod
     def update_or_create_bin_inventory(cls, warehouse, bin, sku, batch_id, inventory_type, quantity, in_stock):
         BinInventory.objects.update_or_create(warehouse=warehouse, bin=bin, sku=sku, batch_id=batch_id,
-                                      defaults={'inventory_type':inventory_type,'quantity':quantity, 'in_stock':in_stock})
+                                              inventory_type=inventory_type,
+                                              defaults={'quantity':quantity, 'in_stock':in_stock})
+
+    @classmethod
+    def create_bin_inventory(cls, warehouse, bin, sku, batch_id, inventory_type, quantity, in_stock):
+        BinInventory.objects.get_or_create(warehouse=warehouse, bin=bin, sku=sku, batch_id=batch_id,
+                                    inventory_type=inventory_type, quantity=quantity, in_stock=in_stock)
+
+    @classmethod
+    def filter_bin_inventory(cls, warehouse, sku, batch_id, bin_obj, inventory_type):
+        return BinInventory.objects.filter(warehouse=warehouse, sku=sku, batch_id=batch_id, bin=bin_obj,
+                                           inventory_type__inventory_type=inventory_type)
 
     @classmethod
     def get_filtered_bin_inventory(cls, **kwargs):
@@ -262,11 +281,153 @@ class OrderManagement(object):
                                                         quantity=reserved_qty)
 
 
+class InternalInventoryChange(object):
+    @classmethod
+    def create_bin_internal_inventory_change(cls, shop_id, sku, batch_id, bin_id, final_bin_id, initial_type,
+                                             final_type, quantity, inventory_csv):
+        """
+
+        :param shop_id: shop id
+        :param sku: sku id
+        :param batch_id: batch id
+        :param bin_id: initial bin id
+        :param final_bin_id: final bin id
+        :param initial_type: initial inventory type
+        :param final_type: final inventory type
+        :param quantity: quantity
+        :param inventory_csv: stock movement csv obj
+        :return: queryset
+        """
+        try:
+            BinInternalInventoryChange.objects.create(warehouse_id=shop_id, sku=Product.objects.get(product_sku=sku),
+                                                      batch_id=batch_id,
+                                                      initial_bin=Bin.objects.get(bin_id=bin_id),
+                                                      final_bin=Bin.objects.get(bin_id=final_bin_id),
+                                                      initial_inventory_type=InventoryType.objects.get(
+                                                          inventory_type=initial_type),
+                                                      final_inventory_type=InventoryType.objects.get(
+                                                          inventory_type=final_type),
+                                                      quantity=quantity, inventory_csv=inventory_csv)
+        except Exception as e:
+            error_logger.error(e)
 
 
+class WareHouseCommonFunction(object):
+    @classmethod
+    def update_or_create_warehouse_inventory(cls, warehouse, sku, inventory_state, inventory_type, quantity, in_stock):
+        """
+
+        :param warehouse: warehouse obj
+        :param sku: sku obj
+        :param inventory_state: type of inventory state
+        :param inventory_type: type of inventory type
+        :param quantity: quantity
+        :param in_stock: in stock
+        :return:
+        """
+        WarehouseInventory.objects.update_or_create(warehouse=warehouse, sku=sku,
+                                                    inventory_type__inventory_type=InventoryType.objects.get(inventory_type=inventory_type),
+                                                    inventory_state__inventory_state=InventoryState.objects.get(inventory_state=inventory_state),
+                                                    defaults={'quantity': quantity, 'in_stock': in_stock})
+
+    @classmethod
+    def create_warehouse_inventory(cls, warehouse, sku, inventory_type, inventory_state, quantity, in_stock):
+        """
+
+        :param warehouse: warehouse obj
+        :param sku: sku obj
+        :param inventory_type: type of inventory type
+        :param inventory_state: type of inventory state
+        :param quantity: quantity
+        :param in_stock: in stock
+        :return:
+        """
+        WarehouseInventory.objects.get_or_create(warehouse=warehouse, sku=sku,
+                                                 inventory_type=inventory_type, inventory_state=inventory_state,
+                                                 quantity=quantity, in_stock=in_stock)
+
+    @classmethod
+    def filter_warehouse_inventory(cls, warehouse, sku, inventory_state, inventory_type):
+        """
+
+        :param warehouse: warehouse obj
+        :param sku: sku obj
+        :param inventory_state: type of inventory state
+        :param inventory_type: type of inventory type
+        :return:
+        """
+        return WarehouseInventory.objects.filter(warehouse=warehouse, sku=sku,
+                                                 inventory_type__inventory_type=InventoryType.objects.get(inventory_type=inventory_type),
+                                                 inventory_state__inventory_state=InventoryState.objects.get(inventory_state=inventory_state))
 
 
+class InternalWarehouseChange(object):
+    @classmethod
+    def create_warehouse_inventory_change(cls, warehouse, sku, transaction_type, transaction_id, initial_stage,
+                                          final_stage, inventory_type, quantity, inventory_csv):
+        """
+
+        :param warehouse: warehouse obj
+        :param sku: sku obj
+        :param transaction_type: type of transaction
+        :param transaction_id: transaction id
+        :param initial_stage: initial stage obj
+        :param final_stage: final stage obj
+        :param inventory_type: inventory type obj
+        :param quantity: quantity
+        :param inventory_csv: stock movement csv obj
+        :return: queryset
+        """
+        try:
+            WarehouseInternalInventoryChange.objects.create(warehouse_id=warehouse,
+                                                            sku=sku, transaction_type=transaction_type,
+                                                            transaction_id=transaction_id, initial_stage=initial_stage,
+                                                            final_stage=final_stage, quantity=quantity,
+                                                            inventory_type=inventory_type, inventory_csv=inventory_csv)
+        except Exception as e:
+            error_logger.error(e)
 
 
+class InternalStockCorrectionChange(object):
+    @classmethod
+    def create_stock_inventory_change(cls, warehouse, stock_sku, batch_id, stock_bin_id, correction_type,
+                                      quantity, inventory_csv):
+        """
+
+        :param warehouse: warehouse obj
+        :param stock_sku: sku obj
+        :param batch_id: batch obj
+        :param stock_bin_id: bin obj
+        :param correction_type: type of correction
+        :param quantity: quantity
+        :param inventory_csv: stock movement csv obj
+        :return: queryset
+        """
+        try:
+            StockCorrectionChange.objects.create(warehouse=warehouse,
+                                                            stock_sku=stock_sku, batch_id=batch_id,
+                                                            stock_bin_id=stock_bin_id, correction_type=correction_type,
+                                                            quantity=quantity, inventory_csv=inventory_csv)
+        except Exception as e:
+            error_logger.error(e)
 
 
+class StockMovementCSV(object):
+    @classmethod
+    def create_stock_movement_csv(cls, uploaded_by, upload_csv, inventory_movement_type):
+        """
+
+        :param uploaded_by: User object
+        :param upload_csv: File object
+        :param inventory_movement_type: type of movement
+        :return: queryset of stock movement csv
+        """
+        try:
+            stock_movement_csv_object = StockMovementCSVUpload.objects.get_or_create(uploaded_by=uploaded_by,
+                                                                                     upload_csv=upload_csv,
+                                                                                     inventory_movement_type=inventory_movement_type,)
+
+            return stock_movement_csv_object
+
+        except Exception as e:
+            error_logger.error(e)
