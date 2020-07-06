@@ -3,17 +3,39 @@ from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, Wa
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange)
 
-# from gram_to_brand.models import GRNOrderProductMapping
 from shops.models import Shop
-from products.models import Product
-from retailer_to_sp.models import Cart, Order, OrderedProduct
-from sp_to_gram.models import OrderedProductReserved
 from django.db.models import Sum, Q
-from datetime import datetime
 import functools
 import json
 from celery.task import task
-from datetime import datetime, timedelta
+from products.models import Product, ProductPrice
+
+
+type_choices = {
+    'normal': 'normal',
+    'expired': 'expired',
+    'damaged': 'damaged',
+    'discarded': 'discarded',
+    'disposed': 'disposed'}
+
+state_choices = {
+     'available': 'available',
+     'reserved' :'reserved',
+     'shipped' : 'shipped'
+}
+
+
+class CommonBinFunctions(object):
+
+    @classmethod
+    def create_bin(cls, warehouse, bin_id, bin_type, is_active):
+        bin_obj = Bin.objects.create(warehouse=warehouse, bin_id=bin_id, bin_type=bin_type, is_active=is_active)
+        return bin_obj
+
+    @classmethod
+    def get_filtered_bins(cls, **kwargs):
+        bins = Bin.objects.filter(**kwargs)
+        return bins
 
 
 # Logger
@@ -26,8 +48,9 @@ class PutawayCommonFunctions(object):
     @classmethod
     def create_putaway(cls, warehouse, putaway_type, putaway_type_id, sku, batch_id, quantity, putaway_quantity):
         if warehouse.shop_type.shop_type=='sp':
-            Putaway.objects.create(warehouse=warehouse, putaway_type=putaway_type, putaway_type_id=putaway_type_id, sku=sku,
+            putaway_obj = Putaway.objects.create(warehouse=warehouse, putaway_type=putaway_type, putaway_type_id=putaway_type_id, sku=sku,
                                    batch_id=batch_id, quantity=quantity, putaway_quantity=putaway_quantity)
+            return putaway_obj
 
     @classmethod
     def get_filtered_putaways(cls, **kwargs):
@@ -80,6 +103,44 @@ class CommonBinInventoryFunctions(object):
         return BinInventory.objects.filter(warehouse=warehouse, sku=sku, batch_id=batch_id, bin=bin_obj,
                                            inventory_type__inventory_type=inventory_type)
 
+    @classmethod
+    def get_filtered_bin_inventory(cls, **kwargs):
+        bin_inv_data = BinInventory.objects.filter(**kwargs)
+        return bin_inv_data
+
+
+class CommonPickupFunctions(object):
+
+    @classmethod
+    def create_pickup_entry(cls, warehouse, pickup_type, pickup_type_id, sku, quantity):
+        Pickup.objects.create(warehouse=warehouse, pickup_type=pickup_type, pickup_type_id=pickup_type_id, sku=sku, quantity=quantity)
+
+
+class CommonInventoryStateFunctions(object):
+
+    @classmethod
+    def filter_inventory_state(cls, **kwargs):
+        inv_state = InventoryState.objects.filter(**kwargs)
+        return inv_state
+
+
+class CommonWarehouseInventoryFunctions(object):
+
+    @classmethod
+    def create_warehouse_inventory(cls, warehouse, sku, inventory_state,inventory_type,quantity,in_stock):
+        WarehouseInventory.objects.update_or_create(warehouse=warehouse, sku=sku,
+                                                    inventory_state=InventoryState.objects.filter(inventory_state=inventory_state).last(),
+                                                    defaults={
+                                                             'inventory_type': InventoryType.objects.filter(inventory_type=inventory_type).last(),
+                                                             'inventory_state':InventoryState.objects.filter(inventory_state=inventory_state).last(),
+                                                             'quantity':quantity,
+                                                             'in_stock': in_stock})
+
+    @classmethod
+    def filtered_warehouse_inventory_items(cls, **kwargs):
+        inven_items = WarehouseInventory.objects.filter(**kwargs)
+        return inven_items
+
 
 def stock_decorator(wid, skuid):
     def actual_decorator(func):
@@ -102,10 +163,27 @@ def get_brand_in_shop_stock(shop_id, brand):
 
 
 def get_stock(shop):
+    # For getting available stock of a particular warehouse
+    """:param shop:
+       :return: """
     return WarehouseInventory.objects.filter(
         Q(warehouse=shop),
         Q(quantity__gt=0),
+        Q(inventory_state='available'),
         Q(in_stock='t')
+    )
+
+
+def get_product_stock(shop, sku):
+    """:param shop:
+      :param sku:
+      :return: """
+    return WarehouseInventory.objects.filter(
+            Q(sku=sku),
+            Q(warehouse=shop),
+            Q(quantity__gt=0),
+            Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
+            Q(in_stock='t')
     )
 
 
@@ -122,6 +200,7 @@ def get_warehouse_product_availability(sku_id, shop_id=False):
             Q(sku__id=sku_id),
             Q(warehouse__id=shop_id),
             Q(quantity__gt=0),
+            Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
             Q(in_stock='t')
         ).aggregate(total=Sum('quantity')).get('total')
 
@@ -131,6 +210,7 @@ def get_warehouse_product_availability(sku_id, shop_id=False):
         product_availability = WarehouseInventory.objects.filter(
             Q(sku__id=sku_id),
             Q(quantity__gt=0),
+            Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
             Q(in_stock='t')
         ).aggregate(total=Sum('quantity')).get('total')
 
@@ -159,8 +239,8 @@ class OrderManagement(object):
             WarehouseInternalInventoryChange.objects.create(warehouse=Shop.objects.get(id=shop_id),
                                                     sku=Product.objects.get(id=int(prod_id)),
                                                     transaction_type=transaction_type,
-                                                    transaction_id=transaction_id, initial_stage='available',
-                                                    final_stage='reserved', quantity=ordered_qty)
+                                                    transaction_id=transaction_id, initial_stage=InventoryState.objects.filter(inventory_state='available').last(),
+                                                    final_stage=InventoryState.objects.filter(inventory_state='reserved').last(), quantity=ordered_qty)
             for k in win:
                 wu = WarehouseInventory.objects.filter(id=k.id)
                 qty = wu.last().quantity
@@ -196,7 +276,7 @@ class OrderManagement(object):
                                                         sku=Product.objects.get(id=i),
                                                         transaction_type=transaction_type,
                                                         transaction_id=transaction_id,
-                                                        initial_stage='reserved', final_stage='available',
+                                                        initial_stage=InventoryState.objects.filter(inventory_state='reserved').last(), final_stage=InventoryState.objects.filter(inventory_state='available').last(),
                                                         quantity=reserved_qty)
 
 
