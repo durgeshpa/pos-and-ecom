@@ -204,6 +204,19 @@ class InternalInventoryChange(object):
     @classmethod
     def create_bin_internal_inventory_change(cls, shop_id, sku, batch_id, bin_id, final_bin_id, initial_type,
                                              final_type, quantity, inventory_csv):
+        """
+
+        :param shop_id: shop id
+        :param sku: sku id
+        :param batch_id: batch id
+        :param bin_id: initial bin id
+        :param final_bin_id: final bin id
+        :param initial_type: initial inventory type
+        :param final_type: final inventory type
+        :param quantity: quantity
+        :param inventory_csv: stock movement csv obj
+        :return: queryset
+        """
         try:
             BinInternalInventoryChange.objects.create(warehouse_id=shop_id, sku=Product.objects.get(product_sku=sku),
                                                       batch_id=batch_id,
@@ -221,6 +234,16 @@ class InternalInventoryChange(object):
 class WareHouseCommonFunction(object):
     @classmethod
     def update_or_create_warehouse_inventory(cls, warehouse, sku, inventory_state, inventory_type, quantity, in_stock):
+        """
+
+        :param warehouse: warehouse obj
+        :param sku: sku obj
+        :param inventory_state: type of inventory state
+        :param inventory_type: type of inventory type
+        :param quantity: quantity
+        :param in_stock: in stock
+        :return:
+        """
         WarehouseInventory.objects.update_or_create(warehouse=warehouse, sku=sku,
                                                     inventory_type__inventory_type=InventoryType.objects.get(inventory_type=inventory_type),
                                                     inventory_state__inventory_state=InventoryState.objects.get(inventory_state=inventory_state),
@@ -228,12 +251,30 @@ class WareHouseCommonFunction(object):
 
     @classmethod
     def create_warehouse_inventory(cls, warehouse, sku, inventory_type, inventory_state, quantity, in_stock):
+        """
+
+        :param warehouse: warehouse obj
+        :param sku: sku obj
+        :param inventory_type: type of inventory type
+        :param inventory_state: type of inventory state
+        :param quantity: quantity
+        :param in_stock: in stock
+        :return:
+        """
         WarehouseInventory.objects.get_or_create(warehouse=warehouse, sku=sku,
                                                  inventory_type=inventory_type, inventory_state=inventory_state,
                                                  quantity=quantity, in_stock=in_stock)
 
     @classmethod
     def filter_warehouse_inventory(cls, warehouse, sku, inventory_state, inventory_type):
+        """
+
+        :param warehouse: warehouse obj
+        :param sku: sku obj
+        :param inventory_state: type of inventory state
+        :param inventory_type: type of inventory type
+        :return:
+        """
         return WarehouseInventory.objects.filter(warehouse=warehouse, sku=sku,
                                                  inventory_type__inventory_type=InventoryType.objects.get(inventory_type=inventory_type),
                                                  inventory_state__inventory_state=InventoryState.objects.get(inventory_state=inventory_state))
@@ -243,6 +284,19 @@ class InternalWarehouseChange(object):
     @classmethod
     def create_warehouse_inventory_change(cls, warehouse, sku, transaction_type, transaction_id, initial_stage,
                                           final_stage, inventory_type, quantity, inventory_csv):
+        """
+
+        :param warehouse: warehouse obj
+        :param sku: sku obj
+        :param transaction_type: type of transaction
+        :param transaction_id: transaction id
+        :param initial_stage: initial stage obj
+        :param final_stage: final stage obj
+        :param inventory_type: inventory type obj
+        :param quantity: quantity
+        :param inventory_csv: stock movement csv obj
+        :return: queryset
+        """
         try:
             WarehouseInternalInventoryChange.objects.create(warehouse_id=warehouse,
                                                             sku=sku, transaction_type=transaction_type,
@@ -256,7 +310,18 @@ class InternalWarehouseChange(object):
 class InternalStockCorrectionChange(object):
     @classmethod
     def create_stock_inventory_change(cls, warehouse, stock_sku, batch_id, stock_bin_id, correction_type,
-                                          quantity, inventory_csv):
+                                      quantity, inventory_csv):
+        """
+
+        :param warehouse: warehouse obj
+        :param stock_sku: sku obj
+        :param batch_id: batch obj
+        :param stock_bin_id: bin obj
+        :param correction_type: type of correction
+        :param quantity: quantity
+        :param inventory_csv: stock movement csv obj
+        :return: queryset
+        """
         try:
             StockCorrectionChange.objects.create(warehouse=warehouse,
                                                             stock_sku=stock_sku, batch_id=batch_id,
@@ -269,6 +334,13 @@ class InternalStockCorrectionChange(object):
 class StockMovementCSV(object):
     @classmethod
     def create_stock_movement_csv(cls, uploaded_by, upload_csv, inventory_movement_type):
+        """
+
+        :param uploaded_by: User object
+        :param upload_csv: File object
+        :param inventory_movement_type: type of movement
+        :return: queryset of stock movement csv
+        """
         try:
             stock_movement_csv_object = StockMovementCSVUpload.objects.get_or_create(uploaded_by=uploaded_by,
                                                                                      upload_csv=upload_csv,

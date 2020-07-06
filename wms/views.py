@@ -422,6 +422,12 @@ class StockMovementCsvView(FormView):
 
 
 def bin_stock_movement_data(upload_data, stock_movement_obj):
+    """
+
+        :param upload_data: Collection of csv data
+        :param stock_movement_obj: object of CSV file
+        :return: result
+    """
     try:
         with transaction.atomic():
             for data in upload_data:
@@ -464,19 +470,31 @@ def bin_stock_movement_data(upload_data, stock_movement_obj):
 
 
 def stock_correction_data(upload_data, stock_movement_obj):
+    """
+
+    :param upload_data: Collection of csv data
+    :param stock_movement_obj: object of CSV file
+    :return: result
+    """
     try:
         with transaction.atomic():
             for data in upload_data:
+                # get the type of stock
                 stock_correction_type = 'stock_adjustment'
                 try:
+                    # create stock correction id
                     stock_correction_id = 'stock_' + data[4] + data[0] + data[3][11:] + data[2][16:]
                 except Exception as e:
                     error_logger.error(e)
+                    # default correction id
                     stock_correction_id = 'stock_' + '00001'
 
+                # Create data in IN Model
                 InCommonFunctions.create_in(Shop.objects.get(id=data[0]), stock_correction_type,
-                                            stock_correction_id, Product.objects.get(product_sku=data[1]), data[2], data[5])
+                                            stock_correction_id, Product.objects.get(product_sku=data[1]), data[2],
+                                            data[5])
 
+                # Create data in Stock Correction change Model
                 InternalStockCorrectionChange.create_stock_inventory_change(Shop.objects.get(id=data[0]),
                                                                             Product.objects.get(product_sku=data[1]),
                                                                             data[2], Bin.objects.get(bin_id=data[3]),
@@ -487,22 +505,29 @@ def stock_correction_data(upload_data, stock_movement_obj):
 
 
 def warehouse_inventory_change_data(upload_data, stock_movement_obj):
+    """
+
+        :param upload_data: Collection of csv data
+        :param stock_movement_obj: object of CSV file
+        :return: result
+    """
     try:
         with transaction.atomic():
             for data in upload_data:
-                # condition to get the queryset for Initial Bin ID
+                # condition to get the queryset for warehouse queryset
                 initial_inventory_object = WareHouseCommonFunction.filter_warehouse_inventory(data[0], data[1], data[2],
                                                                                               data[4])
+                # get the initial quantity of warehouse
                 initial_quantity = initial_inventory_object[0].quantity
 
-                # get the quantity of Initial bin
+                # get the quantity from initial to updated quantity which comes from csv
                 quantity = initial_quantity - int(data[5])
 
-                # update the quantity of Initial Bin ID
+                # update the quantity of initial warehouse
                 WareHouseCommonFunction.update_or_create_warehouse_inventory(
                     data[0], data[1], data[2], data[4], quantity, True)
 
-                # condition to get the queryset for Final Bin ID
+                # condition to get the queryset for new warehouse id
                 final_inventory_object = WareHouseCommonFunction.filter_warehouse_inventory(data[0], data[1], data[3],
                                                                                             data[4])
                 if not final_inventory_object:
@@ -510,12 +535,12 @@ def warehouse_inventory_change_data(upload_data, stock_movement_obj):
                 else:
                     final_quantity = final_inventory_object[0].quantity + int(data[5])
 
-                # update the quantity of Final Bin ID
+                # update the quantity of new warehouse id
                 WareHouseCommonFunction.update_or_create_warehouse_inventory(
                     Shop.objects.get(id=data[0]), Product.objects.get(product_sku=data[1]), data[3], data[4],
                     final_quantity, True)
 
-                # Create data in Internal Inventory Change Model
+                # Create data in Internal Warehouse change Model
                 transaction_type = 'war_house_adjustment'
                 try:
                     transaction_id = 'war_' + data[0] + data[1][14:] + data[2][0:5] + data[3][0:4] + data[4][0:4] + data[5]
