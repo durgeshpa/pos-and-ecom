@@ -34,6 +34,7 @@ INVENTORY_STATE_CHOICES = (
     ('available', 'AVAILABLE'),
     ('reserved', 'RESERVED'),
     ('shipped', 'SHIPPED'),
+    ('ordered', 'Ordered'),
 )
 class InventoryType(models.Model):
     # id = models.AutoField(primary_key=True)
@@ -320,8 +321,12 @@ def create_warehouse_inventory(sender, instance=None, created=False, *args, **kw
 class OrderReserveRelease(models.Model):
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
-    warehouse_internal_inventory_reserve = models.ForeignKey(WarehouseInternalInventoryChange, null=True, blank=True, on_delete=models.DO_NOTHING)
-    warehouse_internal_inventory_release = models.ForeignKey(WarehouseInternalInventoryChange, null=True, blank=True, on_delete=models.DO_NOTHING)
+    warehouse_internal_inventory_reserve = models.ForeignKey(WarehouseInternalInventoryChange,
+                                                             related_name='internal_inventory_reserve',
+                                                             null=True, blank=True, on_delete=models.DO_NOTHING)
+    warehouse_internal_inventory_release = models.ForeignKey(WarehouseInternalInventoryChange,
+                                                             related_name='internal_inventory_release',
+                                                             null=True, blank=True, on_delete=models.DO_NOTHING)
     reserved_time = models.DateTimeField(null=True, blank=True)
     release_time = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
