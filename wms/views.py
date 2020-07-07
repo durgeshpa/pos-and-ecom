@@ -11,13 +11,11 @@ from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.core.exceptions import ValidationError
-from django.db import transaction
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from django.http import JsonResponse
-from .common_functions import PutawayCommonFunctions, CommonBinInventoryFunctions, get_product_stock
 from sp_to_gram.tasks import update_shop_product_es
-from django.db.models.signals import post_save, pre_save
+from django.db.models.signals import post_save
 from django.db.models import Sum
 from django.dispatch import receiver
 from django.db import transaction
@@ -31,9 +29,10 @@ from products.models import Product
 # third party imports
 from wkhtmltopdf.views import PDFTemplateResponse
 from .forms import BulkBinUpdation, BinForm, StockMovementCsvViewForm
-from .models import Pickup, BinInventory, Putaway, InventoryState
+from .models import Pickup, BinInventory, InventoryState
 from .common_functions import InternalInventoryChange, CommonBinInventoryFunctions, PutawayCommonFunctions, \
-    InCommonFunctions, WareHouseCommonFunction, InternalWarehouseChange, StockMovementCSV, InternalStockCorrectionChange
+    InCommonFunctions, WareHouseCommonFunction, InternalWarehouseChange, StockMovementCSV,\
+    InternalStockCorrectionChange, get_product_stock
 
 # Logger
 info_logger = logging.getLogger('file-info')

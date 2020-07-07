@@ -246,9 +246,17 @@ class StockMovementCSVUpload(models.Model):
 
 
 class WarehouseInternalInventoryChange(models.Model):
+    transaction_type = (
+        (1, "WareHouse Adjustment"),
+        (2, "Reserved"),
+        (3, "Ordered"),
+        (4, "Released"),
+
+    )
+
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, null=True, blank=True, on_delete=models.DO_NOTHING)
-    transaction_type = models.CharField(max_length=25, null=True, blank=True)
+    transaction_type = models.CharField(max_length=25, null=True, blank=True, choices=transaction_type)
     transaction_id = models.CharField(max_length=25, null=True, blank=True)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
     initial_stage = models.ForeignKey(InventoryState, related_name='initial_stage', null=True, blank=True, on_delete=models.DO_NOTHING)
@@ -307,3 +315,17 @@ def create_warehouse_inventory(sender, instance=None, created=False, *args, **kw
                                                              'inventory_state':InventoryState.objects.filter(inventory_state='available').last(),
                                                              'quantity':BinInventory.available_qty(instance.warehouse.id, instance.sku.id),
                                                              'in_stock':instance.in_stock})
+
+
+class OrderReserveRelease(models.Model):
+    warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
+    sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
+    warehouse_internal_inventory_reserve = models.ForeignKey(WarehouseInternalInventoryChange, null=True, blank=True, on_delete=models.DO_NOTHING)
+    warehouse_internal_inventory_release = models.ForeignKey(WarehouseInternalInventoryChange, null=True, blank=True, on_delete=models.DO_NOTHING)
+    reserved_time = models.DateTimeField(null=True, blank=True)
+    release_time = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.release_time if self.release_time else None
