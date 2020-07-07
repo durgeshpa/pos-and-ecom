@@ -169,7 +169,7 @@ def get_stock(shop):
     return WarehouseInventory.objects.filter(
         Q(warehouse=shop),
         Q(quantity__gt=0),
-        Q(inventory_state='available'),
+        Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
         Q(in_stock='t')
     )
 
@@ -430,3 +430,18 @@ class StockMovementCSV(object):
 
         except Exception as e:
             error_logger.error(e)
+
+
+def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type,inv_state, t, val):
+    CommonBinInventoryFunctions.update_or_create_bin_inventory(sh, Bin.objects.filter(bin_id=bin_id).last(),
+                                                               put_away.last().sku, batch_id,
+                                                               InventoryType.objects.filter(
+                                                                   inventory_type=inv_type).last(),
+                                                               PutawayCommonFunctions.get_available_qty_for_batch(
+                                                                   sh.id, put_away.last().sku.id, batch_id), t)
+    PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),
+                                       bin=CommonBinInventoryFunctions.get_filtered_bin_inventory().last(),putaway_quantity=val)
+    CommonWarehouseInventoryFunctions.create_warehouse_inventory(sh, put_away.last().sku,
+                                                                 CommonInventoryStateFunctions.filter_inventory_state(inventory_state=inv_state).last(),
+                                                                 InventoryType.objects.filter(inventory_type=inv_type).last(),
+                                                                 BinInventory.available_qty(sh.id, put_away.last().sku.id), t)
