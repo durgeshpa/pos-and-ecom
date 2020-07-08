@@ -1,3 +1,4 @@
+import datetime
 import os
 import sys
 import django
@@ -13,6 +14,7 @@ from copy import copy, deepcopy
 from products.models import ProductPrice
 from banner.models import BannerPosition, BannerData
 from brand.models import BrandPosition, BrandData
+from sp_to_gram.models import OrderedProductMapping, StockAdjustmentMapping, StockAdjustment
 
 def set_shop_user_mappping(sp_shop, new_sp_shop):
     ShopUserMapping.objects.all().filter(shop=new_sp_shop).delete()
@@ -119,8 +121,30 @@ def set_banner_brand_position(sp_shop, new_sp_shop):
             new_brand_data.slot = new_brand_position
             new_brand_data.save()
 
-
-
+def set_inventory(sp_shop, new_sp_shop):
+    stock_adjustment = StockAdjustment.objects.create(shop=new_sp_shop)
+    OrderedProductMapping.objects.all().filter(shop=new_sp_shop,ordered_product=None).delete()
+    grn_list = OrderedProductMapping.objects.distinct('product').filter(shop=sp_shop)
+    manufacture_date = datetime.datetime.today()
+    expiry_date = datetime.datetime.today() + datetime.timedelta(days=180)
+    count=0
+    for grn in grn_list:
+        adjustment_grn = OrderedProductMapping.objects.create(
+            product=grn.product,
+            shop=new_sp_shop,
+            manufacture_date=manufacture_date,
+            expiry_date=expiry_date,
+            available_qty=0,
+            damaged_qty=0
+        )
+        StockAdjustmentMapping.objects.create(
+            stock_adjustment=stock_adjustment,
+            grn_product=adjustment_grn,
+            adjustment_type=StockAdjustmentMapping.INCREMENT,
+            adjustment_qty=0
+        )
+        print(count)
+        count+=1:
 # get shop mapping
 shop_mapping_list = ShopMigrationMapp.objects.all()
 
@@ -156,5 +180,8 @@ for shop_mapping in shop_mapping_list:
     # set_buyer_shop_new_retailer(sp_shop,new_sp_shop)
 
     #Copy banner position
-    set_banner_brand_position(sp_shop,new_sp_shop)
+    #set_banner_brand_position(sp_shop,new_sp_shop)
+
+    #copy inventory
+    set_inventory(sp_shop,new_sp_shop)
 

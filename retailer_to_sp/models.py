@@ -1218,7 +1218,7 @@ class OrderedProduct(models.Model): #Shipment
     RESCHEDULED = "RESCHEDULED"
     SHIPMENT_STATUS = (
         ('SHIPMENT_CREATED', 'QC Pending'),
-        (READY_TO_SHIP, 'QC Passed'),
+        ('READY_TO_SHIP', 'QC Passed'),
         ('READY_TO_DISPATCH', 'Ready to Dispatch'),
         ('OUT_FOR_DELIVERY', 'Out for Delivery'),
         ('FULLY_RETURNED_AND_COMPLETED', 'Fully Returned and Completed'),
