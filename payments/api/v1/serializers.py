@@ -77,10 +77,12 @@ class ShipmentPaymentSerializer(serializers.Serializer):
         choices=OrderedProduct.RETURN_REASON, required=False)
     payment_data = PaymentSerializer(many=True)
     user_documents = UserDocumentSerializer(many=True, required=False)
+    pan_uploaded = serializers.BooleanField(default=False)
 
     class Meta:
         fields = ['shipment', 'trip', 'amount_collected', 'payment_data',
-                  'user_documents', 'return_reason']
+                  'user_documents', 'return_reason', 'pan_uploaded']
+
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -117,6 +119,8 @@ class ShipmentPaymentSerializer(serializers.Serializer):
             raise serializers.ValidationError('Sum of paid amount must be equal to amount collected')
         return data
 
+
+
     def is_pan_required(self, data):
         payment_data = data.get('payment_data')
         cash_amount = sum([i.get('paid_amount') for i in payment_data
@@ -136,7 +140,7 @@ class ShipmentPaymentSerializer(serializers.Serializer):
                 'Amount collected and amount to be collected must be equal ({})'.
                 format(int(cash_to_be_collected)))
 
-        if self.is_pan_required(data) and not data.get('user_documents'):
+        if self.is_pan_required(data) and data.get('pan_uploaded') and not data.get('user_documents'):
             self.context['is_pan_required'] = True
             raise serializers.ValidationError('Please update PAN details')
         return data
@@ -146,7 +150,8 @@ class ShipmentPaymentSerializer(serializers.Serializer):
             'shipment': validated_data.get('shipment'),
             'trip': validated_data.get('trip'),
             'return_reason': validated_data.get('return_reason', None),
-            'amount_collected': validated_data.get('amount_collected')
+            'amount_collected': validated_data.get('amount_collected'),
+            'pan_uploaded': validated_data.get('pan_uploaded')
         }
         created_data_dict['user_documents'] = []
         created_data_dict['payment_data'] = []
