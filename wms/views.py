@@ -19,12 +19,14 @@ from django.db.models.signals import post_save
 from django.db.models import Sum
 from django.dispatch import receiver
 from django.db import transaction
-
+from datetime import datetime
 # app imports
-from .models import Bin, InventoryType
+from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease
 from .models import Bin, WarehouseInventory
 from shops.models import Shop
+from retailer_to_sp.models import Cart
 from products.models import Product
+
 
 # third party imports
 from wkhtmltopdf.views import PDFTemplateResponse
@@ -587,3 +589,34 @@ def warehouse_inventory_change_data(upload_data, stock_movement_obj):
             return
     except Exception as e:
         error_logger.error(e)
+
+
+def release_blocking_with_cron():
+    cart = Cart.objects.filter(cart_status='active').last()
+    item_details = WarehouseInternalInventoryChange.objects.filter(transaction_id=cart.order_id, transaction_type='reserved')
+    sku_id = [i.sku.id for i in item_details]
+    for k in item_details:
+        elapsed_time = datetime.now() - k.created_at
+        res_time = divmod(elapsed_time.total_seconds(), 60)[0]
+        if int(res_time) == 8:
+            transaction_id = k.transaction_id
+            shop_id = k.warehouse.id
+            transaction_type = 'released'
+            for i in sku_id:
+                ordered_product_reserved = WarehouseInventory.objects.filter(
+                    sku__id=i, inventory_state__inventory_state='reserved')
+                if ordered_product_reserved.exists():
+                    reserved_qty = ordered_product_reserved.last().quantity
+                    ordered_id = ordered_product_reserved.last().id
+                    wim = WarehouseInventory.objects.filter(sku__id=i,inventory_state__inventory_state='available')
+                    available_qty = wim.last().quantity
+                    wim.update(quantity=available_qty+reserved_qty)
+                    WarehouseInventory.objects.filter(id=ordered_id).update(quantity=0)
+                    WarehouseInternalInventoryChange.objects.create(warehouse=Shop.objects.get(id=shop_id),
+                                                            sku=Product.objects.get(id=i),
+                                                            transaction_type=transaction_type,
+                                                            transaction_id=transaction_id,
+                                                            initial_stage=InventoryState.objects.filter(inventory_state='reserved').last(), final_stage=InventoryState.objects.filter(inventory_state='available').last(),
+                                                            quantity=reserved_qty)
+                    OrderReserveRelease.objects.update_or_create(warehouse=Shop.objects.get(id=shop_id),sku=Product.objects.get(id=i),
+                                                                     defaults={'warehouse_internal_inventory_reserve':WarehouseInternalInventoryChange.objects.all().last(),'warehouse_internal_inventory_release':WarehouseInternalInventoryChange.objects.all().last(),'reserved_time':WarehouseInventory.objects.all().last().created_at,'release_time':datetime.now()})
