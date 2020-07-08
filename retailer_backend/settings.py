@@ -343,7 +343,7 @@ DEBUG_TOOLBAR_CONFIG = {
 DEBUG_TOOLBAR_PATCH_SETTINGS = False
 
 # Initiate Sentry SDK
-if ENVIRONMENT.lower() in ["production","staging", "qa", "qa1","qa3"]:
+if ENVIRONMENT.lower() in ["production","stage", "qa", "qa1","qa3"]:
     from sentry_sdk.integrations.celery import CeleryIntegration
     sentry_sdk.init(
         dsn="https://2f8d192414f94cd6a0ba5b26d6461684@sentry.io/1407300",
@@ -355,7 +355,7 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = 20000
 
 REDIS_DB_CHOICE = {
     'production': '1',
-    'staging': '2',
+    'stage': '2',
     'qa': '7',
     'qa1': '9',
     'local-raj':'5',
