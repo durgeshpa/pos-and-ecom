@@ -248,10 +248,10 @@ class StockMovementCSVUpload(models.Model):
 
 class WarehouseInternalInventoryChange(models.Model):
     transaction_type = (
-        (1, "WareHouse Adjustment"),
-        (2, "Reserved"),
-        (3, "Ordered"),
-        (4, "Released"),
+        ('warehouse', "WareHouse Adjustment"),
+        ('reserved', "Reserved"),
+        ('ordered', "Ordered"),
+        ('released', "Released"),
 
     )
 
@@ -331,6 +331,3 @@ class OrderReserveRelease(models.Model):
     release_time = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return self.release_time if self.release_time else None
