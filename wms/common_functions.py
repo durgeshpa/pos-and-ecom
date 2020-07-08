@@ -1,7 +1,8 @@
 import logging
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
-                     BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange)
+                     BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease)
+
 
 from shops.models import Shop
 from django.db.models import Sum, Q
@@ -9,6 +10,9 @@ import functools
 import json
 from celery.task import task
 from products.models import Product, ProductPrice
+from datetime import datetime
+
+
 
 
 type_choices = {
@@ -227,6 +231,7 @@ class OrderManagement(object):
         shop_id = params['shop_id']
         products = params['products']
         transaction_type = params['transaction_type']
+        print("et")
 
         for prod_id, ordered_qty in products.items():
             WarehouseInventory.objects.create(warehouse=Shop.objects.get(id=shop_id),
@@ -241,6 +246,9 @@ class OrderManagement(object):
                                                     transaction_type=transaction_type,
                                                     transaction_id=transaction_id, initial_stage=InventoryState.objects.filter(inventory_state='available').last(),
                                                     final_stage=InventoryState.objects.filter(inventory_state='reserved').last(), quantity=ordered_qty)
+            OrderReserveRelease.objects.create(warehouse=Shop.objects.get(id=shop_id), sku=Product.objects.get(id=int(prod_id)),warehouse_internal_inventory_reserve=WarehouseInternalInventoryChange.objects.all().last(),
+                                               reserved_time=WarehouseInternalInventoryChange.objects.all().last().created_at)
+
             for k in win:
                 wu = WarehouseInventory.objects.filter(id=k.id)
                 qty = wu.last().quantity
@@ -278,6 +286,8 @@ class OrderManagement(object):
                                                         transaction_id=transaction_id,
                                                         initial_stage=InventoryState.objects.filter(inventory_state='reserved').last(), final_stage=InventoryState.objects.filter(inventory_state='available').last(),
                                                         quantity=reserved_qty)
+                OrderReserveRelease.objects.update_or_create(warehouse=Shop.objects.get(id=shop_id),sku=Product.objects.get(id=i),
+                                                             defaults={'warehouse_internal_inventory_reserve':WarehouseInternalInventoryChange.objects.all().last(),'warehouse_internal_inventory_release':WarehouseInternalInventoryChange.objects.all().last(),'reserved_time':WarehouseInventory.objects.all().last().created_at,'release_time':datetime.now()})
 
 
 class InternalInventoryChange(object):
