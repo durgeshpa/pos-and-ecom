@@ -123,7 +123,9 @@ def set_banner_brand_position(sp_shop, new_sp_shop):
 
 def set_inventory(sp_shop, new_sp_shop):
     stock_adjustment = StockAdjustment.objects.create(shop=new_sp_shop)
-    OrderedProductMapping.objects.all().filter(shop=new_sp_shop,ordered_product=None).delete()
+    delete_grn = OrderedProductMapping.objects.all().filter(grn_product__in = new_sp_shop,ordered_product=None)
+    StockAdjustmentMapping.objects.all().filter(grn_product__in=delete_grn).delete()
+    delete_grn.delete()
     grn_list = OrderedProductMapping.objects.distinct('product').filter(shop=sp_shop)
     manufacture_date = datetime.datetime.today()
     expiry_date = datetime.datetime.today() + datetime.timedelta(days=180)
