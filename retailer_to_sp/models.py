@@ -727,6 +727,7 @@ class Order(models.Model):
     READY_TO_DISPATCH = 'ready_to_dispatch'
     CANCELLED = 'CANCELLED'
     PICKING_COMPLETE = 'picking_complete'
+    PICKING_ASSIGNED = 'PICKING_ASSIGNED'
 
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'), #1
@@ -753,6 +754,7 @@ class Order(models.Model):
         (READY_TO_DISPATCH, 'Ready to Dispatch'),
         (COMPLETED, 'Completed'),
         (PICKING_COMPLETE, 'Picking Complete'),
+        (PICKING_ASSIGNED, 'Picking Assigned'),
     )
 
     CASH_NOT_AVAILABLE = 'cna'
@@ -2351,7 +2353,7 @@ def create_offers_at_deletion(sender, instance=None, created=False, **kwargs):
 @receiver(post_save, sender=PickerDashboard)
 def update_order_status_from_picker(sender, instance=None, created=False, **kwargs):
     if instance.picking_status == PickerDashboard.PICKING_ASSIGNED:
-        instance.order.order_status = Order.DISPATCH_PENDING
+        instance.order.order_status = Order.PICKING_ASSIGNED
         instance.order.save()
 
 

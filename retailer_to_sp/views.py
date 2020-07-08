@@ -314,7 +314,7 @@ def assign_picker(request, shop_id=None):
                                        picking_status='picking_assigned')
                 #updating order status
                 Order.objects.filter(picker_order__in=selected_orders)\
-                    .update(order_status=Order.DISPATCH_PENDING)
+                    .update(order_status=Order.PICKING_ASSIGNED)
 
             return redirect('/admin/retailer_to_sp/pickerdashboard/')
     # form for assigning picker
@@ -1056,7 +1056,7 @@ def update_shipment_status(form_instance, formset):
 
 #     elif (total_delivered_qty == 0 and total_shipped_qty > 0 and
 #           total_returned_qty == 0 and total_damaged_qty == 0):
-#         order.order_status = 'DISPATCH_PENDING'
+#         order.order_status = 'PICKING_ASSIGNED'
 
 #     elif (ordered_qty - total_delivered_qty) > 0 and total_delivered_qty > 0:
 #         if order.order_closed:
@@ -1554,7 +1554,7 @@ class ShipmentOrdersAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qc_pending_orders = OrderedProduct.objects.filter(shipment_status="SHIPMENT_CREATED").values('order')
         qs = Order.objects.filter(
-            order_status__in=[Order.OPDP, 'ordered', 'PARTIALLY_SHIPPED', 'DISPATCH_PENDING'],
+            order_status__in=[Order.OPDP, 'ordered', 'PARTIALLY_SHIPPED', 'PICKING_ASSIGNED'],
             order_closed=False
         ).exclude(
             Q(id__in=qc_pending_orders)| Q(ordered_cart__cart_type = 'DISCOUNTED', ordered_cart__approval_status=False)| Q(order_status=Order.CANCELLED))
