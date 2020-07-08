@@ -1,34 +1,42 @@
-from django.contrib import admin
-from django.http import HttpResponse
-from django.db.models import Q
-from django.core.exceptions import ValidationError
-from django.forms.models import BaseInlineFormSet
-from django.contrib.admin import TabularInline
 from admin_auto_filters.filters import AutocompleteFilter
 from daterange_filter.filter import DateRangeFilter
+from rangefilter.filter import DateTimeRangeFilter
+
+from django.contrib import admin
+from django.contrib.admin import TabularInline
+from django.core.exceptions import ValidationError
+from django.db.models import Q
+from django.forms.models import BaseInlineFormSet
+from django.http import HttpResponse
+from django.conf.urls import url
+from django.urls import reverse
+from django.utils.html import format_html
+
 from retailer_backend.admin import InputFilter
-from .models import *
-from .views import (
-    SpSrProductPrice, load_cities, load_sp_sr, export,
-    load_brands, products_filter_view, products_price_filter_view,
-    ProductsUploadSample, products_csv_upload_view, gf_product_price,
-    load_gf, products_export_for_vendor, products_vendor_mapping,
-    MultiPhotoUploadView, ProductPriceAutocomplete,
-    ProductCategoryAutocomplete, download_all_products,
-    ProductCategoryMapping, product_category_mapping_sample,
-    ProductPriceUpload, CityAutocomplete, RetailerAutocomplete,
-    SellerShopAutocomplete, ProductAutocomplete, PincodeAutocomplete,
-    ProductCategoryMapping, product_category_mapping_sample, VendorAutocomplete, cart_products_mapping)
-from .resources import (
-    SizeResource, ColorResource, FragranceResource,
-    FlavorResource, WeightResource, PackageSizeResource,
-    ProductResource, ProductPriceResource, TaxResource
-    )
-
-from .forms import (ProductPriceNewForm, ProductPriceChangePerm,
-                    ProductPriceAddPerm, ProductVendorMappingForm, ProductForm, ProductCappingForm)
-
 from retailer_backend.filters import CityFilter, ProductCategoryFilter
+
+from .forms import (ProductCappingForm, ProductForm, ProductPriceAddPerm,
+                    ProductPriceChangePerm, ProductPriceNewForm,
+                    ProductVendorMappingForm, BulkProductTaxUpdateForm)
+from .models import *
+from .resources import (ColorResource, FlavorResource, FragranceResource,
+                        PackageSizeResource, ProductPriceResource,
+                        ProductResource, SizeResource, TaxResource,
+                        WeightResource)
+from .views import (CityAutocomplete, MultiPhotoUploadView,
+                    PincodeAutocomplete, ProductAutocomplete,
+                    ProductCategoryAutocomplete, ProductCategoryMapping,
+                    ProductPriceAutocomplete, ProductPriceUpload,
+                    ProductsUploadSample, RetailerAutocomplete,
+                    SellerShopAutocomplete, SpSrProductPrice,
+                    VendorAutocomplete, cart_products_mapping,
+                    download_all_products, export, gf_product_price,
+                    load_brands, load_cities, load_gf, load_sp_sr,
+                    product_category_mapping_sample, products_csv_upload_view,
+                    products_export_for_vendor, products_filter_view,
+                    products_price_filter_view, products_vendor_mapping)
+from .filters import BulkTaxUpdatedBySearch
+
 
 class ProductFilter(AutocompleteFilter):
     title = 'Product Name' # display title
@@ -255,7 +263,7 @@ class ProductTaxMappingAdmin(admin.TabularInline):
     autocomplete_fields = ['tax']
 
     class Media:
-            pass
+        pass
 
 
 class ProductAdmin(admin.ModelAdmin, ExportCsvMixin):
@@ -562,8 +570,58 @@ class ProductCappingAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+
 class ProductTaxAdmin(admin.ModelAdmin, ExportCsvMixin):
+    template = 'admin/products/producttaxmapping/change_list.html'
+    list_display = ('product', 'tax')
+    list_select_related = ('product', 'tax')
     search_fields = ['product__product_name']
+
+
+class BulkProductTaxUpdateAdmin(admin.ModelAdmin):
+    form = BulkProductTaxUpdateForm
+    list_display = ('created_at', 'updated_by', 'file')
+    list_select_related = ('updated_by',)
+    list_filter = (('created_at', DateTimeRangeFilter), BulkTaxUpdatedBySearch)
+    fields = ('download_sample_file', 'file', 'updated_by')
+    readonly_fields = ('updated_by', 'download_sample_file')
+
+    def get_urls(self):
+        urls = super().get_urls()
+        urls = [
+            url(
+                r'^sample-file/$',
+                self.admin_site.admin_view(self.form.sample_file),
+                name="bulk-tax-update-sample-file"
+            )
+        ] + urls
+        return urls
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = super().get_readonly_fields(request, obj)
+        if obj:
+            readonly_fields = readonly_fields + ('file',)
+        return readonly_fields
+
+    def download_sample_file(self, obj):
+        return format_html(
+            "<a href= '%s' >bulk_product_tax_update_sample.csv</a>" %
+            (reverse('admin:bulk-tax-update-sample-file'))
+        )
+    download_sample_file.short_description = 'Download Sample File'
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        if obj:
+            return False
+        return True
+
+    def save_model(self, request, obj, form, change):
+        obj.updated_by = request.user
+        super().save_model(request, obj, form, change)
+
 
 admin.site.register(ProductImage, ProductImageMainAdmin)
 admin.site.register(ProductVendorMapping, ProductVendorMappingAdmin)
@@ -578,4 +636,5 @@ admin.site.register(Product, ProductAdmin)
 admin.site.register(ProductPrice, ProductPriceAdmin)
 admin.site.register(ProductHSN, ProductHSNAdmin)
 admin.site.register(ProductCapping, ProductCappingAdmin)
-admin.site.register(ProductTaxMapping,ProductTaxAdmin)
+admin.site.register(ProductTaxMapping, ProductTaxAdmin)
+admin.site.register(BulkProductTaxUpdate, BulkProductTaxUpdateAdmin)

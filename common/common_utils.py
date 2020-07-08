@@ -1,25 +1,22 @@
 # python imports
 import datetime
-import time
 import hmac
 import hashlib
-import requests
 import logging
-import ast
 from functools import reduce
-import os
-import shutil
 import barcode
 from barcode.writer import ImageWriter
-import PIL
-from PIL import Image
 from io import BytesIO
-import base64
-import io
 from decouple import config
 
+# django imports
+from django.http import HttpResponse
+
 # app imports
-from common.constants import Version, S3_ZIP_API_NAME, STATUS_API_NAME, FIVE, ZIP_FORMAT
+from retailer_backend import common_function as CommonFunction
+
+# third party imports
+from api2pdf import Api2Pdf
 
 logger = logging.getLogger(__name__)
 
@@ -51,83 +48,100 @@ def convert_hash_using_hmac_sha256(payload):
     return signature
 
 
-def create_file_path(file_path_list, bucket_location, file_name):
-    """
-    :param file_path_list: list of file path
-    :param bucket_location: location of S3 bucket
-    :param file_name: name of pdf file
-    :return: list of pdf files path
+def merge_pdf_files(file_path_list, merge_pdf_name):
     """
 
-    try:
-        bucket_name = config('AWS_STORAGE_BUCKET_NAME')
-        file_path = bucket_name + '/' + bucket_location + '/' + file_name
-        file_path_list.append(file_path)
-    except Exception as e:
-        logger.exception(e)
-    return file_path_list
-
-
-def create_zip_url(file_path_list, zip_name):
-    """
-
-    :param file_path_list: collection of pdf files
-    :param zip_name: name of zip file
-    :return: :- response of zip status api
+    :param file_path_list: list of pdf file path
+    :param merge_pdf_name: name of merged file name
+    :return:
     """
     try:
-        # S3zip Server URL
-        api_url = config('S3_ZIP_API')
-        zip_to = config('AWS_STORAGE_BUCKET_NAME') + '/' + zip_name + ZIP_FORMAT
-        # crete API end point for S3zip Zip API
-        stream_api_end_point = api_url + '/' + Version + '/' + S3_ZIP_API_NAME
-        bearer = 'Bearer {}'.format(config('AUTHORIZATION_KEY'))
-        headers = {"Authorization": bearer}
-        # create payload and configure AWS Key, Secret, Bucket Name, Region and collection of files
-        payload = {'awsKey': config('AWS_ACCESS_KEY_ID'), 'awsSecret': config('AWS_SECRET_ACCESS_KEY'),
-                   'awsBucket': config('AWS_STORAGE_BUCKET_NAME'), 'awsRegion': config('AWS_REGION'),
-                   'filePaths': file_path_list, 'bucketAsDir': False, 'zipTo': zip_to}
-        # call S3zip Zip API
-        s3_zip_api_response = requests.request("POST", stream_api_end_point, data=payload, headers=headers)
-        # call S3zip status api and send the parameter as a response of stream api and api url
-        time.sleep(FIVE)
-        response = s3_zip_status_api(s3_zip_api_response, api_url)
-        return response
-    except Exception as e:
-        logger.exception(e)
-
-
-def s3_zip_status_api(s3_zip_api_response, api_url):
-    """
-    :param s3_zip_api_response: response of S3zip ZIP API
-    :param api_url: api url
-    :return: redirect the response url
-    """
-    try:
-        # crete API end point for S3zip status API
-        status_api_end_point = api_url + '/' + Version + '/' + STATUS_API_NAME
-        bearer = 'Bearer {}'.format(config('AUTHORIZATION_KEY'))
-        headers = {'Content-Type': 'application/json; charset=UTF-8', "Authorization": bearer}
-        # payload as is S3zip ZIP API response
-        payload = s3_zip_api_response
-        # call S3zip status API
-        response = requests.request("POST", status_api_end_point, data=payload, headers=headers)
-        # convert string dict to string and get the Zip url
-        response = ast.literal_eval(str(response.text))['result']
-        response = response.split('["')[1].split('"]')[0]
-        return response
+        a2p_client = Api2Pdf(config('API2PDF_KEY'))
+        merge_result = a2p_client.merge(file_path_list, file_name=merge_pdf_name)
+        return merge_result.result['pdf']
     except Exception as e:
         logger.exception(e)
 
 
 def create_file_name(file_prefix, unique_id):
     """
-     :param file_prefix: append the prefix according to object
+
+    :param file_prefix: append the prefix according to object
     :param unique_id: unique id
     :return: file name
     """
     # return unique name of pdf file
     return file_prefix + str(unique_id) + '.pdf'
+
+
+def create_merge_pdf_name(prefix_file_name, pdf_created_date):
+    """
+
+    :param prefix_file_name: Prefix of File name
+    :param pdf_created_date: list of created date of every pdf files
+    :return: merged file name
+    """
+    # return unique name of pdf file
+    if len(pdf_created_date) <= 1:
+        file_name = prefix_file_name+'_'+pdf_created_date[0].strftime("%d_%b_%y_%H_%M")+'.pdf'
+    else:
+        pdf_created_date = sorted(pdf_created_date)
+        file_name = prefix_file_name + '_' + pdf_created_date[-1].strftime(
+            "%d_%b_%y_%H_%M")+'-'+pdf_created_date[0].strftime("%d_%b_%y_%H_%M")+'.pdf'
+    return file_name
+
+
+def single_pdf_file(obj, result, file_prefix):
+    """
+
+    :param obj: object of order/ordered product
+    :param result: pdf data
+    :param file_prefix: prefix of file name for single file
+    :return: pdf file object
+    """
+    try:
+        filename = create_file_name(file_prefix, obj)
+        response = HttpResponse(result.content, content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+        return response
+    except Exception as e:
+        logger.exception(e)
+
+
+def create_invoice_data(ordered_product):
+    """
+
+    :param ordered_product: object of ordered_product
+    :return:
+    """
+    try:
+        if ordered_product.order.ordered_cart.cart_type == 'RETAIL':
+            if ordered_product.shipment_status == "READY_TO_SHIP":
+                CommonFunction.generate_invoice_number(
+                    'invoice_no', ordered_product.pk,
+                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
+                    ordered_product.invoice_amount)
+        elif ordered_product.order.ordered_cart.cart_type == 'DISCOUNTED':
+            if ordered_product.shipment_status == "READY_TO_SHIP":
+                CommonFunction.generate_invoice_number_discounted_order(
+                    'invoice_no', ordered_product.pk,
+                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
+                    ordered_product.invoice_amount)
+        elif ordered_product.order.ordered_cart.cart_type == 'BULK':
+            if ordered_product.shipment_status == "READY_TO_SHIP":
+                CommonFunction.generate_invoice_number_bulk_order(
+                    'invoice_no', ordered_product.pk,
+                    ordered_product.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
+                    ordered_product.invoice_amount)
+
+        if ordered_product.no_of_crates is None:
+            ordered_product.no_of_crates = 0
+        if ordered_product.no_of_packets is None:
+            ordered_product.no_of_packets = 0
+        if ordered_product.no_of_sacks is None:
+            ordered_product.no_of_sacks = 0
+    except Exception as e:
+        logger.exception(e)
 
 
 def barcode_gen(value):
