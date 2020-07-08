@@ -211,6 +211,8 @@ class OrderedProductMappingShipmentForm(forms.ModelForm):
         required=False, widget=forms.TextInput(attrs={'readonly': True}))
     to_be_shipped_qty = forms.CharField(
         required=False, widget=forms.TextInput(attrs={'readonly': True}))
+    shipped_qty = forms.CharField(
+        required=False, widget=forms.TextInput(attrs={'readonly': True}))
     product = forms.ModelChoiceField(
         queryset=Product.objects.all(), widget=forms.TextInput)
     product_name = forms.CharField(
