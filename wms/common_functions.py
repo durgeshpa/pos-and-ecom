@@ -76,7 +76,7 @@ class InCommonFunctions(object):
             in_obj = In.objects.create(warehouse=warehouse, in_type=in_type, in_type_id=in_type_id, sku=sku,
                                        batch_id=batch_id, quantity=quantity)
             PutawayCommonFunctions.create_putaway(in_obj.warehouse, in_obj.in_type, in_obj.id, in_obj.sku,
-                                                  in_obj.batch_id, in_obj.quantity, 0)
+                                                  in_obj.batch_id, in_obj.quantity, in_obj.quantity)
             return in_obj
 
     @classmethod

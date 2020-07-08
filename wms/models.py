@@ -105,7 +105,8 @@ class BinInventory(models.Model):
                                   Q(sku__id=sku_id),
                                   Q(quantity__gt=0)).aggregate(total=Sum('quantity')).get('total')
 
-
+    def __str__(self):
+        return str(self.id)
 
     class Meta:
         db_table = "wms_bin_inventory"

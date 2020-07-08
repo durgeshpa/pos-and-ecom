@@ -32,7 +32,7 @@ from .forms import BulkBinUpdation, BinForm, StockMovementCsvViewForm
 from .models import Pickup, BinInventory, InventoryState
 from .common_functions import InternalInventoryChange, CommonBinInventoryFunctions, PutawayCommonFunctions, \
     InCommonFunctions, WareHouseCommonFunction, InternalWarehouseChange, StockMovementCSV,\
-    InternalStockCorrectionChange, get_product_stock
+    InternalStockCorrectionChange, get_product_stock, updating_tables_on_putaway
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -520,8 +520,17 @@ def stock_correction_data(upload_data, stock_movement_obj):
 
                 # Create data in IN Model
                 InCommonFunctions.create_in(Shop.objects.get(id=data[0]), stock_correction_type,
-                                            stock_correction_id, Product.objects.get(product_sku=data[1]), data[2],
-                                            data[5])
+                                           stock_correction_id, Product.objects.get(product_sku=data[1]), data[2],
+                                           data[5])
+
+                # Create date in BinInventory, Put Away BinInventory and WarehouseInventory
+                inventory_type = 'normal'
+                inventory_state = 'available'
+                in_stock = 't'
+                put_away_obj = PutawayCommonFunctions.get_filtered_putaways(batch_id=data[2],
+                                                                            warehouse=Shop.objects.get(id=data[0]))
+                updating_tables_on_putaway(Shop.objects.get(id=data[0]), data[3], put_away_obj, data[2], inventory_type,
+                                           inventory_state, in_stock, data[5])
 
                 # Create data in Stock Correction change Model
                 InternalStockCorrectionChange.create_stock_inventory_change(Shop.objects.get(id=data[0]),
