@@ -221,7 +221,7 @@ def ordered_product_mapping_shipment(request):
             .values('product') \
             .filter(
             ordered_product__order_id=order_id,
-            product_id__in=[i['cart_product'] for i in cart_products]) \
+            product__id__in=[i['cart_product'] for i in cart_products]) \
             .annotate(Sum('delivered_qty'), Sum('shipped_qty'))
         products_list = []
         for item in cart_products:
