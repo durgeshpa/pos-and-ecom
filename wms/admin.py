@@ -13,7 +13,7 @@ from .views import bins_upload, put_away, CreatePickList
 from import_export import resources
 from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, PickupBinInventory,
                      WarehouseInventory, InventoryState, WarehouseInternalInventoryChange, StockMovementCSVUpload,
-                     BinInternalInventoryChange, StockCorrectionChange)
+                     BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease)
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
                     StockMovementCSVUploadAdminForm)
 from barCodeGenerator import barcodeGen
@@ -229,6 +229,9 @@ class StockCorrectionChangeAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'stock_sku', 'batch_id', 'stock_bin_id',
                     'correction_type', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
 
+class OrderReleaseAdmin(admin.ModelAdmin):
+    list_display = ('warehouse', 'sku', 'warehouse_internal_inventory_reserve', 'warehouse_internal_inventory_release', 'reserved_time', 'release_time', 'created_at')
+    readonly_fields = ('warehouse', 'sku', 'warehouse_internal_inventory_reserve', 'warehouse_internal_inventory_release', 'reserved_time', 'release_time', 'created_at')
 
 admin.site.register(Bin, BinAdmin)
 admin.site.register(In, InAdmin)
@@ -245,3 +248,4 @@ admin.site.register(InventoryState, InventoryStateAdmin)
 admin.site.register(WarehouseInternalInventoryChange, WarehouseInternalInventoryChangeAdmin)
 admin.site.register(BinInternalInventoryChange, BinInternalInventoryChangeAdmin)
 admin.site.register(StockCorrectionChange, StockCorrectionChangeAdmin)
+admin.site.register(OrderReserveRelease, OrderReleaseAdmin)
