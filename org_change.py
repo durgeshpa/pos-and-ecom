@@ -15,6 +15,7 @@ from products.models import ProductPrice
 from banner.models import BannerPosition, BannerData
 from brand.models import BrandPosition, BrandData
 from sp_to_gram.models import OrderedProductMapping, StockAdjustmentMapping, StockAdjustment
+from offer.models import TopSKU, OfferBannerData, OfferBannerPosition, OfferBanner
 
 def set_shop_user_mappping(sp_shop, new_sp_shop):
     ShopUserMapping.objects.all().filter(shop=new_sp_shop).delete()
@@ -76,12 +77,21 @@ def set_photo_doc_address(gf_shop, new_sp_shop):
 
 def set_shop_pricing(sp_shop, new_sp_shop):
     ProductPrice.objects.all().filter(seller_shop=new_sp_shop).delete()
-    price_list = sp_shop.shop_product_price.all()
+    price_list = ProductPrice.objects.all().filter(seller_shop=sp_shop)
     for price in price_list:
         new_price = deepcopy(price)
         new_price.pk = None
         new_price.seller_shop = new_sp_shop
         new_price.save()
+
+def set_top_sku(sp_shop,new_sp_shop):
+    TopSKU.objects.all().filter(shop=new_sp_shop).delete()
+    sku_list = TopSKU.objects.all().filter(shop=sp_shop)
+    for sku in sku_list:
+        new_sku = deepcopy(sku)
+        new_sku.pk = None
+        new_sku.shop = new_sp_shop
+        new_sku.save()
 
 def set_buyer_shop_new_retailer(sp_shop, new_sp_shop):
     sp_shop.parrent_mapping.all().update(parent=new_sp_shop)
@@ -121,6 +131,24 @@ def set_banner_brand_position(sp_shop, new_sp_shop):
             new_brand_data.slot = new_brand_position
             new_brand_data.save()
 
+
+def set_banner_position_offer(sp_shop, new_sp_shop):
+    offer_banner_position = OfferBannerPosition.objects.all().filter(shop=new_sp_shop)
+    OfferBannerData.objects.all().filter(slot__in=offer_banner_position).delete()
+    offer_banner_position.delete()
+    offer_banner_position_list = OfferBannerPosition.objects.all().filter(shop=sp_shop)
+    for offer_banner_position in offer_banner_position_list:
+        new_offer_banner_position = deepcopy(offer_banner_position)
+        new_offer_banner_position.pk = None
+        new_offer_banner_position.shop = new_sp_shop
+        new_offer_banner_position.save()
+        offer_banner_data_list = OfferBannerData.objects.all().filter(slot=offer_banner_position)
+        for offer_banner_data in offer_banner_data_list:
+            new_offer_banner_data = deepcopy(offer_banner_data)
+            new_offer_banner_data.pk = None
+            new_offer_banner_data.slot = new_offer_banner_position
+            new_offer_banner_data.save()
+
 def set_inventory(sp_shop, new_sp_shop):
     stock_adjustment = StockAdjustment.objects.create(shop=new_sp_shop)
     delete_grn = OrderedProductMapping.objects.all().filter(grn_product__in = new_sp_shop,ordered_product=None)
@@ -146,7 +174,7 @@ def set_inventory(sp_shop, new_sp_shop):
             adjustment_qty=0
         )
         print(count)
-        count+=1:
+        count+=1
 # get shop mapping
 shop_mapping_list = ShopMigrationMapp.objects.all()
 
@@ -183,7 +211,9 @@ for shop_mapping in shop_mapping_list:
 
     #Copy banner position
     #set_banner_brand_position(sp_shop,new_sp_shop)
-
+    #Copy Top Sku and offer banner
+    set_top_sku(sp_shop,new_sp_shop)
+    set_banner_position_offer
     #copy inventory
-    set_inventory(sp_shop,new_sp_shop)
+    #set_inventory(sp_shop,new_sp_shop)
 
