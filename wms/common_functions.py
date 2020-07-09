@@ -467,5 +467,8 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id):
                                                             transaction_id=transaction_id,
                                                             initial_stage=InventoryState.objects.filter(inventory_state='reserved').last(), final_stage=InventoryState.objects.filter(inventory_state='available').last(),
                                                             quantity=reserved_qty)
-            OrderReserveRelease.objects.update_or_create(warehouse=Shop.objects.get(id=shop_id), sku=Product.objects.get(id=prod),warehouse_internal_inventory_release=None,
-                                                         defaults={'warehouse_internal_inventory_release':WarehouseInternalInventoryChange.objects.all().last(),'release_time':datetime.now()})
+            order_reserve_obj = OrderReserveRelease.objects.filter(warehouse=Shop.objects.get(id=shop_id),
+                                                                             sku=Product.objects.get(id=prod),
+                                                                             warehouse_internal_inventory_release=None)
+            order_reserve_obj.update(warehouse_internal_inventory_release = WarehouseInternalInventoryChange.objects.all().last(),
+                                     release_time= datetime.now())
