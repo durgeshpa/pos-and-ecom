@@ -213,7 +213,7 @@ for shop_mapping in shop_mapping_list:
     #set_banner_brand_position(sp_shop,new_sp_shop)
     #Copy Top Sku and offer banner
     set_top_sku(sp_shop,new_sp_shop)
-    set_banner_position_offer
+    set_banner_position_offer(sp_shop,new_sp_shop)
     #copy inventory
     #set_inventory(sp_shop,new_sp_shop)
 
