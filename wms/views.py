@@ -620,7 +620,7 @@ def release_blocking_with_cron():
         for k in item_details:
             elapsed_time = datetime.now() - k.created_at
             res_time = divmod(elapsed_time.total_seconds(), 60)[0]
-            if int(res_time) == 1:
+            if int(res_time) == 8:
                 transaction_id = k.transaction_id
                 shop_id = k.warehouse.id
                 transaction_type = 'released'
