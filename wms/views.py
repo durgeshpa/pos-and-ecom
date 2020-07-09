@@ -20,7 +20,7 @@ from django.db.models import Sum
 from django.dispatch import receiver
 from django.db import transaction
 from datetime import datetime
-# app imports
+from .common_functions import CommonPickBinInvFunction, common_for_release
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease
 from .models import Bin, WarehouseInventory
 from shops.models import Shop
@@ -195,46 +195,58 @@ class CreatePickList(APIView):
     permission_classes = (AllowAny,)
     filename = 'picklist.pdf'
     template_name = 'admin/wms/picklist.html'
-    new_list = []
 
     def get(self, request, *args, **kwargs):
         pick_list = get_object_or_404(Pickup, pk=self.kwargs.get('pk'))
         pu = Pickup.objects.filter(pickup_type_id=pick_list.pickup_type_id)
         data_list=[]
+        new_list = []
         product, sku, bin_id, batch_id, pickup_type_id = '', '', '', '', ''
         mrp, already_picked, remaining_qty, pickup_id, qty, qty_in_bin, ids = 0, 0, 0, 0, 0, 0, 0
         for i in pu:
-            qty = i.pickup_quantity
-            pikachu = i.sku.rt_product_sku.filter(quantity__gt=0).order_by('-batch_id', '-quantity').last()
+            pickup_obj = i
+            bin_inv_dict = {}
+            qty = i.quantity
+            bin_lists = i.sku.rt_product_sku.filter(quantity__gt=0).order_by('-batch_id', 'quantity')
+            for k in bin_lists:
+                bin_inv_dict[str(datetime.strptime('30-' + k.batch_id[17:19] + '-' + '20' + k.batch_id[19:21], "%d-%m-%Y"))]=k
+            bin_inv_dict = list(bin_inv_dict.items())
+            bin_inv_dict.sort()
+            bin_inv_dict = dict(bin_inv_dict)
+            ll = list(bin_inv_dict)
             pickup_id = i.id
             pickup_type_id = i.pickup_type_id
             product = i.sku.product_name
             sku = i.sku.product_sku
             mrp = i.sku.rt_cart_product_mapping.all().last().cart_product_price.mrp if i.sku.rt_cart_product_mapping.all().last().cart_product_price else None
-            batch_id = pikachu.batch_id if pikachu else None
-            qty_in_bin = pikachu.quantity if pikachu else 0
-            ids = pikachu.id if pikachu else None
-            bin_id = pikachu.bin.bin_id if pikachu else None
+            for i, j in bin_inv_dict.items():
+                if qty == 0:
+                    break
+                already_picked=0
+                batch_id = j.batch_id if j else None
+                qty_in_bin = j.quantity if j else 0
+                ids = j.id if j else None
+                shops = j.warehouse
+                bin_id = j.bin.bin_id if j else None
 
-        if qty - already_picked <= qty_in_bin:
-            already_picked += qty
-            remaining_qty = qty_in_bin - already_picked
-            BinInventory.objects.filter(batch_id=batch_id, id=ids).update(quantity=remaining_qty)
-            Pickup.objects.filter(pickup_type_id=pickup_type_id, id=pickup_id).update(pickup_quantity=0)
-            prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": qty, "batch_id": batch_id, "bin": bin_id}
-            data_list.append(prod_list)
-        else:
-            already_picked = qty_in_bin
-            remaining_qty = qty - already_picked
-            BinInventory.objects.filter(batch_id=batch_id, id=ids).update(quantity=0)
-            Pickup.objects.filter(pickup_type_id=pickup_type_id, id=pickup_id).update(pickup_quantity=remaining_qty)
-            prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": qty_in_bin, "batch_id": batch_id,"bin": bin_id}
-            data_list.append(prod_list)
-            self.get(request, *args, **kwargs)
-        self.new_list.append(data_list[0])
-        print(self.new_list)
+                if qty - already_picked <= qty_in_bin:
+                    already_picked += qty
+                    remaining_qty = qty_in_bin - already_picked
+                    qty = 0
+                    prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": already_picked, "batch_id": batch_id, "bin": bin_id}
+                    print(bin_id)
+                    data_list.append(prod_list)
+                    CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id, j, quantity=already_picked, pickup_quantity=0)
+                else:
+                    already_picked = qty_in_bin
+                    remaining_qty = qty - already_picked
+                    qty = remaining_qty
+                    prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": already_picked, "batch_id": batch_id,"bin": bin_id}
+                    data_list.append(prod_list)
+                    CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id,j,quantity=already_picked, pickup_quantity=0)
+        new_list.append(data_list[0])
         data = {
-                "object": pu, "data_list":self.new_list[::-1]
+                "data_list":data_list
                  }
         cmd_option = {
             "margin-top": 10,
@@ -601,31 +613,15 @@ def warehouse_inventory_change_data(upload_data, stock_movement_obj):
 
 
 def release_blocking_with_cron():
-    cart = Cart.objects.filter(cart_status='active').last()
-    item_details = WarehouseInternalInventoryChange.objects.filter(transaction_id=cart.order_id, transaction_type='reserved')
-    sku_id = [i.sku.id for i in item_details]
-    for k in item_details:
-        elapsed_time = datetime.now() - k.created_at
-        res_time = divmod(elapsed_time.total_seconds(), 60)[0]
-        if int(res_time) == 8:
-            transaction_id = k.transaction_id
-            shop_id = k.warehouse.id
-            transaction_type = 'released'
-            for i in sku_id:
-                ordered_product_reserved = WarehouseInventory.objects.filter(
-                    sku__id=i, inventory_state__inventory_state='reserved')
-                if ordered_product_reserved.exists():
-                    reserved_qty = ordered_product_reserved.last().quantity
-                    ordered_id = ordered_product_reserved.last().id
-                    wim = WarehouseInventory.objects.filter(sku__id=i,inventory_state__inventory_state='available')
-                    available_qty = wim.last().quantity
-                    wim.update(quantity=available_qty+reserved_qty)
-                    WarehouseInventory.objects.filter(id=ordered_id).update(quantity=0)
-                    WarehouseInternalInventoryChange.objects.create(warehouse=Shop.objects.get(id=shop_id),
-                                                            sku=Product.objects.get(id=i),
-                                                            transaction_type=transaction_type,
-                                                            transaction_id=transaction_id,
-                                                            initial_stage=InventoryState.objects.filter(inventory_state='reserved').last(), final_stage=InventoryState.objects.filter(inventory_state='available').last(),
-                                                            quantity=reserved_qty)
-                    OrderReserveRelease.objects.update_or_create(warehouse=Shop.objects.get(id=shop_id),sku=Product.objects.get(id=i),
-                                                                     defaults={'warehouse_internal_inventory_reserve':WarehouseInternalInventoryChange.objects.all().last(),'warehouse_internal_inventory_release':WarehouseInternalInventoryChange.objects.all().last(),'reserved_time':WarehouseInventory.objects.all().last().created_at,'release_time':datetime.now()})
+    cart = Cart.objects.filter(cart_status='active')
+    for i in cart:
+        item_details = WarehouseInternalInventoryChange.objects.filter(transaction_id=i.order_id, transaction_type='reserved')
+        sku_id = [p.sku.id for p in item_details]
+        for k in item_details:
+            elapsed_time = datetime.now() - k.created_at
+            res_time = divmod(elapsed_time.total_seconds(), 60)[0]
+            if int(res_time) == 1:
+                transaction_id = k.transaction_id
+                shop_id = k.warehouse.id
+                transaction_type = 'released'
+                common_for_release(sku_id, shop_id, transaction_type, transaction_id)

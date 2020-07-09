@@ -195,6 +195,12 @@ class Out(models.Model):
 
 
 class Pickup(models.Model):
+
+    pickup_status_choices = (
+        ('pickup_creation', 'PickUp Creation'),
+        ('picking_assigned', 'Pickup Assigned'),
+        ('picking_complete', 'Pickup Complete')
+    )
     # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     pickup_type = models.CharField(max_length=20, null=True, blank=True)
@@ -203,6 +209,7 @@ class Pickup(models.Model):
     quantity = models.PositiveIntegerField()
     pickup_quantity = models.PositiveIntegerField(null=True, blank=True, default=0)
     out = models.ForeignKey(Out, null=True, blank=True, on_delete=models.DO_NOTHING)
+    status = models.CharField(max_length=21, null=True, blank=True, choices=pickup_status_choices)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -217,6 +224,7 @@ class PickupBinInventory(models.Model):
     pickup = models.ForeignKey(Pickup, null=True, blank=True, on_delete=models.DO_NOTHING)
     batch_id = models.CharField(max_length=21, null=True, blank=True)
     bin = models.ForeignKey(BinInventory, null=True, blank=True, on_delete=models.DO_NOTHING)
+    quantity = models.PositiveIntegerField()
     pickup_quantity = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -269,7 +277,7 @@ class WarehouseInternalInventoryChange(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.transaction_id
+        return self.transaction_type
 
     class Meta:
         db_table = "wms_warehouse_internal_inventory_change"

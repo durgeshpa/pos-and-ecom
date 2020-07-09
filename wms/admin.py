@@ -118,6 +118,8 @@ class BinInventoryAdmin(admin.ModelAdmin):
     list_display = ('batch_id','warehouse', 'sku', 'bin','inventory_type', 'quantity', 'in_stock')
     readonly_fields = ('batch_id','warehouse', 'sku', 'bin','inventory_type', 'in_stock')
 
+    list_filter = ('warehouse', 'sku', 'batch_id')
+
 
 class OutAdmin(admin.ModelAdmin):
     info_logger.info("Out Admin has been called.")
@@ -139,7 +141,7 @@ class OutAdmin(admin.ModelAdmin):
 class PickupAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Admin has been called.")
     form = PickupForm
-    list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity','pickup_quantity')
+    list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity','pickup_quantity', 'download_picklist')
     # readonly_fields = ('quantity','pickup_quantity',)
 
     def download_picklist(self, obj):
@@ -155,7 +157,7 @@ class PickupAdmin(admin.ModelAdmin):
 class PickupBinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Bin Inventory Admin has been called.")
 
-    list_display = ('warehouse', 'pickup', 'batch_id', 'bin', 'pickup_quantity','created_at')
+    list_display = ('warehouse', 'pickup', 'batch_id', 'bin','quantity', 'pickup_quantity','created_at')
     list_select_related = ('warehouse', 'pickup', 'bin')
     readonly_fields = ('warehouse', 'pickup', 'batch_id', 'bin','created_at')
 
