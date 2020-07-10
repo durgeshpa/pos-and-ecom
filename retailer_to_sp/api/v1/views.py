@@ -1319,7 +1319,9 @@ def pdf_generation(request, ordered_product):
         total_amount_int = total_amount
         amt = [num2words(i) for i in str(total_amount).split('.')]
         rupees = amt[0]
-
+        logger.info("createing invoice pdf")
+        logger.info(request.is_secure())
+        logger.ingo(request.get_host())
         data = {"shipment": ordered_product, "order": ordered_product.order,
                 "url": request.get_host(), "scheme": request.is_secure() and "https" or "http",
                 "igst": igst, "cgst": cgst, "sgst": sgst, "cess": cess, "surcharge": surcharge,
