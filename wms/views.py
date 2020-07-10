@@ -624,4 +624,5 @@ def release_blocking_with_cron():
                 transaction_id = k.transaction_id
                 shop_id = k.warehouse.id
                 transaction_type = 'released'
-                common_for_release(sku_id, shop_id, transaction_type, transaction_id)
+                order_status = 'available'
+                common_for_release(sku_id, shop_id, transaction_type, transaction_id, order_status)
