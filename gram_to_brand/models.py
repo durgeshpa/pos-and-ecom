@@ -577,11 +577,11 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                     (
                         cart_product=instance.product
                     ).last().price,
-                    total_price=float(instance.delivered_qty) * instance.grn_order.order.\
+                    total_price=round(float(instance.delivered_qty) * instance.grn_order.order.\
                     ordered_cart.cart_list.filter
                     (
                         cart_product=instance.product
-                    ).last().price,
+                    ).last().price,2),
                 )
                 sp_order = SpOrder.objects.filter(
                     ordered_cart=sp_po
