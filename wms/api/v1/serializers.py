@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from wms.models import Bin, Putaway, Out, Pickup, BinInventory
+from wms.models import Bin, Putaway, Out, Pickup, BinInventory, PickupBinInventory
 from retailer_to_sp.models import Order
 from shops.api.v1.serializers import ShopSerializer
 from retailer_to_sp.api.v1.serializers import ProductSerializer
@@ -130,6 +130,36 @@ class BinInventorySerializer(serializers.ModelSerializer):
         model = BinInventory
         fields = ('id', 'bin', 'batch_id', 'sku',)
 
+
+class PickupBinInventorySerializer(serializers.ModelSerializer):
+    sku_id = serializers.SerializerMethodField('sku_id_dt')
+    batch_id_with_sku = serializers.SerializerMethodField('batch_sku')
+    product_mrp = serializers.SerializerMethodField('product_mrp_dt')
+    is_success = serializers.SerializerMethodField('is_success_dt')
+    bin_id = serializers.SerializerMethodField('bin_id_dt')
+
+    class Meta:
+        model = PickupBinInventory
+        fields = ('is_success', 'id', 'quantity','pickup_quantity','product_mrp','batch_id_with_sku', 'bin_id','sku_id')
+
+    def sku_id_dt(self, obj):
+        sku_id = obj.pickup.sku.id
+        return sku_id
+
+    def product_mrp_dt(self, obj):
+        mrp = obj.pickup.sku.rt_cart_product_mapping.all().last().cart_product_price.mrp
+        return mrp
+
+    def batch_sku(self, obj):
+        batch_id = obj.batch_id
+        sku = obj.pickup.sku.product_name
+        return '{}:{}'.format(batch_id, sku)
+
+    def is_success_dt(self, obj):
+        return True
+
+    def bin_id_dt(self, obj):
+        return obj.bin.bin.bin_id
 
 
 

@@ -116,8 +116,13 @@ class CommonBinInventoryFunctions(object):
 class CommonPickupFunctions(object):
 
     @classmethod
-    def create_pickup_entry(cls, warehouse, pickup_type, pickup_type_id, sku, quantity):
-        Pickup.objects.create(warehouse=warehouse, pickup_type=pickup_type, pickup_type_id=pickup_type_id, sku=sku, quantity=quantity)
+    def create_pickup_entry(cls, warehouse, pickup_type, pickup_type_id, sku, quantity, status):
+        Pickup.objects.create(warehouse=warehouse, pickup_type=pickup_type, pickup_type_id=pickup_type_id, sku=sku, quantity=quantity, status=status)
+
+    @classmethod
+    def get_filtered_pickup(cls, **kwargs):
+        pickup_data = Pickup.objects.filter(**kwargs)
+        return pickup_data
 
 
 class CommonInventoryStateFunctions(object):
@@ -472,3 +477,5 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id):
                                                                              warehouse_internal_inventory_release=None)
             order_reserve_obj.update(warehouse_internal_inventory_release = WarehouseInternalInventoryChange.objects.all().last(),
                                      release_time= datetime.now())
+
+
