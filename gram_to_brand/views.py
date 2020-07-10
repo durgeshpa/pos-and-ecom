@@ -217,7 +217,7 @@ class DownloadDebitNote(APIView):
         for m in products:
             sum_qty = sum_qty + m.returned_qty
             sum_amount = round(sum_amount + (m.returned_qty * m.po_product_price),2)
-            inline_sum_amount = (m.returned_qty * m.po_product_price)
+            inline_sum_amount = round((m.returned_qty * m.po_product_price),2)
             for n in m.product.product_pro_tax.all():
                 divisor = (1+(n.tax.tax_percentage/100))
                 original_amount = (inline_sum_amount/divisor)
