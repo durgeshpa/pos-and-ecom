@@ -216,7 +216,7 @@ class DownloadDebitNote(APIView):
         surcharge_tax_list = []
         for m in products:
             sum_qty = sum_qty + m.returned_qty
-            sum_amount = sum_amount + (m.returned_qty * m.po_product_price)
+            sum_amount = round(sum_amount + (m.returned_qty * m.po_product_price),2)
             inline_sum_amount = (m.returned_qty * m.po_product_price)
             for n in m.product.product_pro_tax.all():
                 divisor = (1+(n.tax.tax_percentage/100))
