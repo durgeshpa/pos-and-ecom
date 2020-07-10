@@ -282,7 +282,8 @@ class OrderManagement(object):
         transaction_id = params['transaction_id']
         shop_id = params['shop_id']
         transaction_type = params['transaction_type']
-        common_for_release(sku_id, shop_id, transaction_type, transaction_id)
+        order_status = params['order_status']
+        common_for_release(sku_id, shop_id, transaction_type, transaction_id, order_status)
 
 class InternalInventoryChange(object):
     @classmethod
@@ -451,7 +452,7 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type,inv_stat
                                                                  BinInventory.available_qty(sh.id, put_away.last().sku.id), t)
 
 
-def common_for_release(prod_list, shop_id, transaction_type, transaction_id):
+def common_for_release(prod_list, shop_id, transaction_type, transaction_id, order_status):
     for prod in prod_list:
         ordered_product_reserved = WarehouseInventory.objects.filter(sku__id=prod, inventory_state__inventory_state='reserved')
         if ordered_product_reserved.exists():
@@ -459,13 +460,16 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id):
             ordered_id = ordered_product_reserved.last().id
             wim = WarehouseInventory.objects.filter(sku__id=prod,inventory_state__inventory_state='available')
             available_qty = wim.last().quantity
-            wim.update(quantity=available_qty+reserved_qty)
+            if order_status == 'ordered':
+                wim.update(quantity=available_qty)
+            else:
+                wim.update(quantity=available_qty+reserved_qty)
             WarehouseInventory.objects.filter(id=ordered_id).update(quantity=0)
             WarehouseInternalInventoryChange.objects.create(warehouse=Shop.objects.get(id=shop_id),
                                                             sku=Product.objects.get(id=prod),
                                                             transaction_type=transaction_type,
                                                             transaction_id=transaction_id,
-                                                            initial_stage=InventoryState.objects.filter(inventory_state='reserved').last(), final_stage=InventoryState.objects.filter(inventory_state='available').last(),
+                                                            initial_stage=InventoryState.objects.filter(inventory_state='reserved').last(), final_stage=InventoryState.objects.filter(inventory_state=order_status).last(),
                                                             quantity=reserved_qty)
             order_reserve_obj = OrderReserveRelease.objects.filter(warehouse=Shop.objects.get(id=shop_id),
                                                                              sku=Product.objects.get(id=prod),

@@ -970,7 +970,8 @@ class CreateOrder(APIView):
                     reserved_args = json.dumps({
                         'shop_id': parent_mapping.parent.id,
                         'transaction_id': cart.order_id,
-                        'transaction_type': 'ordered'
+                        'transaction_type': 'ordered',
+                        'order_status': order.order_status
                     })
                     OrderManagement.release_blocking(reserved_args, sku_id)
                     serializer = OrderSerializer(order,
@@ -1608,7 +1609,8 @@ class ReleaseBlocking(APIView):
             reserved_args = json.dumps({
                 'shop_id': parent_mapping.parent.id,
                 'transaction_id': cart.order_id,
-                'transaction_type': 'released'
+                'transaction_type': 'released',
+                'order_status': 'available'
             })
 
             OrderManagement.release_blocking(reserved_args, sku_id)
