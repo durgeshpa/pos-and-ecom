@@ -94,12 +94,12 @@ def set_top_sku(sp_shop,new_sp_shop):
         new_sku.save()
 
 def set_capping(sp_shop,new_sp_shop):
-    ProductCapping.objects.all().filter(shop=new_sp_shop).delete()
-    capping_list = ProductCapping.objects.all().filter(shop=sp_shop)
+    ProductCapping.objects.all().filter(seller_shop=new_sp_shop).delete()
+    capping_list = ProductCapping.objects.all().filter(seller_shop=sp_shop)
     for capping in capping_list:
         new_capping = deepcopy(capping)
         new_capping.pk = None
-        new_capping.shop = new_sp_shop
+        new_capping.seller_shop = new_sp_shop
         new_capping.save()
     pass
 
