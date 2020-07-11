@@ -412,6 +412,7 @@ class PickupDetail(APIView):
             pick_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, pickup__sku__id=j)
             sum_total = sum([i.pickup_quantity for i in pick_object])
             Pickup.objects.filter(pickup_type_id=order_no, sku__id=j).update(pickup_quantity=sum_total)
+        picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no)
 
         serializer = PickupBinInventorySerializer(picking_details, many=True)
         msg = {'is_success': True, 'message': 'Pick up data saved successfully.',
