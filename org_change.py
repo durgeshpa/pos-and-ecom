@@ -11,7 +11,7 @@ from shops.models import ShopType, ShopMigrationMapp, ShopPhoto, ShopDocument, S
 from shops.models import ShopUserMapping
 from addresses.models import Address
 from copy import copy, deepcopy
-from products.models import ProductPrice
+from products.models import ProductPrice, ProductCapping
 from banner.models import BannerPosition, BannerData
 from brand.models import BrandPosition, BrandData
 from sp_to_gram.models import OrderedProductMapping, StockAdjustmentMapping, StockAdjustment
@@ -92,6 +92,16 @@ def set_top_sku(sp_shop,new_sp_shop):
         new_sku.pk = None
         new_sku.shop = new_sp_shop
         new_sku.save()
+
+def set_capping(sp_shop,new_sp_shop)
+    ProductCapping.objects.all().filter(shop=new_sp_shop).delete()
+    capping_list = ProductCapping.objects.all().filter(shop=sp_shop)
+    for capping in capping_list:
+        new_capping = deepcopy(capping)
+        new_capping.pk = None
+        new_capping.shop = new_sp_shop
+        new_capping.save()
+    pass
 
 def set_buyer_shop_new_retailer(sp_shop, new_sp_shop):
     sp_shop.parrent_mapping.all().update(parent=new_sp_shop)
@@ -212,8 +222,10 @@ for shop_mapping in shop_mapping_list:
     #Copy banner position
     #set_banner_brand_position(sp_shop,new_sp_shop)
     #Copy Top Sku and offer banner
-    set_top_sku(sp_shop,new_sp_shop)
-    set_banner_position_offer(sp_shop,new_sp_shop)
+    # set_top_sku(sp_shop,new_sp_shop)
+    # set_banner_position_offer(sp_shop,new_sp_shop)
     #copy inventory
     #set_inventory(sp_shop,new_sp_shop)
+    #copy_capping
+    set_capping(sp_shop,new_sp_shop)
 
