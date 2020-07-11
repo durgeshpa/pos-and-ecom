@@ -419,3 +419,23 @@ class PickupDetail(APIView):
         # msg['data'].extend(msg['pick_data'])
         # del msg['pick_data']
         return Response(msg, status=status.HTTP_200_OK)
+
+
+class PickupComplete(APIView):
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        order_no = request.GET.get('order_no')
+        pick_obj = Pickup.objects.filter(pickup_type_id=order_no)
+        sum_of_pickup=sum([i.pickup_quantity for i in pick_obj])
+        sum_of_qty = sum([i.quantity for i in pick_obj])
+        if sum_of_qty==sum_of_pickup:
+            return Response({'is_success': True,
+                                 'Pickup': "Pickup complete for all the items"})
+        else:
+            return Response({'is_success': False,
+                                 'Pickup': "Some items are not picked up"})
+
+
+
