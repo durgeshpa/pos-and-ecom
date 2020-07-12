@@ -481,3 +481,21 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id, ord
                                                                              warehouse_internal_inventory_release=None)
             order_reserve_obj.update(warehouse_internal_inventory_release = WarehouseInternalInventoryChange.objects.all().last(),
                                      release_time= datetime.now())
+
+
+def cancel_order(instance):
+    """
+
+    :param instance: order instance
+    :return:
+    """
+    ware_house_internal = WarehouseInternalInventoryChange.objects.filter(
+        transaction_id=instance.order_no, final_stage=4, transaction_type='ordered')
+    sku_id = [p.sku.id for p in ware_house_internal]
+    quantity = ware_house_internal[0].quantity
+    for prod in sku_id:
+        wim = WarehouseInventory.objects.filter(sku__id=prod,
+                                                inventory_state__inventory_state='available',
+                                                inventory_type__inventory_type='normal')
+        wim_quantity = wim[0].quantity
+        wim.update(quantity=wim_quantity + quantity)
