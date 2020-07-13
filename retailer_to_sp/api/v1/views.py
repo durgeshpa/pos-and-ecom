@@ -57,7 +57,7 @@ from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping 
     CustomerCare as GramMappedCustomerCare
 )
 
-from shops.models import Shop, ParentRetailerMapping
+from shops.models import Shop, ParentRetailerMapping, ShopMigrationMapp
 from shops.models import Shop,ParentRetailerMapping, ShopUserMapping
 from brand.models import Brand
 from products.models import ProductCategory
@@ -1169,6 +1169,7 @@ def pdf_generation(request, ordered_product):
     file_prefix = PREFIX_INVOICE_FILE_NAME
     # get the file name along with with prefix name
     filename = create_file_name(file_prefix, ordered_product)
+    #we will be changing based on shop name
     template_name = 'admin/invoice/invoice_sp.html'
     if type(request) is str:
         request = None
@@ -1209,6 +1210,10 @@ def pdf_generation(request, ordered_product):
             buyer_shop_gistin = ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.filter(
                 shop_document_type='gstin').last().shop_document_number if ordered_product.order.ordered_cart.buyer_shop.shop_name_documents.filter(
                 shop_document_type='gstin').exists() else 'unregistered'
+
+        shop_mapping_list = ShopMigrationMapp.objects.filter(new_sp_addistro_shop=ordered_product.order.ordered_cart.seller_shop.pk).all()
+        if shop_mapping_list.exists():
+            template_name = 'admin/invoice/invoice_addistro_sp.html'
 
         product_listing = []
         taxes_list = []
@@ -1320,7 +1325,7 @@ def pdf_generation(request, ordered_product):
         amt = [num2words(i) for i in str(total_amount).split('.')]
         rupees = amt[0]
         logger.info("createing invoice pdf")
-        logger.info(request.is_secure())
+        logger.info(template_name)
         logger.ingo(request.get_host())
         data = {"shipment": ordered_product, "order": ordered_product.order,
                 "url": request.get_host(), "scheme": request.is_secure() and "https" or "http",
