@@ -34,8 +34,6 @@ from accounts.models import UserWithName
 from accounts.middlewares import get_current_user
 from addresses.models import Address
 from payments.models import ShipmentPayment
-from wms.models import Pickup
-from wms.common_functions import cancel_order
 
 
 User = get_user_model()
@@ -946,9 +944,6 @@ class OrderForm(forms.ModelForm):
             if instance.order_status in [Order.CANCELLED, Order.DISPATCHED, Order.COMPLETED]:
                 self.fields['order_status'].disabled = True
                 self.fields['cancellation_reason'].disabled = True
-                pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no)
-                if not pickup_obj:
-                    cancel_order(instance)
             else:
                 order_status_choices = tuple(set(
                     [i for i in Order.ORDER_STATUS if i[0] == instance.order_status] +

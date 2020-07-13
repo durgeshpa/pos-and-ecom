@@ -499,3 +499,20 @@ def cancel_order(instance):
                                                 inventory_type__inventory_type='normal')
         wim_quantity = wim[0].quantity
         wim.update(quantity=wim_quantity + quantity)
+
+
+def cancel_order_with_pick(instance):
+    """
+
+    :param instance: order instance
+    :return:
+
+    """
+    pickup_object = Pickup.objects.filter(pickup_type_id=instance.order_no)
+    pickup_bin_inventory_object = PickupBinInventory.objects.filter(pickup=pickup_object[0])
+    pick_up_quantity = pickup_object[0].quantity
+    pick_up_bin_quantity = pickup_bin_inventory_object[0].quantity
+    final_pick_up_quantity = pick_up_quantity + instance.ordered_cart.rt_cart_list.all()[0].no_of_pieces
+    final_pick_up_bin_quantity = pick_up_bin_quantity + instance.ordered_cart.rt_cart_list.all()[0].no_of_pieces
+    pickup_object.update(quantity=final_pick_up_quantity)
+    pickup_bin_inventory_object.update(quantity=final_pick_up_bin_quantity)
