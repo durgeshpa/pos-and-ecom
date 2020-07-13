@@ -399,24 +399,27 @@ class PickupDetail(APIView):
             return Response({'is_success': False,
                              'message': 'The number of sku ids entered should be equal to number of pickup qty entered.',
                              'data': None}, status=status.HTTP_200_OK)
-        diction = {i[0]: i[1] for i in zip(pickup_quantity, sku_id)}
-        for i, j in diction.items():
+        diction = {i[1]: i[0] for i in zip(pickup_quantity, sku_id)}
+        data_list=[]
+        for j, i in diction.items():
             picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin__bin_id=bin_id, pickup__sku__id=j)
             if picking_details.exists():
                     pick_qty = picking_details.last().pickup_quantity
                     qty = picking_details.last().quantity
                     if pick_qty + i > qty:
-                        return Response({'is_success': False,
+                        data_list.append({'is_success': False,
                                    'Pickup':"Can add only {} more items for {}".format(abs(qty-pick_qty), j)})
-                    picking_details.update(pickup_quantity=i + pick_qty)
-            pick_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, pickup__sku__id=j)
-            sum_total = sum([i.pickup_quantity for i in pick_object])
-            Pickup.objects.filter(pickup_type_id=order_no, sku__id=j).update(pickup_quantity=sum_total)
-        picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no)
-
-        serializer = PickupBinInventorySerializer(picking_details, many=True)
+                        continue
+                    else:
+                        picking_details.update(pickup_quantity=i + pick_qty)
+                        pick_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, pickup__sku__id=j)
+                        sum_total = sum([i.pickup_quantity for i in pick_object])
+                        Pickup.objects.filter(pickup_type_id=order_no, sku__id=j).update(pickup_quantity=sum_total)
+                        # picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin__bin_id=bin_id)
+                        serializer = PickupBinInventorySerializer(picking_details.last())
+                        data_list.append(serializer.data)
         msg = {'is_success': True, 'message': 'Pick up data saved successfully.',
-               'data': serializer.data}
+               'data': data_list}
         # msg['data'].extend(msg['pick_data'])
         # del msg['pick_data']
         return Response(msg, status=status.HTTP_200_OK)
@@ -426,18 +429,25 @@ class PickupComplete(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def get(self, request):
-        order_no = request.GET.get('order_no')
+    def post(self, request):
+        order_no = request.data.get('order_no')
+        if not order_no:
+            msg = {'is_success': True, 'message': 'Order number field is empty.', 'data': None}
+            return Response(msg, status=status.HTTP_200_OK)
         pick_obj = Pickup.objects.filter(pickup_type_id=order_no)
-        sum_of_pickup=sum([i.pickup_quantity for i in pick_obj])
-        sum_of_qty = sum([i.quantity for i in pick_obj])
-        if sum_of_qty==sum_of_pickup:
-            pick_obj.update(status='picking_complete')
-            return Response({'is_success': True,
+        if pick_obj.exists():
+            sum_of_pickup=sum([i.pickup_quantity for i in pick_obj])
+            sum_of_qty = sum([i.quantity for i in pick_obj])
+            if sum_of_qty==sum_of_pickup:
+                pick_obj.update(status='picking_complete')
+                return Response({'is_success': True,
                                  'Pickup': "Pickup complete for all the items"})
-        else:
-            return Response({'is_success': False,
+            else:
+                return Response({'is_success': False,
                                  'Pickup': "Some items are not picked up"})
+
+        msg = {'is_success': True, 'message': 'Pickup Object Does not exist.', 'data': None}
+        return Response(msg, status=status.HTTP_404_NOT_FOUND)
 
 
 
