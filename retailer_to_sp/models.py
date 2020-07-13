@@ -728,6 +728,7 @@ class Order(models.Model):
     CANCELLED = 'CANCELLED'
     PICKING_COMPLETE = 'picking_complete'
     PICKING_ASSIGNED = 'PICKING_ASSIGNED'
+    PICKUP_CREATED = 'PICKUP_CREATED'
 
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'), #1
@@ -755,6 +756,7 @@ class Order(models.Model):
         (COMPLETED, 'Completed'),
         (PICKING_COMPLETE, 'Picking Complete'),
         (PICKING_ASSIGNED, 'Picking Assigned'),
+        (PICKUP_CREATED, 'Pickup Created'),
     )
 
     CASH_NOT_AVAILABLE = 'cna'

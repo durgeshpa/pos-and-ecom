@@ -633,6 +633,7 @@ def pickup_entry_creation_with_cron():
                 picking_status="picking_pending",
                 picklist_id=generate_picklist_id(pincode),
             )
+            Order.objects.filter(order_no=i.order_no).update(order_status='Pickup Created')
             shop = Shop.objects.filter(id=i.seller_shop.id).last()
             order_no = i.order_no
             for j in i.ordered_cart.rt_cart_list.all():

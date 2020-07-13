@@ -432,6 +432,7 @@ class PickupComplete(APIView):
         sum_of_pickup=sum([i.pickup_quantity for i in pick_obj])
         sum_of_qty = sum([i.quantity for i in pick_obj])
         if sum_of_qty==sum_of_pickup:
+            pick_obj.update(status='picking_complete')
             return Response({'is_success': True,
                                  'Pickup': "Pickup complete for all the items"})
         else:
