@@ -62,4 +62,6 @@ ERROR_MESSAGES = {
     "4013": ("Please put the correct value in report parameters to get day, monthly and"
              " weekly report.param values are 1, 2 & 3."),
     "4014": "No Beat Plan available for selected date.",
+    "4015": "No Shop associated with Sales Manager.",
+    "4016": "No Executive associated with Sales Manager.",
 }

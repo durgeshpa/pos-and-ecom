@@ -898,10 +898,16 @@ class ExecutiveReport(viewsets.ModelViewSet):
                 shop_mapping_object = (self.queryset.filter(
                     employee=self.request.user.shop_employee.instance,
                     employee_group__permissions__codename='can_sales_manager_add_shop', status=True))
+                if not shop_mapping_object:
+                    return Response({"detail": messages.ERROR_MESSAGES["4015"],
+                                     'is_success': False}, status=status.HTTP_200_OK)
                 feedback_executive_list = []
                 for shop_mapping in shop_mapping_object:
                     executive_list = self.queryset.filter(manager=shop_mapping).distinct('employee_id')
                     feedback_executive_list.append(executive_list)
+                if len(feedback_executive_list) <= 0:
+                    return Response({"detail": messages.ERROR_MESSAGES["4016"],
+                                     'is_success': False}, status=status.HTTP_200_OK)
                 for feedback_executive in feedback_executive_list:
                     executive_report_serializer = self.serializer_class(feedback_executive, many=True,
                                                                         context={'report': self.request.GET['report']})
