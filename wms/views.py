@@ -523,9 +523,10 @@ def stock_correction_data(upload_data, stock_movement_obj):
                     stock_correction_id = 'stock_' + '00001'
 
                 # Create data in IN Model
+                putaway_quantity = 0
                 InCommonFunctions.create_in(Shop.objects.get(id=data[0]), stock_correction_type,
                                            stock_correction_id, Product.objects.get(product_sku=data[1]), data[2],
-                                           data[5])
+                                           data[5], putaway_quantity)
 
                 # Create date in BinInventory, Put Away BinInventory and WarehouseInventory
                 inventory_type = 'normal'
