@@ -94,7 +94,7 @@ class DownloadCreditNote(APIView):
         shop_mapping_list = ShopMigrationMapp.objects.filter(
             new_sp_addistro_shop=credit_note.shipment.order.seller_shop.pk).all()
         if shop_mapping_list.exists():
-            template_name = 'admin/invoice/addistro_credit_note.html'
+            self.template_name = 'admin/credit_note/addistro_credit_note.html'
 
         amount = credit_note.amount
         pp = OrderedProductMapping.objects.filter(ordered_product=credit_note.shipment.id)

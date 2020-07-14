@@ -1369,11 +1369,11 @@ class DownloadCreditNoteDiscounted(APIView):
         shop_mapping_list = ShopMigrationMapp.objects.filter(
             new_sp_addistro_shop=credit_note.shipment.order.seller_shop.pk).all()
         if shop_mapping_list.exists():
-            template_name = 'admin/invoice/addistro_discounted_credit_note.html'
+            self.template_name = 'admin/credit_note/addistro_discounted_credit_note.html'
         amount = credit_note.amount
         credit_note_type = credit_note.credit_note_type
         products = credit_note.shipment.rt_order_product_order_product_mapping.all()
-        # reason = 'Returned' if [i for i in pp if i.returned_qty>0] else 'Damaged' if [i for i in pp if i.damaged_qty>0] else 'Returned and Damaged'
+        # reason = 'Retuned' if [i for i in pp if i.returned_qty>0] else 'Damaged' if [i for i in pp if i.damaged_qty>0] else 'Returned and Damaged'
         order_id = credit_note.shipment.order.order_no
         sum_qty, sum_amount, tax_inline, product_tax_amount = 0, 0, 0, 0
         taxes_list, gst_tax_list, cess_tax_list, surcharge_tax_list = [], [], [], []
