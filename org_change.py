@@ -205,27 +205,27 @@ for shop_mapping in shop_mapping_list:
     else:
         new_sp_shop = Shop.objects.all().filter(pk=shop_mapping.new_sp_addistro_shop).last()
 
-    # # set Releated users
-    # set_related_user_invoice_parent(sp_shop, new_sp_shop)
-    # # set shop photos and documents
-    # set_photo_doc_address(gf_shop, new_sp_shop)
-    #
-    # #set shop user mapping
-    # set_shop_user_mappping(sp_shop,new_sp_shop)
-    #
-    # #For models other them shop
-    # set_shop_pricing(sp_shop, new_sp_shop)
-    #
-    # #Change existing shop parent_cat_sku_code
-    # set_buyer_shop_new_retailer(sp_shop,new_sp_shop)
+    # set Releated users
+    set_related_user_invoice_parent(sp_shop, new_sp_shop)
+    # set shop photos and documents
+    set_photo_doc_address(gf_shop, new_sp_shop)
+
+    #set shop user mapping
+    set_shop_user_mappping(sp_shop,new_sp_shop)
+
+    #For models other them shop
+    set_shop_pricing(sp_shop, new_sp_shop)
+
+    #Change existing shop parent_cat_sku_code
+    set_buyer_shop_new_retailer(sp_shop,new_sp_shop)
 
     #Copy banner position
-    #set_banner_brand_position(sp_shop,new_sp_shop)
+    set_banner_brand_position(sp_shop,new_sp_shop)
     #Copy Top Sku and offer banner
-    # set_top_sku(sp_shop,new_sp_shop)
-    # set_banner_position_offer(sp_shop,new_sp_shop)
+    set_top_sku(sp_shop,new_sp_shop)
+    set_banner_position_offer(sp_shop,new_sp_shop)
     #copy inventory
-    #set_inventory(sp_shop,new_sp_shop)
+    set_inventory(sp_shop,new_sp_shop)
     #copy_capping
     set_capping(sp_shop,new_sp_shop)
 
