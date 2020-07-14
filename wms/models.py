@@ -35,6 +35,7 @@ INVENTORY_STATE_CHOICES = (
     ('reserved', 'RESERVED'),
     ('shipped', 'SHIPPED'),
     ('ordered', 'Ordered'),
+    ('canceled', 'Canceled')
 )
 class InventoryType(models.Model):
     # id = models.AutoField(primary_key=True)
@@ -261,6 +262,7 @@ class WarehouseInternalInventoryChange(models.Model):
         ('reserved', "Reserved"),
         ('ordered', "Ordered"),
         ('released', "Released"),
+        ('canceled', 'Canceled')
 
     )
 

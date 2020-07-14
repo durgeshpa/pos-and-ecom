@@ -492,13 +492,25 @@ def cancel_order(instance):
     ware_house_internal = WarehouseInternalInventoryChange.objects.filter(
         transaction_id=instance.order_no, final_stage=4, transaction_type='ordered')
     sku_id = [p.sku.id for p in ware_house_internal]
-    quantity = ware_house_internal[0].quantity
-    for prod in sku_id:
+    quantity = [p.quantity for p in ware_house_internal]
+    for prod, qty in zip(sku_id, quantity):
         wim = WarehouseInventory.objects.filter(sku__id=prod,
                                                 inventory_state__inventory_state='available',
                                                 inventory_type__inventory_type='normal')
         wim_quantity = wim[0].quantity
-        wim.update(quantity=wim_quantity + quantity)
+        wim.update(quantity=wim_quantity + qty)
+        transaction_type = 'canceled'
+        initial_stage = 'ordered'
+        final_stage = 'canceled'
+        inventory_type = 'normal'
+        WarehouseInternalInventoryChange.objects.create(warehouse=wim[0].warehouse,
+                                                        sku=wim[0].sku,
+                                                        transaction_type=transaction_type,
+                                                        transaction_id=ware_house_internal[0].transaction_id,
+                                                        initial_stage=InventoryState.objects.get(inventory_state=initial_stage),
+                                                        final_stage=InventoryState.objects.get(inventory_state=final_stage),
+                                                        inventory_type=InventoryType.objects.get(inventory_type=inventory_type),
+                                                        quantity=qty)
 
 
 def cancel_order_with_pick(instance):
