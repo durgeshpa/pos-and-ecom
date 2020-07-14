@@ -436,18 +436,18 @@ LOGGING = {
    'disable_existing_loggers': False,
    'loggers': {
        'django': {
-           'handlers': ['file-debug','file-info','file-error', 'console'],
+           'handlers': ['file-info','file-error'],
            'level': 'DEBUG',
            'propagate': True,
        },
    },
    'handlers': {
-       # 'file-debug': {
-       #     'level': 'DEBUG',
-       #     'class': 'logging.FileHandler',
-       #     'filename': '/var/log/retailer-backend/debug.log',
-       #     'formatter': 'verbose',
-       # },
+       'file-debug': {
+           'level': 'DEBUG',
+           'class': 'logging.FileHandler',
+           'filename': '/var/log/retailer-backend/debug.log',
+           'formatter': 'verbose',
+       },
        'file-info': {
            'level': 'INFO',
            'class': 'logging.FileHandler',
@@ -460,10 +460,10 @@ LOGGING = {
            'filename': '/var/log/retailer-backend/error.log',
            'formatter': 'verbose',
        },
-       # 'console': {
-       #     'class': 'logging.StreamHandler',
-       #     'formatter': 'simple',
-       # },
+       'console': {
+           'class': 'logging.StreamHandler',
+           'formatter': 'simple',
+       },
 
    },
    'formatters': {
