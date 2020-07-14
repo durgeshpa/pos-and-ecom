@@ -445,9 +445,9 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
                 shop_visit_count = shop_visit_count + shop_visited
 
             if shop_visit_count != 0:
-                productivity = str(round(shop_visit_count/shop_mapped_count)*100) + '%'
+                productivity = str(round(shop_visit_count / shop_mapped_count, 4) * 100) + '%'
             else:
-                productivity = str(0) + '%'
+                productivity = str(00.00) + '%'
         # condition to check past week
         elif self._context['report'] is '2':
             previous_day_date = datetime.today() - timedelta(days=1)
@@ -468,9 +468,9 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
                 shop_visit_count = shop_visit_count + shop_visited
 
             if shop_visit_count != 0:
-                productivity = str(round(shop_visit_count / shop_mapped_count) * 100) + '%'
+                productivity = str(round(shop_visit_count / shop_mapped_count, 4) * 100) + '%'
             else:
-                productivity = str(0) + '%'
+                productivity = str(00.00) + '%'
         # condition to check past month
         else:
             previous_day_date = datetime.today() - timedelta(days=1)
@@ -490,9 +490,9 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
                 shop_visit_count = shop_visit_count + shop_visited
 
             if shop_visit_count != 0:
-                productivity = str(round(shop_visit_count / shop_mapped_count) * 100) + '%'
+                productivity = str(round(shop_visit_count / shop_mapped_count, 4) * 100) + '%'
             else:
-                productivity = str(0) + '%'
+                productivity = str(00.00) + '%'
         return productivity
 
     def get_num_of_order(self, obj):
