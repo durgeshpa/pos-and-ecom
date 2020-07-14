@@ -946,6 +946,6 @@ class OrderForm(forms.ModelForm):
                 self.fields['cancellation_reason'].disabled = True
             else:
                 order_status_choices = tuple(set(
-                    [i for i in Order.ORDER_STATUS if i[0] == instance.order_status] +
-                    [('PICKUP_CREATED', 'PICKUP_CREATED')]))
+                    [i for i in Order.ORDER_STATUS if i[1] == instance.order_status] +
+                    [('CANCELLED', 'Cancelled')]))
                 self.fields['order_status'].choices = order_status_choices
