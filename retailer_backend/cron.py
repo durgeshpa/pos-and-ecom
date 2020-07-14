@@ -140,7 +140,6 @@ def po_status_change_exceeds_validity_date():
                  then=Value(Cart.PARTIAL_DELIVERED_CLOSE)),
             default=F('po_status')))
 
-
 def sync_es_products():
     sp_shop_type = ShopType.objects.all().filter(shop_type="sp").last()
     shop_list = Shop.objects.filter(shop_type=sp_shop_type).all()

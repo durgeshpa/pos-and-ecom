@@ -179,7 +179,7 @@ table tr td,th,h4,span,address{
     								<td class="text-center">PCS</td>
 										   <div style="display:none"> {{m.returned_qty | returned_qty}}</div>
 
-    								<td class="text-right">{{m.po_product_price | po_product_price | intcomma }}/-</td>
+    								<td class="text-right">{{m.po_product_price | po_product_price | floatformat:2 | intcomma }}/-</td>
     							</tr>
                   {% endif %}
 									{% endfor %}
@@ -196,7 +196,7 @@ table tr td,th,h4,span,address{
 								  <td class="thick-line text-center"><strong>{{sum_qty}} PCS</strong></td>
     								<td class="thick-line"></td>
     								<td class="thick-line text-center"><strong></strong></td>
-    								<td class="thick-line text-right"><strong>₹{{sum_amount | intcomma }}/-</strong></td>
+    								<td class="thick-line text-right"><strong>₹{{sum_amount | floatformat:2 | intcomma }}/-</strong></td>
     							</tr>
 									{% if shop.order.ordered_cart.supplier_state.state == shop.order.shipping_address.state %}
     							<tr>
@@ -284,7 +284,7 @@ table tr td,th,h4,span,address{
     								<td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line text-center"><strong>Total</strong></td>
-    								<td class="no-line text-right" style="width:120px"><strong>₹ {{total_amount | intcomma}}/- </strong></td>
+    								<td class="no-line text-right" style="width:120px"><strong>₹ {{total_amount | floatformat:2 | intcomma}}/- </strong></td>
     							</tr>
 
 								<tr>
