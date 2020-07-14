@@ -60,5 +60,6 @@ ERROR_MESSAGES = {
     "4011": "Executive has already submitted the feedback for same date.",
     "4012": "Report param is missing.",
     "4013": ("Please put the correct value in report parameters to get day, monthly and"
-             " weekly report.param values are 1, 2 & 3.")
+             " weekly report.param values are 1, 2 & 3."),
+    "4014": "No Beat Plan available for selected date.",
 }

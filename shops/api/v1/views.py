@@ -844,6 +844,10 @@ class DayBeatPlan(viewsets.ModelViewSet):
                                      'is_success': False},
                                     status=status.HTTP_200_OK)
                 beat_plan_serializer = self.serializer_class(beat_user_obj, many=True)
+                if beat_plan_serializer.data.__len__() <= 0:
+                    return Response({"detail": messages.ERROR_MESSAGES["4014"], "data": beat_plan_serializer.data,
+                                     'is_success': True},
+                                    status=status.HTTP_200_OK)
                 return Response({"detail": SUCCESS_MESSAGES["2001"], "data": beat_plan_serializer.data,
                                  'is_success': True},
                                 status=status.HTTP_200_OK)
