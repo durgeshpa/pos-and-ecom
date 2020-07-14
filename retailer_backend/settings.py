@@ -442,12 +442,12 @@ LOGGING = {
        },
    },
    'handlers': {
-       'file-debug': {
-           'level': 'DEBUG',
-           'class': 'logging.FileHandler',
-           'filename': '/var/log/retailer-backend/debug.log',
-           'formatter': 'verbose',
-       },
+       # 'file-debug': {
+       #     'level': 'DEBUG',
+       #     'class': 'logging.FileHandler',
+       #     'filename': '/var/log/retailer-backend/debug.log',
+       #     'formatter': 'verbose',
+       # },
        'file-info': {
            'level': 'INFO',
            'class': 'logging.FileHandler',
@@ -460,10 +460,10 @@ LOGGING = {
            'filename': '/var/log/retailer-backend/error.log',
            'formatter': 'verbose',
        },
-       'console': {
-           'class': 'logging.StreamHandler',
-           'formatter': 'simple',
-       },
+       # 'console': {
+       #     'class': 'logging.StreamHandler',
+       #     'formatter': 'simple',
+       # },
 
    },
    'formatters': {
