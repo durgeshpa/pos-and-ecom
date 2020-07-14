@@ -1364,7 +1364,12 @@ class DownloadCreditNoteDiscounted(APIView):
             gstinn2 =gs.shop_document_number if gs.shop_document_type=='gstin' else 'Unregistered'
         for gs in credit_note.shipment.order.shipping_address.shop_name.shop_name_documents.all():
             gstinn1 = gs.shop_document_number if gs.shop_document_type=='gstin' else 'Unregistered'
-        gst_number ='07AAHCG4891M1ZZ' if credit_note.shipment.order.seller_shop.shop_name_address_mapping.all().last().state.state_name=='Delhi' else '09AAHCG4891M1ZV'
+        #gst_number ='07AAHCG4891M1ZZ' if credit_note.shipment.order.seller_shop.shop_name_address_mapping.all().last().state.state_name=='Delhi' else '09AAHCG4891M1ZV'
+        #changes for org change
+        shop_mapping_list = ShopMigrationMapp.objects.filter(
+            new_sp_addistro_shop=credit_note.shipment.order.seller_shop.pk).all()
+        if shop_mapping_list.exists():
+            template_name = 'admin/invoice/addistro_discounted_credit_note.html'
         amount = credit_note.amount
         credit_note_type = credit_note.credit_note_type
         products = credit_note.shipment.rt_order_product_order_product_mapping.all()
@@ -1403,7 +1408,8 @@ class DownloadCreditNoteDiscounted(APIView):
             "object": credit_note, "products": products,"shop": credit_note,"total_amount_int": total_amount_int,"sum_qty": sum_qty,"sum_amount":total_amount,
             "url": request.get_host(),"scheme": request.is_secure() and "https" or "http","igst": igst,"cgst": cgst,"sgst": sgst,"cess": cess,"surcharge": surcharge,
             "total_amount": round(total_amount,2),"order_id": order_id,"shop_name_gram": shop_name_gram,"nick_name_gram": nick_name_gram,"city_gram": city_gram,
-            "address_line1_gram": address_line1_gram,"pincode_gram": pincode_gram,"state_gram": state_gram,"amount":amount,"gstinn1":gstinn1,"gstinn2":gstinn2, "gstinn3":gstinn3,"gst_number":gst_number,"rupees":rupees,"credit_note_type":credit_note_type,"pan_no":pan_no, "cin":cin,}
+            "address_line1_gram": address_line1_gram,"pincode_gram": pincode_gram,"state_gram": state_gram,"amount":amount,"gstinn1":gstinn1,"gstinn2":gstinn2,
+            "gstinn3":gstinn3,"rupees":rupees,"credit_note_type":credit_note_type,"pan_no":pan_no, "cin":cin,}
         cmd_option = {
             "margin-top": 10,
             "zoom": 1,
