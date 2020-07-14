@@ -728,6 +728,7 @@ class Order(models.Model):
     CANCELLED = 'CANCELLED'
     PICKING_COMPLETE = 'picking_complete'
     PICKING_ASSIGNED = 'PICKING_ASSIGNED'
+    PICKUP_CREATED = 'PICKUP_CREATED'
 
     ORDER_STATUS = (
         (ORDERED, 'Order Placed'), #1
@@ -755,6 +756,7 @@ class Order(models.Model):
         (COMPLETED, 'Completed'),
         (PICKING_COMPLETE, 'Picking Complete'),
         (PICKING_ASSIGNED, 'Picking Assigned'),
+        (PICKUP_CREATED, 'Pickup Created'),
     )
 
     CASH_NOT_AVAILABLE = 'cna'
@@ -2255,23 +2257,23 @@ def update_picking_status(sender, instance=None, created=False, **kwargs):
     #assign_update_picker_to_shipment.delay(instance.id)
     assign_update_picker_to_shipment(instance.id)
 
-@receiver(post_save, sender=Order)
-def assign_picklist(sender, instance=None, created=False, **kwargs):
-    '''
-    Method to update picking status
-    '''
-    #assign shipment to picklist once SHIPMENT_CREATED
-    if created:
-        # assign piclist to order
-        try:
-            pincode = "00" #instance.shipping_address.pincode
-        except:
-            pincode = "00"
-        PickerDashboard.objects.create(
-            order=instance,
-            picking_status="picking_pending",
-            picklist_id= generate_picklist_id(pincode), #get_random_string(12).lower(), ##generate random string of 12 digits
-            )
+# @receiver(post_save, sender=Order)
+# def assign_picklist(sender, instance=None, created=False, **kwargs):
+#     '''
+#     Method to update picking status
+#     '''
+#     #assign shipment to picklist once SHIPMENT_CREATED
+#     if created:
+#         # assign piclist to order
+#         try:
+#             pincode = "00" #instance.shipping_address.pincode
+#         except:
+#             pincode = "00"
+#         PickerDashboard.objects.create(
+#             order=instance,
+#             picking_status="picking_pending",
+#             picklist_id= generate_picklist_id(pincode), #get_random_string(12).lower(), ##generate random string of 12 digits
+#             )
 
 
 # post_save.connect(get_order_report, sender=Order)
@@ -2389,13 +2391,13 @@ def update_order_status_from_shipment(sender, instance=None, created=False,
         update_full_part_order_status(instance)
 
 
-@receiver(post_save, sender=PickerDashboard)
-def update_wms_out_table(sender, instance=None, created=False, **kwargs):
-    if instance.picking_status == 'picking_assigned':
-        sh = Shop.objects.filter(id=instance.order.seller_shop_id).last()
-        for i in instance.order.ordered_cart.rt_cart_list.all():
-            CommonPickupFunctions.create_pickup_entry(sh, 'Order', instance.order.order_no, i.cart_product, i.no_of_pieces)
-            # Pickup.objects.create(
+# @receiver(post_save, sender=PickerDashboard)
+# def update_wms_out_table(sender, instance=None, created=False, **kwargs):
+#     if instance.picking_status == 'picking_assigned':
+#         sh = Shop.objects.filter(id=instance.order.seller_shop_id).last()
+#         for i in instance.order.ordered_cart.rt_cart_list.all():
+#             CommonPickupFunctions.create_pickup_entry(sh, 'Order', instance.order.order_no, i.cart_product, i.no_of_pieces)
+#             # Pickup.objects.create(
             #     warehouse=sh,
             #     pickup_type='Order',
             #     pickup_type_id=instance.order.order_no,

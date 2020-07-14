@@ -35,6 +35,7 @@ from accounts.middlewares import get_current_user
 from addresses.models import Address
 from payments.models import ShipmentPayment
 
+
 User = get_user_model()
 
 
@@ -945,6 +946,6 @@ class OrderForm(forms.ModelForm):
                 self.fields['cancellation_reason'].disabled = True
             else:
                 order_status_choices = tuple(set(
-                    [i for i in Order.ORDER_STATUS if i[0] == instance.order_status] +
+                    [i for i in Order.ORDER_STATUS if i[1] == instance.order_status] +
                     [('CANCELLED', 'Cancelled')]))
                 self.fields['order_status'].choices = order_status_choices

@@ -75,12 +75,12 @@ class PutawayCommonFunctions(object):
 class InCommonFunctions(object):
 
     @classmethod
-    def create_in(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity):
+    def create_in(cls, warehouse, in_type, in_type_id, sku, batch_id, quantity, putaway_quantity):
         if warehouse.shop_type.shop_type == 'sp':
             in_obj = In.objects.create(warehouse=warehouse, in_type=in_type, in_type_id=in_type_id, sku=sku,
                                        batch_id=batch_id, quantity=quantity)
             PutawayCommonFunctions.create_putaway(in_obj.warehouse, in_obj.in_type, in_obj.id, in_obj.sku,
-                                                  in_obj.batch_id, in_obj.quantity, in_obj.quantity)
+                                                  in_obj.batch_id, in_obj.quantity, putaway_quantity)
             return in_obj
 
     @classmethod
@@ -116,8 +116,13 @@ class CommonBinInventoryFunctions(object):
 class CommonPickupFunctions(object):
 
     @classmethod
-    def create_pickup_entry(cls, warehouse, pickup_type, pickup_type_id, sku, quantity):
-        Pickup.objects.create(warehouse=warehouse, pickup_type=pickup_type, pickup_type_id=pickup_type_id, sku=sku, quantity=quantity)
+    def create_pickup_entry(cls, warehouse, pickup_type, pickup_type_id, sku, quantity, status):
+        Pickup.objects.create(warehouse=warehouse, pickup_type=pickup_type, pickup_type_id=pickup_type_id, sku=sku, quantity=quantity, status=status)
+
+    @classmethod
+    def get_filtered_pickup(cls, **kwargs):
+        pickup_data = Pickup.objects.filter(**kwargs)
+        return pickup_data
 
 
 class CommonInventoryStateFunctions(object):
@@ -476,3 +481,50 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id, ord
                                                                              warehouse_internal_inventory_release=None)
             order_reserve_obj.update(warehouse_internal_inventory_release = WarehouseInternalInventoryChange.objects.all().last(),
                                      release_time= datetime.now())
+
+
+def cancel_order(instance):
+    """
+
+    :param instance: order instance
+    :return:
+    """
+    ware_house_internal = WarehouseInternalInventoryChange.objects.filter(
+        transaction_id=instance.order_no, final_stage=4, transaction_type='ordered')
+    sku_id = [p.sku.id for p in ware_house_internal]
+    quantity = [p.quantity for p in ware_house_internal]
+    for prod, qty in zip(sku_id, quantity):
+        wim = WarehouseInventory.objects.filter(sku__id=prod,
+                                                inventory_state__inventory_state='available',
+                                                inventory_type__inventory_type='normal')
+        wim_quantity = wim[0].quantity
+        wim.update(quantity=wim_quantity + qty)
+        transaction_type = 'canceled'
+        initial_stage = 'ordered'
+        final_stage = 'canceled'
+        inventory_type = 'normal'
+        WarehouseInternalInventoryChange.objects.create(warehouse=wim[0].warehouse,
+                                                        sku=wim[0].sku,
+                                                        transaction_type=transaction_type,
+                                                        transaction_id=ware_house_internal[0].transaction_id,
+                                                        initial_stage=InventoryState.objects.get(inventory_state=initial_stage),
+                                                        final_stage=InventoryState.objects.get(inventory_state=final_stage),
+                                                        inventory_type=InventoryType.objects.get(inventory_type=inventory_type),
+                                                        quantity=qty)
+
+
+def cancel_order_with_pick(instance):
+    """
+
+    :param instance: order instance
+    :return:
+
+    """
+    pickup_object = Pickup.objects.filter(pickup_type_id=instance.order_no)
+    pickup_bin_inventory_object = PickupBinInventory.objects.filter(pickup=pickup_object[0])
+    pick_up_quantity = pickup_object[0].quantity
+    pick_up_bin_quantity = pickup_bin_inventory_object[0].quantity
+    final_pick_up_quantity = pick_up_quantity + instance.ordered_cart.rt_cart_list.all()[0].no_of_pieces
+    final_pick_up_bin_quantity = pick_up_bin_quantity + instance.ordered_cart.rt_cart_list.all()[0].no_of_pieces
+    pickup_object.update(quantity=final_pick_up_quantity)
+    pickup_bin_inventory_object.update(quantity=final_pick_up_bin_quantity)

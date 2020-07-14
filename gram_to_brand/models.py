@@ -610,7 +610,8 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                     returned_qty=0,
                     damaged_qty=0
                 )
-                InCommonFunctions.create_In(shop.retailer, 'GRN', instance.grn_order.grn_id,instance.product, instance.batch_id, int(instance.delivered_qty))
+                putaway_quantity = 0
+                InCommonFunctions.create_in(shop.retailer, 'GRN', instance.grn_order.grn_id,instance.product, instance.batch_id, int(instance.delivered_qty), putaway_quantity)
         # ends here
         instance.available_qty = 0
         instance.save()

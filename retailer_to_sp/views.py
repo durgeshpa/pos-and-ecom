@@ -49,6 +49,8 @@ from addresses.models import Address
 from accounts.models import UserWithName
 from common.constants import ZERO, PREFIX_PICK_LIST_FILE_NAME, PICK_LIST_DOWNLOAD_ZIP_NAME
 from common.common_utils import create_file_name, create_merge_pdf_name, merge_pdf_files, single_pdf_file
+from wms.models import Pickup
+from wms.common_functions import cancel_order, cancel_order_with_pick
 
 logger = logging.getLogger('retailer_to_sp_controller')
 
@@ -1463,6 +1465,11 @@ class OrderCancellation(object):
 @receiver(post_save, sender=Order)
 def order_cancellation(sender, instance=None, created=False, **kwargs):
     if instance.order_status == 'CANCELLED':
+        pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no)
+        if not pickup_obj:
+            cancel_order(instance)
+        else:
+            cancel_order_with_pick(instance)
         order = OrderCancellation(instance)
         order.cancel()
 

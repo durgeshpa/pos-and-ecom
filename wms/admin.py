@@ -141,8 +141,16 @@ class OutAdmin(admin.ModelAdmin):
 class PickupAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Admin has been called.")
     form = PickupForm
-    list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity','pickup_quantity', 'download_picklist')
+    list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity','pickup_quantity','status')
     # readonly_fields = ('quantity','pickup_quantity',)
+
+
+class PickupBinInventoryAdmin(admin.ModelAdmin):
+    info_logger.info("Pick up Bin Inventory Admin has been called.")
+
+    list_display = ('warehouse', 'pickup', 'batch_id', 'bin','quantity', 'pickup_quantity','created_at', 'download_picklist')
+    list_select_related = ('warehouse', 'pickup', 'bin')
+    readonly_fields = ('warehouse', 'pickup', 'batch_id', 'bin','created_at')
 
     def download_picklist(self, obj):
         info_logger.info("download picklist method has been called.")
@@ -152,15 +160,6 @@ class PickupAdmin(admin.ModelAdmin):
         )
 
     download_picklist.short_description = 'Download Picklist'
-
-
-class PickupBinInventoryAdmin(admin.ModelAdmin):
-    info_logger.info("Pick up Bin Inventory Admin has been called.")
-
-    list_display = ('warehouse', 'pickup', 'batch_id', 'bin','quantity', 'pickup_quantity','created_at')
-    list_select_related = ('warehouse', 'pickup', 'bin')
-    readonly_fields = ('warehouse', 'pickup', 'batch_id', 'bin','created_at')
-
 
 class StockMovementCSVUploadAdmin(admin.ModelAdmin):
     """
