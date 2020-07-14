@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 from rest_framework import permissions, authentication
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q, Sum
+from django.db import transaction
 import datetime
 from wms.common_functions import (CommonBinInventoryFunctions, PutawayCommonFunctions, CommonBinFunctions, CommonWarehouseInventoryFunctions as CWIF, CommonInventoryStateFunctions as CISF,
 CommonBinInventoryFunctions as CBIF, updating_tables_on_putaway)
@@ -401,20 +402,25 @@ class PickupDetail(APIView):
                              'data': None}, status=status.HTTP_200_OK)
         diction = {i[1]: i[0] for i in zip(pickup_quantity, sku_id)}
         data_list=[]
-        for j, i in diction.items():
-            picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin__bin_id=bin_id, pickup__sku__id=j)
-            if picking_details.exists():
+        with transaction.atomic():
+            for j, i in diction.items():
+                picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin__bin_id=bin_id, pickup__sku__id=j)
+                if picking_details.exists():
                     pick_qty = picking_details.last().pickup_quantity
                     qty = picking_details.last().quantity
                     if pick_qty + i > qty:
                         data_list.append({'is_success': False,
-                                   'Pickup':"Can add only {} more items for {}".format(abs(qty-pick_qty), j)})
+                                       'Pickup':"Can add only {} more items for {}".format(abs(qty-pick_qty), j)})
                         continue
                     else:
                         picking_details.update(pickup_quantity=i + pick_qty)
                         pick_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, pickup__sku__id=j)
                         sum_total = sum([i.pickup_quantity for i in pick_object])
                         Pickup.objects.filter(pickup_type_id=order_no, sku__id=j).update(pickup_quantity=sum_total)
+                        bin_inv_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(bin__bin_id=bin_id, sku__id=j,
+                                                                               batch_id=picking_details.last().batch_id, quantity__gt=0)
+                        bin_inv_qty = bin_inv_obj.last().quantity
+                        bin_inv_obj.update(quantity=bin_inv_qty-i)
                         # picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin__bin_id=bin_id)
                         serializer = PickupBinInventorySerializer(picking_details.last())
                         data_list.append(serializer.data)
