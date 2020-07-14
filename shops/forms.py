@@ -394,10 +394,18 @@ class BeatUserMappingCsvViewForm(forms.Form):
             # validation to check the day is not sunday
             if not row[7] is '':
                 try:
+                    # row[7] = '4/7/2020'
                     datetime.datetime.strptime(row[7], '%d/%m/%y')
                 except Exception as e:
-                    raise ValidationError(_('Row number [%(value)s] | Date Format is not correct.'),
-                                      params={'value': row_id + 1}, )
+                    try:
+                        if datetime.datetime.strptime(row[7], '%d/%m/%Y'):
+                            pass
+                        else:
+                            raise ValidationError(_('Row number [%(value)s] | Date Format is not correct.'),
+                                                  params={'value': row_id + 1}, )
+                    except Exception as e:
+                        raise ValidationError(_('Row number [%(value)s] | Date Format is not correct.'),
+                                              params={'value': row_id + 1}, )
 
             if not row[7] is '':
                 day = find_sunday(row[7])

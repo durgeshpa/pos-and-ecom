@@ -129,5 +129,8 @@ def find_sunday(date):
     :param date: date format %d/%m/%y, example:- 14/06/2020
     :return: day of particular date
     """
-    sunday_day = datetime.datetime.strptime(date, '%d/%m/%y').weekday()
+    try:
+        sunday_day = datetime.datetime.strptime(date, '%d/%m/%y').weekday()
+    except:
+        sunday_day = datetime.datetime.strptime(date, '%d/%m/%Y').weekday()
     return calendar.day_name[sunday_day]

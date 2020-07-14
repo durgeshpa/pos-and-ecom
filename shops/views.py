@@ -472,7 +472,10 @@ class BeatUserMappingCsvView(FormView):
                     not_uploaded_list = []
                     for row, data in enumerate(upload_data):
                         # convert the string date to django model date field
-                        date = datetime.datetime.strptime(data[7], '%d/%m/%y').strftime("%Y-%m-%d")
+                        try:
+                            date = datetime.datetime.strptime(data[7], '%d/%m/%y').strftime("%Y-%m-%d")
+                        except:
+                            date = datetime.datetime.strptime(data[7], '%d/%m/%Y').strftime("%Y-%m-%d")
 
                         # day wise beat plan created for sales executive
                         day_beat_plan_object, created = DayBeatPlanning.objects.get_or_create(
