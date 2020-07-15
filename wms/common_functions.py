@@ -520,22 +520,23 @@ def cancel_order_with_pick(instance):
     :return:
 
     """
-    pickup_object = Pickup.objects.filter(pickup_type_id=instance.order_no)
+    pickup_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=instance.order_no)
     for pickup in pickup_object:
-        pickup_bin_inventory_object = PickupBinInventory.objects.filter(pickup=pickup)
+        # pickup_bin_inventory_object = PickupBinInventory.objects.filter(pickup=pickup)
 
-        pick_up_bin_quantity = pickup_bin_inventory_object[0].pickup_quantity
+        pick_up_bin_quantity = pickup.pickup_quantity
 
         # Bin Model Update
-        bin_inv_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(bin__bin_id=pickup_bin_inventory_object.last().bin.bin.bin_id,
-                                                                             sku__id=pickup_bin_inventory_object.last().pickup.sku.id,
-                                                                             batch_id=pickup_bin_inventory_object.last().batch_id,
+        bin_inv_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(bin__bin_id=pickup.bin.bin.bin_id,
+                                                                             sku__id=pickup.pickup.sku.id,
+                                                                             batch_id=pickup.batch_id,
                                                                              quantity__gt=0)
         bin_inv_qty = bin_inv_obj.last().quantity
         bin_inv_obj.update(quantity=bin_inv_qty + pick_up_bin_quantity)
 
         # Update Pickup and PickUp Bin Inventory
         pick_up_pickup_quantity = 0
-        pickup.pickup_quantity=pick_up_pickup_quantity
+        pickup.pickup_quantity = pick_up_pickup_quantity
         pickup.save()
-        pickup_bin_inventory_object.update(pickup_quantity=pick_up_pickup_quantity)
+        pick_obj = Pickup.objects.filter(pickup_type_id=instance.order_no)
+        pick_obj.update(pickup_quantity=0)
