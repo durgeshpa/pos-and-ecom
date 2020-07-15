@@ -152,14 +152,6 @@ class PickupBinInventoryAdmin(admin.ModelAdmin):
     list_select_related = ('warehouse', 'pickup', 'bin')
     readonly_fields = ('warehouse', 'pickup', 'batch_id', 'bin','created_at')
 
-    # def download_picklist(self, obj):
-    #     info_logger.info("download picklist method has been called.")
-    #     return format_html(
-    #         "<a href= '%s' >Download Picklist</a>" %
-    #         (reverse('create-picklist', args=[obj.pk]))
-    #     )
-
-    # download_picklist.short_description = 'Download Picklist'
 
 class StockMovementCSVUploadAdmin(admin.ModelAdmin):
     """

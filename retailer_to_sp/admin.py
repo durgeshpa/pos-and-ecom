@@ -822,19 +822,12 @@ class PickerDashboardAdmin(admin.ModelAdmin):
         #     return self.picklist_id
     picklist.short_description = 'Picklist'
 
-    def download_pick_list(self,obj):
-        # if obj.picking_status == "picking_complete":
-        #     return ""
+    def download_pick_list(self, obj):
         if obj.order.order_status not in ["active", "pending"]:
-            if obj.shipment:
-                return format_html(
-                    "<a href= '%s' >Download Pick List</a>" %
-                    (reverse('download_pick_list_picker_sp', args=[obj.order.pk, obj.shipment.pk]))
-                )
-            else:
-                return format_html(
-                    "<a href= '/retailer/sp/download-pick-list-picker-sp/%s/0/list/' >Download Pick List</a>" %
-                    obj.order.pk)
+            return format_html(
+                "<a href= '%s' >Download Pick List</a>" %
+                (reverse('create-picklist', args=[obj.order.pk]))
+            )
 
     def download_bulk_pick_list(self, request, *args, **kwargs):
         """
