@@ -442,15 +442,14 @@ class PickupComplete(APIView):
             return Response(msg, status=status.HTTP_200_OK)
         pick_obj = Pickup.objects.filter(pickup_type_id=order_no)
         if pick_obj.exists():
-            sum_of_pickup=sum([i.pickup_quantity for i in pick_obj])
-            sum_of_qty = sum([i.quantity for i in pick_obj])
-            if sum_of_qty==sum_of_pickup:
+            sum_of_pickup = [i.pickup_quantity for i in pick_obj]
+            if 0 in sum_of_pickup:
+                return Response({'is_success': False,
+                                 'Pickup': "Some items are not picked up"})
+            else:
                 pick_obj.update(status='picking_complete')
                 return Response({'is_success': True,
                                  'Pickup': "Pickup complete for all the items"})
-            else:
-                return Response({'is_success': False,
-                                 'Pickup': "Some items are not picked up"})
 
         msg = {'is_success': True, 'message': 'Pickup Object Does not exist.', 'data': None}
         return Response(msg, status=status.HTTP_404_NOT_FOUND)
