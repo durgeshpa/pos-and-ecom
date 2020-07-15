@@ -447,6 +447,7 @@ class PickupComplete(APIView):
                 return Response({'is_success': False,
                                  'Pickup': "Some items are not picked up"})
             else:
+                Order.objects.filter(order_no=order_no).update(order_status='picking_complete')
                 pick_obj.update(status='picking_complete')
                 return Response({'is_success': True,
                                  'Pickup': "Pickup complete for all the items"})
