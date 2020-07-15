@@ -351,26 +351,34 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         # condition to check past day
         if self._context['report'] is '1':
             previous_day_date = datetime.today() - timedelta(days=1)
+            # shop_map_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+            #                                                 next_plan_date=previous_day_date,
+            #                                                 beat_plan__status=True).count()
             shop_map_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
-                                                            next_plan_date=previous_day_date,
-                                                            beat_plan__status=True).count()
+                                                            next_plan_date=previous_day_date).count()
 
         # condition to check past week
         elif self._context['report'] is '2':
             previous_day_date = datetime.today() - timedelta(days=1)
             week_end_date = previous_day_date-timedelta(7)
+            # shop_map_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+            #                                                 next_plan_date__range=(week_end_date,
+            #                                                                        previous_day_date),
+            #                                                 beat_plan__status=True).count()
             shop_map_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
                                                             next_plan_date__range=(week_end_date,
-                                                                                   previous_day_date),
-                                                            beat_plan__status=True).count()
+                                                                                   previous_day_date)).count()
         # condition to check past month
         else:
             previous_day_date = datetime.today() - timedelta(days=1)
             week_end_date = previous_day_date - timedelta(30)
+            # shop_map_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+            #                                                 next_plan_date__range=(week_end_date,
+            #                                                                        previous_day_date),
+            #                                                 beat_plan__status=True).count()
             shop_map_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
                                                             next_plan_date__range=(week_end_date,
-                                                                                   previous_day_date),
-                                                            beat_plan__status=True).count()
+                                                                                   previous_day_date)).count()
 
         return shop_map_count
 
@@ -384,9 +392,12 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         if self._context['report'] is '1':
             previous_day_date = datetime.today() - timedelta(days=1)
             shop_visit_count = 0
+            # date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+            #                                                     next_plan_date=previous_day_date,
+            #                                                     beat_plan__status=True)
+
             date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
-                                                                next_plan_date=previous_day_date,
-                                                                beat_plan__status=True)
+                                                                next_plan_date=previous_day_date)
             for date_beat in date_beat_planning:
                 shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
                                                                 feedback_date=previous_day_date).count()
@@ -397,10 +408,13 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
             previous_day_date = datetime.today() - timedelta(days=1)
             week_end_date = previous_day_date - timedelta(7)
             shop_visit_count = 0
+            # date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+            #                                                     next_plan_date__range=(week_end_date,
+            #                                                                            previous_day_date),
+            #                                                     beat_plan__status=True)
             date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
                                                                 next_plan_date__range=(week_end_date,
-                                                                                       previous_day_date),
-                                                                beat_plan__status=True)
+                                                                                       previous_day_date))
             for date_beat in date_beat_planning:
                 shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
                                                                 feedback_date__range=(week_end_date,
@@ -411,10 +425,14 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
             previous_day_date = datetime.today() - timedelta(days=1)
             week_end_date = previous_day_date - timedelta(30)
             shop_visit_count = 0
+            # date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+            #                                                     next_plan_date__range=(
+            #                                                         week_end_date, previous_day_date),
+            #                                                     beat_plan__status=True)
+
             date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
                                                                 next_plan_date__range=(
-                                                                    week_end_date, previous_day_date),
-                                                                beat_plan__status=True)
+                                                                    week_end_date, previous_day_date))
             for date_beat in date_beat_planning:
                 shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
                                                                 feedback_date__range=(
@@ -432,13 +450,19 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         # condition to check past day
         if self._context['report'] is '1':
             previous_day_date = datetime.today() - timedelta(days=1)
+            # shop_mapped_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+            #                                                    next_plan_date=previous_day_date,
+            #                                                    beat_plan__status=True).count()
             shop_mapped_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
-                                                               next_plan_date=previous_day_date,
-                                                               beat_plan__status=True).count()
+                                                               next_plan_date=previous_day_date).count()
             shop_visit_count = 0
+            # date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+            #                                                     next_plan_date=previous_day_date,
+            #                                                     beat_plan__status=True)
+
             date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
-                                                                next_plan_date=previous_day_date,
-                                                                beat_plan__status=True)
+                                                                next_plan_date=previous_day_date)
+
             for date_beat in date_beat_planning:
                 shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
                                                                 feedback_date=previous_day_date).count()
@@ -452,15 +476,24 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         elif self._context['report'] is '2':
             previous_day_date = datetime.today() - timedelta(days=1)
             week_end_date = previous_day_date - timedelta(7)
+            # shop_mapped_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+            #                                                    next_plan_date__range=(week_end_date,
+            #                                                                           previous_day_date),
+            #                                                    beat_plan__status=True).count()
+
             shop_mapped_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
                                                                next_plan_date__range=(week_end_date,
-                                                                                      previous_day_date),
-                                                               beat_plan__status=True).count()
+                                                                                      previous_day_date)).count()
+
             shop_visit_count = 0
+            # date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+            #                                                     next_plan_date__range=(week_end_date,
+            #                                                                            previous_day_date),
+            #                                                     beat_plan__status=True)
+
             date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
                                                                 next_plan_date__range=(week_end_date,
-                                                                                       previous_day_date),
-                                                                beat_plan__status=True)
+                                                                                       previous_day_date))
             for date_beat in date_beat_planning:
                 shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
                                                                 feedback_date__range=(week_end_date,
@@ -475,15 +508,25 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
         else:
             previous_day_date = datetime.today() - timedelta(days=1)
             week_end_date = previous_day_date - timedelta(30)
+            # shop_mapped_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+            #                                                    next_plan_date__range=(week_end_date,
+            #                                                                           previous_day_date),
+            #                                                    beat_plan__status=True).count()
+
             shop_mapped_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
                                                                next_plan_date__range=(week_end_date,
-                                                                                      previous_day_date),
-                                                               beat_plan__status=True).count()
+                                                                                      previous_day_date)).count()
+
             shop_visit_count = 0
+            # date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
+            #                                                     next_plan_date__range=(week_end_date,
+            #                                                                            previous_day_date),
+            #                                                     beat_plan__status=True)
+
             date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
                                                                 next_plan_date__range=(week_end_date,
-                                                                                       previous_day_date),
-                                                                beat_plan__status=True)
+                                                                                       previous_day_date))
+
             for date_beat in date_beat_planning:
                 shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat, feedback_date__range=(
                     week_end_date, previous_day_date)).count()
@@ -570,6 +613,7 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
     """
     day_beat_plan = serializers.SlugRelatedField(queryset=DayBeatPlanning.objects.all(), slug_field='id', required=True)
     executive_feedback = serializers.CharField(required=True, max_length=1)
+    feedback_date = serializers.DateField(required=True)
 
     class Meta:
         """
@@ -584,7 +628,7 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
         :param validated_data: data which comes from post method
         :return: instance otherwise error message
         """
-        validated_data['feedback_date'] = datetime.today().strftime("%Y-%m-%d")
+        # validated_data['feedback_date'] = datetime.today().strftime("%Y-%m-%d")
         # condition to check same reference of Day Beat Plan with same date is exist or not
         executive_feedback = ExecutiveFeedback.objects.filter(day_beat_plan=validated_data['day_beat_plan'],
                                                               feedback_date=validated_data['feedback_date'])

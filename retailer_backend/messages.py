@@ -64,4 +64,5 @@ ERROR_MESSAGES = {
     "4014": "No Beat Plan available for selected date.",
     "4015": "No Shop associated with Sales Manager.",
     "4016": "No Executive associated with Sales Manager.",
+    "4017": "Feedback Submission is allowed only for the Current Date.",
 }

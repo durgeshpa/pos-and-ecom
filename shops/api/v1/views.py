@@ -867,13 +867,16 @@ class DayBeatPlan(viewsets.ModelViewSet):
         :param kwargs: keyword argument
         :return: serialized data of executive feedback
         """
-        serializer = FeedbackCreateSerializers(data=request.data, context={'request': request})
-        if serializer.is_valid():
-            result = serializer.save()
-            if result:
-                return Response({"detail": SUCCESS_MESSAGES["2002"], 'is_success': True,
-                                 "data": serializer.data}, status=status.HTTP_201_CREATED)
-            return Response({"detail": ERROR_MESSAGES['4011'], 'is_success': False}, status=status.HTTP_200_OK)
+        if request.POST['feedback_date'] == datetime.today().strftime("%Y-%m-%d"):
+            serializer = FeedbackCreateSerializers(data=request.data, context={'request': request})
+            if serializer.is_valid():
+                result = serializer.save()
+                if result:
+                    return Response({"detail": SUCCESS_MESSAGES["2002"], 'is_success': True,
+                                     "data": serializer.data}, status=status.HTTP_201_CREATED)
+                return Response({"detail": ERROR_MESSAGES['4011'], 'is_success': False}, status=status.HTTP_200_OK)
+        else:
+            return Response({"detail": ERROR_MESSAGES['4017'], 'is_success': False}, status=status.HTTP_200_OK)
 
 
 class ExecutiveReport(viewsets.ModelViewSet):
