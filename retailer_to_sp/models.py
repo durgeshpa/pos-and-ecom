@@ -34,7 +34,6 @@ from wms.models import Out, Pickup
 from brand.models import Brand
 from otp.sms import SendSms
 from products.models import Product, ProductPrice
-from wms.common_functions import CommonPickupFunctions
 from shops.models import Shop, ShopNameDisplay
 
 from .utils import (order_invoices, order_shipment_amount,
