@@ -1177,7 +1177,7 @@ class ShipmentProductMappingAdmin(admin.TabularInline):
     model = ShipmentProductMapping
     form = ShipmentProductMappingForm
     fields = ['product', 'ordered_qty', 'already_shipped_qty', 'to_be_shipped_qty','shipped_qty']
-    readonly_fields = ['product', 'ordered_qty', 'to_be_shipped_qty', 'already_shipped_qty']
+    readonly_fields = ['product', 'ordered_qty', 'to_be_shipped_qty', 'already_shipped_qty', 'shipped_qty']
     extra = 0
     max_num = 0
 
