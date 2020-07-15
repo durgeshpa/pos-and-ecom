@@ -197,8 +197,8 @@ class CreatePickList(APIView):
     template_name = 'admin/wms/picklist.html'
 
     def get(self, request, *args, **kwargs):
-        pick_list = get_object_or_404(PickupBinInventory, pk=self.kwargs.get('pk'))
-        Orders = Order.objects.filter(order_no=pick_list.pickup.pickup_type_id).last()
+        Orders = get_object_or_404(Order, pk=self.kwargs.get('pk'))
+        # Orders = Order.objects.filter(order_no=pick_list.pickup.pickup_type_id).last()
         data_list = []
         new_list = []
         for i in Orders.ordered_cart.rt_cart_list.all():

@@ -148,18 +148,18 @@ class PickupAdmin(admin.ModelAdmin):
 class PickupBinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Bin Inventory Admin has been called.")
 
-    list_display = ('warehouse', 'pickup', 'batch_id', 'bin','quantity', 'pickup_quantity','created_at', 'download_picklist')
+    list_display = ('warehouse', 'pickup', 'batch_id', 'bin','quantity', 'pickup_quantity','created_at')
     list_select_related = ('warehouse', 'pickup', 'bin')
     readonly_fields = ('warehouse', 'pickup', 'batch_id', 'bin','created_at')
 
-    def download_picklist(self, obj):
-        info_logger.info("download picklist method has been called.")
-        return format_html(
-            "<a href= '%s' >Download Picklist</a>" %
-            (reverse('create-picklist', args=[obj.pk]))
-        )
+    # def download_picklist(self, obj):
+    #     info_logger.info("download picklist method has been called.")
+    #     return format_html(
+    #         "<a href= '%s' >Download Picklist</a>" %
+    #         (reverse('create-picklist', args=[obj.pk]))
+    #     )
 
-    download_picklist.short_description = 'Download Picklist'
+    # download_picklist.short_description = 'Download Picklist'
 
 class StockMovementCSVUploadAdmin(admin.ModelAdmin):
     """

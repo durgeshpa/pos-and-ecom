@@ -925,7 +925,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
         if obj.order_status not in ["active", "pending"]:
             return format_html(
                 "<a href= '%s' >Download Pick List</a>" %
-                (reverse('download_pick_list_sp', args=[obj.pk]))
+                (reverse('create-picklist', args=[obj.pk]))
             )
 
     def download_bulk_pick_list(self, request, *args, **kwargs):
