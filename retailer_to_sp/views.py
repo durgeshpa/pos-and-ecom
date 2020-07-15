@@ -226,7 +226,8 @@ def ordered_product_mapping_shipment(request):
             product__id__in=[i['cart_product'] for i in cart_products]) \
             .annotate(Sum('delivered_qty'), Sum('shipped_qty'))
         products_list = []
-        for item in cart_products:
+        pick_up_obj = Pickup.objects.filter(pickup_type_id=Order.objects.filter(id=order_id).last().order_no)
+        for item, pick_up in zip(cart_products, pick_up_obj):
             shipment_product = list(filter(lambda product: product['product'] == item['cart_product'],
                                            shipment_products))
             if shipment_product:
@@ -241,7 +242,7 @@ def ordered_product_mapping_shipment(request):
                         'ordered_qty': ordered_no_pieces,
                         'already_shipped_qty': already_shipped_qty,
                         'to_be_shipped_qty': to_be_shipped_qty,
-                        'shipped_qty': ordered_no_pieces,
+                        'shipped_qty': pick_up.pickup_quantity,
                     })
             else:
                 products_list.append({
@@ -250,7 +251,7 @@ def ordered_product_mapping_shipment(request):
                     'ordered_qty': item['no_of_pieces'],
                     'already_shipped_qty': 0,
                     'to_be_shipped_qty': 0,
-                    'shipped_qty': item['no_of_pieces'],
+                    'shipped_qty': pick_up.pickup_quantity,
                 })
         form_set = ordered_product_set(initial=products_list)
         form = OrderedProductForm(initial={'order': order_id})
@@ -1561,7 +1562,8 @@ class ShipmentOrdersAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qc_pending_orders = OrderedProduct.objects.filter(shipment_status="SHIPMENT_CREATED").values('order')
         qs = Order.objects.filter(
-            order_status__in=[Order.OPDP, 'ordered', 'PARTIALLY_SHIPPED', 'PICKING_ASSIGNED'],
+            # order_status__in=[Order.OPDP, 'ordered', 'PARTIALLY_SHIPPED', 'PICKING_ASSIGNED', 'PICKUP_CREATED'],
+            order_status__in=[Order.OPDP, 'PARTIALLY_SHIPPED', 'PICKING_ASSIGNED', 'PICKUP_CREATED'],
             order_closed=False
         ).exclude(
             Q(id__in=qc_pending_orders)| Q(ordered_cart__cart_type = 'DISCOUNTED', ordered_cart__approval_status=False)| Q(order_status=Order.CANCELLED))
