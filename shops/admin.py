@@ -507,6 +507,9 @@ class BeatPlanningAdmin(admin.ModelAdmin):
     class Media:
         js = ('admin/js/beat_plan_list.js', )
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
     def get_queryset(self, request):
         """
 
