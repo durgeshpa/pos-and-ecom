@@ -106,6 +106,18 @@ class DailyStock(APIView):
                 daily_stock_dt.append(
                     ShopStock(product_id=product_dt['product'], available_qty=product_dt['product_qty_sum'],
                               damage_qty=product_dt['damaged_qty_sum'], shop_id=shop_obj.id, created_at=datetime.now()))
+        for shop_obj in Shop.objects.filter(shop_type__shop_type='sp', shop_name__icontains='ADDISTRO'):
+            sp_grn_product = OrderedProductMapping.get_shop_stock(shop_obj)
+            product_sum = sp_grn_product.values('product', 'product__product_name', 'product__product_gf_code',
+                                                    'product__product_sku').annotate(
+                product_qty_sum=Sum('available_qty')).annotate(damaged_qty_sum=Sum('damaged_qty'))
+            daily_stock_dt = []
+            for product_dt in product_sum:
+                daily_stock_dt.append(
+                    ShopStock(product_id=product_dt['product'], available_qty=product_dt['product_qty_sum'],
+                              damage_qty=product_dt['damaged_qty_sum'], shop_id=shop_obj.id,
+                              created_at=datetime.now()))
+
             # if daily_stock_dt:
             #     ShopStock.objects.bulk_create(daily_stock_dt)
 
@@ -139,7 +151,6 @@ def po_status_change_exceeds_validity_date():
             When(po_status=Cart.PARTIAL_DELIVERED,
                  then=Value(Cart.PARTIAL_DELIVERED_CLOSE)),
             default=F('po_status')))
-
 
 def sync_es_products():
     sp_shop_type = ShopType.objects.all().filter(shop_type="sp").last()

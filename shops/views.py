@@ -179,10 +179,10 @@ class StockAdjustmentView(PermissionRequiredMixin, View):
             if stock_damaged < product_damaged:
                 self.decrement_grn_qty(product, db_available_products, abs(stock_damaged - product_damaged), True)
             # Creating Fresh GRN
-            if adjustment_grn['available_qty'] > 0 or adjustment_grn['damaged'] > 0:
-                manufacture_date = datetime.datetime.today()
-                expiry_date = datetime.datetime.today() + datetime.timedelta(days=180)
-                self.increment_grn_qty(product, manufacture_date, expiry_date, adjustment_grn['available_qty'], adjustment_grn['damaged'])
+            #if adjustment_grn['available_qty'] > 0 or adjustment_grn['damaged'] > 0:
+            manufacture_date = datetime.datetime.today()
+            expiry_date = datetime.datetime.today() + datetime.timedelta(days=180)
+            self.increment_grn_qty(product, manufacture_date, expiry_date, adjustment_grn['available_qty'], adjustment_grn['damaged'])
         messages.success(self.request, 'Stock Updated .')
 
     def decrement_grn_qty(self, product, grn_queryset, qty, is_damaged=False):
