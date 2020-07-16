@@ -402,6 +402,8 @@ def commit_updates_to_es(shop, product):
     status = True
     db_available_products = OrderedProductMapping.get_product_availability(shop, product)
     products_available = db_available_products.aggregate(Sum('available_qty'))['available_qty__sum']
+    if products_available is None:
+        return
     try:
         available_qty = int(int(products_available)/int(product.product_inner_case_size))
     except Exception as e:
