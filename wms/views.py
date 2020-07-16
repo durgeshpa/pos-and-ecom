@@ -197,59 +197,33 @@ class CreatePickList(APIView):
     template_name = 'admin/wms/picklist.html'
 
     def get(self, request, *args, **kwargs):
-        pick_list = get_object_or_404(PickupBinInventory, pk=self.kwargs.get('pk'))
-        Orders = Order.objects.filter(order_no=pick_list.pickup.pickup_type_id).last()
-        data_list = []
-        new_list = []
-        for i in Orders.ordered_cart.rt_cart_list.all():
-            bin_inv_dict = {}
-            qty = i.no_of_pieces
-            bin_lists = i.cart_product.rt_product_sku.filter(quantity__gt=0).order_by('-batch_id', 'quantity')
-            for k in bin_lists:
-                bin_inv_dict[
-                    str(datetime.strptime('30-' + k.batch_id[17:19] + '-' + '20' + k.batch_id[19:21], "%d-%m-%Y"))] = k
-            bin_inv_dict = list(bin_inv_dict.items())
-            bin_inv_dict.sort()
-            bin_inv_dict = dict(bin_inv_dict)
-            product = i.cart_product.product_name
-            sku = i.cart_product.product_sku
-            mrp = i.cart_product.rt_cart_product_mapping.all().last().cart_product_price.mrp if i.cart_product.rt_cart_product_mapping.all().last().cart_product_price else None
-            for i, j in bin_inv_dict.items():
-                if qty == 0:
-                    break
-                already_picked=0
-                batch_id = j.batch_id if j else None
-                qty_in_bin = j.quantity if j else 0
-                ids = j.id if j else None
-                shops = j.warehouse
-                bin_id = j.bin.bin_id if j else None
-
-                if qty - already_picked <= qty_in_bin:
-                    already_picked += qty
-                    remaining_qty = qty_in_bin - already_picked
-                    qty = 0
-                    prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": already_picked,"batch_id": batch_id, "bin": bin_id}
-                    data_list.append(prod_list)
-                else:
-                    already_picked = qty_in_bin
-                    remaining_qty = qty - already_picked
-                    qty = remaining_qty
-                    prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": already_picked,"batch_id": batch_id, "bin": bin_id}
-                    data_list.append(prod_list)
-
+        order = get_object_or_404(Order, pk=self.kwargs.get('pk'))
+        picku_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order.order_no)
+        data_list=[]
+        new_list=[]
+        for i in picku_bin_inv:
+            product = i.pickup.sku.product_name
+            sku = i.pickup.sku.product_sku
+            mrp = i.pickup.sku.rt_cart_product_mapping.all().last().cart_product_price.mrp
+            qty = i.quantity
+            batch_id = i.batch_id
+            bin_id = i.bin.bin.bin_id
+            prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": qty, "batch_id": batch_id,"bin": bin_id}
+            data_list.append(prod_list)
         data = {"data_list": data_list}
+
         cmd_option = {
-                    "margin-top": 10,
-                    "zoom": 1,
-                    "javascript-delay": 1000,
-                    "footer-center": "[page]/[topage]",
-                    "no-stop-slow-scripts": True,
-                    "quiet": True
+                        "margin-top": 10,
+                        "zoom": 1,
+                        "javascript-delay": 1000,
+                        "footer-center": "[page]/[topage]",
+                        "no-stop-slow-scripts": True,
+                        "quiet": True
         }
         response = PDFTemplateResponse(
-                    request=request, template=self.template_name,
-                    filename=self.filename, context=data,
-                    show_content_in_browser=False, cmd_options=cmd_option
+            request=request, template=self.template_name,
+            filename=self.filename, context=data,
+            show_content_in_browser=False, cmd_options=cmd_option
         )
         return response
 
