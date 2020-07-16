@@ -1,4 +1,5 @@
 import datetime
+from datetime import datetime, timedelta
 from django import forms
 from .models import ParentRetailerMapping, Shop, ShopType, ShopUserMapping, ShopTiming, BeatPlanning
 from addresses.models import Address
@@ -394,17 +395,25 @@ class BeatUserMappingCsvViewForm(forms.Form):
             # validation to check the day is not sunday
             if not row[7] is '':
                 try:
-                    # row[7] = '4/7/2020'
-                    datetime.datetime.strptime(row[7], '%d/%m/%y')
+                    # row[7] = '04/07/2020'
+                    if datetime.strptime(row[7], '%d/%m/%y'):
+                        row_date = datetime.strptime(row[7], '%d/%m/%y')
+                        if row_date.date() < (datetime.today() + timedelta(days=1)).date():
+                            raise ValidationError(_('Row number [%(value)s] | Date should be greater then Current Date.'),
+                                                  params={'value': row_id + 1}, )
                 except Exception as e:
                     try:
-                        if datetime.datetime.strptime(row[7], '%d/%m/%Y'):
-                            pass
+                        if datetime.strptime(row[7], '%d/%m/%Y'):
+                            row_date = datetime.strptime(row[7], '%d/%m/%Y')
+                            if row_date.date() < (datetime.today() + timedelta(days=1)).date():
+                                raise ValidationError(_('Row number [%(value)s] | Date should be greater then Current Date.'),
+                                                      params={'value': row_id + 1}, )
                         else:
                             raise ValidationError(_('Row number [%(value)s] | Date Format is not correct.'),
                                                   params={'value': row_id + 1}, )
                     except Exception as e:
-                        raise ValidationError(_('Row number [%(value)s] | Date Format is not correct.'),
+                        raise ValidationError(_('Issue in Row number [%(value)s] | Reason could be the Date Format or '
+                                                'Date is not greater then Current Date.'),
                                               params={'value': row_id + 1}, )
 
             if not row[7] is '':
