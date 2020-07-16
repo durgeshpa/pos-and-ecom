@@ -875,6 +875,8 @@ class DayBeatPlan(viewsets.ModelViewSet):
                     return Response({"detail": SUCCESS_MESSAGES["2002"], 'is_success': True,
                                      "data": serializer.data}, status=status.HTTP_201_CREATED)
                 return Response({"detail": ERROR_MESSAGES['4011'], 'is_success': False}, status=status.HTTP_200_OK)
+            else:
+                return Response({"detail": ERROR_MESSAGES['4018'], 'is_success': False}, status=status.HTTP_200_OK)
         else:
             return Response({"detail": ERROR_MESSAGES['4017'], 'is_success': True}, status=status.HTTP_200_OK)
 

@@ -65,4 +65,5 @@ ERROR_MESSAGES = {
     "4015": "No Shop associated with Sales Manager.",
     "4016": "No Executive associated with Sales Manager.",
     "4017": "Feedback Submission is allowed only for the Current Date.",
+    "4018": "Request Param value is not correct, Please re-verify at your end."
 }
