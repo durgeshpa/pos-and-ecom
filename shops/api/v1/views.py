@@ -868,15 +868,20 @@ class DayBeatPlan(viewsets.ModelViewSet):
         :return: serialized data of executive feedback
         """
         if request.POST['feedback_date'] == datetime.today().strftime("%Y-%m-%d"):
-            serializer = FeedbackCreateSerializers(data=request.data, context={'request': request})
-            if serializer.is_valid():
-                result = serializer.save()
-                if result:
-                    return Response({"detail": SUCCESS_MESSAGES["2002"], 'is_success': True,
-                                     "data": serializer.data}, status=status.HTTP_201_CREATED)
-                return Response({"detail": ERROR_MESSAGES['4011'], 'is_success': False}, status=status.HTTP_200_OK)
+            day_beat_plan = DayBeatPlanning.objects.filter(id=request.POST['day_beat_plan'],
+                                                           beat_plan_date=request.POST['feedback_date'])
+            if day_beat_plan:
+                serializer = FeedbackCreateSerializers(data=request.data, context={'request': request})
+                if serializer.is_valid():
+                    result = serializer.save()
+                    if result:
+                        return Response({"detail": SUCCESS_MESSAGES["2002"], 'is_success': True,
+                                         "data": serializer.data}, status=status.HTTP_201_CREATED)
+                    return Response({"detail": ERROR_MESSAGES['4011'], 'is_success': False}, status=status.HTTP_200_OK)
+                else:
+                    return Response({"detail": ERROR_MESSAGES['4018'], 'is_success': False}, status=status.HTTP_200_OK)
             else:
-                return Response({"detail": ERROR_MESSAGES['4018'], 'is_success': False}, status=status.HTTP_200_OK)
+                return Response({"detail": ERROR_MESSAGES['4019'], 'is_success': False}, status=status.HTTP_200_OK)
         else:
             return Response({"detail": ERROR_MESSAGES['4017'], 'is_success': True}, status=status.HTTP_200_OK)
 
