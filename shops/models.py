@@ -487,6 +487,6 @@ class ExecutiveFeedback(models.Model):
     day_beat_plan = models.ForeignKey(DayBeatPlanning, related_name='day_beat_plan', null=True, blank=True,
                                       on_delete=models.CASCADE)
     executive_feedback = models.CharField(max_length=25, choices=executive_feedback_choice)
-    feedback_date = models.DateField(default=date.today)
+    feedback_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)

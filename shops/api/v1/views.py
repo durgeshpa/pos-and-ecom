@@ -12,7 +12,7 @@ from .serializers import (RetailerTypeSerializer, ShopTypeSerializer,
         ListFavouriteProductSerializer, DayBeatPlanSerializer, FeedbackCreateSerializers, ExecutiveReportSerializer
 )
 from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping, SalesAppVersion, ShopRequestBrand, ShopTiming,
-    FavouriteProduct, BeatPlanning, DayBeatPlanning)
+    FavouriteProduct, BeatPlanning, DayBeatPlanning, ExecutiveFeedback)
 from rest_framework import generics
 from addresses.models import City, Area, Address
 from rest_framework import status
@@ -881,7 +881,7 @@ class DayBeatPlan(viewsets.ModelViewSet):
                 else:
                     return Response({"detail": ERROR_MESSAGES['4018'], 'is_success': False}, status=status.HTTP_200_OK)
             else:
-                return Response({"detail": ERROR_MESSAGES['4019'], 'is_success': False}, status=status.HTTP_200_OK)
+                return Response({"detail": ERROR_MESSAGES['4018'], 'is_success': False}, status=status.HTTP_200_OK)
         else:
             return Response({"detail": ERROR_MESSAGES['4017'], 'is_success': True}, status=status.HTTP_200_OK)
 
@@ -934,3 +934,15 @@ class ExecutiveReport(viewsets.ModelViewSet):
                                  'is_success': False}, status=status.HTTP_200_OK)
             return Response({"detail": messages.ERROR_MESSAGES["4007"],
                              'is_success': False}, status=status.HTTP_200_OK)
+
+
+def set_shop_map_cron():
+    """
+    Cron job for create data in Executive Feedback Model
+    :return:
+    """
+    beat_plan = BeatPlanning.objects.filter(status=True)
+    for beat in beat_plan:
+        next_plan_date = datetime.today() + timedelta(1)
+        day_beat_plan = DayBeatPlanning.objects.filter(beat_plan=beat, next_plan_date=next_plan_date)
+        ExecutiveFeedback.objects.get_or_create(day_beat_plan=day_beat_plan[0])
