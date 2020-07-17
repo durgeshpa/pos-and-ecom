@@ -355,8 +355,8 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
             #                                                 next_plan_date=previous_day_date,
             #                                                 beat_plan__status=True).count()
             shop_map_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
-                                                            next_plan_date=previous_day_date).count()
-
+                                                            next_plan_date=previous_day_date.date()).distinct(
+                'shop_category', 'next_plan_date').count()
         # condition to check past week
         elif self._context['report'] is '2':
             previous_day_date = datetime.today() - timedelta(days=1)
@@ -367,7 +367,8 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
             #                                                 beat_plan__status=True).count()
             shop_map_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
                                                             next_plan_date__range=(week_end_date,
-                                                                                   previous_day_date)).count()
+                                                                                   previous_day_date)).distinct(
+                'shop_category', 'next_plan_date').count()
         # condition to check past month
         else:
             previous_day_date = datetime.today() - timedelta(days=1)
@@ -378,8 +379,8 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
             #                                                 beat_plan__status=True).count()
             shop_map_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
                                                             next_plan_date__range=(week_end_date,
-                                                                                   previous_day_date)).count()
-
+                                                                                   previous_day_date)).distinct(
+                'shop_category', 'next_plan_date').count()
         return shop_map_count
 
     def get_shop_visited(self, obj):
@@ -454,7 +455,8 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
             #                                                    next_plan_date=previous_day_date,
             #                                                    beat_plan__status=True).count()
             shop_mapped_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
-                                                               next_plan_date=previous_day_date).count()
+                                                               next_plan_date=previous_day_date.date()).distinct(
+                'shop_category', 'next_plan_date').count()
             shop_visit_count = 0
             # date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
             #                                                     next_plan_date=previous_day_date,
@@ -482,8 +484,9 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
             #                                                    beat_plan__status=True).count()
 
             shop_mapped_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
-                                                               next_plan_date__range=(week_end_date,
-                                                                                      previous_day_date)).count()
+                                                            next_plan_date__range=(week_end_date,
+                                                                                   previous_day_date)).distinct(
+                'shop_category', 'next_plan_date').count()
 
             shop_visit_count = 0
             # date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
@@ -514,8 +517,9 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
             #                                                    beat_plan__status=True).count()
 
             shop_mapped_count = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
-                                                               next_plan_date__range=(week_end_date,
-                                                                                      previous_day_date)).count()
+                                                            next_plan_date__range=(week_end_date,
+                                                                                   previous_day_date)).distinct(
+                'shop_category', 'next_plan_date').count()
 
             shop_visit_count = 0
             # date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee,
