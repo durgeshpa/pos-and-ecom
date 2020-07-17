@@ -401,7 +401,8 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
             date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee)
             for date_beat in date_beat_planning:
                 shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
-                                                                feedback_date=previous_day_date).count()
+                                                                feedback_date=previous_day_date
+                                                                ).exclude(executive_feedback=5).count()
                 shop_visit_count = shop_visit_count+shop_visited
 
         # condition to check past week
@@ -413,7 +414,8 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
             for date_beat in date_beat_planning:
                 shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
                                                                 feedback_date__range=(week_end_date,
-                                                                                      previous_day_date)).count()
+                                                                                      previous_day_date)
+                                                                ).exclude(executive_feedback=5).count()
                 shop_visit_count = shop_visit_count + shop_visited
         # condition to check past week
         else:
@@ -424,7 +426,8 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
             for date_beat in date_beat_planning:
                 shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
                                                                 feedback_date__range=(
-                                                                    week_end_date, previous_day_date)).count()
+                                                                    week_end_date, previous_day_date)
+                                                                ).exclude(executive_feedback=5).count()
                 shop_visit_count = shop_visit_count + shop_visited
 
         return shop_visit_count
@@ -448,7 +451,8 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
 
             for date_beat in date_beat_planning:
                 shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
-                                                                feedback_date=previous_day_date).count()
+                                                                feedback_date=previous_day_date).exclude(
+                    executive_feedback=5).count()
                 shop_visit_count = shop_visit_count + shop_visited
 
             if shop_visit_count != 0:
@@ -469,7 +473,8 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
             for date_beat in date_beat_planning:
                 shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
                                                                 feedback_date__range=(week_end_date,
-                                                                                      previous_day_date)).count()
+                                                                                      previous_day_date)
+                                                                ).exclude(executive_feedback=5).count()
                 shop_visit_count = shop_visit_count + shop_visited
 
             if shop_visit_count != 0:
@@ -490,7 +495,7 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
 
             for date_beat in date_beat_planning:
                 shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat, feedback_date__range=(
-                    week_end_date, previous_day_date)).count()
+                    week_end_date, previous_day_date)).exclude(executive_feedback=5).count()
                 shop_visit_count = shop_visit_count + shop_visited
 
             if shop_visit_count != 0:
