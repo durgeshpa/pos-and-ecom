@@ -941,8 +941,12 @@ def set_shop_map_cron():
     Cron job for create data in Executive Feedback Model
     :return:
     """
-    beat_plan = BeatPlanning.objects.filter(status=True)
-    for beat in beat_plan:
-        next_plan_date = datetime.today() + timedelta(1)
-        day_beat_plan = DayBeatPlanning.objects.filter(beat_plan=beat, next_plan_date=next_plan_date)
-        ExecutiveFeedback.objects.get_or_create(day_beat_plan=day_beat_plan[0])
+    try:
+        beat_plan = BeatPlanning.objects.filter(status=True)
+        for beat in beat_plan:
+            next_plan_date = datetime.today() + timedelta(1)
+            day_beat_plan = DayBeatPlanning.objects.filter(beat_plan=beat, next_plan_date=next_plan_date)
+            for day_beat in day_beat_plan:
+                ExecutiveFeedback.objects.get_or_create(day_beat_plan=day_beat)
+    except Exception as error:
+        logger.exception(error)
