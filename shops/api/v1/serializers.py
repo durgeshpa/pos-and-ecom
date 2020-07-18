@@ -313,11 +313,14 @@ class DayBeatPlanSerializer(serializers.ModelSerializer):
         :param obj: day beat plan obj
         :return: serializer of feedback model
         """
-        executive_feedback = ExecutiveFeedback.objects.filter(day_beat_plan=obj)
-        if executive_feedback[0].executive_feedback is '':
+        try:
+            executive_feedback = ExecutiveFeedback.objects.filter(day_beat_plan=obj)
+            if executive_feedback[0].executive_feedback is '':
+                return []
+            serializer = FeedBackSerializer(obj.day_beat_plan, many=True).data
+            return serializer
+        except:
             return []
-        serializer = FeedBackSerializer(obj.day_beat_plan, many=True).data
-        return serializer
 
     class Meta:
         """ Meta class """
