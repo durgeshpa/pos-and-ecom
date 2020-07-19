@@ -449,7 +449,8 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
             date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee)
 
             for date_beat in date_beat_planning:
-                executive_feedback_object = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat).count()
+                executive_feedback_object = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
+                                                                             feedback_date=previous_day_date).count()
                 shop_map_count = executive_feedback_object + shop_map_count
 
             for date_beat in date_beat_planning:
@@ -471,7 +472,10 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
             date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee)
 
             for date_beat in date_beat_planning:
-                executive_feedback_object = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat).count()
+                executive_feedback_object = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
+                                                                             feedback_date__range=(week_end_date,
+                                                                                                   previous_day_date)
+                                                                             ).count()
                 shop_map_count = executive_feedback_object + shop_map_count
             for date_beat in date_beat_planning:
                 shop_visited = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
@@ -493,7 +497,10 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
             date_beat_planning = DayBeatPlanning.objects.filter(beat_plan__executive=obj.employee)
 
             for date_beat in date_beat_planning:
-                executive_feedback_object = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat).count()
+                executive_feedback_object = ExecutiveFeedback.objects.filter(day_beat_plan=date_beat,
+                                                                             feedback_date__range=(
+                                                                                 week_end_date, previous_day_date)
+                                                                             ).count()
                 shop_map_count = executive_feedback_object + shop_map_count
 
             for date_beat in date_beat_planning:
