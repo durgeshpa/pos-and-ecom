@@ -869,7 +869,7 @@ class DayBeatPlan(viewsets.ModelViewSet):
         """
         if request.POST['feedback_date'] == datetime.today().strftime("%Y-%m-%d"):
             day_beat_plan = DayBeatPlanning.objects.filter(id=request.POST['day_beat_plan'],
-                                                           beat_plan_date=request.POST['feedback_date'])
+                                                           next_plan_date=request.POST['feedback_date'])
             if day_beat_plan:
                 serializer = FeedbackCreateSerializers(data=request.data, context={'request': request})
                 if serializer.is_valid():
