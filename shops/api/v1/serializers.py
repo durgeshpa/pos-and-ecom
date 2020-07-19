@@ -618,15 +618,27 @@ class FeedbackCreateSerializers(serializers.ModelSerializer):
             if (ExecutiveFeedback.objects.filter(executive_feedback=5, feedback_date=validated_data['feedback_date']
                                                  ).count() <= 5) and executive_feedback[0].executive_feedback == '5':
                 if day_beat_plan[0].shop_category == "P1":
-                    next_visit_date = validated_data['feedback_date'] + timedelta(days=1)
+                    next_visit_date = (validated_data['feedback_date'] + timedelta(days=1)).isoweekday()
+                    if next_visit_date == 7:
+                        next_visit_date = validated_data['feedback_date'] + timedelta(days=2)
+                    else:
+                        next_visit_date = validated_data['feedback_date'] + timedelta(days=1)
                     beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=7)
                     temp_status = True
                 elif day_beat_plan[0].shop_category == "P2":
-                    next_visit_date = validated_data['feedback_date'] + timedelta(days=2)
+                    next_visit_date = (validated_data['feedback_date'] + timedelta(days=2)).isoweekday()
+                    if next_visit_date == 7:
+                        next_visit_date = validated_data['feedback_date'] + timedelta(days=3)
+                    else:
+                        next_visit_date = validated_data['feedback_date'] + timedelta(days=2)
                     beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=14)
                     temp_status = True
                 else:
-                    next_visit_date = validated_data['feedback_date'] + timedelta(days=3)
+                    next_visit_date = (validated_data['feedback_date'] + timedelta(days=3)).isoweekday()
+                    if next_visit_date == 7:
+                        next_visit_date = validated_data['feedback_date'] + timedelta(days=4)
+                    else:
+                        next_visit_date = validated_data['feedback_date'] + timedelta(days=3)
                     beat_plan_date = day_beat_plan[0].beat_plan_date + timedelta(days=28)
                     temp_status = True
 
