@@ -853,7 +853,7 @@ class DayBeatPlan(viewsets.ModelViewSet):
                                 status=status.HTTP_200_OK)
             else:
                 return Response({"detail": messages.ERROR_MESSAGES["4007"], 'is_success': False},
-                                status=status.HTTP_200_OK)
+                                status=status.HTTP_401_UNAUTHORIZED)
         except Exception as error:
             logger.exception(error)
             return Response({"detail": messages.ERROR_MESSAGES["4008"],
