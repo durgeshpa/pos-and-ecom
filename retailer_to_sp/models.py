@@ -1026,6 +1026,14 @@ class Trip(models.Model):
     completed_at = models.DateTimeField(blank=True, null=True)
     received_amount = models.DecimalField(blank=True, null=True,
                                     max_digits=19, decimal_places=2)
+    opening_kms = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Vehicle Opening Trip(Kms)")
+    closing_kms = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="Vehicle Closing Trip(Kms)")
+    no_of_crates = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Crates Shipped")
+    no_of_packets = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Packets Shipped")
+    no_of_sacks = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Sacks Shipped")
+    no_of_crates_check = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Crates Collected")
+    no_of_packets_check = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Packets Collected")
+    no_of_sacks_check = models.PositiveIntegerField(default=0, null=True, blank=True, verbose_name="No. Of Sacks Collected")
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 

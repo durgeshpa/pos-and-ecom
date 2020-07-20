@@ -1026,12 +1026,12 @@ class OrderedProductAdmin(admin.ModelAdmin):
     exclude = ('received_by', 'last_modified_by')
     fields = (
         'order', 'invoice_no', 'shipment_status', 'trip',
-        'return_reason', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check'
+        'return_reason',
     )
     autocomplete_fields = ('order',)
     search_fields = ('invoice__invoice_no', 'order__order_no')
     readonly_fields = (
-        'order', 'invoice_no', 'trip', 'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks'
+        'order', 'invoice_no', 'trip', 'shipment_status',
     )
     form = OrderedProductReschedule
     ordering = ['-created_at']
@@ -1204,13 +1204,13 @@ class ShipmentAdmin(admin.ModelAdmin):
         ShipmentSellerShopSearch, ('shipment_status', ChoiceDropdownFilter), PincodeSearch
     ]
     fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
-              'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'close_order']
+              'shipment_status', 'close_order']
     search_fields = [
         'order__order_no', 'invoice__invoice_no', 'order__seller_shop__shop_name',
         'order__buyer_shop__shop_name', 'trip__dispatch_no',
         'trip__vehicle_no', 'trip__delivery_boy__phone_number']
     readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address',
-                       'invoice_city', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
+                       'invoice_city']
     list_per_page = FIFTY
     ordering = ['-created_at']
 
