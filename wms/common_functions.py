@@ -521,9 +521,9 @@ def cancel_order_with_pick(instance):
     :return:
 
     """
-    order_obj = OrderedProduct.objects.filter(order=instance, shipment_status=OrderedProduct.READY_TO_SHIP)
-    if order_obj.exists():
-        order_obj.update(shipment_status='CANCELLED')
+    # order_obj = OrderedProduct.objects.filter(order=instance, shipment_status=OrderedProduct.READY_TO_SHIP)
+    # if order_obj.exists():
+    #     order_obj.update(shipment_status='CANCELLED')
     pickup_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=instance.order_no)
     for pickup in pickup_object:
         # pickup_bin_inventory_object = PickupBinInventory.objects.filter(pickup=pickup)
