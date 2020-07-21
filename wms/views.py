@@ -652,3 +652,30 @@ def pickup_entry_creation_with_cron():
                         prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": already_picked, "batch_id": batch_id,"bin": bin_id}
                         data_list.append(prod_list)
                         CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id,j,quantity=already_picked, pickup_quantity=0)
+
+
+class DownloadBinCSV(View):
+    """
+    This class is used to download the sample file for Bin CSV
+    """
+    def get(self, request, *args, **kwargs):
+        """
+
+        :param request: GET request
+        :param args: non keyword argument
+        :param kwargs: keyword argument
+        :return: csv file
+        """
+        try:
+            filename = 'sample_bin' + ".csv"
+            f = StringIO()
+            writer = csv.writer(f)
+            # header of csv file
+            writer.writerow(['Warehouse Name', 'Warehouse ID', 'Batch Type ', 'Bin ID'])
+            writer.writerow(['GFDN Noida', '1393', 'PA', 'B2BZ01SR001-0001'])
+            f.seek(0)
+            response = HttpResponse(f, content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+            return response
+        except Exception as e:
+            error_logger.error(e.message)

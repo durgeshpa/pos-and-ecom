@@ -1,5 +1,4 @@
 {% extends 'admin/retailer_to_sp/trip/base.html' %}
-
 {% block title %}Wms | Admin{% endblock %}
 {% block breadcrumb1 %}<a href="/admin/wms/">Bins</a>{% endblock %}
 {% block breadcrumb2 %}<a href="/admin/wms/bin/">Bin<a>{% endblock %}
@@ -41,6 +40,12 @@
             {% endif %}
                         {{form.as_p}}
         </fieldset>
+
+                       <div class="form-row field-download-csv">
+        <li>
+            <a href="/wms/download/bin/csv/" id="id_download"> Download Sample Bin file</a>
+        </li>
+    </div>
                      <div class="submit-row">
                         <input type="submit" value="Save" class="default" name="_save">
                      </div>
