@@ -11,7 +11,7 @@ from django.contrib.auth import get_user_model
 from accounts.api.v1.serializers import UserSerializer,GroupSerializer
 from retailer_backend.validators import MobileNumberValidator
 from rest_framework import validators
-from retailer_to_sp.models import Order
+from retailer_to_sp.models import Order, Payment
 from products.models import Product, ProductImage
 #from retailer_to_sp.api.v1.serializers import ProductImageSerializer #ProductSerializer
 from retailer_backend.messages import ERROR_MESSAGES, SUCCESS_MESSAGES
@@ -552,7 +552,8 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
             order_object = Order.objects.filter(ordered_by=obj.employee, created_at__date=previous_day_date)
             total_amount = 0
             for order in order_object:
-                total_amount = round(total_amount + order.total_mrp)
+                payment_object = Payment.objects.filter(order_id=order)
+                total_amount = round(total_amount + payment_object[0].paid_amount)
 
         # condition to check past week
         elif self._context['report'] is '2':
@@ -562,7 +563,8 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
                 week_end_date, previous_day_date))
             total_amount = 0
             for order in order_object:
-                total_amount = round(total_amount + order.total_mrp)
+                payment_object = Payment.objects.filter(order_id=order)
+                total_amount = round(total_amount + payment_object[0].paid_amount)
 
         # condition to check past month
         else:
@@ -572,7 +574,8 @@ class ExecutiveReportSerializer(serializers.ModelSerializer):
                 week_end_date, previous_day_date))
             total_amount = 0
             for order in order_object:
-                total_amount = round(total_amount + order.total_mrp)
+                payment_object = Payment.objects.filter(order_id=order)
+                total_amount = round(total_amount + payment_object[0].paid_amount)
 
         return total_amount
 
