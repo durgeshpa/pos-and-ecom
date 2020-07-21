@@ -1,6 +1,7 @@
 # python imports
 import csv
 import logging
+import jsonpickle
 # django imports
 from admin_numeric_filter.admin import (NumericFilterModelAdmin, SliderNumericFilter)
 from dal_admin_filters import AutocompleteFilter
@@ -20,7 +21,7 @@ from django.shortcuts import redirect
 # app imports
 from rangefilter.filter import DateTimeRangeFilter
 from retailer_backend.admin import InputFilter
-from retailer_to_sp.api.v1.views import DownloadInvoiceSP
+from retailer_to_sp.api.v1.views import DownloadInvoiceSP, pdf_generation
 from retailer_to_sp.views import (LoadDispatches, commercial_shipment_details, load_dispatches, order_invoices,
                                   ordered_product_mapping_shipment, trip_planning, trip_planning_change,
                                   update_shipment_status, reshedule_update_shipment, RetailerCart, assign_picker,
@@ -858,7 +859,10 @@ class PickerDashboardAdmin(admin.ModelAdmin):
                     pass
             # call get method under the DownloadPickListPicker class
             response = DownloadPickListPicker.get(self, request, argument_list, kwargs)
-            return redirect(response)
+            if response[1] is True:
+                return redirect(response[0])
+            else:
+                return response[0]
         else:
             response = messages.error(request, ERROR_MESSAGES["4001"])
         return response
@@ -943,7 +947,10 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
                     pass
             # call get method under the DownloadPickList class
             response = DownloadPickList.get(self, request, argument_list, **kwargs)
-            return redirect(response)
+            if response[1] is True:
+                return redirect(response[0])
+            else:
+                return response[0]
         else:
             response = messages.error(request, ERROR_MESSAGES["4001"])
         return response
@@ -1019,12 +1026,12 @@ class OrderedProductAdmin(admin.ModelAdmin):
     exclude = ('received_by', 'last_modified_by')
     fields = (
         'order', 'invoice_no', 'shipment_status', 'trip',
-        'return_reason', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check'
+        'return_reason',
     )
     autocomplete_fields = ('order',)
     search_fields = ('invoice__invoice_no', 'order__order_no')
     readonly_fields = (
-        'order', 'invoice_no', 'trip', 'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks'
+        'order', 'invoice_no', 'trip', 'shipment_status',
     )
     form = OrderedProductReschedule
     ordering = ['-created_at']
@@ -1197,13 +1204,13 @@ class ShipmentAdmin(admin.ModelAdmin):
         ShipmentSellerShopSearch, ('shipment_status', ChoiceDropdownFilter), PincodeSearch
     ]
     fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
-              'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'close_order']
+              'shipment_status', 'close_order']
     search_fields = [
         'order__order_no', 'invoice__invoice_no', 'order__seller_shop__shop_name',
         'order__buyer_shop__shop_name', 'trip__dispatch_no',
         'trip__vehicle_no', 'trip__delivery_boy__phone_number']
     readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address',
-                       'invoice_city', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
+                       'invoice_city']
     list_per_page = FIFTY
     ordering = ['-created_at']
 
@@ -1244,7 +1251,10 @@ class ShipmentAdmin(admin.ModelAdmin):
             # call get method under the DownloadInvoiceSP class
             try:
                 response = DownloadInvoiceSP.get(self, request, argument_list, **kwargs)
-                response = redirect(response)
+                if response[1] is True:
+                    return redirect(response[0])
+                else:
+                    return response[0]
             except Exception as e:
                 logger.exception(e)
                 return redirect(request.META['HTTP_REFERER'])
@@ -1294,6 +1304,9 @@ class ShipmentAdmin(admin.ModelAdmin):
 
         # when qc passed
         if not self.has_invoice_no:
+            # delay function to generate pdf from qc pending to qa passed
+            # request = jsonpickle.encode(request, unpicklable=False)
+            # pdf_generation(request, form.instance.pk)
             shipment_products_dict = form.instance.rt_order_product_order_product_mapping.all()\
                 .values('product__id').annotate(shipped_items=Sum('shipped_qty'))
             total_shipped_qty = form.instance.order.rt_order_order_product\
@@ -1721,7 +1734,10 @@ class InvoiceAdmin(admin.ModelAdmin):
                     argument_list.append(arg.shipment.pk)
             # call get method under the DownloadInvoiceSP class
             response = DownloadInvoiceSP.get(self, request, argument_list, **kwargs)
-            response = redirect(response)
+            if response[1] is True:
+                return redirect(response[0])
+            else:
+                return response[0]
         else:
             response = messages.error(request, ERROR_MESSAGES["4001"])
         return response

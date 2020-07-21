@@ -1,4 +1,4 @@
-from retailer_to_sp.models import *
+SWfrom retailer_to_sp.models import *
 from django.db.models import Count, F, Value, Sum
 orders = Order.objects.filter(seller_shop_id=172).exclude(buyer_shop_id__in=[6,127,42])
 carts = Cart.objects.filter(rt_order_cart_mapping__in=orders)

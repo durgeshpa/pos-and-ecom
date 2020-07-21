@@ -302,8 +302,8 @@ AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
 AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME')
 #AWS_S3_CUSTOM_DOMAIN = '%s.s3.amazonaws.com' % AWS_STORAGE_BUCKET_NAME
-AWS_S3_CUSTOM_DOMAIN = 'devimages.gramfactory.com'
-AWS_S3_CUSTOM_DOMAIN_ORIG = 'images.gramfactory.com'
+AWS_S3_CUSTOM_DOMAIN = config('AWS_S3_CUSTOM_DOMAIN')
+AWS_S3_CUSTOM_DOMAIN_ORIG = config('AWS_S3_CUSTOM_DOMAIN_ORIG')
 AWS_S3_OBJECT_PARAMETERS = {
   'CacheControl': 'max-age=86400',
 }
@@ -331,6 +331,7 @@ CRONJOBS = [
     ('* * * * *', 'retailer_backend.cron.delete_ordered_reserved_products'),
     ('2 0 * * *', 'analytics.api.v1.views.getStock'),
     ('*/10 * * * *', 'retailer_backend.cron.po_status_change_exceeds_validity_date'),
+    ('* */6 * * *', 'retailer_backend.cron.sync_es_products'),
     ('*/2 * * * *', 'shops.api.v1.views.set_shop_map_cron', '>>/tmp/shops'),
 
 ]
@@ -344,7 +345,7 @@ DEBUG_TOOLBAR_CONFIG = {
 DEBUG_TOOLBAR_PATCH_SETTINGS = False
 
 # Initiate Sentry SDK
-if ENVIRONMENT.lower() in ["production","staging", "qa", "qa1","qa3"]:
+if ENVIRONMENT.lower() in ["production","stage", "qa", "qa1","qa3"]:
     from sentry_sdk.integrations.celery import CeleryIntegration
     sentry_sdk.init(
         dsn="https://2f8d192414f94cd6a0ba5b26d6461684@sentry.io/1407300",
@@ -356,7 +357,7 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = 20000
 
 REDIS_DB_CHOICE = {
     'production': '1',
-    'staging': '2',
+    'stage': '2',
     'qa': '7',
     'qa1': '9',
     'local-raj':'5',
@@ -431,24 +432,24 @@ CACHES = {
         "KEY_PREFIX": "gfcache"
     }
 }
-# DataFlair #Logging Information
-#LOGGING = {
+#DataFlair #Logging Information
+# LOGGING = {
 #    'version': 1,
 #    'disable_existing_loggers': False,
 #    'loggers': {
 #        'django': {
-#            'handlers': ['file-debug','file-info','file-error', 'console'],
+#            'handlers': ['file-info','file-error'],
 #            'level': 'DEBUG',
 #            'propagate': True,
 #        },
 #    },
 #    'handlers': {
-#        'file-debug': {
-#            'level': 'DEBUG',
-#            'class': 'logging.FileHandler',
-#            'filename': '/var/log/retailer-backend/debug.log',
-#            'formatter': 'verbose',
-#        },
+#        # 'file-debug': {
+#        #     'level': 'DEBUG',
+#        #     'class': 'logging.FileHandler',
+#        #     'filename': '/var/log/retailer-backend/debug.log',
+#        #     'formatter': 'verbose',
+#        # },
 #        'file-info': {
 #            'level': 'INFO',
 #            'class': 'logging.FileHandler',
@@ -461,11 +462,11 @@ CACHES = {
 #            'filename': '/var/log/retailer-backend/error.log',
 #            'formatter': 'verbose',
 #        },
-#        'console': {
-#            'class': 'logging.StreamHandler',
-#            'formatter': 'simple',
-#        },
-
+#        # 'console': {
+#        #     'class': 'logging.StreamHandler',
+#        #     'formatter': 'simple',
+#        # },
+#
 #    },
 #    'formatters': {
 #        'verbose': {
@@ -476,4 +477,4 @@ CACHES = {
 #            'format': '%(levelname)s|%(message)s'
 #        },
 #    },
-#}
+# }

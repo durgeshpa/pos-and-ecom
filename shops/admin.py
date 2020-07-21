@@ -23,7 +23,10 @@ from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
                     AddressInlineFormSet, ShopUserMappingForm, ShopTimingForm)
 from .views import (StockAdjustmentView, stock_adjust_sample,
                     bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView,
-                    ShopUserMappingCsvSample, ShopTimingAutocomplete,)
+                    ShopUserMappingCsvSample, ShopTimingAutocomplete,
+                    bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView,
+                    ShopUserMappingCsvSample, ShopTimingAutocomplete
+                    )
 from retailer_backend.admin import InputFilter
 from services.views import SalesReportFormView, SalesReport
 from .utils import create_shops_excel
@@ -36,7 +39,7 @@ logger = logging.getLogger('shop-admin')
 class ShopResource(resources.ModelResource):
     class Meta:
         model = Shop
-        exclude = ('created_at','modified_at')
+        exclude = ('created_at', 'modified_at')
 
 
 class ExportCsvMixin:
@@ -56,6 +59,7 @@ class ExportCsvMixin:
         for obj in queryset:
             row = writer.writerow([getattr(obj, field) for field in field_names])
         return response
+
     export_as_csv_fav_product.short_description = "Download CSV of Selected Objects"
 
 
@@ -120,13 +124,13 @@ class ShopSearchByOwner(InputFilter):
 
 
 class BuyerShopFilter(AutocompleteFilter):
-    title = 'Shop' # display title
-    field_name = 'buyer_shop' # name of the foreign key field
+    title = 'Shop'  # display title
+    field_name = 'buyer_shop'  # name of the foreign key field
 
 
 class ProductFilter(AutocompleteFilter):
-    title = 'Product' # display title
-    field_name = 'product' # name of the foreign key field
+    title = 'Product'  # display title
+    field_name = 'product'  # name of the foreign key field
 
 
 class FavouriteProductAdmin(admin.ModelAdmin, ExportCsvMixin):
@@ -137,7 +141,8 @@ class FavouriteProductAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def get_product_brand(self, obj):
         return obj.product.product_brand
-    get_product_brand.short_description = 'Brand Name'
+
+    get_product_brand.short_description = 'Brand Name'  # Renames column head
 
     class Media:
         pass
@@ -145,7 +150,7 @@ class FavouriteProductAdmin(admin.ModelAdmin, ExportCsvMixin):
 
 class ShopPhotosAdmin(admin.TabularInline):
     model = ShopPhoto
-    fields = ('shop_photo', 'shop_photo_thumbnail', )
+    fields = ('shop_photo', 'shop_photo_thumbnail',)
     readonly_fields = ('shop_photo_thumbnail',)
     formset = RequiredInlineFormSet
     extra = 2
@@ -153,7 +158,7 @@ class ShopPhotosAdmin(admin.TabularInline):
 
 class ShopDocumentsAdmin(admin.TabularInline):
     model = ShopDocument
-    fields = ('shop_document_type', 'shop_document_number', 'shop_document_photo', 'shop_document_photo_thumbnail', )
+    fields = ('shop_document_type', 'shop_document_number', 'shop_document_photo', 'shop_document_photo_thumbnail',)
     readonly_fields = ('shop_document_photo_thumbnail',)
     formset = RequiredInlineFormSet
     extra = 2
@@ -189,8 +194,8 @@ class ServicePartnerFilter(InputFilter):
 
     def queryset(self, request, queryset):
         value = self.value()
-        if value :
-            return queryset.filter(retiler_mapping__parent__shop_name__icontains=value )
+        if value:
+            return queryset.filter(retiler_mapping__parent__shop_name__icontains=value)
         return queryset
 
 
@@ -214,13 +219,13 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     actions = ["export_as_csv", "disable_shop"]
     inlines = [
         ShopPhotosAdmin, ShopDocumentsAdmin,
-        AddressAdmin, ShopInvoicePatternAdmin,ShopParentRetailerMapping
+        AddressAdmin, ShopInvoicePatternAdmin, ShopParentRetailerMapping
     ]
     list_display = (
         'shop_name', 'get_shop_shipping_address', 'get_shop_pin_code', 'get_shop_parent',
         'shop_owner', 'shop_type', 'created_at', 'status', 'get_shop_city', 'approval_status',
         'shop_mapped_product', 'imei_no',
-        )
+    )
     filter_horizontal = ('related_users',)
     list_filter = (ShopCityFilter, ServicePartnerFilter, ShopNameSearch, ShopTypeSearch, ShopRelatedUserSearch,
                    ShopOwnerSearch, 'approval_status', 'status', ('created_at', DateTimeRangeFilter))
@@ -234,54 +239,54 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
         from django.conf.urls import url
         urls = super(ShopAdmin, self).get_urls()
         urls = [
-            url(
-                r'^adjust-stock/(?P<shop_id>\w+)/$',
-                self.admin_site.admin_view(StockAdjustmentView.as_view()),
-                name="StockAdjustment"
-            ),
-            url(
-                r'^adjust-stock-sample/(?P<shop_id>\w+)/$',
-                self.admin_site.admin_view(stock_adjust_sample),
-                name="ShopStocks"
-            ),
-            url(
-                r'^shop-sales-report/$',
-                self.admin_site.admin_view(SalesReport.as_view()),
-                name="shop-sales-report"
-            ),
-            url(
-                r'^shop-sales-form/$',
-                self.admin_site.admin_view(SalesReportFormView.as_view()),
-                name="shop-sales-form"
-            ),
-            url(
-                r'^shop-timing-autocomplete/$',
-                self.admin_site.admin_view(ShopTimingAutocomplete.as_view()),
-                name="shop-timing-autocomplete"
-            ),
-            url(
-                r'^bulk-shop-updation/$',
-                self.admin_site.admin_view(bulk_shop_updation),
-                name="bulk-shop-updation"
-            ),
-            url(
-                r'^shop-autocomplete/$',
-                self.admin_site.admin_view(ShopAutocomplete.as_view()),
-                name="shop-autocomplete"
-            ),
-            url(
-                r'^user-autocomplete/$',
-                self.admin_site.admin_view(UserAutocomplete.as_view()),
-                name="user-autocomplete"
-            ),
+                   url(
+                       r'^adjust-stock/(?P<shop_id>\w+)/$',
+                       self.admin_site.admin_view(StockAdjustmentView.as_view()),
+                       name="StockAdjustment"
+                   ),
+                   url(
+                       r'^adjust-stock-sample/(?P<shop_id>\w+)/$',
+                       self.admin_site.admin_view(stock_adjust_sample),
+                       name="ShopStocks"
+                   ),
+                   url(
+                       r'^shop-sales-report/$',
+                       self.admin_site.admin_view(SalesReport.as_view()),
+                       name="shop-sales-report"
+                   ),
+                   url(
+                       r'^shop-sales-form/$',
+                       self.admin_site.admin_view(SalesReportFormView.as_view()),
+                       name="shop-sales-form"
+                   ),
+                   url(
+                       r'^shop-timing-autocomplete/$',
+                       self.admin_site.admin_view(ShopTimingAutocomplete.as_view()),
+                       name="shop-timing-autocomplete"
+                   ),
+                   url(
+                       r'^bulk-shop-updation/$',
+                       self.admin_site.admin_view(bulk_shop_updation),
+                       name="bulk-shop-updation"
+                   ),
+                   url(
+                       r'^shop-autocomplete/$',
+                       self.admin_site.admin_view(ShopAutocomplete.as_view()),
+                       name="shop-autocomplete"
+                   ),
+                   url(
+                       r'^user-autocomplete/$',
+                       self.admin_site.admin_view(UserAutocomplete.as_view()),
+                       name="user-autocomplete"
+                   ),
 
-        ] + urls
+               ] + urls
         return urls
 
     def get_fields(self, request, obj=None):
         if request.user.is_superuser:
             return self.fields + ['related_users', 'shop_code', 'shop_code_bulk', 'shop_code_discounted',
-                                  'warehouse_code','created_by']
+                                  'warehouse_code', 'created_by']
         elif request.user.has_perm('shops.hide_related_users'):
             return self.fields
         return self.fields + ['related_users', 'shop_code', 'shop_code_bulk', 'shop_code_discounted', 'warehouse_code',
@@ -292,7 +297,8 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     def shop_mapped_product(self, obj):
         if obj.shop_type.shop_type in ['gf', 'sp']:
-            return format_html("<a href = '/admin/shops/shop-mapped/%s/product/' class ='addlink' > Product List</a>" % (obj.id))
+            return format_html(
+                "<a href = '/admin/shops/shop-mapped/%s/product/' class ='addlink' > Product List</a>" % (obj.id))
 
     shop_mapped_product.short_description = 'Product List with Qty'
     disable_shop.short_description = "Disapprove shops"
@@ -300,11 +306,13 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
     def get_shop_city(self, obj):
         if obj.shop_name_address_mapping.exists():
             return obj.shop_name_address_mapping.last().city
+
     get_shop_city.short_description = 'Shop City'
 
     def get_shop_parent(self, obj):
         if obj.retiler_mapping.exists():
             return obj.retiler_mapping.last().parent
+
     get_shop_parent.short_description = 'Parent Shop'
 
 
@@ -335,12 +343,14 @@ class ShopTimingAdmin(admin.ModelAdmin):
         if str(obj.break_start_time) == '00:00:00':
             return "-"
         return obj.break_start_time
+
     break_start_times.short_description = 'break start time'
 
     def break_end_times(self, obj):
         if str(obj.break_end_time) == '00:00:00':
             return "-"
         return obj.break_end_time
+
     break_end_times.short_description = 'break end time'
 
     class Media:
@@ -391,8 +401,7 @@ class ExportCsvMixin:
 class ShopRequestBrandAdmin(ExportCsvMixin, admin.ModelAdmin):
     actions = ['export_as_csv_shop_request_brand']
     list_display = ('shop', 'brand_name', 'product_sku', 'request_count','created_at',)
-    list_filter = (ShopFilter, ShopSearchByOwner, ProductSKUFilter, BrandNameFilter, ('created_at',
-                                                                                      DateTimeRangeFilter))
+    list_filter = (ShopFilter, ShopSearchByOwner, ProductSKUFilter, BrandNameFilter, ('created_at', DateTimeRangeFilter))
     raw_id_fields = ('shop',)
 
     class Media:
@@ -402,7 +411,7 @@ class ShopRequestBrandAdmin(ExportCsvMixin, admin.ModelAdmin):
 class ShopUserMappingAdmin(admin.ModelAdmin):
     form = ShopUserMappingForm
     list_display = ('shop', 'manager', 'employee', 'employee_group', 'created_at', 'status')
-    list_filter = [ShopFilter, ManagerFilter, EmployeeFilter, 'status', ('created_at', DateTimeRangeFilter),]
+    list_filter = [ShopFilter, ManagerFilter, EmployeeFilter, 'status', ('created_at', DateTimeRangeFilter), ]
     search_fields = ('shop__shop_name', 'employee_group__permissions__codename', 'employee__phone_number')
 
     def get_urls(self):
@@ -419,7 +428,7 @@ class ShopUserMappingAdmin(admin.ModelAdmin):
                self.admin_site.admin_view(ShopUserMappingCsvSample.as_view()),
                name="shop-user-upload-csv-sample"),
 
-        ] + urls
+               ] + urls
         return urls
 
     class Media:

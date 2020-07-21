@@ -1,67 +1,56 @@
-import datetime
+import requests
+import jsonpickle
 import logging
-import time
-from decimal import Decimal
 from dal import autocomplete
 from wkhtmltopdf.views import PDFTemplateResponse
 from products.models import *
 from num2words import num2words
 from barCodeGenerator import barcodeGen
 from django.core.files.base import ContentFile
-from django.forms import formset_factory, inlineformset_factory, modelformset_factory, BaseFormSet, ValidationError
+from django.forms import formset_factory, modelformset_factory, BaseFormSet, ValidationError
 from django.shortcuts import render, get_object_or_404, redirect
-from django.db.models import Sum, Q, F, Count, Case, Value, When
+from django.db.models import Sum, Q, F
 from django.db import transaction
 from django.dispatch import receiver
 from django.db.models.signals import post_save
-from django.http import JsonResponse
-
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from celery.task import task
-from rest_framework.decorators import permission_classes
 
 from sp_to_gram.models import (
     OrderedProductReserved, OrderedProductMapping as SPOrderedProductMapping,
     OrderedProduct as SPOrderedProduct)
-from retailer_to_sp.models import (
-    Cart, CartProductMapping, Order, OrderedProduct, OrderedProductMapping,
-    CustomerCare, Payment, Return, ReturnProductMapping, Note, Trip, Dispatch,
-    ShipmentRescheduling, PickerDashboard, update_full_part_order_status, Shipment
-)
+from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, OrderedProductMapping, Note, Trip,
+                                   Dispatch, ShipmentRescheduling, PickerDashboard, update_full_part_order_status,
+                                   Shipment)
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
-    OrderedProductMappingDeliveryForm, OrderedProductDispatchForm,
-    TripForm, DispatchForm, DispatchDisabledForm, AssignPickerForm,
-    OrderForm,
-)
+    TripForm, DispatchForm,AssignPickerForm,)
 from django.views.generic import TemplateView
-from django.conf import settings
 from django.contrib import messages
 
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector, TrigramSimilarity
-from shops.models import Shop
+from shops.models import Shop, ShopMigrationMapp
 from retailer_to_sp.api.v1.serializers import (
-    DispatchSerializer, CommercialShipmentSerializer, OrderedCartSerializer
+    DispatchSerializer, CommercialShipmentSerializer
 )
 import json
 from django.http import HttpResponse
 from django.core import serializers
 
-logger = logging.getLogger(__name__)
+
 from retailer_to_sp.api.v1.serializers import OrderedCartSerializer
-from django.urls import reverse
-from django.contrib.sessions.models import Session
-from django.contrib.auth import get_user_model
 from retailer_backend.common_function import brand_credit_note_pattern
 from addresses.models import Address
 from accounts.models import UserWithName
-from common.constants import ZERO, PREFIX_PICK_LIST_FILE_NAME, PICK_LIST_DOWNLOAD_ZIP_NAME, TIME_FORMAT
-from common.common_utils import create_zip_url, create_file_name, create_file_path
+from common.constants import ZERO, PREFIX_PICK_LIST_FILE_NAME, PICK_LIST_DOWNLOAD_ZIP_NAME
+from common.common_utils import create_file_name, create_merge_pdf_name, merge_pdf_files, single_pdf_file
+
+logger = logging.getLogger('retailer_to_sp_controller')
 
 class ReturnProductAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
@@ -86,6 +75,7 @@ class DownloadCreditNote(APIView):
     """
     permission_classes = (AllowAny,)
     filename = 'credit_note.pdf'
+    #changed later based on shop
     template_name = 'admin/credit_note/credit_note.html'
 
     def get(self, request, *args, **kwargs):
@@ -99,8 +89,12 @@ class DownloadCreditNote(APIView):
         for gs in credit_note.shipment.order.shipping_address.shop_name.shop_name_documents.all():
             gstinn1 = gs.shop_document_number if gs.shop_document_type=='gstin' else 'Unregistered'
 
-        gst_number ='07AAHCG4891M1ZZ' if credit_note.shipment.order.seller_shop.shop_name_address_mapping.all().last().state.state_name=='Delhi' else '09AAHCG4891M1ZV'
-
+        #gst_number ='07AAHCG4891M1ZZ' if credit_note.shipment.order.seller_shop.shop_name_address_mapping.all().last().state.state_name=='Delhi' else '09AAHCG4891M1ZV'
+        # changes for org change
+        shop_mapping_list = ShopMigrationMapp.objects.filter(
+            new_sp_addistro_shop=credit_note.shipment.order.seller_shop.pk).all()
+        if shop_mapping_list.exists():
+            self.template_name = 'admin/credit_note/addistro_credit_note.html'
 
         amount = credit_note.amount
         pp = OrderedProductMapping.objects.filter(ordered_product=credit_note.shipment.id)
@@ -181,7 +175,7 @@ class DownloadCreditNote(APIView):
             "url": request.get_host(),"scheme": request.is_secure() and "https" or "http","igst": igst,"cgst": cgst,"sgst": sgst,"cess": cess,"surcharge": surcharge,
             "total_amount": round(total_amount,2),"order_id": order_id,"shop_name_gram": shop_name_gram,"nick_name_gram": nick_name_gram,"city_gram": city_gram,
             "address_line1_gram": address_line1_gram,"pincode_gram": pincode_gram,"state_gram": state_gram,"amount":amount,"gstinn1":gstinn1,"gstinn2":gstinn2,
-            "gstinn3":gstinn3,"gst_number":gst_number,"reason":reason,"rupees":rupees,"cin":cin,"pan_no":pan_no, 'shipment_cancelled': shipment_cancelled}
+            "gstinn3":gstinn3,"reason":reason,"rupees":rupees,"cin":cin,"pan_no":pan_no, 'shipment_cancelled': shipment_cancelled}
 
         cmd_option = {
             "margin-top": 10,
@@ -691,47 +685,64 @@ class DownloadPickListPicker(TemplateView, ):
         :param kwargs: keyword argument
         :return: zip folder which contains the pdf files
         """
-        template_name = 'admin/download/retailer_sp_picker_pick_list.html'
-        # get prefix of file name
-        file_prefix = PREFIX_PICK_LIST_FILE_NAME
-        # check condition for single pdf download using download invoice link
-        if len(args) == ZERO:
-            # get primary key
-            pk = kwargs.get('pk')
-            # check pk is exist or not for Order product model
-            order_obj = get_object_or_404(Order, pk=pk)
-            # barcode generation
-            barcode = barcodeGen(order_obj.order_no)
-            # get shipment id
-            shipment_id = self.kwargs.get('shipment_id')
-            # call pick list dashboard method to generate and save the pdf
-            response = pick_list_dashboard(request, order_obj, shipment_id, template_name, file_prefix, barcode)
-        else:
-            # create list for files
-            file_path_list = []
-            if args[1]:
-                for pk in args[1]:
-                    # check pk is exist or not for Order model
-                    order_obj = get_object_or_404(Order, pk=pk)
-                    # barcode
-                    barcode = barcodeGen(order_obj.order_no)
-                    # get shipment id
-                    shipment_id = args[1][pk]
-                    # call pick list dashboard method to generate and save the pdf
-                    pick_list_dashboard(request, order_obj, shipment_id, template_name, file_prefix, barcode)
-                    # get the bucket location
-                    bucket_location = order_obj.pick_list_pdf.storage.location
-                    # get the file name
-                    file_name = order_obj.pick_list_pdf.name
-                    # call create file path to get the path of pdf files from S3
-                    file_path_list = create_file_path(file_path_list, bucket_location, file_name)
-            # assign date time format as %d%m%y_%H%M%S
-            date_time = time.strftime(TIME_FORMAT)
-            # assign zip name
-            zip_name = PICK_LIST_DOWNLOAD_ZIP_NAME + '_' + date_time
-            # call create zip url method to generate zip url
-            response = create_zip_url(file_path_list, zip_name)
-        return response
+        try:
+            template_name = 'admin/download/retailer_sp_picker_pick_list.html'
+            # get prefix of file name
+            file_prefix = PREFIX_PICK_LIST_FILE_NAME
+            # check condition for single pdf download using download invoice link
+            if len(args) == ZERO:
+                # get primary key
+                pk = kwargs.get('pk')
+                # check pk is exist or not for Order product model
+                order_obj = get_object_or_404(Order, pk=pk)
+                # generate bar code
+                barcode = barcodeGen(order_obj.order_no)
+                # get shipment id
+                shipment_id = self.kwargs.get('shipment_id')
+                # call pick list dashboard method for create and save the pdf file in database if pdf is not exist
+                pick_list_dashboard(request, order_obj, shipment_id, template_name, file_prefix, barcode)
+                result = requests.get(order_obj.picker_order.all()[0].pick_list_pdf.url)
+                file_prefix = PREFIX_PICK_LIST_FILE_NAME
+                # generate pdf file
+                response = single_pdf_file(order_obj, result, file_prefix)
+                # return response
+                return response
+            else:
+                # list of file path for every pdf file
+                file_path_list = []
+                # list of created date for every pdf file
+                pdf_created_date = []
+                if args[1]:
+                    for pk in args[1]:
+                        # check pk is exist or not for Order model
+                        order_obj = get_object_or_404(Order, pk=pk)
+                        # generate barcode
+                        barcode = barcodeGen(order_obj.order_no)
+                        # get shipment id
+                        shipment_id = args[1][pk]
+                        # call pick list dashboard method for create and save the pdf file in
+                        # database if pdf is not exist
+                        pick_list_dashboard(request, order_obj, shipment_id, template_name, file_prefix, barcode)
+                        # append the pdf file path
+                        file_path_list.append(order_obj.picker_order.all()[0].pick_list_pdf.url)
+                        # append created date for pdf file
+                        pdf_created_date.append(order_obj.created_at)
+                    # condition to check the download file count
+                    if len(pdf_created_date) == 1:
+                        result = requests.get(order_obj.picker_order.all()[0].pick_list_pdf.url)
+                        file_prefix = PREFIX_PICK_LIST_FILE_NAME
+                        # generate pdf file
+                        response = single_pdf_file(order_obj, result, file_prefix)
+                        return response, False
+                    else:
+                        # get merged pdf file name
+                        prefix_file_name = PICK_LIST_DOWNLOAD_ZIP_NAME
+                        merge_pdf_name = create_merge_pdf_name(prefix_file_name, pdf_created_date)
+                        # call function to merge pdf files
+                        response = merge_pdf_files(file_path_list, merge_pdf_name)
+                    return response, True
+        except Exception as e:
+            logger.exception(e)
 
 
 def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_prefix, barcode):
@@ -745,99 +756,101 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
     :param barcode: barcode of the invoice
     :return: pdf file instance
     """
-    if not request.user.is_authenticated:
-        return redirect('/admin/login/?next=%s' % request.path)
-    # get the file name along with with prefix name
-    file_name = create_file_name(file_prefix, order_obj)
-    if shipment_id != "0":
-        shipment = OrderedProduct.objects.get(id=shipment_id)
-    else:
-        shipment = order_obj.rt_order_order_product.last()
-    if shipment:
-        shipment_products = shipment.rt_order_product_order_product_mapping.all()
-        shipment_product_list = []
+    try:
+        if order_obj.picker_order.all()[0].pick_list_pdf.url:
+            pass
+    except:
+        # get the file name along with with prefix name
+        file_name = create_file_name(file_prefix, order_obj)
+        if shipment_id != "0":
+            shipment = OrderedProduct.objects.get(id=shipment_id)
+        else:
+            shipment = order_obj.rt_order_order_product.last()
+        if shipment:
+            shipment_products = shipment.rt_order_product_order_product_mapping.all()
+            shipment_product_list = []
 
-        shipment_product_items = shipment_products.values('product')
-        cart_products = order_obj.ordered_cart.rt_cart_list.all()
-        cart_products_remaining = cart_products.exclude(cart_product__in=shipment_product_items)
+            shipment_product_items = shipment_products.values('product')
+            cart_products = order_obj.ordered_cart.rt_cart_list.all()
+            cart_products_remaining = cart_products.exclude(cart_product__in=shipment_product_items)
 
-        for cart_pro in cart_products_remaining:
-            product_list = {
-                "product_name": cart_pro.cart_product.product_name,
-                "product_sku": cart_pro.cart_product.product_sku,
-                "product_mrp": cart_pro.get_cart_product_price(order_obj.seller_shop.id, order_obj.buyer_shop.id).mrp,
-                "to_be_shipped_qty": int(cart_pro.no_of_pieces),
-                # "no_of_pieces":cart_pro.no_of_pieces,
-            }
+            for cart_pro in cart_products_remaining:
+                product_list = {
+                    "product_name": cart_pro.cart_product.product_name,
+                    "product_sku": cart_pro.cart_product.product_sku,
+                    "product_mrp": cart_pro.get_cart_product_price(order_obj.seller_shop.id, order_obj.buyer_shop.id).mrp,
+                    "to_be_shipped_qty": int(cart_pro.no_of_pieces),
+                    # "no_of_pieces":cart_pro.no_of_pieces,
+                }
 
-            shipment_product_list.append(product_list)
-
-        for shipment_pro in shipment_products:
-            product_list = {
-                "product_name": shipment_pro.product.product_name,
-                "product_sku": shipment_pro.product.product_sku,
-                "product_mrp": round(shipment_pro.mrp, 2),
-                # "to_be_shipped_qty": int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_quantity),
-            }
-            # product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_qty_exclude_current)
-            if shipment_id != "0":
-                #  quantity excluding current
-                product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty) - int(
-                    shipment_pro.shipped_qty_exclude_current1)
-            else:
-                #  quantity including current
-                product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty) - int(
-                    shipment_pro.shipped_quantity_including_current)
-            if (product_list["to_be_shipped_qty"] > 0):
                 shipment_product_list.append(product_list)
 
-    else:
-        cart_products = order_obj.ordered_cart.rt_cart_list.all()
-        cart_product_list = []
+            for shipment_pro in shipment_products:
+                product_list = {
+                    "product_name": shipment_pro.product.product_name,
+                    "product_sku": shipment_pro.product.product_sku,
+                    "product_mrp": round(shipment_pro.mrp, 2),
+                    # "to_be_shipped_qty": int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_quantity),
+                }
+                # product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty)-int(shipment_pro.shipped_qty_exclude_current)
+                if shipment_id != "0":
+                    #  quantity excluding current
+                    product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty) - int(
+                        shipment_pro.shipped_qty_exclude_current1)
+                else:
+                    #  quantity including current
+                    product_list["to_be_shipped_qty"] = int(shipment_pro.ordered_qty) - int(
+                        shipment_pro.shipped_quantity_including_current)
+                if (product_list["to_be_shipped_qty"] > 0):
+                    shipment_product_list.append(product_list)
 
-        for cart_pro in cart_products:
-            product_list = {
-                "product_name": cart_pro.cart_product.product_name,
-                "product_sku": cart_pro.cart_product.product_sku,
-                "product_mrp": cart_pro.get_cart_product_price(order_obj.seller_shop.id, order_obj.buyer_shop.id).mrp,
-                # "ordered_qty": int(cart_pro.qty),
-                "ordered_qty": int(cart_pro.no_of_pieces),
-                # "no_of_pieces":cart_pro.no_of_pieces,
-            }
-            cart_product_list.append(product_list)
+        else:
+            cart_products = order_obj.ordered_cart.rt_cart_list.all()
+            cart_product_list = []
 
-    data = {
-        "order_obj": order_obj,
-        "buyer_shop": order_obj.ordered_cart.buyer_shop.shop_name,
-        "buyer_contact_no": order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
-        "buyer_shipping_address": order_obj.shipping_address.address_line1,
-        "buyer_shipping_city": order_obj.shipping_address.city.city_name,
-        "barcode": barcode
-    }
-    if shipment:
-        data["shipment_products"] = shipment_product_list
-        data["shipment"] = True
-    else:
-        data["cart_products"] = cart_product_list
-        data["shipment"] = False
+            for cart_pro in cart_products:
+                product_list = {
+                    "product_name": cart_pro.cart_product.product_name,
+                    "product_sku": cart_pro.cart_product.product_sku,
+                    "product_mrp": cart_pro.get_cart_product_price(order_obj.seller_shop.id, order_obj.buyer_shop.id).mrp,
+                    # "ordered_qty": int(cart_pro.qty),
+                    "ordered_qty": int(cart_pro.no_of_pieces),
+                    # "no_of_pieces":cart_pro.no_of_pieces,
+                }
+                cart_product_list.append(product_list)
 
-    cmd_option = {
-        "margin-top": 10,
-        "zoom": 1,
-        "footer-center":
-            "[page]/[topage]",
-        "no-stop-slow-scripts": True
-    }
-    response = PDFTemplateResponse(
-        request=request, template=template_name,
-        filename=file_name, context=data,
-        show_content_in_browser=False, cmd_options=cmd_option)
-    try:
-        # save pdf file in pick_list_pdf field
-        order_obj.pick_list_pdf.save("{}".format(file_name), ContentFile(response.rendered_content), save=True)
-    except Exception as e:
-        logger.exception(e)
-    return response
+        data = {
+            "order_obj": order_obj,
+            "buyer_shop": order_obj.ordered_cart.buyer_shop.shop_name,
+            "buyer_contact_no": order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
+            "buyer_shipping_address": order_obj.shipping_address.address_line1,
+            "buyer_shipping_city": order_obj.shipping_address.city.city_name,
+            "barcode": barcode
+        }
+        if shipment:
+            data["shipment_products"] = shipment_product_list
+            data["shipment"] = True
+        else:
+            data["cart_products"] = cart_product_list
+            data["shipment"] = False
+
+        cmd_option = {
+            "margin-top": 10,
+            "zoom": 1,
+            "footer-center":
+                "[page]/[topage]",
+            "no-stop-slow-scripts": True
+        }
+        response = PDFTemplateResponse(
+            request=request, template=template_name,
+            filename=file_name, context=data,
+            show_content_in_browser=False, cmd_options=cmd_option)
+        try:
+            # save pdf file in pick_list_pdf field
+            order_obj.picker_order.all()[0].pick_list_pdf.save("{}".format(file_name), ContentFile(response.rendered_content), save=True)
+        except Exception as e:
+            logger.exception(e)
+        return response
 
 
 class DownloadPickList(TemplateView, ):
@@ -852,95 +865,113 @@ class DownloadPickList(TemplateView, ):
         :param kwargs: keyword argument
         :return: zip folder which contains the pdf files
         """
-        template_name = 'admin/download/retailer_sp_pick_list.html'
-        # get prefix of file name
-        file_prefix = PREFIX_PICK_LIST_FILE_NAME
-        # check condition for single pdf download using download invoice link
-        if len(args) == ZERO:
-            # get primary key
-            pk = kwargs.get('pk')
-            # check pk is exist or not for Order product model
-            order_obj = get_object_or_404(Order, pk=pk)
-            # barcode generation
-            barcode = barcodeGen(order_obj.order_no)
-            # call pick list download method to generate and save the pdf
-            response = pick_list_download(request, order_obj, template_name, file_prefix, barcode)
-        else:
-            # create list for files
-            file_path_list = []
-            for pk in args[0]:
+        try:
+            # check condition for single pdf download using download invoice link
+            if len(args) == ZERO:
+                # get primary key
+                pk = kwargs.get('pk')
                 # check pk is exist or not for Order product model
                 order_obj = get_object_or_404(Order, pk=pk)
-                # barcode
-                barcode = barcodeGen(order_obj.order_no)
-                # call pick list download method to generate and save the pdf
-                pick_list_download(request, order_obj, template_name, file_prefix, barcode)
-                # get the bucket location
-                bucket_location = order_obj.pick_list_pdf.storage.location
-                # get the file name
-                file_name = order_obj.pick_list_pdf.name
-                # call create file path to get the path of pdf files from S3
-                file_path_list = create_file_path(file_path_list, bucket_location, file_name)
-            # assign date time format as %d%m%y_%H%M%S
-            date_time = time.strftime(TIME_FORMAT)
-            # assign zip name
-            zip_name = PICK_LIST_DOWNLOAD_ZIP_NAME + '_' + date_time
-            # call create zip url method to generate zip url
-            response = create_zip_url(file_path_list, zip_name)
-        return response
+                # call pick list download method to create and save the pdf
+                pick_list_download(request, order_obj)
+                result = requests.get(order_obj.pick_list_pdf.url)
+                file_prefix = PREFIX_PICK_LIST_FILE_NAME
+                # generate pdf file
+                response = single_pdf_file(order_obj, result, file_prefix)
+                # return response
+                return response
+            else:
+                # list of file path for every pdf file
+                file_path_list = []
+                # list of created date for every pdf file
+                pdf_created_date = []
+                for pk in args[0]:
+                    # check pk is exist or not for Order product model
+                    order_obj = get_object_or_404(Order, pk=pk)
+                    # call pick list download method to create and save the pdf
+                    pick_list_download(request, order_obj)
+                    # append pdf file path
+                    file_path_list.append(order_obj.pick_list_pdf.url)
+                    # append created date for every pdf file
+                    pdf_created_date.append(order_obj.created_at)
+                # condition to check the download file count
+                if len(pdf_created_date) <= 1:
+                    result = requests.get(order_obj.pick_list_pdf.url)
+                    file_prefix = PREFIX_PICK_LIST_FILE_NAME
+                    # generate pdf file
+                    response = single_pdf_file(order_obj, result, file_prefix)
+                    return response, False
+                else:
+                    prefix_file_name = PICK_LIST_DOWNLOAD_ZIP_NAME
+                    # get merged pdf file name
+                    merge_pdf_name = create_merge_pdf_name(prefix_file_name, pdf_created_date)
+                    # call function to merge pdf files
+                    response = merge_pdf_files(file_path_list, merge_pdf_name)
+                return response, True
+        except Exception as e:
+            logger.exception(e)
 
 
-def pick_list_download(request, order_obj, template_name, file_prefix, barcode):
+@task
+def pick_list_download(request, order_obj):
     """
 
     :param request: request object
     :param order_obj: order object
-    :param template_name: template for pdf file
-    :param file_prefix: prefix name for pdf file
-    :param barcode: barcode of the invoice
     :return: pdf file instance
     """
-    if not request.user.is_authenticated:
-        return redirect('/admin/login/?next=%s' % request.path)
-    # get the file name along with with prefix name
-    file_name = create_file_name(file_prefix, order_obj)
-    cart_products = order_obj.ordered_cart.rt_cart_list.all()
-    cart_product_list = []
-    for cart_pro in cart_products:
-        product_list = {
-            "product_name": cart_pro.cart_product.product_name,
-            "product_sku": cart_pro.cart_product.product_sku,
-            "product_mrp": cart_pro.cart_product_price.mrp,
-            "ordered_qty": cart_pro.qty,
-            "no_of_pieces": cart_pro.no_of_pieces,
-        }
-        cart_product_list.append(product_list)
-
-    data = {
-        "order_obj": order_obj,
-        "cart_products": cart_product_list,
-        "buyer_shop": order_obj.ordered_cart.buyer_shop.shop_name,
-        "buyer_contact_no": order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
-        "buyer_shipping_address": order_obj.shipping_address.address_line1,
-        "buyer_shipping_city": order_obj.shipping_address.city.city_name,
-        "barcode": barcode
-    }
-    cmd_option = {
-        "margin-top": 10,
-        "zoom": 1,
-        "footer-center":
-            "[page]/[topage]",
-        "no-stop-slow-scripts": True
-    }
-    response = PDFTemplateResponse(
-        request=request, template=template_name,
-        filename=file_name, context=data,
-        show_content_in_browser=False, cmd_options=cmd_option)
+    if type(request) is str:
+        request = None
+        order_decode = jsonpickle.decode(order_obj)
+        order_obj = Order.objects.filter(id=order_decode['id'])[0]
+    else:
+        request = request
+        order_obj = order_obj
     try:
-        order_obj.pick_list_pdf.save("{}".format(file_name), ContentFile(response.rendered_content), save=True)
-    except Exception as e:
-        logger.exception(e)
-    return response
+        if order_obj.pick_list_pdf.url:
+            pass
+    except:
+        template_name = 'admin/download/retailer_sp_pick_list.html'
+        file_prefix = PREFIX_PICK_LIST_FILE_NAME
+        barcode = barcodeGen(order_obj.order_no)
+        file_name = create_file_name(file_prefix, order_obj)
+        cart_products = order_obj.ordered_cart.rt_cart_list.all()
+        cart_product_list = []
+        for cart_pro in cart_products:
+            product_list = {
+                "product_name": cart_pro.cart_product.product_name,
+                "product_sku": cart_pro.cart_product.product_sku,
+                "product_mrp": cart_pro.cart_product_price.mrp,
+                "ordered_qty": cart_pro.qty,
+                "no_of_pieces": cart_pro.no_of_pieces,
+            }
+            cart_product_list.append(product_list)
+
+        data = {
+            "order_obj": order_obj,
+            "cart_products": cart_product_list,
+            "buyer_shop": order_obj.ordered_cart.buyer_shop.shop_name,
+            "buyer_contact_no": order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
+            "buyer_shipping_address": order_obj.shipping_address.address_line1,
+            "buyer_shipping_city": order_obj.shipping_address.city.city_name,
+            "barcode": barcode
+        }
+        cmd_option = {
+            "margin-top": 10,
+            "zoom": 1,
+            "footer-center":
+                "[page]/[topage]",
+            "no-stop-slow-scripts": True
+        }
+        response = PDFTemplateResponse(
+            request=request,
+            template=template_name,
+            filename=file_name, context=data,
+            show_content_in_browser=False, cmd_options=cmd_option)
+        try:
+            order_obj.pick_list_pdf.save("{}".format(file_name), ContentFile(response.rendered_content), save=True)
+        except Exception as e:
+            logger.exception(e)
 
 
 def order_invoices(request):

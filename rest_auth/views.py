@@ -37,6 +37,9 @@ from otp.models import PhoneOTP
 from accounts.tokens import account_activation_token
 
 from django.utils.encoding import force_bytes, force_text
+import logging
+
+logger = logging.getLogger('django')
 
 UserModel = get_user_model()
 
@@ -108,6 +111,8 @@ class LoginView(GenericAPIView):
 
     def post(self, request, *args, **kwargs):
         self.request = request
+        logger.info("login request")
+        logger.info(request.data)
         self.serializer = self.get_serializer(data=self.request.data,
                                               context={'request': request})
 
