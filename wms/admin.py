@@ -119,6 +119,7 @@ class BinInventoryAdmin(admin.ModelAdmin):
     readonly_fields = ('batch_id','warehouse', 'sku', 'bin','inventory_type', 'in_stock')
 
     list_filter = ('warehouse', 'sku', 'batch_id')
+    list_per_page = 50
 
 
 class OutAdmin(admin.ModelAdmin):
