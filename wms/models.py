@@ -18,8 +18,9 @@ from django.contrib.auth import get_user_model
 
 
 BIN_TYPE_CHOICES = (
-    ('p', 'Pallet'),
-    ('sr', 'Slotted Rack'),
+    ('PA', 'Pallet'),
+    ('SR', 'Slotted Rack'),
+    ('HD', 'Heavy Duty Rack')
 )
 
 INVENTORY_TYPE_CHOICES = (
@@ -62,8 +63,9 @@ class InventoryState(models.Model):
 class Bin(models.Model):
     # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
+    warehouse_name = models.CharField(max_length=50, null=True, blank=True)
     bin_id = models.CharField(max_length=20, null=True, blank=True)
-    bin_type = models.CharField(max_length=50, choices=BIN_TYPE_CHOICES, default='p')
+    bin_type = models.CharField(max_length=50, choices=BIN_TYPE_CHOICES, default='PA')
     is_active = models.BooleanField()
     bin_barcode = models.ImageField(upload_to='images/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
