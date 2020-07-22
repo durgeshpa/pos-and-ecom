@@ -448,6 +448,9 @@ class TripForm(forms.ModelForm):
             if trip_status == Trip.READY:
                 self.fields['seller_shop'].disabled = True
                 self.fields['trip_status'].choices = Trip.TRIP_STATUS[0], Trip.TRIP_STATUS[2], Trip.TRIP_STATUS[1]
+                self.fields['no_of_crates'].disabled = True
+                self.fields['no_of_packets'].disabled = True
+                self.fields['no_of_sacks'].disabled = True
 
             elif trip_status == Trip.STARTED:
                 self.fields['delivery_boy'].disabled = True
@@ -467,11 +470,12 @@ class TripForm(forms.ModelForm):
                 self.fields['search_by_pincode'].widget = forms.HiddenInput()
                 self.fields['Invoice_No'].widget = forms.HiddenInput()
                 self.fields['closing_kms'].disabled = False
-                self.fields['no_of_crates_check'].disabled = False
-                self.fields['no_of_packets_check'].disabled = False
-                self.fields['no_of_sacks_check'].disabled = False
+                self.fields['no_of_crates_check'].disabled = True
+                self.fields['no_of_packets_check'].disabled = True
+                self.fields['no_of_sacks_check'].disabled = True
 
             elif trip_status == Trip.RETURN_VERIFIED:
+                self.fields['e_way_bill_no'].disabled = True
                 self.fields['delivery_boy'].disabled = True
                 self.fields['seller_shop'].disabled = True
                 self.fields['vehicle_no'].disabled = True
