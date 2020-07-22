@@ -38,10 +38,12 @@ class PutAwaySerializer(DynamicFieldsModelSerializer):
     is_success= serializers.SerializerMethodField('is_success_dt')
     quantity = serializers.SerializerMethodField('grned_quantity_dt')
     putaway_quantity = serializers.SerializerMethodField('putaway_quantity_dt')
+    product_name = serializers.SerializerMethodField('product_name_dt')
+    max_putaway_qty = serializers.SerializerMethodField('max_putaway_qty_dt')
 
     class Meta:
         model = Putaway
-        fields = ('is_success','id','warehouse', 'putaway_type', 'putaway_type_id', 'sku','product_sku', 'batch_id', 'quantity', 'putaway_quantity', 'created_at', 'modified_at')
+        fields = ('is_success','id','warehouse', 'putaway_type', 'putaway_type_id', 'sku','product_sku', 'batch_id', 'quantity', 'putaway_quantity', 'created_at', 'modified_at', 'product_name', 'max_putaway_qty')
 
     def product_sku_dt(self, obj):
         return obj.sku.product_sku
@@ -54,6 +56,14 @@ class PutAwaySerializer(DynamicFieldsModelSerializer):
 
     def putaway_quantity_dt(self, obj):
         return Putaway.objects.filter(batch_id=obj.batch_id).aggregate(total=Sum('putaway_quantity'))['total']
+
+    def product_name_dt(self, obj):
+        return obj.sku.product_name
+
+    def max_putaway_qty_dt(self, obj):
+        qty = Putaway.objects.filter(batch_id=obj.batch_id).aggregate(total=Sum('quantity'))['total']
+        updated_qty = qty - Putaway.objects.filter(batch_id=obj.batch_id).aggregate(total=Sum('putaway_quantity'))['total']
+        return updated_qty
 
 
 class OutSerializer(serializers.ModelSerializer):

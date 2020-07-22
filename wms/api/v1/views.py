@@ -87,7 +87,7 @@ class PutAwayViewSet(APIView):
         if batch_id:
             put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id)
             if put_away.exists():
-                serializer = PutAwaySerializer(put_away, many=True, fields=('is_success', 'product_sku', 'batch_id', 'quantity', 'putaway_quantity'))
+                serializer = PutAwaySerializer(put_away, many=True, fields=('is_success', 'product_sku', 'batch_id', 'product_name', 'putaway_quantity', 'max_putaway_qty'))
                 msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
             else:
@@ -95,7 +95,7 @@ class PutAwayViewSet(APIView):
                 return Response(msg, status=status.HTTP_200_OK)
         else:
             put_away = PutawayCommonFunctions.get_filtered_putaways()
-            serializer = PutAwaySerializer(put_away, many=True, fields=('is_success', 'product_sku', 'batch_id', 'quantity', 'putaway_quantity'))
+            serializer = PutAwaySerializer(put_away, many=True, fields=('is_success', 'product_sku', 'batch_id', 'product_name', 'putaway_quantity', 'max_putaway_qty'))
             msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
             return Response(msg, status=status.HTTP_200_OK)
 
@@ -188,7 +188,7 @@ class PutAwayViewSet(APIView):
                         ids.remove(ids[0])
                     updating_tables_on_putaway(sh, bin_id, put_away, i, inventory_type, 'available', 't', val)
 
-            serializer = (PutAwaySerializer(Putaway.objects.filter(batch_id=i, warehouse=warehouse).last(), fields=('is_success', 'product_sku', 'batch_id', 'quantity', 'putaway_quantity')))
+            serializer = (PutAwaySerializer(Putaway.objects.filter(batch_id=i, warehouse=warehouse).last(), fields=('is_success', 'product_sku', 'batch_id', 'max_putaway_qty', 'putaway_quantity', 'product_name')))
             msg = serializer.data
             lis_data.append(msg)
         if len(lis_data)==len(batch_id):
