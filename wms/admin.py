@@ -111,15 +111,14 @@ class InventoryTypeAdmin(admin.ModelAdmin):
     list_display = ('inventory_type',)
 
 
-# class BinInventoryAdmin(admin.ModelAdmin):
-#     info_logger.info("Bin Inventory Admin has been called.")
-#     form = BinInventoryForm
-#     list_select_related = ('warehouse', 'sku', 'bin', 'inventory_type')
-#     list_display = ('batch_id','warehouse', 'sku', 'bin','inventory_type', 'quantity', 'in_stock')
-#     readonly_fields = ('batch_id','warehouse', 'sku', 'bin','inventory_type', 'in_stock')
-#
-#     list_filter = ('warehouse', 'sku', 'batch_id')
-#     list_per_page = 50
+class BinInventoryAdmin(admin.ModelAdmin):
+    info_logger.info("Bin Inventory Admin has been called.")
+    form = BinInventoryForm
+    list_select_related = ('warehouse', 'sku', 'bin', 'inventory_type')
+    list_display = ('batch_id','warehouse', 'sku', 'bin','inventory_type', 'quantity', 'in_stock')
+    readonly_fields = ('batch_id','warehouse', 'sku', 'bin','inventory_type', 'in_stock')
+    list_filter = ('warehouse', 'sku', 'batch_id')
+    list_per_page = 50
 
 
 class OutAdmin(admin.ModelAdmin):
@@ -232,7 +231,7 @@ admin.site.register(In, InAdmin)
 admin.site.register(InventoryType, InventoryTypeAdmin)
 admin.site.register(Putaway, PutAwayAdmin)
 admin.site.register(PutawayBinInventory, PutawayBinInventoryAdmin)
-# admin.site.register(BinInventory, BinInventoryAdmin)
+admin.site.register(BinInventory, BinInventoryAdmin)
 admin.site.register(Out, OutAdmin)
 admin.site.register(Pickup, PickupAdmin)
 admin.site.register(PickupBinInventory, PickupBinInventoryAdmin)
