@@ -63,7 +63,6 @@ class InventoryState(models.Model):
 class Bin(models.Model):
     # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
-    warehouse_name = models.CharField(max_length=50, null=True, blank=True)
     bin_id = models.CharField(max_length=20, null=True, blank=True)
     bin_type = models.CharField(max_length=50, choices=BIN_TYPE_CHOICES, default='PA')
     is_active = models.BooleanField()

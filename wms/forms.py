@@ -4,7 +4,7 @@ import csv
 import codecs
 from django import forms
 from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload,\
-    InventoryType, InventoryState
+    InventoryType, InventoryState, BIN_TYPE_CHOICES
 from products.models import Product
 from shops.models import Shop
 from gram_to_brand.models import GRNOrderProductMapping
@@ -44,7 +44,7 @@ class BulkBinUpdation(forms.Form):
                 raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + "Bin Type must be start with PA, SR and HD."))
 
             # Bin ID Validation
-            bin_validation, message = bin_id_validation(row[3])
+            bin_validation, message = bin_id_validation(row[3], row[2])
             if bin_validation is False:
                 raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + message))
 
@@ -67,41 +67,24 @@ class BulkBinUpdation(forms.Form):
 
 class BinForm(forms.ModelForm):
     info_logger.info("Bin Form has been called.")
-    bin_id = forms.CharField(required=True, max_length=14)
+    bin_id = forms.CharField(required=True, max_length=16)
     warehouse = forms.ModelChoiceField(queryset=warehouse_choices)
+    bin_type = forms.ChoiceField(choices=BIN_TYPE_CHOICES)
 
     class Meta:
         model = Bin
         fields = ['warehouse', 'bin_id', 'bin_type', 'is_active', ]
 
     def clean_bin_id(self):
-        if len(self.cleaned_data['bin_id']) < 14:
-            raise forms.ValidationError(_('Bin Id min and max char limit is 14.Example:-B2BZ01SR01-001'),)
-        if not self.cleaned_data['bin_id'][0:3] in ['B2B', 'B2C']:
-            raise forms.ValidationError(_('First three letter should be start with either B2B and B2C.'
-                                          'Example:-B2BZ01SR01-001'),)
-        if not self.cleaned_data['bin_id'][3] in ['Z']:
-            raise forms.ValidationError(_('Zone should be start with char Z.Example:-B2BZ01SR01-001'), )
-        if not bool(re.match('^[0-9]+$', self.cleaned_data['bin_id'][4:6]
-                             ) and not self.cleaned_data['bin_id'][4:6] == '00'):
-            raise forms.ValidationError(_('Zone number should be start in between 01 to 99.Example:-B2BZ01SR01-001'), )
-        if not self.cleaned_data['bin_id'][6:8] in ['SR', 'PA']:
-            raise forms.ValidationError(_('Rack type should be start with either SR and RA char only.'
-                                          'Example:-B2BZ01SR01-001'),)
-        if not bool(re.match('^[0-9]+$', self.cleaned_data['bin_id'][8:10]
-                             )and not self.cleaned_data['bin_id'][8:10] == '00'):
-            raise forms.ValidationError(_('Rack number should be start in between 01 to 99.'
-                                          'Example:- B2BZ01SR01-001'), )
-        if not self.cleaned_data['bin_id'][10] in ['-']:
-            raise forms.ValidationError(_('Only - allowed in between Rack number and Bin Number.'
-                                          'Example:-B2BZ01SR01-001'),)
-        if not bool(re.match('^[0-9]+$', self.cleaned_data['bin_id'][11:14]
-                             )and not self.cleaned_data['bin_id'][11:14] == '000'):
-            raise forms.ValidationError(_('Bin number should be start in between 001 to 999.Example:-B2BZ01SR01-001'), )
+        bin_validation, message = bin_id_validation(self.cleaned_data['bin_id'], self.data['bin_type'])
+        if bin_validation is False:
+            raise ValidationError(_(message))
+        if Bin.objects.filter(warehouse__id=self.data['warehouse'], bin_id = self.cleaned_data['bin_id']).exists():
+            raise ValidationError(_("Duplicate Data ! Warehouse with same Bin Id is already exists in the system."))
         return self.cleaned_data['bin_id']
 
 
-def bin_id_validation(bin_id):
+def bin_id_validation(bin_id, bin_type):
     if not bin_id:
         return False, "Bin ID must not be empty."
 
@@ -120,6 +103,10 @@ def bin_id_validation(bin_id):
     if not bin_id[6:8] in ['SR', 'PA', 'HD']:
         return False, 'Rack type should be start with either SR, PA and HD only.Example:-B2BZ01SR001-0001'
 
+    else:
+        if not bin_id[6:8] == bin_type:
+            return False, 'Type of Rack and Bin type should be same.'
+
     if not bool(re.match('^[0-9]+$', bin_id[8:11]) and not bin_id[8:11] == '000'):
         return False, 'Rack number should be start in between 000 to 999.Example:- B2BZ01SR001-0001'
 
@@ -130,6 +117,7 @@ def bin_id_validation(bin_id):
         return False, 'Bin number should be start in between 0000 to 9999. Example:-B2BZ01SR001-0001'
 
     return True, "Bin Id validation successfully passed."
+
 
 class InForm(forms.ModelForm):
     info_logger.info("In Form has been called.")

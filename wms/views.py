@@ -117,7 +117,6 @@ def bins_upload(request):
                                                'form': form})
                             else:
                                 bin_obj, created = Bin.objects.get_or_create(warehouse=warehouse.last(),
-                                                                             warehouse_name=data[0],
                                                                              bin_id=data[3],
                                                                              bin_type=data[2],
                                                                              is_active='t')
