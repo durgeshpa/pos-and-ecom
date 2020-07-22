@@ -58,7 +58,7 @@ class BulkBinUpdation(forms.Form):
                 warehouse = Shop.objects.filter(id=int(row[1]))
                 if warehouse.exists():
                     if Bin.objects.filter(warehouse=warehouse.last(), bin_id=row[3]).exists():
-                        raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + 'BIN ID is exists for Warehouse. Please re-verify at your end.'))
+                        raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + 'Same Bin ID is exists in a system with same Warehouse. Please re-verify at your end.'))
 
             info_logger.info("Validation of File format successfully passed.")
             form_data_list.append(row)
