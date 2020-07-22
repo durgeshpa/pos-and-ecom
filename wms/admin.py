@@ -113,7 +113,7 @@ class InventoryTypeAdmin(admin.ModelAdmin):
 
 class BinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Bin Inventory Admin has been called.")
-    #form = BinInventoryForm
+    form = BinInventoryForm
     #list_select_related = ('warehouse', 'sku', 'bin', 'inventory_type')
     list_display = ('batch_id','warehouse', 'sku', 'bin','inventory_type', 'quantity', 'in_stock')
     #readonly_fields = ('batch_id','warehouse', 'sku', 'bin','inventory_type', 'in_stock')
