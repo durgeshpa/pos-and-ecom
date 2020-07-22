@@ -633,7 +633,7 @@ class DownloadBinCSV(View):
             f = StringIO()
             writer = csv.writer(f)
             # header of csv file
-            writer.writerow(['Warehouse Name', 'Warehouse ID', 'Batch Type ', 'Bin ID'])
+            writer.writerow(['Warehouse Name', 'Warehouse ID', 'BIN Type ', 'Bin ID'])
             writer.writerow(['GFDN Noida', '1393', 'PA', 'B2BZ01SR001-0001'])
             f.seek(0)
             response = HttpResponse(f, content_type='text/csv')
