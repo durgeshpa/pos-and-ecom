@@ -332,7 +332,7 @@ CRONJOBS = [
     ('2 0 * * *', 'analytics.api.v1.views.getStock'),
     ('*/10 * * * *', 'retailer_backend.cron.po_status_change_exceeds_validity_date'),
     ('* */6 * * *', 'retailer_backend.cron.sync_es_products'),
-    ('0 23 * * *', 'shops.api.v1.views.set_shop_map_cron', '>>/tmp/shops'),
+    ('50 1 * * *', 'shops.api.v1.views.set_shop_map_cron', '>>/tmp/shops'),
 
 ]
 
