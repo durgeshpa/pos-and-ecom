@@ -1,29 +1,39 @@
+# python imports
 import csv
+import logging
+from io import StringIO
+from import_export import resources
+from admin_auto_filters.filters import AutocompleteFilter
+from rangefilter.filter import DateTimeRangeFilter
+
+# django imports
 from django.contrib import admin
+from django.utils.html import format_html
+from django.http import HttpResponse
+
+# app imports
 from .models import (
     Shop, ShopType, RetailerType, ParentRetailerMapping,
     ShopPhoto, ShopDocument, ShopInvoicePattern, ShopUserMapping,
-    ShopRequestBrand, SalesAppVersion, ShopTiming, FavouriteProduct
-)
+    ShopRequestBrand, SalesAppVersion, ShopTiming, FavouriteProduct, BeatPlanning, DayBeatPlanning)
 from addresses.models import Address
 from addresses.forms import AddressForm
 from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
-                    ShopForm, RequiredInlineFormSet,
-                    AddressInlineFormSet, ShopTimingForm, ShopUserMappingForm, ShopTimingForm)
+                    ShopForm, RequiredInlineFormSet, BeatPlanningAdminForm,
+                    AddressInlineFormSet, ShopUserMappingForm, ShopTimingForm)
 from .views import (StockAdjustmentView, stock_adjust_sample,
+                    bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView,
+                    ShopUserMappingCsvSample, ShopTimingAutocomplete,
                     bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView,
                     ShopUserMappingCsvSample, ShopTimingAutocomplete
                     )
 from retailer_backend.admin import InputFilter
-from django.db.models import Q
-from django.utils.html import format_html
-from import_export import resources
-from django.http import HttpResponse
-from admin_auto_filters.filters import AutocompleteFilter
 from services.views import SalesReportFormView, SalesReport
-from rangefilter.filter import DateRangeFilter, DateTimeRangeFilter
 from .utils import create_shops_excel
 from retailer_backend.filters import ShopFilter, EmployeeFilter, ManagerFilter
+from common.constants import DOWNLOAD_BEAT_PLAN_CSV, FIFTY
+
+logger = logging.getLogger('shop-admin')
 
 
 class ShopResource(resources.ModelResource):
@@ -124,15 +134,10 @@ class ProductFilter(AutocompleteFilter):
 
 
 class FavouriteProductAdmin(admin.ModelAdmin, ExportCsvMixin):
-    # change_list_template = 'admin/shops/shop/change_list.html'
     actions = ["export_as_csv_fav_product"]
-    list_display = ('buyer_shop', 'product', 'created_at', 'get_product_brand')  # , 'get_product_sp')
+    list_display = ('buyer_shop', 'product', 'created_at', 'get_product_brand')
     raw_id_fields = ['buyer_shop', 'product']
     list_filter = (BuyerShopFilter, ProductFilter)
-
-    # def get_product_sp(self, obj):
-    #     return obj.product.product_brand
-    # get_product_sp.short_description = 'Parent Shop Name'  #Renames column head
 
     def get_product_brand(self, obj):
         return obj.product.product_brand
@@ -222,10 +227,9 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
         'shop_mapped_product', 'imei_no',
     )
     filter_horizontal = ('related_users',)
-    list_filter = (
-    ShopCityFilter, ServicePartnerFilter, ShopNameSearch, ShopTypeSearch, ShopRelatedUserSearch, ShopOwnerSearch,
-    'approval_status', 'status', ('created_at', DateTimeRangeFilter))
-    search_fields = ('shop_name',)
+    list_filter = (ShopCityFilter, ServicePartnerFilter, ShopNameSearch, ShopTypeSearch, ShopRelatedUserSearch,
+                   ShopOwnerSearch, 'approval_status', 'status', ('created_at', DateTimeRangeFilter))
+    search_fields = ('shop_name', )
     list_per_page = 50
 
     class Media:
@@ -298,34 +302,6 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
 
     shop_mapped_product.short_description = 'Product List with Qty'
     disable_shop.short_description = "Disapprove shops"
-
-    # def get_shop_pending_amount(self, obj):
-    #     pending_amount_gf = 0
-    #     pending_amount_sp = 0
-    #     pending_amount_total=0
-    #     if obj.shop_type.shop_type == 'r':
-    #         #if obj.retiler_mapping.filter(status=True).last().parent.shop_type.shop_type=='gf':
-    #         orders_to_gf = obj.rtg_buyer_shop_order.all()
-    #         for order in orders_to_gf:
-    #             if order.rt_payment.last().payment_status == 'payment_done_approval_pending' or order.rt_payment.last().payment_status == 'cash_collected':
-    #                 pending_amount_gf = pending_amount_gf + order.total_final_amount
-    #         #return pending_amount
-    #         #elif obj.retiler_mapping.filter(status=True).last().parent.shop_type.shop_type=='sp':
-    #         orders_to_sp = obj.rt_buyer_shop_order.all()
-    #         for order in orders_to_sp:
-    #             if order.rt_payment.last().payment_status == 'payment_done_approval_pending' or order.rt_payment.last().payment_status == 'cash_collected':
-    #                 pending_amount_sp = pending_amount_sp + order.total_final_amount
-    #         #return pending_amount
-    #         pending_amount_total = pending_amount_gf + pending_amount_sp
-    #         return pending_amount_total
-    #     elif obj.shop_type.shop_type == 'sp':
-    #         carts_to_gf = obj.sp_shop_cart.all()
-    #         total_pending_amount = 0
-    #         for cart in carts_to_gf:
-    #             for order in cart.sp_order_cart_mapping.all():
-    #                 total_pending_amount = total_pending_amount + order.total_final_amount
-    #         return total_pending_amount
-    # get_shop_pending_amount.short_description = 'Shop Pending Amount'
 
     def get_shop_city(self, obj):
         if obj.shop_name_address_mapping.exists():
@@ -423,12 +399,9 @@ class ExportCsvMixin:
 
 
 class ShopRequestBrandAdmin(ExportCsvMixin, admin.ModelAdmin):
-    # change_list_template = 'admin/shops/shop/change_list.html'
-    # form = ShopRequestBrandForm
     actions = ['export_as_csv_shop_request_brand']
-    list_display = ('shop', 'brand_name', 'product_sku', 'request_count', 'created_at',)
-    list_filter = (
-    ShopFilter, ShopSearchByOwner, ProductSKUFilter, BrandNameFilter, ('created_at', DateTimeRangeFilter))
+    list_display = ('shop', 'brand_name', 'product_sku', 'request_count','created_at',)
+    list_filter = (ShopFilter, ShopSearchByOwner, ProductSKUFilter, BrandNameFilter, ('created_at', DateTimeRangeFilter))
     raw_id_fields = ('shop',)
 
     class Media:
@@ -445,16 +418,15 @@ class ShopUserMappingAdmin(admin.ModelAdmin):
         from django.conf.urls import url
         urls = super(ShopUserMappingAdmin, self).get_urls()
         urls = [
-                   url(
-                       r'^upload/csv/$',
-                       self.admin_site.admin_view(ShopUserMappingCsvView.as_view()),
-                       name="shop-user-upload-csv"
-                   ),
-                   url(
-                       r'^upload/csv/sample$',
-                       self.admin_site.admin_view(ShopUserMappingCsvSample.as_view()),
-                       name="shop-user-upload-csv-sample"
-                   ),
+            url(
+               r'^upload/csv/$',
+               self.admin_site.admin_view(ShopUserMappingCsvView.as_view()),
+               name="shop-user-upload-csv"
+            ),
+           url(
+               r'^upload/csv/sample$',
+               self.admin_site.admin_view(ShopUserMappingCsvSample.as_view()),
+               name="shop-user-upload-csv-sample"),
 
                ] + urls
         return urls
@@ -470,6 +442,95 @@ class SalesAppVersionAdmin(admin.ModelAdmin):
     list_display = ('app_version', 'update_recommended', 'force_update_required', 'created_at', 'modified_at')
 
 
+class BeatPlanningAdmin(admin.ModelAdmin):
+    """
+    This class is used to view the Beat Planning Admin Form
+    """
+    form = BeatPlanningAdminForm
+    list_display = ('manager', 'executive', 'created_at', 'status')
+    list_display_links = None
+    actions = ['download_bulk_beat_plan_csv']
+    list_per_page = FIFTY
+    search_fields = ('executive__phone_number', 'manager__phone_number')
+
+    def render_change_form(self, request, context, *args, **kwargs):
+        """
+
+        :param request: request
+        :param context: context processor
+        :param args: non keyword argument
+        :param kwargs: keyword argument
+        :return: Beat Planning Admin form
+        """
+        self.change_form_template = 'admin/shops/shop_beat_plan/change_form.html'
+        return super(BeatPlanningAdmin, self).render_change_form(request, context, *args, **kwargs)
+
+    def get_form(self, request, *args, **kwargs):
+        """
+
+        :param request: request
+        :param args: non keyword argument
+        :param kwargs: keyword argument
+        :return: form
+        """
+        form = super(BeatPlanningAdmin, self).get_form(request, *args, **kwargs)
+        form.current_user = request.user
+        return form
+
+    def download_bulk_beat_plan_csv(self, request, queryset):
+        """
+
+        :param request: get request
+        :param queryset: Beat plan queryset
+        :return: csv file
+        """
+        f = StringIO()
+        writer = csv.writer(f)
+        # set the header name
+        writer.writerow(["Sales Executive (Number - Name)", "Sales Manager (Number - Name)", "Shop ID ",
+                         "Contact Number", "Address", "Pin Code", "Category", "Date (dd/mm/yyyy)", "Status"])
+
+        for query in queryset:
+            # get day beat plan queryset
+            day_beat_plan_query_set = DayBeatPlanning.objects.filter(beat_plan=query)
+            # get object from queryset
+            for plan_obj in day_beat_plan_query_set:
+                # write data into csv file
+                writer.writerow([plan_obj.beat_plan.executive, plan_obj.beat_plan.manager,
+                                 plan_obj.shop_id, plan_obj.shop.shipping_address.address_contact_number,
+                                 plan_obj.shop.shipping_address.address_line1,
+                                 plan_obj.shop.shipping_address.pincode,
+                                 plan_obj.shop_category,
+                                 plan_obj.beat_plan_date.strftime("%d/%m/%y"),
+                                 'Active' if plan_obj.beat_plan.status is True else 'Inactive'])
+
+        f.seek(0)
+        response = HttpResponse(f, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=executive_beat_plan.csv'
+        return response
+
+    # download bulk invoice short description
+    download_bulk_beat_plan_csv.short_description = DOWNLOAD_BEAT_PLAN_CSV
+
+    # Media file
+    class Media:
+        js = ('admin/js/beat_plan_list.js', )
+
+    # def has_delete_permission(self, request, obj=None):
+    #     return False
+
+    def get_queryset(self, request):
+        """
+
+        :param request: get request
+        :return: queryset
+        """
+        qs = super(BeatPlanningAdmin, self).get_queryset(request)
+        if not request.user.is_superuser:
+            return qs.filter(manager=request.user)
+        return qs
+
+
 admin.site.register(ParentRetailerMapping, ParentRetailerMappingAdmin)
 admin.site.register(ShopType)
 admin.site.register(RetailerType)
@@ -479,3 +540,4 @@ admin.site.register(ShopRequestBrand, ShopRequestBrandAdmin)
 admin.site.register(ShopUserMapping, ShopUserMappingAdmin)
 admin.site.register(SalesAppVersion, SalesAppVersionAdmin)
 admin.site.register(ShopTiming, ShopTimingAdmin)
+admin.site.register(BeatPlanning, BeatPlanningAdmin)

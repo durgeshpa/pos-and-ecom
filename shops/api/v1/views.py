@@ -1,3 +1,4 @@
+import logging
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework import permissions, authentication
@@ -8,15 +9,15 @@ from .serializers import (RetailerTypeSerializer, ShopTypeSerializer,
         ShopSerializer, ShopPhotoSerializer, ShopDocumentSerializer, ShopTimingSerializer, ShopUserMappingSerializer,
         SellerShopSerializer, AppVersionSerializer, ShopUserMappingUserSerializer, ShopRequestBrandSerializer,
         FavouriteProductSerializer, AddFavouriteProductSerializer,
-        ListFavouriteProductSerializer
+        ListFavouriteProductSerializer, DayBeatPlanSerializer, FeedbackCreateSerializers, ExecutiveReportSerializer
 )
 from shops.models import (RetailerType, ShopType, Shop, ShopPhoto, ShopDocument, ShopUserMapping, SalesAppVersion, ShopRequestBrand, ShopTiming,
-    FavouriteProduct)
+    FavouriteProduct, BeatPlanning, DayBeatPlanning, ExecutiveFeedback)
 from rest_framework import generics
 from addresses.models import City, Area, Address
 from rest_framework import status
 from django.contrib.auth import get_user_model
-from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES
+from retailer_backend.messages import SUCCESS_MESSAGES, VALIDATION_ERROR_MESSAGES, ERROR_MESSAGES
 from rest_framework.parsers import FormParser, MultiPartParser
 from common.data_wrapper_view import DataWrapperViewSet
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -39,7 +40,13 @@ from retailer_to_sp.views import (
     update_shipment_status_with_id, update_shipment_status_after_return)
 from retailer_to_sp.api.v1.views import update_trip_status
 from dateutil.relativedelta import relativedelta
+from retailer_backend import messages
+from rest_framework.viewsets import GenericViewSet
+from rest_framework.decorators import action
+from rest_framework import mixins, viewsets
 
+
+logger = logging.getLogger('shop-api')
 
 class ShopRequestBrandViewSet(DataWrapperViewSet):
     '''
@@ -804,3 +811,142 @@ class StatusChangedAfterAmountCollected(APIView):
         else:
             msg = {'is_success': False, 'message': ['Amount is different'], 'response_data': None}
         return Response(msg, status=status.HTTP_201_CREATED)
+
+
+class DayBeatPlan(viewsets.ModelViewSet):
+    """
+    This class is used to get the beat plan for sales executive
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = DayBeatPlanSerializer
+    queryset = BeatPlanning.objects.filter(status=True)
+    http_method_names = ['get', 'post']
+
+    def list(self, *args, **kwargs):
+        """
+
+        :param args: non-keyword argument
+        :param kwargs: keyword argument
+        :return: Beat Plan for Sales executive otherwise error message
+        """
+        try:
+            beat_user = self.queryset.filter(executive=self.request.user,
+                                             executive__user_type=self.request.user.user_type,
+                                             executive__is_active=True)
+            if beat_user.exists():
+                try:
+                    beat_user_obj = DayBeatPlanning.objects.filter(beat_plan=beat_user[0],
+                                                                   next_plan_date=self.request.GET['next_plan_date'])
+                except Exception as error:
+                    logger.exception(error)
+                    return Response({"detail": messages.ERROR_MESSAGES["4006"] % self.request.GET['next_plan_date'],
+                                     'is_success': False},
+                                    status=status.HTTP_200_OK)
+                beat_plan_serializer = self.serializer_class(beat_user_obj, many=True)
+                if beat_plan_serializer.data.__len__() <= 0:
+                    return Response({"detail": messages.ERROR_MESSAGES["4014"], "data": beat_plan_serializer.data,
+                                     'is_success': True},
+                                    status=status.HTTP_200_OK)
+                return Response({"detail": SUCCESS_MESSAGES["2001"], "data": beat_plan_serializer.data,
+                                 'is_success': True},
+                                status=status.HTTP_200_OK)
+            else:
+                return Response({"detail": messages.ERROR_MESSAGES["4007"], 'is_success': False},
+                                status=status.HTTP_401_UNAUTHORIZED)
+        except Exception as error:
+            logger.exception(error)
+            return Response({"detail": messages.ERROR_MESSAGES["4008"],
+                             'is_success': False}, status=status.HTTP_200_OK)
+
+    def create(self, request, *args, **kwargs):
+        """
+
+        :param request: request params
+        :param args: non-keyword argument
+        :param kwargs: keyword argument
+        :return: serialized data of executive feedback
+        """
+        if request.POST['feedback_date'] == datetime.today().strftime("%Y-%m-%d"):
+            day_beat_plan = DayBeatPlanning.objects.filter(id=request.POST['day_beat_plan'],
+                                                           next_plan_date=request.POST['feedback_date'])
+            if day_beat_plan:
+                serializer = FeedbackCreateSerializers(data=request.data, context={'request': request})
+                if serializer.is_valid():
+                    result = serializer.save()
+                    if result:
+                        return Response({"detail": SUCCESS_MESSAGES["2002"], 'is_success': True,
+                                         "data": serializer.data}, status=status.HTTP_201_CREATED)
+                    return Response({"detail": ERROR_MESSAGES['4011'], 'is_success': False}, status=status.HTTP_200_OK)
+                else:
+                    return Response({"detail": ERROR_MESSAGES['4018'], 'is_success': False}, status=status.HTTP_200_OK)
+            else:
+                return Response({"detail": ERROR_MESSAGES['4018'], 'is_success': False}, status=status.HTTP_200_OK)
+        else:
+            return Response({"detail": ERROR_MESSAGES['4017'], 'is_success': True}, status=status.HTTP_200_OK)
+
+
+class ExecutiveReport(viewsets.ModelViewSet):
+    """
+    This class is used to get the report for sales executive
+    """
+    authentication_classes = (authentication.TokenAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = ExecutiveReportSerializer
+    queryset = ShopUserMapping.objects.all()
+    http_method_names = ['get']
+
+    def list(self, *args, **kwargs):
+        """
+
+        :param args: non-keyword argument
+        :param kwargs: keyword argument
+        :return: Report for Sales executive otherwise error message
+        """
+        try:
+            if self.request.user.user_type == 7 and self.request.GET['report'] in ['1', '2', '3']:
+                shop_mapping_object = (self.queryset.filter(
+                    employee=self.request.user.shop_employee.instance,
+                    employee_group__permissions__codename='can_sales_manager_add_shop', status=True))
+                if not shop_mapping_object:
+                    return Response({"detail": messages.ERROR_MESSAGES["4015"],
+                                     'is_success': False}, status=status.HTTP_200_OK)
+                feedback_executive_list = []
+                for shop_mapping in shop_mapping_object:
+                    executive_list = self.queryset.filter(manager=shop_mapping).distinct('employee_id')
+                    feedback_executive_list.append(executive_list)
+                if len(feedback_executive_list) <= 0:
+                    return Response({"detail": messages.ERROR_MESSAGES["4016"],
+                                     'is_success': False}, status=status.HTTP_200_OK)
+                for feedback_executive in feedback_executive_list:
+                    executive_report_serializer = self.serializer_class(feedback_executive, many=True,
+                                                                        context={'report': self.request.GET['report']})
+                    return Response({"detail": messages.SUCCESS_MESSAGES["2001"],
+                                     "data": executive_report_serializer.data,
+                                     'is_success': True}, status=status.HTTP_200_OK)
+            else:
+                return Response({"detail": messages.ERROR_MESSAGES["4013"],
+                                 'is_success': False}, status=status.HTTP_200_OK)
+        except Exception as error:
+            logger.exception(error)
+            if error.args[0] == 'report':
+                return Response({"detail": messages.ERROR_MESSAGES["4012"],
+                                 'is_success': False}, status=status.HTTP_200_OK)
+            return Response({"detail": messages.ERROR_MESSAGES["4007"],
+                             'is_success': False}, status=status.HTTP_200_OK)
+
+
+def set_shop_map_cron():
+    """
+    Cron job for create data in Executive Feedback Model
+    :return:
+    """
+    try:
+        beat_plan = BeatPlanning.objects.filter(status=True)
+        for beat in beat_plan:
+            next_plan_date = datetime.today()
+            day_beat_plan = DayBeatPlanning.objects.filter(beat_plan=beat, next_plan_date=next_plan_date)
+            for day_beat in day_beat_plan:
+                ExecutiveFeedback.objects.get_or_create(day_beat_plan=day_beat)
+    except Exception as error:
+        logger.exception(error)
