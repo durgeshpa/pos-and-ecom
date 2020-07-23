@@ -334,7 +334,7 @@ class BeatPlanningAdminForm(forms.ModelForm):
         if self.current_user.shop_employee.instance.is_superuser:
             self.fields['executive'] = forms.ModelChoiceField(
                 queryset=get_user_model().objects.filter(user_type=6, is_active=True),
-                widget=autocomplete.ModelSelect2())
+                widget=autocomplete.ModelSelect2(url='admin:user-autocomplete',))
         else:
             self.fields['executive'] = forms.ModelChoiceField(queryset=ShopUserMapping.objects.filter(
                 manager=shop_mapping_object).distinct('employee_id'), widget=autocomplete.ModelSelect2())
