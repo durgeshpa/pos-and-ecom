@@ -946,6 +946,7 @@ def pick_list_download(request, order_obj):
                 "product_mrp": cart_pro.cart_product_price.mrp,
                 "ordered_qty": cart_pro.qty,
                 "no_of_pieces": cart_pro.no_of_pieces,
+
             }
             cart_product_list.append(product_list)
 
@@ -956,7 +957,8 @@ def pick_list_download(request, order_obj):
             "buyer_contact_no": order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
             "buyer_shipping_address": order_obj.shipping_address.address_line1,
             "buyer_shipping_city": order_obj.shipping_address.city.city_name,
-            "barcode": barcode
+            "barcode": barcode,
+            "url": request.get_host(), "scheme": request.is_secure() and "https" or "http"
         }
         cmd_option = {
             "margin-top": 10,
