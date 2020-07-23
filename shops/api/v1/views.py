@@ -831,48 +831,59 @@ class DayBeatPlan(viewsets.ModelViewSet):
         :return: Beat Plan for Sales executive otherwise error message
         """
         try:
-            beat_user = self.queryset.filter(executive=self.request.user,
-                                             executive__user_type=self.request.user.user_type,
-                                             executive__is_active=True)
-            if beat_user.exists():
+            if self.request.GET['next_plan_date'] == datetime.today().strftime("%Y-%m-%d"):
+                beat_user = self.queryset.filter(executive=self.request.user,
+                                                 executive__user_type=self.request.user.user_type,
+                                                 executive__is_active=True)
+                if beat_user.exists():
+                    try:
+                        for beat in beat_user:
+                            day_beat_plan = DayBeatPlanning.objects.filter(beat_plan=beat,
+                                                                           next_plan_date=self.request.GET[
+                                                                               'next_plan_date'])
+                            if day_beat_plan.exists():
+                                for day_beat in day_beat_plan:
+                                    executive_obj = ExecutiveFeedback.objects.filter(day_beat_plan=day_beat)
+                                    if executive_obj.exists():
+                                        beat_plan_serializer = self.serializer_class(day_beat_plan, many=True)
+                                        if beat_plan_serializer.data.__len__() <= 0:
+                                            return Response({"detail": messages.ERROR_MESSAGES["4014"],
+                                                             "data": beat_plan_serializer.data,
+                                                             'is_success': True},
+                                                            status=status.HTTP_200_OK)
+                    except Exception as error:
+                        logger.exception(error)
+                        return Response({"detail": messages.ERROR_MESSAGES["4006"] % self.request.GET['next_plan_date'],
+                                         'is_success': False},
+                                        status=status.HTTP_200_OK)
+                    return Response({"detail": SUCCESS_MESSAGES["2001"], "data": beat_plan_serializer.data,
+                                     'is_success': True},
+                                    status=status.HTTP_200_OK)
+            else:
                 try:
-                    for beat in beat_user:
-                        day_beat_plan = DayBeatPlanning.objects.filter(beat_plan=beat,
-                                                                       next_plan_date=self.request.GET[
-                                                                           'next_plan_date'])
-                        if day_beat_plan.exists():
-                            for day_beat in day_beat_plan:
-                                executive_obj = ExecutiveFeedback.objects.filter(day_beat_plan=day_beat)
-                                if executive_obj.exists():
-                                    beat_plan_serializer = self.serializer_class(day_beat_plan, many=True)
-                                    if beat_plan_serializer.data.__len__() <= 0:
-                                        return Response({"detail": messages.ERROR_MESSAGES["4014"],
-                                                         "data": beat_plan_serializer.data,
-                                                         'is_success': True},
-                                                        status=status.HTTP_200_OK)
-
-                                    return Response({"detail": SUCCESS_MESSAGES["2001"], "data": beat_plan_serializer.data,
-                                                     'is_success': True},
-                                                    status=status.HTTP_200_OK)
+                    queryset = BeatPlanning.objects.filter(status=True)
+                    beat_user = queryset.filter(executive=self.request.user,
+                                                executive__user_type=self.request.user.user_type,
+                                                executive__is_active=True)
+                    beat_user_obj = DayBeatPlanning.objects.filter(beat_plan=beat_user[0],
+                                                                   next_plan_date=self.request.GET[
+                                                                       'next_plan_date'])
                 except Exception as error:
                     logger.exception(error)
                     return Response({"detail": messages.ERROR_MESSAGES["4006"] % self.request.GET['next_plan_date'],
                                      'is_success': False},
                                     status=status.HTTP_200_OK)
-                try:
-                    return Response({"detail": ERROR_MESSAGES["4014"], "data": [],
+                beat_plan_serializer = self.serializer_class(beat_user_obj, many=True)
+                if beat_plan_serializer.data.__len__() <= 0:
+                    return Response({"detail": messages.ERROR_MESSAGES["4014"], "data": beat_plan_serializer.data,
                                      'is_success': True},
                                     status=status.HTTP_200_OK)
-                except Exception as error:
-                    logger.exception(error)
-                    return Response({"detail": messages.ERROR_MESSAGES["4014"], "data": [],
-                                     'is_success': False}, status=status.HTTP_200_OK)
-            else:
-                return Response({"detail": messages.ERROR_MESSAGES["4007"], 'is_success': False},
-                                status=status.HTTP_401_UNAUTHORIZED)
+                return Response({"detail": SUCCESS_MESSAGES["2001"], "data": beat_plan_serializer.data,
+                                 'is_success': True},
+                                status=status.HTTP_200_OK)
         except Exception as error:
             logger.exception(error)
-            return Response({"detail": messages.ERROR_MESSAGES["4014"], "data": [],
+            return Response({"detail": messages.ERROR_MESSAGES["4008"],
                              'is_success': False}, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
