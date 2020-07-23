@@ -820,7 +820,7 @@ class DayBeatPlan(viewsets.ModelViewSet):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
     serializer_class = DayBeatPlanSerializer
-    queryset = BeatPlanning.objects.filter(status=True)
+    queryset = BeatPlanning.objects.all()
     http_method_names = ['get', 'post']
 
     def list(self, *args, **kwargs):
@@ -836,17 +836,24 @@ class DayBeatPlan(viewsets.ModelViewSet):
                                              executive__is_active=True)
             if beat_user.exists():
                 try:
-                    beat_user_obj = DayBeatPlanning.objects.filter(beat_plan=beat_user[0],
-                                                                   next_plan_date=self.request.GET['next_plan_date'])
+                    for beat in beat_user:
+                        day_beat_plan = DayBeatPlanning.objects.filter(beat_plan=beat,
+                                                                       next_plan_date=self.request.GET[
+                                                                           'next_plan_date'])
+                        if day_beat_plan.exists():
+                            for day_beat in day_beat_plan:
+                                executive_obj = ExecutiveFeedback.objects.filter(day_beat_plan=day_beat)
+                                if executive_obj.exists():
+                                    beat_plan_serializer = self.serializer_class(day_beat_plan, many=True)
+                                    if beat_plan_serializer.data.__len__() <= 0:
+                                        return Response({"detail": messages.ERROR_MESSAGES["4014"],
+                                                         "data": beat_plan_serializer.data,
+                                                         'is_success': True},
+                                                        status=status.HTTP_200_OK)
                 except Exception as error:
                     logger.exception(error)
                     return Response({"detail": messages.ERROR_MESSAGES["4006"] % self.request.GET['next_plan_date'],
                                      'is_success': False},
-                                    status=status.HTTP_200_OK)
-                beat_plan_serializer = self.serializer_class(beat_user_obj, many=True)
-                if beat_plan_serializer.data.__len__() <= 0:
-                    return Response({"detail": messages.ERROR_MESSAGES["4014"], "data": beat_plan_serializer.data,
-                                     'is_success': True},
                                     status=status.HTTP_200_OK)
                 return Response({"detail": SUCCESS_MESSAGES["2001"], "data": beat_plan_serializer.data,
                                  'is_success': True},
@@ -856,7 +863,7 @@ class DayBeatPlan(viewsets.ModelViewSet):
                                 status=status.HTTP_401_UNAUTHORIZED)
         except Exception as error:
             logger.exception(error)
-            return Response({"detail": messages.ERROR_MESSAGES["4008"],
+            return Response({"detail": messages.ERROR_MESSAGES["4014"],"data": [],
                              'is_success': False}, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
