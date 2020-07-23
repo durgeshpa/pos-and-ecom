@@ -634,7 +634,7 @@ class DownloadBinCSV(View):
             writer = csv.writer(f)
             # header of csv file
             writer.writerow(['Warehouse Name', 'Warehouse ID', 'BIN Type ', 'Bin ID'])
-            writer.writerow(['GFDN Noida', '1393', 'PA', 'B2BZ01SR001-0001'])
+            writer.writerow(['GFDN Noida', '600', 'PA', 'B2BZ01SR001-0001'])
             f.seek(0)
             response = HttpResponse(f, content_type='text/csv')
             response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
