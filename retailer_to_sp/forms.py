@@ -520,12 +520,6 @@ class TripForm(forms.ModelForm):
                       (reverse("admin:retailer_to_sp_shipment_change",
                                args=[i.get('id')]), i.get('invoice__invoice_no'))
                       for i in cancelled_shipments]])
-        if(self.instance.no_of_crates_check>self.instance.no_of_crates):
-            raise forms.ValidationError("Total crates collected cannot be greater than Total crates shipped")
-        if (self.instance.no_of_packets_check > self.instance.no_of_packets):
-            raise forms.ValidationError("Total packets collected cannot be greater than Total packets shipped")
-        if (self.instance.no_of_sacks_check > self.instance.no_of_sacks):
-            raise forms.ValidationError("Total sacks collected cannot be greater than Total sacks shipped")
         return data
 
 
