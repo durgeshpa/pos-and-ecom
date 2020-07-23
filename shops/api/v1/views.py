@@ -820,7 +820,7 @@ class DayBeatPlan(viewsets.ModelViewSet):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
     serializer_class = DayBeatPlanSerializer
-    queryset = BeatPlanning.objects.all()
+    queryset = BeatPlanning.objects.filter(status=True)
     http_method_names = ['get', 'post']
 
     def list(self, *args, **kwargs):
