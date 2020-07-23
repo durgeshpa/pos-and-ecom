@@ -87,7 +87,7 @@ class PutAwayViewSet(APIView):
         if batch_id:
             put_away = PutawayCommonFunctions.get_filtered_putaways(batch_id=batch_id)
             if put_away.exists():
-                serializer = PutAwaySerializer(put_away, many=True, fields=('is_success', 'product_sku', 'batch_id', 'product_name', 'putaway_quantity', 'max_putaway_qty'))
+                serializer = PutAwaySerializer(put_away.last(), fields=('is_success', 'product_sku', 'batch_id', 'product_name', 'max_putaway_qty'))
                 msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
                 return Response(msg, status=status.HTTP_200_OK)
             else:
