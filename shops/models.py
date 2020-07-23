@@ -1,5 +1,5 @@
 import logging
-
+from datetime import date
 from django.db import models
 from django.contrib.auth import get_user_model
 # from django.conf import settings
@@ -478,3 +478,56 @@ class ShopMigrationMapp(models.Model):
 
 
 # post_save.connect(get_retailer_report, sender=ParentRetailerMapping)
+
+class BeatPlanning(models.Model):
+    """
+    This model is used for Beat Planning
+    """
+
+    manager = models.ForeignKey(get_user_model(), related_name='shop_manager', on_delete=models.CASCADE)
+    executive = models.ForeignKey(get_user_model(), related_name='shop_executive', on_delete=models.CASCADE,
+                                  verbose_name="Sales Executive",)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
+
+
+class DayBeatPlanning(models.Model):
+    """
+    This model is used for to store day wise beat plan for sales executive
+    """
+    shop_category_choice = (
+        ("P1", "P1"),
+        ("P2", "P2"),
+        ("P3", "P3"),
+        ("P4", "P4")
+    )
+    beat_plan = models.ForeignKey(BeatPlanning, related_name='beat_plan', null=True, blank=True,
+                                  on_delete=models.CASCADE)
+    shop_category = models.CharField(max_length=25, choices=shop_category_choice, default="P1")
+    beat_plan_date = models.DateField(default=date.today)
+    next_plan_date = models.DateField(default=date.today)
+    temp_status = models.BooleanField(default=False)
+    shop = models.ForeignKey(Shop, related_name='shop_id', null=True, blank=True, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+
+class ExecutiveFeedback(models.Model):
+    """
+    This model is used for to store day wise beat plan for sales executive
+    """
+    executive_feedback_choice = (
+        (1, "Place Order"),
+        (2, "No Order For Today"),
+        (3, "Price Not Matching"),
+        (4, "Stock Not Available"),
+        (5, "Could Not Visit"),
+
+    )
+    day_beat_plan = models.ForeignKey(DayBeatPlanning, related_name='day_beat_plan', null=True, blank=True,
+                                      on_delete=models.CASCADE)
+    executive_feedback = models.CharField(max_length=25, choices=executive_feedback_choice)
+    feedback_date = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)

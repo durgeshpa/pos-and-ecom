@@ -50,7 +50,7 @@ from accounts.models import UserWithName
 from common.constants import ZERO, PREFIX_PICK_LIST_FILE_NAME, PICK_LIST_DOWNLOAD_ZIP_NAME
 from common.common_utils import create_file_name, create_merge_pdf_name, merge_pdf_files, single_pdf_file
 
-logger = logging.getLogger('retailer_to_sp_controller')
+logger = logging.getLogger('django')
 
 class ReturnProductAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
@@ -825,7 +825,8 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
             "buyer_contact_no": order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
             "buyer_shipping_address": order_obj.shipping_address.address_line1,
             "buyer_shipping_city": order_obj.shipping_address.city.city_name,
-            "barcode": barcode
+            "barcode": barcode,
+            "url": request.get_host(), "scheme": request.is_secure() and "https" or "http"
         }
         if shipment:
             data["shipment_products"] = shipment_product_list
@@ -847,6 +848,7 @@ def pick_list_dashboard(request, order_obj, shipment_id, template_name, file_pre
             show_content_in_browser=False, cmd_options=cmd_option)
         try:
             # save pdf file in pick_list_pdf field
+            picklist = order_obj.picker_order.all()[0]
             order_obj.picker_order.all()[0].pick_list_pdf.save("{}".format(file_name), ContentFile(response.rendered_content), save=True)
         except Exception as e:
             logger.exception(e)
@@ -944,6 +946,7 @@ def pick_list_download(request, order_obj):
                 "product_mrp": cart_pro.cart_product_price.mrp,
                 "ordered_qty": cart_pro.qty,
                 "no_of_pieces": cart_pro.no_of_pieces,
+
             }
             cart_product_list.append(product_list)
 
@@ -954,7 +957,8 @@ def pick_list_download(request, order_obj):
             "buyer_contact_no": order_obj.ordered_cart.buyer_shop.shop_owner.phone_number,
             "buyer_shipping_address": order_obj.shipping_address.address_line1,
             "buyer_shipping_city": order_obj.shipping_address.city.city_name,
-            "barcode": barcode
+            "barcode": barcode,
+            "url": request.get_host(), "scheme": request.is_secure() and "https" or "http"
         }
         cmd_option = {
             "margin-top": 10,

@@ -9,14 +9,15 @@ from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetai
 
 from shops.api.v1.views import (RetailerTypeView, ShopTypeView,ShopView, ShopPhotoView, ShopDocumentView, ShopTimingView,
         TeamListView, SellerShopView, SellerShopOrder, SellerShopProfile, SalesPerformanceView,
-        SellerShopListView, CheckUser, CheckAppVersion, StatusChangedAfterAmountCollected, SalesPerformanceUserView, ShopRequestBrandViewSet,
-        FavouriteProductView, FavouriteProductListView
-)
+        SellerShopListView, CheckUser, CheckAppVersion, StatusChangedAfterAmountCollected, SalesPerformanceUserView,
+        ShopRequestBrandViewSet, FavouriteProductView, FavouriteProductListView, DayBeatPlan, ExecutiveReport, set_shop_map_cron)
 from addresses.api.v1.views import AddressView, DefaultAddressView, AddressDetail, SellerShopAddress
 
 router = routers.DefaultRouter()
 router.register(r'request-brand', ShopRequestBrandViewSet)
 router.register(r'favourite-product', FavouriteProductView)
+router.register('beat-plan-user', DayBeatPlan)
+router.register('executive-report', ExecutiveReport)
 #router.register(r'list-favourite-product', FavouriteProductListView)
 
 urlpatterns = [
@@ -43,6 +44,7 @@ urlpatterns = [
     path('seller-check-user/', CheckUser.as_view(), name='seller-check-user', ),
     path('seller-shop-address/', SellerShopAddress.as_view(), name='seller-shop-address', ),
     path('check-app-version/', CheckAppVersion.as_view(), name='check-app-version', ),
+    # path('beat-plan-user/', DayBeatPlan.as_view(), name='beat-plan-user', ),
 #------------------------------------------------------------------------------------------------------------------------
     url('^amount-collected/(?P<shipment>\d+)/$', StatusChangedAfterAmountCollected.as_view(), name='amount-collected'),
 

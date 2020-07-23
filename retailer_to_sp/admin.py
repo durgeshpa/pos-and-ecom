@@ -864,7 +864,7 @@ class PickerDashboardAdmin(admin.ModelAdmin):
             else:
                 return response[0]
         else:
-            response = messages.error(request, ERROR_MESSAGES['1001'])
+            response = messages.error(request, ERROR_MESSAGES["4001"])
         return response
 
     download_pick_list.short_description = 'Download Pick List'
@@ -952,7 +952,7 @@ class OrderAdmin(NumericFilterModelAdmin,admin.ModelAdmin,ExportCsvMixin):
             else:
                 return response[0]
         else:
-            response = messages.error(request, ERROR_MESSAGES['1001'])
+            response = messages.error(request, ERROR_MESSAGES["4001"])
         return response
 
     download_pick_list.short_description = 'Download Pick List'
@@ -1026,12 +1026,12 @@ class OrderedProductAdmin(admin.ModelAdmin):
     exclude = ('received_by', 'last_modified_by')
     fields = (
         'order', 'invoice_no', 'shipment_status', 'trip',
-        'return_reason', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'no_of_crates_check', 'no_of_packets_check', 'no_of_sacks_check'
+        'return_reason',
     )
     autocomplete_fields = ('order',)
     search_fields = ('invoice__invoice_no', 'order__order_no')
     readonly_fields = (
-        'order', 'invoice_no', 'trip', 'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks'
+        'order', 'invoice_no', 'trip', 'shipment_status',
     )
     form = OrderedProductReschedule
     ordering = ['-created_at']
@@ -1204,13 +1204,13 @@ class ShipmentAdmin(admin.ModelAdmin):
         ShipmentSellerShopSearch, ('shipment_status', ChoiceDropdownFilter), PincodeSearch
     ]
     fields = ['order', 'invoice_no', 'invoice_amount', 'shipment_address', 'invoice_city',
-              'shipment_status', 'no_of_crates', 'no_of_packets', 'no_of_sacks', 'close_order']
+              'shipment_status', 'close_order']
     search_fields = [
         'order__order_no', 'invoice__invoice_no', 'order__seller_shop__shop_name',
         'order__buyer_shop__shop_name', 'trip__dispatch_no',
         'trip__vehicle_no', 'trip__delivery_boy__phone_number']
     readonly_fields = ['order', 'invoice_no', 'trip', 'invoice_amount', 'shipment_address',
-                       'invoice_city', 'no_of_crates', 'no_of_packets', 'no_of_sacks']
+                       'invoice_city']
     list_per_page = FIFTY
     ordering = ['-created_at']
 
@@ -1246,7 +1246,7 @@ class ShipmentAdmin(admin.ModelAdmin):
                     argument_list.append(arg.pk)
             # if we are getting only QC pending status files for downloading
             if len(argument_list) == 0:
-                response = messages.error(request, ERROR_MESSAGES['1002'])
+                response = messages.error(request, ERROR_MESSAGES["4002"])
                 return response
             # call get method under the DownloadInvoiceSP class
             try:
@@ -1259,7 +1259,7 @@ class ShipmentAdmin(admin.ModelAdmin):
                 logger.exception(e)
                 return redirect(request.META['HTTP_REFERER'])
         else:
-            response = messages.error(request, ERROR_MESSAGES['1001'])
+            response = messages.error(request, ERROR_MESSAGES["4001"])
         return response
     # download single invoice short description
     download_bulk_invoice.short_description = 'Download Invoice'
@@ -1725,7 +1725,7 @@ class InvoiceAdmin(admin.ModelAdmin):
             for arg in args[ZERO]:
                 if len(args[0]) <= 1 and (
                         arg.shipment_status == OrderedProduct.SHIPMENT_STATUS[ZERO] or arg.invoice_no == '-'):
-                    error_message = messages.error(request, ERROR_MESSAGES['1002'])
+                    error_message = messages.error(request, ERROR_MESSAGES["4002"])
                     return error_message
                 elif arg.shipment_status == OrderedProduct.SHIPMENT_STATUS[ZERO] or arg.invoice_no == '-':
                     pass
@@ -1739,7 +1739,7 @@ class InvoiceAdmin(admin.ModelAdmin):
             else:
                 return response[0]
         else:
-            response = messages.error(request, ERROR_MESSAGES['1001'])
+            response = messages.error(request, ERROR_MESSAGES["4001"])
         return response
 
     # download bulk invoice short description

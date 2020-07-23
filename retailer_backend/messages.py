@@ -33,8 +33,10 @@ SUCCESS_MESSAGES = {
     'USER_ALREADY_EXISTS': 'User already exists! Please login',
     'USER_SHOP_ADDED': 'Shop added successfully',
     'CHANGED_STATUS': 'Po_Status changed to %s',
-    'CSV_UPLOADED': 'CSV file has been successfully uploaded',
+    'CSV_UPLOADED': 'CSV file has been successfully uploaded.',
     'CSV_UPLOADED_EXCEPT': 'CSV file has been successfully uploaded, except these ids:-%s',
+    "2001": "Ok",
+    "2002": "Executive Feedback saved successfully.",
 }
 
 ERROR_MESSAGES = {
@@ -45,6 +47,23 @@ ERROR_MESSAGES = {
     'INVALID_SR_PRICE': "You cannot upload Super Retailer Price greater than Retailer",
     'INVALID_MAPPING': "Shop id- %s and employee no- %s , has duplicate entry",
     'PRODUCT_REMOVED': "Some products in cart aren’t available anymore, please update cart",
-    "1001": "Selected records are exceeding system capacity, please keep max records at 50.",
-    "1002": "Selected file status is QC pending, you can't download this file."
+    "4001": "Selected records are exceeding system capacity, please keep max records at 50.",
+    "4002": "Selected file status is QC pending, you can't download this file.",
+    "4003": "Oops! Something went wrong, Please check the data of csv file.",
+    "4004": "row number- %s data is already exists in the sheet.",
+    "4005": "API request is not Authorized.",
+    "4006": "%s value has an invalid date format. It must be in YYYY-MM-DD format.",
+    "4007": "This User is not Authorized.",
+    "4008": "beat_plan_date key is missing in param.",
+    "4009": "Issue in Feedback value.",
+    "4010": "Issue in DateField.",
+    "4011": "Executive has already submitted the feedback for same date.",
+    "4012": "Report param is missing.",
+    "4013": ("Please put the correct value in report parameters to get day, monthly and"
+             " weekly report.param values are 1, 2 & 3."),
+    "4014": "No Beat Plan available for selected date.",
+    "4015": "No Shop associated with Sales Manager.",
+    "4016": "No Executive associated with Sales Manager.",
+    "4017": "Feedback Submission is allowed only for the Current Date.",
+    "4018": "Request Param value is not correct, Please re-verify at your end.",
 }
