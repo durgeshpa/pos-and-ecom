@@ -39,11 +39,6 @@ class CheckBinID(APIView):
             return Response(msg, status=status.HTTP_200_OK)
 
 
-
-
-
-
-
 class BinViewSet(APIView):
     """
     This class is used to get Bin Information and create Bin in database
