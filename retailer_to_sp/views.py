@@ -49,7 +49,7 @@ from addresses.models import Address
 from accounts.models import UserWithName
 from common.constants import ZERO, PREFIX_PICK_LIST_FILE_NAME, PICK_LIST_DOWNLOAD_ZIP_NAME
 from common.common_utils import create_file_name, create_merge_pdf_name, merge_pdf_files, single_pdf_file
-from wms.models import Pickup
+from wms.models import Pickup, WarehouseInternalInventoryChange
 from wms.common_functions import cancel_order, cancel_order_with_pick
 
 logger = logging.getLogger('retailer_to_sp_controller')
@@ -1323,19 +1323,15 @@ class OrderCancellation(object):
         return [i['product_id'] for i in shipment_products]
 
     def get_reserved_qty(self):
-        reserved_qty_queryset = OrderedProductReserved.objects \
-            .values(sp_grn=F('order_product_reserved_id'),
-                    r_qty=F('reserved_qty'), s_qty=F('shipped_qty'),
-                    r_product=F('product_id'),
-                    man_date=F('order_product_reserved__manufacture_date'),
-                    exp_date=F('order_product_reserved__expiry_date')) \
-            .filter(cart_id=self.cart, reserve_status=OrderedProductReserved.ORDERED)
+        reserved_qty_queryset = WarehouseInternalInventoryChange.objects \
+            .values(r_sku=F('sku__id'),
+                    r_qty=F('quantity')).filter(transaction_id=self.order.order_no, transaction_type='reserved')
         return reserved_qty_queryset
 
     def get_cart_products_price(self, products_list):
         product_price_map = {}
         cart_products = CartProductMapping.objects.filter(
-            cart_product_id__in=products_list,
+            cart_product__id__in=products_list,
             cart=self.cart)
         for item in cart_products:
             product_price_map[item.cart_product_id] = item.item_effective_prices
@@ -1365,41 +1361,13 @@ class OrderCancellation(object):
         reserved_qty_queryset = self.get_reserved_qty()
 
         # Creating SP GRN products
-        if order_closed:
-            for item in reserved_qty_queryset:
-                SPOrderedProductMapping.objects.create(
-                    shop_id=self.seller_shop_id, ordered_product=credit_grn,
-                    product_id=item['r_product'],
-                    shipped_qty=item['s_qty'],
-                    available_qty=item['s_qty'],
-                    damaged_qty=0,
-                    ordered_qty=item['s_qty'],
-                    delivered_qty=item['s_qty'],
-                    manufacture_date=item['man_date'],
-                    expiry_date=item['exp_date'],
-                )
-                product_price = product_price_map.get(item['r_product'], 0)
-                credit_amount += (item['s_qty'] * product_price)
-        else:
-            for item in reserved_qty_queryset:
-                SPOrderedProductMapping.objects.create(
-                    shop_id=self.seller_shop_id, ordered_product=credit_grn,
-                    product_id=item['r_product'],
-                    shipped_qty=item['r_qty'],
-                    available_qty=item['r_qty'],
-                    damaged_qty=0,
-                    ordered_qty=item['r_qty'],
-                    delivered_qty=item['r_qty'],
-                    manufacture_date=item['man_date'],
-                    expiry_date=item['exp_date'],
-                )
-                product_price = product_price_map.get(item['r_product'], 0)
-                credit_amount += (item['s_qty'] * product_price)
+        for item in reserved_qty_queryset:
+            product_price = product_price_map.get(item['r_sku'], 0)
+            credit_amount += (item['r_qty'] * product_price)
 
         # update credit note amount
         credit_note.amount = credit_amount
         credit_note.save()
-        reserved_qty_queryset.update(reserve_status=OrderedProductReserved.ORDER_CANCELLED)
 
     def update_sp_qty_from_cart_or_shipment(self):
 
