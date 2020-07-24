@@ -428,7 +428,7 @@ class PickupDetail(APIView):
                     qty = picking_details.last().quantity
                     if pick_qty + i > qty:
                         data_list.append({'is_success': False,
-                                       'Pickup':"Can add only {} more items for {}".format(abs(qty-pick_qty), j)})
+                                       'message':"Can add only {} more items for {}".format(abs(qty-pick_qty), j)})
                         continue
                     else:
                         picking_details.update(pickup_quantity=i + pick_qty)
@@ -463,12 +463,12 @@ class PickupComplete(APIView):
             sum_of_pickup = [i.pickup_quantity for i in pick_obj]
             if 0 in sum_of_pickup:
                 return Response({'is_success': False,
-                                 'Pickup': "Some items are not picked up"})
+                                 'message': "Some items are not picked up"})
             else:
                 Order.objects.filter(order_no=order_no).update(order_status='picking_complete')
                 pick_obj.update(status='picking_complete')
                 return Response({'is_success': True,
-                                 'Pickup': "Pickup complete for all the items"})
+                                 'message': "Pickup complete for all the items"})
 
         msg = {'is_success': True, 'message': 'Pickup Object Does not exist.', 'data': None}
         return Response(msg, status=status.HTTP_404_NOT_FOUND)
