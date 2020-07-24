@@ -126,7 +126,7 @@ class PutAwayViewSet(APIView):
         if not bin_id:
             return Response(msg, status=status.HTTP_200_OK)
         try:
-            warehouse = CommonBinFunctions.get_filtered_bins(bin_id=bin_id).last().warehouse.id
+            warehouse = request.user.shop_employee.all()[0].shop_id
         except Exception as e:
             error_logger.error(e)
             return Response({'is_success': False,
