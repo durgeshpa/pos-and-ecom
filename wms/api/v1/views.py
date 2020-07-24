@@ -25,9 +25,9 @@ class CheckBinID(APIView):
     authentication_classes = (authentication.TokenAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def post(self, request):
+    def get(self, request):
         msg = {'is_success': False, 'message': 'Missing Required field.', 'data': ""}
-        bin_id = request.POST.get('bin_id')
+        bin_id = request.GET.get('bin_id')
         if not bin_id:
             return Response(msg, status=status.HTTP_200_OK)
         bins = CommonBinFunctions.get_filtered_bins(bin_id=bin_id)
