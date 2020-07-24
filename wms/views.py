@@ -1,6 +1,7 @@
 # python imports
 import csv
 from io import StringIO
+import codecs
 
 import openpyxl
 import re
@@ -8,6 +9,7 @@ import logging
 
 # django imports
 from django.http import HttpResponse
+from django.utils.translation import ugettext_lazy as _
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.core.exceptions import ValidationError
@@ -94,7 +96,7 @@ def update_putaway(id, batch_id, warehouse, put_quantity):
     except Exception as e:
         error_logger.error(e)
 
-
+from django import forms
 def bins_upload(request):
     if request.method == 'POST':
         info_logger.info("POST request while upload the .xls file for Bin generation.")
@@ -102,79 +104,39 @@ def bins_upload(request):
         if form.is_valid():
             info_logger.info("File format validation has been successfully done.")
             try:
-                with transaction.atomic():
-                    wb_obj = openpyxl.load_workbook(form.cleaned_data.get('file'))
-                    sheet_obj = wb_obj.active
-                    for row in sheet_obj.iter_rows(
-                            min_row=2, max_row=None, min_col=None, max_col=None,
-                            values_only=True
-                    ):
-                        info_logger.info("xls data validation has been started.")
-                        if not row[0]:
-                            raise ValidationError("warehouse field must not be empty. It should be Integer.")
-
-                        if not row[2]:
-                            raise ValidationError("Bin Type must not be empty.")
-
-                        if not row[2] in ['p', 'sr']:
-                            raise ValidationError("Bin Type must be start with either p or sr.")
-
-                        if not row[3]:
-                            raise ValidationError("Is Active field must not be empty.")
-
-                        if not row[3] in ['t']:
-                            raise ValidationError("Active field should be start with t char only.")
-
-                        if not row[1]:
-                            raise ValidationError("Bin ID must not be empty.")
-
-                        if len(row[1]) < 14:
-                            raise ValidationError('Bin Id min and max char limit is 14.Example:-B2BZ01SR01-001')
-
-                        if not row[1][0:3] in ['B2B', 'B2C']:
-                            raise ValidationError('First three letter should be start with either B2B and B2C.'
-                                                  'Example:-B2BZ01SR01-001')
-                        if not row[1][3] in ['Z']:
-                            raise ValidationError('Zone should be start with char Z.Example:-B2BZ01SR01-001')
-                        if not bool(re.match('^[0-9]+$', row[1][4:6]
-                                             ) and not row[1][4:6] == '00'):
-                            raise ValidationError(
-                                'Zone number should be start in between 01 to 99.Example:-B2BZ01SR01-001')
-                        if not row[1][6:8] in ['SR', 'PA']:
-                            raise ValidationError('Rack type should be start with either SR and RA char only. '
-                                                  'Example:-B2BZ01SR01-001')
-                        if not bool(re.match('^[0-9]+$', row[1][8:10]
-                                             ) and not row[1][8:10] == '00'):
-                            raise ValidationError('Rack number should be start in between 01 to 99.'
-                                                  'Example:- B2BZ01SR01-001')
-                        if not row[1][10] in ['-']:
-                            raise ValidationError('Only - allowed in between Rack number and Bin Number.'
-                                                  'Example:-B2BZ01SR01-001')
-                        if not bool(re.match('^[0-9]+$', row[1][11:14]
-                                             ) and not row[1][11:14] == '000'):
-                            raise ValidationError('Bin number should be start in between 001 to 999.'
-                                                  'Example:-B2BZ01SR01-001')
-
+                upload_data = form.cleaned_data['file']
+                for row_id, data in enumerate(upload_data):
+                    with transaction.atomic():
                         info_logger.info("xls data validation has been passed.")
-                        warehouse = Shop.objects.filter(id=int(row[0]))
+                        warehouse = Shop.objects.filter(id=int(data[1]))
                         if warehouse.exists():
-                            bin_obj, created = Bin.objects.update_or_create(warehouse=warehouse.last(),
-                                                        bin_id=row[1],
-                                                        bin_type=row[2],
-                                                        is_active=row[3],
-                                                        )
-                            if not created:
-                                raise Exception(row[1], 'Bin with same data is already exist in the database.')
+                            if Bin.objects.filter(warehouse=warehouse.last(), bin_id=data[3]).exists():
+                                return render(request, 'admin/wms/bulk-bin-updation.html',
+                                              {'error': 'Row' + ' ' + str(row_id+1) + ' ' + 'Duplicate Bin ID,'
+                                                                                      ' Please verify at your end.',
+                                               'form': form})
+                            else:
+                                bin_obj, created = Bin.objects.get_or_create(warehouse=warehouse.last(),
+                                                                             bin_id=data[3],
+                                                                             bin_type=data[2],
+                                                                             is_active='t')
+                                if not created:
+                                    return render(request, 'admin/wms/bulk-bin-updation.html', {
+                                        'error': 'Row' + ' ' + str(row_id+1) + ' ' + 'Same Data is already exist in the system.'
+                                                                             'Please re-verify at your end.',
+                                        'form': form})
                         else:
-                            raise Exception(row[0], "Warehouse id does not exist in the system.")
+                            return render(request, 'admin/wms/bulk-bin-updation.html', {
+                                'error': 'Row' + ' ' + str(row_id+1) + ' ' + 'WareHouse ID is not exist in the system,'
+                                                                     ' Please re-verify at your end.',
+                                                       'form': form})
 
                 return redirect('/admin/wms/bin/')
 
             except Exception as e:
                 error_logger.error(e)
-                messages.error(request, '{} (Shop: {})'.format(e.message, row[0]))
         else:
-            raise Exception(form.errors['file'][0])
+            return render(request, 'admin/wms/bulk-bin-updation.html', {'form': form})
     else:
         form = BulkBinUpdation()
 
@@ -652,3 +614,30 @@ def pickup_entry_creation_with_cron():
                         prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": already_picked, "batch_id": batch_id,"bin": bin_id}
                         data_list.append(prod_list)
                         CommonPickBinInvFunction.create_pick_bin_inventory(shops, pickup_obj, batch_id,j,quantity=already_picked, pickup_quantity=0)
+
+
+class DownloadBinCSV(View):
+    """
+    This class is used to download the sample file for Bin CSV
+    """
+    def get(self, request, *args, **kwargs):
+        """
+
+        :param request: GET request
+        :param args: non keyword argument
+        :param kwargs: keyword argument
+        :return: csv file
+        """
+        try:
+            filename = 'sample_bin' + ".csv"
+            f = StringIO()
+            writer = csv.writer(f)
+            # header of csv file
+            writer.writerow(['Warehouse Name', 'Warehouse ID', 'BIN Type ', 'Bin ID'])
+            writer.writerow(['GFDN Noida', '600', 'PA', 'B2BZ01SR001-0001'])
+            f.seek(0)
+            response = HttpResponse(f, content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+            return response
+        except Exception as e:
+            error_logger.error(e.message)
