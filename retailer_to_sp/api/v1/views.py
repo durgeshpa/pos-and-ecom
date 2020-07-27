@@ -1721,7 +1721,7 @@ class ShipmentDeliveryUpdate(APIView):
                 if  shipped_qty >= int(returned_qty) + int(damaged_qty):
                     delivered_qty = shipped_qty - (int(returned_qty) + int(damaged_qty))
                     ShipmentProducts.objects.filter(ordered_product__id=shipment_id, product=product).update(
-                        returned_qty=returned_qty, damaged_qty=damaged_qty, delivered_qty=delivered_qty)
+                        returned_qty=returned_qty, damaged_qty=damaged_qty, delivered_qty=delivered_qty, cancellation_date=datetime.now())
                 #shipment_product_details = ShipmentDetailSerializer(shipment, many=True)
                 else:
                     product_name = Product.objects.get(id=product).product_name
