@@ -598,20 +598,23 @@ def create_debit_note(sender, instance=None, created=False, **kwargs):
                     sp_grn_order = sp_grn_orders.last()
                 else:
                     sp_grn_order = SpGRNOrder.objects.create(order=sp_order)
-                SpGRNOrderProductMapping.objects.create(
-                    ordered_product=sp_grn_order,
-                    product=instance.product,
-                    manufacture_date=instance.manufacture_date,
-                    expiry_date=instance.expiry_date,
-                    shipped_qty=instance.delivered_qty,
-                    available_qty=instance.delivered_qty,
-                    ordered_qty=instance.delivered_qty,
-                    delivered_qty=instance.delivered_qty,
-                    returned_qty=0,
-                    damaged_qty=0
-                )
+                if instance.batch_id:
+                    SpGRNOrderProductMapping.objects.create(
+                        ordered_product=sp_grn_order,
+                        product=instance.product,
+                        manufacture_date=instance.manufacture_date,
+                        expiry_date=instance.expiry_date,
+                        shipped_qty=instance.delivered_qty,
+                        available_qty=instance.delivered_qty,
+                        ordered_qty=instance.delivered_qty,
+                        delivered_qty=instance.delivered_qty,
+                        returned_qty=0,
+                        damaged_qty=0,
+                        batch_id=instance.batch_id
+                    )
                 putaway_quantity = 0
-                InCommonFunctions.create_in(shop.retailer, 'GRN', instance.grn_order.grn_id,instance.product, instance.batch_id, int(instance.delivered_qty), putaway_quantity)
+                if instance.batch_id:
+                    InCommonFunctions.create_in(shop.retailer, 'GRN', instance.grn_order.grn_id,instance.product, instance.batch_id, int(instance.delivered_qty), putaway_quantity)
         # ends here
         instance.available_qty = 0
         instance.save()
