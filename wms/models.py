@@ -165,7 +165,7 @@ class Putaway(models.Model):
 class PutawayBinInventory(models.Model):
     # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
-    putaway = models.ForeignKey(Putaway, null=True, blank=True, on_delete=models.DO_NOTHING)
+    putaway = models.ForeignKey(Putaway, null=True, blank=True, on_delete=models.DO_NOTHING, verbose_name="product_sku")
     bin = models.ForeignKey(BinInventory, null=True, blank=True, on_delete=models.DO_NOTHING)
     putaway_quantity = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
