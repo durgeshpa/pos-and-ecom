@@ -997,9 +997,9 @@ class OrderedProductMappingAdmin(admin.TabularInline):
     model = OrderedProductMapping
     form = OrderedProductMappingRescheduleForm
     fields = ['product', 'gf_code', 'ordered_qty', 'shipped_qty',
-              'returned_qty', 'damaged_qty', 'delivered_qty']
+              'returned_qty', 'damaged_qty', 'delivered_qty', 'cancellation_date']
     readonly_fields = ['ordered_qty', 'product', 'gf_code', 'shipped_qty',
-                       'delivered_qty']
+                       'delivered_qty', 'cancellation_date']
     extra = 0
     max_num = 0
 
@@ -1169,8 +1169,8 @@ class DispatchAdmin(admin.ModelAdmin):
 class ShipmentProductMappingAdmin(admin.TabularInline):
     model = ShipmentProductMapping
     form = ShipmentProductMappingForm
-    fields = ['product', 'ordered_qty', 'already_shipped_qty', 'to_be_shipped_qty','shipped_qty']
-    readonly_fields = ['product', 'ordered_qty', 'to_be_shipped_qty', 'already_shipped_qty', 'shipped_qty']
+    fields = ['product', 'ordered_qty', 'already_shipped_qty', 'to_be_shipped_qty','shipped_qty', 'cancellation_date']
+    readonly_fields = ['product', 'ordered_qty', 'to_be_shipped_qty', 'already_shipped_qty', 'shipped_qty', 'cancellation_date']
     extra = 0
     max_num = 0
 
