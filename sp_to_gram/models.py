@@ -399,7 +399,7 @@ class StockAdjustmentMapping(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
 
 def commit_updates_to_es(shop, product):
-    status = True
+    status = product.status
     db_available_products = OrderedProductMapping.get_product_availability(shop, product)
     products_available = db_available_products.aggregate(Sum('available_qty'))['available_qty__sum']
     if products_available is None:
