@@ -91,7 +91,7 @@ class BinAdmin(admin.ModelAdmin):
 class InAdmin(admin.ModelAdmin):
     info_logger.info("In Admin has been called.")
     form = InForm
-    list_display = ('id', 'warehouse', 'sku', 'quantity', 'in_type', 'in_type_id', 'batch_id')
+    list_display = ('id', 'warehouse', 'sku', 'batch_id', 'in_type', 'in_type_id', 'quantity',)
 
 
 class PutAwayAdmin(admin.ModelAdmin):
