@@ -65,7 +65,7 @@ class BinAdmin(admin.ModelAdmin):
             "<a href='data:image/png;base64,{}' download='{}'>{}</a>".format(barcodeGen(obj.bin_id), obj.bin_id, obj.
                                                                              bin_id)
         )
-    download_bin_id_barcode.short_description = 'Download Batch ID Barcode'
+    download_bin_id_barcode.short_description = 'Download Bin ID Barcode'
 
     def download_csv_for_bins(self, request, queryset):
         """
@@ -91,7 +91,7 @@ class BinAdmin(admin.ModelAdmin):
 class InAdmin(admin.ModelAdmin):
     info_logger.info("In Admin has been called.")
     form = InForm
-    list_display = ('warehouse', 'sku', 'quantity')
+    list_display = ('id', 'warehouse', 'sku', 'quantity', 'in_type', 'in_type_id', 'batch_id')
 
 
 class PutAwayAdmin(admin.ModelAdmin):
