@@ -143,6 +143,8 @@ class In(models.Model):
 class Putaway(models.Model):
     # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
+    putaway_user = models.ForeignKey(get_user_model(), null=True, blank=True, related_name='putaway_user',
+                                     on_delete=models.DO_NOTHING)
     putaway_type = models.CharField(max_length=20, null=True, blank=True)
     putaway_type_id = models.CharField(max_length=20, null=True, blank=True)
     sku = models.ForeignKey(Product,to_field='product_sku', on_delete=models.DO_NOTHING)

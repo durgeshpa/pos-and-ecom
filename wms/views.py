@@ -75,7 +75,7 @@ def update_pickup_inventory(id, pickup_quantity=0):
 put_quantity = 0
 
 
-def update_putaway(id, batch_id, warehouse, put_quantity):
+def update_putaway(id, batch_id, warehouse, put_quantity, user):
     """
     :param id:
     :param batch_id:
@@ -89,7 +89,7 @@ def update_putaway(id, batch_id, warehouse, put_quantity):
         updated_putaway=pu.last().putaway_quantity
         if updated_putaway==pu.last().quantity:
             return put_quantity
-        pu.update(putaway_quantity=updated_putaway+put_away_new)
+        pu.update(putaway_quantity=updated_putaway+put_away_new, putaway_user=user)
         put_quantity = put_quantity - put_away_new
         info_logger.info(put_quantity, "Put away quantity updated successfully.")
         return put_quantity

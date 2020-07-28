@@ -185,7 +185,7 @@ class PutAwayViewSet(APIView):
                 if bin_inventory.exists():
                     if i in bin_inventory.values_list('batch_id', flat=True):
                         while len(ids):
-                            put_away_done = update_putaway(ids[0], i, warehouse, int(value))
+                            put_away_done = update_putaway(ids[0], i, warehouse, int(value), request.user)
                             value = put_away_done
                             ids.remove(ids[0])
                         updating_tables_on_putaway(sh, bin_id, put_away, i, inventory_type, 'available', 't', val)
@@ -197,12 +197,12 @@ class PutAwayViewSet(APIView):
 
                         else:
                             while len(ids):
-                                update_putaway(ids[0], i, warehouse, int(value))
+                                update_putaway(ids[0], i, warehouse, int(value), request.user,)
                                 ids.remove(ids[0])
                             updating_tables_on_putaway(sh, bin_id, put_away, i, inventory_type, 'available', 't', val)
                 else:
                     while len(ids):
-                        update_putaway(ids[0], i, warehouse, int(value))
+                        update_putaway(ids[0], i, warehouse, int(value), request.user,)
                         ids.remove(ids[0])
                     updating_tables_on_putaway(sh, bin_id, put_away, i, inventory_type, 'available', 't', val)
 
