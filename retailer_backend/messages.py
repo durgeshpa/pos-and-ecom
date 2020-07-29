@@ -59,8 +59,7 @@ ERROR_MESSAGES = {
     "4010": "Issue in DateField.",
     "4011": "Executive has already submitted the feedback for same date.",
     "4012": "Report param is missing.",
-    "4013": ("Please put the correct value in report parameters to get day, monthly and"
-             " weekly report.param values are 1, 2 & 3."),
+    "4013": "No Reports available for selected options",
     "4014": "No Beat Plan available for selected date.",
     "4015": "No Shop associated with Sales Manager.",
     "4016": "No Executive associated with Sales Manager.",
