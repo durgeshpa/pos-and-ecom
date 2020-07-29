@@ -859,6 +859,10 @@ class DayBeatPlan(viewsets.ModelViewSet):
                     return Response({"detail": SUCCESS_MESSAGES["2001"], "data": beat_plan_serializer.data,
                                      'is_success': True},
                                     status=status.HTTP_200_OK)
+                else:
+                    return Response({"detail": messages.ERROR_MESSAGES["4014"],
+                                     'is_success': True, "data": []},
+                                    status=status.HTTP_200_OK)
             else:
                 try:
                     queryset = BeatPlanning.objects.filter(status=True)
@@ -870,8 +874,8 @@ class DayBeatPlan(viewsets.ModelViewSet):
                                                                        'next_plan_date'])
                 except Exception as error:
                     logger.exception(error)
-                    return Response({"detail": messages.ERROR_MESSAGES["4006"] % self.request.GET['next_plan_date'],
-                                     'is_success': False},
+                    return Response({"detail": messages.ERROR_MESSAGES["4014"],
+                                     'is_success': True, "data": []},
                                     status=status.HTTP_200_OK)
                 beat_plan_serializer = self.serializer_class(beat_user_obj, many=True)
                 if beat_plan_serializer.data.__len__() <= 0:
