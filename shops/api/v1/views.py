@@ -953,7 +953,7 @@ class ExecutiveReport(viewsets.ModelViewSet):
                                      'is_success': True}, status=status.HTTP_200_OK)
             else:
                 return Response({"detail": messages.ERROR_MESSAGES["4013"],
-                                 'is_success': False}, status=status.HTTP_200_OK)
+                                 'is_success': True}, status=status.HTTP_200_OK)
         except Exception as error:
             logger.exception(error)
             if error.args[0] == 'report':
