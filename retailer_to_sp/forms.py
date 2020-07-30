@@ -248,6 +248,49 @@ class OrderedProductMappingShipmentForm(forms.ModelForm):
         self.fields['product'].widget = forms.HiddenInput()
 
 
+class OrderedProductBatchForm(forms.ModelForm):
+    ordered_qty = forms.CharField(
+        required=False, widget=forms.TextInput(attrs={'readonly': True}))
+    already_shipped_qty = forms.CharField(
+        required=False, widget=forms.TextInput(attrs={'readonly': True}))
+    to_be_shipped_qty = forms.CharField(
+        required=False, widget=forms.TextInput(attrs={'readonly': True}))
+    shipped_qty = forms.CharField(
+        required=False, widget=forms.TextInput(attrs={'readonly': True}))
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(), widget=forms.TextInput)
+    product_name = forms.CharField(
+        required=False, widget=forms.TextInput(attrs={'readonly': True}))
+
+    class Meta:
+        model = OrderedProductMapping
+        fields = [
+            'product', 'ordered_qty', 'already_shipped_qty',
+            'to_be_shipped_qty', 'shipped_qty',
+        ]
+
+    def clean_shipped_qty(self):
+
+        ordered_qty = int(self.cleaned_data.get('ordered_qty'))
+        shipped_qty = int(self.cleaned_data.get('shipped_qty'))
+        to_be_shipped_qty = int(self.cleaned_data.get('to_be_shipped_qty'))
+        # already_shipped_qty = int(self.cleaned_data.get('already_shipped_qty'))
+        max_qty_allowed = ordered_qty - to_be_shipped_qty
+        if max_qty_allowed < shipped_qty:
+            raise forms.ValidationError(
+                _('Max. Qty allowed: %s') % (max_qty_allowed),
+            )
+        else:
+            return shipped_qty
+
+    def __init__(self, *args, **kwargs):
+        super(OrderedProductMappingShipmentForm, self).__init__(*args, **kwargs)
+        # self.fields['ordered_qty'].widget.attrs['class'] = 'hide_input_box'
+        # self.fields['already_shipped_qty'].widget.attrs['class'] = 'hide_input_box'
+        # self.fields['to_be_shipped_qty'].widget.attrs['class'] = 'hide_input_box'
+        self.fields['product'].widget = forms.HiddenInput()
+
+
 class OrderedProductDispatchForm(forms.ModelForm):
     order_custom = forms.ModelChoiceField(
         # queryset=Order.objects.filter(order_status__in=[

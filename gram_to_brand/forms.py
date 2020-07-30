@@ -20,7 +20,7 @@ from shops.models import Shop, ShopType
 from .models import (
     Order, Cart, CartProductMapping, GRNOrder, GRNOrderProductMapping,
     BrandNote, PickList, PickListItems, OrderedProductReserved, Po_Message,
-    BEST_BEFORE_MONTH_CHOICE, BEST_BEFORE_YEAR_CHOICE
+    BEST_BEFORE_MONTH_CHOICE, BEST_BEFORE_YEAR_CHOICE, Document
 )
 from brand.models import Brand
 from addresses.models import State, Address
@@ -210,7 +210,7 @@ class GRNOrderProductForm(forms.ModelForm):
         if self.cleaned_data.get('product', None):
             manufacture_date = self.cleaned_data.get('manufacture_date')
             expiry_date = self.cleaned_data.get('expiry_date')
-            if self.cleaned_data.get('product_invoice_qty') >0:
+            if self.cleaned_data.get('product_invoice_qty') is None or self.cleaned_data.get('product_invoice_qty') >0:
                 self.fields_required(['manufacture_date'])
                 if self.cleaned_data.get('expiry_date') and self.cleaned_data.get('expiry_date') > self.cleaned_data.get('manufacture_date'):
                     pass
@@ -271,3 +271,14 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
                     raise ValidationError(_('Product invoice quantity must be equal to the sum of delivered quantity and returned quantity for %s') % v.get('product_name'))
             else:
                 raise ValidationError(_('Product invoice quantity cannot be greater than the difference of PO product quantity and already_grned_product for %s') % v.get('product_name'))
+
+
+class DocumentForm(forms.ModelForm):
+    document_image = forms.FileField(required=True)
+    document_number = forms.CharField(required=True)
+
+    def clean(self):
+        super(DocumentForm, self).clean()
+        for form in self:
+            if form.cleaned_data.get('document_image') is None:
+                raise ValidationError("Required")

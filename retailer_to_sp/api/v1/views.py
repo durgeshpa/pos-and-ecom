@@ -50,7 +50,7 @@ from gram_to_brand.models import (GRNOrderProductMapping, CartProductMapping as 
 )
 from retailer_to_sp.models import (Cart, CartProductMapping, Order,
     OrderedProduct, Payment, CustomerCare, Return, Feedback, OrderedProductMapping as ShipmentProducts, Trip, PickerDashboard,
-    ShipmentRescheduling, Note
+    ShipmentRescheduling, Note, OrderedProductBatch
 )
 from retailer_to_gram.models import ( Cart as GramMappedCart,CartProductMapping as GramMappedCartProductMapping,
     Order as GramMappedOrder, OrderedProduct as GramOrderedProduct, Payment as GramMappedPayment,
@@ -1710,6 +1710,7 @@ class ShipmentDeliveryUpdate(APIView):
         msg = {'is_success': False, 'message': ['shipment id is invalid'], 'response_data': None}
         try:
             shipment = ShipmentProducts.objects.filter(ordered_product__id=shipment_id)
+            shipment_batch = OrderedProductBatch.objects.filter(ordered_product_mapping__ordered_product__id=shipment_id)
         except ObjectDoesNotExist:
             return Response(msg, status=status.HTTP_400_BAD_REQUEST)
         try:
