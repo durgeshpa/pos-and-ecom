@@ -727,7 +727,7 @@ def audit_download(request):
                         bin_missing_quantity = 0
 
                     # append data in a list
-                    data_list.append([bin_inventory.warehouse_id, bin_inventory.sku_id, product_price,
+                    data_list.append([bin_inventory.warehouse_id, bin_inventory.sku.product_name + '-' + bin_inventory.sku.product_sku, product_price,
                                      expiry_date, bin_inventory.bin.bin_id, bin_normal_quantity, bin_damaged_quantity, bin_expired_quantity,
                                      bin_missing_quantity, 0, 0, 0, 0])
             # sort the list
