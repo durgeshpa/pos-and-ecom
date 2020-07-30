@@ -24,19 +24,20 @@ BIN_TYPE_CHOICES = (
 )
 
 INVENTORY_TYPE_CHOICES = (
-    ('normal', 'NORMAL'),  #Available For Order
-    ('expired', 'EXPIRED'), #Expiry date passed
-    ('damaged', 'DAMAGED'), #Not orderable
-    ('discarded', 'DISCARDED'), #Rejected by warehouse
-    ('disposed', 'DISPOSED'), #Rejected or Expired and removed from warehouse
+    ('normal', 'NORMAL'),  # Inventory Available For Order
+    ('expired', 'EXPIRED'),  # Inventory Expired
+    ('damaged', 'DAMAGED'),  # Inventory Damaged
+    ('discarded', 'DISCARDED'),  # Inventory Rejected
+    ('disposed', 'DISPOSED'),  # Inventory Disposed
+    ('missing', 'MISSING'),  # Inventory Missing
 )
 
 INVENTORY_STATE_CHOICES = (
-    ('available', 'AVAILABLE'),
-    ('reserved', 'RESERVED'),
-    ('shipped', 'SHIPPED'),
-    ('ordered', 'Ordered'),
-    ('canceled', 'Canceled')
+    ('available', 'AVAILABLE'),  # Inventory Available
+    ('reserved', 'RESERVED'),  # Inventory Reserved
+    ('shipped', 'SHIPPED'),  # Inventory Shipped
+    ('ordered', 'Ordered'),  # Inventory Ordered
+    ('canceled', 'Canceled')  # Inventory Canceled
 )
 class InventoryType(models.Model):
     # id = models.AutoField(primary_key=True)
@@ -345,3 +346,18 @@ class OrderReserveRelease(models.Model):
     release_time = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+
+class Audit(models.Model):
+
+    warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
+    uploaded_by = models.ForeignKey(get_user_model(), related_name='audit_user', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    upload_csv = models.FileField(upload_to='shop_photos/shop_name/documents/audit/', null=True, blank=True)
+
+    class Meta:
+        db_table = "wms_audit"
+
+    def __str__(self):
+        return str(self.id)
