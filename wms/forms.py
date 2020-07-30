@@ -514,8 +514,7 @@ class DownloadAuditAdminForm(forms.Form):
             if not BinInventory.objects.filter(warehouse=self.data['warehouse'],
                                                sku=Product.objects.filter(product_sku=row[0])[0]):
                 raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + "SKU id is not associated"
-                                                                                       " with selected warehouse in"
-                                                                                       " Bin Inventory."))
+                                                                                       " with selected warehouse."))
             form_data_list.append(row)
 
         return form_data_list
