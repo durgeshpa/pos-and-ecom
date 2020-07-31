@@ -166,7 +166,7 @@ class CreatePickList(APIView):
         for i in picku_bin_inv:
             product = i.pickup.sku.product_name
             sku = i.pickup.sku.product_sku
-            mrp = i.pickup.sku.rt_cart_product_mapping.all().last().cart_product_price.mrp
+            mrp = i.pickup.sku.rt_cart_product_mapping.all().order_by('created_at')[0].cart_product_price.mrp
             qty = i.quantity
             batch_id = i.batch_id
             bin_id = i.bin.bin.bin_id
