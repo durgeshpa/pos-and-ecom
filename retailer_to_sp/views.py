@@ -1378,7 +1378,7 @@ class OrderCancellation(object):
                 opm.available_qty = opm.available_qty + item['r_qty']
                 opm.save()
 
-        reserved_qty_queryset.update(reserve_status=OrderedProductReserved.ORDER_CANCELLED)
+        # reserved_qty_queryset.update(reserve_status=OrderedProductReserved.ORDER_CANCELLED)
 
     def cancel(self):
         # check if order associated with any shipment
