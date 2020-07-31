@@ -94,9 +94,18 @@ class CommonBinInventoryFunctions(object):
 
     @classmethod
     def update_or_create_bin_inventory(cls, warehouse, bin, sku, batch_id, inventory_type, quantity, in_stock):
-        BinInventory.objects.update_or_create(warehouse=warehouse, bin=bin, sku=sku, batch_id=batch_id,
-                                              inventory_type=inventory_type,
-                                              defaults={'quantity':quantity, 'in_stock':in_stock})
+
+        bin_inv_obj = BinInventory.objects.filter(warehouse=warehouse, bin__bin_id=bin, sku=sku, batch_id=batch_id,
+                                                  inventory_type=inventory_type, in_stock=in_stock).last()
+        if bin_inv_obj:
+            bin_quantity = bin_inv_obj.quantity
+            final_quantity = bin_quantity + quantity
+            bin_inv_obj.quantity = final_quantity
+            bin_inv_obj.save()
+        else:
+            BinInventory.objects.get_or_create(warehouse=warehouse, bin=bin, sku=sku, batch_id=batch_id,
+                                        inventory_type=inventory_type, quantity=quantity, in_stock=in_stock)
+
 
     @classmethod
     def create_bin_inventory(cls, warehouse, bin, sku, batch_id, inventory_type, quantity, in_stock):
@@ -447,9 +456,7 @@ def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type,inv_stat
     CommonBinInventoryFunctions.update_or_create_bin_inventory(sh, Bin.objects.filter(bin_id=bin_id).last(),
                                                                put_away.last().sku, batch_id,
                                                                InventoryType.objects.filter(
-                                                                   inventory_type=inv_type).last(),
-                                                               PutawayCommonFunctions.get_available_qty_for_batch(
-                                                                   sh.id, put_away.last().sku.id, batch_id), t)
+                                                                   inventory_type=inv_type).last(), val, t)
     PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),
                                        bin=CommonBinInventoryFunctions.get_filtered_bin_inventory().last(),putaway_quantity=val)
     CommonWarehouseInventoryFunctions.create_warehouse_inventory(sh, put_away.last().sku,
