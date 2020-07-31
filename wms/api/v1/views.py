@@ -135,10 +135,10 @@ class PutAwayViewSet(APIView):
         put_away_quantity = self.request.data.get('put_away_quantity')
         if not put_away_quantity:
             return Response(msg, status=status.HTTP_200_OK)
-        negative_value = [i for i in put_away_quantity if i<0]
+        negative_value = [i for i in put_away_quantity if i <= 0]
         if len(negative_value) > 0:
             return Response({'is_success': False,
-                             'message': 'quantity can not be negative.',
+                             'message': 'quantity can not be zero and negative.',
                              'data': None}, status=status.HTTP_200_OK)
         batch_id = self.request.data.get('batch_id')
         if not batch_id:
@@ -409,10 +409,10 @@ class PickupDetail(APIView):
         pickup_quantity = request.data.get('pickup_quantity')
         if not pickup_quantity:
             return Response(msg, status=status.HTTP_200_OK)
-        negative_value = [i for i in pickup_quantity if i < 0]
+        negative_value = [i for i in pickup_quantity if i <= 0]
         if len(negative_value) > 0:
             return Response({'is_success': False,
-                             'message': 'Pickup quantity can not be negative.',
+                             'message': 'Pickup quantity can not be zero and negative.',
                              'data': None}, status=status.HTTP_200_OK)
 
         sku_id = request.data.get('sku_id')
