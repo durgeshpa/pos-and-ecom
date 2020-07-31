@@ -3,6 +3,7 @@
 {% load staticfiles %}
 {% load app_filters_credit_note %}
 {% load humanize %}
+{% load mathfilters %}
 
 <html>
 
@@ -37,14 +38,9 @@
         							<td class="text-center"><strong>Tax Invoice No.</strong><br>
 										{{shop.invoice_no}}
 									</td>
-        							<td class="text-center"><strong>Order No. <br>
-{{order_id}}</strong></td>
-
-									<td class="text-center"><strong>Dated <br>
-{{shop.created_at}}</strong></td>
-									<td class="text-center"><strong>Credit Note Id <br>
-{{shop.credit_note_id}}</strong></td>
-
+        							<td class="text-center"><strong>Order No. <br>{{order_id}}</strong></td>
+									<td class="text-center"><strong>Dated <br>{{shop.created_at}}</strong></td>
+									<td class="text-center"><strong>Credit Note Id <br>{{shop.credit_note_id}}</strong></td>
                                 </tr>
 									</table>
     			</div>
@@ -101,209 +97,183 @@
     				<div class="table">
     					<table class="table table-condensed">
     						<thead>
-                      <tr>
+                      			<tr>
         							<td><strong>Sl No.</strong></td>
-
-												<td class="text-center"><strong>SKU</strong></td>
+									<td class="text-center"><strong>SKU</strong></td>
         							<td class="text-center"><strong>Description of Goods</strong></td>
-
         							<td class="text-center"><strong>HSN/SAC</strong></td>
-
-                      <td class="text-center"><strong>Tax Rate (GST+CESS)</strong></td>
-                      <td class="text-center"><strong>Tax Amount</strong></td>
-						  <td class="text-center"><strong></strong></td>
-									    <td class="text-center"><strong>No. of Pieces</strong></td>
-											<td class="text-center"><strong></strong></td>
+                      				<td class="text-center"><strong>Tax Rate (GST+CESS)</strong></td>
+                      				<td class="text-center"><strong>Tax Amount</strong></td>
+						  			<td class="text-center"><strong></strong></td>
+									<td class="text-center"><strong>No. of Pieces</strong></td>
+									<td class="text-center"><strong></strong></td>
         							<td class="text-center"><strong>Rate</strong></td>
         							<td class="text-center"><strong>Per</strong></td>
         							<td class="text-right"><strong>Amount</strong></td>
-                      </tr>
+                      			</tr>
     						</thead>
     						<tbody>
     							<!-- foreach ($order->lineItems as $line) or some such thing here -->
     							<tr id ="small">
-            {% if shipment_cancelled %}
-                    {% for m in products %}
-    								<td><strong>{{forloop.counter}}</strong></td>
+            					{% if shipment_cancelled %}
+                    				{% for m in products %}
+    									<td><strong>{{forloop.counter}}</strong></td>
 										<td class="text-center">{{ m.product.product_sku}}</td>
-											<td class="text-center">{{ m.product.product_short_description}}</td>
-    								<td class="text-center">{{ m.product.product_hsn}}</td>
+										<td class="text-center">{{ m.product.product_short_description}}</td>
+    									<td class="text-center">{{ m.product.product_hsn}}</td>
 										<td class="text-center">{{ m.get_product_tax_json}}</td>
-                    <!-- {% if m.get_products_gst_cess %}
-                   <td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage |add:m.get_products_gst_cess.last.tax.tax_percentage }}%</strong></td>
-                    {% else %}
-                    <td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage}}%</strong></td>
-                    {% endif %} -->
-							<td class="text-center"><strong>{% findTax m.price_to_retailer m.get_products_gst_tax.last.tax.tax_percentage %}</strong></td>
-									<td class="text-center"></td>
-
-
-									<td class="text-center">{{ m.shipped_qty }}</td>
-									<div style="display:none"> {{m.shipped_qty | total_returned_qty }}</div>
+										<!-- {% if m.get_products_gst_cess %}
+									   <td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage |add:m.get_products_gst_cess.last.tax.tax_percentage }}%</strong></td>
+										{% else %}
+										<td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage}}%</strong></td>
+										{% endif %} -->
+										<td class="text-center"><strong>{% findTax m.price_to_retailer m.get_products_gst_tax.last.tax.tax_percentage %}</strong></td>
+										<td class="text-center"></td>
+										<td class="text-center">{{ m.shipped_qty }}</td>
+										<div style="display:none"> {{m.shipped_qty | total_returned_qty }}</div>
 <!--									<td class="text-center">{% addMultiplication m.product.product_inner_case_size m.returned_qty m.damaged_qty %}</td>-->
-									<td class="text-center"></td>
+										<td class="text-center"></td>
 <!--									{% with h=m.price_to_retailer %}-->
-    								<td class="text-center">{{m.price_to_retailer}}</td>
-<!--										{% endwith %}-->
-    								<td class="text-center">PCS</td>
-										   <div style="display:none"> {{m.shipped_qty | total_returned_qty }}</div>
-                       <div style="display:none"> {{m.product.product_inner_case_size | total_returned_qty}}</div>
-<!--                    {% with h=m.price_to_retailer %}-->
-    								<td class="text-right">{% multiply_price_with_qty m.price_to_retailer m.shipped_qty %}/</td>
-<!--										{% endwith %}-->
-    							</tr>
+										<td class="text-center">{{m.price_to_retailer}}</td>
+<!--									{% endwith %}-->
+										<td class="text-center">PCS</td>
+										<div style="display:none"> {{m.shipped_qty | total_returned_qty }}</div>
+                       					<div style="display:none"> {{m.product.product_inner_case_size | total_returned_qty}}</div>
+<!--                    				{% with h=m.price_to_retailer %}-->
+    									<td class="text-right">{% multiply_price_with_qty m.price_to_retailer m.shipped_qty %}/</td>
+<!--									{% endwith %}-->
+								</tr>
 									{% endfor %}
-            {% else %}
+            					{% else %}
 
-                    {% for m in products %}
-                                    <td><strong>{{forloop.counter}}</strong></td>
+                    				{% for m in products %}
+                                    	<td><strong>{{forloop.counter}}</strong></td>
                                         <td class="text-center">{{ m.product.product_sku}}</td>
-                                            <td class="text-center">{{ m.product.product_short_description}}</td>
-                                    <td class="text-center">{{ m.product.product_hsn}}</td>
+										<td class="text-center">{{ m.product.product_short_description}}</td>
+                                    	<td class="text-center">{{ m.product.product_hsn}}</td>
                                         <td class="text-center">{{ m.get_product_tax_json}}</td>
-                    <!-- {% if m.get_products_gst_cess %}
-                   <td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage |add:m.get_products_gst_cess.last.tax.tax_percentage }}%</strong></td>
-                    {% else %}
-                    <td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage}}%</strong></td>
-                    {% endif %} -->
-                            <td class="text-center"><strong>{% findTax m.price_to_retailer m.get_products_gst_tax.last.tax.tax_percentage %}</strong></td>
-                                    <td class="text-center"></td>
-
-
-                                    <td class="text-center">{% addition m.returned_qty m.damaged_qty %}</td>
-                                    <div style="display:none"> {{m.returned_qty | total_returned_qty }}</div>
+										<!-- {% if m.get_products_gst_cess %}
+									   <td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage |add:m.get_products_gst_cess.last.tax.tax_percentage }}%</strong></td>
+										{% else %}
+										<td class="text-center"><strong>{{ m.get_products_gst_tax.last.tax.tax_percentage}}%</strong></td>
+										{% endif %} -->
+                            			<td class="text-center"><strong>{% findTax m.price_to_retailer m.get_products_gst_tax.last.tax.tax_percentage %}</strong></td>
+                                    	<td class="text-center"></td>
+                                    	<td class="text-center">{% addition m.returned_qty m.damaged_qty %}</td>
+                                    	<div style="display:none"> {{m.returned_qty | total_returned_qty }}</div>
 <!--                                    <td class="text-center">{% addMultiplication m.product.product_inner_case_size m.returned_qty m.damaged_qty %}</td>-->
-                                    <td class="text-center"></td>
+                                    	<td class="text-center"></td>
 <!--                                    {% with h=m.price_to_retailer %}-->
-                                    <td class="text-center">{{m.price_to_retailer}}</td>
-<!--                                        {% endwith %}-->
-                                    <td class="text-center">PCS</td>
-                                           <div style="display:none"> {{m.returned_qty | total_returned_qty }}</div>
-                       <div style="display:none"> {{m.product.product_inner_case_size | total_returned_qty}}</div>
-<!--                    {% with h=m.price_to_retailer %}-->
-                                    <td class="text-right">{% addMultiplication m.price_to_retailer m.returned_qty m.damaged_qty %}/</td>
-<!--                                        {% endwith %}-->
+                                    	<td class="text-center">{{m.price_to_retailer}}</td>
+<!--                                    {% endwith %}-->
+                                    	<td class="text-center">PCS</td>
+										<div style="display:none"> {{m.returned_qty | total_returned_qty }}</div>
+                       					<div style="display:none"> {{m.product.product_inner_case_size | total_returned_qty}}</div>
+<!--                    				{% with h=m.price_to_retailer %}-->
+                                    	<td class="text-right">{% addMultiplication m.price_to_retailer m.returned_qty m.damaged_qty %}/</td>
+<!--                                    {% endwith %}-->
                                 </tr>
                                     {% endfor %}
-            {% endif %}
+            					{% endif %}
     							<tr>
 									<td></td>
-
 									<td></td>
 									<td><strong></strong></td>
-
 									<td></td>
 									<td></td>
-                  <td></td>
+                  					<td></td>
 									<td></td>
-
-
-<td class="thick-line text-center"><strong>{{sum_qty}} PCS</strong></td>
-								  <td class="thick-line text-center"><strong></strong></td>
+									<td class="thick-line text-center"><strong>{{sum_qty}} PCS</strong></td>
+								  	<td class="thick-line text-center"><strong></strong></td>
     								<td class="thick-line"></td>
     								<td class="thick-line text-center"><strong>Total</strong></td>
     								<td class="thick-line text-right"><strong>₹{{ sum_amount }}/-</strong></td>
     							</tr>
-									{% if shop.shipment.order.seller_shop.shop_name_address_mapping.all == shop.shipment.order.shipping_address %}
+								{% if shop.shipment.order.seller_shop.shop_name_address_mapping.all == shop.shipment.order.shipping_address %}
     							<tr style="display:none">
-
 									<td class="no-line"></td>
 									<td class="no-line"></td>
 									<td class="no-line"></td>
-
 									<td class="no-line"></td>
     								<td class="no-line"></td>
-                    <td class="no-line"></td>
+                    				<td class="no-line"></td>
     								<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
-										<td class="no-line"></td>
+									<td class="no-line"></td>
     								<td class="no-line text-center"><strong>CGST</strong></td>
     								<td class="no-line text-right"><strong>₹{{cgst | floatformat:2 }}/-</strong></td>
     							</tr>
 								<tr style="display:none">
-
     								<td class="no-line"></td>
 									<td class="no-line"></td>
-										<td class="no-line"></td>
-
 									<td class="no-line"></td>
 									<td class="no-line"></td>
-                  <td class="no-line"></td>
+									<td class="no-line"></td>
+                  					<td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line"></td>
-										<td class="no-line"></td>
+									<td class="no-line"></td>
     								<td class="no-line text-center"><strong>SGST</strong></td>
     								<td class="no-line text-right"><strong>₹ {{sgst | floatformat:2 }}/-</strong></td>
     							</tr>
-									{% else %}
-									<tr style="display:none">
-
-	    								<td class="no-line"></td>
-										<td class="no-line"></td>
-											<td class="no-line"></td>
-
-										<td class="no-line"></td>
-										<td class="no-line"></td>
-                    <td class="no-line"></td>
-	    								<td class="no-line"></td>
-	    								<td class="no-line"></td>
-	    								<td class="no-line"></td>
-											<td class="no-line"></td>
-	    								<td class="no-line text-center"><strong>IGST</strong></td>
-	    								<td class="no-line text-right"><strong>₹ {{igst | floatformat:2 }}/-</strong></td>
-	    							</tr>
-										{% endif %}
+								{% else %}
 								<tr style="display:none">
-
-
-    								<td class="no-line"></td>
 									<td class="no-line"></td>
 									<td class="no-line"></td>
-
-    								<td class="no-line"></td>
 									<td class="no-line"></td>
-                  <td class="no-line"></td>
-    								<td class="no-line"></td>
-    								<td class="no-line"></td>
-    								<td class="no-line"></td>
+									<td class="no-line"></td>
+									<td class="no-line"></td>
+									<td class="no-line"></td>
+									<td class="no-line"></td>
+									<td class="no-line"></td>
+									<td class="no-line"></td>
 										<td class="no-line"></td>
+									<td class="no-line text-center"><strong>IGST</strong></td>
+									<td class="no-line text-right"><strong>₹ {{igst | floatformat:2 }}/-</strong></td>
+								</tr>
+								{% endif %}
+								<tr style="display:none">
+    								<td class="no-line"></td>
+									<td class="no-line"></td>
+									<td class="no-line"></td>
+    								<td class="no-line"></td>
+									<td class="no-line"></td>
+                  					<td class="no-line"></td>
+    								<td class="no-line"></td>
+    								<td class="no-line"></td>
+    								<td class="no-line"></td>
+									<td class="no-line"></td>
     								<td class="no-line text-center"><strong>Cess</strong></td>
     								<td class="no-line text-right"><strong>₹ {{cess | floatformat:2 }}/-</strong></td>
     							</tr>
-									<tr>
-
-
-	    								<td class="no-line"></td>
-										<td class="no-line"></td>
-										<td class="no-line"></td>
-
-	    								<td class="no-line"></td>
-										<td class="no-line"></td>
-                    <td class="no-line"></td>
-	    								<td class="no-line"></td>
-	    								<td class="no-line"></td>
-	    								<td class="no-line"></td>
-											<td class="no-line"></td>
-	    								<td class="no-line text-center"><strong></strong></td>
-	    								<td class="no-line text-right"><strong></strong></td>
-	    							</tr>
-
+								<tr>
+									<td class="no-line"></td>
+									<td class="no-line"></td>
+									<td class="no-line"></td>
+									<td class="no-line"></td>
+									<td class="no-line"></td>
+									<td class="no-line"></td>
+									<td class="no-line"></td>
+									<td class="no-line"></td>
+									<td class="no-line"></td>
+									<td class="no-line"></td>
+									<td class="no-line text-center"><strong></strong></td>
+									<td class="no-line text-right"><strong></strong></td>
+								</tr>
     							<tr>
-
-										<td class="no-line"></td>
+									<td class="no-line"></td>
 									<td class="no-line"></td>
     								<td class="no-line"></td>
-
     								<td class="no-line"></td>
 									<td class="no-line"></td>
-                  <td class="no-line"></td>
+									<td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line"></td>
     								<td class="no-line"></td>
-										<td class="no-line"></td>
-<!--    								<td class="no-line text-center"><strong></strong></td>-->
+									<td class="no-line"></td>
+<!--    							<td class="no-line text-center"><strong></strong></td>-->
     								<td class="no-line text-right" style="width:120px"><strong></strong></td>
     							</tr>
 								<tr>
@@ -313,48 +283,129 @@
         							<td colspan="8" class="no-line"><strong>Amount Chargeable (in words)</strong></td>
         							<td colspan="4" class="no-line">E . &amp; O . E</td>
                                 </tr>
-								<tr>{% if amount.is_integer %}
-        							<td colspan="12"><strong>INR {{rupees}} only</strong></td>
-                      {% else %}
-                      <td colspan="11"><strong>INR {{rupees}} only</strong></td>
-                      {% endif %}
+								<tr>
+									{% if amount.is_integer %}
+        								<td colspan="12"><strong>INR {{rupees}} only</strong></td>
+                      				{% else %}
+                      					<td colspan="11"><strong>INR {{rupees}} only</strong></td>
+                      				{% endif %}
                                 </tr>
     						</tbody>
     					</table>
+						<table class="table table-condensed">
+							<thead>
+								<tr>
+									<td class="text-center"><strong>HSN/SAC</strong></td>
+									<td class="text-center"><strong>Taxable</strong></td>
+									{% if shop.shipment.order.shipping_address.state == state_gram %}
+										<td colspan="2" class="text-center"><strong>CGST</strong></td>
+										<td colspan="2" class="text-center"><strong>SGST</strong></td>
+									{% else %}
+										<td colspan="2" class="text-center"><strong>IGST</strong></td>
+									{% endif %}
+									<td colspan="2" class="text-center"><strong>CESS</strong></td>
+									<td colspan="2" class="text-center"><strong>SURCHARGE</strong></td>
+									<td class="text-center"><strong>Total</strong></td>
+								</tr>
+								<tr>
+									<td class="text-center"></td>
+									<td class="text-center"><strong>Value</strong></td>
 
+									{% if shop.shipment.order.shipping_address.state == state_gram %}
+										<td class="text-center"><strong>Rate</strong></td>
+										<td class="text-center"><strong>Amount</strong></td>
+
+										<td class="text-center"><strong>Rate</strong></td>
+										<td class="text-center"><strong>Amount</strong></td>
+									{% else %}
+										<td class="text-center"><strong>Rate</strong></td>
+										<td class="text-center"><strong>Amount</strong></td>
+									{% endif %}
+
+									<td class="text-center"><strong>Rate</strong></td>
+									<td class="text-center"><strong>Amount</strong></td>
+
+									<td class="text-center"><strong>Rate</strong></td>
+									<td class="text-center"><strong>Amount</strong></td>
+
+									<td class="text-center"><strong>Tax Amount</strong></td>
+								</tr>
+							</thead>
+							<tbody>
+								<tr>
+									{% for m in products %}
+										<td class="text-center">{{ m.product.product_hsn }}</td>
+										<td class="text-center">{{ m.base_price |floatformat:2 | intcomma }}</td>
+										{% if shop.shipment.order.shipping_address.state == state_gram %}
+											<td class="text-center">{{ m.get_products_gst|div:2 }}%</td>
+											<td class="text-center">{{ m.base_price|mul:m.get_products_gst|div:2|div:100|floatformat:2 }}</td>
+
+											<td class="text-center">{{ m.get_products_gst|div:2 }}%</td>
+											<td class="text-center">{{ m.base_price|mul:m.get_products_gst|div:2|div:100|floatformat:2 }}</td>
+										{% else %}
+											<td class="text-center">{{ m.get_products_gst }}%</td>
+											<td class="text-center">{{ m.base_price|mul:m.get_products_gst|div:100|floatformat:2 }}</td>
+										{% endif %}
+
+										<td class="text-center">{{ m.get_products_gst_cess_tax }}%</td>
+										<td class="text-center">{{ m.base_price|mul:m.get_products_gst_cess_tax|div:100|floatformat:2 }}</td>
+
+										<td class="text-center">{{ m.get_products_gst_surcharge }}%</td>
+										<td class="text-center">{{ m.base_price|mul:m.get_products_gst_surcharge|div:100|floatformat:2 }}</td>
+
+										<td class="text-center">{{m.product_tax_amount |floatformat:2 | intcomma}}</td>
+								</tr>
+								{% endfor %}
+								<tr>
+									<td class="thick-line text-center"><strong>TOTAL</strong></td>
+									<td class="thick-line text-center"><strong>₹{{ sum_basic_amount|floatformat:2 | intcomma }}</strong></td>
+									{% if shop.shipment.order.shipping_address.state == state_gram %}
+										<td class="thick-line text-center"></td>
+										<td class="thick-line text-center"><strong>{{ cgst | floatformat:2 }}</strong></td>
+
+										<td class="thick-line text-center"></td>
+										<td class="thick-line text-center"><strong>{{ sgst | floatformat:2 }}</strong></td>
+
+									{% else %}
+
+									<td class="thick-line text-center"></td>
+									<td class="thick-line text-center"><strong>{{ igst | floatformat:2 }}</strong></td>
+
+									{% endif %}
+
+									<td class="thick-line text-center"></td>
+									<td class="thick-line text-center"><strong>{{ cess | floatformat:2 }}</strong></td>
+
+									<td class="thick-line text-center"></td>
+									<td class="thick-line text-center"><strong>{{ surcharge | floatformat:2 }}</strong></td>
+
+									<td class="thick-line text-center"><strong>₹{{ total_product_tax_amount| floatformat:2 | intcomma }}/-</strong></td></td>
+								</tr>
+								<tr>
+									<td class="no-line"><strong>Tax Amount (in words): </strong></td>
+									<td class="no-line"><strong>INR {{tax_rupees}} only</strong></td>
+								</tr>
+							</tbody>
+						</table>
     				</div>
 
     				<div class="table">
-
-
 						<div class="table">
     					<table class="table table-bordered">
     						<thead>
-
 								<tr>
-
         							<td class="text-left" colspan="10">
-
-
-						<strong>GST No:</strong> <span>{{gstinn3}}</span><br>
+										<strong>GST No:</strong> <span>{{gstinn3}}</span><br>
 										<strong>PAN No:</strong> <span>{{pan_no}}</span><br>
-
 									</td>
-
-
-
                                 </tr>
-
 							</thead>
-
-							</table>
+						</table>
     				</div>
-						<div class="table">
+					<div class="table">
     					<table class="table table-bordered">
     						<thead>
-
 								<tr>
-
         							<td class="text-left" colspan="5">
 								<strong>Declaration</strong> <br>
 We declare that this credit note shows the actual price of the goods described and that all particulars are true and correct.
@@ -366,12 +417,8 @@ We declare that this credit note shows the actual price of the goods described a
 										<br>
  Authorised Signatory
 									</td>
-
-
                                 </tr>
-
 							</thead>
-
 							</table>
 						</div>
 					</div>

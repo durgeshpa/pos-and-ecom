@@ -1806,7 +1806,6 @@ class OrderedProductMapping(models.Model):
     def product_sub_total(self):
         return round(self.effective_price * self.shipped_qty,2)
 
-
     def get_shop_specific_products_prices_sp(self):
         return self.product.product_pro_price.filter(
             seller_shop__shop_type__shop_type='sp', status=True
@@ -1817,6 +1816,27 @@ class OrderedProductMapping(models.Model):
 
     def get_products_gst_cess(self):
         return self.product.product_pro_tax.filter(tax__tax_type='cess')
+
+    def get_products_gst(self):
+        queryset = self.product.product_pro_tax.filter(tax__tax_type='gst')
+        if queryset.exists():
+            return queryset.values_list('tax__tax_percentage', flat=True).first()
+        else:
+            return 0
+
+    def get_products_gst_cess_tax(self):
+        queryset = self.product.product_pro_tax.filter(tax__tax_type='cess')
+        if queryset.exists():
+            return queryset.values_list('tax__tax_percentage', flat=True).first()
+        else:
+            return 0
+
+    def get_products_gst_surcharge(self):
+        queryset = self.product.product_pro_tax.filter(tax__tax_type='surcharge')
+        if queryset.exists():
+            return queryset.values_list('tax__tax_percentage', flat=True).first()
+        else:
+            return 0
 
     def set_product_tax_json(self):
         product_tax_query = self.product.product_pro_tax.values('product', 'tax', 'tax__tax_name',

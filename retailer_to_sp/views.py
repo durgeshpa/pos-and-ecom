@@ -110,7 +110,7 @@ class DownloadCreditNote(APIView):
             reason = 'Returned' if [i for i in pp if i.returned_qty>0] else 'Damaged' if [i for i in pp if i.damaged_qty>0] else 'Returned and Damaged'
 
         order_id = credit_note.shipment.order.order_no
-        sum_qty, sum_amount, tax_inline, product_tax_amount = 0, 0, 0, 0
+        sum_qty, sum_basic_amount, sum_amount, tax_inline, total_product_tax_amount = 0, 0, 0, 0, 0
         taxes_list, gst_tax_list, cess_tax_list, surcharge_tax_list = [], [], [], []
         igst, cgst, sgst, cess, surcharge = 0,0,0,0,0
         taxes_list = []
@@ -130,8 +130,10 @@ class DownloadCreditNote(APIView):
         if shipment_cancelled:
             for m in products:
                 sum_qty = sum_qty + (int(m.shipped_qty))
+                sum_basic_amount += m.base_price
                 sum_amount = sum_amount + (int(m.shipped_qty) *(m.price_to_retailer))
                 inline_sum_amount = (int(m.shipped_qty) *(m.price_to_retailer))
+                total_product_tax_amount += m.product_tax_amount
                 for n in m.get_products_gst_tax():
                     divisor = (1+(n.tax.tax_percentage/100))
                     original_amount = (float(inline_sum_amount)/divisor)
@@ -149,8 +151,10 @@ class DownloadCreditNote(APIView):
         else:
             for m in products:
                 sum_qty = sum_qty + (int(m.returned_qty + m.damaged_qty))
+                sum_basic_amount += m.base_price
                 sum_amount = sum_amount + (int(m.returned_qty + m.damaged_qty) *(m.price_to_retailer))
                 inline_sum_amount = (int(m.returned_qty + m.damaged_qty) *(m.price_to_retailer))
+                total_product_tax_amount += m.product_tax_amount
                 for n in m.get_products_gst_tax():
                     divisor = (1+(n.tax.tax_percentage/100))
                     original_amount = (float(inline_sum_amount)/divisor)
@@ -167,15 +171,25 @@ class DownloadCreditNote(APIView):
 
         total_amount = round(credit_note.note_amount)
         total_amount_int = total_amount
+        total_product_tax_amount_int = round(total_product_tax_amount)
+
         amt = [num2words(i) for i in str(total_amount).split('.')]
         rupees = amt[0]
 
+        prdct_tax_amt = [num2words(i) for i in str(total_product_tax_amount_int).split('.')]
+        tax_rupees = prdct_tax_amt[0]
+
         data = {
-            "object": credit_note, "products": products,"shop": credit_note,"total_amount_int": total_amount_int,"sum_qty": sum_qty,"sum_amount":total_amount,
-            "url": request.get_host(),"scheme": request.is_secure() and "https" or "http","igst": igst,"cgst": cgst,"sgst": sgst,"cess": cess,"surcharge": surcharge,
-            "total_amount": round(total_amount,2),"order_id": order_id,"shop_name_gram": shop_name_gram,"nick_name_gram": nick_name_gram,"city_gram": city_gram,
-            "address_line1_gram": address_line1_gram,"pincode_gram": pincode_gram,"state_gram": state_gram,"amount":amount,"gstinn1":gstinn1,"gstinn2":gstinn2,
-            "gstinn3":gstinn3,"reason":reason,"rupees":rupees,"cin":cin,"pan_no":pan_no, 'shipment_cancelled': shipment_cancelled}
+            "object": credit_note, "products": products, "shop": credit_note, "total_amount_int": total_amount_int,
+            "total_product_tax_amount": total_product_tax_amount, "sum_qty": sum_qty, "sum_amount": total_amount,
+            "sum_basic_amount": sum_basic_amount, "url": request.get_host(),
+            "scheme": request.is_secure() and "https" or "http", "igst": igst, "cgst": cgst,
+            "sgst": sgst, "cess": cess, "surcharge": surcharge, "total_amount": round(total_amount, 2),
+            "order_id": order_id, "shop_name_gram": shop_name_gram, "nick_name_gram": nick_name_gram,
+            "city_gram": city_gram, "address_line1_gram": address_line1_gram, "pincode_gram": pincode_gram,
+            "state_gram": state_gram,"amount":amount, "gstinn1": gstinn1, "gstinn2": gstinn2, "gstinn3": gstinn3,
+            "reason": reason, "rupees": rupees, "tax_rupees": tax_rupees, "cin": cin, "pan_no": pan_no,
+            'shipment_cancelled': shipment_cancelled}
 
         cmd_option = {
             "margin-top": 10,

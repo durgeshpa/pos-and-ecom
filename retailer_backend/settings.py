@@ -99,6 +99,7 @@ INSTALLED_APPS = [
     'offer',
     'celerybeat_status',
     'django_elasticsearch_dsl',
+    'mathfilters'
 ]
 
 # if ENVIRONMENT.lower() in ["production","qa"]:
@@ -301,6 +302,7 @@ LOGOUT_ON_PASSWORD_CHANGE = True
 AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
 AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME')
+AWS_QUERYSTRING_AUTH = False
 #AWS_S3_CUSTOM_DOMAIN = '%s.s3.amazonaws.com' % AWS_STORAGE_BUCKET_NAME
 AWS_S3_CUSTOM_DOMAIN = config('AWS_S3_CUSTOM_DOMAIN')
 AWS_S3_CUSTOM_DOMAIN_ORIG = config('AWS_S3_CUSTOM_DOMAIN_ORIG')
