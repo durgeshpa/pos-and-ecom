@@ -478,6 +478,12 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id, ord
             else:
                 wim.update(quantity=available_qty+reserved_qty)
             WarehouseInventory.objects.filter(id=ordered_id).update(quantity=0)
+            warehouse_details = WarehouseInternalInventoryChange.objects.filter(transaction_id=transaction_id,
+                                                                           transaction_type='reserved',
+                                                                           status=True)
+            # update those Ware house inventory which status is True
+            warehouse_details.update(status=False)
+
             WarehouseInternalInventoryChange.objects.create(warehouse=Shop.objects.get(id=shop_id),
                                                             sku=Product.objects.get(id=prod),
                                                             transaction_type=transaction_type,

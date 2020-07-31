@@ -542,17 +542,15 @@ def warehouse_inventory_change_data(upload_data, stock_movement_obj):
 def release_blocking_with_cron():
     cart = Cart.objects.filter(cart_status='active')
     for i in cart:
-        item_details = WarehouseInternalInventoryChange.objects.filter(transaction_id=i.order_id, transaction_type='reserved')
+        item_details = WarehouseInternalInventoryChange.objects.filter(transaction_id=i.order_id, transaction_type='reserved',
+                                                                       status=True)
         sku_id = [p.sku.id for p in item_details]
         for k in item_details:
-            elapsed_time = datetime.now() - k.created_at
-            res_time = divmod(elapsed_time.total_seconds(), 60)[0]
-            if int(res_time) == 8:
-                transaction_id = k.transaction_id
-                shop_id = k.warehouse.id
-                transaction_type = 'released'
-                order_status = 'available'
-                common_for_release(sku_id, shop_id, transaction_type, transaction_id, order_status)
+            transaction_id = k.transaction_id
+            shop_id = k.warehouse.id
+            transaction_type = 'released'
+            order_status = 'available'
+            common_for_release(sku_id, shop_id, transaction_type, transaction_id, order_status)
 
 
 def pickup_entry_creation_with_cron():
