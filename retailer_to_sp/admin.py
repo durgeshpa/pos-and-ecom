@@ -352,8 +352,8 @@ class ShopSearch(InputFilter):
 
 class OrderedProductBatchAdmin(NestedTabularInline):
     model = OrderedProductBatch
-    fields = ('batch_id', 'ordered_pieces', 'expiry_date','delivered_qty', 'quantity')
-    readonly_fields = ('batch_id', 'ordered_pieces', 'expiry_date','delivered_qty')
+    fields = ('batch_id', 'ordered_pieces', 'expiry_date','pickup_quantity', 'quantity', 'damaged_qty')
+    readonly_fields = ('batch_id', 'ordered_pieces', 'expiry_date')
     extra=0
 
 
@@ -1185,13 +1185,24 @@ class ShipmentProductMappingAdmin(NestedTabularInline):
     model = ShipmentProductMapping
     form = ShipmentProductMappingForm
     inlines = [OrderedProductBatchAdmin, ]
-    fields = ['product', 'ordered_qty', 'already_shipped_qty','shipped_qty', 'cancellation_date']
-    readonly_fields = ['product', 'ordered_qty', 'already_shipped_qty', 'cancellation_date']
+    fields = ['product', 'ordered_qty','expiry_date','picked_pieces','shipped_qty', 'damaged_qty']
+    readonly_fields = ['product', 'ordered_qty', 'expiry_date']
     extra = 0
     max_num = 0
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+    def expiry_date(self, obj=None):
+        return "-"
+
+    def picked_pieces(self, obj=None):
+        return 0
+
+
+
+
+
 
 
 class ShipmentAdmin(NestedModelAdmin):

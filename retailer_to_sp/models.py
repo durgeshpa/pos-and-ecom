@@ -1886,7 +1886,7 @@ class OrderedProductBatch(models.Model):
     expiry_date = models.CharField(max_length=30, null=True, blank=True)
     returned_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Pieces")
     damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Pieces")
-    pickup_quantity = models.PositiveIntegerField(default=0)
+    pickup_quantity = models.PositiveIntegerField(default=0, verbose_name="Picked pieces")
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -2431,7 +2431,7 @@ def populate_data_on_qc_pass(order):
             pickup_quantity=i.pickup_quantity,
             expiry_date="30/" + i.batch_id[17:19] + "/20" + i.batch_id[19:21],
             delivered_qty=ordered_product_mapping.delivered_qty,
-            # ordered_pieces=sum
+            ordered_pieces=i.quantity
             # already_shipped_qty=ordered_product_mapping.shipped_qty
 
 

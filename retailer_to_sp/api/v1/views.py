@@ -1620,8 +1620,8 @@ class ReleaseBlocking(APIView):
             #             ordered_reserve.order_product_reserved.available_qty) + int(ordered_reserve.reserved_qty)
             #         ordered_reserve.order_product_reserved.save()
             #         ordered_reserve.delete()
-            if CusotmerCouponUsage.objects.filter(cart__id = cart_id, shop__id=shop_id).exists():
-                CusotmerCouponUsage.objects.filter(cart__id = cart_id, shop__id=shop_id).delete()
+            if CusotmerCouponUsage.objects.filter(cart__id=cart_id, shop__id=shop_id).exists():
+                CusotmerCouponUsage.objects.filter(cart__id=cart_id, shop__id=shop_id).delete()
 
             msg = {'is_success': True, 'message': ['Blocking has released'], 'response_data': None}
 
