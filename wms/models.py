@@ -279,6 +279,7 @@ class WarehouseInternalInventoryChange(models.Model):
     final_stage = models.ForeignKey(InventoryState, related_name='final_stage', null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField(null=True, blank=True, default=0)
     inventory_csv = models.ForeignKey(StockMovementCSVUpload, null=True, blank=True, on_delete=models.DO_NOTHING)
+    status = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
