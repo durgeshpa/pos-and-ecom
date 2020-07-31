@@ -668,6 +668,7 @@ class ShipmentForm(forms.ModelForm):
 class ShipmentProductMappingForm(forms.ModelForm):
     ordered_qty = forms.CharField(required=False)
     already_shipped_qty = forms.CharField(required=False)
+    shipped_qty = forms.IntegerField(required=False)
 
     class Meta:
         model = ShipmentProductMapping
