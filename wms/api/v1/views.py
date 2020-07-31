@@ -275,19 +275,16 @@ class BinIDList(APIView):
         if not order_no:
             msg = {'is_success': True, 'message': 'Order number field is empty.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-        bin_objects = []
         pickup_orders = Order.objects.filter(order_no=order_no).last()
         if pickup_orders is None:
             msg = {'is_success': True, 'message': 'Order number does not exist.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         else:
-            for i in pickup_orders.ordered_cart.rt_cart_list.all():
-                for j in i.cart_product.rt_product_sku.filter(quantity__gt=0).order_by('-batch_id', '-quantity'):
-                    bin_objects.append(j.bin.bin_id)
-
-            bin_lists = Bin.objects.filter(bin_id__in=bin_objects)
-
-            serializer = BinSerializer(bin_lists, many=True, fields=('id', 'bin_id'))
+            pick_list = []
+            pickup_bin_obj = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no)
+            for pick_up in pickup_bin_obj:
+                pick_list.append(pick_up.bin.bin)
+            serializer = BinSerializer(pick_list, many=True, fields=('id', 'bin_id'))
             msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
             return Response(msg, status=status.HTTP_200_OK)
 
