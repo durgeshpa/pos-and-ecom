@@ -432,7 +432,7 @@ class PickupDetail(APIView):
                     qty = picking_details.last().quantity
                     if pick_qty + i > qty:
                         if qty-pick_qty == 0:
-                            data_list.append({'is_success': False, 'message': "You can't add more quantity."})
+                            data_list.append({'is_success': False, 'message': "You can't add more Pick up quantity."})
                         else:
                             data_list.append({'is_success': False,
                                               'message': "Can add only {} more items".format(abs(qty - pick_qty))})
