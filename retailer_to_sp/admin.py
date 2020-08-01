@@ -1095,7 +1095,7 @@ class OrderedProductAdmin(NestedModelAdmin):
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
-        js = ('admin/js/shipment.js',)
+        js = ('admin/js/shipment.js','http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js')
 
 
 class DispatchProductMappingAdmin(admin.TabularInline):
@@ -1186,7 +1186,7 @@ class ShipmentProductMappingAdmin(NestedTabularInline):
     form = ShipmentProductMappingForm
     inlines = [OrderedProductBatchAdmin, ]
     fields = ['product', 'ordered_qty','expiry_date','picked_pieces','shipped_qty', 'damaged_qty']
-    readonly_fields = ['product', 'ordered_qty', 'expiry_date', 'picked_pieces']
+    readonly_fields = ['product', 'ordered_qty', 'expiry_date']
     extra = 0
     max_num = 0
 
@@ -1195,11 +1195,6 @@ class ShipmentProductMappingAdmin(NestedTabularInline):
 
     def expiry_date(self, obj=None):
         return "-"
-
-
-
-
-
 
 
 class ShipmentAdmin(NestedModelAdmin):
