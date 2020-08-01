@@ -1373,7 +1373,7 @@ class OrderCancellation(object):
 
         reserved_qty_queryset = self.get_reserved_qty()
         for item in reserved_qty_queryset:
-            sp_ordered_product_mapping = SPOrderedProductMapping.objects.filter(id=item['sp_grn'])
+            sp_ordered_product_mapping = SPOrderedProductMapping.objects.filter(id=item['r_sku'])
             for opm in sp_ordered_product_mapping:
                 opm.available_qty = opm.available_qty + item['r_qty']
                 opm.save()
