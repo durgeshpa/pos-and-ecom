@@ -559,3 +559,4 @@ def cancel_order_with_pick(instance):
         pickup.save()
         pick_obj = Pickup.objects.filter(pickup_type_id=instance.order_no)
         pick_obj.update(pickup_quantity=0)
+        cancel_order(instance)
