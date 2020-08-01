@@ -120,7 +120,7 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = ('id', 'order_no', 'picker_status')
 
     def picker_status_dt(self, obj):
-        return obj.picker_order.all().last().picking_status
+        return str(obj.order_status).lower()
 
 
 class BinSerializer(DynamicFieldsModelSerializer):
