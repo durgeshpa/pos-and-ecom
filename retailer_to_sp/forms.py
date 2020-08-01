@@ -668,15 +668,15 @@ class ShipmentForm(forms.ModelForm):
 class ShipmentProductMappingForm(forms.ModelForm):
     ordered_qty = forms.CharField(required=False)
     already_shipped_qty = forms.CharField(required=False)
-    # shipped_qty = forms.IntegerField(required=False)
-    picked_pieces = forms.IntegerField(required=False)
-    # damaged_qty = forms.IntegerField(required=False)
+    # shipped_qty = forms.IntegerField(disabled=True)
+    # picked_pieces = forms.IntegerField(disabled=True)
+    # damaged_qty = forms.IntegerField(disabled=True)
 
     class Meta:
         model = ShipmentProductMapping
         fields = [
             'product', 'ordered_qty', 'already_shipped_qty',
-            'shipped_qty', 'picked_pieces'
+            'shipped_qty','picked_pieces'
         ]
 
     def __init__(self, *args, **kwargs):

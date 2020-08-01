@@ -1186,7 +1186,7 @@ class ShipmentProductMappingAdmin(NestedTabularInline):
     form = ShipmentProductMappingForm
     inlines = [OrderedProductBatchAdmin, ]
     fields = ['product', 'ordered_qty','expiry_date','picked_pieces','shipped_qty', 'damaged_qty']
-    readonly_fields = ['product', 'ordered_qty', 'expiry_date']
+    readonly_fields = ['product', 'ordered_qty', 'expiry_date', 'picked_pieces']
     extra = 0
     max_num = 0
 
@@ -1195,9 +1195,6 @@ class ShipmentProductMappingAdmin(NestedTabularInline):
 
     def expiry_date(self, obj=None):
         return "-"
-
-    def picked_pieces(self, obj=None):
-        return 0
 
 
 

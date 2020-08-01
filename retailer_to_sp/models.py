@@ -1630,6 +1630,7 @@ class OrderedProductMapping(models.Model):
     effective_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     discounted_price = models.DecimalField(default=0, max_digits=10, decimal_places=2, null=True, blank=False)
     cancellation_date = models.DateTimeField(null=True, blank=True)
+    picked_pieces = models.PositiveIntegerField(default=0)
 
     def clean(self):
         super(OrderedProductMapping, self).clean()
