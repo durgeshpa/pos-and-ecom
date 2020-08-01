@@ -470,6 +470,8 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id, ord
         ordered_product_reserved = WarehouseInventory.objects.filter(sku__id=prod, inventory_state__inventory_state='reserved')
         if ordered_product_reserved.exists():
             reserved_qty = ordered_product_reserved.last().quantity
+            if reserved_qty == 0:
+                return
             ordered_id = ordered_product_reserved.last().id
             wim = WarehouseInventory.objects.filter(sku__id=prod,inventory_state__inventory_state='available')
             available_qty = wim.last().quantity

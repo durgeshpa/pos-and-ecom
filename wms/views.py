@@ -546,11 +546,14 @@ def release_blocking_with_cron():
                                                                        status=True)
         sku_id = [p.sku.id for p in item_details]
         for k in item_details:
-            transaction_id = k.transaction_id
-            shop_id = k.warehouse.id
-            transaction_type = 'released'
-            order_status = 'available'
-            common_for_release(sku_id, shop_id, transaction_type, transaction_id, order_status)
+            elapsed_time = datetime.now() - k.created_at
+            res_time = divmod(elapsed_time.total_seconds(), 60)[0]
+            if int(res_time) == 8:
+                transaction_id = k.transaction_id
+                shop_id = k.warehouse.id
+                transaction_type = 'released'
+                order_status = 'available'
+                common_for_release(sku_id, shop_id, transaction_type, transaction_id, order_status)
 
 
 def pickup_entry_creation_with_cron():
