@@ -209,7 +209,7 @@ class OrderedProductMapping(models.Model): #GRN Product
     shipped_qty = models.PositiveIntegerField(default=0)
     available_qty = models.PositiveIntegerField(default=0)
     ordered_qty = models.PositiveIntegerField(default=0)
-    batch_id = models.CharField(max_length=21, null=True, blank=True)
+    batch_id = models.CharField(max_length=50, null=True, blank=True)
     delivered_qty = models.PositiveIntegerField(default=0)
     returned_qty = models.PositiveIntegerField(default=0)
     damaged_qty = models.PositiveIntegerField(default=0)

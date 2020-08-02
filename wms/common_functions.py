@@ -1,19 +1,27 @@
+# python imports
+import functools
+import json
 import logging
-from retailer_to_sp.models import OrderedProduct
+from datetime import datetime
+from celery.task import task
+
+# django imports
+from django.db.models import Sum, Q
+
+# app imports
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease)
 
 
 from shops.models import Shop
-from django.db.models import Sum, Q
-import functools
-import json
-from celery.task import task
-from products.models import Product, ProductPrice
-from datetime import datetime
+from products.models import Product
 
 
+# Logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 
 
 type_choices = {
@@ -21,12 +29,16 @@ type_choices = {
     'expired': 'expired',
     'damaged': 'damaged',
     'discarded': 'discarded',
-    'disposed': 'disposed'}
+    'disposed': 'disposed',
+    'missing': 'missing'
+}
 
 state_choices = {
-     'available': 'available',
-     'reserved' :'reserved',
-     'shipped' : 'shipped'
+    'available': 'available',
+    'reserved': 'reserved',
+    'shipped': 'shipped',
+    'ordered': 'ordered',
+    'canceled': 'canceled'
 }
 
 
@@ -42,11 +54,6 @@ class CommonBinFunctions(object):
         bins = Bin.objects.filter(**kwargs)
         return bins
 
-
-# Logger
-info_logger = logging.getLogger('file-info')
-error_logger = logging.getLogger('file-error')
-debug_logger = logging.getLogger('file-debug')
 
 class PutawayCommonFunctions(object):
 
