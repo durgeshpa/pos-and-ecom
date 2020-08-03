@@ -103,7 +103,8 @@ class PutAwayAdmin(admin.ModelAdmin):
 class PutawayBinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Put Away Bin Inventory Admin has been called.")
     form = PutAwayBinInventoryForm
-    list_display = ('warehouse', 'putaway', 'bin', 'putaway_quantity', 'created_at')
+    list_display = ('warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway', 'bin', 'putaway_quantity',
+                    'putaway_status', 'created_at')
 
 
 class InventoryTypeAdmin(admin.ModelAdmin):

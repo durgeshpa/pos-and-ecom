@@ -182,29 +182,43 @@ class PutAwayViewSet(APIView):
             sh = Shop.objects.filter(id=int(warehouse)).last()
             if sh.shop_type.shop_type == 'sp':
                 bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(bin__bin_id=bin_id)
+                pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=i,
+                                                                  warehouse=warehouse)
                 if bin_inventory.exists():
                     if i in bin_inventory.values_list('batch_id', flat=True):
+                        put_away_status = False
                         while len(ids):
                             put_away_done = update_putaway(ids[0], i, warehouse, int(value), request.user)
                             value = put_away_done
+                            if pu[0].quantity == pu[0].putaway_quantity:
+                                put_away_status = True
                             ids.remove(ids[0])
-                        updating_tables_on_putaway(sh, bin_id, put_away, i, inventory_type, 'available', 't', val)
+                        updating_tables_on_putaway(sh, bin_id, put_away, i, inventory_type, 'available', 't', val,
+                                                   put_away_status, pu)
                     else:
                         if i[:17] in bin_inventory.values_list('sku__product_sku', flat=True):
-                            msg ={'is_success':False,'message':'This product with sku {} and batch_id {} can not be placed in the bin'.format(i[:17], i),'batch_id':i}
+                            msg ={'is_success':False, 'message':'This product with sku {} and batch_id {} can not be placed in the bin'.format(i[:17], i),'batch_id':i}
                             lis_data.append(msg)
                             continue
 
                         else:
+                            put_away_status = False
                             while len(ids):
-                                update_putaway(ids[0], i, warehouse, int(value), request.user,)
+                                value = update_putaway(ids[0], i, warehouse, int(value), request.user,)
+                                if pu[0].quantity == pu[0].putaway_quantity:
+                                    put_away_status = True
                                 ids.remove(ids[0])
-                            updating_tables_on_putaway(sh, bin_id, put_away, i, inventory_type, 'available', 't', val)
+                            updating_tables_on_putaway(sh, bin_id, put_away, i, inventory_type, 'available', 't', val,
+                                                       put_away_status, pu)
                 else:
+                    put_away_status = False
                     while len(ids):
-                        update_putaway(ids[0], i, warehouse, int(value), request.user,)
+                        value = update_putaway(ids[0], i, warehouse, int(value), request.user,)
+                        if pu[0].quantity == pu[0].putaway_quantity:
+                            put_away_status = True
                         ids.remove(ids[0])
-                    updating_tables_on_putaway(sh, bin_id, put_away, i, inventory_type, 'available', 't', val)
+                    updating_tables_on_putaway(sh, bin_id, put_away, i, inventory_type, 'available', 't', val,
+                                               put_away_status, pu)
 
             serializer = (PutAwaySerializer(Putaway.objects.filter(batch_id=i, warehouse=warehouse).last(), fields=('is_success', 'product_sku', 'batch_id', 'max_putaway_qty', 'putaway_quantity', 'product_name')))
             msg = serializer.data
