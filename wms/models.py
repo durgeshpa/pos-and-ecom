@@ -100,6 +100,12 @@ class BinInventory(models.Model):
                                   Q(sku__id=sku_id),
                                   Q(quantity__gt=0)).aggregate(total=Sum('quantity')).get('total')
 
+    @classmethod
+    def available_qty_with_inventory_type(cls, shop_id, sku_id, inventory_type):
+        return cls.objects.filter(Q(warehouse__id=shop_id),
+                                  Q(sku__id=sku_id), Q(inventory_type__id=inventory_type),
+                                  Q(quantity__gt=0)).aggregate(total=Sum('quantity')).get('total')
+
     def __str__(self):
         return str(self.id)
 
@@ -248,11 +254,12 @@ class StockMovementCSVUpload(models.Model):
 
 class WarehouseInternalInventoryChange(models.Model):
     transaction_type = (
-        ('warehouse', "WareHouse Adjustment"),
+        ('warehouse_adjustment', "WareHouse Adjustment"),
         ('reserved', "Reserved"),
         ('ordered', "Ordered"),
         ('released', "Released"),
-        ('canceled', 'Canceled')
+        ('canceled', 'Canceled'),
+        ('audit_adjustment', 'Audit Adjustment')
 
     )
 
@@ -314,11 +321,10 @@ def create_warehouse_inventory(sender, instance=None, created=False, *args, **kw
     if created:
         WarehouseInventory.objects.update_or_create(warehouse=instance.warehouse,sku=instance.sku,
                                                     inventory_state=InventoryState.objects.filter(inventory_state='available').last(),
-                                                    defaults={
-                                                             'inventory_type':InventoryType.objects.filter(inventory_type='normal').last(),
-                                                             'inventory_state':InventoryState.objects.filter(inventory_state='available').last(),
-                                                             'quantity':BinInventory.available_qty(instance.warehouse.id, instance.sku.id),
-                                                             'in_stock':instance.in_stock})
+                                                    inventory_type=InventoryType.objects.filter(inventory_type=instance.inventory_type).last(),
+                                                    defaults={'quantity':BinInventory.available_qty_with_inventory_type(instance.warehouse.id, instance.sku.id,
+                                                    InventoryType.objects.filter(inventory_type=instance.inventory_type).last().id),
+                                                    'in_stock':instance.in_stock})
 
 
 class OrderReserveRelease(models.Model):

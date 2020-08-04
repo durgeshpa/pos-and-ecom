@@ -36,7 +36,7 @@ from .forms import BulkBinUpdation, BinForm, StockMovementCsvViewForm, DownloadA
 from .models import Pickup, BinInventory, InventoryState
 from .common_functions import InternalInventoryChange, CommonBinInventoryFunctions, PutawayCommonFunctions, \
     InCommonFunctions, WareHouseCommonFunction, InternalWarehouseChange, StockMovementCSV,\
-    InternalStockCorrectionChange, get_product_stock, updating_tables_on_putaway
+    InternalStockCorrectionChange, get_product_stock, updating_tables_on_putaway, AuditInventory
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -752,11 +752,38 @@ def audit_download(request):
 
 
 def audit_upload(request):
+    """
+
+    :param request: POST request
+    :return: Upload form
+    """
     if request.method == 'POST':
         info_logger.info("POST request while upload the .xls file for Bin generation.")
         form = UploadAuditAdminForm(request.POST, request.FILES)
         if form.is_valid():
             info_logger.info("File format validation has been successfully done.")
+            upload_data = form.cleaned_data['file']
+
+            # convert expiry date according to database field type
+            expiry_date = datetime.strptime(upload_data[0][3], '%d/%m/%y').strftime('%Y-%m-%d')
+
+            # Check SKU and Expiry data is exist or not
+            grn_order_obj = GRNOrderProductMapping.objects.filter(product__product_sku=upload_data[0][1].split('-')[1],
+                                                                  expiry_date=expiry_date)
+
+            # Type of Inventory
+            inventory_type = ['normal', 'damaged', 'expired', 'missing']
+
+            # call function to create audit data in Audit Model
+            audit_inventory_obj = AuditInventory.create_audit_entry(request.user, request.FILES['file'])
+
+            if grn_order_obj.exists():
+                for inventory_type in inventory_type:
+                    # call function to create data in different models like:- Bin Inventory, Warehouse Inventory and
+                    # Warehouse Internal Inventory Model
+                    AuditInventory.audit_exist_batch_id(upload_data, inventory_type, audit_inventory_obj)
+                return render(request, 'admin/wms/audit-upload.html', {'form': form})
+
         else:
             return render(request, 'admin/wms/audit-upload.html', {'form': form})
     else:
