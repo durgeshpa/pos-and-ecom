@@ -4,12 +4,13 @@ import csv
 import codecs
 from django import forms
 from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload,\
-    InventoryType, InventoryState, BIN_TYPE_CHOICES
+    InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit
 from products.models import Product
 from shops.models import Shop
 from gram_to_brand.models import GRNOrderProductMapping
 from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ValidationError
+from sp_to_gram.models import OrderedProductMapping
 # Logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -477,3 +478,59 @@ def validation_warehouse_inventory(self):
 
         form_data_list.append(row)
     return form_data_list
+
+
+class DownloadAuditAdminForm(forms.Form):
+    """
+      Download Audit Form
+    """
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices, label='Select Warehouse')
+    file = forms.FileField(label='Upload CSV List for which Audit is to be performed')
+
+    class Meta:
+        model = Audit
+        fields = ('warehouse',)
+
+    def clean_file(self):
+        info_logger.info("Validation for File format for Bulk Bin Upload.")
+        if not self.cleaned_data['file'].name[-4:] in ('.csv'):
+            raise forms.ValidationError("Sorry! Only .csv file accepted.")
+
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        first_row = next(reader)
+        # list which contains csv data and pass into the view file
+        form_data_list = []
+        for row_id, row in enumerate(reader):
+            try:
+                if not row[0]:
+                    raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + "SKU can not be empty."))
+            except:
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + "SKU can not be empty."))
+
+            if not Product.objects.filter(product_sku=row[0]):
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + "SKU is not valid,"
+                                                                                       " Please re-verify at your end."))
+
+            if not BinInventory.objects.filter(warehouse=self.data['warehouse'],
+                                               sku=Product.objects.filter(product_sku=row[0])[0]):
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + "SKU id is not associated"
+                                                                                       " with selected warehouse."))
+            form_data_list.append(row)
+
+        return form_data_list
+
+
+class UploadAuditAdminForm(forms.Form):
+    """
+      Upload Audit Form
+    """
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices, label='Select Warehouse')
+    file = forms.FileField(label='Upload Audit Inventory list')
+
+    class Meta:
+        model = Audit
+        fields = ('warehouse',)
+
+    def clean_file(self):
+        info_logger.info("Validation for File format for Bulk Bin Upload.")
+        file = self.cleaned_data['file']

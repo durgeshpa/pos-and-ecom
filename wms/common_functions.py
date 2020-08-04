@@ -1,19 +1,27 @@
+# python imports
+import functools
+import json
 import logging
-from retailer_to_sp.models import OrderedProduct
+from datetime import datetime
+from celery.task import task
+
+# django imports
+from django.db.models import Sum, Q
+
+# app imports
 from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, WarehouseInventory,
                      InventoryState, InventoryType, WarehouseInternalInventoryChange, In, PickupBinInventory,
                      BinInternalInventoryChange, StockMovementCSVUpload, StockCorrectionChange, OrderReserveRelease)
 
 
 from shops.models import Shop
-from django.db.models import Sum, Q
-import functools
-import json
-from celery.task import task
-from products.models import Product, ProductPrice
-from datetime import datetime
+from products.models import Product
 
 
+# Logger
+info_logger = logging.getLogger('file-info')
+error_logger = logging.getLogger('file-error')
+debug_logger = logging.getLogger('file-debug')
 
 
 type_choices = {
@@ -21,12 +29,16 @@ type_choices = {
     'expired': 'expired',
     'damaged': 'damaged',
     'discarded': 'discarded',
-    'disposed': 'disposed'}
+    'disposed': 'disposed',
+    'missing': 'missing'
+}
 
 state_choices = {
-     'available': 'available',
-     'reserved' :'reserved',
-     'shipped' : 'shipped'
+    'available': 'available',
+    'reserved': 'reserved',
+    'shipped': 'shipped',
+    'ordered': 'ordered',
+    'canceled': 'canceled'
 }
 
 
@@ -42,11 +54,6 @@ class CommonBinFunctions(object):
         bins = Bin.objects.filter(**kwargs)
         return bins
 
-
-# Logger
-info_logger = logging.getLogger('file-info')
-error_logger = logging.getLogger('file-error')
-debug_logger = logging.getLogger('file-debug')
 
 class PutawayCommonFunctions(object):
 
@@ -94,9 +101,18 @@ class CommonBinInventoryFunctions(object):
 
     @classmethod
     def update_or_create_bin_inventory(cls, warehouse, bin, sku, batch_id, inventory_type, quantity, in_stock):
-        BinInventory.objects.update_or_create(warehouse=warehouse, bin=bin, sku=sku, batch_id=batch_id,
-                                              inventory_type=inventory_type,
-                                              defaults={'quantity':quantity, 'in_stock':in_stock})
+
+        bin_inv_obj = BinInventory.objects.filter(warehouse=warehouse, bin__bin_id=bin, sku=sku, batch_id=batch_id,
+                                                  inventory_type=inventory_type, in_stock=in_stock).last()
+        if bin_inv_obj:
+            bin_quantity = bin_inv_obj.quantity
+            final_quantity = bin_quantity + quantity
+            bin_inv_obj.quantity = final_quantity
+            bin_inv_obj.save()
+        else:
+            BinInventory.objects.get_or_create(warehouse=warehouse, bin=bin, sku=sku, batch_id=batch_id,
+                                        inventory_type=inventory_type, quantity=quantity, in_stock=in_stock)
+
 
     @classmethod
     def create_bin_inventory(cls, warehouse, bin, sku, batch_id, inventory_type, quantity, in_stock):
@@ -443,15 +459,23 @@ class StockMovementCSV(object):
             error_logger.error(e)
 
 
-def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type,inv_state, t, val):
+def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_state, t, val, put_away_status, pu):
     CommonBinInventoryFunctions.update_or_create_bin_inventory(sh, Bin.objects.filter(bin_id=bin_id).last(),
                                                                put_away.last().sku, batch_id,
                                                                InventoryType.objects.filter(
-                                                                   inventory_type=inv_type).last(),
-                                                               PutawayCommonFunctions.get_available_qty_for_batch(
-                                                                   sh.id, put_away.last().sku.id, batch_id), t)
-    PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),
-                                       bin=CommonBinInventoryFunctions.get_filtered_bin_inventory().last(),putaway_quantity=val)
+                                                                   inventory_type=inv_type).last(), val, t)
+    if put_away_status is True:
+        PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),
+                                           bin=CommonBinInventoryFunctions.get_filtered_bin_inventory().last(),
+                                           putaway_quantity=val, putaway_status=True,
+                                           sku=pu[0].sku, batch_id=pu[0].batch_id,
+                                           putaway_type=pu[0].putaway_type)
+    else:
+        PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),
+                                           bin=CommonBinInventoryFunctions.get_filtered_bin_inventory().last(),
+                                           putaway_quantity=val, putaway_status=False,
+                                           sku=pu[0].sku, batch_id=pu[0].batch_id,
+                                           putaway_type=pu[0].putaway_type)
     CommonWarehouseInventoryFunctions.create_warehouse_inventory(sh, put_away.last().sku,
                                                                  CommonInventoryStateFunctions.filter_inventory_state(inventory_state=inv_state).last(),
                                                                  InventoryType.objects.filter(inventory_type=inv_type).last(),
@@ -463,6 +487,8 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id, ord
         ordered_product_reserved = WarehouseInventory.objects.filter(sku__id=prod, inventory_state__inventory_state='reserved')
         if ordered_product_reserved.exists():
             reserved_qty = ordered_product_reserved.last().quantity
+            if reserved_qty == 0:
+                return
             ordered_id = ordered_product_reserved.last().id
             wim = WarehouseInventory.objects.filter(sku__id=prod,inventory_state__inventory_state='available')
             available_qty = wim.last().quantity
@@ -471,6 +497,12 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id, ord
             else:
                 wim.update(quantity=available_qty+reserved_qty)
             WarehouseInventory.objects.filter(id=ordered_id).update(quantity=0)
+            warehouse_details = WarehouseInternalInventoryChange.objects.filter(transaction_id=transaction_id,
+                                                                           transaction_type='reserved',
+                                                                           status=True)
+            # update those Ware house inventory which status is True
+            warehouse_details.update(status=False)
+
             WarehouseInternalInventoryChange.objects.create(warehouse=Shop.objects.get(id=shop_id),
                                                             sku=Product.objects.get(id=prod),
                                                             transaction_type=transaction_type,
@@ -544,3 +576,4 @@ def cancel_order_with_pick(instance):
         pickup.save()
         pick_obj = Pickup.objects.filter(pickup_type_id=instance.order_no)
         pick_obj.update(pickup_quantity=0)
+        cancel_order(instance)

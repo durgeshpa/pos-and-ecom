@@ -430,7 +430,7 @@ class GRNOrderProductMapping(models.Model):
     damaged_qty = models.PositiveIntegerField(default=0)
     last_modified_by = models.ForeignKey(get_user_model(), related_name='last_modified_user_grn_order_product', null=True,blank=True, on_delete=models.CASCADE)
     vendor_product = models.ForeignKey(ProductVendorMapping, related_name='vendor_grn_products', null=True, blank=True,on_delete=models.CASCADE)
-    batch_id = models.CharField(max_length=21, null=True, blank=True)
+    batch_id = models.CharField(max_length=50, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -512,7 +512,7 @@ class GRNOrderProductMapping(models.Model):
             self.vendor_product = self.grn_order.order.ordered_cart.cart_list.filter(cart_product=self.product).last().vendor_product
         if self.expiry_date and not self.batch_id:
             self.batch_id = '{}{}'.format(self.product.product_sku,
-                                          self.expiry_date.strftime('%m%y'))
+                                          self.expiry_date.strftime('%d%m%y'))
         super(GRNOrderProductMapping, self).save(*args, **kwargs)
 
 
