@@ -190,8 +190,7 @@ class PutAwayViewSet(APIView):
                         while len(ids):
                             put_away_done = update_putaway(ids[0], i, warehouse, int(value), request.user)
                             value = put_away_done
-                            if pu[0].quantity == pu[0].putaway_quantity:
-                                put_away_status = True
+                            put_away_status = True
                             ids.remove(ids[0])
                         updating_tables_on_putaway(sh, bin_id, put_away, i, inventory_type, 'available', 't', val,
                                                    put_away_status, pu)
@@ -205,8 +204,7 @@ class PutAwayViewSet(APIView):
                             put_away_status = False
                             while len(ids):
                                 value = update_putaway(ids[0], i, warehouse, int(value), request.user,)
-                                if pu[0].quantity == pu[0].putaway_quantity:
-                                    put_away_status = True
+                                put_away_status = True
                                 ids.remove(ids[0])
                             updating_tables_on_putaway(sh, bin_id, put_away, i, inventory_type, 'available', 't', val,
                                                        put_away_status, pu)
@@ -214,8 +212,7 @@ class PutAwayViewSet(APIView):
                     put_away_status = False
                     while len(ids):
                         value = update_putaway(ids[0], i, warehouse, int(value), request.user,)
-                        if pu[0].quantity == pu[0].putaway_quantity:
-                            put_away_status = True
+                        put_away_status = True
                         ids.remove(ids[0])
                     updating_tables_on_putaway(sh, bin_id, put_away, i, inventory_type, 'available', 't', val,
                                                put_away_status, pu)
