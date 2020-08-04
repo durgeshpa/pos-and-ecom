@@ -36,7 +36,7 @@ from common.constants import DOWNLOAD_BULK_INVOICE, ZERO, FIFTY
 from .forms import (CartForm, CartProductMappingForm, CommercialForm, CustomerCareForm,
                     ReturnProductMappingForm, ShipmentForm, ShipmentProductMappingForm, ShipmentReschedulingForm,
                     OrderedProductReschedule, OrderedProductMappingRescheduleForm, OrderForm, EditAssignPickerForm,
-                    ResponseCommentForm, BulkCartForm, OrderedProductBatchForm)
+                    ResponseCommentForm, BulkCartForm, OrderedProductBatchForm, OrderedProductBatchingForm)
 from .models import (Cart, CartProductMapping, Commercial, CustomerCare, Dispatch, DispatchProductMapping, Note, Order,
                      OrderedProduct, OrderedProductMapping, Payment, ReturnProductMapping, Shipment,
                      ShipmentProductMapping, Trip, ShipmentRescheduling, Feedback, PickerDashboard, Invoice,
@@ -360,8 +360,9 @@ class OrderedProductBatchAdmin(NestedTabularInline):
 
 class OrderedProductBatchingAdmin(NestedTabularInline):
     model = OrderedProductBatch
+    # form = OrderedProductBatchingForm
     fields = ('batch_id', 'ordered_pieces','expiry_date','quantity','returned_qty','damaged_qty','delivered_qty')
-    readonly_fields = ('batch_id', 'ordered_pieces','expiry_date','quantity','delivered_qty')
+    readonly_fields = ('batch_id', 'ordered_pieces','expiry_date','quantity')
     extra=0
 
 class CartProductMappingAdmin(admin.TabularInline):
@@ -1014,7 +1015,7 @@ class OrderedProductMappingAdmin(NestedTabularInline):
     fields = ['product', 'gf_code', 'ordered_qty', 'shipped_qty',
               'returned_qty', 'damaged_qty', 'delivered_qty', 'cancellation_date']
     readonly_fields = ['ordered_qty', 'product', 'gf_code', 'shipped_qty',
-                       'delivered_qty', 'cancellation_date']
+                       'cancellation_date']
     inlines = [OrderedProductBatchingAdmin, ]
     extra = 0
     max_num = 0

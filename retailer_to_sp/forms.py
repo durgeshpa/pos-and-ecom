@@ -951,6 +951,9 @@ class OrderedProductMappingRescheduleForm(forms.ModelForm):
                     self.fields['returned_qty'].disabled = True
                     self.fields['damaged_qty'].disabled = True
 
+    def clean(self):
+        pass
+
 
 
 
@@ -1021,3 +1024,14 @@ class OrderedProductBatchForm(forms.ModelForm):
 
 
 
+
+class OrderedProductBatchingForm(forms.ModelForm):
+    class Meta:
+        model = OrderedProductBatch
+        fields = ('quantity', 'damaged_qty', 'returned_qty', 'delivered_qty')
+
+    def clean(self):
+        data = self.cleaned_data
+        if data.get('quantity') != data.get('damaged_qty') + data.get('returned_qty') + data.get('delivered_qty'):
+            raise forms.ValidationError('No. of pieces to ship must be equal to sum of (damaged, returned, delivered)')
+        return data

@@ -1893,12 +1893,12 @@ class OrderedProductBatch(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-    def save(self, *args, **kwargs):
-        if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.pickup_quantity != sum(
-                [self.quantity, self.damaged_qty, self.expired_qty]):
-            raise ValidationError(_('Picked quantity sum mismatched with picked pieces'))
-        else:
-            super().save(*args, **kwargs)
+    # def save(self, *args, **kwargs):
+    #     if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.pickup_quantity != sum(
+    #             [self.quantity, self.damaged_qty, self.expired_qty]):
+    #         raise ValidationError(_('Picked quantity sum mismatched with picked pieces'))
+    #     else:
+    #         super().save(*args, **kwargs)
 
 
 class ShipmentProductMapping(OrderedProductMapping):
