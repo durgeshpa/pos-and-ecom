@@ -12,6 +12,7 @@ delete_link_html = '<img src="/static/admin/img/icon-deletelink.svg" ' +
 position_field = 'order'; // Name of inline model field (integer) used for ordering. Defaults to "position".
 
 jQuery(function($) {
+    changeExpPieces()
     changeval()
     changePickedPieces()
     changeDamagedPieces()
@@ -272,24 +273,30 @@ function changeDamagedPieces(){
             }
             sum +=tot
             $("input[name=" + `rt_order_product_order_product_mapping-${i}-damaged_qty` + "]").val(sum);
-
         }
         }
         });
     })
 }
 
-
-
-
-//function delete_row(table)
-//{
-//        var table = table,
-//        lastRow = table.find('tbody tr:last'),
-//        rowClone = lastRow.clone();
-//        table.find('tbody').remove(rowClone);
-//        td = rowClone.prepend('<a class="delete" href="#">' + delete_link_html + '</a>')
-//}
+function changeExpPieces(){
+    $(document).ready(function(){
+        xx = [0,1,2,3,4,5,6]
+        $("input[name$='-expired_qty']").keyup(function(){
+    for(var i=0;i<10;i++){
+        var sum = 0
+        for (var j=0; j<10;j++){
+            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-expired_qty` + "]").val())
+            if (isNaN(tot)){
+                continue
+            }
+            sum +=tot
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-expired_qty` + "]").val(sum);
+        }
+        }
+        });
+    })
+}
 
 
 

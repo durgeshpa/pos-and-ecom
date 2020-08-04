@@ -1620,6 +1620,7 @@ class OrderedProductMapping(models.Model):
     delivered_qty = models.PositiveIntegerField(default=0, verbose_name="Delivered Pieces")
     returned_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Pieces")
     damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Pieces")
+    expired_qty = models.PositiveIntegerField(default=0, verbose_name="Expired Pieces")
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_order_product',
         null=True, on_delete=models.DO_NOTHING
@@ -1846,8 +1847,8 @@ class OrderedProductMapping(models.Model):
         return round(self.discounted_price,2)
 
     def save(self, *args, **kwargs):
-        if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.shipped_qty != sum([self.delivered_qty, self.returned_qty, self.damaged_qty]):
-            raise ValidationError(_('delivered, returned, damaged qty sum mismatched with shipped_qty'))
+        if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.picked_pieces != sum([self.shipped_qty, self.damaged_qty, self.expired_qty]):
+            raise ValidationError(_('shipped, expired, damaged qty sum mismatched with picked pieces'))
         else:
             self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().item_effective_prices
             self.discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().discounted_price
@@ -1888,8 +1889,16 @@ class OrderedProductBatch(models.Model):
     returned_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Pieces")
     damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Pieces")
     pickup_quantity = models.PositiveIntegerField(default=0, verbose_name="Picked pieces")
+    expired_qty = models.PositiveIntegerField(default=0, verbose_name="Expired Pieces")
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.pickup_quantity != sum(
+                [self.quantity, self.damaged_qty, self.expired_qty]):
+            raise ValidationError(_('Picked quantity sum mismatched with picked pieces'))
+        else:
+            super().save(*args, **kwargs)
 
 
 class ShipmentProductMapping(OrderedProductMapping):

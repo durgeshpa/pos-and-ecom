@@ -26,7 +26,7 @@ from retailer_to_sp.models import (
     CustomerCare, ReturnProductMapping, OrderedProduct,
     OrderedProductMapping, Order, Dispatch, Trip,
     Shipment, ShipmentProductMapping, CartProductMapping, Cart,
-    ShipmentRescheduling, PickerDashboard, generate_picklist_id, ResponseComment,BulkOrder
+    ShipmentRescheduling, PickerDashboard, generate_picklist_id, ResponseComment,BulkOrder, OrderedProductBatch
 )
 from products.models import Product
 from shops.models import Shop
@@ -689,6 +689,14 @@ class ShipmentProductMappingForm(forms.ModelForm):
                     for field_name in self.fields:
                         self.fields[field_name].disabled = True
 
+    def clean(self):
+        data = self.cleaned_data
+        if data.get('picked_pieces') !=data.get('shipped_qty') + data.get('damaged_qty') + data.get('expired_qty'):
+            raise forms.ValidationError(
+                'Sorry Quantity mismatch!! Picked pieces must be equal to sum of (damaged_qty, expired_qty, no.of pieces to ship)')
+        return data
+
+
 
 class CartProductMappingForm(forms.ModelForm):
     product_case_size = forms.CharField(
@@ -944,6 +952,8 @@ class OrderedProductMappingRescheduleForm(forms.ModelForm):
                     self.fields['damaged_qty'].disabled = True
 
 
+
+
 class OrderForm(forms.ModelForm):
     seller_shop = forms.ChoiceField(required=False, choices=Shop.objects.values_list('id', 'shop_name'))
     buyer_shop = forms.ChoiceField(required=False, choices=Shop.objects.values_list('id', 'shop_name'))
@@ -995,3 +1005,19 @@ class OrderForm(forms.ModelForm):
                     [i for i in Order.ORDER_STATUS if i[0] == instance.order_status] +
                     [('CANCELLED', 'Cancelled')]))
                 self.fields['order_status'].choices = order_status_choices
+
+
+class OrderedProductBatchForm(forms.ModelForm):
+    class Meta:
+        model = OrderedProductBatch
+        fields = ('pickup_quantity', 'quantity', 'damaged_qty', 'expired_qty')
+
+
+    def clean(self):
+        data = self.cleaned_data
+        if data.get('pickup_quantity')!= data.get('quantity') + data.get('damaged_qty') + data.get('expired_qty'):
+            raise forms.ValidationError('Sorry Quantity mismatch!! Picked pieces must be equal to sum of (damaged_qty, expired_qty, no.of pieces to ship)')
+        return data
+
+
+

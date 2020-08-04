@@ -36,7 +36,7 @@ from common.constants import DOWNLOAD_BULK_INVOICE, ZERO, FIFTY
 from .forms import (CartForm, CartProductMappingForm, CommercialForm, CustomerCareForm,
                     ReturnProductMappingForm, ShipmentForm, ShipmentProductMappingForm, ShipmentReschedulingForm,
                     OrderedProductReschedule, OrderedProductMappingRescheduleForm, OrderForm, EditAssignPickerForm,
-                    ResponseCommentForm, BulkCartForm)
+                    ResponseCommentForm, BulkCartForm, OrderedProductBatchForm)
 from .models import (Cart, CartProductMapping, Commercial, CustomerCare, Dispatch, DispatchProductMapping, Note, Order,
                      OrderedProduct, OrderedProductMapping, Payment, ReturnProductMapping, Shipment,
                      ShipmentProductMapping, Trip, ShipmentRescheduling, Feedback, PickerDashboard, Invoice,
@@ -352,7 +352,8 @@ class ShopSearch(InputFilter):
 
 class OrderedProductBatchAdmin(NestedTabularInline):
     model = OrderedProductBatch
-    fields = ('batch_id', 'ordered_pieces', 'expiry_date','pickup_quantity', 'quantity', 'damaged_qty')
+    form = OrderedProductBatchForm
+    fields = ('batch_id', 'ordered_pieces', 'expiry_date','pickup_quantity', 'quantity', 'damaged_qty', 'expired_qty')
     readonly_fields = ('batch_id', 'ordered_pieces', 'expiry_date')
     extra=0
 
@@ -1185,7 +1186,7 @@ class ShipmentProductMappingAdmin(NestedTabularInline):
     model = ShipmentProductMapping
     form = ShipmentProductMappingForm
     inlines = [OrderedProductBatchAdmin, ]
-    fields = ['product', 'ordered_qty','expiry_date','picked_pieces','shipped_qty', 'damaged_qty']
+    fields = ['product', 'ordered_qty','expiry_date','picked_pieces','shipped_qty', 'damaged_qty', 'expired_qty']
     readonly_fields = ['product', 'ordered_qty', 'expiry_date']
     extra = 0
     max_num = 0
