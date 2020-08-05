@@ -586,7 +586,7 @@ class AuditInventory(object):
     """This class is used for to store data in different models while audit file upload """
 
     @classmethod
-    def audit_exist_batch_id(cls, upload_data, inventory_type, audit_inventory_obj):
+    def audit_exist_batch_id(cls, upload_data, key, value, audit_inventory_obj):
         """
 
         :param upload_data: collection of csv data
@@ -596,36 +596,36 @@ class AuditInventory(object):
         """
         with transaction.atomic():
             # filter in Bin inventory table to get batch id for particular sku, warehouse and bin in
-            bin_inv = BinInventory.objects.filter(warehouse=upload_data[0][0],
-                                                  bin=Bin.objects.filter(bin_id=upload_data[0][4]).last(),
+            bin_inv = BinInventory.objects.filter(warehouse=upload_data[0][0][0],
+                                                  bin=Bin.objects.filter(bin_id=upload_data[0][0][4]).last(),
                                                   sku=Product.objects.filter(
-                                                      product_sku=upload_data[0][1].split('-')[1]).last()).last()
+                                                      product_sku=upload_data[0][0][1].split('-')[1]).last()).last()
 
             # call function to create and update Bin inventory for specific Inventory Type
-            AuditInventory.update_or_create_bin_inventory_for_audit(upload_data[0][0], upload_data[0][4],
-                                                                    upload_data[0][1].split('-')[1],
+            AuditInventory.update_or_create_bin_inventory_for_audit(upload_data[0][0][0], upload_data[0][0][4],
+                                                                    upload_data[0][0][1].split('-')[1],
                                                                     bin_inv.batch_id,
                                                                     InventoryType.objects.filter(
-                                                                        inventory_type=inventory_type).last(),
-                                                                    int(upload_data[0][9]), True)
+                                                                        inventory_type=key).last(),
+                                                                    value, True)
 
             # call function to create and update Ware House Inventory for specific Inventory Type
             AuditInventory.update_or_create_warehouse_inventory_for_audit(
-                upload_data[0][0], upload_data[0][1].split('-')[1],
+                upload_data[0][0][0], upload_data[0][0][1].split('-')[1],
                 CommonInventoryStateFunctions.filter_inventory_state(inventory_state='available').last(),
-                InventoryType.objects.filter(inventory_type=inventory_type).last(),
-                BinInventory.available_qty_with_inventory_type(upload_data[0][0], Product.objects.filter(
-                    product_sku=upload_data[0][1].split('-')[1]).last().id, InventoryType.objects.filter(
-                    inventory_type=inventory_type).last().id), True)
+                InventoryType.objects.filter(inventory_type=key).last(),
+                BinInventory.available_qty_with_inventory_type(upload_data[0][0][0], Product.objects.filter(
+                    product_sku=upload_data[0][0][1].split('-')[1]).last().id, InventoryType.objects.filter(
+                    inventory_type=key).last().id), True)
 
             # call function to create and update Ware House Internal Inventory for specific Inventory Type
             transaction_type = 'audit_adjustment'
             AuditInventory.create_warehouse_inventory_change_for_audit(
-                Shop.objects.get(id=upload_data[0][0]).id, Product.objects.get(
-                    product_sku=upload_data[0][1].split('-')[1]), transaction_type, audit_inventory_obj[0].id,
+                Shop.objects.get(id=upload_data[0][0][0]).id, Product.objects.get(
+                    product_sku=upload_data[0][0][1].split('-')[1]), transaction_type, audit_inventory_obj[0].id,
                 CommonInventoryStateFunctions.filter_inventory_state(inventory_state='available').last(),
                 CommonInventoryStateFunctions.filter_inventory_state(inventory_state='available').last(),
-                InventoryType.objects.filter(inventory_type=inventory_type).last(), int(upload_data[0][9]))
+                InventoryType.objects.filter(inventory_type=key).last(), value)
 
     @classmethod
     def update_or_create_bin_inventory_for_audit(cls, warehouse, bin_id, sku, batch_id, inventory_type, quantity, in_stock):
