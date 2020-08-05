@@ -4,7 +4,7 @@ import csv
 import codecs
 from django import forms
 from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload,\
-    InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit
+    InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit, WarehouseInventory
 from products.models import Product
 from shops.models import Shop
 from gram_to_brand.models import GRNOrderProductMapping
@@ -606,38 +606,18 @@ class UploadAuditAdminForm(forms.Form):
                 raise ValidationError(_(
                     "Issue in Row" + " " + str(row_id + 1) + "," + "Missing-Final Qty can not be empty."))
 
-            if int(row[5]) > 0:
-                raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," +
-                    "Initial Normal Quantity is not greater than 0."))
-
-            if int(row[6]) > 0:
-                raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," +
-                    "Initial Damaged Quantity is not greater than 0."))
-
-            if int(row[7]) > 0:
-                raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," +
-                    "Initial Expired Quantity is not greater than 0."))
-
-            if int(row[8]) > 0:
-                raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," +
-                    "Initial Missing Quantity is not greater than 0."))
-
-            normal = BinInventory.objects.filter(warehouse=row[0],
+            normal = WarehouseInventory.objects.filter(warehouse=row[0],
                                         sku=Product.objects.filter(product_sku=row[1].split('-')[1]).last(),
-                                        bin__bin_id=row[4], inventory_type=InventoryType.objects.filter(
+                                        inventory_type=InventoryType.objects.filter(
                                                                            inventory_type='normal').last())
             if normal.exists():
                 normal = normal[0].quantity
             else:
                 normal = 0
 
-            damaged = BinInventory.objects.filter(warehouse=row[0],
+            damaged = WarehouseInventory.objects.filter(warehouse=row[0],
                                         sku=Product.objects.filter(product_sku=row[1].split('-')[1]).last(),
-                                        bin__bin_id=row[4], inventory_type=InventoryType.objects.filter(
+                                        inventory_type=InventoryType.objects.filter(
                                                                            inventory_type='damaged').last())
 
             if damaged.exists():
@@ -645,18 +625,18 @@ class UploadAuditAdminForm(forms.Form):
             else:
                 damaged = 0
 
-            expired = BinInventory.objects.filter(warehouse=row[0],
+            expired = WarehouseInventory.objects.filter(warehouse=row[0],
                                         sku=Product.objects.filter(product_sku=row[1].split('-')[1]).last(),
-                                        bin__bin_id=row[4], inventory_type=InventoryType.objects.filter(
+                                        inventory_type=InventoryType.objects.filter(
                                                                            inventory_type='expired').last())
             if expired.exists():
                 expired = expired[0].quantity
             else:
                 expired = 0
 
-            missing = BinInventory.objects.filter(warehouse=row[0],
+            missing = WarehouseInventory.objects.filter(warehouse=row[0],
                                                   sku=Product.objects.filter(product_sku=row[1].split('-')[1]).last(),
-                                                  bin__bin_id=row[4], inventory_type=InventoryType.objects.filter(
+                                                  inventory_type=InventoryType.objects.filter(
                     inventory_type='missing').last())
             if missing.exists():
                 missing = missing[0].quantity
@@ -664,7 +644,13 @@ class UploadAuditAdminForm(forms.Form):
                 missing = 0
 
             initial_count = normal + damaged + expired + missing
-            final_count = int(row[9]) + int(row[10]) + int(row[11]) + int(row[12])
+            final_count = 0
+            reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+            first_row = next(reader)
+            for row_id_1, row_1 in enumerate(reader):
+                if row_1[1] == row[1]:
+                    count = int(row_1[9]) + int(row_1[10]) + int(row_1[11]) + int(row_1[12])
+                    final_count = count + final_count
             if not initial_count == final_count:
                 raise ValidationError(_(
                     "Issue in Row" + " " + str(row_id + 1) + "," +
