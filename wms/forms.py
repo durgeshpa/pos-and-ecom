@@ -540,6 +540,7 @@ class UploadAuditAdminForm(forms.Form):
         first_row = next(reader)
         # list which contains csv data and pass into the view file
         form_data_list = []
+        inventory_type = {}
         for row_id, row in enumerate(reader):
 
             if not row[0] or not re.match("^[\d]*$", row[0]):
@@ -650,6 +651,22 @@ class UploadAuditAdminForm(forms.Form):
                     "Issue in Row" + " " + str(row_id + 1) + "," +
                     "Sum of Initial Quantity and Final Quantity is not equal."))
 
+            if int(row[9]) > 0:
+                normal = int(row[9])
+                inventory_type.update({'normal': normal})
+
+            if int(row[10]) > 0:
+                damaged = int(row[10])
+                inventory_type.update({'damaged': damaged})
+
+            if int(row[11]) > 0:
+                expired = int(row[11])
+                inventory_type.update({'expired': expired})
+
+            if int(row[12]) > 0:
+                missing = int(row[12])
+                inventory_type.update({'missing': missing})
+
             form_data_list.append(row)
 
-        return form_data_list
+        return form_data_list, inventory_type

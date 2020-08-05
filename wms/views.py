@@ -765,23 +765,20 @@ def audit_upload(request):
             upload_data = form.cleaned_data['file']
 
             # convert expiry date according to database field type
-            expiry_date = datetime.strptime(upload_data[0][3], '%d/%m/%y').strftime('%Y-%m-%d')
+            expiry_date = datetime.strptime(upload_data[0][0][3], '%d/%m/%y').strftime('%Y-%m-%d')
 
             # Check SKU and Expiry data is exist or not
-            grn_order_obj = GRNOrderProductMapping.objects.filter(product__product_sku=upload_data[0][1].split('-')[1],
+            grn_order_obj = GRNOrderProductMapping.objects.filter(product__product_sku=upload_data[0][0][1].split('-')[1],
                                                                   expiry_date=expiry_date)
-
-            # Type of Inventory
-            inventory_type = ['normal', 'damaged', 'expired', 'missing']
 
             # call function to create audit data in Audit Model
             audit_inventory_obj = AuditInventory.create_audit_entry(request.user, request.FILES['file'])
 
             if grn_order_obj.exists():
-                for inventory_type in inventory_type:
+                for key, value in upload_data[1].items():
                     # call function to create data in different models like:- Bin Inventory, Warehouse Inventory and
                     # Warehouse Internal Inventory Model
-                    AuditInventory.audit_exist_batch_id(upload_data, inventory_type, audit_inventory_obj)
+                    AuditInventory.audit_exist_batch_id(upload_data, key, value, audit_inventory_obj)
                 return render(request, 'admin/wms/audit-upload.html', {'form': form})
 
         else:
