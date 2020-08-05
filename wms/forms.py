@@ -10,6 +10,7 @@ from shops.models import Shop
 from gram_to_brand.models import GRNOrderProductMapping
 from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ValidationError
+from django.db.models import Sum, Q
 from sp_to_gram.models import OrderedProductMapping
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -606,41 +607,32 @@ class UploadAuditAdminForm(forms.Form):
                 raise ValidationError(_(
                     "Issue in Row" + " " + str(row_id + 1) + "," + "Missing-Final Qty can not be empty."))
 
-            normal = WarehouseInventory.objects.filter(warehouse=row[0],
-                                        sku=Product.objects.filter(product_sku=row[1].split('-')[1]).last(),
-                                        inventory_type=InventoryType.objects.filter(
-                                                                           inventory_type='normal').last())
-            if normal.exists():
-                normal = normal[0].quantity
-            else:
+            normal = BinInventory.objects.filter(Q(warehouse__id=row[0]),
+                            Q(sku__id=Product.objects.filter(product_sku=row[1].split('-')[1])[0].id),
+                            Q(inventory_type__id=InventoryType.objects.filter(inventory_type='normal')[0].id),
+                            Q(quantity__gt=0)).aggregate(total=Sum('quantity')).get('total')
+            if normal is None:
                 normal = 0
 
-            damaged = WarehouseInventory.objects.filter(warehouse=row[0],
-                                        sku=Product.objects.filter(product_sku=row[1].split('-')[1]).last(),
-                                        inventory_type=InventoryType.objects.filter(
-                                                                           inventory_type='damaged').last())
-
-            if damaged.exists():
-                damaged = damaged[0].quantity
-            else:
+            damaged = BinInventory.objects.filter(Q(warehouse__id=row[0]),
+                            Q(sku__id=Product.objects.filter(product_sku=row[1].split('-')[1])[0].id),
+                            Q(inventory_type__id=InventoryType.objects.filter(inventory_type='damaged')[0].id),
+                            Q(quantity__gt=0)).aggregate(total=Sum('quantity')).get('total')
+            if damaged is None:
                 damaged = 0
 
-            expired = WarehouseInventory.objects.filter(warehouse=row[0],
-                                        sku=Product.objects.filter(product_sku=row[1].split('-')[1]).last(),
-                                        inventory_type=InventoryType.objects.filter(
-                                                                           inventory_type='expired').last())
-            if expired.exists():
-                expired = expired[0].quantity
-            else:
-                expired = 0
+            expired = BinInventory.objects.filter(Q(warehouse__id=row[0]),
+                            Q(sku__id=Product.objects.filter(product_sku=row[1].split('-')[1])[0].id),
+                            Q(inventory_type__id=InventoryType.objects.filter(inventory_type='expired')[0].id),
+                            Q(quantity__gt=0)).aggregate(total=Sum('quantity')).get('total')
 
-            missing = WarehouseInventory.objects.filter(warehouse=row[0],
-                                                  sku=Product.objects.filter(product_sku=row[1].split('-')[1]).last(),
-                                                  inventory_type=InventoryType.objects.filter(
-                    inventory_type='missing').last())
-            if missing.exists():
-                missing = missing[0].quantity
-            else:
+            if expired is None:
+                expired = 0
+            missing = BinInventory.objects.filter(Q(warehouse__id=row[0]),
+                            Q(sku__id=Product.objects.filter(product_sku=row[1].split('-')[1])[0].id),
+                            Q(inventory_type__id=InventoryType.objects.filter(inventory_type='missing')[0].id),
+                            Q(quantity__gt=0)).aggregate(total=Sum('quantity')).get('total')
+            if missing is None:
                 missing = 0
 
             initial_count = normal + damaged + expired + missing
