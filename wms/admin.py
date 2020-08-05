@@ -9,11 +9,11 @@ from django.utils.html import format_html
 from django.urls import reverse
 
 # app imports
-from .views import bins_upload, put_away, CreatePickList
+from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload
 from import_export import resources
 from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, PickupBinInventory,
                      WarehouseInventory, InventoryState, WarehouseInternalInventoryChange, StockMovementCSVUpload,
-                     BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease)
+                     BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit)
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
                     StockMovementCSVUploadAdminForm)
 from barCodeGenerator import barcodeGen
@@ -103,7 +103,8 @@ class PutAwayAdmin(admin.ModelAdmin):
 class PutawayBinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Put Away Bin Inventory Admin has been called.")
     form = PutAwayBinInventoryForm
-    list_display = ('warehouse', 'putaway', 'bin', 'putaway_quantity', 'created_at')
+    list_display = ('warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway', 'bin', 'putaway_quantity',
+                    'putaway_status', 'created_at')
 
 
 class InventoryTypeAdmin(admin.ModelAdmin):
@@ -208,7 +209,7 @@ class InventoryStateAdmin(admin.ModelAdmin):
 
 
 class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
-    list_display = ('warehouse', 'sku', 'transaction_type', 'transaction_id', 'initial_stage', 'final_stage', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
+    list_display = ('warehouse', 'sku', 'inventory_type', 'transaction_type', 'status', 'transaction_id', 'initial_stage', 'final_stage', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
     list_select_related = ('warehouse', 'sku')
     readonly_fields = ('warehouse', 'sku', 'transaction_type', 'transaction_id', 'initial_stage', 'final_stage', 'quantity', 'created_at', 'modified_at')
 
@@ -226,6 +227,44 @@ class OrderReleaseAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'sku', 'warehouse_internal_inventory_reserve', 'warehouse_internal_inventory_release', 'reserved_time', 'release_time', 'created_at')
     readonly_fields = ('warehouse', 'sku', 'warehouse_internal_inventory_reserve', 'warehouse_internal_inventory_release', 'reserved_time', 'release_time', 'created_at')
 
+
+class AuditAdmin(admin.ModelAdmin):
+    """
+    This class is used to view the Stock(Movement) form Admin Panel
+    """
+
+    list_display = ('id', 'uploaded_by', 'created_at', 'upload_csv')
+    list_display_links = None
+    list_per_page = 50
+    change_list_template = 'admin/wms/audit_change_list.html'
+
+    def get_urls(self):
+        from django.conf.urls import url
+        urls = super(AuditAdmin, self).get_urls()
+        urls = [
+                   url(
+                       r'^audit-download-csv/$',
+                       self.admin_site.admin_view(audit_download),
+                       name="audit-download"
+                   ),
+                   url(
+                       r'^audit-upload-csv/$',
+                       self.admin_site.admin_view(audit_upload),
+                       name="audit-upload"
+                   )
+               ] + urls
+        return urls
+
+    def get_queryset(self, request):
+        """
+
+        :param request: get request
+        :return: queryset
+        """
+        qs = super(AuditAdmin, self).get_queryset(request)
+        return qs
+
+
 admin.site.register(Bin, BinAdmin)
 admin.site.register(In, InAdmin)
 admin.site.register(InventoryType, InventoryTypeAdmin)
@@ -242,3 +281,4 @@ admin.site.register(WarehouseInternalInventoryChange, WarehouseInternalInventory
 admin.site.register(BinInternalInventoryChange, BinInternalInventoryChangeAdmin)
 admin.site.register(StockCorrectionChange, StockCorrectionChangeAdmin)
 admin.site.register(OrderReserveRelease, OrderReleaseAdmin)
+admin.site.register(Audit, AuditAdmin)
