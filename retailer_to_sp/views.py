@@ -224,7 +224,7 @@ def ordered_product_mapping_shipment(request):
             .filter(
             ordered_product__order_id=order_id,
             product__id__in=[i['cart_product'] for i in cart_products]) \
-            .annotate(Sum('delivered_qty'), Sum('shipped_qty'))
+            .annotate(Sum('delivered_qty'), Sum('shipped_qty'), Sum('picked_pieces'))
         products_list = []
         pick_up_obj = Pickup.objects.filter(pickup_type_id=Order.objects.filter(id=order_id).last().order_no)
         for item, pick_up in zip(cart_products, pick_up_obj):
@@ -243,6 +243,7 @@ def ordered_product_mapping_shipment(request):
                         'already_shipped_qty': already_shipped_qty,
                         'to_be_shipped_qty': to_be_shipped_qty,
                         'shipped_qty': pick_up.quantity,
+                        'picked_pieces':pick_up.pickup_quantity
                     })
             else:
                 products_list.append({
@@ -252,6 +253,7 @@ def ordered_product_mapping_shipment(request):
                     'already_shipped_qty': 0,
                     'to_be_shipped_qty': 0,
                     'shipped_qty':pick_up.quantity,
+                    'picked_pieces':pick_up.pickup_quantity
                 })
         form_set = ordered_product_set(initial=products_list)
         form = OrderedProductForm(initial={'order': order_id})

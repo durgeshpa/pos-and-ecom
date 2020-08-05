@@ -15,7 +15,9 @@ jQuery(function($) {
     changeExpPieces()
     changeval()
     changePickedPieces()
+    updateval()
     changeDamagedPieces()
+    loadPickedPieces()
     // This script is applied to all TABULAR inlines
     $('div.inline-group div.tabular').each(function() {
         table = $(this).find('table');
@@ -298,5 +300,39 @@ function changeExpPieces(){
     })
 }
 
+function loadPickedPieces(){
+    $(document).ready(function(){
+        xx = [0,1,2,3,4,5,6]
+    for(var i=0;i<10;i++){
+        var sum = 0
+        for (var j=0; j<10;j++){
+            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-pickup_quantity` + "]").val())
+            if (isNaN(tot)){
+                continue
+            }
+            sum +=tot
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-picked_pieces` + "]").val(sum);
 
+        }
+        }
+    })
+}
+
+function updateval(){
+        xx = [0,1,2,3,4,5,6]
+        $("input[name^='rt_order_product_order_product_mapping']").keyup(function(){
+    for(var i=0;i<10;i++){
+        var sum = 0
+        for (var j=0; j<10;j++){
+            var tot = parseInt($("input[name=" + `rt_order_product_order_product_mapping-${i}-rt_ordered_product_mapping-${j}-quantity` + "]").val())
+            if (isNaN(tot)){
+                continue
+            }
+            sum +=tot
+            $("input[name=" + `rt_order_product_order_product_mapping-${i}-shipped_qty` + "]").val(sum);
+
+        }
+        }
+    })
+}
 

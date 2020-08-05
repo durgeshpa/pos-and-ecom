@@ -1015,7 +1015,6 @@ class OrderedProductBatchForm(forms.ModelForm):
         model = OrderedProductBatch
         fields = ('pickup_quantity', 'quantity', 'damaged_qty', 'expired_qty')
 
-
     def clean(self):
         data = self.cleaned_data
         if data.get('pickup_quantity')!= data.get('quantity') + data.get('damaged_qty') + data.get('expired_qty'):

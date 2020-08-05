@@ -2425,8 +2425,6 @@ def update_order_status_from_shipment(sender, instance=None, created=False,
 
 
 def populate_data_on_qc_pass(order):
-    import pdb;
-    pdb.set_trace()
     pick_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order.order_no)
     for i in pick_bin_inv:
         ordered_product_mapping = order.rt_order_order_product.all().last().rt_order_product_order_product_mapping.filter(product__id=i.pickup.sku.id).last()
