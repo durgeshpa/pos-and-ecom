@@ -775,26 +775,47 @@ def audit_upload(request):
             audit_inventory_obj = AuditInventory.create_audit_entry(request.user, request.FILES['file'])
 
             if grn_order_obj.exists():
-                inventory_type = {}
                 # iteration for csv data
                 for data in upload_data:
                     # condition to check for Final Inventory types quantity
-                    if int(data[9]) > 0:
-                        normal = int(data[9])
-                        inventory_type.update({'normal': normal})
+                    bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
+                                                bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                                sku=Product.objects.filter(
+                                                    product_sku=data[1].split('-')[1]).last())
+                    inventory_type = {}
+                    for bin_inventory in bin_inventory_obj:
+                        if bin_inventory.inventory_type.inventory_type == 'normal':
+                            normal = int(data[9])
+                            inventory_type.update({'normal': normal})
+                        else:
+                            if int(data[9]) > 0:
+                                normal = int(data[9])
+                                inventory_type.update({'normal': normal})
 
-                    if int(data[10]) > 0:
-                        damaged = int(data[10])
-                        inventory_type.update({'damaged': damaged})
+                        if bin_inventory.inventory_type.inventory_type == 'damaged':
+                            damaged = int(data[10])
+                            inventory_type.update({'damaged': damaged})
+                        else:
+                            if int(data[10]) > 0:
+                                damaged = int(data[10])
+                                inventory_type.update({'damaged': damaged})
 
-                    if int(data[11]) > 0:
-                        expired = int(data[11])
-                        inventory_type.update({'expired': expired})
+                        if bin_inventory.inventory_type.inventory_type == 'expired':
+                            expired = int(data[11])
+                            inventory_type.update({'expired': expired})
 
-                    if int(data[12]) > 0:
-                        missing = int(data[12])
-                        inventory_type.update({'missing': missing})
-                    # iteration for different inventory type and their quantity
+                        else:
+                            if int(data[11]) > 0:
+                                expired = int(data[11])
+                                inventory_type.update({'expired': expired})
+
+                        if bin_inventory.inventory_type.inventory_type == 'missing':
+                            missing = int(data[12])
+                            inventory_type.update({'missing': missing})
+                        else:
+                            if int(data[12]) > 0:
+                                missing = int(data[12])
+                                inventory_type.update({'missing': missing})
                     for key, value in inventory_type.items():
                         # call function to create data in different models like:- Bin Inventory, Warehouse Inventory and
                         # Warehouse Internal Inventory Model
