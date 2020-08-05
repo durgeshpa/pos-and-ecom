@@ -399,12 +399,16 @@ class PickupDetail(APIView):
         for i in pickup_orders.ordered_cart.rt_cart_list.all():
             sku_list.append(i.cart_product.id)
 
-        bin_obj = BinInventory.objects.filter(bin__bin_id=bin_id, sku__id=sku_list[0])
-        picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, pickup__sku__id__in=sku_list,
-                                                            bin=bin_obj[0])
-
-        serializer = PickupBinInventorySerializer(
-            picking_details, many=True)
+        bin_list = []
+        for sku in sku_list:
+            bin_obj = BinInventory.objects.filter(bin__bin_id=bin_id, sku__id=sku)
+            if bin_obj.exists():
+                bin_list.append(bin_obj)
+        pick_list = []
+        for bin_id in bin_list:
+            picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin=bin_id[0])
+            pick_list.append(picking_details[0])
+        serializer = PickupBinInventorySerializer(pick_list, many=True)
         msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
         return Response(msg, status=status.HTTP_200_OK)
 
