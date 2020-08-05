@@ -1,7 +1,7 @@
 # python imports
 import logging
 import csv
-
+from io import StringIO
 # django imports
 from django.contrib import admin
 from django.http import HttpResponse
@@ -105,6 +105,41 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
     form = PutAwayBinInventoryForm
     list_display = ('warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway', 'bin', 'putaway_quantity',
                     'putaway_status', 'created_at')
+    actions = ['download_bulk_put_away_bin_inventory_csv']
+
+    def download_bulk_put_away_bin_inventory_csv(self, request, queryset):
+        """
+
+        :param request: get request
+        :param queryset: Put Away BinInventory queryset
+        :return: csv file
+        """
+        f = StringIO()
+        writer = csv.writer(f)
+        # set the header name
+        writer.writerow(["Warehouse", "SKU", "Batch ID ",
+                         "Put Away Type", "Put Away ID", "Bin ID", "Put Away Quantity", "Put Away Status"])
+
+        for query in queryset:
+            # iteration for selected id from Admin Dashboard and get the instance
+            putaway_bin_inventory = PutawayBinInventory.objects.get(id=query.id)
+            # get object from queryset
+            writer.writerow([putaway_bin_inventory.warehouse_id, putaway_bin_inventory.sku.product_name + '-' + putaway_bin_inventory.sku.product_sku,
+                             putaway_bin_inventory.batch_id, putaway_bin_inventory.putaway_type,
+                             putaway_bin_inventory.putaway_id,
+                             putaway_bin_inventory.bin_id,
+                             putaway_bin_inventory.putaway_quantity,
+                             putaway_bin_inventory.putaway_status])
+
+        f.seek(0)
+        response = HttpResponse(f, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename=putaway_bin_inventory_download.csv'
+        return response
+
+    # download bulk invoice short description
+    download_bulk_put_away_bin_inventory_csv.short_description = "Download Bulk Data in CSV"
+
+
 
 
 class InventoryTypeAdmin(admin.ModelAdmin):
