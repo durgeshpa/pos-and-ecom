@@ -2,12 +2,15 @@
 import logging
 import csv
 from io import StringIO
+from dal_admin_filters import AutocompleteFilter
 # django imports
 from django.contrib import admin
 from django.http import HttpResponse
 from django.utils.html import format_html
 from django.urls import reverse
-
+from django_admin_listfilter_dropdown.filters import ChoiceDropdownFilter
+from rangefilter.filter import DateTimeRangeFilter
+from retailer_backend.admin import InputFilter
 # app imports
 from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload
 from import_export import resources
@@ -32,6 +35,12 @@ class BinResource(resources.ModelResource):
         exclude = ('created_at', 'modified_at')
 
 
+class Warehouse(AutocompleteFilter):
+    title = 'Warehouse'
+    field_name = 'warehouse'
+    autocomplete_url = 'warehouse-autocomplete'
+
+
 class BinAdmin(admin.ModelAdmin):
     info_logger.info("Bin Admin has been called.")
     form = BinForm
@@ -39,6 +48,11 @@ class BinAdmin(admin.ModelAdmin):
     actions = ['download_csv_for_bins',]
     list_display = ('warehouse', 'bin_id', 'bin_type', 'created_at', 'modified_at', 'is_active', 'download_bin_id_barcode')
     readonly_fields = ['bin_barcode','barcode_image','download_bin_id_barcode']
+    search_fields = ('bin_id',)
+    list_filter = [
+        ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter), Warehouse,
+        ('bin_type', ChoiceDropdownFilter),
+    ]
 
     def get_urls(self):
         from django.conf.urls import url
@@ -87,6 +101,8 @@ class BinAdmin(admin.ModelAdmin):
 
     download_csv_for_bins.short_description = "Download CSV of selected bins"
 
+    class Media:
+        pass
 
 class InAdmin(admin.ModelAdmin):
     info_logger.info("In Admin has been called.")
@@ -138,8 +154,6 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
 
     # download bulk invoice short description
     download_bulk_put_away_bin_inventory_csv.short_description = "Download Bulk Data in CSV"
-
-
 
 
 class InventoryTypeAdmin(admin.ModelAdmin):

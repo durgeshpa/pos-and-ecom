@@ -1,6 +1,7 @@
 from django.conf.urls import include, url
 
 from .views import bins_upload, CreatePickList, StockMovementCsvSample, StockMovementCsvView, DownloadBinCSV
+from .filters import WareHouseComplete
 
 urlpatterns = [
     # url(r'^upload-csv/$', bins_upload, name="bins_upload"),
@@ -9,4 +10,5 @@ urlpatterns = [
     url(r'^download/inventory_csv/sample/$', StockMovementCsvSample.as_view(), name="download-inventory-csv-sample"),
     url(r'^upload/csv/$', StockMovementCsvView.as_view(), name="inventory-upload-csv"),
     url(r'^download/bin/csv/$', DownloadBinCSV.as_view(), name="download-inventory-csv-sample"),
+    url(r'^warehouse-autocomplete/$', WareHouseComplete.as_view(), name='warehouse-autocomplete'),
 ]
