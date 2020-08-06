@@ -213,14 +213,28 @@ class PickupAdmin(admin.ModelAdmin):
         pass
 
 
-
 class PickupBinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Bin Inventory Admin has been called.")
 
-    list_display = ('warehouse', 'pickup', 'batch_id', 'bin','quantity', 'pickup_quantity','created_at')
+    list_display = ('warehouse', 'batch_id', 'order_number', 'bin_id', 'quantity', 'pickup_quantity','created_at')
     list_select_related = ('warehouse', 'pickup', 'bin')
     readonly_fields = ('warehouse', 'pickup', 'batch_id', 'bin','created_at')
+    search_fields = ('batch_id', 'bin__bin__bin_id')
+    list_filter = [
+        ('created_at', DateTimeRangeFilter), Warehouse,
+    ]
 
+    def order_number(self, obj):
+        return obj.pickup.pickup_type_id
+
+    def bin_id(self, obj):
+        return obj.bin.bin.bin_id
+
+    class Media:
+        pass
+
+    order_number.short_description = 'Order Number'
+    bin_id.short_description = 'Bin Id'
 
 class StockMovementCSVUploadAdmin(admin.ModelAdmin):
     """
