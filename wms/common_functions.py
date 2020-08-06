@@ -601,11 +601,11 @@ class AuditInventory(object):
             bin_inv = BinInventory.objects.filter(warehouse=data[0],
                                                   bin=Bin.objects.filter(bin_id=data[4]).last(),
                                                   sku=Product.objects.filter(
-                                                      product_sku=data[1].split('-')[1]).last()).last()
+                                                      product_sku=data[1][-17:]).last()).last()
 
             # call function to create and update Bin inventory for specific Inventory Type
             AuditInventory.update_or_create_bin_inventory_for_audit(data[0], data[4],
-                                                                    data[1].split('-')[1],
+                                                                    data[1][-17:],
                                                                     bin_inv.batch_id,
                                                                     InventoryType.objects.filter(
                                                                         inventory_type=key).last(),
@@ -613,18 +613,18 @@ class AuditInventory(object):
 
             # call function to create and update Ware House Inventory for specific Inventory Type
             AuditInventory.update_or_create_warehouse_inventory_for_audit(
-                data[0], data[1].split('-')[1],
+                data[0], data[1][-17:],
                 CommonInventoryStateFunctions.filter_inventory_state(inventory_state='available').last(),
                 InventoryType.objects.filter(inventory_type=key).last(),
                 BinInventory.available_qty_with_inventory_type(data[0], Product.objects.filter(
-                    product_sku=data[1].split('-')[1]).last().id, InventoryType.objects.filter(
+                    product_sku=data[1][-17:]).last().id, InventoryType.objects.filter(
                     inventory_type=key).last().id), True)
 
             # call function to create and update Ware House Internal Inventory for specific Inventory Type
             transaction_type = 'audit_adjustment'
             AuditInventory.create_warehouse_inventory_change_for_audit(
                 Shop.objects.get(id=data[0]).id, Product.objects.get(
-                    product_sku=data[1].split('-')[1]), transaction_type, audit_inventory_obj[0].id,
+                    product_sku=data[1][-17:]), transaction_type, audit_inventory_obj[0].id,
                 CommonInventoryStateFunctions.filter_inventory_state(inventory_state='available').last(),
                 CommonInventoryStateFunctions.filter_inventory_state(inventory_state='available').last(),
                 InventoryType.objects.filter(inventory_type=key).last(), value)
