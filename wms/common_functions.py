@@ -497,9 +497,10 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id, ord
             available_qty = wim.last().quantity
             if order_status == 'ordered':
                 wim.update(quantity=available_qty)
+                WarehouseInventory.objects.filter(id=ordered_id).update(quantity=reserved_qty,inventory_state=InventoryState.objects.filter(inventory_state='ordered').last())
             else:
                 wim.update(quantity=available_qty+reserved_qty)
-            WarehouseInventory.objects.filter(id=ordered_id).update(quantity=0)
+                WarehouseInventory.objects.filter(id=ordered_id).update(quantity=0)
             warehouse_details = WarehouseInternalInventoryChange.objects.filter(transaction_id=transaction_id,
                                                                            transaction_type='reserved',
                                                                            status=True)

@@ -584,8 +584,13 @@ def pickup_entry_creation_with_cron():
                 qty = obj.quantity
                 bin_lists = obj.sku.rt_product_sku.filter(quantity__gt=0).order_by('-batch_id', 'quantity')
                 for k in bin_lists:
-
-                    bin_inv_dict[str(datetime.strptime(k.batch_id[17:19] + '-' + k.batch_id[19:21] + '-' + '20' + k.batch_id[21:23], "%d-%m-%Y"))]=k
+                    if len(k.batch_id) == 23:
+                        bin_inv_dict[str(datetime.strptime(
+                            k.batch_id[17:19] + '-' + k.batch_id[19:21] + '-' + '20' + k.batch_id[21:23],
+                            "%d-%m-%Y"))] = k
+                    else:
+                        bin_inv_dict[str(
+                            datetime.strptime('30-' + k.batch_id[17:19] + '-20' + k.batch_id[19:21], "%d-%m-%Y"))] = k
                 bin_inv_dict = list(bin_inv_dict.items())
                 bin_inv_dict.sort()
                 bin_inv_dict = dict(bin_inv_dict)
