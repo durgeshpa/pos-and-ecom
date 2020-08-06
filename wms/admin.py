@@ -375,7 +375,12 @@ class OrderReleaseAdmin(admin.ModelAdmin):
     list_filter = [Warehouse,]
 
     def order_number(self, obj):
-        return obj.warehouse_internal_inventory_release.transaction_id
+        try:
+            if obj is None:
+                pass
+            return obj.warehouse_internal_inventory_release.transaction_id
+        except:
+            pass
 
     order_number.short_description = 'Order Number'
 
