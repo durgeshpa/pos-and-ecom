@@ -132,12 +132,16 @@ class PutAwayAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+
 class PutawayBinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Put Away Bin Inventory Admin has been called.")
     form = PutAwayBinInventoryForm
-    list_display = ('warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway', 'bin', 'putaway_quantity',
+    list_display = ('warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway_id', 'bin_id', 'putaway_quantity',
                     'putaway_status', 'created_at')
     actions = ['download_bulk_put_away_bin_inventory_csv']
+    search_fields = ('batch_id','sku__product_sku', 'bin__bin__bin_id')
+    list_filter = [
+        ('created_at', DateTimeRangeFilter), Warehouse, 'putaway_type',]
 
     def download_bulk_put_away_bin_inventory_csv(self, request, queryset):
         """
@@ -168,8 +172,27 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
         response['Content-Disposition'] = 'attachment; filename=putaway_bin_inventory_download.csv'
         return response
 
+    def putaway_id(self, obj):
+        return obj.putaway_id
+
+    def bin_id(self, obj):
+        try:
+            if obj is None:
+                pass
+            return obj.bin.bin.bin_id
+        except:
+            pass
+
+
+    putaway_id.short_description = 'Putaway ID'
+    bin_id.short_description = 'Bin Id'
+
+
     # download bulk invoice short description
     download_bulk_put_away_bin_inventory_csv.short_description = "Download Bulk Data in CSV"
+
+    class Media:
+        pass
 
 
 class InventoryTypeAdmin(admin.ModelAdmin):
