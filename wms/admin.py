@@ -114,6 +114,11 @@ class InAdmin(admin.ModelAdmin):
     info_logger.info("In Admin has been called.")
     form = InForm
     list_display = ('id', 'warehouse', 'sku', 'batch_id', 'in_type', 'in_type_id', 'quantity',)
+    search_fields = ('batch_id', 'in_type_id', 'sku__product_sku',)
+    list_filter = [Warehouse, 'in_type']
+
+    class Media:
+        pass
 
 
 class PutAwayAdmin(admin.ModelAdmin):
