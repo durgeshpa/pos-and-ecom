@@ -10,9 +10,12 @@ from django.contrib import messages
 from shops.models import Shop, ShopType
 from products.models import Product
 from gram_to_brand.models import GRNOrderProductMapping
-from sp_to_gram.models import OrderedProduct, OrderedProductMapping, StockAdjustment, StockAdjustmentMapping,OrderedProductReserved
-from django.db.models import Sum,Q
+from sp_to_gram.models import OrderedProduct, OrderedProductMapping, StockAdjustment, StockAdjustmentMapping, \
+    OrderedProductReserved
+from django.db.models import Sum, Q
 from dal import autocomplete
+
+from wms.models import BinInventory, InventoryType, InventoryState, WarehouseInventory
 from .forms import StockAdjustmentUploadForm, BulkShopUpdation, ShopUserMappingCsvViewForm
 from django.views.generic.edit import FormView
 import csv
@@ -28,6 +31,8 @@ from django.contrib.auth.mixins import PermissionRequiredMixin
 
 from collections import defaultdict
 import itertools
+
+
 # Create your views here.
 class ShopMappedProduct(TemplateView):
     template_name = "admin/shop/change_list.html"
@@ -37,32 +42,38 @@ class ShopMappedProduct(TemplateView):
         context = super().get_context_data(**kwargs)
         context['shop'] = shop_obj
         context['user_has_stock_update_perm'] = self.request.user.has_perm('sp_to_gram.add_stockadjustment')
-        if shop_obj.shop_type.shop_type=='gf':
-            grn_product = GRNOrderProductMapping.objects.filter(grn_order__order__ordered_cart__gf_shipping_address__shop_name=shop_obj)
-            product_sum = grn_product.values('product','product__product_name', 'product__product_gf_code', 'product__product_sku').annotate(product_qty_sum=Sum('available_qty'))
+        if shop_obj.shop_type.shop_type == 'gf':
+            grn_product = GRNOrderProductMapping.objects.filter(
+                grn_order__order__ordered_cart__gf_shipping_address__shop_name=shop_obj)
+            product_sum = grn_product.values('product', 'product__product_name', 'product__product_gf_code',
+                                             'product__product_sku').annotate(product_qty_sum=Sum('available_qty'))
             context['shop_products'] = product_sum
 
 
-        elif shop_obj.shop_type.shop_type=='sp':
+        elif shop_obj.shop_type.shop_type == 'sp':
             mrps = []
+            products = None
+            product_list = {}
             sp_grn_product = OrderedProductMapping.get_shop_stock(shop_obj)
-            products = sp_grn_product.values('product').distinct()
-            for product in products:
-                product_mrp = Product.objects.get(id =product['product']).product_pro_price.filter(seller_shop = shop_obj, approval_status = 2)
-                mrps.append({'product': product['product'], 'mrp' : product_mrp.last().mrp if product_mrp.exists() else ''})
-            product_sum = sp_grn_product.values('product','product__product_name', 'product__product_gf_code', 'product__product_sku').annotate(product_qty_sum=Sum('available_qty')).annotate(damaged_qty_sum=Sum('damaged_qty'))
-            product_sum = list(product_sum)
-            d = defaultdict(dict)
-            for elem in itertools.chain(mrps, product_sum):
-                d[elem['product']].update(elem)
-            product_sum_final = d.values()
-            product_sum_final = sorted(product_sum_final, key = lambda i: i['product__product_gf_code'])
-            context['shop_products'] = product_sum_final
-        else:
-            context['shop_products'] = None
+            # products = sp_grn_product.values('product').distinct()
+            bin_inventory_state = InventoryState.objects.filter(inventory_state="available").last()
+            products = WarehouseInventory.objects.filter(warehouse=shop_obj, inventory_state=bin_inventory_state)
+
+            for myproduct in products:
+                product_temp = {}
+                if myproduct.sku.product_sku in product_list:
+                    product_temp = product_list[myproduct.sku.product_sku]
+                    product_temp[myproduct.inventory_type.inventory_type] = myproduct.quantity
+                else:
+                    product_mrp = myproduct.sku.product_pro_price.filter(seller_shop=shop_obj, approval_status=2)
+                    product_temp = {'sku': myproduct.sku.product_sku, 'name': myproduct.sku.product_name,
+                                    myproduct.inventory_type.inventory_type: myproduct.quantity,
+                                    'mrp': product_mrp.last().mrp if product_mrp.exists() else ''}
+
+                product_list[myproduct.sku.product_sku] = product_temp
+            context['products'] = product_list
 
         return context
-
 
 
 class ShopParentAutocomplete(autocomplete.Select2QuerySetView):
@@ -72,64 +83,74 @@ class ShopParentAutocomplete(autocomplete.Select2QuerySetView):
             return qs
         shop_type = self.forwarded.get('shop_type', None)
         if shop_type:
-            dt = {'r':'sp','sp':'gf'}
+            dt = {'r': 'sp', 'sp': 'gf'}
             qs = Shop.objects.filter(shop_type__shop_type=dt[ShopType.objects.get(id=shop_type).shop_type])
         else:
-            qs = Shop.objects.filter(shop_type__shop_type__in=['gf','sp'])
+            qs = Shop.objects.filter(shop_type__shop_type__in=['gf', 'sp'])
         if self.q:
             qs = qs.filter(Q(shop_owner__phone_number__icontains=self.q) | Q(shop_name__icontains=self.q))
         return qs
+
 
 class ShopRetailerAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         if not self.request.user.is_authenticated:
             qs = Shop.objects.none()
             return qs
-        qs = Shop.objects.filter(shop_type__shop_type__in=['sp','r'],shop_name_address_mapping__address_type='shipping').distinct('id')
+        qs = Shop.objects.filter(shop_type__shop_type__in=['sp', 'r'],
+                                 shop_name_address_mapping__address_type='shipping').distinct('id')
         if self.q:
             qs = qs.filter(Q(shop_owner__phone_number__icontains=self.q) | Q(shop_name__icontains=self.q))
         return qs
+
 
 def stock_adjust_sample(request, shop_id):
     filename = "stock_correction_upload_sample.csv"
     shop = Shop.objects.get(pk=shop_id)
     sp_grn_product = OrderedProductMapping.get_shop_stock(shop)
-    db_available_products = sp_grn_product.filter(expiry_date__gt = datetime.datetime.today())
+    db_available_products = sp_grn_product.filter(expiry_date__gt=datetime.datetime.today())
     db_expired_products = OrderedProductMapping.get_shop_stock_expired(shop)
 
-    products_available = db_available_products.values('product','product__product_name', 'product__product_gf_code', 'product__product_sku').annotate(product_qty_sum=Sum('available_qty')).annotate(damaged_qty_sum=Sum('damaged_qty'))
-    products_expired = db_expired_products.values('product','product__product_name', 'product__product_gf_code', 'product__product_sku').annotate(product_qty_sum=Sum('available_qty'))
+    products_available = db_available_products.values('product', 'product__product_name', 'product__product_gf_code',
+                                                      'product__product_sku').annotate(
+        product_qty_sum=Sum('available_qty')).annotate(damaged_qty_sum=Sum('damaged_qty'))
+    products_expired = db_expired_products.values('product', 'product__product_name', 'product__product_gf_code',
+                                                  'product__product_sku').annotate(product_qty_sum=Sum('available_qty'))
     expired_products = {}
     for product in products_expired:
         expired_products[product['product__product_gf_code']] = product['product_qty_sum']
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(['product_gf_code','product_name','product_sku','Available','Damaged','Expired', 'MRP'])
+    writer.writerow(['product_gf_code', 'product_name', 'product_sku', 'Available', 'Damaged', 'Expired', 'MRP'])
     for product in products_available.order_by('product__product_gf_code'):
-        product_mrps = Product.objects.get(id =product['product']).product_pro_price.filter(seller_shop = shop, approval_status = 2)
+        product_mrps = Product.objects.get(id=product['product']).product_pro_price.filter(seller_shop=shop,
+                                                                                           approval_status=2)
         mrp = product_mrps.last().mrp if product_mrps else ''
-        expired_product = expired_products.get(product['product__product_gf_code'],0)
-        writer.writerow([product['product__product_gf_code'],product['product__product_name'],product['product__product_sku'],product['product_qty_sum'],product['damaged_qty_sum'],expired_product, mrp])
+        expired_product = expired_products.get(product['product__product_gf_code'], 0)
+        writer.writerow(
+            [product['product__product_gf_code'], product['product__product_name'], product['product__product_sku'],
+             product['product_qty_sum'], product['damaged_qty_sum'], expired_product, mrp])
     return response
 
 
 class StockAdjustmentView(PermissionRequiredMixin, View):
     permission_required = 'sp_to_gram.add_stockadjustment'
     template_name = 'admin/shop/upload_stock_adjustment.html'
+
     def get(self, request, shop_id):
         shop = Shop.objects.get(pk=shop_id)
-        form = StockAdjustmentUploadForm(initial={'shop':shop})
-        return render(request, self.template_name, {'form': form, 'shop':shop})
+        form = StockAdjustmentUploadForm(initial={'shop': shop})
+        return render(request, self.template_name, {'form': form, 'shop': shop})
 
-    def post(self,request, shop_id):
+    def post(self, request, shop_id):
         shop = Shop.objects.get(pk=shop_id)
         form = StockAdjustmentUploadForm(request.POST, request.FILES)
         if form.is_valid():
             self.handle_uploaded_file(request.POST.get('shop'), request.FILES['upload_file'])
             form = StockAdjustmentUploadForm()
-            return render(request, self.template_name, {'form': form, 'shop':shop})
-        return render(request, self.template_name, {'form': form, 'shop':shop})
+            return render(request, self.template_name, {'form': form, 'shop': shop})
+        return render(request, self.template_name, {'form': form, 'shop': shop})
 
     def handle_uploaded_file(self, shop_id, f):
         reader = csv.reader(codecs.iterdecode(f, 'utf-8'))
@@ -163,11 +184,11 @@ class StockAdjustmentView(PermissionRequiredMixin, View):
                 self.increment_grn_qty(product, manufacture_date, expiry_date, qty)
 
             adjustment_grn = {
-                'available_qty' : 0,
-                'damaged' : 0
+                'available_qty': 0,
+                'damaged': 0
             }
             if stock_available > product_available:
-                #Create GRN and add in stock adjustment
+                # Create GRN and add in stock adjustment
                 adjustment_grn['available_qty'] = abs(stock_available - product_available)
 
             if stock_damaged > product_damaged:
@@ -182,15 +203,16 @@ class StockAdjustmentView(PermissionRequiredMixin, View):
             if adjustment_grn['available_qty'] > 0 or adjustment_grn['damaged'] > 0:
                 manufacture_date = datetime.datetime.today()
                 expiry_date = datetime.datetime.today() + datetime.timedelta(days=180)
-                self.increment_grn_qty(product, manufacture_date, expiry_date, adjustment_grn['available_qty'], adjustment_grn['damaged'])
+                self.increment_grn_qty(product, manufacture_date, expiry_date, adjustment_grn['available_qty'],
+                                       adjustment_grn['damaged'])
         messages.success(self.request, 'Stock Updated .')
 
     def decrement_grn_qty(self, product, grn_queryset, qty, is_damaged=False):
         adjust_qty = qty
         if is_damaged:
-            grn_queryset = grn_queryset.filter(damaged_qty__gt = 0).order_by('-expiry_date')
+            grn_queryset = grn_queryset.filter(damaged_qty__gt=0).order_by('-expiry_date')
         else:
-            grn_queryset = grn_queryset.filter(available_qty__gt = 0).order_by('-expiry_date')
+            grn_queryset = grn_queryset.filter(available_qty__gt=0).order_by('-expiry_date')
         for grn in grn_queryset:
             if is_damaged:
                 if grn.damaged_qty >= qty:
@@ -207,30 +229,31 @@ class StockAdjustmentView(PermissionRequiredMixin, View):
             qty -= grn_deduct
             grn.save()
             StockAdjustmentMapping.objects.create(
-                stock_adjustment = self.stock_adjustment,
-                grn_product = grn,
-                adjustment_type = StockAdjustmentMapping.DECREMENT,
-                adjustment_qty = grn_deduct
+                stock_adjustment=self.stock_adjustment,
+                grn_product=grn,
+                adjustment_type=StockAdjustmentMapping.DECREMENT,
+                adjustment_qty=grn_deduct
             )
             if qty <= 0:
                 return
 
     def increment_grn_qty(self, product, manufacture_date, expiry_date, qty, damaged=0):
         adjustment_grn = OrderedProductMapping.objects.create(
-                product = product,
-                shop=self.shop,
-                manufacture_date = manufacture_date,
-                expiry_date = expiry_date,
-                available_qty = qty,
-                damaged_qty = damaged
-            )
+            product=product,
+            shop=self.shop,
+            manufacture_date=manufacture_date,
+            expiry_date=expiry_date,
+            available_qty=qty,
+            damaged_qty=damaged
+        )
         StockAdjustmentMapping.objects.create(
-                stock_adjustment = self.stock_adjustment,
-                grn_product = adjustment_grn,
-                adjustment_type = StockAdjustmentMapping.INCREMENT,
-                adjustment_qty = qty
-            )
+            stock_adjustment=self.stock_adjustment,
+            grn_product=adjustment_grn,
+            adjustment_type=StockAdjustmentMapping.INCREMENT,
+            adjustment_qty=qty
+        )
         return
+
 
 class ShopTimingAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
@@ -238,6 +261,7 @@ class ShopTimingAutocomplete(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(Q(shop_owner__phone_number__icontains=self.q) | Q(shop_name__icontains=self.q))
         return qs
+
 
 def bulk_shop_updation(request):
     if request.method == 'POST':
@@ -248,8 +272,8 @@ def bulk_shop_updation(request):
                     wb_obj = openpyxl.load_workbook(form.cleaned_data.get('file'))
                     sheet_obj = wb_obj.active
                     for row in sheet_obj.iter_rows(
-                        min_row=2, max_row=None, min_col=None, max_col=None,
-                        values_only=True
+                            min_row=2, max_row=None, min_col=None, max_col=None,
+                            values_only=True
                     ):
                         # skipping first row(headings)
                         if not re.match('^[1-9][0-9]{5}$', str(int(row[10]))):
@@ -276,11 +300,11 @@ def bulk_shop_updation(request):
                                            state_id=state_id,
                                            city_id=city_id,
                                            address_type=row[13])
-                            shipping_address = Address.objects\
+                            shipping_address = Address.objects \
                                 .filter(
-                                    shop_name_id=int(row[0]),
-                                    address_type='shipping'
-                                )
+                                shop_name_id=int(row[0]),
+                                address_type='shipping'
+                            )
                             if not shipping_address.exists():
                                 raise Exception('Atleast one shipping address'
                                                 ' is required')
@@ -303,6 +327,7 @@ def bulk_shop_updation(request):
         {'form': form}
     )
 
+
 class ShopAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qs = Shop.objects.none
@@ -310,12 +335,14 @@ class ShopAutocomplete(autocomplete.Select2QuerySetView):
             qs = Shop.objects.filter(Q(shop_name__icontains=self.q) | Q(shop_owner__phone_number__icontains=self.q))
         return qs
 
+
 class UserAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
         qs = get_user_model().objects.all()
         if self.q:
             qs = qs.filter(phone_number__icontains=self.q)
         return qs
+
 
 class ShopUserMappingCsvView(FormView):
     form_class = ShopUserMappingCsvViewForm
@@ -325,7 +352,7 @@ class ShopUserMappingCsvView(FormView):
     def post(self, request, *args, **kwargs):
         form_class = self.get_form_class()
         form = self.get_form(form_class)
-        #shop_user_mapping = []
+        # shop_user_mapping = []
         not_uploaded_list = []
         if form.is_valid():
             file = request.FILES['file']
@@ -336,22 +363,28 @@ class ShopUserMappingCsvView(FormView):
                     if row[2]:
                         employee = get_user_model().objects.get(phone_number=row[2])
                     if row[1]:
-                        manager = ShopUserMapping.objects.filter(employee__phone_number=row[1],employee_group__permissions__codename='can_sales_manager_add_shop',status=True).last()
-                        ShopUserMapping.objects.create(shop_id=row[0], manager=manager, employee=employee, employee_group_id=row[3])
+                        manager = ShopUserMapping.objects.filter(employee__phone_number=row[1],
+                                                                 employee_group__permissions__codename='can_sales_manager_add_shop',
+                                                                 status=True).last()
+                        ShopUserMapping.objects.create(shop_id=row[0], manager=manager, employee=employee,
+                                                       employee_group_id=row[3])
                     else:
                         ShopUserMapping.objects.create(shop_id=row[0], employee=employee, employee_group_id=row[3])
                 except:
-                    not_uploaded_list.append(ERROR_MESSAGES['INVALID_MAPPING']%(row[0], row[2]))
-            #ShopUserMapping.objects.bulk_create(shop_user_mapping)
+                    not_uploaded_list.append(ERROR_MESSAGES['INVALID_MAPPING'] % (row[0], row[2]))
+            # ShopUserMapping.objects.bulk_create(shop_user_mapping)
             if not not_uploaded_list:
                 messages.success(request, SUCCESS_MESSAGES['CSV_UPLOADED'])
             else:
-                messages.success(request, SUCCESS_MESSAGES['CSV_UPLOADED_EXCEPT']%(not_uploaded_list))
+                messages.success(request, SUCCESS_MESSAGES['CSV_UPLOADED_EXCEPT'] % (not_uploaded_list))
             return self.form_valid(form)
         else:
             return self.form_invalid(form)
 
+
 from django.views.generic import View
+
+
 class ShopUserMappingCsvSample(View):
     def get(self, request, *args, **kwargs):
         filename = "shop_user_list.csv"
