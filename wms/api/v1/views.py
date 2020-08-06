@@ -295,6 +295,11 @@ class BinIDList(APIView):
             pickup_bin_obj = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no)
             for pick_up in pickup_bin_obj:
                 pick_list.append(pick_up.bin.bin)
+            temp_list = []
+            for x in pick_list:
+                if x not in temp_list:
+                    temp_list.append(x)
+            pick_list = temp_list
             serializer = BinSerializer(pick_list, many=True, fields=('id', 'bin_id'))
             msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
             return Response(msg, status=status.HTTP_200_OK)
