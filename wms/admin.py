@@ -110,6 +110,7 @@ class BinAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+
 class InAdmin(admin.ModelAdmin):
     info_logger.info("In Admin has been called.")
     form = InForm
@@ -204,7 +205,13 @@ class PickupAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Admin has been called.")
     form = PickupForm
     list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity','pickup_quantity','status')
-    # readonly_fields = ('quantity','pickup_quantity',)
+    search_fields = ('pickup_type_id', 'sku__product_sku',)
+    list_filter = [Warehouse, 'status', 'pickup_type',]
+    list_per_page = 50
+
+    class Media:
+        pass
+
 
 
 class PickupBinInventoryAdmin(admin.ModelAdmin):
