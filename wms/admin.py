@@ -77,6 +77,7 @@ class BinAdmin(admin.ModelAdmin):
         ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter), Warehouse,
         ('bin_type', ChoiceDropdownFilter),
     ]
+    list_per_page = 50
 
     def get_urls(self):
         from django.conf.urls import url
@@ -135,6 +136,7 @@ class InAdmin(admin.ModelAdmin):
     list_display = ('id', 'warehouse', 'sku', 'batch_id', 'in_type', 'in_type_id', 'quantity',)
     search_fields = ('batch_id', 'in_type_id', 'sku__product_sku',)
     list_filter = [Warehouse, 'in_type']
+    list_per_page = 50
 
     class Media:
         pass
@@ -146,6 +148,7 @@ class PutAwayAdmin(admin.ModelAdmin):
     list_display = ('putaway_user', 'warehouse','putaway_type', 'putaway_type_id', 'sku', 'batch_id','quantity','putaway_quantity')
     search_fields = ('putaway_user__phone_number', 'batch_id', 'sku__product_sku',)
     list_filter = [Warehouse, 'putaway_type',]
+    list_per_page = 50
 
     class Media:
         pass
@@ -160,6 +163,7 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
     search_fields = ('batch_id','sku__product_sku', 'bin__bin__bin_id')
     list_filter = [
         ('created_at', DateTimeRangeFilter), Warehouse, 'putaway_type',]
+    list_per_page = 50
 
     def download_bulk_put_away_bin_inventory_csv(self, request, queryset):
         """
@@ -216,6 +220,7 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
 class InventoryTypeAdmin(admin.ModelAdmin):
     info_logger.info("Inventory Type Admin has been called.")
     list_display = ('inventory_type',)
+    list_per_page = 50
 
 
 class BinInventoryAdmin(admin.ModelAdmin):
@@ -229,11 +234,13 @@ class BinInventoryAdmin(admin.ModelAdmin):
     class Media:
         pass
 
+
 class OutAdmin(admin.ModelAdmin):
     info_logger.info("Out Admin has been called.")
     form = OutForm
     list_display = ('warehouse', 'out_type', 'out_type_id', 'sku', 'quantity')
     readonly_fields = ('warehouse', 'out_type', 'out_type_id', 'sku', 'quantity')
+    list_per_page = 50
 
     def get_urls(self):
         from django.conf.urls import url
@@ -268,6 +275,7 @@ class PickupBinInventoryAdmin(admin.ModelAdmin):
     list_filter = [
         ('created_at', DateTimeRangeFilter), Warehouse,
     ]
+    list_per_page = 50
 
     def order_number(self, obj):
         return obj.pickup.pickup_type_id
@@ -333,6 +341,7 @@ class WarehouseInventoryAdmin(admin.ModelAdmin):
     list_filter = [
         ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter), Warehouse, InventoryTypeFilter,
         InventoryStateFilter,]
+    list_per_page = 50
 
     class Media:
         pass
@@ -341,6 +350,7 @@ class WarehouseInventoryAdmin(admin.ModelAdmin):
 class InventoryStateAdmin(admin.ModelAdmin):
     list_display = ('inventory_state',)
     readonly_fields = ('inventory_state',)
+    list_per_page = 50
 
 
 class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
@@ -352,6 +362,7 @@ class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
     list_filter = [
         ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter), Warehouse, InventoryTypeFilter,
          InitialStageFilter, FinalStageFilter, 'transaction_type',]
+    list_per_page = 50
 
     class Media:
         pass
@@ -360,11 +371,13 @@ class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
 class BinInternalInventoryChangeAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'sku', 'batch_id', 'initial_inventory_type', 'final_inventory_type', 'initial_bin',
                     'final_bin', 'quantity','created_at', 'modified_at', 'inventory_csv')
+    list_per_page = 50
 
 
 class StockCorrectionChangeAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'stock_sku', 'batch_id', 'stock_bin_id',
                     'correction_type', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
+    list_per_page = 50
 
 
 class OrderReleaseAdmin(admin.ModelAdmin):
@@ -373,6 +386,7 @@ class OrderReleaseAdmin(admin.ModelAdmin):
 
     search_fields = ('sku__product_sku',)
     list_filter = [Warehouse,]
+    list_per_page = 50
 
     def order_number(self, obj):
         try:
