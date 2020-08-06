@@ -41,6 +41,12 @@ class Warehouse(AutocompleteFilter):
     autocomplete_url = 'warehouse-autocomplete'
 
 
+class InventoryTypeFilter(AutocompleteFilter):
+    title = 'InventoryType'
+    field_name = 'inventory_type'
+    autocomplete_url = 'inventory-type-autocomplete'
+
+
 class BinAdmin(admin.ModelAdmin):
     info_logger.info("Bin Admin has been called.")
     form = BinForm
@@ -164,12 +170,13 @@ class InventoryTypeAdmin(admin.ModelAdmin):
 class BinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Bin Inventory Admin has been called.")
     form = BinInventoryForm
-    #list_select_related = ('warehouse', 'sku', 'bin', 'inventory_type')
-    list_display = ('batch_id','warehouse', 'sku', 'bin','inventory_type', 'quantity', 'in_stock')
-    #readonly_fields = ('batch_id','warehouse', 'sku', 'bin','inventory_type', 'in_stock')
-    #list_filter = ('warehouse', 'sku', 'batch_id')
+    list_display = ('batch_id', 'warehouse', 'sku', 'bin', 'inventory_type', 'quantity', 'in_stock')
+    search_fields = ('batch_id', 'sku__product_sku', 'bin__bin_id')
+    list_filter = [Warehouse, InventoryTypeFilter,]
     list_per_page = 50
 
+    class Media:
+        pass
 
 class OutAdmin(admin.ModelAdmin):
     info_logger.info("Out Admin has been called.")
