@@ -51,16 +51,11 @@ class ShopMappedProduct(TemplateView):
 
 
         elif shop_obj.shop_type.shop_type == 'sp':
-            mrps = []
-            products = None
             product_list = {}
-            sp_grn_product = OrderedProductMapping.get_shop_stock(shop_obj)
-            # products = sp_grn_product.values('product').distinct()
             bin_inventory_state = InventoryState.objects.filter(inventory_state="available").last()
             products = WarehouseInventory.objects.filter(warehouse=shop_obj, inventory_state=bin_inventory_state)
 
             for myproduct in products:
-                product_temp = {}
                 if myproduct.sku.product_sku in product_list:
                     product_temp = product_list[myproduct.sku.product_sku]
                     product_temp[myproduct.inventory_type.inventory_type] = myproduct.quantity
@@ -104,33 +99,40 @@ class ShopRetailerAutocomplete(autocomplete.Select2QuerySetView):
         return qs
 
 
-def stock_adjust_sample(request, shop_id):
-    filename = "stock_correction_upload_sample.csv"
+def shop_stock_download(request, shop_id):
+    filename = "shop_stock_" + shop_id + ".csv"
     shop = Shop.objects.get(pk=shop_id)
-    sp_grn_product = OrderedProductMapping.get_shop_stock(shop)
-    db_available_products = sp_grn_product.filter(expiry_date__gt=datetime.datetime.today())
-    db_expired_products = OrderedProductMapping.get_shop_stock_expired(shop)
+    product_list = {}
+    bin_inventory_state = InventoryState.objects.filter(inventory_state="available").last()
+    products = WarehouseInventory.objects.filter(warehouse=shop, inventory_state=bin_inventory_state)
 
-    products_available = db_available_products.values('product', 'product__product_name', 'product__product_gf_code',
-                                                      'product__product_sku').annotate(
-        product_qty_sum=Sum('available_qty')).annotate(damaged_qty_sum=Sum('damaged_qty'))
-    products_expired = db_expired_products.values('product', 'product__product_name', 'product__product_gf_code',
-                                                  'product__product_sku').annotate(product_qty_sum=Sum('available_qty'))
-    expired_products = {}
-    for product in products_expired:
-        expired_products[product['product__product_gf_code']] = product['product_qty_sum']
+    for myproduct in products:
+        if myproduct.sku.product_sku in product_list:
+            product_temp = product_list[myproduct.sku.product_sku]
+            product_temp[myproduct.inventory_type.inventory_type] = myproduct.quantity
+        else:
+            product_mrp = myproduct.sku.product_pro_price.filter(seller_shop=shop, approval_status=2)
+            product_temp = {'sku': myproduct.sku.product_sku, 'name': myproduct.sku.product_name,
+                            myproduct.inventory_type.inventory_type: myproduct.quantity,
+                            'mrp': product_mrp.last().mrp if product_mrp.exists() else ''}
+
+        product_list[myproduct.sku.product_sku] = product_temp
+
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
     writer = csv.writer(response)
-    writer.writerow(['product_gf_code', 'product_name', 'product_sku', 'Available', 'Damaged', 'Expired', 'MRP'])
-    for product in products_available.order_by('product__product_gf_code'):
-        product_mrps = Product.objects.get(id=product['product']).product_pro_price.filter(seller_shop=shop,
-                                                                                           approval_status=2)
-        mrp = product_mrps.last().mrp if product_mrps else ''
-        expired_product = expired_products.get(product['product__product_gf_code'], 0)
+    writer.writerow(['SKU Id', 'Product Name', 'MRP', 'Normal Qty', 'Damaged Qty', 'Expired Qty', 'Missing Qty'])
+    for key, value in product_list.items():
+        if 'damaged' not in value:
+            value['damaged']=0
+        if 'expired' not in value:
+            value['expired']=0
+        if 'missing' not in value:
+            value['missing']=0
+
         writer.writerow(
-            [product['product__product_gf_code'], product['product__product_name'], product['product__product_sku'],
-             product['product_qty_sum'], product['damaged_qty_sum'], expired_product, mrp])
+            [value['sku'], value['name'], value['mrp'], value['normal'], value['damaged'], value['expired']
+                , value['missing']])
     return response
 
 
