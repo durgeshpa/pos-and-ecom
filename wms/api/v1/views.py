@@ -407,7 +407,8 @@ class PickupDetail(APIView):
         pick_list = []
         for bin_id in bin_list:
             picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin=bin_id[0])
-            pick_list.append(picking_details[0])
+            if picking_details.exists():
+                pick_list.append(picking_details[0])
         serializer = PickupBinInventorySerializer(pick_list, many=True)
         msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
         return Response(msg, status=status.HTTP_200_OK)
