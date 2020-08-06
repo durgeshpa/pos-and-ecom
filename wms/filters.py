@@ -1,5 +1,6 @@
 from dal import autocomplete
 from shops.models import Shop
+from wms.models import InventoryType, InventoryState
 
 
 class WareHouseComplete(autocomplete.Select2QuerySetView):
@@ -12,4 +13,16 @@ class WareHouseComplete(autocomplete.Select2QuerySetView):
 
         if self.q:
             qs = qs.filter(shop_name__icontains=self.q)
+        return qs
+
+
+class InventoryTypeFilter(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return InventoryType.objects.none()
+
+        qs = InventoryType.objects.all()
+
+        if self.q:
+            qs = qs.filter(inventory_type_name__icontains=self.q)
         return qs
