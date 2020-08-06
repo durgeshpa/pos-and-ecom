@@ -13,4 +13,6 @@ urlpatterns = [
     url(r'^warehouse-autocomplete/$', WareHouseComplete.as_view(), name='warehouse-autocomplete'),
     url(r'^inventory-type-autocomplete/$', InventoryTypeFilter.as_view(), name='inventory-type-autocomplete'),
     url(r'^inventory-state-autocomplete/$', InventoryStateFilter.as_view(), name='inventory-state-autocomplete'),
+    url(r'^initial-stage-autocomplete/$', InventoryStateFilter.as_view(), name='initial-stage-autocomplete'),
+    url(r'^final-stage-autocomplete/$', InventoryStateFilter.as_view(), name='final-stage-autocomplete'),
 ]
