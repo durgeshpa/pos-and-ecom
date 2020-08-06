@@ -126,7 +126,11 @@ class PutAwayAdmin(admin.ModelAdmin):
     info_logger.info("Put Away Admin has been called.")
     form = PutAwayForm
     list_display = ('putaway_user', 'warehouse','putaway_type', 'putaway_type_id', 'sku', 'batch_id','quantity','putaway_quantity')
+    search_fields = ('putaway_user__phone_number', 'batch_id', 'sku__product_sku',)
+    list_filter = [Warehouse, 'putaway_type',]
 
+    class Media:
+        pass
 
 class PutawayBinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Put Away Bin Inventory Admin has been called.")
