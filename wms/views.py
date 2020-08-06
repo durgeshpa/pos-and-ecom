@@ -2,7 +2,7 @@
 import csv
 from io import StringIO
 import codecs
-
+import itertools
 import openpyxl
 import re
 import logging
@@ -27,16 +27,16 @@ from .models import Bin, InventoryType, WarehouseInternalInventoryChange, Wareho
 from .models import Bin, WarehouseInventory, PickupBinInventory
 from shops.models import Shop
 from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard
-from products.models import Product
-
+from products.models import Product, ProductPrice
+from gram_to_brand.models import GRNOrderProductMapping
 
 # third party imports
 from wkhtmltopdf.views import PDFTemplateResponse
-from .forms import BulkBinUpdation, BinForm, StockMovementCsvViewForm
+from .forms import BulkBinUpdation, BinForm, StockMovementCsvViewForm, DownloadAuditAdminForm, UploadAuditAdminForm
 from .models import Pickup, BinInventory, InventoryState
 from .common_functions import InternalInventoryChange, CommonBinInventoryFunctions, PutawayCommonFunctions, \
     InCommonFunctions, WareHouseCommonFunction, InternalWarehouseChange, StockMovementCSV,\
-    InternalStockCorrectionChange, get_product_stock, updating_tables_on_putaway
+    InternalStockCorrectionChange, get_product_stock, updating_tables_on_putaway, AuditInventory
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -166,7 +166,7 @@ class CreatePickList(APIView):
         for i in picku_bin_inv:
             product = i.pickup.sku.product_name
             sku = i.pickup.sku.product_sku
-            mrp = i.pickup.sku.rt_cart_product_mapping.all().last().cart_product_price.mrp
+            mrp = i.pickup.sku.rt_cart_product_mapping.all().order_by('created_at')[0].cart_product_price.mrp
             qty = i.quantity
             batch_id = i.batch_id
             bin_id = i.bin.bin.bin_id
@@ -542,7 +542,8 @@ def warehouse_inventory_change_data(upload_data, stock_movement_obj):
 def release_blocking_with_cron():
     cart = Cart.objects.filter(cart_status='active')
     for i in cart:
-        item_details = WarehouseInternalInventoryChange.objects.filter(transaction_id=i.order_id, transaction_type='reserved')
+        item_details = WarehouseInternalInventoryChange.objects.filter(transaction_id=i.order_id, transaction_type='reserved',
+                                                                       status=True)
         sku_id = [p.sku.id for p in item_details]
         for k in item_details:
             elapsed_time = datetime.now() - k.created_at
@@ -583,7 +584,13 @@ def pickup_entry_creation_with_cron():
                 qty = obj.quantity
                 bin_lists = obj.sku.rt_product_sku.filter(quantity__gt=0).order_by('-batch_id', 'quantity')
                 for k in bin_lists:
-                    bin_inv_dict[str(datetime.strptime('30-' + k.batch_id[17:19] + '-' + '20' + k.batch_id[19:21], "%d-%m-%Y"))]=k
+                    if len(k.batch_id) == 23:
+                        bin_inv_dict[str(datetime.strptime(
+                            k.batch_id[17:19] + '-' + k.batch_id[19:21] + '-' + '20' + k.batch_id[21:23],
+                            "%d-%m-%Y"))] = k
+                    else:
+                        bin_inv_dict[str(
+                            datetime.strptime('30-' + k.batch_id[17:19] + '-20' + k.batch_id[19:21], "%d-%m-%Y"))] = k
                 bin_inv_dict = list(bin_inv_dict.items())
                 bin_inv_dict.sort()
                 bin_inv_dict = dict(bin_inv_dict)
@@ -641,3 +648,193 @@ class DownloadBinCSV(View):
             return response
         except Exception as e:
             error_logger.error(e.message)
+
+
+def audit_download(request):
+    """
+
+    :param request: POST request
+    :return: CSV file for audit
+    """
+    if request.method == 'POST':
+        info_logger.info("POST request while upload the .xls file for Audit file download.")
+        form = DownloadAuditAdminForm(request.POST, request.FILES)
+        if form.is_valid():
+            info_logger.info("File format validation has been successfully done.")
+            upload_data = form.cleaned_data['file']
+            # define the file name
+            filename = 'audit_download' + ".csv"
+            f = StringIO()
+            writer = csv.writer(f)
+            # define the header name in csv
+            writer.writerow(['Warehouse', 'SKU Name - ID', 'MRP', 'Expiry Date',
+                             'Bin ID', 'Normal-Initial Qty', 'Damaged-Initial Qty', 'Expired-Initial Qty',
+                             'Missing-Initial Qty', 'Normal-Final Qty', 'Damaged-Final Qty', 'Expired-Final Qty',
+                             'Missing-Final Qty'])
+
+            # fetch the inventory type in Inventory Type Model
+            inventory_type_normal = InventoryType.objects.filter(inventory_type='normal')
+            inventory_type_expired = InventoryType.objects.filter(inventory_type='expired')
+            inventory_type_damaged = InventoryType.objects.filter(inventory_type='damaged')
+            inventory_type_missing = InventoryType.objects.filter(inventory_type='missing')
+
+            # list to store data from csv
+            data_list = []
+            for data in upload_data:
+                # get product instance
+                product = Product.objects.filter(product_sku=data[0])
+                # get the expire date for particular product
+                expiry_date = GRNOrderProductMapping.objects.filter(product=product[0])[0].expiry_date
+                # get the product price for particular product
+                product_price = ProductPrice.objects.filter(product=product[0])[0].mrp
+                # filter query for Bin Inventory model to get all Bin id which consists same warehouse and sku
+                bin_inventory_obj = BinInventory.objects.filter(warehouse=request.POST['warehouse'],
+                                                                sku=Product.objects.filter(product_sku=data[0])[0])
+                # for loop for every bin inventory object
+                for bin_inventory in bin_inventory_obj:
+                    # condition to get those object which type is normal
+                    bin_obj_normal = BinInventory.objects.filter(warehouse=request.POST['warehouse'],
+                                                sku=Product.objects.filter(product_sku=data[0])[0],
+                                                bin=bin_inventory.bin, inventory_type=inventory_type_normal[0]).last()
+
+                    if bin_obj_normal:
+                        bin_normal_quantity = bin_obj_normal.quantity
+                    else:
+                        bin_normal_quantity = 0
+
+                    # condition to get those object which type is damaged
+                    bin_obj_damaged = BinInventory.objects.filter(warehouse=request.POST['warehouse'],
+                                                          sku=Product.objects.filter(product_sku=data[0])[0],
+                                                          bin=bin_inventory.bin,
+                                                          inventory_type=inventory_type_damaged[0]).last()
+
+                    if bin_obj_damaged:
+                        bin_damaged_quantity = bin_obj_damaged.quantity
+                    else:
+                        bin_damaged_quantity = 0
+
+                    # condition to get those object which type is expired
+                    bin_obj_expired = BinInventory.objects.filter(warehouse=request.POST['warehouse'],
+                                                                  sku=Product.objects.filter(product_sku=data[0])[0],
+                                                                  bin=bin_inventory.bin,
+                                                                  inventory_type=inventory_type_expired[0]).last()
+                    if bin_obj_expired:
+                        bin_expired_quantity = bin_obj_expired.quantity
+                    else:
+                        bin_expired_quantity = 0
+
+                    # condition to get those object which type is missing
+                    bin_obj_missing = BinInventory.objects.filter(warehouse=request.POST['warehouse'],
+                                                          sku=Product.objects.filter(product_sku=data[0])[0],
+                                                          bin=bin_inventory.bin,
+                                                          inventory_type=inventory_type_missing[0]).last()
+                    if bin_obj_missing:
+                        bin_missing_quantity = bin_obj_missing.quantity
+                    else:
+                        bin_missing_quantity = 0
+
+                    # append data in a list
+                    data_list.append([bin_inventory.warehouse_id, bin_inventory.sku.product_name + '-' + bin_inventory.sku.product_sku, product_price,
+                                     expiry_date, bin_inventory.bin.bin_id, bin_normal_quantity, bin_damaged_quantity, bin_expired_quantity,
+                                     bin_missing_quantity, 0, 0, 0, 0])
+            # sort the list
+            data_list.sort()
+
+            # group by and remove duplicate data
+            sort_data = list(num for num, _ in itertools.groupby(data_list))
+            for data in sort_data:
+                # write the data in csv file
+                writer.writerow([data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8],data[9],data[10],
+                                 data[11], data[12]])
+            f.seek(0)
+            response = HttpResponse(f, content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+            return response
+        else:
+            return render(request, 'admin/wms/audit-download.html', {'form': form})
+    else:
+        form = DownloadAuditAdminForm()
+    return render(request, 'admin/wms/audit-download.html', {'form': form})
+
+
+def audit_upload(request):
+    """
+
+    :param request: POST request
+    :return: Upload form
+    """
+    if request.method == 'POST':
+        info_logger.info("POST request while upload the .xls file for Bin generation.")
+        form = UploadAuditAdminForm(request.POST, request.FILES)
+        if form.is_valid():
+            info_logger.info("File format validation has been successfully done.")
+            upload_data = form.cleaned_data['file']
+
+            # call function to create audit data in Audit Model
+            audit_inventory_obj = AuditInventory.create_audit_entry(request.user, request.FILES['file'])
+            # iteration for csv data
+            for data in upload_data:
+                # convert expiry date according to database field type
+                expiry_date = datetime.strptime(data[3], '%d/%m/%y').strftime('%Y-%m-%d')
+
+                # Check SKU and Expiry data is exist or not
+                grn_order_obj = GRNOrderProductMapping.objects.filter(
+                    product__product_sku=data[1][-17:],
+                    expiry_date=expiry_date)
+                if not grn_order_obj.exists():
+                    shop_object = Shop.objects.filter(id=data[0])
+                    sku = Product.objects.filter(product_sku=data[1][-17:]).last()
+                    quantity = int(data[9]) + int(data[10]) + int(data[11]) + int(data[12])
+                    batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d/%m/%y').strftime('%d%m%y'))
+                    InCommonFunctions.create_in(shop_object[0], 'Audit Adjustment', audit_inventory_obj[0].id, sku,
+                                                batch_id, int(quantity), int(quantity))
+                # condition to check for Final Inventory types quantity
+                bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
+                                            bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                            sku=Product.objects.filter(
+                                                product_sku=data[1][-17:]).last())
+                inventory_type = {}
+                for bin_inventory in bin_inventory_obj:
+                    if bin_inventory.inventory_type.inventory_type == 'normal':
+                        normal = int(data[9])
+                        inventory_type.update({'normal': normal})
+                    else:
+                        if int(data[9]) > 0:
+                            normal = int(data[9])
+                            inventory_type.update({'normal': normal})
+
+                    if bin_inventory.inventory_type.inventory_type == 'damaged':
+                        damaged = int(data[10])
+                        inventory_type.update({'damaged': damaged})
+                    else:
+                        if int(data[10]) > 0:
+                            damaged = int(data[10])
+                            inventory_type.update({'damaged': damaged})
+
+                    if bin_inventory.inventory_type.inventory_type == 'expired':
+                        expired = int(data[11])
+                        inventory_type.update({'expired': expired})
+
+                    else:
+                        if int(data[11]) > 0:
+                            expired = int(data[11])
+                            inventory_type.update({'expired': expired})
+
+                    if bin_inventory.inventory_type.inventory_type == 'missing':
+                        missing = int(data[12])
+                        inventory_type.update({'missing': missing})
+                    else:
+                        if int(data[12]) > 0:
+                            missing = int(data[12])
+                            inventory_type.update({'missing': missing})
+                for key, value in inventory_type.items():
+                    # call function to create data in different models like:- Bin Inventory, Warehouse Inventory and
+                    # Warehouse Internal Inventory Model
+                    AuditInventory.audit_exist_batch_id(data, key, value, audit_inventory_obj)
+            return render(request, 'admin/wms/audit-upload.html', {'form': form})
+
+        else:
+            return render(request, 'admin/wms/audit-upload.html', {'form': form})
+    else:
+        form = UploadAuditAdminForm()
+    return render(request, 'admin/wms/audit-upload.html', {'form': form})

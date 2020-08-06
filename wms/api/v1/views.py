@@ -135,10 +135,10 @@ class PutAwayViewSet(APIView):
         put_away_quantity = self.request.data.get('put_away_quantity')
         if not put_away_quantity:
             return Response(msg, status=status.HTTP_200_OK)
-        negative_value = [i for i in put_away_quantity if i<0]
+        negative_value = [i for i in put_away_quantity if i <= 0]
         if len(negative_value) > 0:
             return Response({'is_success': False,
-                             'message': 'quantity can not be negative.',
+                             'message': 'quantity can not be zero and negative.',
                              'data': None}, status=status.HTTP_200_OK)
         batch_id = self.request.data.get('batch_id')
         if not batch_id:
@@ -182,29 +182,40 @@ class PutAwayViewSet(APIView):
             sh = Shop.objects.filter(id=int(warehouse)).last()
             if sh.shop_type.shop_type == 'sp':
                 bin_inventory = CommonBinInventoryFunctions.get_filtered_bin_inventory(bin__bin_id=bin_id)
+                pu = PutawayCommonFunctions.get_filtered_putaways(id=ids[0], batch_id=i,
+                                                                  warehouse=warehouse)
                 if bin_inventory.exists():
                     if i in bin_inventory.values_list('batch_id', flat=True):
+                        put_away_status = False
                         while len(ids):
                             put_away_done = update_putaway(ids[0], i, warehouse, int(value), request.user)
                             value = put_away_done
+                            put_away_status = True
                             ids.remove(ids[0])
-                        updating_tables_on_putaway(sh, bin_id, put_away, i, inventory_type, 'available', 't', val)
+                        updating_tables_on_putaway(sh, bin_id, put_away, i, inventory_type, 'available', 't', val,
+                                                   put_away_status, pu)
                     else:
                         if i[:17] in bin_inventory.values_list('sku__product_sku', flat=True):
-                            msg ={'is_success':False,'message':'This product with sku {} and batch_id {} can not be placed in the bin'.format(i[:17], i),'batch_id':i}
+                            msg ={'is_success':False, 'message':'This product with sku {} and batch_id {} can not be placed in the bin'.format(i[:17], i),'batch_id':i}
                             lis_data.append(msg)
                             continue
 
                         else:
+                            put_away_status = False
                             while len(ids):
-                                update_putaway(ids[0], i, warehouse, int(value), request.user,)
+                                value = update_putaway(ids[0], i, warehouse, int(value), request.user,)
+                                put_away_status = True
                                 ids.remove(ids[0])
-                            updating_tables_on_putaway(sh, bin_id, put_away, i, inventory_type, 'available', 't', val)
+                            updating_tables_on_putaway(sh, bin_id, put_away, i, inventory_type, 'available', 't', val,
+                                                       put_away_status, pu)
                 else:
+                    put_away_status = False
                     while len(ids):
-                        update_putaway(ids[0], i, warehouse, int(value), request.user,)
+                        value = update_putaway(ids[0], i, warehouse, int(value), request.user,)
+                        put_away_status = True
                         ids.remove(ids[0])
-                    updating_tables_on_putaway(sh, bin_id, put_away, i, inventory_type, 'available', 't', val)
+                    updating_tables_on_putaway(sh, bin_id, put_away, i, inventory_type, 'available', 't', val,
+                                               put_away_status, pu)
 
             serializer = (PutAwaySerializer(Putaway.objects.filter(batch_id=i, warehouse=warehouse).last(), fields=('is_success', 'product_sku', 'batch_id', 'max_putaway_qty', 'putaway_quantity', 'product_name')))
             msg = serializer.data
@@ -275,19 +286,21 @@ class BinIDList(APIView):
         if not order_no:
             msg = {'is_success': True, 'message': 'Order number field is empty.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
-        bin_objects = []
         pickup_orders = Order.objects.filter(order_no=order_no).last()
         if pickup_orders is None:
             msg = {'is_success': True, 'message': 'Order number does not exist.', 'data': None}
             return Response(msg, status=status.HTTP_200_OK)
         else:
-            for i in pickup_orders.ordered_cart.rt_cart_list.all():
-                for j in i.cart_product.rt_product_sku.filter(quantity__gt=0).order_by('-batch_id', '-quantity'):
-                    bin_objects.append(j.bin.bin_id)
-
-            bin_lists = Bin.objects.filter(bin_id__in=bin_objects)
-
-            serializer = BinSerializer(bin_lists, many=True, fields=('id', 'bin_id'))
+            pick_list = []
+            pickup_bin_obj = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no)
+            for pick_up in pickup_bin_obj:
+                pick_list.append(pick_up.bin.bin)
+            temp_list = []
+            for x in pick_list:
+                if x not in temp_list:
+                    temp_list.append(x)
+            pick_list = temp_list
+            serializer = BinSerializer(pick_list, many=True, fields=('id', 'bin_id'))
             msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
             return Response(msg, status=status.HTTP_200_OK)
 
@@ -391,12 +404,17 @@ class PickupDetail(APIView):
         for i in pickup_orders.ordered_cart.rt_cart_list.all():
             sku_list.append(i.cart_product.id)
 
-        bin_obj = BinInventory.objects.filter(bin__bin_id=bin_id, sku__id=sku_list[0])
-        picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, pickup__sku__id__in=sku_list,
-                                                            bin=bin_obj[0])
-
-        serializer = PickupBinInventorySerializer(
-            picking_details, many=True)
+        bin_list = []
+        for sku in sku_list:
+            bin_obj = BinInventory.objects.filter(bin__bin_id=bin_id, sku__id=sku)
+            if bin_obj.exists():
+                bin_list.append(bin_obj)
+        pick_list = []
+        for bin_id in bin_list:
+            picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin=bin_id[0])
+            if picking_details.exists():
+                pick_list.append(picking_details[0])
+        serializer = PickupBinInventorySerializer(pick_list, many=True)
         msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
         return Response(msg, status=status.HTTP_200_OK)
 
@@ -412,10 +430,10 @@ class PickupDetail(APIView):
         pickup_quantity = request.data.get('pickup_quantity')
         if not pickup_quantity:
             return Response(msg, status=status.HTTP_200_OK)
-        negative_value = [i for i in pickup_quantity if i < 0]
+        negative_value = [i for i in pickup_quantity if i <= 0]
         if len(negative_value) > 0:
             return Response({'is_success': False,
-                             'message': 'Pickup quantity can not be negative.',
+                             'message': 'Pickup quantity can not be zero and negative.',
                              'data': None}, status=status.HTTP_200_OK)
 
         sku_id = request.data.get('sku_id')
@@ -434,8 +452,11 @@ class PickupDetail(APIView):
                     pick_qty = picking_details.last().pickup_quantity
                     qty = picking_details.last().quantity
                     if pick_qty + i > qty:
-                        data_list.append({'is_success': False,
-                                       'message':"Can add only {} more items for {}".format(abs(qty-pick_qty), j)})
+                        if qty-pick_qty == 0:
+                            data_list.append({'is_success': False, 'message': "You can't add more Pick up quantity."})
+                        else:
+                            data_list.append({'is_success': False,
+                                              'message': "Can add only {} more items".format(abs(qty - pick_qty))})
                         continue
                     else:
                         picking_details.update(pickup_quantity=i + pick_qty)

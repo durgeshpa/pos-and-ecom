@@ -4,12 +4,14 @@ import csv
 import codecs
 from django import forms
 from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload,\
-    InventoryType, InventoryState, BIN_TYPE_CHOICES
+    InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit, WarehouseInventory
 from products.models import Product
 from shops.models import Shop
 from gram_to_brand.models import GRNOrderProductMapping
 from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ValidationError
+from django.db.models import Sum, Q
+from sp_to_gram.models import OrderedProductMapping
 # Logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -477,3 +479,175 @@ def validation_warehouse_inventory(self):
 
         form_data_list.append(row)
     return form_data_list
+
+
+class DownloadAuditAdminForm(forms.Form):
+    """
+      Download Audit Form
+    """
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices, label='Select Warehouse')
+    file = forms.FileField(label='Upload CSV List for which Audit is to be performed')
+
+    class Meta:
+        model = Audit
+        fields = ('warehouse',)
+
+    def clean_file(self):
+        info_logger.info("Validation for File format for Bulk Bin Upload.")
+        if not self.cleaned_data['file'].name[-4:] in ('.csv'):
+            raise forms.ValidationError("Sorry! Only .csv file accepted.")
+
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        first_row = next(reader)
+        # list which contains csv data and pass into the view file
+        form_data_list = []
+        for row_id, row in enumerate(reader):
+            try:
+                if not row[0]:
+                    raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + "SKU can not be empty."))
+            except:
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + "SKU can not be empty."))
+
+            if not Product.objects.filter(product_sku=row[0]):
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + "SKU is not valid,"
+                                                                                       " Please re-verify at your end."))
+
+            if not BinInventory.objects.filter(warehouse=self.data['warehouse'],
+                                               sku=Product.objects.filter(product_sku=row[0])[0]):
+                raise ValidationError(_("Issue in Row" + " " + str(row_id + 1) + "," + "SKU id is not associated"
+                                                                                       " with selected warehouse."))
+            form_data_list.append(row)
+
+        return form_data_list
+
+
+class UploadAuditAdminForm(forms.Form):
+    """
+      Upload Audit Form
+    """
+    warehouse = forms.ModelChoiceField(queryset=warehouse_choices, label='Select Warehouse')
+    file = forms.FileField(label='Upload Audit Inventory list')
+
+    class Meta:
+        model = Audit
+        fields = ('warehouse',)
+
+    def clean_file(self):
+        info_logger.info("Validation for File format for Bulk Bin Upload.")
+        if not self.cleaned_data['file'].name[-4:] in ('.csv'):
+            raise forms.ValidationError("Sorry! Only .csv file accepted.")
+
+        reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+        first_row = next(reader)
+        # list which contains csv data and pass into the view file
+        form_data_list = []
+        for row_id, row in enumerate(reader):
+
+            if not row[0] or not re.match("^[\d]*$", row[0]):
+                raise ValidationError(_(
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "Warehouse ID can not be empty."))
+
+            if not Shop.objects.filter(pk=row[0]).exists():
+                raise ValidationError(_(
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "Warehouse ID doesn't exist in the system."))
+
+            if not row[1]:
+                raise ValidationError(_(
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "SKU can not be empty."))
+
+            if not Product.objects.filter(product_sku=row[1][-17:]).exists():
+                raise ValidationError(_(
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "SKU is not exist in the system."))
+
+            if not row[2]:
+                raise ValidationError(_(
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "MRP can not be empty."))
+
+            if not row[3]:
+                raise ValidationError(_(
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "Expiry date can not be empty."))
+
+            if not row[4]:
+                raise ValidationError(_(
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "Bin ID can not be empty."))
+
+            if not Bin.objects.filter(bin_id=row[4]).exists():
+                raise ValidationError(_(
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "Bin ID is not exist in the system."))
+
+            if not row[5] or not re.match("^[\d]*$", row[5]):
+                raise ValidationError(_(
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "Normal-Initial Qty can not be empty."))
+
+            if not row[6] or not re.match("^[\d]*$", row[6]):
+                raise ValidationError(_(
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "Damaged-Initial Qty can not be empty."))
+
+            if not row[7] or not re.match("^[\d]*$", row[7]):
+                raise ValidationError(_(
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "Expired-Initial Qty can not be empty."))
+
+            if not row[8] or not re.match("^[\d]*$", row[8]):
+                raise ValidationError(_(
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "Missing-Initial Qty can not be empty."))
+
+            if not row[9] or not re.match("^[\d]*$", row[9]):
+                raise ValidationError(_(
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "Normal-Final Qty can not be empty."))
+
+            if not row[10] or not re.match("^[\d]*$", row[10]):
+                raise ValidationError(_(
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "Damaged-Final Qty can not be empty."))
+
+            if not row[11] or not re.match("^[\d]*$", row[11]):
+                raise ValidationError(_(
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "Expired-Final Qty can not be empty."))
+
+            if not row[12] or not re.match("^[\d]*$", row[12]):
+                raise ValidationError(_(
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "Missing-Final Qty can not be empty."))
+
+            normal = BinInventory.objects.filter(Q(warehouse__id=row[0]),
+                            Q(sku__id=Product.objects.filter(product_sku=row[1][-17:])[0].id),
+                            Q(inventory_type__id=InventoryType.objects.filter(inventory_type='normal')[0].id),
+                            Q(quantity__gt=0)).aggregate(total=Sum('quantity')).get('total')
+            if normal is None:
+                normal = 0
+
+            damaged = BinInventory.objects.filter(Q(warehouse__id=row[0]),
+                            Q(sku__id=Product.objects.filter(product_sku=row[1][-17:])[0].id),
+                            Q(inventory_type__id=InventoryType.objects.filter(inventory_type='damaged')[0].id),
+                            Q(quantity__gt=0)).aggregate(total=Sum('quantity')).get('total')
+            if damaged is None:
+                damaged = 0
+
+            expired = BinInventory.objects.filter(Q(warehouse__id=row[0]),
+                            Q(sku__id=Product.objects.filter(product_sku=row[1][-17:])[0].id),
+                            Q(inventory_type__id=InventoryType.objects.filter(inventory_type='expired')[0].id),
+                            Q(quantity__gt=0)).aggregate(total=Sum('quantity')).get('total')
+
+            if expired is None:
+                expired = 0
+            missing = BinInventory.objects.filter(Q(warehouse__id=row[0]),
+                            Q(sku__id=Product.objects.filter(product_sku=row[1][-17:])[0].id),
+                            Q(inventory_type__id=InventoryType.objects.filter(inventory_type='missing')[0].id),
+                            Q(quantity__gt=0)).aggregate(total=Sum('quantity')).get('total')
+            if missing is None:
+                missing = 0
+
+            initial_count = normal + damaged + expired + missing
+            final_count = 0
+            reader = csv.reader(codecs.iterdecode(self.cleaned_data['file'], 'utf-8'))
+            first_row = next(reader)
+            for row_id_1, row_1 in enumerate(reader):
+                if row_1[1] == row[1]:
+                    count = int(row_1[9]) + int(row_1[10]) + int(row_1[11]) + int(row_1[12])
+                    final_count = count + final_count
+            if not initial_count == final_count:
+                raise ValidationError(_(
+                    "Issue in Row" + " " + str(row_id + 1) + "," +
+                    "Sum of Initial Quantity and Final Quantity is not equal."))
+
+            form_data_list.append(row)
+
+        return form_data_list

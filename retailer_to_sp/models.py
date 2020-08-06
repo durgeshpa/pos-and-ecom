@@ -30,7 +30,7 @@ from .utils import (order_invoices, order_shipment_status, order_shipment_amount
 from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
-from wms.models import Out, Pickup
+from wms.models import Out, PickupBinInventory, Pickup, BinInventory
 from brand.models import Brand
 from otp.sms import SendSms
 from products.models import Product, ProductPrice
@@ -1504,18 +1504,22 @@ class OrderedProduct(models.Model): #Shipment
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     self.invoice_amount)
+                # populate_data_on_qc_pass(self.order)
+
         elif self.order.ordered_cart.cart_type == 'DISCOUNTED':
             if self.shipment_status == OrderedProduct.READY_TO_SHIP:
                 CommonFunction.generate_invoice_number_discounted_order(
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     self.invoice_amount)
+                # populate_data_on_qc_pass(self.order)
         elif self.order.ordered_cart.cart_type == 'BULK':
             if self.shipment_status == OrderedProduct.READY_TO_SHIP:
                 CommonFunction.generate_invoice_number_bulk_order(
                     'invoice_no', self.pk,
                     self.order.seller_shop.shop_name_address_mapping.filter(address_type='billing').last().pk,
                     self.invoice_amount)
+                # populate_data_on_qc_pass(self.order)
 
         if self.no_of_crates == None:
             self.no_of_crates = 0
@@ -1616,6 +1620,7 @@ class OrderedProductMapping(models.Model):
     delivered_qty = models.PositiveIntegerField(default=0, verbose_name="Delivered Pieces")
     returned_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Pieces")
     damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Pieces")
+    expired_qty = models.PositiveIntegerField(default=0, verbose_name="Expired Pieces")
     last_modified_by = models.ForeignKey(
         get_user_model(), related_name='rt_last_modified_user_order_product',
         null=True, on_delete=models.DO_NOTHING
@@ -1626,6 +1631,7 @@ class OrderedProductMapping(models.Model):
     effective_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=False)
     discounted_price = models.DecimalField(default=0, max_digits=10, decimal_places=2, null=True, blank=False)
     cancellation_date = models.DateTimeField(null=True, blank=True)
+    picked_pieces = models.PositiveIntegerField(default=0)
 
     def clean(self):
         super(OrderedProductMapping, self).clean()
@@ -1841,8 +1847,8 @@ class OrderedProductMapping(models.Model):
         return round(self.discounted_price,2)
 
     def save(self, *args, **kwargs):
-        if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.shipped_qty != sum([self.delivered_qty, self.returned_qty, self.damaged_qty]):
-            raise ValidationError(_('delivered, returned, damaged qty sum mismatched with shipped_qty'))
+        if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.picked_pieces != sum([self.shipped_qty, self.damaged_qty, self.expired_qty]):
+            raise ValidationError(_('shipped, expired, damaged qty sum mismatched with picked pieces'))
         else:
             self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().item_effective_prices
             self.discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().discounted_price
@@ -1866,6 +1872,33 @@ class Shipment(OrderedProduct):
         proxy = True
         verbose_name = _("Plan Shipment")
         verbose_name_plural = _("Plan Shipment")
+
+
+class OrderedProductBatch(models.Model):
+    batch_id = models.CharField(max_length=21, null=True, blank=True)
+    bin_ids = models.CharField(max_length=17, null=True, blank=True, verbose_name='bin_id')
+    pickup_inventory = models.ForeignKey(PickupBinInventory, null=True, related_name='rt_pickup_bin_inv', on_delete=models.DO_NOTHING)
+    ordered_product_mapping = models.ForeignKey(OrderedProductMapping, null=True, related_name='rt_ordered_product_mapping', on_delete=models.DO_NOTHING)
+    pickup = models.ForeignKey(Pickup, null=True, blank=True, on_delete=models.DO_NOTHING)
+    bin = models.ForeignKey(BinInventory, null=True, blank=True, on_delete=models.DO_NOTHING)
+    quantity = models.PositiveIntegerField(default=0, verbose_name='NO. OF PIECES TO SHIP')
+    ordered_pieces = models.CharField(max_length=10, null=True, blank=True)
+    delivered_qty = models.PositiveIntegerField(default=0, verbose_name="Delivered Pieces")
+    already_shipped_qty = models.PositiveIntegerField(default=0)
+    expiry_date = models.CharField(max_length=30, null=True, blank=True)
+    returned_qty = models.PositiveIntegerField(default=0, verbose_name="Returned Pieces")
+    damaged_qty = models.PositiveIntegerField(default=0, verbose_name="Damaged Pieces")
+    pickup_quantity = models.PositiveIntegerField(default=0, verbose_name="Picked pieces")
+    expired_qty = models.PositiveIntegerField(default=0, verbose_name="Expired Pieces")
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    # def save(self, *args, **kwargs):
+    #     if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.pickup_quantity != sum(
+    #             [self.quantity, self.damaged_qty, self.expired_qty]):
+    #         raise ValidationError(_('Picked quantity sum mismatched with picked pieces'))
+    #     else:
+    #         super().save(*args, **kwargs)
 
 
 class ShipmentProductMapping(OrderedProductMapping):
@@ -2391,16 +2424,31 @@ def update_order_status_from_shipment(sender, instance=None, created=False,
         update_full_part_order_status(instance)
 
 
-# @receiver(post_save, sender=PickerDashboard)
-# def update_wms_out_table(sender, instance=None, created=False, **kwargs):
-#     if instance.picking_status == 'picking_assigned':
-#         sh = Shop.objects.filter(id=instance.order.seller_shop_id).last()
-#         for i in instance.order.ordered_cart.rt_cart_list.all():
-#             CommonPickupFunctions.create_pickup_entry(sh, 'Order', instance.order.order_no, i.cart_product, i.no_of_pieces)
-#             # Pickup.objects.create(
-            #     warehouse=sh,
-            #     pickup_type='Order',
-            #     pickup_type_id=instance.order.order_no,
-            #     sku=i.cart_product,
-            #     quantity=i.no_of_pieces
-            # )
+def populate_data_on_qc_pass(order):
+    pick_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order.order_no)
+    for i in pick_bin_inv:
+        ordered_product_mapping = order.rt_order_order_product.all().last().rt_order_product_order_product_mapping.filter(product__id=i.pickup.sku.id).last()
+        obj = OrderedProductBatch.objects.create(
+            batch_id=i.batch_id,
+            bin_ids=i.bin.bin.bin_id,
+            pickup_inventory=i,
+            ordered_product_mapping=ordered_product_mapping,
+            pickup=i.pickup,
+            bin=i.bin,
+            quantity=i.quantity,
+            pickup_quantity=i.pickup_quantity,
+            expiry_date="30/" + i.batch_id[17:19] + "/20" + i.batch_id[19:21],
+            delivered_qty=ordered_product_mapping.delivered_qty,
+            ordered_pieces=i.quantity
+            # already_shipped_qty=ordered_product_mapping.shipped_qty
+
+
+        )
+    if obj:
+        return 'Success'
+    else:
+        return 'Failed'
+
+
+
+

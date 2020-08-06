@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'dal',
     'dal_select2',
     'dal_admin_filters',
+    'nested_admin',
     # 'jet.dashboard',
     # 'jet',
     'django.contrib.admin',

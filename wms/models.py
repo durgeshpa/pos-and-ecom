@@ -16,7 +16,6 @@ from django.db.models import Sum, Q
 from django.contrib.auth import get_user_model
 
 
-
 BIN_TYPE_CHOICES = (
     ('PA', 'Pallet'),
     ('SR', 'Slotted Rack'),
@@ -24,22 +23,24 @@ BIN_TYPE_CHOICES = (
 )
 
 INVENTORY_TYPE_CHOICES = (
-    ('normal', 'NORMAL'),  #Available For Order
-    ('expired', 'EXPIRED'), #Expiry date passed
-    ('damaged', 'DAMAGED'), #Not orderable
-    ('discarded', 'DISCARDED'), #Rejected by warehouse
-    ('disposed', 'DISPOSED'), #Rejected or Expired and removed from warehouse
+    ('normal', 'NORMAL'),  # Inventory Available For Order
+    ('expired', 'EXPIRED'),  # Inventory Expired
+    ('damaged', 'DAMAGED'),  # Inventory Damaged
+    ('discarded', 'DISCARDED'),  # Inventory Rejected
+    ('disposed', 'DISPOSED'),  # Inventory Disposed
+    ('missing', 'MISSING'),  # Inventory Missing
 )
 
 INVENTORY_STATE_CHOICES = (
-    ('available', 'AVAILABLE'),
-    ('reserved', 'RESERVED'),
-    ('shipped', 'SHIPPED'),
-    ('ordered', 'Ordered'),
-    ('canceled', 'Canceled')
+    ('available', 'AVAILABLE'),  # Inventory Available
+    ('reserved', 'RESERVED'),  # Inventory Reserved
+    ('shipped', 'SHIPPED'),  # Inventory Shipped
+    ('ordered', 'Ordered'),  # Inventory Ordered
+    ('canceled', 'Canceled')  # Inventory Canceled
 )
+
+
 class InventoryType(models.Model):
-    # id = models.AutoField(primary_key=True)
     inventory_type = models.CharField(max_length=20,choices=INVENTORY_TYPE_CHOICES, null=True, blank=True)
 
     def __str__(self):
@@ -50,7 +51,6 @@ class InventoryType(models.Model):
 
 
 class InventoryState(models.Model):
-    # id = models.AutoField(primary_key=True)
     inventory_state = models.CharField(max_length=20, choices=INVENTORY_STATE_CHOICES,null=True, blank=True)
 
     def __str__(self):
@@ -61,7 +61,6 @@ class InventoryState(models.Model):
 
 
 class Bin(models.Model):
-    # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     bin_id = models.CharField(max_length=20, null=True, blank=True)
     bin_type = models.CharField(max_length=50, choices=BIN_TYPE_CHOICES, default='PA')
@@ -83,19 +82,13 @@ class Bin(models.Model):
     def barcode_image(self):
         return mark_safe('<img alt="%s" src="%s" />' % (self.bin_id, self.bin_barcode.url))
 
-    # @property
-    # def decoded_barcode(self):
-    #     return barcode_decoder(self.bin_barcode)
-
 
 class BinInventory(models.Model):
-    # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop,null=True, blank=True, on_delete=models.DO_NOTHING)
     bin = models.ForeignKey(Bin, null=True, blank=True, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, to_field='product_sku',related_name='rt_product_sku', on_delete=models.DO_NOTHING)
-    batch_id = models.CharField(max_length=21, null=True, blank=True)
+    batch_id = models.CharField(max_length=50, null=True, blank=True)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
-    # inventory_state = models.ForeignKey(InventoryState, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField(null=True, blank=True)
     in_stock = models.BooleanField()
     created_at = models.DateTimeField(auto_now_add=True)
@@ -107,14 +100,20 @@ class BinInventory(models.Model):
                                   Q(sku__id=sku_id),
                                   Q(quantity__gt=0)).aggregate(total=Sum('quantity')).get('total')
 
+    @classmethod
+    def available_qty_with_inventory_type(cls, shop_id, sku_id, inventory_type):
+        return cls.objects.filter(Q(warehouse__id=shop_id),
+                                  Q(sku__id=sku_id), Q(inventory_type__id=inventory_type),
+                                  Q(quantity__gt=0)).aggregate(total=Sum('quantity')).get('total')
+
     def __str__(self):
         return str(self.id)
 
     class Meta:
         db_table = "wms_bin_inventory"
 
+
 class WarehouseInventory(models.Model):
-    # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, to_field='product_sku', related_name='related_sku', on_delete=models.DO_NOTHING)
     inventory_type = models.ForeignKey(InventoryType, null=True, blank=True, on_delete=models.DO_NOTHING)
@@ -129,33 +128,31 @@ class WarehouseInventory(models.Model):
 
 
 class In(models.Model):
-    # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     in_type = models.CharField(max_length=20, null=True, blank=True)
     in_type_id = models.CharField(max_length=20, null=True, blank=True)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
-    batch_id = models.CharField(max_length=21, null=True, blank=True)
+    batch_id = models.CharField(max_length=50, null=True, blank=True)
     quantity = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
 
 class Putaway(models.Model):
-    # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     putaway_user = models.ForeignKey(get_user_model(), null=True, blank=True, related_name='putaway_user',
                                      on_delete=models.DO_NOTHING)
     putaway_type = models.CharField(max_length=20, null=True, blank=True)
     putaway_type_id = models.CharField(max_length=20, null=True, blank=True)
     sku = models.ForeignKey(Product,to_field='product_sku', on_delete=models.DO_NOTHING)
-    batch_id = models.CharField(max_length=21, null=True, blank=True)
+    batch_id = models.CharField(max_length=50, null=True, blank=True)
     quantity = models.PositiveIntegerField()
     putaway_quantity = models.PositiveIntegerField(null=True, blank=True, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.sku.product_sku
+        return str(self.id)
 
     def clean(self):
         super(Putaway, self).clean()
@@ -165,11 +162,14 @@ class Putaway(models.Model):
 
 
 class PutawayBinInventory(models.Model):
-    # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
-    putaway = models.ForeignKey(Putaway, null=True, blank=True, on_delete=models.DO_NOTHING, verbose_name="product_sku")
+    sku = models.ForeignKey(Product, blank=True, null=True, to_field='product_sku', on_delete=models.DO_NOTHING)
+    batch_id = models.CharField(max_length=50, null=True, blank=True)
+    putaway_type = models.CharField(max_length=50, null=True, blank=True)
+    putaway = models.ForeignKey(Putaway, null=True, blank=True, on_delete=models.DO_NOTHING, verbose_name="putaway")
     bin = models.ForeignKey(BinInventory, null=True, blank=True, on_delete=models.DO_NOTHING)
     putaway_quantity = models.PositiveIntegerField()
+    putaway_status = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -188,7 +188,6 @@ class PutawayBinInventory(models.Model):
 
 
 class Out(models.Model):
-    # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     out_type = models.CharField(max_length=20, null=True, blank=True)
     out_type_id = models.CharField(max_length=20, null=True, blank=True)
@@ -205,7 +204,6 @@ class Pickup(models.Model):
         ('picking_assigned', 'Pickup Assigned'),
         ('picking_complete', 'Pickup Complete')
     )
-    # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     pickup_type = models.CharField(max_length=20, null=True, blank=True)
     pickup_type_id = models.CharField(max_length=20, null=True, blank=True)
@@ -217,16 +215,11 @@ class Pickup(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
-    # def save(self, *args, **kwargs):
-    #     if self.pickup_quantity <= self.quantity:
-    #         super(Pickup, self).save(*args, *kwargs)
-
 
 class PickupBinInventory(models.Model):
-    # id = models.AutoField(primary_key=True)
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     pickup = models.ForeignKey(Pickup, null=True, blank=True, on_delete=models.DO_NOTHING)
-    batch_id = models.CharField(max_length=21, null=True, blank=True)
+    batch_id = models.CharField(max_length=50, null=True, blank=True)
     bin = models.ForeignKey(BinInventory, null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField()
     pickup_quantity = models.PositiveIntegerField()
@@ -261,11 +254,12 @@ class StockMovementCSVUpload(models.Model):
 
 class WarehouseInternalInventoryChange(models.Model):
     transaction_type = (
-        ('warehouse', "WareHouse Adjustment"),
+        ('warehouse_adjustment', "WareHouse Adjustment"),
         ('reserved', "Reserved"),
         ('ordered', "Ordered"),
         ('released', "Released"),
-        ('canceled', 'Canceled')
+        ('canceled', 'Canceled'),
+        ('audit_adjustment', 'Audit Adjustment')
 
     )
 
@@ -278,6 +272,7 @@ class WarehouseInternalInventoryChange(models.Model):
     final_stage = models.ForeignKey(InventoryState, related_name='final_stage', null=True, blank=True, on_delete=models.DO_NOTHING)
     quantity = models.PositiveIntegerField(null=True, blank=True, default=0)
     inventory_csv = models.ForeignKey(StockMovementCSVUpload, null=True, blank=True, on_delete=models.DO_NOTHING)
+    status = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
@@ -291,7 +286,7 @@ class WarehouseInternalInventoryChange(models.Model):
 class BinInternalInventoryChange(models.Model):
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
-    batch_id = models.CharField(max_length=21, null=True, blank=True)
+    batch_id = models.CharField(max_length=50, null=True, blank=True)
     initial_inventory_type = models.ForeignKey(InventoryType,related_name='initial_inventory_type', null=True, blank=True, on_delete=models.DO_NOTHING)
     final_inventory_type = models.ForeignKey(InventoryType,related_name='final_inventory_type', null=True, blank=True, on_delete=models.DO_NOTHING)
     initial_bin = models.ForeignKey(Bin,related_name='initial_bin', null=True, blank=True, on_delete=models.DO_NOTHING)
@@ -308,7 +303,7 @@ class BinInternalInventoryChange(models.Model):
 class StockCorrectionChange(models.Model):
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     stock_sku = models.ForeignKey(Product, to_field='product_sku', on_delete=models.DO_NOTHING)
-    batch_id = models.CharField(max_length=21, null=True, blank=True)
+    batch_id = models.CharField(max_length=50, null=True, blank=True)
     stock_bin_id = models.ForeignKey(Bin,related_name='bin', null=True, blank=True, on_delete=models.DO_NOTHING)
     correction_type = models.CharField(max_length=10, null=True, blank=True)
     quantity = models.PositiveIntegerField()
@@ -319,17 +314,17 @@ class StockCorrectionChange(models.Model):
     class Meta:
         db_table = "wms_stock_correction_change"
 
+
 @receiver(post_save, sender=BinInventory)
 def create_warehouse_inventory(sender, instance=None, created=False, *args, **kwargs):
 
     if created:
         WarehouseInventory.objects.update_or_create(warehouse=instance.warehouse,sku=instance.sku,
                                                     inventory_state=InventoryState.objects.filter(inventory_state='available').last(),
-                                                    defaults={
-                                                             'inventory_type':InventoryType.objects.filter(inventory_type='normal').last(),
-                                                             'inventory_state':InventoryState.objects.filter(inventory_state='available').last(),
-                                                             'quantity':BinInventory.available_qty(instance.warehouse.id, instance.sku.id),
-                                                             'in_stock':instance.in_stock})
+                                                    inventory_type=InventoryType.objects.filter(inventory_type=instance.inventory_type).last(),
+                                                    defaults={'quantity':BinInventory.available_qty_with_inventory_type(instance.warehouse.id, instance.sku.id,
+                                                    InventoryType.objects.filter(inventory_type=instance.inventory_type).last().id),
+                                                    'in_stock':instance.in_stock})
 
 
 class OrderReserveRelease(models.Model):
@@ -345,3 +340,19 @@ class OrderReserveRelease(models.Model):
     release_time = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
+
+
+class Audit(models.Model):
+
+    warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
+    uploaded_by = models.ForeignKey(get_user_model(), related_name='audit_user', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
+    upload_csv = models.FileField(upload_to='shop_photos/shop_name/documents/audit/', null=True, blank=True)
+
+    class Meta:
+        db_table = "wms_audit"
+
+    def __str__(self):
+        return str(self.id)
+
