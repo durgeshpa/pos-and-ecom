@@ -47,6 +47,12 @@ class InventoryTypeFilter(AutocompleteFilter):
     autocomplete_url = 'inventory-type-autocomplete'
 
 
+class InventoryStateFilter(AutocompleteFilter):
+    title = 'InventoryState'
+    field_name = 'inventory_state'
+    autocomplete_url = 'inventory-state-autocomplete'
+
+
 class BinAdmin(admin.ModelAdmin):
     info_logger.info("Bin Admin has been called.")
     form = BinForm
@@ -310,6 +316,13 @@ class WarehouseInventoryAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'sku', 'inventory_type', 'inventory_state', 'quantity', 'in_stock', 'created_at', 'modified_at')
     list_select_related = ('warehouse', 'inventory_type', 'inventory_state', 'sku')
     readonly_fields = ('warehouse', 'sku', 'inventory_type', 'inventory_state', 'quantity', 'in_stock', 'created_at', 'modified_at')
+    search_fields = ('sku__product_sku',)
+    list_filter = [
+        ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter), Warehouse, InventoryTypeFilter,
+        InventoryStateFilter,]
+
+    class Media:
+        pass
 
 
 class InventoryStateAdmin(admin.ModelAdmin):

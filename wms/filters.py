@@ -26,3 +26,15 @@ class InventoryTypeFilter(autocomplete.Select2QuerySetView):
         if self.q:
             qs = qs.filter(inventory_type_name__icontains=self.q)
         return qs
+
+
+class InventoryStateFilter(autocomplete.Select2QuerySetView):
+    def get_queryset(self, *args, **kwargs):
+        if not self.request.user.is_authenticated:
+            return InventoryState.objects.none()
+
+        qs = InventoryState.objects.all()
+
+        if self.q:
+            qs = qs.filter(inventory_state_name__icontains=self.q)
+        return qs
