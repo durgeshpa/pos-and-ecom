@@ -42,15 +42,27 @@ class Warehouse(AutocompleteFilter):
 
 
 class InventoryTypeFilter(AutocompleteFilter):
-    title = 'InventoryType'
+    title = 'Inventory Type'
     field_name = 'inventory_type'
     autocomplete_url = 'inventory-type-autocomplete'
 
 
 class InventoryStateFilter(AutocompleteFilter):
-    title = 'InventoryState'
+    title = 'Inventory State'
     field_name = 'inventory_state'
     autocomplete_url = 'inventory-state-autocomplete'
+
+
+class InitialStageFilter(AutocompleteFilter):
+    title = 'Initial Stage'
+    field_name = 'initial_stage'
+    autocomplete_url = 'initial-stage-autocomplete'
+
+
+class FinalStageFilter(AutocompleteFilter):
+    title = 'Final Stage'
+    field_name = 'final_stage'
+    autocomplete_url = 'final-stage-autocomplete'
 
 
 class BinAdmin(admin.ModelAdmin):
@@ -269,6 +281,7 @@ class PickupBinInventoryAdmin(admin.ModelAdmin):
     order_number.short_description = 'Order Number'
     bin_id.short_description = 'Bin Id'
 
+
 class StockMovementCSVUploadAdmin(admin.ModelAdmin):
     """
     This class is used to view the Stock(Movement) form Admin Panel
@@ -331,9 +344,17 @@ class InventoryStateAdmin(admin.ModelAdmin):
 
 
 class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
-    list_display = ('warehouse', 'sku', 'inventory_type', 'transaction_type', 'status', 'transaction_id', 'initial_stage', 'final_stage', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
+    list_display = ('warehouse', 'sku', 'inventory_type', 'transaction_type', 'transaction_id', 'initial_stage', 'final_stage', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
     list_select_related = ('warehouse', 'sku')
     readonly_fields = ('warehouse', 'sku', 'transaction_type', 'transaction_id', 'initial_stage', 'final_stage', 'quantity', 'created_at', 'modified_at')
+
+    search_fields = ('sku__product_sku', 'transaction_id',)
+    list_filter = [
+        ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter), Warehouse, InventoryTypeFilter,
+         InitialStageFilter, FinalStageFilter, 'transaction_type',]
+
+    class Media:
+        pass
 
 
 class BinInternalInventoryChangeAdmin(admin.ModelAdmin):
@@ -345,9 +366,21 @@ class StockCorrectionChangeAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'stock_sku', 'batch_id', 'stock_bin_id',
                     'correction_type', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
 
+
 class OrderReleaseAdmin(admin.ModelAdmin):
-    list_display = ('warehouse', 'sku', 'warehouse_internal_inventory_reserve', 'warehouse_internal_inventory_release', 'reserved_time', 'release_time', 'created_at')
+    list_display = ('warehouse', 'sku', 'order_number', 'warehouse_internal_inventory_reserve', 'warehouse_internal_inventory_release', 'reserved_time', 'release_time', 'created_at')
     readonly_fields = ('warehouse', 'sku', 'warehouse_internal_inventory_reserve', 'warehouse_internal_inventory_release', 'reserved_time', 'release_time', 'created_at')
+
+    search_fields = ('sku__product_sku',)
+    list_filter = [Warehouse,]
+
+    def order_number(self, obj):
+        return obj.warehouse_internal_inventory_release.transaction_id
+
+    order_number.short_description = 'Order Number'
+
+    class Media:
+        pass
 
 
 class AuditAdmin(admin.ModelAdmin):
