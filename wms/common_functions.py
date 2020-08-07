@@ -684,45 +684,50 @@ class AuditInventory(object):
                     inventory_state='available').last(), in_stock=in_stock).exclude(inventory_type=InventoryType.objects.filter(
                     inventory_type='normal').last())
 
-            # check the quantity of all inventory type
+            # check the object is exist or not
             if all_ware_house_inventory_obj.exists():
-                all_quantity = 0
+                all_ware_house_quantity = 0
+                # get the quantity
                 for in_ware_house in all_ware_house_inventory_obj:
-                    all_quantity = in_ware_house.quantity + all_quantity
-                if all_quantity > ware_house_inventory_obj.quantity:
+                    all_ware_house_quantity = in_ware_house.quantity + all_ware_house_quantity
+                if all_ware_house_quantity > ware_house_inventory_obj.quantity:
                     final_quantity = 0
-                    next_quantity = all_quantity - ware_house_inventory_obj.quantity
+                    reserved_inv_type_quantity = all_ware_house_quantity - ware_house_inventory_obj.quantity
                     ware_house_inventory_obj.quantity = final_quantity
                     ware_house_inventory_obj.save()
                     reserved_ware = WarehouseInventory.objects.filter(
                         warehouse=warehouse, sku=sku, inventory_state=InventoryState.objects.filter(
                             inventory_state='reserved').last(), inventory_type=InventoryType.objects.filter(
                             inventory_type='normal').last(), in_stock=in_stock).last()
-                    if next_quantity > reserved_ware.quantity:
+                    if reserved_inv_type_quantity > reserved_ware.quantity:
                         reserved_ware_quantity = 0
-                        nex_next_quantity = next_quantity-reserved_ware.quantity
+                        ordered_next_quantity = reserved_inv_type_quantity-reserved_ware.quantity
                         reserved_ware.quantity = reserved_ware_quantity
                         reserved_ware.save()
                         ordered_ware = WarehouseInventory.objects.filter(
                             warehouse=warehouse, sku=sku, inventory_state=InventoryState.objects.filter(
                                 inventory_state='ordered').last(), inventory_type=InventoryType.objects.filter(
                                 inventory_type='normal').last(), in_stock=in_stock).last()
-                        if nex_next_quantity > ordered_ware.quantity:
+                        if ordered_next_quantity > ordered_ware.quantity:
                             ordered_ware_quantity = 0
                             ordered_ware.quantity = ordered_ware_quantity
                             ordered_ware.save()
                         else:
-                            ordered_ware.quantity = nex_next_quantity
+                            ordered_ware.quantity = ordered_next_quantity
                             ordered_ware.save()
 
                     else:
-                        reserved_ware.quantity = next_quantity
+                        reserved_ware.quantity = reserved_inv_type_quantity
                         reserved_ware.save()
                 else:
+                    if quantity is None:
+                        quantity = 0
                     ware_house_inventory_obj.quantity = quantity
                     ware_house_inventory_obj.save()
 
             else:
+                if quantity is None:
+                    quantity = 0
                 ware_house_inventory_obj.quantity = quantity
                 ware_house_inventory_obj.save()
 
