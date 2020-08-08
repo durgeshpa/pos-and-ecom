@@ -728,3 +728,52 @@ class AuditInventory(object):
                                                             inventory_type=inventory_type)
         except Exception as e:
             error_logger.error(e)
+
+
+
+def common_on_return_and_partial(shipment):
+    import pdb;
+    pdb.set_trace()
+    putaway_qty = 0
+    inv_type = {'E': InventoryType.objects.get(inventory_type='expired'),
+                'D': InventoryType.objects.get(inventory_type='damaged'),
+                'R': InventoryType.objects.get(inventory_type='returned')}
+    for i in shipment.rt_order_product_order_product_mapping.all():
+        for j in i.rt_ordered_product_mapping.all():
+            if j.returned_qty > 0:
+                BinInventory.objects.update_or_create(batch_id=j.batch_id, warehouse=j.pickup.warehouse,
+                                                      sku=j.pickup.sku, bin=j.bin.bin, inventory_type=inv_type['R'],
+                                                      in_stock='t', defaults={'quantity': j.returned_qty})
+                putaway_qty = j.returned_qty
+                if putaway_qty ==0:
+                    continue
+                else:
+                    pu, _ = Putaway.objects.update_or_create(warehouse=j.pickup.warehouse, putaway_type='RETURNED',
+                                                             putaway_type_id=shipment.invoice_no, sku=j.pickup.sku,
+                                                             batch_id=j.batch_id, defaults={'quantity': putaway_qty,
+                                                                                            'putaway_quantity': putaway_qty})
+                    PutawayBinInventory.objects.update_or_create(warehouse=j.pickup.warehouse, sku=j.pickup.sku,
+                                                                batch_id=j.batch_id, putaway_type='RETURNED',
+                                                                putaway=pu, bin=j.bin, putaway_status=True,
+                                                                defaults={'putaway_quantity': putaway_qty})
+
+            else:
+                if j.damaged_qty > 0:
+                    BinInventory.objects.update_or_create(batch_id=j.batch_id, warehouse=j.pickup.warehouse,
+                                                      sku=j.pickup.sku, bin=j.bin.bin, inventory_type=inv_type['D'],
+                                                      in_stock='t', defaults={'quantity': j.damaged_qty})
+                if j.expired_qty > 0:
+                    BinInventory.objects.update_or_create(batch_id=j.batch_id, warehouse=j.pickup.warehouse,sku=j.pickup.sku, bin=j.bin.bin, inventory_type=inv_type['E'],in_stock='t', defaults={'quantity':j.expired_qty})
+
+                putaway_qty = (j.pickup_quantity - j.quantity)
+                if putaway_qty == 0:
+                    continue
+                else:
+                    pu, _ = Putaway.objects.update_or_create(warehouse=j.pickup.warehouse, putaway_type='PAR_SHIPMENT',
+                                                         putaway_type_id=shipment.invoice_no, sku=j.pickup.sku,
+                                                         batch_id=j.batch_id, defaults={'quantity': putaway_qty,
+                                                                                        'putaway_quantity': putaway_qty})
+                    PutawayBinInventory.objects.update_or_create(warehouse=j.pickup.warehouse, sku=j.pickup.sku,
+                                                             batch_id=j.batch_id, putaway_type='PAR_SHIPMENT',
+                                                             putaway=pu, bin=j.bin, putaway_status=True,
+                                                             defaults={'putaway_quantity': putaway_qty})

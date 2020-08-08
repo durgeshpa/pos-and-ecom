@@ -1031,6 +1031,6 @@ class OrderedProductBatchingForm(forms.ModelForm):
 
     def clean(self):
         data = self.cleaned_data
-        if data.get('quantity') != data.get('damaged_qty') + data.get('returned_qty') + data.get('delivered_qty'):
+        if self.instance.quantity != data.get('damaged_qty') + data.get('returned_qty') + data.get('delivered_qty'):
             raise forms.ValidationError('No. of pieces to ship must be equal to sum of (damaged, returned, delivered)')
         return data

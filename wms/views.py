@@ -26,7 +26,7 @@ from .common_functions import CommonPickBinInvFunction, common_for_release, Comm
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease
 from .models import Bin, WarehouseInventory, PickupBinInventory
 from shops.models import Shop
-from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard
+from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard, OrderedProductBatch
 from products.models import Product, ProductPrice
 from gram_to_brand.models import GRNOrderProductMapping
 
@@ -560,7 +560,6 @@ def pickup_entry_creation_with_cron():
     cart = Cart.objects.filter(rt_order_cart_mapping__order_status='ordered')
     data_list=[]
     if cart.exists():
-        cart = [cart.last()]
         order_obj = [i.rt_order_cart_mapping for i in cart]
         for i in order_obj:
             try:
@@ -584,7 +583,10 @@ def pickup_entry_creation_with_cron():
                 qty = obj.quantity
                 bin_lists = obj.sku.rt_product_sku.filter(quantity__gt=0).order_by('-batch_id', 'quantity')
                 for k in bin_lists:
-                    bin_inv_dict[str(datetime.strptime(k.batch_id[17:19] + '-' + k.batch_id[19:21] + '-' + '20' + k.batch_id[21:23], "%d-%m-%Y"))]=k
+                    if len(k.batch_id) == 23:
+                        bin_inv_dict[str(datetime.strptime(k.batch_id[17:19] + '-' + k.batch_id[19:21] + '-' + '20' + k.batch_id[21:23],"%d-%m-%Y"))] = k
+                    else:
+                        bin_inv_dict[str(datetime.strptime('30-' + k.batch_id[17:19] + '-20' + k.batch_id[19:21], "%d-%m-%Y"))] = k
                 bin_inv_dict = list(bin_inv_dict.items())
                 bin_inv_dict.sort()
                 bin_inv_dict = dict(bin_inv_dict)
