@@ -527,7 +527,6 @@ class BulkOrder(models.Model):
 
 @receiver(post_save, sender=Cart)
 def create_order_id(sender, instance=None, created=False, **kwargs):
-    import pdb;pdb.set_trace()
     if created:
         if instance.cart_type == 'RETAIL':
             instance.order_id = order_id_pattern(
@@ -2287,54 +2286,12 @@ def assign_update_picker_to_shipment(shipment_id):
 def add_to_putaway_on_partail(shipment_id):
     shipment = OrderedProduct.objects.get(pk=shipment_id)
     common_on_return_and_partial(shipment)
-    # inv_type = {'E':InventoryType.objects.get(inventory_type='expired'),
-    #             'D':InventoryType.objects.get(inventory_type='damaged')}
-    # shipment = OrderedProduct.objects.get(pk=shipment_id)
-    # for i in shipment.rt_order_product_order_product_mapping.all():
-    #     for j in i.rt_ordered_product_mapping.all():
-    #         if j.expired_qty > 0:
-    #             BinInventory.objects.update_or_create(batch_id=j.batch_id, warehouse=j.pickup.warehouse,sku=j.pickup.sku, bin=j.bin.bin, inventory_type=inv_type['E'],in_stock='t', defaults={'quantity':j.expired_qty})
-    #         if j.damaged_qty > 0:
-    #             BinInventory.objects.update_or_create(batch_id=j.batch_id, warehouse=j.pickup.warehouse,
-    #                                                   sku=j.pickup.sku, bin=j.bin.bin, inventory_type=inv_type['D'],in_stock='t',defaults={'quantity': j.damaged_qty})
-    #         putaway_qty = (j.pickup_quantity - j.quantity)
-    #         if putaway_qty == 0:
-    #             continue
-    #         else:
-    #             pu, _ = Putaway.objects.update_or_create(warehouse=j.pickup.warehouse, putaway_type='PAR_SHIPMENT',
-    #                                                     putaway_type_id=shipment.invoice_no, sku=j.pickup.sku, batch_id=j.batch_id, defaults={'quantity':putaway_qty, 'putaway_quantity':putaway_qty})
-    #             PutawayBinInventory.objects.update_or_create(warehouse=j.pickup.warehouse, sku=j.pickup.sku, batch_id=j.batch_id,putaway_type='PAR_SHIPMENT',putaway=pu,bin=j.bin,putaway_status=True, defaults={'putaway_quantity':putaway_qty})
 
 
 def add_to_putaway_on_return(shipment_id):
     shipment = OrderedProduct.objects.get(pk=shipment_id)
     common_on_return_and_partial(shipment)
-    # inv_type = {'R': InventoryType.objects.get(inventory_type='returned'),
-    #             'D': InventoryType.objects.get(inventory_type='damaged')}
-    # shipment = OrderedProduct.objects.get(pk=shipment_id)
-    # for i in shipment.rt_order_product_order_product_mapping.all():
-    #     for j in i.rt_ordered_product_mapping.all():
-    #         if j.returned_qty > 0:
-    #             BinInventory.objects.update_or_create(batch_id=j.batch_id, warehouse=j.pickup.warehouse,
-    #                                                   sku=j.pickup.sku, bin=j.bin.bin, inventory_type=inv_type['R'],
-    #                                                   in_stock='t', defaults={'quantity': j.returned_qty})
-    #         if j.damaged_qty > 0:
-    #             BinInventory.objects.update_or_create(batch_id=j.batch_id, warehouse=j.pickup.warehouse,
-    #                                                   sku=j.pickup.sku, bin=j.bin.bin, inventory_type=inv_type['D'],
-    #                                                   in_stock='t', defaults={'quantity': j.damaged_qty})
-    #         putaway_qty = j.returned_qty
-    #         if putaway_qty == 0:
-    #             continue
-    #         else:
-    #             pu, _ = Putaway.objects.update_or_create(warehouse=j.pickup.warehouse, putaway_type='PAR_SHIPMENT',
-    #                                                      putaway_type_id=shipment.invoice_no, sku=j.pickup.sku,
-    #                                                      batch_id=j.batch_id, defaults={'quantity': putaway_qty,
-    #                                                                                     'putaway_quantity': putaway_qty})
-    #             PutawayBinInventory.objects.update_or_create(warehouse=j.pickup.warehouse, sku=j.pickup.sku,
-    #                                                          batch_id=j.batch_id, putaway_type='PAR_SHIPMENT',
-    #                                                          putaway=pu, bin=j.bin, putaway_status=True,
-    #                                                          defaults={'putaway_quantity': putaway_qty})
-
+    
 
 @receiver(post_save, sender=OrderedProduct)
 def update_picking_status(sender, instance=None, created=False, **kwargs):

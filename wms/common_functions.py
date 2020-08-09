@@ -732,8 +732,6 @@ class AuditInventory(object):
 
 
 def common_on_return_and_partial(shipment):
-    import pdb;
-    pdb.set_trace()
     putaway_qty = 0
     inv_type = {'E': InventoryType.objects.get(inventory_type='expired'),
                 'D': InventoryType.objects.get(inventory_type='damaged'),
@@ -766,7 +764,7 @@ def common_on_return_and_partial(shipment):
                     BinInventory.objects.update_or_create(batch_id=j.batch_id, warehouse=j.pickup.warehouse,sku=j.pickup.sku, bin=j.bin.bin, inventory_type=inv_type['E'],in_stock='t', defaults={'quantity':j.expired_qty})
 
                 putaway_qty = (j.pickup_quantity - j.quantity)
-                if putaway_qty == 0:
+                if putaway_qty < 0:
                     continue
                 else:
                     pu, _ = Putaway.objects.update_or_create(warehouse=j.pickup.warehouse, putaway_type='PAR_SHIPMENT',
