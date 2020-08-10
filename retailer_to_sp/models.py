@@ -2455,10 +2455,6 @@ def populate_data_on_qc_pass(order):
 
 
         )
-    if obj:
-        return 'Success'
-    else:
-        return 'Failed'
 
 
 @receiver(post_save, sender=OrderedProductBatch)
