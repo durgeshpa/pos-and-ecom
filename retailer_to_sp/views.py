@@ -25,7 +25,7 @@ from sp_to_gram.models import (
     OrderedProduct as SPOrderedProduct)
 from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, OrderedProductMapping, Note, Trip,
                                    Dispatch, ShipmentRescheduling, PickerDashboard, update_full_part_order_status,
-                                   Shipment, populate_data_on_qc_pass)
+                                   Shipment, populate_data_on_qc_pass, add_to_putaway_on_return)
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
@@ -486,6 +486,8 @@ def trip_planning_change(request, pk):
                     return redirect('/admin/retailer_to_sp/trip/')
 
                 if current_trip_status == Trip.RETURN_VERIFIED:
+                    for i in trip_instance.rt_invoice_trip.all():
+                        add_to_putaway_on_return(i.id)
                     return redirect('/admin/retailer_to_sp/trip/')
 
                 if selected_shipment_ids:

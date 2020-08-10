@@ -30,7 +30,8 @@ from .utils import (order_invoices, order_shipment_status, order_shipment_amount
 from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
-from wms.models import Out, PickupBinInventory, Pickup, BinInventory
+from wms.models import Out, PickupBinInventory, Pickup, BinInventory, Putaway, PutawayBinInventory, InventoryType
+from wms.common_functions import CommonPickupFunctions,PutawayCommonFunctions, common_on_return_and_partial
 from brand.models import Brand
 from otp.sms import SendSms
 from products.models import Product, ProductPrice
@@ -1847,12 +1848,12 @@ class OrderedProductMapping(models.Model):
         return round(self.discounted_price,2)
 
     def save(self, *args, **kwargs):
-        if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.picked_pieces != sum([self.shipped_qty, self.damaged_qty, self.expired_qty]):
-            raise ValidationError(_('shipped, expired, damaged qty sum mismatched with picked pieces'))
-        else:
-            self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().item_effective_prices
-            self.discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().discounted_price
-            super().save(*args, **kwargs)
+        # if (self.delivered_qty or self.returned_qty or self.damaged_qty) and self.picked_pieces != sum([self.shipped_qty, self.damaged_qty, self.expired_qty, self.returned_qty]):
+        #     raise ValidationError(_('shipped, expired, damaged qty sum mismatched with picked pieces'))
+        # else:
+        self.effective_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().item_effective_prices
+        self.discounted_price = self.ordered_product.order.ordered_cart.rt_cart_list.filter(cart_product=self.product).last().discounted_price
+        super().save(*args, **kwargs)
 
 
 class Dispatch(OrderedProduct):
@@ -2271,16 +2272,26 @@ def update_full_part_order_status(shipment):
 
 @task
 def assign_update_picker_to_shipment(shipment_id):
-   shipment = OrderedProduct.objects.get(pk=shipment_id)
-   if shipment.shipment_status == "SHIPMENT_CREATED":
-       # assign shipment to picklist
-       # tbd : if manual(by searching relevant picklist id) or automated
-       if shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).exists():
-           picker_lists = shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).update(shipment=shipment)
-   elif shipment.shipment_status == OrderedProduct.READY_TO_SHIP:
-       if shipment.picker_shipment.all().exists():
-           shipment.picker_shipment.all().update(picking_status="picking_complete")
+    shipment = OrderedProduct.objects.get(pk=shipment_id)
+    if shipment.shipment_status == "SHIPMENT_CREATED":
+        # assign shipment to picklist
+        # tbd : if manual(by searching relevant picklist id) or automated
+        if shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).exists():
+            picker_lists = shipment.order.picker_order.filter(picking_status="picking_assigned", shipment__isnull=True).update(shipment=shipment)
+        elif shipment.shipment_status == OrderedProduct.READY_TO_SHIP:
+            if shipment.picker_shipment.all().exists():
+                shipment.picker_shipment.all().update(picking_status="picking_complete")
 
+
+def add_to_putaway_on_partail(shipment_id):
+    shipment = OrderedProduct.objects.get(pk=shipment_id)
+    common_on_return_and_partial(shipment)
+
+
+def add_to_putaway_on_return(shipment_id):
+    shipment = OrderedProduct.objects.get(pk=shipment_id)
+    common_on_return_and_partial(shipment)
+    
 
 @receiver(post_save, sender=OrderedProduct)
 def update_picking_status(sender, instance=None, created=False, **kwargs):
@@ -2450,5 +2461,9 @@ def populate_data_on_qc_pass(order):
         return 'Failed'
 
 
+@receiver(post_save, sender=OrderedProductBatch)
+def create_putaway(sender, created=False, instance=None, *args, **kwargs):
+    if instance.returned_qty == 0 and instance.delivered_qty == 0:
+        add_to_putaway_on_partail(instance.ordered_product_mapping.ordered_product.id)
 
 
