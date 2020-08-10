@@ -555,7 +555,7 @@ class UploadAuditAdminForm(forms.Form):
                 raise ValidationError(_(
                     "Issue in Row" + " " + str(row_id + 1) + "," + "SKU can not be empty."))
 
-            if not Product.objects.filter(product_sku=row[1].split('-')[1]).exists():
+            if not Product.objects.filter(product_sku=row[1][-17:]).exists():
                 raise ValidationError(_(
                     "Issue in Row" + " " + str(row_id + 1) + "," + "SKU is not exist in the system."))
 
@@ -608,28 +608,28 @@ class UploadAuditAdminForm(forms.Form):
                     "Issue in Row" + " " + str(row_id + 1) + "," + "Missing-Final Qty can not be empty."))
 
             normal = BinInventory.objects.filter(Q(warehouse__id=row[0]),
-                            Q(sku__id=Product.objects.filter(product_sku=row[1].split('-')[1])[0].id),
+                            Q(sku__id=Product.objects.filter(product_sku=row[1][-17:])[0].id),
                             Q(inventory_type__id=InventoryType.objects.filter(inventory_type='normal')[0].id),
                             Q(quantity__gt=0)).aggregate(total=Sum('quantity')).get('total')
             if normal is None:
                 normal = 0
 
             damaged = BinInventory.objects.filter(Q(warehouse__id=row[0]),
-                            Q(sku__id=Product.objects.filter(product_sku=row[1].split('-')[1])[0].id),
+                            Q(sku__id=Product.objects.filter(product_sku=row[1][-17:])[0].id),
                             Q(inventory_type__id=InventoryType.objects.filter(inventory_type='damaged')[0].id),
                             Q(quantity__gt=0)).aggregate(total=Sum('quantity')).get('total')
             if damaged is None:
                 damaged = 0
 
             expired = BinInventory.objects.filter(Q(warehouse__id=row[0]),
-                            Q(sku__id=Product.objects.filter(product_sku=row[1].split('-')[1])[0].id),
+                            Q(sku__id=Product.objects.filter(product_sku=row[1][-17:])[0].id),
                             Q(inventory_type__id=InventoryType.objects.filter(inventory_type='expired')[0].id),
                             Q(quantity__gt=0)).aggregate(total=Sum('quantity')).get('total')
 
             if expired is None:
                 expired = 0
             missing = BinInventory.objects.filter(Q(warehouse__id=row[0]),
-                            Q(sku__id=Product.objects.filter(product_sku=row[1].split('-')[1])[0].id),
+                            Q(sku__id=Product.objects.filter(product_sku=row[1][-17:])[0].id),
                             Q(inventory_type__id=InventoryType.objects.filter(inventory_type='missing')[0].id),
                             Q(quantity__gt=0)).aggregate(total=Sum('quantity')).get('total')
             if missing is None:

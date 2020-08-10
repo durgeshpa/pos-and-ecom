@@ -600,11 +600,11 @@ class AuditInventory(object):
             bin_inv = BinInventory.objects.filter(warehouse=data[0],
                                                   bin=Bin.objects.filter(bin_id=data[4]).last(),
                                                   sku=Product.objects.filter(
-                                                      product_sku=data[1].split('-')[1]).last()).last()
+                                                      product_sku=data[1][-17:]).last()).last()
 
             # call function to create and update Bin inventory for specific Inventory Type
             AuditInventory.update_or_create_bin_inventory_for_audit(data[0], data[4],
-                                                                    data[1].split('-')[1],
+                                                                    data[1][-17:],
                                                                     bin_inv.batch_id,
                                                                     InventoryType.objects.filter(
                                                                         inventory_type=key).last(),
@@ -612,18 +612,18 @@ class AuditInventory(object):
 
             # call function to create and update Ware House Inventory for specific Inventory Type
             AuditInventory.update_or_create_warehouse_inventory_for_audit(
-                data[0], data[1].split('-')[1],
+                data[0], data[1][-17:],
                 CommonInventoryStateFunctions.filter_inventory_state(inventory_state='available').last(),
                 InventoryType.objects.filter(inventory_type=key).last(),
                 BinInventory.available_qty_with_inventory_type(data[0], Product.objects.filter(
-                    product_sku=data[1].split('-')[1]).last().id, InventoryType.objects.filter(
+                    product_sku=data[1][-17:]).last().id, InventoryType.objects.filter(
                     inventory_type=key).last().id), True)
 
             # call function to create and update Ware House Internal Inventory for specific Inventory Type
             transaction_type = 'audit_adjustment'
             AuditInventory.create_warehouse_inventory_change_for_audit(
                 Shop.objects.get(id=data[0]).id, Product.objects.get(
-                    product_sku=data[1].split('-')[1]), transaction_type, audit_inventory_obj[0].id,
+                    product_sku=data[1][-17:]), transaction_type, audit_inventory_obj[0].id,
                 CommonInventoryStateFunctions.filter_inventory_state(inventory_state='available').last(),
                 CommonInventoryStateFunctions.filter_inventory_state(inventory_state='available').last(),
                 InventoryType.objects.filter(inventory_type=key).last(), value)
@@ -672,20 +672,80 @@ class AuditInventory(object):
         """
         # filter in Warehouse inventory model to check whether the combination of warehouse, sku id, inventory state,
         # inventory type is exist or not if it is found then update quantity otherwise create new data set in a model
-        ware_house_inventory_obj = WarehouseInventory.objects.filter(
-            warehouse=warehouse, sku=sku, inventory_state=InventoryState.objects.filter(
-                inventory_state=inventory_state).last(), inventory_type=InventoryType.objects.filter(
-                inventory_type=inventory_type).last(), in_stock=in_stock).last()
-        if ware_house_inventory_obj:
-            ware_house_inventory_obj.quantity = quantity
-            ware_house_inventory_obj.save()
+        if inventory_type.inventory_type == 'normal':
+            ware_house_inventory_obj = WarehouseInventory.objects.filter(
+                warehouse=warehouse, sku=sku, inventory_state=InventoryState.objects.filter(
+                    inventory_state=inventory_state).last(), inventory_type=InventoryType.objects.filter(
+                    inventory_type=inventory_type).last(), in_stock=in_stock).last()
+            # get all quantity for same sku in warehouse except inventory type is normal
+            all_ware_house_inventory_obj = WarehouseInventory.objects.filter(
+                warehouse=warehouse, sku=sku, inventory_state=InventoryState.objects.filter(
+                    inventory_state='available').last(), in_stock=in_stock).exclude(inventory_type=InventoryType.objects.filter(
+                    inventory_type='normal').last())
+
+            # check the object is exist or not
+            if all_ware_house_inventory_obj.exists():
+                all_ware_house_quantity = 0
+                # get the quantity
+                for in_ware_house in all_ware_house_inventory_obj:
+                    all_ware_house_quantity = in_ware_house.quantity + all_ware_house_quantity
+                if all_ware_house_quantity > ware_house_inventory_obj.quantity:
+                    final_quantity = 0
+                    reserved_inv_type_quantity = all_ware_house_quantity - ware_house_inventory_obj.quantity
+                    ware_house_inventory_obj.quantity = final_quantity
+                    ware_house_inventory_obj.save()
+                    reserved_ware = WarehouseInventory.objects.filter(
+                        warehouse=warehouse, sku=sku, inventory_state=InventoryState.objects.filter(
+                            inventory_state='reserved').last(), inventory_type=InventoryType.objects.filter(
+                            inventory_type='normal').last(), in_stock=in_stock).last()
+                    if reserved_inv_type_quantity > reserved_ware.quantity:
+                        reserved_ware_quantity = 0
+                        ordered_next_quantity = reserved_inv_type_quantity-reserved_ware.quantity
+                        reserved_ware.quantity = reserved_ware_quantity
+                        reserved_ware.save()
+                        ordered_ware = WarehouseInventory.objects.filter(
+                            warehouse=warehouse, sku=sku, inventory_state=InventoryState.objects.filter(
+                                inventory_state='ordered').last(), inventory_type=InventoryType.objects.filter(
+                                inventory_type='normal').last(), in_stock=in_stock).last()
+                        if ordered_next_quantity > ordered_ware.quantity:
+                            ordered_ware_quantity = 0
+                            ordered_ware.quantity = ordered_ware_quantity
+                            ordered_ware.save()
+                        else:
+                            ordered_ware.quantity = ordered_next_quantity
+                            ordered_ware.save()
+
+                    else:
+                        reserved_ware.quantity = reserved_inv_type_quantity
+                        reserved_ware.save()
+                else:
+                    if quantity is None:
+                        quantity = 0
+                    ware_house_inventory_obj.quantity = quantity
+                    ware_house_inventory_obj.save()
+
+            else:
+                if quantity is None:
+                    quantity = 0
+                ware_house_inventory_obj.quantity = quantity
+                ware_house_inventory_obj.save()
+
         else:
-            WarehouseInventory.objects.get_or_create(
-                warehouse=Shop.objects.filter(id=warehouse)[0],
-                sku=Product.objects.filter(product_sku=sku)[0],
-                inventory_state=InventoryState.objects.filter(inventory_state=inventory_state).last(),
-                inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(),
-                in_stock=in_stock, quantity=quantity)
+            ware_house_inventory_obj = WarehouseInventory.objects.filter(
+                warehouse=warehouse, sku=sku, inventory_state=InventoryState.objects.filter(
+                    inventory_state=inventory_state).last(), inventory_type=InventoryType.objects.filter(
+                    inventory_type=inventory_type).last(), in_stock=in_stock).last()
+
+            if ware_house_inventory_obj:
+                ware_house_inventory_obj.quantity = quantity
+                ware_house_inventory_obj.save()
+            else:
+                WarehouseInventory.objects.get_or_create(
+                    warehouse=Shop.objects.filter(id=warehouse)[0],
+                    sku=Product.objects.filter(product_sku=sku)[0],
+                    inventory_state=InventoryState.objects.filter(inventory_state=inventory_state).last(),
+                    inventory_type=InventoryType.objects.filter(inventory_type=inventory_type).last(),
+                    in_stock=in_stock, quantity=quantity)
 
 
     @classmethod

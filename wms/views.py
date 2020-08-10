@@ -584,9 +584,12 @@ def pickup_entry_creation_with_cron():
                 bin_lists = obj.sku.rt_product_sku.filter(quantity__gt=0).order_by('-batch_id', 'quantity')
                 for k in bin_lists:
                     if len(k.batch_id) == 23:
-                        bin_inv_dict[str(datetime.strptime(k.batch_id[17:19] + '-' + k.batch_id[19:21] + '-' + '20' + k.batch_id[21:23],"%d-%m-%Y"))] = k
+                        bin_inv_dict[str(datetime.strptime(
+                            k.batch_id[17:19] + '-' + k.batch_id[19:21] + '-' + '20' + k.batch_id[21:23],
+                            "%d-%m-%Y"))] = k
                     else:
-                        bin_inv_dict[str(datetime.strptime('30-' + k.batch_id[17:19] + '-20' + k.batch_id[19:21], "%d-%m-%Y"))] = k
+                        bin_inv_dict[str(
+                            datetime.strptime('30-' + k.batch_id[17:19] + '-20' + k.batch_id[19:21], "%d-%m-%Y"))] = k
                 bin_inv_dict = list(bin_inv_dict.items())
                 bin_inv_dict.sort()
                 bin_inv_dict = dict(bin_inv_dict)
@@ -760,7 +763,7 @@ def audit_upload(request):
     :return: Upload form
     """
     if request.method == 'POST':
-        info_logger.info("POST request while upload the .xls file for Bin generation.")
+        info_logger.info("POST request while upload the .xls file for Audit.")
         form = UploadAuditAdminForm(request.POST, request.FILES)
         if form.is_valid():
             info_logger.info("File format validation has been successfully done.")
@@ -775,58 +778,65 @@ def audit_upload(request):
 
                 # Check SKU and Expiry data is exist or not
                 grn_order_obj = GRNOrderProductMapping.objects.filter(
-                    product__product_sku=data[1].split('-')[1],
+                    product__product_sku=data[1][-17:],
                     expiry_date=expiry_date)
                 if not grn_order_obj.exists():
-                    shop_object = Shop.objects.filter(id=data[0])
-                    sku = Product.objects.filter(product_sku=data[1].split('-')[1]).last()
-                    quantity = int(data[9]) + int(data[10]) + int(data[11]) + int(data[12])
-                    batch_id = '{}{}'.format(data[1].split('-')[1], datetime.strptime(data[3], '%d/%m/%y').strftime('%d%m%y'))
-                    InCommonFunctions.create_in(shop_object[0], 'Audit Adjustment', audit_inventory_obj[0].id, sku,
-                                                batch_id, int(quantity), int(quantity))
+                    # create batch id for SKU and save data in In and Put Away Model
+                    batch_id = create_batch_id_from_audit(data, audit_inventory_obj)
                 # condition to check for Final Inventory types quantity
                 bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
-                                            bin=Bin.objects.filter(bin_id=data[4]).last(),
-                                            sku=Product.objects.filter(
-                                                product_sku=data[1].split('-')[1]).last())
-                inventory_type = {}
-                for bin_inventory in bin_inventory_obj:
-                    if bin_inventory.inventory_type.inventory_type == 'normal':
-                        normal = int(data[9])
-                        inventory_type.update({'normal': normal})
-                    else:
-                        if int(data[9]) > 0:
-                            normal = int(data[9])
-                            inventory_type.update({'normal': normal})
+                                                                bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                                                sku=Product.objects.filter(
+                                                                    product_sku=data[1][-17:]).last())
+                if not bin_inventory_obj.exists():
+                    if int(data[9]) > 0:
+                        BinInventory.objects.get_or_create(warehouse=Shop.objects.filter(id=data[0])[0],
+                                                                        bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                                                                        batch_id=batch_id,
+                                                                        sku=Product.objects.filter(
+                                                                            product_sku=data[1][-17:]).last(),
+                                                                                        in_stock=True, quantity = int(data[9]),
+                                                                                        inventory_type=InventoryType.objects.filter(inventory_type='normal').last())
+                    if int(data[10]) > 0:
+                        BinInventory.objects.get_or_create(
+                            warehouse=Shop.objects.filter(id=data[0])[0],
+                            bin=Bin.objects.filter(bin_id=data[4]).last(),
+                            batch_id=batch_id,
+                            sku=Product.objects.filter(
+                                product_sku=data[1][-17:]).last(),
+                            in_stock=True, quantity=int(data[10]),
+                            inventory_type=InventoryType.objects.filter(inventory_type='damaged').last())
+                    if int(data[11]) > 0:
+                        BinInventory.objects.get_or_create(
+                            warehouse=Shop.objects.filter(id=data[0])[0],
+                            bin=Bin.objects.filter(bin_id=data[4]).last(),
+                            batch_id=batch_id,
+                            sku=Product.objects.filter(
+                                product_sku=data[1][-17:]).last(),
+                            in_stock=True, quantity=int(data[11]),
+                            inventory_type=InventoryType.objects.filter(inventory_type='expired').last())
+                    if int(data[12]) > 0:
+                        BinInventory.objects.get_or_create(
+                            warehouse=Shop.objects.filter(id=data[0])[0],
+                            bin=Bin.objects.filter(bin_id=data[4]).last(),
+                            batch_id=batch_id,
+                            sku=Product.objects.filter(
+                                product_sku=data[1][-17:]).last(),
+                            in_stock=True, quantity=int(data[12]),
+                            inventory_type=InventoryType.objects.filter(inventory_type='missing').last(),)
 
-                    if bin_inventory.inventory_type.inventory_type == 'damaged':
-                        damaged = int(data[10])
-                        inventory_type.update({'damaged': damaged})
-                    else:
-                        if int(data[10]) > 0:
-                            damaged = int(data[10])
-                            inventory_type.update({'damaged': damaged})
+                    bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
+                                                                    bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                                                    sku=Product.objects.filter(
+                                                                        product_sku=data[1][-17:]).last())
 
-                    if bin_inventory.inventory_type.inventory_type == 'expired':
-                        expired = int(data[11])
-                        inventory_type.update({'expired': expired})
-
-                    else:
-                        if int(data[11]) > 0:
-                            expired = int(data[11])
-                            inventory_type.update({'expired': expired})
-
-                    if bin_inventory.inventory_type.inventory_type == 'missing':
-                        missing = int(data[12])
-                        inventory_type.update({'missing': missing})
-                    else:
-                        if int(data[12]) > 0:
-                            missing = int(data[12])
-                            inventory_type.update({'missing': missing})
+                # call function to get inventory types from Bin Inventory
+                inventory_type = get_inventory_types_for_bin(data, bin_inventory_obj)
                 for key, value in inventory_type.items():
                     # call function to create data in different models like:- Bin Inventory, Warehouse Inventory and
                     # Warehouse Internal Inventory Model
                     AuditInventory.audit_exist_batch_id(data, key, value, audit_inventory_obj)
+                # pickup_entry_creation_with_cron
             return render(request, 'admin/wms/audit-upload.html', {'form': form})
 
         else:
@@ -834,3 +844,69 @@ def audit_upload(request):
     else:
         form = UploadAuditAdminForm()
     return render(request, 'admin/wms/audit-upload.html', {'form': form})
+
+
+def get_inventory_types_for_bin(data, bin_inventory_obj):
+    """
+
+    :param data: single row of data from csv
+    :param bin_inventory_obj: bin inventory object
+    :return: list of inventory types
+    """
+    try:
+        inventory_type = {}
+        for bin_inventory in bin_inventory_obj:
+            if bin_inventory.inventory_type.inventory_type == 'normal':
+                normal = int(data[9])
+                inventory_type.update({'normal': normal})
+            else:
+                if int(data[9]) > 0:
+                    normal = int(data[9])
+                    inventory_type.update({'normal': normal})
+
+            if bin_inventory.inventory_type.inventory_type == 'damaged':
+                damaged = int(data[10])
+                inventory_type.update({'damaged': damaged})
+            else:
+                if int(data[10]) > 0:
+                    damaged = int(data[10])
+                    inventory_type.update({'damaged': damaged})
+
+            if bin_inventory.inventory_type.inventory_type == 'expired':
+                expired = int(data[11])
+                inventory_type.update({'expired': expired})
+
+            else:
+                if int(data[11]) > 0:
+                    expired = int(data[11])
+                    inventory_type.update({'expired': expired})
+
+            if bin_inventory.inventory_type.inventory_type == 'missing':
+                missing = int(data[12])
+                inventory_type.update({'missing': missing})
+            else:
+                if int(data[12]) > 0:
+                    missing = int(data[12])
+                    inventory_type.update({'missing': missing})
+        return inventory_type
+    except Exception as e:
+        error_logger.error(e.message)
+
+
+def create_batch_id_from_audit(data, audit_inventory_obj):
+    """
+
+    :param data: single row of data from csv
+    :param audit_inventory_obj: audit inventory object
+    :return:
+    """
+    try:
+        shop_object = Shop.objects.filter(id=data[0])
+        sku = Product.objects.filter(product_sku=data[1][-17:]).last()
+        quantity = int(data[9]) + int(data[10]) + int(data[11]) + int(data[12])
+        batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d/%m/%y').strftime('%d%m%y'))
+        InCommonFunctions.create_in(shop_object[0], 'Audit Adjustment', audit_inventory_obj[0].id, sku,
+                                    batch_id, int(quantity), int(quantity))
+        return batch_id
+    except Exception as e:
+        error_logger.error(e.message)

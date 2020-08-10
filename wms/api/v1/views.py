@@ -295,6 +295,11 @@ class BinIDList(APIView):
             pickup_bin_obj = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no)
             for pick_up in pickup_bin_obj:
                 pick_list.append(pick_up.bin.bin)
+            temp_list = []
+            for x in pick_list:
+                if x not in temp_list:
+                    temp_list.append(x)
+            pick_list = temp_list
             serializer = BinSerializer(pick_list, many=True, fields=('id', 'bin_id'))
             msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
             return Response(msg, status=status.HTTP_200_OK)
@@ -407,7 +412,8 @@ class PickupDetail(APIView):
         pick_list = []
         for bin_id in bin_list:
             picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin=bin_id[0])
-            pick_list.append(picking_details[0])
+            if picking_details.exists():
+                pick_list.append(picking_details[0])
         serializer = PickupBinInventorySerializer(pick_list, many=True)
         msg = {'is_success': True, 'message': 'OK', 'data': serializer.data}
         return Response(msg, status=status.HTTP_200_OK)
@@ -424,10 +430,10 @@ class PickupDetail(APIView):
         pickup_quantity = request.data.get('pickup_quantity')
         if not pickup_quantity:
             return Response(msg, status=status.HTTP_200_OK)
-        negative_value = [i for i in pickup_quantity if i <= 0]
+        negative_value = [i for i in pickup_quantity if i < 0]
         if len(negative_value) > 0:
             return Response({'is_success': False,
-                             'message': 'Pickup quantity can not be zero and negative.',
+                             'message': 'Pickup quantity can not be negative.',
                              'data': None}, status=status.HTTP_200_OK)
 
         sku_id = request.data.get('sku_id')
