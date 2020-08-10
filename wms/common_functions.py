@@ -556,31 +556,31 @@ def cancel_order_with_pick(instance):
     :return:
 
     """
-    # order_obj = OrderedProduct.objects.filter(order=instance, shipment_status=OrderedProduct.READY_TO_SHIP)
-    # if order_obj.exists():
-    #     order_obj.update(shipment_status='CANCELLED')
     pickup_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=instance.order_no)
+    inv_type = {'N': InventoryType.objects.get(inventory_type='normal')}
     for pickup in pickup_object:
-        # pickup_bin_inventory_object = PickupBinInventory.objects.filter(pickup=pickup)
-
         pick_up_bin_quantity = pickup.pickup_quantity
 
         # Bin Model Update
         bin_inv_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(bin__bin_id=pickup.bin.bin.bin_id,
                                                                              sku__id=pickup.pickup.sku.id,
                                                                              batch_id=pickup.batch_id,
+                                                                             inventory_type=inv_type['N'],
                                                                              quantity__gt=0)
         bin_inv_qty = bin_inv_obj.last().quantity
         bin_inv_obj.update(quantity=bin_inv_qty + pick_up_bin_quantity)
-
-        # Update Pickup and PickUp Bin Inventory
-        pick_up_pickup_quantity = 0
-        pickup.pickup_quantity = pick_up_pickup_quantity
-        pickup.save()
-        pick_obj = Pickup.objects.filter(pickup_type_id=instance.order_no)
-        pick_obj.update(pickup_quantity=0)
-        cancel_order(instance)
-
+        if pick_up_bin_quantity == 0:
+            continue
+        else:
+            pu, _ = Putaway.objects.update_or_create(warehouse=pickup.warehouse, putaway_type='SHIPMENT',
+                                                     putaway_type_id=instance.order_no, sku=pickup.bin.sku,
+                                                     batch_id=pickup.batch_id, defaults={'quantity': pick_up_bin_quantity,
+                                                                                    'putaway_quantity': pick_up_bin_quantity})
+            PutawayBinInventory.objects.update_or_create(warehouse=pickup.warehouse, sku=pickup.bin.sku,
+                                                         batch_id=pickup.batch_id, putaway_type='SHIPMENT',
+                                                         putaway=pu, bin=pickup.bin, putaway_status=True,
+                                                         defaults={'putaway_quantity': pick_up_bin_quantity})
+            cancel_order(instance)
 
 class AuditInventory(object):
     """This class is used for to store data in different models while audit file upload """
