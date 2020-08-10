@@ -10,7 +10,7 @@ from addresses.forms import AddressForm
 from .forms import (ParentRetailerMappingForm, ShopParentRetailerMappingForm,
                     ShopForm, RequiredInlineFormSet,
                     AddressInlineFormSet, ShopTimingForm, ShopUserMappingForm, ShopTimingForm)
-from .views import (StockAdjustmentView, stock_adjust_sample,
+from .views import (StockAdjustmentView,shop_stock_download,
                     bulk_shop_updation, ShopAutocomplete, UserAutocomplete, ShopUserMappingCsvView, ShopUserMappingCsvSample, ShopTimingAutocomplete
 )
 from retailer_backend.admin import InputFilter
@@ -229,8 +229,8 @@ class ShopAdmin(admin.ModelAdmin, ExportCsvMixin):
                 name="StockAdjustment"
             ),
             url(
-                r'^adjust-stock-sample/(?P<shop_id>\w+)/$',
-                self.admin_site.admin_view(stock_adjust_sample),
+                r'^shop_stock_download/(?P<shop_id>\w+)/$',
+                self.admin_site.admin_view(shop_stock_download),
                 name="ShopStocks"
             ),
             url(

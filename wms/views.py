@@ -26,7 +26,7 @@ from .common_functions import CommonPickBinInvFunction, common_for_release, Comm
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease
 from .models import Bin, WarehouseInventory, PickupBinInventory
 from shops.models import Shop
-from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard
+from retailer_to_sp.models import Cart, Order, generate_picklist_id, PickerDashboard, OrderedProductBatch
 from products.models import Product, ProductPrice
 from gram_to_brand.models import GRNOrderProductMapping
 
@@ -560,7 +560,6 @@ def pickup_entry_creation_with_cron():
     cart = Cart.objects.filter(rt_order_cart_mapping__order_status='ordered')
     data_list=[]
     if cart.exists():
-        cart = [cart.last()]
         order_obj = [i.rt_order_cart_mapping for i in cart]
         for i in order_obj:
             try:

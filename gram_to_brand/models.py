@@ -417,6 +417,12 @@ class Document(models.Model):
     document_number = models.CharField(max_length=255,null=True,blank=True)
     document_image = models.FileField(null=True,blank=True,upload_to='brand_invoice')
 
+    def clean(self):
+        import pdb;pdb.set_trace()
+        super(Document).clean()
+        if self.document_image is None:
+            raise ValidationError("Document needs to be uploaded")
+
 class GRNOrderProductMapping(models.Model):
     grn_order = models.ForeignKey(GRNOrder,related_name='grn_order_grn_order_product',null=True,blank=True,on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='product_grn_order_product',null=True,blank=True, on_delete=models.CASCADE)

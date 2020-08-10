@@ -17,7 +17,7 @@ from addresses.models import State,Address
 from brand.models import Vendor
 from shops.models import Shop
 from gram_to_brand.forms import (OrderForm, CartProductMappingForm, GRNOrderForm, GRNOrderProductForm, GRNOrderProductFormset, POGenerationAccountForm)
-from .forms import POGenerationForm
+from .forms import POGenerationForm, DocumentForm
 from django.http import HttpResponse, HttpResponseRedirect
 from retailer_backend.filters import ( BrandFilter, SupplierStateFilter,SupplierFilter, OrderSearch, QuantitySearch, InvoiceNoSearch,
                                        GRNSearch, POAmountSearch, PORaisedBy,ProductNameSearch, ProductSKUSearch,SupplierNameSearch, POCreatedBySearch,PONumberSearch)
@@ -176,8 +176,9 @@ class GRNOrderForm(forms.ModelForm):
 
 class DocumentAdmin(admin.StackedInline):
     model = Document
+    form = DocumentForm
     fields = ('document_number', 'document_image')
-    extra = 0
+    extra = 1
 
 class GRNOrderProductMappingAdmin(admin.TabularInline):
     model = GRNOrderProductMapping

@@ -173,16 +173,15 @@
                 {% endfor %}
             {% endif %}
 {{ordered_form.management_form}}
-
+<button type="submit" class="fetch">Fetch</button>
     {% for field in ordered_form.visible_fields %}
      <p>
 
-{{ field.label_tag }}
+         {{ field.label_tag }}
           {{ field }}
           {{ field.help_text }}
   </p>
     {% endfor %}
-
 
 
 
@@ -247,7 +246,7 @@
 
         {% for order_form in formset %}
       {% if order_form.errors %}
-          
+
           {% for error in order_form.non_field_errors %}
             <p class="errornote">{{ error|escape }}</p>
           {% endfor %}
@@ -266,7 +265,7 @@
       {% endfor %}
 
      </tbody>
-   </table> 
+   </table>
 </fieldset>
 
   </div>
@@ -418,6 +417,4 @@ $('form').preventDoubleSubmission();
     });
 
 </script>
-
-
 </html>

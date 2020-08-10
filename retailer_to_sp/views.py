@@ -25,7 +25,7 @@ from sp_to_gram.models import (
     OrderedProduct as SPOrderedProduct)
 from retailer_to_sp.models import (CartProductMapping, Order, OrderedProduct, OrderedProductMapping, Note, Trip,
                                    Dispatch, ShipmentRescheduling, PickerDashboard, update_full_part_order_status,
-                                   Shipment)
+                                   Shipment, populate_data_on_qc_pass, add_to_putaway_on_return)
 from products.models import Product
 from retailer_to_sp.forms import (
     OrderedProductForm, OrderedProductMappingShipmentForm,
@@ -49,7 +49,7 @@ from addresses.models import Address
 from accounts.models import UserWithName
 from common.constants import ZERO, PREFIX_PICK_LIST_FILE_NAME, PICK_LIST_DOWNLOAD_ZIP_NAME
 from common.common_utils import create_file_name, create_merge_pdf_name, merge_pdf_files, single_pdf_file
-from wms.models import Pickup, WarehouseInternalInventoryChange
+from wms.models import Pickup, WarehouseInternalInventoryChange, PickupBinInventory
 from wms.common_functions import cancel_order, cancel_order_with_pick
 
 logger = logging.getLogger('retailer_to_sp_controller')
@@ -224,7 +224,7 @@ def ordered_product_mapping_shipment(request):
             .filter(
             ordered_product__order_id=order_id,
             product__id__in=[i['cart_product'] for i in cart_products]) \
-            .annotate(Sum('delivered_qty'), Sum('shipped_qty'))
+            .annotate(Sum('delivered_qty'), Sum('shipped_qty'), Sum('picked_pieces'))
         products_list = []
         pick_up_obj = Pickup.objects.filter(pickup_type_id=Order.objects.filter(id=order_id).last().order_no)
         for item, pick_up in zip(cart_products, pick_up_obj):
@@ -242,7 +242,8 @@ def ordered_product_mapping_shipment(request):
                         'ordered_qty': ordered_no_pieces,
                         'already_shipped_qty': already_shipped_qty,
                         'to_be_shipped_qty': to_be_shipped_qty,
-                        'shipped_qty': pick_up.pickup_quantity,
+                        'shipped_qty': pick_up.quantity,
+                        'picked_pieces':pick_up.pickup_quantity
                     })
             else:
                 products_list.append({
@@ -251,7 +252,8 @@ def ordered_product_mapping_shipment(request):
                     'ordered_qty': item['no_of_pieces'],
                     'already_shipped_qty': 0,
                     'to_be_shipped_qty': 0,
-                    'shipped_qty': pick_up.pickup_quantity,
+                    'shipped_qty':pick_up.quantity,
+                    'picked_pieces':pick_up.pickup_quantity
                 })
         form_set = ordered_product_set(initial=products_list)
         form = OrderedProductForm(initial={'order': order_id})
@@ -283,6 +285,7 @@ def ordered_product_mapping_shipment(request):
                                     raise Exception(
                                         '{}: Max Qty allowed is {}'.format(product_name, max_pieces_allowed))
                                 formset_data.save()
+                                populate_data_on_qc_pass(order)
                     return redirect('/admin/retailer_to_sp/shipment/')
 
             except Exception as e:
@@ -483,6 +486,8 @@ def trip_planning_change(request, pk):
                     return redirect('/admin/retailer_to_sp/trip/')
 
                 if current_trip_status == Trip.RETURN_VERIFIED:
+                    for i in trip_instance.rt_invoice_trip.all():
+                        add_to_putaway_on_return(i.id)
                     return redirect('/admin/retailer_to_sp/trip/')
 
                 if selected_shipment_ids:

@@ -29,6 +29,7 @@ INVENTORY_TYPE_CHOICES = (
     ('discarded', 'DISCARDED'),  # Inventory Rejected
     ('disposed', 'DISPOSED'),  # Inventory Disposed
     ('missing', 'MISSING'),  # Inventory Missing
+    ('returned', 'RETURNED')
 )
 
 INVENTORY_STATE_CHOICES = (
@@ -355,3 +356,4 @@ class Audit(models.Model):
 
     def __str__(self):
         return str(self.id)
+
