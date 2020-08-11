@@ -418,7 +418,6 @@ class Document(models.Model):
     document_image = models.FileField(null=True,blank=True,upload_to='brand_invoice')
 
     def clean(self):
-        import pdb;pdb.set_trace()
         super(Document).clean()
         if self.document_image is None:
             raise ValidationError("Document needs to be uploaded")
