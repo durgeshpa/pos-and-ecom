@@ -1876,7 +1876,7 @@ class Shipment(OrderedProduct):
 
 
 class OrderedProductBatch(models.Model):
-    batch_id = models.CharField(max_length=21, null=True, blank=True)
+    batch_id = models.CharField(max_length=50, null=True, blank=True)
     bin_ids = models.CharField(max_length=17, null=True, blank=True, verbose_name='bin_id')
     pickup_inventory = models.ForeignKey(PickupBinInventory, null=True, related_name='rt_pickup_bin_inv', on_delete=models.DO_NOTHING)
     ordered_product_mapping = models.ForeignKey(OrderedProductMapping, null=True, related_name='rt_ordered_product_mapping', on_delete=models.DO_NOTHING)
