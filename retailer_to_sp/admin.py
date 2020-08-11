@@ -1281,7 +1281,7 @@ class ShipmentAdmin(NestedModelAdmin):
     download_bulk_invoice.short_description = DOWNLOAD_BULK_INVOICE
 
     class Media:
-        js = ('admin/js/shipment.js','http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js')
+        js = ('admin/js/shipment.js','https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js')
 
 
     def pincode(self, obj):

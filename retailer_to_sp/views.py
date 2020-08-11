@@ -285,13 +285,13 @@ def ordered_product_mapping_shipment(request):
                                     raise Exception(
                                         '{}: Max Qty allowed is {}'.format(product_name, max_pieces_allowed))
                                 formset_data.save()
-                                populate_data_on_qc_pass(order)
+#                                populate_data_on_qc_pass(order)
                     return redirect('/admin/retailer_to_sp/shipment/')
 
             except Exception as e:
                 messages.error(request, e)
                 logger.exception("An error occurred while creating shipment {}".format(e))
-
+        populate_data_on_qc_pass(order)
     return render(
         request,
         'admin/retailer_to_sp/OrderedProductMappingShipment.html',
