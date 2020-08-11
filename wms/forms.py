@@ -646,7 +646,7 @@ class UploadAuditAdminForm(forms.Form):
             if not initial_count == final_count:
                 raise ValidationError(_(
                     "Issue in Row" + " " + str(row_id + 1) + "," +
-                    "Sum of Initial Quantity and Final Quantity is not equal."))
+                    "Initial Qty of SKU is not equal to Final Qty of SKU."))
 
             form_data_list.append(row)
 
