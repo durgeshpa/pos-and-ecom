@@ -269,11 +269,20 @@ class OrderManagement(object):
         transaction_type = params['transaction_type']
 
         for prod_id, ordered_qty in products.items():
-            WarehouseInventory.objects.create(warehouse=Shop.objects.get(id=shop_id),
+            warehouse_obj = WarehouseInventory.objects.filter(warehouse=Shop.objects.get(id=shop_id),
                                               sku=Product.objects.get(id=int(prod_id)),
                                               inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
-                                              inventory_state=InventoryState.objects.filter(inventory_state='reserved').last(),
-                                              quantity=ordered_qty, in_stock='t')
+                                              inventory_state=InventoryState.objects.filter(inventory_state='reserved').last(), quantity=0)
+            if warehouse_obj.exists():
+                w_obj = warehouse_obj.last()
+                w_obj.quantity=ordered_qty
+                w_obj.save()
+            else:
+                WarehouseInventory.objects.create(warehouse=Shop.objects.get(id=shop_id),
+                                                  sku=Product.objects.get(id=int(prod_id)),
+                                                  inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
+                                                  inventory_state=InventoryState.objects.filter(inventory_state='reserved').last(),
+                                                  quantity=ordered_qty, in_stock='t')
             win = WarehouseInventory.objects.filter(sku__id=int(prod_id), quantity__gt=0,
                                                     inventory_state__inventory_state='available').order_by('created_at')
             WarehouseInternalInventoryChange.objects.create(warehouse=Shop.objects.get(id=shop_id),
