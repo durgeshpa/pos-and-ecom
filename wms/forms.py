@@ -572,19 +572,30 @@ class UploadAuditAdminForm(forms.Form):
                     pass
             except:
                 try:
-                    if datetime.strptime(row[3], '%d-%m-%y'):
+                    if datetime.strptime(row[3], '%d/%m/%Y'):
                         pass
                     else:
                         raise ValidationError(_(
                             "Issue in Row" + " " + str(row_id + 1) + "," + "Expiry date format is not correct,"
-                                                                           " It should be DD/MM/YYYY or DD-MM-YYYY format,"
-                                                                           " Example:-11/07/2020, 11-07-2020"))
+                                                                           " It should be DD/MM/YYYY, DD/MM/YY, DD-MM-YYYY and DD-MM-YY format,"
+                                                                           " Example:-11/07/2020, 11/07/20,"
+                                                                           "11-07-2020 and 11-07-20."))
 
-                except Exception as e:
-                    raise ValidationError(_(
-                        "Issue in Row" + " " + str(row_id + 1) + "," + "Expiry date format is not correct,"
-                                                                       " It should be DD/MM/YYYY or DD-MM-YYYY format,"
-                                                                       " Example:-11/07/2020, 11-07-2020"))
+                except:
+                    try:
+                        if datetime.strptime(row[3], '%d-%m-%y'):
+                            pass
+
+                    except:
+                        try:
+                            if datetime.strptime(row[3], '%d-%m-%Y'):
+                                pass
+                        except:
+                            raise ValidationError(_(
+                                "Issue in Row" + " " + str(row_id + 1) + "," + "Expiry date format is not correct,"
+                                                                               " It should be DD/MM/YYYY, DD/MM/YY, DD-MM-YYYY and DD-MM-YY format,"
+                                                                               " Example:-11/07/2020, 11/07/20,"
+                                                                               " 11-07-2020 and 11-07-20."))
 
             if not row[4]:
                 raise ValidationError(_(

@@ -780,9 +780,16 @@ def audit_upload(request):
             for data in upload_data:
                 # convert expiry date according to database field type
                 try:
-                    expiry_date = datetime.strptime(data[3], '%d/%m/%y').strftime('%Y-%m-%d')
+                    expiry_date = datetime.strptime(data[3], '%d/%m/%Y').strftime('%Y-%m-%d')
                 except:
-                    expiry_date = datetime.strptime(data[3], '%d-%m-%y').strftime('%Y-%m-%d')
+                    try:
+                        expiry_date = datetime.strptime(data[3], '%d-%m-%Y').strftime('%Y-%m-%d')
+                    except:
+                        try:
+                            expiry_date = datetime.strptime(data[3], '%d-%m-%y').strftime('%Y-%m-%d')
+                        except:
+                            expiry_date = datetime.strptime(data[3], '%d/%m/%y').strftime('%Y-%m-%d')
+
 
                 # Check SKU and Expiry data is exist or not
                 grn_order_obj = GRNOrderProductMapping.objects.filter(
@@ -913,9 +920,16 @@ def create_batch_id_from_audit(data, audit_inventory_obj):
         sku = Product.objects.filter(product_sku=data[1][-17:]).last()
         quantity = int(data[9]) + int(data[10]) + int(data[11]) + int(data[12])
         try:
-            batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d/%m/%y').strftime('%d%m%y'))
-        except:
             batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d-%m-%y').strftime('%d%m%y'))
+
+        except:
+            try:
+                batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d-%m-%Y').strftime('%d%m%y'))
+            except:
+                try:
+                    batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d/%m/%Y').strftime('%d%m%y'))
+                except:
+                    batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d/%m/%y').strftime('%d%m%y'))
         InCommonFunctions.create_in(shop_object[0], 'Audit Adjustment', audit_inventory_obj[0].id, sku,
                                     batch_id, int(quantity), int(quantity))
         return batch_id
