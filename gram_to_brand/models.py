@@ -515,7 +515,7 @@ class GRNOrderProductMapping(models.Model):
     def save(self, *args, **kwargs):
         if not self.vendor_product and self.grn_order.order.ordered_cart.cart_list.filter(cart_product=self.product).last().vendor_product:
             self.vendor_product = self.grn_order.order.ordered_cart.cart_list.filter(cart_product=self.product).last().vendor_product
-        if self.expiry_date and not self.batch_id:
+        if self.expiry_date and not self.batch_id and self.delivered_qty:
             self.batch_id = '{}{}'.format(self.product.product_sku,
                                           self.expiry_date.strftime('%d%m%y'))
         super(GRNOrderProductMapping, self).save(*args, **kwargs)
