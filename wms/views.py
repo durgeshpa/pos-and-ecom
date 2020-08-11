@@ -776,7 +776,7 @@ def audit_upload(request):
                 # convert expiry date according to database field type
                 try:
                     expiry_date = datetime.strptime(data[3], '%d/%m/%y').strftime('%Y-%m-%d')
-                except Exception as e:
+                except:
                     expiry_date = datetime.strptime(data[3], '%d-%m-%y').strftime('%Y-%m-%d')
 
                 # Check SKU and Expiry data is exist or not
@@ -907,7 +907,10 @@ def create_batch_id_from_audit(data, audit_inventory_obj):
         shop_object = Shop.objects.filter(id=data[0])
         sku = Product.objects.filter(product_sku=data[1][-17:]).last()
         quantity = int(data[9]) + int(data[10]) + int(data[11]) + int(data[12])
-        batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d/%m/%y').strftime('%d%m%y'))
+        try:
+            batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d/%m/%y').strftime('%d%m%y'))
+        except:
+            batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d-%m-%y').strftime('%d%m%y'))
         InCommonFunctions.create_in(shop_object[0], 'Audit Adjustment', audit_inventory_obj[0].id, sku,
                                     batch_id, int(quantity), int(quantity))
         return batch_id

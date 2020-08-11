@@ -570,7 +570,7 @@ class UploadAuditAdminForm(forms.Form):
             try:
                 if datetime.strptime(row[3], '%d/%m/%y'):
                     pass
-            except Exception as e:
+            except:
                 try:
                     if datetime.strptime(row[3], '%d-%m-%y'):
                         pass
