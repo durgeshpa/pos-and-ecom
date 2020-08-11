@@ -774,7 +774,10 @@ def audit_upload(request):
             # iteration for csv data
             for data in upload_data:
                 # convert expiry date according to database field type
-                expiry_date = datetime.strptime(data[3], '%d/%m/%y').strftime('%Y-%m-%d')
+                try:
+                    expiry_date = datetime.strptime(data[3], '%d/%m/%y').strftime('%Y-%m-%d')
+                except Exception as e:
+                    expiry_date = datetime.strptime(data[3], '%d-%m-%y').strftime('%Y-%m-%d')
 
                 # Check SKU and Expiry data is exist or not
                 grn_order_obj = GRNOrderProductMapping.objects.filter(

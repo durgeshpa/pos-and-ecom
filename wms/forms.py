@@ -571,10 +571,20 @@ class UploadAuditAdminForm(forms.Form):
                 if datetime.strptime(row[3], '%d/%m/%y'):
                     pass
             except Exception as e:
-                raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "Expiry date format is not correct,"
-                                                                   " It should be DD/MM/YYYY format,"
-                                                                   " Example:-11/07/2020."))
+                try:
+                    if datetime.strptime(row[3], '%d-%m-%y'):
+                        pass
+                    else:
+                        raise ValidationError(_(
+                            "Issue in Row" + " " + str(row_id + 1) + "," + "Expiry date format is not correct,"
+                                                                           " It should be DD/MM/YYYY or DD-MM-YYYY format,"
+                                                                           " Example:-11/07/2020, 11-07-2020"))
+
+                except Exception as e:
+                    raise ValidationError(_(
+                        "Issue in Row" + " " + str(row_id + 1) + "," + "Expiry date format is not correct,"
+                                                                       " It should be DD/MM/YYYY or DD-MM-YYYY format,"
+                                                                       " Example:-11/07/2020, 11-07-2020"))
 
             if not row[4]:
                 raise ValidationError(_(
