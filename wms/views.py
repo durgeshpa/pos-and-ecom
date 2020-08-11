@@ -683,7 +683,12 @@ def audit_download(request):
                 # get product instance
                 product = Product.objects.filter(product_sku=data[0])
                 # get the expire date for particular product
-                expiry_date = GRNOrderProductMapping.objects.filter(product=product[0])[0].expiry_date
+                try:
+                    expiry_date = GRNOrderProductMapping.objects.filter(product=product[0]).first().expiry_date
+                    if expiry_date is None:
+                        expiry_date = GRNOrderProductMapping.objects.filter(product=product[0]).last().expiry_date
+                except:
+                    expiry_date = GRNOrderProductMapping.objects.filter(product=product[0]).last().expiry_date
                 # get the product price for particular product
                 product_price = ProductPrice.objects.filter(product=product[0])[0].mrp
                 # filter query for Bin Inventory model to get all Bin id which consists same warehouse and sku
