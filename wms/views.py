@@ -774,10 +774,9 @@ def audit_upload(request):
             info_logger.info("File format validation has been successfully done.")
             upload_data = form.cleaned_data['file']
 
-            # call function to create audit data in Audit Model
-            audit_inventory_obj = AuditInventory.create_audit_entry(request.user, request.FILES['file'])
             # iteration for csv data
-            for data in upload_data:
+            audit_inventory_obj = AuditInventory.create_audit_entry(request.user, request.FILES['file'])
+            for row_id, data in enumerate(upload_data):
                 # convert expiry date according to database field type
                 try:
                     expiry_date = datetime.strptime(data[3], '%d/%m/%Y').strftime('%Y-%m-%d')
@@ -790,19 +789,35 @@ def audit_upload(request):
                         except:
                             expiry_date = datetime.strptime(data[3], '%d/%m/%y').strftime('%Y-%m-%d')
 
+                if expiry_date < datetime.today().strftime("%Y-%m-%d"):
+                    if int(data[9]) > 0:
+                        return render(request, 'admin/wms/audit-upload.html', {'form': form,
+                                                                               'error': 'Row' + ' ' + str(row_id+1) + ' ' + 'Normal Qty cannot be non 0 for a past Expiry Date.',
+                                                                               })
+
+                if expiry_date < datetime.today().strftime("%Y-%m-%d"):
+                    if int(data[10]) > 0:
+                        return render(request, 'admin/wms/audit-upload.html', {'form': form,
+                                                                               'error': 'Row' + ' ' + str(row_id+1) + ' ' + 'Damaged Qty cannot be non 0 for a past Expiry Date.',
+                                                                               })
+
+                if expiry_date > datetime.today().strftime("%Y-%m-%d"):
+                    if int(data[11]) > 0:
+                        return render(request, 'admin/wms/audit-upload.html', {'form': form,
+                                                                               'error': 'Row' + ' ' + str(row_id+1) + ' ' + 'Expired Qty cannot be non 0 for a future Expiry Date.',
+                                                                               })
                 # Check SKU and Expiry data is exist or not
                 grn_order_obj = GRNOrderProductMapping.objects.filter(
                     product__product_sku=data[1][-17:],
                     expiry_date=expiry_date)
-                if not grn_order_obj.exists():
+                # call function to create audit data in Audit Model
+                if grn_order_obj.exists():
                     # create batch id for SKU and save data in In and Put Away Model
-                    batch_id = create_batch_id_from_audit(data, audit_inventory_obj)
-                # condition to check for Final Inventory types quantity
-                bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
-                                                                bin=Bin.objects.filter(bin_id=data[4]).last(),
-                                                                sku=Product.objects.filter(
-                                                                    product_sku=data[1][-17:]).last())
-                if not bin_inventory_obj.exists():
+                    bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
+                                                                    bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                                                    sku=Product.objects.filter(
+                                                                        product_sku=data[1][-17:]).last())
+                else:
                     batch_id = create_batch_id_from_audit(data, audit_inventory_obj)
                     if int(data[9]) > 0:
                         BinInventory.objects.get_or_create(warehouse=Shop.objects.filter(id=data[0])[0],
