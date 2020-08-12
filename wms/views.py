@@ -790,7 +790,6 @@ def audit_upload(request):
                         except:
                             expiry_date = datetime.strptime(data[3], '%d/%m/%y').strftime('%Y-%m-%d')
 
-
                 # Check SKU and Expiry data is exist or not
                 grn_order_obj = GRNOrderProductMapping.objects.filter(
                     product__product_sku=data[1][-17:],
@@ -804,6 +803,7 @@ def audit_upload(request):
                                                                 sku=Product.objects.filter(
                                                                     product_sku=data[1][-17:]).last())
                 if not bin_inventory_obj.exists():
+                    batch_id = create_batch_id_from_audit(data, audit_inventory_obj)
                     if int(data[9]) > 0:
                         BinInventory.objects.get_or_create(warehouse=Shop.objects.filter(id=data[0])[0],
                                                                         bin=Bin.objects.filter(bin_id=data[4]).last(),
@@ -852,7 +852,9 @@ def audit_upload(request):
                     # Warehouse Internal Inventory Model
                     AuditInventory.audit_exist_batch_id(data, key, value, audit_inventory_obj)
                 # pickup_entry_creation_with_cron
-            return render(request, 'admin/wms/audit-upload.html', {'form': form})
+            return render(request, 'admin/wms/audit-upload.html', {'form': form,
+                                                                   'success': 'Audit CSV uploaded successfully !',
+                                                                   })
 
         else:
             return render(request, 'admin/wms/audit-upload.html', {'form': form})
