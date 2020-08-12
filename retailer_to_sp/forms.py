@@ -150,8 +150,6 @@ class OrderedProductForm(forms.ModelForm):
             raise forms.ValidationError(_("Please assign picklist to the order"), )
         if self.cleaned_data['order'].picker_order.last().picking_status != "picking_assigned":
             raise forms.ValidationError(_("Please set the picking status in picker dashboard"), )
-        if self.cleaned_data['order'].picker_order.last().picking_status !="Picking Complete":
-            raise forms.ValidationError(_("Please Complete the pickup for the order"))
         return data
 
 
