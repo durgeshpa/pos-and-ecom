@@ -582,6 +582,7 @@ def cancel_order_with_pick(instance):
                                                          defaults={'putaway_quantity': pick_up_bin_quantity})
             cancel_order(instance)
 
+
 class AuditInventory(object):
     """This class is used for to store data in different models while audit file upload """
 
@@ -595,38 +596,37 @@ class AuditInventory(object):
         :param audit_inventory_obj: object of Audit inventory Model
         :return:
         """
-        with transaction.atomic():
-            # filter in Bin inventory table to get batch id for particular sku, warehouse and bin in
-            bin_inv = BinInventory.objects.filter(warehouse=data[0],
-                                                  bin=Bin.objects.filter(bin_id=data[4]).last(),
-                                                  sku=Product.objects.filter(
-                                                      product_sku=data[1][-17:]).last()).last()
+        # filter in Bin inventory table to get batch id for particular sku, warehouse and bin in
+        bin_inv = BinInventory.objects.filter(warehouse=data[0],
+                                              bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                              sku=Product.objects.filter(
+                                                  product_sku=data[1][-17:]).last()).last()
 
-            # call function to create and update Bin inventory for specific Inventory Type
-            AuditInventory.update_or_create_bin_inventory_for_audit(data[0], data[4],
-                                                                    data[1][-17:],
-                                                                    bin_inv.batch_id,
-                                                                    InventoryType.objects.filter(
-                                                                        inventory_type=key).last(),
-                                                                    value, True)
+        # call function to create and update Bin inventory for specific Inventory Type
+        AuditInventory.update_or_create_bin_inventory_for_audit(data[0], data[4],
+                                                                data[1][-17:],
+                                                                bin_inv.batch_id,
+                                                                InventoryType.objects.filter(
+                                                                    inventory_type=key).last(),
+                                                                value, True)
 
-            # call function to create and update Ware House Inventory for specific Inventory Type
-            AuditInventory.update_or_create_warehouse_inventory_for_audit(
-                data[0], data[1][-17:],
-                CommonInventoryStateFunctions.filter_inventory_state(inventory_state='available').last(),
-                InventoryType.objects.filter(inventory_type=key).last(),
-                BinInventory.available_qty_with_inventory_type(data[0], Product.objects.filter(
-                    product_sku=data[1][-17:]).last().id, InventoryType.objects.filter(
-                    inventory_type=key).last().id), True, bin_inv.batch_id, data[4])
+        # call function to create and update Ware House Inventory for specific Inventory Type
+        AuditInventory.update_or_create_warehouse_inventory_for_audit(
+            data[0], data[1][-17:],
+            CommonInventoryStateFunctions.filter_inventory_state(inventory_state='available').last(),
+            InventoryType.objects.filter(inventory_type=key).last(),
+            BinInventory.available_qty_with_inventory_type(data[0], Product.objects.filter(
+                product_sku=data[1][-17:]).last().id, InventoryType.objects.filter(
+                inventory_type=key).last().id), True, bin_inv.batch_id, data[4])
 
-            # call function to create and update Ware House Internal Inventory for specific Inventory Type
-            transaction_type = 'audit_adjustment'
-            AuditInventory.create_warehouse_inventory_change_for_audit(
-                Shop.objects.get(id=data[0]).id, Product.objects.get(
-                    product_sku=data[1][-17:]), transaction_type, audit_inventory_obj[0].id,
-                CommonInventoryStateFunctions.filter_inventory_state(inventory_state='available').last(),
-                CommonInventoryStateFunctions.filter_inventory_state(inventory_state='available').last(),
-                InventoryType.objects.filter(inventory_type=key).last(), value)
+        # call function to create and update Ware House Internal Inventory for specific Inventory Type
+        transaction_type = 'audit_adjustment'
+        AuditInventory.create_warehouse_inventory_change_for_audit(
+            Shop.objects.get(id=data[0]).id, Product.objects.get(
+                product_sku=data[1][-17:]), transaction_type, audit_inventory_obj[0].id,
+            CommonInventoryStateFunctions.filter_inventory_state(inventory_state='available').last(),
+            CommonInventoryStateFunctions.filter_inventory_state(inventory_state='available').last(),
+            InventoryType.objects.filter(inventory_type=key).last(), value)
 
     @classmethod
     def update_or_create_bin_inventory_for_audit(cls, warehouse, bin_id, sku, batch_id, inventory_type, quantity, in_stock):
