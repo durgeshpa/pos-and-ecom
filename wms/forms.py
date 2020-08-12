@@ -3,6 +3,7 @@ import re
 import csv
 import codecs
 from django import forms
+from datetime import datetime
 from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload,\
     InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit, WarehouseInventory
 from products.models import Product
@@ -566,6 +567,24 @@ class UploadAuditAdminForm(forms.Form):
             if not row[3]:
                 raise ValidationError(_(
                     "Issue in Row" + " " + str(row_id + 1) + "," + "Expiry date can not be empty."))
+            try:
+                if datetime.strptime(row[3], '%d/%m/%y'):
+                    pass
+            except:
+                try:
+                    if datetime.strptime(row[3], '%d-%m-%y'):
+                        pass
+                    else:
+                        raise ValidationError(_(
+                            "Issue in Row" + " " + str(row_id + 1) + "," + "Expiry date format is not correct,"
+                                                                           " It should be DD/MM/YYYY or DD-MM-YYYY format,"
+                                                                           " Example:-11/07/2020, 11-07-2020"))
+
+                except Exception as e:
+                    raise ValidationError(_(
+                        "Issue in Row" + " " + str(row_id + 1) + "," + "Expiry date format is not correct,"
+                                                                       " It should be DD/MM/YYYY or DD-MM-YYYY format,"
+                                                                       " Example:-11/07/2020, 11-07-2020"))
 
             if not row[4]:
                 raise ValidationError(_(

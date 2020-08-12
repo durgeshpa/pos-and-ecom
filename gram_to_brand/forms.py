@@ -279,8 +279,15 @@ class DocumentForm(forms.ModelForm):
     document_image = forms.FileField(required=True)
     document_number = forms.CharField(required=True)
 
+
+class DocumentFormset(forms.models.BaseInlineFormSet):
+    model = Document
+
     def clean(self):
-        super(DocumentForm, self).clean()
+        super(DocumentFormset, self).clean()
         for form in self:
+            if form.cleaned_data.get('document_number') is None:
+                raise ValidationError("Document Number is Required.")
+
             if form.cleaned_data.get('document_image') is None:
-                raise ValidationError("Required")
+                raise ValidationError("Document Image is Required.")

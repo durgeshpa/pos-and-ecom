@@ -690,7 +690,12 @@ def audit_download(request):
                 # get product instance
                 product = Product.objects.filter(product_sku=data[0])
                 # get the expire date for particular product
-                expiry_date = GRNOrderProductMapping.objects.filter(product=product[0])[0].expiry_date
+                try:
+                    expiry_date = GRNOrderProductMapping.objects.filter(product=product[0]).first().expiry_date
+                    if expiry_date is None:
+                        expiry_date = GRNOrderProductMapping.objects.filter(product=product[0]).last().expiry_date
+                except:
+                    expiry_date = GRNOrderProductMapping.objects.filter(product=product[0]).last().expiry_date
                 # get the product price for particular product
                 product_price = ProductPrice.objects.filter(product=product[0])[0].mrp
                 # filter query for Bin Inventory model to get all Bin id which consists same warehouse and sku
@@ -781,7 +786,10 @@ def audit_upload(request):
             # iteration for csv data
             for data in upload_data:
                 # convert expiry date according to database field type
-                expiry_date = datetime.strptime(data[3], '%d/%m/%y').strftime('%Y-%m-%d')
+                try:
+                    expiry_date = datetime.strptime(data[3], '%d/%m/%y').strftime('%Y-%m-%d')
+                except:
+                    expiry_date = datetime.strptime(data[3], '%d-%m-%y').strftime('%Y-%m-%d')
 
                 # Check SKU and Expiry data is exist or not
                 grn_order_obj = GRNOrderProductMapping.objects.filter(
@@ -911,7 +919,10 @@ def create_batch_id_from_audit(data, audit_inventory_obj):
         shop_object = Shop.objects.filter(id=data[0])
         sku = Product.objects.filter(product_sku=data[1][-17:]).last()
         quantity = int(data[9]) + int(data[10]) + int(data[11]) + int(data[12])
-        batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d/%m/%y').strftime('%d%m%y'))
+        try:
+            batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d/%m/%y').strftime('%d%m%y'))
+        except:
+            batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d-%m-%y').strftime('%d%m%y'))
         InCommonFunctions.create_in(shop_object[0], 'Audit Adjustment', audit_inventory_obj[0].id, sku,
                                     batch_id, int(quantity), int(quantity))
         return batch_id
