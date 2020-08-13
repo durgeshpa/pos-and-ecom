@@ -1,3 +1,5 @@
+import math
+
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.db.models import F, Sum, Count
@@ -12,6 +14,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from wkhtmltopdf.views import PDFTemplateResponse
 from dal import autocomplete
 
+from barCodeGenerator import merged_barcode_gen
 from products.models import Product
 from gram_to_brand.models import (
     Order, CartProductMapping, Cart,
@@ -31,7 +34,7 @@ class SupplierAutocomplete(autocomplete.Select2QuerySetView):
         state = self.forwarded.get('supplier_state', None)
         brand = self.forwarded.get('brand', None)
         if state and brand:
-            qs = Vendor.objects.filter(state__id=state,vendor_products_brand__contains=[brand])
+            qs = Vendor.objects.filter(state__id=state, vendor_products_brand__contains=[brand])
         if self.q:
             qs = qs.filter(shop_name__startswith=self.q)
         return qs
@@ -45,7 +48,7 @@ class ShippingAddressAutocomplete(autocomplete.Select2QuerySetView):
             shop_name__shop_type__shop_type='gf',
             address_type='shipping',
             status=True
-            )
+        )
         return qs
 
 
@@ -63,7 +66,7 @@ class BillingAddressAutocomplete(autocomplete.Select2QuerySetView):
 
 class BrandAutocomplete(autocomplete.Select2QuerySetView):
     def get_queryset(self, *args, **kwargs):
-        qs = Brand.objects.filter(brand_parent__isnull=True,active_status='active')
+        qs = Brand.objects.filter(brand_parent__isnull=True, active_status='active')
         if self.q:
             qs = qs.filter(brand_name__icontains=self.q)
         return qs
@@ -97,14 +100,31 @@ class ProductAutocomplete(autocomplete.Select2QuerySetView):
         qs = Product.objects.all()
         order_id = self.forwarded.get('order', None)
         if order_id:
-            cp_products = Order.objects\
-                .get(id=order_id).ordered_cart.cart_list\
+            cp_products = Order.objects \
+                .get(id=order_id).ordered_cart.cart_list \
                 .values_list('cart_product', flat=True)
             qs = qs.filter(id__in=cp_products).order_by('product_name')
 
         if self.q:
             qs = qs.filter(product_name__istartswith=self.q)
         return qs
+
+
+class MergedBarcode(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self, request, *args, **kwargs):
+        bin_id_list={}
+        pk = self.kwargs.get('pk')
+        grn_product = GRNOrderProductMapping.objects.filter(pk=pk).last()
+        grn_order = grn_product.grn_order
+        product_mrp = grn_product.vendor_product
+        temp_data = {"qty": math.ceil(grn_product.delivered_qty / int(grn_product.product.product_case_size)),
+                     "data": {"SKU": grn_product.product.product_sku,
+                              "MRP": product_mrp.product_mrp if product_mrp.product_mrp else ''}}
+
+        bin_id_list[grn_product.batch_id] = temp_data
+        return merged_barcode_gen(bin_id_list)
 
 
 class DownloadPurchaseOrder(APIView):
@@ -123,9 +143,9 @@ class DownloadPurchaseOrder(APIView):
         products = a.cart_list.all()
         order = shop.order_cart_mapping
         order_id = order.order_no
-        gram_factory_billing_gstin = shop.gf_billing_address.shop_name.\
+        gram_factory_billing_gstin = shop.gf_billing_address.shop_name. \
             shop_name_documents.filter(shop_document_type='gstin').last()
-        gram_factory_shipping_gstin= shop.gf_shipping_address.shop_name.\
+        gram_factory_shipping_gstin = shop.gf_shipping_address.shop_name. \
             shop_name_documents.filter(shop_document_type='gstin').last()
 
         tax_inline, sum_amount, sum_qty = 0, 0, 0
@@ -139,19 +159,19 @@ class DownloadPurchaseOrder(APIView):
             tax_percentage = 0
             for n in m.cart_product.product_pro_tax.all():
                 tax_percentage += n.tax.tax_percentage
-            divisor = (1+(tax_percentage/100))
-            original_amount = (inline_sum_amount/divisor)
+            divisor = (1 + (tax_percentage / 100))
+            original_amount = (inline_sum_amount / divisor)
             for n in m.cart_product.product_pro_tax.all():
                 if n.tax.tax_type == 'gst':
-                    gst_list.append((original_amount * (n.tax.tax_percentage/100)))
+                    gst_list.append((original_amount * (n.tax.tax_percentage / 100)))
                 elif n.tax.tax_type == 'cess':
-                    cess_list.append((original_amount * (n.tax.tax_percentage/100)))
+                    cess_list.append((original_amount * (n.tax.tax_percentage / 100)))
                 elif n.tax.tax_type == 'surcharge':
-                    surcharge_list.append((original_amount * (n.tax.tax_percentage/100)))
+                    surcharge_list.append((original_amount * (n.tax.tax_percentage / 100)))
 
         igst = sum(gst_list)
-        cgst = igst/2
-        sgst = igst/2
+        cgst = igst / 2
+        sgst = igst / 2
         cess = sum(cess_list)
         surcharge = sum(surcharge_list)
         total_amount = sum_amount
@@ -201,11 +221,11 @@ class DownloadDebitNote(APIView):
         products = a.grn_order_grn_order_product.all()
         order = shop.order
         order_id = order.order_no
-        gram_factory_billing_gstin = shop.order.ordered_cart.\
-            gf_billing_address.shop_name.shop_name_documents\
+        gram_factory_billing_gstin = shop.order.ordered_cart. \
+            gf_billing_address.shop_name.shop_name_documents \
             .filter(shop_document_type='gstin').last()
-        gram_factory_shipping_gstin = shop.order.ordered_cart.\
-            gf_shipping_address.shop_name.shop_name_documents\
+        gram_factory_shipping_gstin = shop.order.ordered_cart. \
+            gf_shipping_address.shop_name.shop_name_documents \
             .filter(shop_document_type='gstin').last()
         sum_qty = 0
         sum_amount = 0
@@ -219,8 +239,8 @@ class DownloadDebitNote(APIView):
             sum_amount = sum_amount + (m.returned_qty * m.po_product_price)
             inline_sum_amount = (m.returned_qty * m.po_product_price)
             for n in m.product.product_pro_tax.all():
-                divisor = (1+(n.tax.tax_percentage/100))
-                original_amount = (inline_sum_amount/divisor)
+                divisor = (1 + (n.tax.tax_percentage / 100))
+                original_amount = (inline_sum_amount / divisor)
                 tax_amount = inline_sum_amount - original_amount
                 if n.tax.tax_type == 'gst':
                     gst_tax_list.append(tax_amount)
@@ -230,8 +250,8 @@ class DownloadDebitNote(APIView):
                     surcharge_tax_list.append(tax_amount)
                 taxes_list.append(tax_amount)
                 igst = sum(gst_tax_list)
-                cgst = (sum(gst_tax_list))/2
-                sgst = (sum(gst_tax_list))/2
+                cgst = (sum(gst_tax_list)) / 2
+                sgst = (sum(gst_tax_list)) / 2
                 cess = sum(cess_tax_list)
                 surcharge = sum(surcharge_tax_list)
         total_amount = sum_amount
@@ -241,7 +261,7 @@ class DownloadDebitNote(APIView):
             "sum_qty": sum_qty, "sum_amount": sum_amount,
             "url": request.get_host(),
             "scheme": request.is_secure() and "https" or "http",
-            "igst": igst, "cgst": cgst, "sgst": sgst,"cess": cess,
+            "igst": igst, "cgst": cgst, "sgst": sgst, "cess": cess,
             "surcharge": surcharge, "total_amount": total_amount,
             "order_id": order_id, "total_amount_int": total_amount_int,
             "debit_note_id": debit_note_id,
@@ -263,8 +283,8 @@ class VendorProductAutocomplete(autocomplete.Select2QuerySetView):
         supplier_id = self.forwarded.get('supplier_name', None)
         if supplier_id:
             qs = Product.objects.all()
-            product_id = ProductVendorMapping.objects\
-                .filter(vendor__id=supplier_id,case_size__gt=0,status=True).values('product')
+            product_id = ProductVendorMapping.objects \
+                .filter(vendor__id=supplier_id, case_size__gt=0, status=True).values('product')
             qs = qs.filter(id__in=[product_id])
             if self.q:
                 qs = qs.filter(
@@ -280,7 +300,7 @@ class VendorProductPrice(APIView):
     def get(self, *args, **kwargs):
         supplier_id = self.request.GET.get('supplier_id')
         product_id = self.request.GET.get('product_id')
-        vendor_product_price,vendor_product_mrp,product_case_size,product_inner_case_size = 0,0,0,0
+        vendor_product_price, vendor_product_mrp, product_case_size, product_inner_case_size = 0, 0, 0, 0
         vendor_mapping = ProductVendorMapping.objects.filter(vendor__id=supplier_id, product__id=product_id)
         if vendor_mapping.exists():
             product = vendor_mapping.last().product
@@ -291,7 +311,7 @@ class VendorProductPrice(APIView):
             product_inner_case_size = vendor_mapping.last().product.product_inner_case_size
             taxes = ([field.tax.tax_percentage for field in vendor_mapping.last().product.product_pro_tax.all()])
             taxes = str(sum(taxes))
-            tax_percentage = taxes+'%'
+            tax_percentage = taxes + '%'
 
         return Response({
             "price": vendor_product_price,
@@ -299,7 +319,7 @@ class VendorProductPrice(APIView):
             "sku": product_sku,
             "case_size": product_case_size,
             "inner_case_size": product_inner_case_size,
-             "tax_percentage": tax_percentage,
+            "tax_percentage": tax_percentage,
             "success": True})
 
 
@@ -315,7 +335,7 @@ class GRNProductAutocomplete(autocomplete.Select2QuerySetView):
 
 
 class GRNProductPriceMappingData(APIView):
-    permission_classes =( AllowAny, )
+    permission_classes = (AllowAny,)
 
     def get(self, *args, **kwargs):
         order_id = self.request.GET.get('order_id')
@@ -353,7 +373,7 @@ class GRNOrderAutocomplete(autocomplete.Select2QuerySetView):
 
 
 class GRNProduct1MappingData(APIView):
-    permission_classes = (AllowAny, )
+    permission_classes = (AllowAny,)
 
     def get(self, *args, **kwargs):
         order_id = self.request.GET.get('order_id')
@@ -373,7 +393,7 @@ class GRNProduct1MappingData(APIView):
 
 
 class GRNedProductData(APIView):
-    permission_classes =(AllowAny, )
+    permission_classes = (AllowAny,)
 
     def get(self, *args, **kwargs):
         order_id = self.request.GET.get('order_id')
@@ -436,11 +456,12 @@ class DisapproveView(UpdateView):
             'dis-approve-account', args=(self.kwargs.get('pk'),)
         )
 
-class GetMessage(APIView):
-    permission_classes =(AllowAny, )
 
-    def get(self,request, *args, **kwargs):
-        data,is_success,po_obj = [], False,''
+class GetMessage(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self, request, *args, **kwargs):
+        data, is_success, po_obj = [], False, ''
         if request.GET.get('po'):
             po_obj = Cart.objects.get(id=request.GET.get('po'))
             if request.GET.get('po') and po_obj.po_message is not None:
@@ -455,5 +476,5 @@ class GetMessage(APIView):
             "message": [""],
             "response_data": data,
             "is_success": is_success,
-            "po_status":po_obj.po_status if po_obj else ''
+            "po_status": po_obj.po_status if po_obj else ''
         })

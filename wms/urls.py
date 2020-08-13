@@ -1,7 +1,12 @@
 from django.conf.urls import include, url
 
-from .views import bins_upload, CreatePickList, StockMovementCsvSample, StockMovementCsvView, DownloadBinCSV
+import views
+import wms
+from .views import bins_upload, CreatePickList, StockMovementCsvSample, StockMovementCsvView, DownloadBinCSV, MergeBarcode
 from .filters import WareHouseComplete, InventoryTypeFilter, InventoryStateFilter
+
+
+
 
 urlpatterns = [
     # url(r'^upload-csv/$', bins_upload, name="bins_upload"),
@@ -15,4 +20,7 @@ urlpatterns = [
     url(r'^inventory-state-autocomplete/$', InventoryStateFilter.as_view(), name='inventory-state-autocomplete'),
     url(r'^initial-stage-autocomplete/$', InventoryStateFilter.as_view(), name='initial-stage-autocomplete'),
     url(r'^final-stage-autocomplete/$', InventoryStateFilter.as_view(), name='final-stage-autocomplete'),
+    url(r'^merged_barcode/(?P<bin_id>[\w-]+)/$', MergeBarcode.as_view(), name='merged_barcodes'),
+
+
 ]

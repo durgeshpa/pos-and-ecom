@@ -1,39 +1,54 @@
-import datetime
 import os
-import sys
 import django
-from django.db.models import Sum
+from wkhtmltopdf.views import PDFTemplateResponse
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'retailer_backend.settings')
 django.setup()
-from shops.models import Shop
-from wms.models import InventoryState, WarehouseInventory
+import barcode
+from barcode.writer import ImageWriter
+import PIL
+from PIL import Image
+import base64
+from fpdf import FPDF
+from PIL import Image
+import os.path
+from os import path
 
-from sp_to_gram.models import OrderedProduct, OrderedProductMapping, StockAdjustment, StockAdjustmentMapping, \
-    OrderedProductReserved
 
-mrps = []
-products = None
-product_list = {}
-shop = Shop.objects.filter(pk=1393).last()
-# sp_grn_product = shop.get_shop_stock(shop_obj)
-# products = sp_grn_product.values('product').distinct()
-bin_inventory_state = InventoryState.objects.filter(inventory_state="available").last()
-products = WarehouseInventory.objects.filter(warehouse=shop, inventory_state=bin_inventory_state)
+def barcodeGen(strVal):
+    image_path = "barcode_tmp/" + strVal + ".png"
+    image_path_noext = "barcode_tmp/" + strVal
+    if not path.exists(image_path):
+        EAN = barcode.get_barcode_class('code128')
+        ean = EAN(strVal, writer=ImageWriter())
+        fullname = ean.save(image_path_noext)
+    with open(image_path, 'rb') as fp:
+        ret_str = base64.b64encode(fp.read()).decode('ascii')
+    return ret_str
 
-for myproduct in products:
-    product_temp = {}
-    if myproduct.sku.product_sku in product_list:
-        product_temp = product_list[myproduct.sku.product_sku]
-        product_temp[myproduct.inventory_type.inventory_type] = myproduct.quantity
-    else:
-        product_mrp = myproduct.sku.product_pro_price.filter(seller_shop=shop, approval_status=2)
-        product_temp = {'sku': myproduct.sku.product_sku, 'name': myproduct.sku.product_name,
-                        myproduct.inventory_type.inventory_type: myproduct.quantity,
-                        'mrp': product_mrp.last().mrp if product_mrp.exists() else ''}
 
-    product_list[myproduct.sku.product_sku] = product_temp
+def makePdf(barcode_list):
+    template_name = 'admin/wms/barcode.html'
+    data = {"barcode_list": barcode_list}
 
-for product_sku in product_list:
-    print(product_list[product_sku]['mrp'])
+    request = None
+    filename = "barcode"
+    cmd_option = {"margin-top": 0, "margin-left": 0, "margin-right": 0, "margin-bottom": 0, "zoom": 1,
+                  "javascript-delay": 0, "footer-center": "[page]/[topage]", "page-height": 50, "page-width": 75,
+                  "no-stop-slow-scripts": True, "quiet": True}
+    response = PDFTemplateResponse(request=request, template=template_name, filename=filename,
+                                   context=data, show_content_in_browser=False, cmd_options=cmd_option)
 
+    with open("barcode.pdf", "wb") as f:
+        f.write(response.rendered_content)
+
+
+def merged_barcode_gen(barcode_list):
+    for key, value in barcode_list.items():
+        barcode = barcodeGen(key)
+        barcode_list[key] = {'code': barcode, 'qty': list(range(value))}
+    makePdf(barcode_list)
+
+
+barcode_list = {"B2BZ01SR001-0101": 1, "B2BZ01SR001-0122": 5}
+merged_barcode_gen(barcode_list)

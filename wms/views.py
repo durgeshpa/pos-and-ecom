@@ -37,11 +37,19 @@ from .models import Pickup, BinInventory, InventoryState
 from .common_functions import InternalInventoryChange, CommonBinInventoryFunctions, PutawayCommonFunctions, \
     InCommonFunctions, WareHouseCommonFunction, InternalWarehouseChange, StockMovementCSV,\
     InternalStockCorrectionChange, get_product_stock, updating_tables_on_putaway, AuditInventory
-
+from barCodeGenerator import barcodeGen, merged_barcode_gen
 # Logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
 debug_logger = logging.getLogger('file-debug')
+
+class MergeBarcode(APIView):
+    permission_classes = (AllowAny,)
+    def get(self, request, *args, **kwargs):
+        bin_id=self.kwargs.get('bin_id')
+        bin_id_list={}
+        bin_id_list[bin_id] = {"qty": 1, "data": None}
+        return merged_barcode_gen(bin_id_list)
 
 
 def update_bin_inventory(id, quantity=0):

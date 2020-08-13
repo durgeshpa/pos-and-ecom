@@ -1,68 +1,41 @@
-# from reportlab.lib.units import mm
-# from reportlab.graphics.barcode import *
-# from reportlab.graphics.shapes import Drawing, String
-#
-# class MyBarcodeDrawing(Drawing):
-#     def __init__(self, text_value, *args, **kw):
-#         barcode = createBarcodeDrawing('Code128', value=text_value, barHeight=10*mm, humanReadable=True)
-#         Drawing.__init__(self,barcode.width,barcode.height,*args,**kw)
-#         self.add(barcode, name='barcode')
-
-import os
-import shutil
 import barcode
 from barcode.writer import ImageWriter
-import PIL
-from PIL import Image
-# from pyzbar.pyzbar import decode
-from io import BytesIO
 import base64
-import io
+from os import path
+
+from django.http import HttpResponse
+from wkhtmltopdf.views import PDFTemplateResponse
 
 
 def barcodeGen(strVal):
-    EAN = barcode.get_barcode_class('code128')
-    ean = EAN(strVal, writer=ImageWriter())
-    fullname = ean.save('strVal')
-    with open(fullname, 'rb') as fp:
+    image_path = "barcode_tmp/" + strVal + ".png"
+    image_path_noext = "barcode_tmp/" + strVal
+    if not path.exists(image_path):
+        EAN = barcode.get_barcode_class('code128')
+        ean = EAN(strVal, writer=ImageWriter())
+        fullname = ean.save(image_path_noext)
+    with open(image_path, 'rb') as fp:
         ret_str = base64.b64encode(fp.read()).decode('ascii')
-    # os.remove(fullname)
     return ret_str
 
 
-def barcode_gen(value):
-    ean = barcode.get_barcode_class('code128')
-    ean = ean(value, writer=ImageWriter())
-    image = ean.render()
-    output_stream = BytesIO()
-    image_resize = image.resize((900, 300))
-    image_resize.save(output_stream, format='JPEG', quality=150)
-    output_stream.seek(0)
-    return output_stream
+def makePdf(barcode_list):
+    template_name = 'admin/wms/barcode.html'
+    data = {"barcode_list": barcode_list}
 
+    request = None
+    filename = "barcode"
+    cmd_option = {"margin-top": 0, "margin-left": 0, "margin-right": 0, "margin-bottom": 0, "zoom": 1,
+                  "javascript-delay": 0, "footer-center": "[page]/[topage]", "page-height": 50, "page-width": 75,
+                  "no-stop-slow-scripts": True, "quiet": True}
+    pdf_data = PDFTemplateResponse(request=request, template=template_name, filename=filename,
+                                   context=data, show_content_in_browser=False, cmd_options=cmd_option)
+    response = HttpResponse(pdf_data.rendered_content, content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="barcode.pdf"'
+    return response
 
-# def barcode_decoder(value):
-#     image = Image.open(value)
-#     image = image.convert('L')
-#     data = decode(image)
-#     return str(data[0][0])
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+def merged_barcode_gen(barcode_list):
+    for key, value in barcode_list.items():
+        barcode = barcodeGen(key)
+        barcode_list[key] = {'code': barcode, 'qty': list(range(value['qty'])), "data": value['data']}
+    return makePdf(barcode_list)

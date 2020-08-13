@@ -14,13 +14,13 @@ from retailer_backend.admin import InputFilter
 # app imports
 from .views import bins_upload, put_away, CreatePickList, audit_download, audit_upload
 from import_export import resources
-from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, PickupBinInventory,
+from .models import (Bin, InventoryType, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup,
+                     PickupBinInventory,
                      WarehouseInventory, InventoryState, WarehouseInternalInventoryChange, StockMovementCSVUpload,
                      BinInternalInventoryChange, StockCorrectionChange, OrderReserveRelease, Audit)
 from .forms import (BinForm, InForm, PutAwayForm, PutAwayBinInventoryForm, BinInventoryForm, OutForm, PickupForm,
                     StockMovementCSVUploadAdminForm)
-from barCodeGenerator import barcodeGen
-
+from barCodeGenerator import barcodeGen, merged_barcode_gen
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -30,6 +30,7 @@ debug_logger = logging.getLogger('file-debug')
 
 class BinResource(resources.ModelResource):
     info_logger.info("Bin Resource Admin has been called.")
+
     class Meta:
         model = Bin
         exclude = ('created_at', 'modified_at')
@@ -69,9 +70,10 @@ class BinAdmin(admin.ModelAdmin):
     info_logger.info("Bin Admin has been called.")
     form = BinForm
     resource_class = BinResource
-    actions = ['download_csv_for_bins',]
-    list_display = ('warehouse', 'bin_id', 'bin_type', 'created_at', 'modified_at', 'is_active', 'download_bin_id_barcode')
-    readonly_fields = ['bin_barcode','barcode_image','download_bin_id_barcode']
+    actions = ['download_csv_for_bins', 'download_barcode']
+    list_display = (
+        'warehouse', 'bin_id', 'bin_type', 'created_at', 'modified_at', 'is_active', 'download_bin_id_barcode')
+    readonly_fields = ['bin_barcode', 'barcode_image', 'download_bin_id_barcode']
     search_fields = ('bin_id',)
     list_filter = [
         ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter), Warehouse,
@@ -79,31 +81,33 @@ class BinAdmin(admin.ModelAdmin):
     ]
     list_per_page = 50
 
+    class Media:
+        js = ('admin/js/picker.js',)
+
     def get_urls(self):
         from django.conf.urls import url
         urls = super(BinAdmin, self).get_urls()
         urls = [
-            url(
-                r'^upload-csv/$',
-                self.admin_site.admin_view(bins_upload),
-                name="bins-upload"
-            ),
-            url(
-                r'^putaway/$',
-                self.admin_site.admin_view(put_away),
-                name="putaway-bins"
-            )
+                   url(
+                       r'^upload-csv/$',
+                       self.admin_site.admin_view(bins_upload),
+                       name="bins-upload"
+                   ),
+                   url(
+                       r'^putaway/$',
+                       self.admin_site.admin_view(put_away),
+                       name="putaway-bins"
+                   )
                ] + urls
         return urls
 
     def download_bin_id_barcode(self, obj):
-        info_logger.info("download bin barcode method has been called.")
-        if not obj.bin_barcode:
-            return format_html("-")
+        bin_id = getattr(obj, "bin_id")
         return format_html(
-            "<a href='data:image/png;base64,{}' download='{}'>{}</a>".format(barcodeGen(obj.bin_id), obj.bin_id, obj.
-                                                                             bin_id)
+            "<a href= '%s' >Download Barcode</a>" %
+            (reverse('merged_barcodes', args=[bin_id]))
         )
+
     download_bin_id_barcode.short_description = 'Download Bin ID Barcode'
 
     def download_csv_for_bins(self, request, queryset):
@@ -124,10 +128,22 @@ class BinAdmin(admin.ModelAdmin):
             writer.writerow([getattr(obj, field) for field in field_names])
         return response
 
-    download_csv_for_bins.short_description = "Download CSV of selected bins"
+    def download_barcode(self, request, queryset):
+        """
+        :param self:
+        :param request:
+        :param queryset:
+        :return:
+        """
+        info_logger.info("download Barocde List for bin method has been called.")
+        bin_id_list = {}
+        for obj in queryset:
+            bin_id_list[getattr(obj, "bin_id")] = {"qty": 1, "data": None}
+        return merged_barcode_gen(bin_id_list)
 
-    class Media:
-        pass
+    download_csv_for_bins.short_description = "Download CSV of selected bins"
+    download_barcode.short_description = "Download Barcode List"
+
 
 
 class InAdmin(admin.ModelAdmin):
@@ -145,9 +161,11 @@ class InAdmin(admin.ModelAdmin):
 class PutAwayAdmin(admin.ModelAdmin):
     info_logger.info("Put Away Admin has been called.")
     form = PutAwayForm
-    list_display = ('putaway_user', 'warehouse','putaway_type', 'putaway_type_id', 'sku', 'batch_id','quantity','putaway_quantity')
+    list_display = (
+        'putaway_user', 'warehouse', 'putaway_type', 'putaway_type_id', 'sku', 'batch_id', 'quantity',
+        'putaway_quantity')
     search_fields = ('putaway_user__phone_number', 'batch_id', 'sku__product_sku',)
-    list_filter = [Warehouse, 'putaway_type',]
+    list_filter = [Warehouse, 'putaway_type', ]
     list_per_page = 50
 
     class Media:
@@ -160,9 +178,9 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'sku', 'batch_id', 'putaway_type', 'putaway_id', 'bin_id', 'putaway_quantity',
                     'putaway_status', 'created_at')
     actions = ['download_bulk_put_away_bin_inventory_csv']
-    search_fields = ('batch_id','sku__product_sku', 'bin__bin__bin_id')
+    search_fields = ('batch_id', 'sku__product_sku', 'bin__bin__bin_id')
     list_filter = [
-        ('created_at', DateTimeRangeFilter), Warehouse, 'putaway_type',]
+        ('created_at', DateTimeRangeFilter), Warehouse, 'putaway_type', ]
     list_per_page = 50
 
     def download_bulk_put_away_bin_inventory_csv(self, request, queryset):
@@ -182,7 +200,8 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
             # iteration for selected id from Admin Dashboard and get the instance
             putaway_bin_inventory = PutawayBinInventory.objects.get(id=query.id)
             # get object from queryset
-            writer.writerow([putaway_bin_inventory.warehouse_id, putaway_bin_inventory.sku.product_name + '-' + putaway_bin_inventory.sku.product_sku,
+            writer.writerow([putaway_bin_inventory.warehouse_id,
+                             putaway_bin_inventory.sku.product_name + '-' + putaway_bin_inventory.sku.product_sku,
                              putaway_bin_inventory.batch_id, putaway_bin_inventory.putaway_type,
                              putaway_bin_inventory.putaway_id,
                              putaway_bin_inventory.bin_id,
@@ -205,10 +224,8 @@ class PutawayBinInventoryAdmin(admin.ModelAdmin):
         except:
             pass
 
-
     putaway_id.short_description = 'Putaway ID'
     bin_id.short_description = 'Bin Id'
-
 
     # download bulk invoice short description
     download_bulk_put_away_bin_inventory_csv.short_description = "Download Bulk Data in CSV"
@@ -228,7 +245,7 @@ class BinInventoryAdmin(admin.ModelAdmin):
     form = BinInventoryForm
     list_display = ('batch_id', 'warehouse', 'sku', 'bin', 'inventory_type', 'quantity', 'in_stock')
     search_fields = ('batch_id', 'sku__product_sku', 'bin__bin_id')
-    list_filter = [Warehouse, InventoryTypeFilter,]
+    list_filter = [Warehouse, InventoryTypeFilter, ]
     list_per_page = 50
 
     class Media:
@@ -246,9 +263,9 @@ class OutAdmin(admin.ModelAdmin):
         from django.conf.urls import url
         urls = super(OutAdmin, self).get_urls()
         urls = [
-            url(
-                r'^create-pick-list/(?P<pk>\d+)/picklist/$', CreatePickList.as_view(), name='create-picklist'
-            )
+                   url(
+                       r'^create-pick-list/(?P<pk>\d+)/picklist/$', CreatePickList.as_view(), name='create-picklist'
+                   )
                ] + urls
         return urls
 
@@ -256,9 +273,9 @@ class OutAdmin(admin.ModelAdmin):
 class PickupAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Admin has been called.")
     form = PickupForm
-    list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity','pickup_quantity','status')
+    list_display = ('warehouse', 'pickup_type', 'pickup_type_id', 'sku', 'quantity', 'pickup_quantity', 'status')
     search_fields = ('pickup_type_id', 'sku__product_sku',)
-    list_filter = [Warehouse, 'status', 'pickup_type',]
+    list_filter = [Warehouse, 'status', 'pickup_type', ]
     list_per_page = 50
 
     class Media:
@@ -268,9 +285,9 @@ class PickupAdmin(admin.ModelAdmin):
 class PickupBinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Pick up Bin Inventory Admin has been called.")
 
-    list_display = ('warehouse', 'batch_id', 'order_number', 'bin_id', 'quantity', 'pickup_quantity','created_at')
+    list_display = ('warehouse', 'batch_id', 'order_number', 'bin_id', 'quantity', 'pickup_quantity', 'created_at')
     list_select_related = ('warehouse', 'pickup', 'bin')
-    readonly_fields = ('warehouse', 'pickup', 'batch_id', 'bin','created_at')
+    readonly_fields = ('warehouse', 'pickup', 'batch_id', 'bin', 'created_at')
     search_fields = ('batch_id', 'bin__bin__bin_id')
     list_filter = [
         ('created_at', DateTimeRangeFilter), Warehouse,
@@ -334,13 +351,15 @@ class StockMovementCSVUploadAdmin(admin.ModelAdmin):
 
 
 class WarehouseInventoryAdmin(admin.ModelAdmin):
-    list_display = ('warehouse', 'sku', 'inventory_type', 'inventory_state', 'quantity', 'in_stock', 'created_at', 'modified_at')
+    list_display = (
+        'warehouse', 'sku', 'inventory_type', 'inventory_state', 'quantity', 'in_stock', 'created_at', 'modified_at')
     list_select_related = ('warehouse', 'inventory_type', 'inventory_state', 'sku')
-    readonly_fields = ('warehouse', 'sku', 'inventory_type', 'inventory_state', 'quantity', 'in_stock', 'created_at', 'modified_at')
+    readonly_fields = (
+        'warehouse', 'sku', 'inventory_type', 'inventory_state', 'quantity', 'in_stock', 'created_at', 'modified_at')
     search_fields = ('sku__product_sku',)
     list_filter = [
         ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter), Warehouse, InventoryTypeFilter,
-        InventoryStateFilter,]
+        InventoryStateFilter, ]
     list_per_page = 50
 
     class Media:
@@ -354,14 +373,19 @@ class InventoryStateAdmin(admin.ModelAdmin):
 
 
 class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
-    list_display = ('warehouse', 'sku', 'inventory_type', 'transaction_type', 'transaction_id', 'initial_stage', 'final_stage', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
+    list_display = (
+        'warehouse', 'sku', 'inventory_type', 'transaction_type', 'transaction_id', 'initial_stage', 'final_stage',
+        'quantity', 'created_at', 'modified_at', 'inventory_csv')
     list_select_related = ('warehouse', 'sku')
-    readonly_fields = ('warehouse', 'sku', 'transaction_type', 'transaction_id', 'initial_stage', 'final_stage', 'quantity', 'created_at', 'modified_at')
+    readonly_fields = (
+        'warehouse', 'sku', 'transaction_type', 'transaction_id', 'initial_stage', 'final_stage', 'quantity',
+        'created_at',
+        'modified_at')
 
     search_fields = ('sku__product_sku', 'transaction_id',)
     list_filter = [
         ('created_at', DateTimeRangeFilter), ('modified_at', DateTimeRangeFilter), Warehouse, InventoryTypeFilter,
-         InitialStageFilter, FinalStageFilter, 'transaction_type',]
+        InitialStageFilter, FinalStageFilter, 'transaction_type', ]
     list_per_page = 50
 
     class Media:
@@ -370,7 +394,7 @@ class WarehouseInternalInventoryChangeAdmin(admin.ModelAdmin):
 
 class BinInternalInventoryChangeAdmin(admin.ModelAdmin):
     list_display = ('warehouse', 'sku', 'batch_id', 'initial_inventory_type', 'final_inventory_type', 'initial_bin',
-                    'final_bin', 'quantity','created_at', 'modified_at', 'inventory_csv')
+                    'final_bin', 'quantity', 'created_at', 'modified_at', 'inventory_csv')
     list_per_page = 50
 
 
@@ -381,11 +405,17 @@ class StockCorrectionChangeAdmin(admin.ModelAdmin):
 
 
 class OrderReleaseAdmin(admin.ModelAdmin):
-    list_display = ('warehouse', 'sku', 'order_number', 'warehouse_internal_inventory_reserve', 'warehouse_internal_inventory_release', 'reserved_time', 'release_time', 'created_at')
-    readonly_fields = ('warehouse', 'sku', 'warehouse_internal_inventory_reserve', 'warehouse_internal_inventory_release', 'reserved_time', 'release_time', 'created_at')
+    list_display = (
+        'warehouse', 'sku', 'order_number', 'warehouse_internal_inventory_reserve',
+        'warehouse_internal_inventory_release',
+        'reserved_time', 'release_time', 'created_at')
+    readonly_fields = (
+        'warehouse', 'sku', 'warehouse_internal_inventory_reserve', 'warehouse_internal_inventory_release',
+        'reserved_time',
+        'release_time', 'created_at')
 
     search_fields = ('sku__product_sku',)
-    list_filter = [Warehouse,]
+    list_filter = [Warehouse, ]
     list_per_page = 50
 
     def order_number(self, obj):
