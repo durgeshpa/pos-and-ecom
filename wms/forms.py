@@ -3,6 +3,7 @@ import re
 import csv
 import codecs
 from django import forms
+from datetime import datetime
 from .models import Bin, In, Putaway, PutawayBinInventory, BinInventory, Out, Pickup, StockMovementCSVUpload,\
     InventoryType, InventoryState, BIN_TYPE_CHOICES, Audit, WarehouseInventory
 from products.models import Product
@@ -12,6 +13,7 @@ from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ValidationError
 from django.db.models import Sum, Q
 from sp_to_gram.models import OrderedProductMapping
+from .common_functions import create_batch_id_from_audit
 # Logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -566,6 +568,35 @@ class UploadAuditAdminForm(forms.Form):
             if not row[3]:
                 raise ValidationError(_(
                     "Issue in Row" + " " + str(row_id + 1) + "," + "Expiry date can not be empty."))
+            try:
+                if datetime.strptime(row[3], '%d/%m/%y'):
+                    pass
+            except:
+                try:
+                    if datetime.strptime(row[3], '%d/%m/%Y'):
+                        pass
+                    else:
+                        raise ValidationError(_(
+                            "Issue in Row" + " " + str(row_id + 1) + "," + "Expiry date format is not correct,"
+                                                                           " It should be DD/MM/YYYY, DD/MM/YY, DD-MM-YYYY and DD-MM-YY format,"
+                                                                           " Example:-11/07/2020, 11/07/20,"
+                                                                           "11-07-2020 and 11-07-20."))
+
+                except:
+                    try:
+                        if datetime.strptime(row[3], '%d-%m-%y'):
+                            pass
+
+                    except:
+                        try:
+                            if datetime.strptime(row[3], '%d-%m-%Y'):
+                                pass
+                        except:
+                            raise ValidationError(_(
+                                "Issue in Row" + " " + str(row_id + 1) + "," + "Expiry date format is not correct,"
+                                                                               " It should be DD/MM/YYYY, DD/MM/YY, DD-MM-YYYY and DD-MM-YY format,"
+                                                                               " Example:-11/07/2020, 11/07/20,"
+                                                                               " 11-07-2020 and 11-07-20."))
 
             if not row[4]:
                 raise ValidationError(_(
@@ -607,6 +638,28 @@ class UploadAuditAdminForm(forms.Form):
                 raise ValidationError(_(
                     "Issue in Row" + " " + str(row_id + 1) + "," + "Missing-Final Qty can not be empty."))
 
+            try:
+                expiry_date = datetime.strptime(row[3], '%d/%m/%Y').strftime('%Y-%m-%d')
+            except:
+                try:
+                    expiry_date = datetime.strptime(row[3], '%d-%m-%Y').strftime('%Y-%m-%d')
+                except:
+                    try:
+                        expiry_date = datetime.strptime(row[3], '%d-%m-%y').strftime('%Y-%m-%d')
+                    except:
+                        expiry_date = datetime.strptime(row[3], '%d/%m/%y').strftime('%Y-%m-%d')
+
+            grn_order_obj = GRNOrderProductMapping.objects.filter(
+                product__product_sku=row[1][-17:],
+                expiry_date=expiry_date)
+            if not grn_order_obj.exists():
+                bin_in_obj = BinInventory.objects.filter(
+                    warehouse=row[0], sku=Product.objects.filter(product_sku=row[1][-17:]).last())
+                for bin_in in bin_in_obj:
+                    if not (bin_in.batch_id == create_batch_id_from_audit(row)):
+                        if bin_in.bin.bin_id == row[4]:
+                            raise ValidationError(_(
+                                "Issue in Row" + " " + str(row_id + 1) + "," + "2 different Batch id/Expiry date for same sku can’t save in the same bin."))
             normal = BinInventory.objects.filter(Q(warehouse__id=row[0]),
                             Q(sku__id=Product.objects.filter(product_sku=row[1][-17:])[0].id),
                             Q(inventory_type__id=InventoryType.objects.filter(inventory_type='normal')[0].id),
@@ -646,7 +699,7 @@ class UploadAuditAdminForm(forms.Form):
             if not initial_count == final_count:
                 raise ValidationError(_(
                     "Issue in Row" + " " + str(row_id + 1) + "," +
-                    "Sum of Initial Quantity and Final Quantity is not equal."))
+                    "Initial Qty of SKU is not equal to Final Qty of SKU."))
 
             form_data_list.append(row)
 

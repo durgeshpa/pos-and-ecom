@@ -417,11 +417,10 @@ class Document(models.Model):
     document_number = models.CharField(max_length=255,null=True,blank=True)
     document_image = models.FileField(null=True,blank=True,upload_to='brand_invoice')
 
-    def clean(self):
-        import pdb;pdb.set_trace()
-        super(Document).clean()
-        if self.document_image is None:
-            raise ValidationError("Document needs to be uploaded")
+    # def clean(self):
+    #     super(Document).clean()
+    #     if self.document_image is None:
+    #         raise ValidationError("Document needs to be uploaded")
 
 class GRNOrderProductMapping(models.Model):
     grn_order = models.ForeignKey(GRNOrder,related_name='grn_order_grn_order_product',null=True,blank=True,on_delete=models.CASCADE)
@@ -461,6 +460,11 @@ class GRNOrderProductMapping(models.Model):
         already_grn = self.product.product_grn_order_product.filter(grn_order__order=self.grn_order.order).aggregate(Sum('delivered_qty'))
         return 0 if already_grn.get('delivered_qty__sum') == None else already_grn.get('delivered_qty__sum')
         #
+
+    @property
+    def already_returned_product(self):
+        already_returned = self.product.product_grn_order_product.filter(grn_order__order=self.grn_order.order).aggregate(Sum('returned_qty'))
+        return 0 if already_returned.get('returned_qty__sum') == None else already_returned.get('returned_qty__sum')
 
     @property
     def ordered_qty(self):
@@ -516,7 +520,7 @@ class GRNOrderProductMapping(models.Model):
     def save(self, *args, **kwargs):
         if not self.vendor_product and self.grn_order.order.ordered_cart.cart_list.filter(cart_product=self.product).last().vendor_product:
             self.vendor_product = self.grn_order.order.ordered_cart.cart_list.filter(cart_product=self.product).last().vendor_product
-        if self.expiry_date and not self.batch_id:
+        if self.expiry_date and not self.batch_id and self.delivered_qty:
             self.batch_id = '{}{}'.format(self.product.product_sku,
                                           self.expiry_date.strftime('%d%m%y'))
         super(GRNOrderProductMapping, self).save(*args, **kwargs)

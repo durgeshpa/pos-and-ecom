@@ -4,6 +4,7 @@
     changeReturnedQty()
     changeDamagedQty()
     changeDeliveredQty()
+    hideLink()
       $("#changelist-form").submit(function( event ) {
         event.preventDefault()
             var shipment_id = [];
@@ -97,5 +98,11 @@ function changeDeliveredQty(){
         }
         }
         });
+    })
+}
+
+function hideLink(){
+    $(document).ready(function(){
+        $(".djn-add-item").hide()
     })
 }

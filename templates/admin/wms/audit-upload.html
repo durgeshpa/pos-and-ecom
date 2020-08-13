@@ -2,7 +2,7 @@
 {% block title %}Wms | Admin{% endblock %}
 {% block breadcrumb1 %}<a href="/admin/wms/">Wms</a>{% endblock %}
 {% block breadcrumb2 %}<a href="/admin/wms/audit/">Audits<a>{% endblock %}
-{% block breadcrumb3 %}<a href="#">Bulk Bin Updation</a>{% endblock %}
+{% block breadcrumb3 %}<a href="#">Upload Audit Inventory List</a>{% endblock %}
 
 {% block content %}
           <!-- Content -->
@@ -14,6 +14,11 @@
                 {% if error %}
                 <span class="errornote">{{ error|escape }}</span>
             {% endif %}
+             {% if success %}
+            <ul class="messagelist">
+            <li class="success">{{ success|escape }}</li>
+            </ul>
+             {% endif %}
            <form method="post" enctype="multipart/form-data">
 
                   <div>

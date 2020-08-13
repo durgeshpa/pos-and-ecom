@@ -23,6 +23,9 @@ from shops.models import Shop, ParentRetailerMapping
 from gram_to_brand.forms import (OrderForm, CartProductMappingForm, GRNOrderForm, GRNOrderProductForm,
                                  GRNOrderProductFormset, POGenerationAccountForm)
 from .forms import POGenerationForm, DocumentForm
+from shops.models import Shop
+from gram_to_brand.forms import (OrderForm, CartProductMappingForm, GRNOrderForm, GRNOrderProductForm, GRNOrderProductFormset, POGenerationAccountForm)
+from .forms import POGenerationForm, DocumentForm, DocumentFormset
 from django.http import HttpResponse, HttpResponseRedirect
 from retailer_backend.filters import (BrandFilter, SupplierStateFilter, SupplierFilter, OrderSearch, QuantitySearch,
                                       InvoiceNoSearch,
@@ -197,6 +200,7 @@ class GRNOrderForm(forms.ModelForm):
 
 class DocumentAdmin(admin.StackedInline):
     model = Document
+    formset = DocumentFormset
     form = DocumentForm
     fields = ('document_number', 'document_image')
     extra = 1
@@ -206,6 +210,7 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
     model = GRNOrderProductMapping
     formset = GRNOrderProductFormset
     form = GRNOrderProductForm
+
     fields = ('product', 'product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product',
               'product_invoice_price', 'manufacture_date',
               'expiry_date', 'best_before_year', 'best_before_month', 'product_invoice_qty', 'delivered_qty',
@@ -218,9 +223,8 @@ class GRNOrderProductMappingAdmin(admin.TabularInline):
 
     # readonly_fields = ('po_product_quantity','po_product_price','already_grned_product',)
     def get_readonly_fields(self, request, obj=None):
-        if obj:  # editing an existing object
-            return self.readonly_fields + (
-            'product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product',)
+        if obj: # editing an existing object
+            return self.readonly_fields + ('product_mrp','po_product_quantity','po_product_price','already_grned_product','already_returned_product')
         return self.readonly_fields
 
     def get_formset(self, request, obj=None, **kwargs):
