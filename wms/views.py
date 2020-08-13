@@ -22,7 +22,7 @@ from django.db.models import Sum
 from django.dispatch import receiver
 from django.db import transaction
 from datetime import datetime
-from .common_functions import CommonPickBinInvFunction, common_for_release, CommonPickupFunctions
+from .common_functions import CommonPickBinInvFunction, common_for_release, CommonPickupFunctions, create_batch_id_from_audit
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease
 from .models import Bin, WarehouseInventory, PickupBinInventory
 from shops.models import Shop
@@ -908,29 +908,6 @@ def get_inventory_types_for_bin(data, bin_inventory_obj):
                     missing = int(data[12])
                     inventory_type.update({'missing': missing})
         return inventory_type
-    except Exception as e:
-        error_logger.error(e.message)
-
-
-def create_batch_id_from_audit(data):
-    """
-
-    :param data: single row of data from csv
-    :return: batch id
-    """
-    try:
-        try:
-            batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d-%m-%y').strftime('%d%m%y'))
-
-        except:
-            try:
-                batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d-%m-%Y').strftime('%d%m%y'))
-            except:
-                try:
-                    batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d/%m/%Y').strftime('%d%m%y'))
-                except:
-                    batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d/%m/%y').strftime('%d%m%y'))
-        return batch_id
     except Exception as e:
         error_logger.error(e.message)
 
