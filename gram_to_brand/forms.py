@@ -209,8 +209,6 @@ class GRNOrderProductForm(forms.ModelForm):
     def clean(self):
         super(GRNOrderProductForm, self).clean()
         if self.cleaned_data.get('product', None):
-            if self.cleaned_data.get('manufacture_date') is None:
-                raise ValidationError(_('Required Field Manufacture Date'))
             manufacture_date = self.cleaned_data.get('manufacture_date')
             expiry_date = self.cleaned_data.get('expiry_date')
             if self.cleaned_data.get('product_invoice_qty') is None or self.cleaned_data.get('product_invoice_qty') >0:
@@ -256,10 +254,6 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
             if form.cleaned_data.get('delivered_qty') is None:
                 raise ValidationError('This field is required')
             if form.cleaned_data.get('returned_qty') is None:
-                raise ValidationError('This field is required')
-            if form.cleaned_data.get('manufacture_date') is None:
-                raise ValidationError('This field is required')
-            if form.cleaned_data.get('expiry_date') is None:
                 raise ValidationError('This field is required')
 
             if form.instance.product.id in products_dict:
