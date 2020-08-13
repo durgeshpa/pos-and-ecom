@@ -579,7 +579,7 @@ def cancel_order_with_pick(instance):
         bin_inv_qty = bin_inv_obj.last().quantity
         bin_inv_obj.update(quantity=bin_inv_qty + pick_up_bin_quantity)
         if pick_up_bin_quantity == 0:
-            continue
+            pass
         else:
             pu, _ = Putaway.objects.update_or_create(warehouse=pickup.warehouse, putaway_type='SHIPMENT',
                                                      putaway_type_id=instance.order_no, sku=pickup.bin.sku,
@@ -589,7 +589,7 @@ def cancel_order_with_pick(instance):
                                                          batch_id=pickup.batch_id, putaway_type='SHIPMENT',
                                                          putaway=pu, bin=pickup.bin, putaway_status=True,
                                                          defaults={'putaway_quantity': pick_up_bin_quantity})
-            cancel_order(instance)
+        cancel_order(instance)
 
 
 class AuditInventory(object):
