@@ -842,10 +842,10 @@ def audit_upload(request):
                         # create bin inventory data
                         bin_objects_create(data, batch_id)
 
-                        bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
-                                                                        bin=Bin.objects.filter(bin_id=data[4]).last(),
-                                                                        sku=Product.objects.filter(
-                                                                            product_sku=data[1][-17:]).last())
+                    bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
+                                                                    bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                                                    sku=Product.objects.filter(
+                                                                        product_sku=data[1][-17:]).last())
 
                     # call function to get inventory types from Bin Inventory
                     inventory_type = get_inventory_types_for_bin(data, bin_inventory_obj)
