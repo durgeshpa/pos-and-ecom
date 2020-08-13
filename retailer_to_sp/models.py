@@ -2446,7 +2446,7 @@ def populate_data_on_qc_pass(order):
             ordered_product_mapping=ordered_product_mapping,
             pickup=i.pickup,
             bin=i.bin,
-            quantity=i.quantity,
+            quantity=i.pickup_quantity,
             pickup_quantity=i.pickup_quantity,
             expiry_date="30/" + i.batch_id[17:19] + "/20" + i.batch_id[19:21],
             delivered_qty=ordered_product_mapping.delivered_qty,
