@@ -747,6 +747,8 @@ class AuditInventory(object):
                     inventory_type=inventory_type).last(), in_stock=in_stock).last()
 
             if ware_house_inventory_obj:
+                if quantity is None:
+                    quantity = 0
                 ware_house_inventory_obj.quantity = quantity
                 ware_house_inventory_obj.save()
             else:
