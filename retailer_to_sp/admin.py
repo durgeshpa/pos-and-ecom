@@ -1097,7 +1097,7 @@ class OrderedProductAdmin(NestedModelAdmin):
 
     class Media:
         css = {"all": ("admin/css/hide_admin_inline_object_name.css",)}
-        js = ('admin/js/shipment.js','http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js')
+        js = ('admin/js/shipment.js','https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js')
 
 
 class DispatchProductMappingAdmin(admin.TabularInline):
