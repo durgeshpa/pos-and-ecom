@@ -13,6 +13,7 @@ from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ValidationError
 from django.db.models import Sum, Q
 from sp_to_gram.models import OrderedProductMapping
+from .common_functions import create_batch_id_from_audit
 # Logger
 info_logger = logging.getLogger('file-info')
 error_logger = logging.getLogger('file-error')
@@ -652,11 +653,13 @@ class UploadAuditAdminForm(forms.Form):
                 product__product_sku=row[1][-17:],
                 expiry_date=expiry_date)
             if not grn_order_obj.exists():
-                bin_id = BinInventory.objects.filter(
-                    warehouse=row[0], sku=Product.objects.filter(product_sku=row[1][-17:]).last()).last().bin.bin_id
-                if bin_id == row[4]:
-                    raise ValidationError(_(
-                        "Issue in Row" + " " + str(row_id + 1) + "," + "2 different Batch id/Expiry date for same sku can’t save in the same bin."))
+                bin_in_obj = BinInventory.objects.filter(
+                    warehouse=row[0], sku=Product.objects.filter(product_sku=row[1][-17:]).last())
+                for bin_in in bin_in_obj:
+                    if not (bin_in.batch_id == create_batch_id_from_audit(row)):
+                        if bin_in.bin.bin_id == row[4]:
+                            raise ValidationError(_(
+                                "Issue in Row" + " " + str(row_id + 1) + "," + "2 different Batch id/Expiry date for same sku can’t save in the same bin."))
             normal = BinInventory.objects.filter(Q(warehouse__id=row[0]),
                             Q(sku__id=Product.objects.filter(product_sku=row[1][-17:])[0].id),
                             Q(inventory_type__id=InventoryType.objects.filter(inventory_type='normal')[0].id),

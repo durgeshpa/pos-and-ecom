@@ -727,9 +727,12 @@ class AuditInventory(object):
                                 warehouse=warehouse, sku=sku, inventory_state=InventoryState.objects.filter(
                                     inventory_state='ordered').last(), inventory_type=InventoryType.objects.filter(
                                     inventory_type='normal').last(), in_stock=in_stock).last()
-                            ordered_ware_quantity = 0
-                            ordered_ware.quantity = ordered_ware_quantity
-                            ordered_ware.save()
+                            if ordered_ware is None:
+                                pass
+                            else:
+                                ordered_ware_quantity = 0
+                                ordered_ware.quantity = ordered_ware_quantity
+                                ordered_ware.save()
                 else:
                     if quantity is None:
                         quantity = 0
@@ -860,3 +863,26 @@ def common_on_return_and_partial(shipment):
                                                              batch_id=j.batch_id, putaway_type='PAR_SHIPMENT',
                                                              putaway=pu, bin=j.bin, putaway_status=True,
                                                              defaults={'putaway_quantity': putaway_qty})
+
+
+def create_batch_id_from_audit(data):
+    """
+
+    :param data: single row of data from csv
+    :return: batch id
+    """
+    try:
+        try:
+            batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d-%m-%y').strftime('%d%m%y'))
+
+        except:
+            try:
+                batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d-%m-%Y').strftime('%d%m%y'))
+            except:
+                try:
+                    batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d/%m/%Y').strftime('%d%m%y'))
+                except:
+                    batch_id = '{}{}'.format(data[1][-17:], datetime.strptime(data[3], '%d/%m/%y').strftime('%d%m%y'))
+        return batch_id
+    except Exception as e:
+        error_logger.error(e.message)
