@@ -178,7 +178,8 @@ class CreatePickList(APIView):
                 "buyer_contact_no": order.ordered_cart.buyer_shop.shop_owner.phone_number,
                 "buyer_shipping_address": order.shipping_address.address_line1,
                 "buyer_shipping_city": order.shipping_address.city.city_name,
-                "barcode": barcode
+                "barcode": barcode,
+                "order_obj":order,
                 }
 
         cmd_option = {
