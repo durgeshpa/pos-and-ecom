@@ -501,7 +501,7 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id, ord
             if reserved_qty == 0:
                 return
             ordered_id = ordered_product_reserved.last().id
-            wim = WarehouseInventory.objects.filter(sku__id=prod,inventory_state__inventory_state='available')
+            wim = WarehouseInventory.objects.filter(sku__id=prod,inventory_type__inventory_type='normal',inventory_state__inventory_state='available')
             available_qty = wim.last().quantity
             if order_status == 'ordered':
                 wim.update(quantity=available_qty)
