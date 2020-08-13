@@ -209,6 +209,8 @@ class GRNOrderProductForm(forms.ModelForm):
     def clean(self):
         super(GRNOrderProductForm, self).clean()
         if self.cleaned_data.get('product', None):
+            if self.cleaned_data.get('expiry_date') and self.cleaned_data.get('manufacture_date') is None:
+                raise ValidationError(_('Manufacture date is required'))
             manufacture_date = self.cleaned_data.get('manufacture_date')
             expiry_date = self.cleaned_data.get('expiry_date')
             if self.cleaned_data.get('product_invoice_qty') is None or self.cleaned_data.get('product_invoice_qty') >0:
