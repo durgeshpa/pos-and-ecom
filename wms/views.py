@@ -6,7 +6,7 @@ import itertools
 import openpyxl
 import re
 import logging
-
+from barCodeGenerator import barcodeGen
 # django imports
 from django.http import HttpResponse
 from django.utils.translation import ugettext_lazy as _
@@ -160,6 +160,7 @@ class CreatePickList(APIView):
 
     def get(self, request, *args, **kwargs):
         order = get_object_or_404(Order, pk=self.kwargs.get('pk'))
+        barcode = barcodeGen(order.order_no)
         picku_bin_inv = PickupBinInventory.objects.filter(pickup__pickup_type_id=order.order_no)
         data_list=[]
         new_list=[]
@@ -172,7 +173,14 @@ class CreatePickList(APIView):
             bin_id = i.bin.bin.bin_id
             prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": qty, "batch_id": batch_id,"bin": bin_id}
             data_list.append(prod_list)
-        data = {"data_list": data_list}
+        data = {"data_list": data_list,
+                "buyer_shop": order.ordered_cart.buyer_shop.shop_name,
+                "buyer_contact_no": order.ordered_cart.buyer_shop.shop_owner.phone_number,
+                "buyer_shipping_address": order.shipping_address.address_line1,
+                "buyer_shipping_city": order.shipping_address.city.city_name,
+                "barcode": barcode,
+                "order_obj":order,
+                }
 
         cmd_option = {
                         "margin-top": 10,

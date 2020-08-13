@@ -199,7 +199,8 @@ class RequiredFormSet(BaseFormSet):
             if to_ship_pieces:
                 to_ship_sum.append(to_ship_pieces)
         if sum(to_ship_sum) == 0:
-            raise ValidationError("Please add shipment quantity for at least one product")
+            pass
+            # raise ValidationError("Please add shipment quantity for at least one product")
 
 
 def ordered_product_mapping_shipment(request):
@@ -242,7 +243,7 @@ def ordered_product_mapping_shipment(request):
                         'ordered_qty': ordered_no_pieces,
                         'already_shipped_qty': already_shipped_qty,
                         'to_be_shipped_qty': to_be_shipped_qty,
-                        'shipped_qty': pick_up.quantity,
+                        'shipped_qty': pick_up.pickup_quantity,
                         'picked_pieces':pick_up.pickup_quantity
                     })
             else:
@@ -252,7 +253,7 @@ def ordered_product_mapping_shipment(request):
                     'ordered_qty': item['no_of_pieces'],
                     'already_shipped_qty': 0,
                     'to_be_shipped_qty': 0,
-                    'shipped_qty':pick_up.quantity,
+                    'shipped_qty':pick_up.pickup_quantity,
                     'picked_pieces':pick_up.pickup_quantity
                 })
         form_set = ordered_product_set(initial=products_list)
@@ -276,7 +277,7 @@ def ordered_product_mapping_shipment(request):
                         if forms.is_valid():
                             to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
                             product_name = forms.cleaned_data.get('product')
-                            if to_be_ship_qty:
+                            if to_be_ship_qty >= 0:
                                 formset_data = forms.save(commit=False)
                                 formset_data.ordered_product = shipment
                                 max_pieces_allowed = int(formset_data.ordered_qty) - int(
@@ -285,13 +286,13 @@ def ordered_product_mapping_shipment(request):
                                     raise Exception(
                                         '{}: Max Qty allowed is {}'.format(product_name, max_pieces_allowed))
                                 formset_data.save()
-#                                populate_data_on_qc_pass(order)
-                    return redirect('/admin/retailer_to_sp/shipment/')
+                populate_data_on_qc_pass(order)
+                return redirect('/admin/retailer_to_sp/shipment/')
 
             except Exception as e:
                 messages.error(request, e)
                 logger.exception("An error occurred while creating shipment {}".format(e))
-        populate_data_on_qc_pass(order)
+           # populate_data_on_qc_pass(order)
     return render(
         request,
         'admin/retailer_to_sp/OrderedProductMappingShipment.html',

@@ -462,6 +462,11 @@ class GRNOrderProductMapping(models.Model):
         #
 
     @property
+    def already_returned_product(self):
+        already_returned = self.product.product_grn_order_product.filter(grn_order__order=self.grn_order.order).aggregate(Sum('returned_qty'))
+        return 0 if already_returned.get('returned_qty__sum') == None else already_returned.get('returned_qty__sum')
+
+    @property
     def ordered_qty(self):
         return self.grn_order.order.ordered_cart.cart_list.last(cart_product=self.product).qty if self.product else ''
 
@@ -515,7 +520,7 @@ class GRNOrderProductMapping(models.Model):
     def save(self, *args, **kwargs):
         if not self.vendor_product and self.grn_order.order.ordered_cart.cart_list.filter(cart_product=self.product).last().vendor_product:
             self.vendor_product = self.grn_order.order.ordered_cart.cart_list.filter(cart_product=self.product).last().vendor_product
-        if self.expiry_date and not self.batch_id:
+        if self.expiry_date and not self.batch_id and self.delivered_qty:
             self.batch_id = '{}{}'.format(self.product.product_sku,
                                           self.expiry_date.strftime('%d%m%y'))
         super(GRNOrderProductMapping, self).save(*args, **kwargs)

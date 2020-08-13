@@ -269,11 +269,20 @@ class OrderManagement(object):
         transaction_type = params['transaction_type']
 
         for prod_id, ordered_qty in products.items():
-            WarehouseInventory.objects.create(warehouse=Shop.objects.get(id=shop_id),
+            warehouse_obj = WarehouseInventory.objects.filter(warehouse=Shop.objects.get(id=shop_id),
                                               sku=Product.objects.get(id=int(prod_id)),
                                               inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
-                                              inventory_state=InventoryState.objects.filter(inventory_state='reserved').last(),
-                                              quantity=ordered_qty, in_stock='t')
+                                              inventory_state=InventoryState.objects.filter(inventory_state='reserved').last(), quantity=0)
+            if warehouse_obj.exists():
+                w_obj = warehouse_obj.last()
+                w_obj.quantity=ordered_qty
+                w_obj.save()
+            else:
+                WarehouseInventory.objects.create(warehouse=Shop.objects.get(id=shop_id),
+                                                  sku=Product.objects.get(id=int(prod_id)),
+                                                  inventory_type=InventoryType.objects.filter(inventory_type='normal').last(),
+                                                  inventory_state=InventoryState.objects.filter(inventory_state='reserved').last(),
+                                                  quantity=ordered_qty, in_stock='t')
             win = WarehouseInventory.objects.filter(sku__id=int(prod_id), quantity__gt=0,
                                                     inventory_state__inventory_state='available').order_by('created_at')
             WarehouseInternalInventoryChange.objects.create(warehouse=Shop.objects.get(id=shop_id),
@@ -840,7 +849,7 @@ def common_on_return_and_partial(shipment):
                                                                                             'putaway_quantity': putaway_qty})
                     PutawayBinInventory.objects.update_or_create(warehouse=j.pickup.warehouse, sku=j.pickup.sku,
                                                                 batch_id=j.batch_id, putaway_type='RETURNED',
-                                                                putaway=pu, bin=j.bin, putaway_status=True,
+                                                                putaway=pu, bin=j.bin, putaway_status=False,
                                                                 defaults={'putaway_quantity': putaway_qty})
 
             else:
@@ -852,7 +861,7 @@ def common_on_return_and_partial(shipment):
                     BinInventory.objects.update_or_create(batch_id=j.batch_id, warehouse=j.pickup.warehouse,sku=j.pickup.sku, bin=j.bin.bin, inventory_type=inv_type['E'],in_stock='t', defaults={'quantity':j.expired_qty})
 
                 putaway_qty = (j.pickup_quantity - j.quantity)
-                if putaway_qty < 0:
+                if putaway_qty <= 0:
                     continue
                 else:
                     pu, _ = Putaway.objects.update_or_create(warehouse=j.pickup.warehouse, putaway_type='PAR_SHIPMENT',
@@ -861,7 +870,7 @@ def common_on_return_and_partial(shipment):
                                                                                         'putaway_quantity': putaway_qty})
                     PutawayBinInventory.objects.update_or_create(warehouse=j.pickup.warehouse, sku=j.pickup.sku,
                                                              batch_id=j.batch_id, putaway_type='PAR_SHIPMENT',
-                                                             putaway=pu, bin=j.bin, putaway_status=True,
+                                                             putaway=pu, bin=j.bin, putaway_status=False,
                                                              defaults={'putaway_quantity': putaway_qty})
 
 

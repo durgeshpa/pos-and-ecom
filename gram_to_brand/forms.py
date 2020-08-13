@@ -179,15 +179,16 @@ class GRNOrderProductForm(forms.ModelForm):
     po_product_quantity = forms.IntegerField()
     po_product_price = forms.DecimalField()
     already_grned_product = forms.IntegerField()
+    already_returned_product = forms.IntegerField(disabled=True)
     expiry_date = forms.DateField(required=False, widget=AdminDateWidget())
     best_before_year = forms.ChoiceField(choices=BEST_BEFORE_YEAR_CHOICE,)
     best_before_month = forms.ChoiceField(choices=BEST_BEFORE_MONTH_CHOICE,)
 
     class Meta:
         model = GRNOrderProductMapping
-        fields = ('product', 'product_mrp', 'po_product_quantity','po_product_price','already_grned_product','product_invoice_price','manufacture_date',
+        fields = ('product', 'product_mrp', 'po_product_quantity','po_product_price','already_grned_product','already_returned_product','product_invoice_price','manufacture_date',
                   'expiry_date','best_before_year','best_before_month','product_invoice_qty','delivered_qty','returned_qty')
-        readonly_fields = ('product','product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product')
+        readonly_fields = ('product','product_mrp', 'po_product_quantity', 'po_product_price', 'already_grned_product', 'already_returned_product')
         autocomplete_fields = ('product',)
 
 
@@ -208,6 +209,8 @@ class GRNOrderProductForm(forms.ModelForm):
     def clean(self):
         super(GRNOrderProductForm, self).clean()
         if self.cleaned_data.get('product', None):
+            if self.cleaned_data.get('expiry_date') and self.cleaned_data.get('manufacture_date') is None:
+                raise ValidationError(_('Manufacture date is required'))
             manufacture_date = self.cleaned_data.get('manufacture_date')
             expiry_date = self.cleaned_data.get('expiry_date')
             if self.cleaned_data.get('product_invoice_qty') is None or self.cleaned_data.get('product_invoice_qty') >0:
@@ -231,12 +234,14 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
             initial = []
             for item in ordered_cart.products.order_by('product_name'):
                 already_grn = item.product_grn_order_product.filter(grn_order__order__ordered_cart=ordered_cart).aggregate(Sum('delivered_qty'))
+                already_return = item.product_grn_order_product.filter(grn_order__order__ordered_cart=ordered_cart).aggregate(Sum('returned_qty'))
                 initial.append({
                     'product' : item,
                     'product_mrp': item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product.product_mrp if item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product else '-',
                     'po_product_quantity': item.cart_product_mapping.filter(cart=ordered_cart).last().qty,
                     'po_product_price':  item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product.product_price if item.cart_product_mapping.filter(cart=ordered_cart).last().vendor_product else item.cart_product_mapping.filter(cart=ordered_cart).last().price,
                     'already_grned_product': 0 if already_grn.get('delivered_qty__sum') == None else already_grn.get('delivered_qty__sum'),
+                    'already_returned_product': 0 if already_return.get('returned_qty__sum') == None else already_return.get('returned_qty__sum'),
                     })
             self.extra = len(initial)
             self.initial= initial
@@ -248,6 +253,10 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
         for form in self:
             if form.cleaned_data.get('product_invoice_qty'):
                 count += 1
+            if form.cleaned_data.get('delivered_qty') is None:
+                raise ValidationError('This field is required')
+            if form.cleaned_data.get('returned_qty') is None:
+                raise ValidationError('This field is required')
 
             if form.instance.product.id in products_dict:
                 product_data = products_dict[form.instance.product.id]
@@ -255,7 +264,7 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
                 product_data['product_invoice_qty'] = product_data['product_invoice_qty'] + form.cleaned_data.get('product_invoice_qty')
             else:
                 products_data = {'total_items':(form.cleaned_data.get('delivered_qty') + form.cleaned_data.get('returned_qty')),
-                                 'diff':(form.instance.po_product_quantity - form.instance.already_grned_product),
+                                 'diff':(form.instance.po_product_quantity - (form.instance.already_grned_product + form.instance.already_returned_product)),
                                  'product_invoice_qty':form.cleaned_data.get('product_invoice_qty'),
                                  'product_name':form.cleaned_data.get('product')}
                 products_dict[form.instance.product.id] = products_data
@@ -270,7 +279,7 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
                 elif v.get('total_items') < v.get('product_invoice_qty'):
                     raise ValidationError(_('Product invoice quantity must be equal to the sum of delivered quantity and returned quantity for %s') % v.get('product_name'))
             else:
-                raise ValidationError(_('Product invoice quantity cannot be greater than the difference of PO product quantity and already_grned_product for %s') % v.get('product_name'))
+                raise ValidationError(_('Product invoice quantity cannot be greater than the difference of PO product quantity and (already_grned_product + already_returned_product) for %s') % v.get('product_name'))
 
 
 class DocumentForm(forms.ModelForm):
