@@ -248,7 +248,9 @@ class GRNOrderProductFormset(forms.models.BaseInlineFormSet):
         for form in self:
             if form.cleaned_data.get('product_invoice_qty'):
                 count += 1
-            if form.cleaned_data.get('delivered_qty') or form.cleaned_data.get('returned_qty') is None:
+            if form.cleaned_data.get('delivered_qty') is None:
+                raise ValidationError('This field is required')
+            if form.cleaned_data.get('returned_qty') is None:
                 raise ValidationError('This field is required')
 
             if form.instance.product.id in products_dict:
