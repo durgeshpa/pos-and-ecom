@@ -821,47 +821,18 @@ def audit_upload(request):
                                                                         bin=Bin.objects.filter(bin_id=data[4]).last(),
                                                                         sku=Product.objects.filter(
                                                                             product_sku=data[1][-17:]).last())
+                        if not bin_inventory_obj.exists():
+                            batch_id = create_batch_id_from_audit(data)
+                            bin_objects_create(data, batch_id)
+
                     else:
-                        batch_id = create_batch_id_from_audit(data, audit_inventory_obj)
+                        batch_id = create_batch_id_from_audit(data)
                         quantity = int(data[9]) + int(data[10]) + int(data[11]) + int(data[12])
                         InCommonFunctions.create_in(Shop.objects.filter(id=data[0])[0], 'Audit Adjustment', audit_inventory_obj[0].id,
                                                     Product.objects.filter(product_sku=data[1][-17:]).last(),
                                                     batch_id, int(quantity), int(quantity))
-                        if int(data[9]) > 0:
-                            BinInventory.objects.get_or_create(warehouse=Shop.objects.filter(id=data[0])[0],
-                                                                            bin=Bin.objects.filter(bin_id=data[4]).last(),
-                                                                                            batch_id=batch_id,
-                                                                            sku=Product.objects.filter(
-                                                                                product_sku=data[1][-17:]).last(),
-                                                                                            in_stock=True, quantity = int(data[9]),
-                                                                                            inventory_type=InventoryType.objects.filter(inventory_type='normal').last())
-                        if int(data[10]) > 0:
-                            BinInventory.objects.get_or_create(
-                                warehouse=Shop.objects.filter(id=data[0])[0],
-                                bin=Bin.objects.filter(bin_id=data[4]).last(),
-                                batch_id=batch_id,
-                                sku=Product.objects.filter(
-                                    product_sku=data[1][-17:]).last(),
-                                in_stock=True, quantity=int(data[10]),
-                                inventory_type=InventoryType.objects.filter(inventory_type='damaged').last())
-                        if int(data[11]) > 0:
-                            BinInventory.objects.get_or_create(
-                                warehouse=Shop.objects.filter(id=data[0])[0],
-                                bin=Bin.objects.filter(bin_id=data[4]).last(),
-                                batch_id=batch_id,
-                                sku=Product.objects.filter(
-                                    product_sku=data[1][-17:]).last(),
-                                in_stock=True, quantity=int(data[11]),
-                                inventory_type=InventoryType.objects.filter(inventory_type='expired').last())
-                        if int(data[12]) > 0:
-                            BinInventory.objects.get_or_create(
-                                warehouse=Shop.objects.filter(id=data[0])[0],
-                                bin=Bin.objects.filter(bin_id=data[4]).last(),
-                                batch_id=batch_id,
-                                sku=Product.objects.filter(
-                                    product_sku=data[1][-17:]).last(),
-                                in_stock=True, quantity=int(data[12]),
-                                inventory_type=InventoryType.objects.filter(inventory_type='missing').last(),)
+                        # create bin inventory data
+                        bin_objects_create(data, batch_id)
 
                         bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
                                                                         bin=Bin.objects.filter(bin_id=data[4]).last(),
@@ -933,12 +904,11 @@ def get_inventory_types_for_bin(data, bin_inventory_obj):
         error_logger.error(e.message)
 
 
-def create_batch_id_from_audit(data, audit_inventory_obj):
+def create_batch_id_from_audit(data):
     """
 
     :param data: single row of data from csv
-    :param audit_inventory_obj: audit inventory object
-    :return:
+    :return: batch id
     """
     try:
         try:
@@ -955,3 +925,47 @@ def create_batch_id_from_audit(data, audit_inventory_obj):
         return batch_id
     except Exception as e:
         error_logger.error(e.message)
+
+
+def bin_objects_create(data, batch_id):
+    """
+
+    :param data: single row of data from csv
+    :param batch_id: batch id
+    :return: None
+    """
+    if int(data[9]) > 0:
+        BinInventory.objects.get_or_create(warehouse=Shop.objects.filter(id=data[0])[0],
+                                           bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                           batch_id=batch_id,
+                                           sku=Product.objects.filter(
+                                               product_sku=data[1][-17:]).last(),
+                                           in_stock=True, quantity=int(data[9]),
+                                           inventory_type=InventoryType.objects.filter(inventory_type='normal').last())
+    if int(data[10]) > 0:
+        BinInventory.objects.get_or_create(
+            warehouse=Shop.objects.filter(id=data[0])[0],
+            bin=Bin.objects.filter(bin_id=data[4]).last(),
+            batch_id=batch_id,
+            sku=Product.objects.filter(
+                product_sku=data[1][-17:]).last(),
+            in_stock=True, quantity=int(data[10]),
+            inventory_type=InventoryType.objects.filter(inventory_type='damaged').last())
+    if int(data[11]) > 0:
+        BinInventory.objects.get_or_create(
+            warehouse=Shop.objects.filter(id=data[0])[0],
+            bin=Bin.objects.filter(bin_id=data[4]).last(),
+            batch_id=batch_id,
+            sku=Product.objects.filter(
+                product_sku=data[1][-17:]).last(),
+            in_stock=True, quantity=int(data[11]),
+            inventory_type=InventoryType.objects.filter(inventory_type='expired').last())
+    if int(data[12]) > 0:
+        BinInventory.objects.get_or_create(
+            warehouse=Shop.objects.filter(id=data[0])[0],
+            bin=Bin.objects.filter(bin_id=data[4]).last(),
+            batch_id=batch_id,
+            sku=Product.objects.filter(
+                product_sku=data[1][-17:]).last(),
+            in_stock=True, quantity=int(data[12]),
+            inventory_type=InventoryType.objects.filter(inventory_type='missing').last(), )
