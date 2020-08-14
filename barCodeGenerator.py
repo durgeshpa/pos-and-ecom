@@ -37,5 +37,7 @@ def makePdf(barcode_list):
 def merged_barcode_gen(barcode_list):
     for key, value in barcode_list.items():
         barcode = barcodeGen(key)
+        if value['qty']==0:
+            value['qty']=1
         barcode_list[key] = {'code': barcode, 'qty': list(range(value['qty'])), "data": value['data']}
     return makePdf(barcode_list)

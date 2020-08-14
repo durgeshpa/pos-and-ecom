@@ -1,6 +1,6 @@
 import logging
 import math
-
+from django.contrib import messages, admin
 from django.contrib import admin
 from .models import (Order, Cart, CartProductMapping, GRNOrder, GRNOrderProductMapping, BrandNote, PickList,
                      PickListItems,
@@ -38,7 +38,7 @@ from django.db import models
 from django.forms import Textarea
 from django.contrib.admin.models import LogEntry, ADDITION
 from django.contrib.contenttypes.models import ContentType
-from retailer_backend.messages import SUCCESS_MESSAGES
+from retailer_backend.messages import SUCCESS_MESSAGES, ERROR_MESSAGES
 
 from barCodeGenerator import barcodeGen, merged_barcode_gen
 
@@ -367,6 +367,9 @@ class GRNOrderAdmin(admin.ModelAdmin):
         """
         info_logger.info("download Barocde List for GRN method has been called.")
         bin_id_list = {}
+        if queryset.count()>1:
+            response = messages.error(request, ERROR_MESSAGES['1003'])
+            return response
         for obj in queryset:
             grn_product_list = GRNOrderProductMapping.objects.filter(grn_order=obj).all()
             for grn_product in grn_product_list:

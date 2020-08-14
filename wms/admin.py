@@ -243,13 +243,33 @@ class InventoryTypeAdmin(admin.ModelAdmin):
 class BinInventoryAdmin(admin.ModelAdmin):
     info_logger.info("Bin Inventory Admin has been called.")
     form = BinInventoryForm
+    actions = ['download_barcode']
     list_display = ('batch_id', 'warehouse', 'sku', 'bin', 'inventory_type', 'quantity', 'in_stock')
     search_fields = ('batch_id', 'sku__product_sku', 'bin__bin_id')
     list_filter = [Warehouse, InventoryTypeFilter, ]
     list_per_page = 50
 
     class Media:
-        pass
+        js = ('admin/js/picker.js',)
+
+    def download_barcode(self, request, queryset):
+        """
+        :param self:
+        :param request:
+        :param queryset:
+        :return:
+        """
+        info_logger.info("download Barocde List for GRN method has been called.")
+        bin_id_list = {}
+        for obj in queryset:
+            product_mrp = obj.sku.product_pro_price.filter(seller_shop=obj.warehouse, approval_status=2)
+
+            temp_data = {"qty": 1,"data": {"SKU": obj.sku.product_sku,
+                                      "MRP": product_mrp.last().mrp if product_mrp.exists() else ''}}
+            bin_id_list[obj.batch_id] = temp_data
+        return merged_barcode_gen(bin_id_list)
+
+    download_barcode.short_description = "Download Barcode List"
 
 
 class OutAdmin(admin.ModelAdmin):
