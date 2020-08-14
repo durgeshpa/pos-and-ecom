@@ -19,6 +19,7 @@ jQuery(function($) {
     changeDamagedPieces()
     loadPickedPieces()
     loadToShip()
+    removeAddAnotherButton()
     // This script is applied to all TABULAR inlines
     $('div.inline-group div.tabular').each(function() {
         table = $(this).find('table');
@@ -355,3 +356,8 @@ function updateval(){
     })
 }
 
+function removeAddAnotherButton(){
+    $(document).ready(function(){
+        $("input[name='_addanother']").hide()
+    })
+}

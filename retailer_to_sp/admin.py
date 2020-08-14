@@ -353,17 +353,23 @@ class ShopSearch(InputFilter):
 class OrderedProductBatchAdmin(NestedTabularInline):
     model = OrderedProductBatch
     form = OrderedProductBatchForm
-    fields = ('batch_id', 'ordered_pieces', 'expiry_date','pickup_quantity', 'quantity', 'damaged_qty', 'expired_qty')
-    readonly_fields = ('batch_id', 'ordered_pieces', 'expiry_date')
+    fields = ('batch_id', 'ordered_piece', 'expiry_date','pickup_quantity', 'quantity', 'damaged_qty', 'expired_qty')
+    readonly_fields = ('batch_id', 'ordered_piece', 'expiry_date')
     extra=0
+
+    def ordered_piece(self, obj=None):
+        return '-'
 
 
 class OrderedProductBatchingAdmin(NestedTabularInline):
     model = OrderedProductBatch
     form = OrderedProductBatchingForm
-    fields = ('batch_id', 'ordered_pieces','expiry_date','quantity','returned_qty','damaged_qty','delivered_qty')
-    readonly_fields = ('batch_id', 'ordered_pieces','expiry_date','quantity')
+    fields = ('batch_id', 'ordered_piece','expiry_date','quantity','returned_qty','damaged_qty','delivered_qty')
+    readonly_fields = ('batch_id', 'ordered_piece','expiry_date','quantity')
     extra=0
+
+    def ordered_piece(self, obj=None):
+        return '-'
 
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
@@ -1012,9 +1018,9 @@ class ShipmentReschedulingAdmin(NestedTabularInline):
 class OrderedProductMappingAdmin(NestedTabularInline):
     model = OrderedProductMapping
     form = OrderedProductMappingRescheduleForm
-    fields = ['product', 'gf_code', 'ordered_qty', 'shipped_qty',
+    fields = ['product', 'ordered_qty','expiry_date','shipped_qty',
               'returned_qty', 'damaged_qty', 'delivered_qty', 'cancellation_date']
-    readonly_fields = ['ordered_qty', 'product', 'gf_code', 'shipped_qty',
+    readonly_fields = ['ordered_qty','expiry_date','product', 'gf_code', 'shipped_qty',
                        'cancellation_date']
     inlines = [OrderedProductBatchingAdmin, ]
     extra = 0
@@ -1022,6 +1028,9 @@ class OrderedProductMappingAdmin(NestedTabularInline):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+    def expiry_date(self, obj=None):
+        return '-'
 
 
 class OrderedProductAdmin(NestedModelAdmin):

@@ -31,7 +31,7 @@ from shops.models import Shop, ShopNameDisplay
 from brand.models import Brand
 from addresses.models import Address
 from wms.models import Out, PickupBinInventory, Pickup, BinInventory, Putaway, PutawayBinInventory, InventoryType
-from wms.common_functions import CommonPickupFunctions,PutawayCommonFunctions, common_on_return_and_partial
+from wms.common_functions import CommonPickupFunctions,PutawayCommonFunctions, common_on_return_and_partial, get_expiry_date
 from brand.models import Brand
 from otp.sms import SendSms
 from products.models import Product, ProductPrice
@@ -2448,7 +2448,7 @@ def populate_data_on_qc_pass(order):
             bin=i.bin,
             quantity=i.pickup_quantity,
             pickup_quantity=i.pickup_quantity,
-            expiry_date="30/" + i.batch_id[17:19] + "/20" + i.batch_id[19:21],
+            expiry_date=get_expiry_date(i.batch_id),
             delivered_qty=ordered_product_mapping.delivered_qty,
             ordered_pieces=i.quantity
             # already_shipped_qty=ordered_product_mapping.shipped_qty
