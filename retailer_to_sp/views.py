@@ -196,6 +196,7 @@ class RequiredFormSet(BaseFormSet):
         to_ship_sum = []
         for form in self.forms:
             to_ship_pieces = form.cleaned_data.get('shipped_qty')
+            picked_pieces = form.cleaned_data.get('picked_pieces')
             if to_ship_pieces:
                 to_ship_sum.append(to_ship_pieces)
         if sum(to_ship_sum) == 0:
@@ -276,6 +277,7 @@ def ordered_product_mapping_shipment(request):
                     for forms in form_set:
                         if forms.is_valid():
                             to_be_ship_qty = forms.cleaned_data.get('shipped_qty', 0)
+                            picked_pieces = forms.cleaned_data.get('picked_pieces', 0)
                             product_name = forms.cleaned_data.get('product')
                             if to_be_ship_qty >= 0:
                                 formset_data = forms.save(commit=False)
