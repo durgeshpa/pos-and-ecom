@@ -895,3 +895,12 @@ def create_batch_id_from_audit(data):
         return batch_id
     except Exception as e:
         error_logger.error(e.message)
+
+
+def get_expiry_date(batch_id):
+    if len(batch_id) == 23:
+        expiry_date = batch_id[17:19] + '/' + batch_id[19:21] + '/' + '20' + batch_id[21:23]
+    else:
+        expiry_date = '30/' + batch_id[17:19] + '/20' + batch_id[19:21]
+    return expiry_date
+

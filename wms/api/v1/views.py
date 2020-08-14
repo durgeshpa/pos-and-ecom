@@ -410,8 +410,8 @@ class PickupDetail(APIView):
             if bin_obj.exists():
                 bin_list.append(bin_obj)
         pick_list = []
-        for bin_id in bin_list:
-            picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin=bin_id[0])
+        for bin_id in bin_list[0]:
+            picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin=bin_id)
             if picking_details.exists():
                 pick_list.append(picking_details[0])
         serializer = PickupBinInventorySerializer(pick_list, many=True)
