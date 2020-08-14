@@ -354,7 +354,7 @@ class OrderedProductBatchAdmin(NestedTabularInline):
     model = OrderedProductBatch
     form = OrderedProductBatchForm
     fields = ('batch_id', 'ordered_piece', 'expiry_date','pickup_quantity', 'quantity', 'damaged_qty', 'expired_qty')
-    readonly_fields = ('batch_id', 'ordered_piece', 'expiry_date')
+    readonly_fields = ('batch_id', 'ordered_piece', 'expiry_date', 'pickup_quantity')
     extra=0
 
     def ordered_piece(self, obj=None):

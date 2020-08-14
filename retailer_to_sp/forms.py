@@ -1025,7 +1025,7 @@ class OrderedProductBatchForm(forms.ModelForm):
 
     def clean(self):
         data = self.cleaned_data
-        if data.get('pickup_quantity')!= data.get('quantity') + data.get('damaged_qty') + data.get('expired_qty'):
+        if int(self.instance.pickup_quantity)!= data.get('quantity') + data.get('damaged_qty') + data.get('expired_qty'):
             raise forms.ValidationError('Sorry Quantity mismatch!! Picked pieces must be equal to sum of (damaged_qty, expired_qty, no.of pieces to ship)')
         return data
 
