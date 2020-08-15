@@ -827,18 +827,31 @@ class AuditInventory(object):
             error_logger.error(e)
 
 
+def create_or_update_bin_inv(batch_id,warehouse,sku,bin_id,inv_type,in_stock, qty):
+    bin_inv_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(batch_id=batch_id,
+                                                                         warehouse=warehouse, sku=sku,
+                                                                         bin__bin_id=bin_id,
+                                                                         inventory_type=inv_type, in_stock=in_stock)
+    if bin_inv_obj.exists():
+        bin_inv_obj = bin_inv_obj.last()
+        available_qty = bin_inv_obj.quantity
+        bin_inv_obj.quantity = (available_qty+qty)
+        bin_inv_obj.save()
+    else:
+        CommonBinInventoryFunctions.create_bin_inventory(warehouse, bin_id, sku, batch_id,
+                                                         inv_type, qty, in_stock)
+
+
 
 def common_on_return_and_partial(shipment):
     putaway_qty = 0
     inv_type = {'E': InventoryType.objects.get(inventory_type='expired'),
                 'D': InventoryType.objects.get(inventory_type='damaged'),
-                'R': InventoryType.objects.get(inventory_type='returned')}
+                'N': InventoryType.objects.get(inventory_type='normal')}
     for i in shipment.rt_order_product_order_product_mapping.all():
         for j in i.rt_ordered_product_mapping.all():
             if j.returned_qty > 0:
-                BinInventory.objects.update_or_create(batch_id=j.batch_id, warehouse=j.pickup.warehouse,
-                                                      sku=j.pickup.sku, bin=j.bin.bin, inventory_type=inv_type['R'],
-                                                      in_stock='t', defaults={'quantity': j.returned_qty})
+                create_or_update_bin_inv(j.batch_id, j.pickup.warehouse, j.pickup.sku, j.bin.bin.bin_id,inv_type['N'], 't', j.returned_qty)
                 putaway_qty = j.returned_qty
                 if putaway_qty ==0:
                     continue
@@ -854,11 +867,10 @@ def common_on_return_and_partial(shipment):
 
             else:
                 if j.damaged_qty > 0:
-                    BinInventory.objects.update_or_create(batch_id=j.batch_id, warehouse=j.pickup.warehouse,
-                                                      sku=j.pickup.sku, bin=j.bin.bin, inventory_type=inv_type['D'],
-                                                      in_stock='t', defaults={'quantity': j.damaged_qty})
+                    create_or_update_bin_inv(j.batch_id, j.pickup.warehouse, j.pickup.sku, j.bin.bin, inv_type['D'], 't', j.damaged_qty)
+
                 if j.expired_qty > 0:
-                    BinInventory.objects.update_or_create(batch_id=j.batch_id, warehouse=j.pickup.warehouse,sku=j.pickup.sku, bin=j.bin.bin, inventory_type=inv_type['E'],in_stock='t', defaults={'quantity':j.expired_qty})
+                    create_or_update_bin_inv(j.batch_id, j.pickup.warehouse, j.pickup.sku, j.bin.bin, inv_type['E'],'t', j.expired_qty)
 
                 putaway_qty = (j.pickup_quantity - j.quantity)
                 if putaway_qty <= 0:
