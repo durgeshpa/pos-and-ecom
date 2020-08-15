@@ -210,6 +210,7 @@ def get_stock(shop):
         Q(warehouse=shop),
         Q(quantity__gt=0),
         Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
+        Q(inventory_type=InventoryType.objects.filter(inventory_type='normal').last()),
         Q(in_stock='t')
     )
 
@@ -223,6 +224,7 @@ def get_product_stock(shop, sku):
             Q(warehouse=shop),
             Q(quantity__gt=0),
             Q(inventory_state=InventoryState.objects.filter(inventory_state='available').last()),
+            Q(inventory_type=InventoryType.objects.filter(inventory_type='normal').last()),
             Q(in_stock='t')
     )
 
@@ -301,15 +303,22 @@ class OrderManagement(object):
                 if ordered_qty >= qty:
                     remain = 0
                     ordered_qty = ordered_qty - qty
-                    wu.update(quantity=remain)
+                    ware_obj = wu.last()
+                    ware_obj.quantity=remain
+                    ware_obj.save()
+                    # wu.update(quantity=remain)
                 else:
                     qty = qty - ordered_qty
-                    wu.update(quantity=qty)
+                    ware_obj = wu.last()
+                    ware_obj.quantity=qty
+                    ware_obj.save()
+                    # wu.update(quantity=qty)
                     ordered_qty = 0
 
     @classmethod
     @task
     def release_blocking(cls, reserved_args, sku_id=False):
+        import pdb;pdb.set_trace()
         params = json.loads(reserved_args)
         transaction_id = params['transaction_id']
         shop_id = params['shop_id']
@@ -471,10 +480,20 @@ class StockMovementCSV(object):
 
 
 def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_state, t, val, put_away_status, pu):
-    CommonBinInventoryFunctions.update_or_create_bin_inventory(sh, Bin.objects.filter(bin_id=bin_id).last(),
-                                                               put_away.last().sku, batch_id,
-                                                               InventoryType.objects.filter(
-                                                                   inventory_type=inv_type).last(), val, t)
+    bin_inven_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(warehouse=sh, bin=Bin.objects.filter(bin_id=bin_id).last(),
+                                                                           sku=put_away.last().sku, batch_id=batch_id,inv_type=InventoryType.objects.filter(
+                                                                   inventory_type=inv_type).last(), in_stock=t)
+    if bin_inven_obj.exists():
+        bin_inven_obj=bin_inven_obj.last()
+        bin_inven_obj.quantity=val
+        bin_inven_obj.save()
+    else:
+        CommonBinInventoryFunctions.create_bin_inventory(sh,Bin.objects.filter(bin_id=bin_id).last(), put_away.last().sku, batch_id, InventoryType.objects.filter(
+                                                                   inventory_type=inv_type), val, t)
+    # CommonBinInventoryFunctions.update_or_create_bin_inventory(sh, Bin.objects.filter(bin_id=bin_id).last(),
+    #                                                            put_away.last().sku, batch_id,
+    #                                                            InventoryType.objects.filter(
+    #                                                                inventory_type=inv_type).last(), val, t)
     if put_away_status is True:
         PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),
                                            bin=CommonBinInventoryFunctions.get_filtered_bin_inventory().last(),
@@ -505,10 +524,16 @@ def common_for_release(prod_list, shop_id, transaction_type, transaction_id, ord
                                                     inventory_state__inventory_state='available')
             available_qty = wim.last().quantity
             if order_status == 'ordered':
-                wim.update(quantity=available_qty)
+                ware_obj = wim.last()
+                ware_obj.quantity=available_qty
+                ware_obj.save()
+                # wim.update(quantity=available_qty)
                 WarehouseInventory.objects.filter(id=ordered_id).update(quantity=reserved_qty,inventory_state=InventoryState.objects.filter(inventory_state='ordered').last())
             else:
-                wim.update(quantity=available_qty+reserved_qty)
+                ware_obj = wim.last()
+                ware_obj.quantity=(available_qty+reserved_qty)
+                ware_obj.save()
+                # wim.update(quantity=available_qty+reserved_qty)
                 WarehouseInventory.objects.filter(id=ordered_id).update(quantity=0)
             warehouse_details = WarehouseInternalInventoryChange.objects.filter(transaction_id=transaction_id,
                                                                            transaction_type='reserved',

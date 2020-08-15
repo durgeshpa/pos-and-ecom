@@ -403,7 +403,8 @@ def commit_updates_to_es(shop, product):
 
 @receiver(post_save, sender=WarehouseInventory)
 def update_elasticsearch(sender, instance=None, created=False, **kwargs):
-    transaction.on_commit(lambda: commit_updates_to_es(instance.warehouse, instance.sku))
+    if instance.inventory_type.inventory_type=='normal' and instance.inventory_state.inventory_state=='available':
+        transaction.on_commit(lambda: commit_updates_to_es(instance.warehouse, instance.sku))
 
 
 def bin_stock_movement_data(upload_data, stock_movement_obj):
