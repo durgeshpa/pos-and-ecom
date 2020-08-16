@@ -22,7 +22,8 @@ from django.db.models import Sum
 from django.dispatch import receiver
 from django.db import transaction
 from datetime import datetime
-from .common_functions import CommonPickBinInvFunction, common_for_release, CommonPickupFunctions, create_batch_id_from_audit
+from .common_functions import CommonPickBinInvFunction, common_for_release, CommonPickupFunctions,\
+    create_batch_id_from_audit, get_expiry_date
 from .models import Bin, InventoryType, WarehouseInternalInventoryChange, WarehouseInventory, OrderReserveRelease
 from .models import Bin, WarehouseInventory, PickupBinInventory
 from shops.models import Shop
@@ -699,12 +700,12 @@ def audit_download(request):
                 # get product instance
                 product = Product.objects.filter(product_sku=data[0])
                 # get the expire date for particular product
-                try:
-                    expiry_date = GRNOrderProductMapping.objects.filter(product=product[0]).first().expiry_date
-                    if expiry_date is None:
-                        expiry_date = GRNOrderProductMapping.objects.filter(product=product[0]).last().expiry_date
-                except:
-                    expiry_date = GRNOrderProductMapping.objects.filter(product=product[0]).last().expiry_date
+                # try:
+                #     expiry_date = GRNOrderProductMapping.objects.filter(product=product[0]).first().expiry_date
+                #     if expiry_date is None:
+                #         expiry_date = GRNOrderProductMapping.objects.filter(product=product[0]).last().expiry_date
+                # except:
+                #     expiry_date = GRNOrderProductMapping.objects.filter(product=product[0]).last().expiry_date
                 # get the product price for particular product
                 try:
                     product_price = ProductPrice.objects.filter(product=product[0])[0].mrp
@@ -756,6 +757,8 @@ def audit_download(request):
                     else:
                         bin_missing_quantity = 0
 
+                    # get expired date for individual bin and sku
+                    expiry_date = get_expiry_date(bin_obj_normal.batch_id)
                     # append data in a list
                     data_list.append([bin_inventory.warehouse_id, bin_inventory.sku.product_name + '-' + bin_inventory.sku.product_sku, product_price,
                                      expiry_date, bin_inventory.bin.bin_id, bin_normal_quantity, bin_damaged_quantity, bin_expired_quantity,
@@ -826,23 +829,6 @@ def audit_upload(request):
                             except:
                                 expiry_date = datetime.strptime(data[3], '%d/%m/%y').strftime('%Y-%m-%d')
 
-                    if expiry_date < datetime.today().strftime("%Y-%m-%d"):
-                        if int(data[9]) > 0:
-                            return render(request, 'admin/wms/audit-upload.html', {'form': form,
-                                                                                   'error': 'Row' + ' ' + str(row_id+1) + ' ' + 'Normal Qty cannot be non 0 for a Past Expiry Date.',
-                                                                                   })
-
-                    if expiry_date < datetime.today().strftime("%Y-%m-%d"):
-                        if int(data[10]) > 0:
-                            return render(request, 'admin/wms/audit-upload.html', {'form': form,
-                                                                                   'error': 'Row' + ' ' + str(row_id+1) + ' ' + 'Damaged Qty cannot be non 0 for a Past Expiry Date.',
-                                                                                   })
-
-                    if expiry_date > datetime.today().strftime("%Y-%m-%d"):
-                        if int(data[11]) > 0:
-                            return render(request, 'admin/wms/audit-upload.html', {'form': form,
-                                                                                   'error': 'Row' + ' ' + str(row_id+1) + ' ' + 'Expired Qty cannot be non 0 for a Future Expiry Date.',
-                                                                                   })
                     # Check SKU and Expiry data is exist or not
                     grn_order_obj = GRNOrderProductMapping.objects.filter(
                         product__product_sku=data[1][-17:],
@@ -945,37 +931,77 @@ def bin_objects_create(data, batch_id):
     :return: None
     """
     if int(data[9]) > 0:
-        BinInventory.objects.get_or_create(warehouse=Shop.objects.filter(id=data[0])[0],
-                                           bin=Bin.objects.filter(bin_id=data[4]).last(),
-                                           batch_id=batch_id,
-                                           sku=Product.objects.filter(
-                                               product_sku=data[1][-17:]).last(),
-                                           in_stock=True, quantity=int(data[9]),
-                                           inventory_type=InventoryType.objects.filter(inventory_type='normal').last())
+        bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
+                                                        bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                                        sku=Product.objects.filter(
+                                                            product_sku=data[1][-17:]).last(),
+                                                        batch_id=batch_id, in_stock=True,
+                                                        inventory_type=InventoryType.objects.filter(
+                                                            inventory_type='normal').last())
+        if bin_inventory_obj.exists():
+            bin_inventory_obj.update(quantity=int(data[9]))
+        else:
+            BinInventory.objects.get_or_create(warehouse=Shop.objects.filter(id=data[0])[0],
+                                               bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                               batch_id=batch_id,
+                                               sku=Product.objects.filter(
+                                                   product_sku=data[1][-17:]).last(),
+                                               in_stock=True, quantity=int(data[9]),
+                                               inventory_type=InventoryType.objects.filter(inventory_type='normal').last())
     if int(data[10]) > 0:
-        BinInventory.objects.get_or_create(
-            warehouse=Shop.objects.filter(id=data[0])[0],
-            bin=Bin.objects.filter(bin_id=data[4]).last(),
-            batch_id=batch_id,
-            sku=Product.objects.filter(
-                product_sku=data[1][-17:]).last(),
-            in_stock=True, quantity=int(data[10]),
-            inventory_type=InventoryType.objects.filter(inventory_type='damaged').last())
+        bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
+                                                        bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                                        sku=Product.objects.filter(
+                                                            product_sku=data[1][-17:]).last(),
+                                                        batch_id=batch_id, in_stock=True,
+                                                        inventory_type=InventoryType.objects.filter(
+                                                            inventory_type='damaged').last())
+        if bin_inventory_obj.exists():
+            bin_inventory_obj.update(quantity=int(data[10]))
+        else:
+            BinInventory.objects.get_or_create(
+                warehouse=Shop.objects.filter(id=data[0])[0],
+                bin=Bin.objects.filter(bin_id=data[4]).last(),
+                batch_id=batch_id,
+                sku=Product.objects.filter(
+                    product_sku=data[1][-17:]).last(),
+                in_stock=True, quantity=int(data[10]),
+                inventory_type=InventoryType.objects.filter(inventory_type='damaged').last())
     if int(data[11]) > 0:
-        BinInventory.objects.get_or_create(
-            warehouse=Shop.objects.filter(id=data[0])[0],
-            bin=Bin.objects.filter(bin_id=data[4]).last(),
-            batch_id=batch_id,
-            sku=Product.objects.filter(
-                product_sku=data[1][-17:]).last(),
-            in_stock=True, quantity=int(data[11]),
-            inventory_type=InventoryType.objects.filter(inventory_type='expired').last())
+        bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
+                                                        bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                                        sku=Product.objects.filter(
+                                                            product_sku=data[1][-17:]).last(),
+                                                        batch_id=batch_id, in_stock=True,
+                                                        inventory_type=InventoryType.objects.filter(
+                                                            inventory_type='expired').last())
+        if bin_inventory_obj.exists():
+            bin_inventory_obj.update(quantity=int(data[11]))
+        else:
+            BinInventory.objects.get_or_create(
+                warehouse=Shop.objects.filter(id=data[0])[0],
+                bin=Bin.objects.filter(bin_id=data[4]).last(),
+                batch_id=batch_id,
+                sku=Product.objects.filter(
+                    product_sku=data[1][-17:]).last(),
+                in_stock=True, quantity=int(data[11]),
+                inventory_type=InventoryType.objects.filter(inventory_type='expired').last())
     if int(data[12]) > 0:
-        BinInventory.objects.get_or_create(
-            warehouse=Shop.objects.filter(id=data[0])[0],
-            bin=Bin.objects.filter(bin_id=data[4]).last(),
-            batch_id=batch_id,
-            sku=Product.objects.filter(
-                product_sku=data[1][-17:]).last(),
-            in_stock=True, quantity=int(data[12]),
-            inventory_type=InventoryType.objects.filter(inventory_type='missing').last(), )
+        bin_inventory_obj = BinInventory.objects.filter(warehouse=data[0],
+                                                        bin=Bin.objects.filter(bin_id=data[4]).last(),
+                                                        sku=Product.objects.filter(
+                                                            product_sku=data[1][-17:]).last(),
+                                                        batch_id=batch_id, in_stock=True,
+                                                        inventory_type=InventoryType.objects.filter(
+                                                            inventory_type='missing').last())
+        if bin_inventory_obj.exists():
+            bin_inventory_obj.update(quantity=int(data[12]))
+        else:
+            BinInventory.objects.get_or_create(
+                warehouse=Shop.objects.filter(id=data[0])[0],
+                bin=Bin.objects.filter(bin_id=data[4]).last(),
+                batch_id=batch_id,
+                sku=Product.objects.filter(
+                    product_sku=data[1][-17:]).last(),
+                in_stock=True, quantity=int(data[12]),
+                inventory_type=InventoryType.objects.filter(inventory_type='missing').last())

@@ -654,18 +654,21 @@ class AuditInventory(object):
 
         # filter in Bin inventory model to check whether the combination of warehouse, bin id, sku id, batch and
         # inventory type is exist or not if it is found then update quantity otherwise create new data set in a model
-        bin_inv_obj = BinInventory.objects.filter(warehouse=warehouse, bin__bin_id=bin_id, sku=sku,
-                                                  batch_id=batch_id,
-                                                  inventory_type=inventory_type, in_stock=in_stock).last()
-        if bin_inv_obj:
-            bin_inv_obj.quantity = quantity
-            bin_inv_obj.save()
-        else:
-            BinInventory.objects.get_or_create(warehouse=Shop.objects.filter(id=warehouse)[0],
-                                               bin=Bin.objects.filter(bin_id=bin_id)[0],
-                                               sku=Product.objects.filter(product_sku=sku)[0], batch_id=batch_id,
-                                               inventory_type=inventory_type, quantity=quantity,
-                                               in_stock=in_stock)
+        try:
+            bin_inv_obj = BinInventory.objects.filter(warehouse=warehouse, bin__bin_id=bin_id, sku=sku,
+                                                      batch_id=batch_id,
+                                                      inventory_type=inventory_type, in_stock=in_stock).last()
+            if bin_inv_obj:
+                bin_inv_obj.quantity = quantity
+                bin_inv_obj.save()
+            else:
+                BinInventory.objects.get_or_create(warehouse=Shop.objects.filter(id=warehouse)[0],
+                                                   bin=Bin.objects.filter(bin_id=bin_id)[0],
+                                                   sku=Product.objects.filter(product_sku=sku)[0], batch_id=batch_id,
+                                                   inventory_type=inventory_type, quantity=quantity,
+                                                   in_stock=in_stock)
+        except:
+            pass
 
     @classmethod
     def update_or_create_warehouse_inventory_for_audit(cls, warehouse, sku, inventory_state, inventory_type, quantity,
