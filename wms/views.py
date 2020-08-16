@@ -672,7 +672,7 @@ def audit_download(request):
     :return: CSV file for audit
     """
     if request.method == 'POST':
-        info_logger.info("POST request while upload the .xls file for Audit file download.")
+        info_logger.info("POST request while upload the .csv file for Audit file download.")
         form = DownloadAuditAdminForm(request.POST, request.FILES)
         if form.is_valid():
             info_logger.info("File format validation has been successfully done.")
@@ -765,10 +765,27 @@ def audit_download(request):
 
             # group by and remove duplicate data
             sort_data = list(num for num, _ in itertools.groupby(data_list))
-            for data in sort_data:
-                # write the data in csv file
-                writer.writerow([data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8],data[9],data[10],
-                                 data[11], data[12]])
+            for row_id, data in enumerate(sort_data):
+                # check the length of list
+                if len(sort_data) == 1:
+                    # if length of list is 1 and sum of Initial and Final Quantity is zero
+                    if (int(data[5]) + int(data[6]) + int(data[7]) + int(data[8])) == 0:
+                        # return the error message
+                        return render(request, 'admin/wms/audit-download.html',
+                                      {'form': form, 'error': 'Row' + ' ' + str(row_id+1) + ': ' +
+                                                              'Uploaded SKU does not have quantity,'
+                                                              'Please check the quantity in Bin Inventory.'})
+                    else:
+                        # write the data in csv file
+                        writer.writerow([data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
+                                         data[8], data[9], data[10], data[11], data[12]])
+                else:
+                    if (int(data[5]) + int(data[6]) + int(data[7]) + int(data[8])) == 0:
+                        pass
+                    else:
+                        # write the data in csv file
+                        writer.writerow([data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
+                                         data[8], data[9], data[10], data[11], data[12]])
             f.seek(0)
             response = HttpResponse(f, content_type='text/csv')
             response['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
