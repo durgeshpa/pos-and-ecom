@@ -1032,3 +1032,8 @@ def bin_objects_create(data, batch_id):
                     product_sku=data[1][-17:]).last(),
                 in_stock=True, quantity=int(data[12]),
                 inventory_type=InventoryType.objects.filter(inventory_type='missing').last())
+
+
+# def picker_dashboard_cancel_status(instance):
+#     picker_dashboard = PickerDashboard.objects.filter(order=instance)
+#     picker_dashboard.update(status='picking_cancelled')
