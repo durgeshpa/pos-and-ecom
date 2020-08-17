@@ -269,6 +269,7 @@ class GRNOrderAdmin(admin.ModelAdmin):
     autocomplete_fields = ('order',)
     exclude = ('order_item', 'grn_id', 'last_modified_by',)
     actions = ['download_barcode']
+    list_per_page=50
     list_display = (
     'grn_id', 'order', 'invoice_no', 'grn_date', 'brand', 'supplier_state', 'supplier_name', 'po_status',
     'po_created_by', 'download_debit_note')
