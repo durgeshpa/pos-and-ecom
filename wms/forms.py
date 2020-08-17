@@ -568,7 +568,7 @@ class UploadAuditAdminForm(forms.Form):
             # to validate mrp is empty or contains the number
             if not row[2] or not re.match("^[\d]*$", row[2]):
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "Product of MRP can not be empty."))
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "Product of MRP can not be empty or string type."))
 
             # to validate expiry date is empty or not and validate the correct format
             if not row[3]:
@@ -622,42 +622,42 @@ class UploadAuditAdminForm(forms.Form):
             # to validate normal initial quantity is empty or contains the number
             if not row[5] or not re.match("^[\d]*$", row[5]):
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "Normal-Initial Qty can not be empty."))
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "Normal-Initial Qty can not be empty or string type."))
 
             # to validate damaged initial quantity is empty or contains the number
             if not row[6] or not re.match("^[\d]*$", row[6]):
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "Damaged-Initial Qty can not be empty."))
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "Damaged-Initial Qty can not be empty or string type."))
 
             # to validate expired initial quantity is empty or contains the number
             if not row[7] or not re.match("^[\d]*$", row[7]):
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "Expired-Initial Qty can not be empty."))
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "Expired-Initial Qty can not be empty or string type."))
 
             # to validate missing initial quantity is empty or contains the number
             if not row[8] or not re.match("^[\d]*$", row[8]):
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "Missing-Initial Qty can not be empty."))
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "Missing-Initial Qty can not be empty or string type."))
 
             # to validate normal final quantity is empty or contains the number
             if not row[9] or not re.match("^[\d]*$", row[9]):
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "Normal-Final Qty can not be empty."))
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "Normal-Final Qty can not be empty or string type."))
 
             # to validate damaged final quantity is empty or contains the number
             if not row[10] or not re.match("^[\d]*$", row[10]):
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "Damaged-Final Qty can not be empty."))
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "Damaged-Final Qty can not be empty or string type."))
 
             # to validate expired final quantity is empty or contains the number
             if not row[11] or not re.match("^[\d]*$", row[11]):
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "Expired-Final Qty can not be empty."))
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "Expired-Final Qty can not be empty or string type."))
 
             # to validate missing final quantity is empty or contains the number
             if not row[12] or not re.match("^[\d]*$", row[12]):
                 raise ValidationError(_(
-                    "Issue in Row" + " " + str(row_id + 1) + "," + "Missing-Final Qty can not be empty."))
+                    "Issue in Row" + " " + str(row_id + 1) + "," + "Missing-Final Qty can not be empty or string type."))
 
             # to get the date format
             try:
