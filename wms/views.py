@@ -715,50 +715,78 @@ def audit_download(request):
                 bin_inventory_obj = BinInventory.objects.filter(warehouse=request.POST['warehouse'],
                                                                 sku=Product.objects.filter(product_sku=data[0])[0])
                 # for loop for every bin inventory object
+                bin_normal_quantity = 0
+                bin_damaged_quantity = 0
+                bin_expired_quantity = 0
+                bin_missing_quantity = 0
+
                 for bin_inventory in bin_inventory_obj:
                     # condition to get those object which type is normal
                     bin_obj_normal = BinInventory.objects.filter(warehouse=request.POST['warehouse'],
                                                 sku=Product.objects.filter(product_sku=data[0])[0],
-                                                bin=bin_inventory.bin, inventory_type=inventory_type_normal[0]).last()
+                                                bin=bin_inventory.bin, inventory_type=inventory_type_normal[0],
+                                                                 batch_id=bin_inventory.batch_id)
 
-                    if bin_obj_normal:
-                        bin_normal_quantity = bin_obj_normal.quantity
-                    else:
+                    try:
+                        for bin_id in bin_obj_normal:
+                            if bin_id:
+                                bin_normal_quantity = bin_id.quantity
+                            else:
+                                bin_normal_quantity = 0
+                    except:
                         bin_normal_quantity = 0
 
                     # condition to get those object which type is damaged
                     bin_obj_damaged = BinInventory.objects.filter(warehouse=request.POST['warehouse'],
                                                           sku=Product.objects.filter(product_sku=data[0])[0],
                                                           bin=bin_inventory.bin,
-                                                          inventory_type=inventory_type_damaged[0]).last()
+                                                          inventory_type=inventory_type_damaged[0],
+                                                                  batch_id=bin_inventory.batch_id
+                                                                  )
 
-                    if bin_obj_damaged:
-                        bin_damaged_quantity = bin_obj_damaged.quantity
-                    else:
+                    try:
+                        for bin_id in bin_obj_damaged:
+                            if bin_id:
+                                bin_damaged_quantity = bin_id.quantity
+                            else:
+                                bin_damaged_quantity = 0
+                    except:
                         bin_damaged_quantity = 0
 
                     # condition to get those object which type is expired
                     bin_obj_expired = BinInventory.objects.filter(warehouse=request.POST['warehouse'],
                                                                   sku=Product.objects.filter(product_sku=data[0])[0],
                                                                   bin=bin_inventory.bin,
-                                                                  inventory_type=inventory_type_expired[0]).last()
-                    if bin_obj_expired:
-                        bin_expired_quantity = bin_obj_expired.quantity
-                    else:
+                                                                  inventory_type=inventory_type_expired[0],
+                                                                  batch_id=bin_inventory.batch_id
+                                                                  )
+                    try:
+                        for bin_id in bin_obj_expired:
+                            if bin_id:
+                                bin_expired_quantity = bin_id.quantity
+                            else:
+                                bin_expired_quantity = 0
+                    except:
                         bin_expired_quantity = 0
 
                     # condition to get those object which type is missing
                     bin_obj_missing = BinInventory.objects.filter(warehouse=request.POST['warehouse'],
                                                           sku=Product.objects.filter(product_sku=data[0])[0],
                                                           bin=bin_inventory.bin,
-                                                          inventory_type=inventory_type_missing[0]).last()
-                    if bin_obj_missing:
-                        bin_missing_quantity = bin_obj_missing.quantity
-                    else:
+                                                          inventory_type=inventory_type_missing[0],
+                                                                  batch_id=bin_inventory.batch_id
+                                                                  )
+                    try:
+                        for bin_id in bin_obj_missing:
+                            if bin_id:
+                                bin_missing_quantity = bin_id.quantity
+                            else:
+                                bin_missing_quantity = 0
+                    except:
                         bin_missing_quantity = 0
 
                     # get expired date for individual bin and sku
-                    expiry_date = get_expiry_date(bin_obj_normal.batch_id)
+                    expiry_date = get_expiry_date(bin_inventory.batch_id)
                     # append data in a list
                     data_list.append([bin_inventory.warehouse_id, bin_inventory.sku.product_name + '-' + bin_inventory.sku.product_sku, product_price,
                                      expiry_date, bin_inventory.bin.bin_id, bin_normal_quantity, bin_damaged_quantity, bin_expired_quantity,
