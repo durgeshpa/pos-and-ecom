@@ -203,7 +203,8 @@ class Pickup(models.Model):
     pickup_status_choices = (
         ('pickup_creation', 'PickUp Creation'),
         ('picking_assigned', 'Pickup Assigned'),
-        ('picking_complete', 'Pickup Complete')
+        ('picking_complete', 'Pickup Complete'),
+        ('picking_cancelled', 'Pickup Cancelled'),
     )
     warehouse = models.ForeignKey(Shop, null=True, blank=True, on_delete=models.DO_NOTHING)
     pickup_type = models.CharField(max_length=20, null=True, blank=True)

@@ -1581,6 +1581,8 @@ class PickerDashboard(models.Model):
         (PICKING_ASSIGNED, 'Picking Assigned'),
         ('picking_in_progress', 'Picking In Progress'),
         ('picking_complete', 'Picking Complete'),
+        ('picking_cancelled', 'Picking Cancelled'),
+
     )
 
     order = models.ForeignKey(Order, related_name="picker_order", on_delete=models.CASCADE)
