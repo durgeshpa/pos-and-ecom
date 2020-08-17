@@ -102,6 +102,8 @@ class DownloadCreditNote(APIView):
         # if shipment status is cancelled
         shipment_cancelled = True if credit_note.shipment.shipment_status == 'CANCELLED' else False
 
+        # import pdb
+        # pdb.set_trace()
         if shipment_cancelled:
             products = pp
             reason = 'Cancelled'
@@ -118,7 +120,6 @@ class DownloadCreditNote(APIView):
         cess_tax_list = []
         surcharge_tax_list = []
 
-
         for z in credit_note.shipment.order.seller_shop.shop_name_address_mapping.all():
             pan_no = 'AAHCG4891M' if z.shop_name=='GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name=='GFDN SERVICES PVT LTD (DELHI)' else '---'
             cin = 'U74999HR2018PTC075977' if z.shop_name=='GFDN SERVICES PVT LTD (NOIDA)' or z.shop_name=='GFDN SERVICES PVT LTD (DELHI)' else '---'
@@ -127,47 +128,63 @@ class DownloadCreditNote(APIView):
             city_gram, state_gram, pincode_gram = z.city, z.state, z.pincode
 
         # if shipment status is Cancelled
+        # import pdb
+        # pdb.set_trace()
         if shipment_cancelled:
             for m in products:
                 sum_qty = sum_qty + (int(m.shipped_qty))
                 sum_basic_amount += m.base_price
-                sum_amount = sum_amount + (int(m.shipped_qty) *(m.price_to_retailer))
-                inline_sum_amount = (int(m.shipped_qty) *(m.price_to_retailer))
+                sum_amount = sum_amount + (int(m.shipped_qty) * m.price_to_retailer)
+                inline_sum_amount = (int(m.shipped_qty) * m.price_to_retailer)
                 total_product_tax_amount += m.product_tax_amount
-                for n in m.get_products_gst_tax():
-                    divisor = (1+(n.tax.tax_percentage/100))
-                    original_amount = (float(inline_sum_amount)/divisor)
-                    tax_amount = float(inline_sum_amount) - original_amount
-                    if n.tax.tax_type == 'gst':
-                        gst_tax_list.append(tax_amount)
-                    if n.tax.tax_type == 'cess':
-                        cess_tax_list.append(tax_amount)
-                    if n.tax.tax_type == 'surcharge':
-                        surcharge_tax_list.append(tax_amount)
-
-                    taxes_list.append(tax_amount)
-                    igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list))/2, (sum(gst_tax_list))/2, sum(cess_tax_list), sum(surcharge_tax_list)
+                gst_tax = (m.base_price * m.get_products_gst()) / 100
+                cess_tax = (m.base_price * m.get_products_gst_cess_tax()) / 100
+                surcharge_tax = (m.base_price * m.get_products_gst_surcharge()) / 100
+                gst_tax_list.append(gst_tax)
+                cess_tax_list.append(cess_tax)
+                surcharge_tax_list.append(surcharge_tax)
+                igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
+                # for n in m.get_products_gst_tax():
+                #     divisor = (1+(n.tax.tax_percentage/100))
+                #     original_amount = (float(inline_sum_amount)/divisor)
+                #     tax_amount = float(inline_sum_amount) - original_amount
+                #     if n.tax.tax_type == 'gst':
+                #         gst_tax_list.append(tax_amount)
+                #     if n.tax.tax_type == 'cess':
+                #         cess_tax_list.append(tax_amount)
+                #     if n.tax.tax_type == 'surcharge':
+                #         surcharge_tax_list.append(tax_amount)
+                #
+                #     taxes_list.append(tax_amount)
+                #     igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list))/2, (sum(gst_tax_list))/2, sum(cess_tax_list), sum(surcharge_tax_list)
 
         else:
             for m in products:
                 sum_qty = sum_qty + (int(m.returned_qty + m.damaged_qty))
-                sum_basic_amount += m.base_price
-                sum_amount = sum_amount + (int(m.returned_qty + m.damaged_qty) *(m.price_to_retailer))
-                inline_sum_amount = (int(m.returned_qty + m.damaged_qty) *(m.price_to_retailer))
-                total_product_tax_amount += m.product_tax_amount
-                for n in m.get_products_gst_tax():
-                    divisor = (1+(n.tax.tax_percentage/100))
-                    original_amount = (float(inline_sum_amount)/divisor)
-                    tax_amount = float(inline_sum_amount) - original_amount
-                    if n.tax.tax_type == 'gst':
-                        gst_tax_list.append(tax_amount)
-                    if n.tax.tax_type == 'cess':
-                        cess_tax_list.append(tax_amount)
-                    if n.tax.tax_type == 'surcharge':
-                        surcharge_tax_list.append(tax_amount)
-
-                    taxes_list.append(tax_amount)
-                    igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list))/2, (sum(gst_tax_list))/2, sum(cess_tax_list), sum(surcharge_tax_list)
+                sum_basic_amount += m.basic_rate * (m.returned_qty + m.damaged_qty)
+                sum_amount = sum_amount + (int(m.returned_qty + m.damaged_qty) * m.price_to_retailer)
+                inline_sum_amount = (int(m.returned_qty + m.damaged_qty) * m.price_to_retailer)
+                total_product_tax_amount += m.product_tax_return_amount
+                gst_tax = ((m.returned_qty + m.damaged_qty) * m.basic_rate * m.get_products_gst())/100
+                cess_tax = ((m.returned_qty + m.damaged_qty) * m.basic_rate * m.get_products_gst_cess_tax())/100
+                surcharge_tax = ((m.returned_qty + m.damaged_qty) * m.basic_rate * m.get_products_gst_surcharge())/100
+                gst_tax_list.append(gst_tax)
+                cess_tax_list.append(cess_tax)
+                surcharge_tax_list.append(surcharge_tax)
+                igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list)) / 2, (sum(gst_tax_list)) / 2, sum(cess_tax_list), sum(surcharge_tax_list)
+                # for n in m.get_products_gst_tax():
+                #     divisor = (1+(n.tax.tax_percentage/100))
+                #     original_amount = (float(inline_sum_amount)/divisor)
+                #     tax_amount = float(inline_sum_amount) - original_amount
+                #     if n.tax.tax_type == 'gst':
+                #         gst_tax_list.append(tax_amount)
+                #     if n.tax.tax_type == 'cess':
+                #         cess_tax_list.append(tax_amount)
+                #     if n.tax.tax_type == 'surcharge':
+                #         surcharge_tax_list.append(tax_amount)
+                #
+                #     taxes_list.append(tax_amount)
+                #     igst, cgst, sgst, cess, surcharge = sum(gst_tax_list), (sum(gst_tax_list))/2, (sum(gst_tax_list))/2, sum(cess_tax_list), sum(surcharge_tax_list)
 
         total_amount = round(credit_note.note_amount)
         total_amount_int = total_amount
