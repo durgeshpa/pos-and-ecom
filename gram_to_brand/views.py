@@ -114,7 +114,7 @@ class MergedBarcode(APIView):
     permission_classes = (AllowAny,)
 
     def get(self, request, *args, **kwargs):
-        bin_id_list={}
+        bin_id_list = {}
         pk = self.kwargs.get('pk')
         grn_product = GRNOrderProductMapping.objects.filter(pk=pk).last()
         grn_order = grn_product.grn_order
@@ -219,6 +219,20 @@ class DownloadDebitNote(APIView):
         shop = a
         debit_note_id = a.grn_order_brand_note.all()
         products = a.grn_order_grn_order_product.all()
+        product_list = {}
+        for product in products:
+            if product.product.product_sku in product_list.keys():
+                temp_prod = product_list[product.product.product_sku]
+                temp_prod.product_invoice_qty += product.product_invoice_qty
+                temp_prod.delivered_qty += product.delivered_qty
+                temp_prod.available_qty += product.available_qty
+                temp_prod.returned_qty += product.returned_qty
+                temp_prod.damaged_qty += product.damaged_qty
+                product_list[product.product.product_sku] = temp_prod
+
+            else:
+                product_list[product.product.product_sku] = product
+
         order = shop.order
         order_id = order.order_no
         gram_factory_billing_gstin = shop.order.ordered_cart. \
@@ -234,11 +248,11 @@ class DownloadDebitNote(APIView):
         gst_tax_list = []
         cess_tax_list = []
         surcharge_tax_list = []
-        for m in products:
-            sum_qty = sum_qty + m.returned_qty
-            sum_amount = sum_amount + (m.returned_qty * m.po_product_price)
-            inline_sum_amount = (m.returned_qty * m.po_product_price)
-            for n in m.product.product_pro_tax.all():
+        for key, value in product_list.items():
+            sum_qty = sum_qty + value.returned_qty
+            sum_amount = sum_amount + (value.returned_qty * value.po_product_price)
+            inline_sum_amount = (value.returned_qty * value.po_product_price)
+            for n in value.product.product_pro_tax.all():
                 divisor = (1 + (n.tax.tax_percentage / 100))
                 original_amount = (inline_sum_amount / divisor)
                 tax_amount = inline_sum_amount - original_amount
@@ -257,7 +271,7 @@ class DownloadDebitNote(APIView):
         total_amount = sum_amount
         total_amount_int = int(total_amount)
         data = {
-            "object": order_obj, "products": products, "shop": shop,
+            "object": order_obj, "products": product_list, "shop": shop,
             "sum_qty": sum_qty, "sum_amount": sum_amount,
             "url": request.get_host(),
             "scheme": request.is_secure() and "https" or "http",
