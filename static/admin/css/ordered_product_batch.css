@@ -15,8 +15,12 @@ width:13%}
 .table_inline  td.field-batch_id{
 width:22%}
 .table_inline td.field-product{
-width:22%
+width:22%;
 }
+.table_inline td.field-product p{
+font-weight: bold;
+}
+
 .table_inline  .original{
 width:0%
 }
@@ -34,12 +38,15 @@ display:none
 display:none}
 
 .return_table_inline  td{
-width:11.5%}
-.return_table_inline  .return_batch_inline td{width:11.7%}
+width:13%}
+.return_table_inline  .return_batch_inline td{width:13.2%}
 .return_table_inline  td.field-batch_id{
-width:19.5%}
+width:22%}
 .return_table_inline td.field-product{
-width:19.5%
+width:22%
+}
+.return_table_inline td.field-product p{
+font-weight: bold;
 }
 .return_table_inline  .original{
 width:0%
