@@ -18,8 +18,6 @@ from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, Wa
 
 from shops.models import Shop
 from products.models import Product
-#from .views import picker_dashboard_cancel_status
-
 
 # Logger
 info_logger = logging.getLogger('file-info')
@@ -568,8 +566,8 @@ def cancel_order(instance):
         wim = WarehouseInventory.objects.filter(sku__id=prod,
                                                 inventory_state__inventory_state='available',
                                                 inventory_type__inventory_type='normal')
-        wim_quantity = wim[0].quantity
-        wim.update(quantity=wim_quantity + qty)
+        # wim_quantity = wim[0].quantity
+        # wim.update(quantity=wim_quantity + qty)
         transaction_type = 'canceled'
         initial_stage = 'ordered'
         final_stage = 'canceled'
@@ -579,7 +577,7 @@ def cancel_order(instance):
                                                         transaction_type=transaction_type,
                                                         transaction_id=ware_house_internal[0].transaction_id,
                                                         initial_stage=InventoryState.objects.get(inventory_state=initial_stage),
-                                                        final_stage=InventoryState.objects.get(inventory_state=final_stage),
+                                                            final_stage=InventoryState.objects.get(inventory_state=final_stage),
                                                         inventory_type=InventoryType.objects.get(inventory_type=inventory_type),
                                                         quantity=qty)
 
@@ -594,7 +592,12 @@ def cancel_order_with_pick(instance):
     pickup_object = PickupBinInventory.objects.filter(pickup__pickup_type_id=instance.order_no)
     inv_type = {'N': InventoryType.objects.get(inventory_type='normal')}
     for pickup in pickup_object:
-        pick_up_bin_quantity = pickup.pickup_quantity
+        if pickup.pickup.status == 'pickup_creation':
+            pick_up_bin_quantity = pickup.quantity
+        elif pickup.pickup.status == 'picking_assigned':
+            pick_up_bin_quantity = pickup.quantity
+        else:
+            pick_up_bin_quantity = pickup.pickup_quantity
 
         # Bin Model Update
         bin_inv_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(bin__bin_id=pickup.bin.bin.bin_id,
@@ -602,23 +605,23 @@ def cancel_order_with_pick(instance):
                                                                              batch_id=pickup.batch_id,
                                                                              inventory_type=inv_type['N'],
                                                                              quantity__gt=0)
-        bin_inv_qty = bin_inv_obj.last().quantity
-        bin_inv_obj.update(quantity=bin_inv_qty + pick_up_bin_quantity)
-        if pick_up_bin_quantity == 0:
-            pass
-        else:
-            pu, _ = Putaway.objects.update_or_create(warehouse=pickup.warehouse, putaway_type='SHIPMENT',
-                                                     putaway_type_id=instance.order_no, sku=pickup.bin.sku,
-                                                     batch_id=pickup.batch_id, defaults={'quantity': pick_up_bin_quantity,
-                                                                                    'putaway_quantity': pick_up_bin_quantity})
-            PutawayBinInventory.objects.update_or_create(warehouse=pickup.warehouse, sku=pickup.bin.sku,
-                                                         batch_id=pickup.batch_id, putaway_type='SHIPMENT',
-                                                         putaway=pu, bin=pickup.bin, putaway_status=True,
-                                                         defaults={'putaway_quantity': pick_up_bin_quantity})
-        pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no)
-        pickup_obj.update(status='picking_cancelled')
-        #picker_dashboard_cancel_status(instance)
-        cancel_order(instance)
+        bin_inv_obj= bin_inv_obj.last()
+        quantity = bin_inv_obj.quantity
+        bin_inv_obj.quantity=quantity+pick_up_bin_quantity
+        bin_inv_obj.save()
+        pu, _ = Putaway.objects.update_or_create(warehouse=pickup.warehouse, putaway_type='CANCELLED',
+                                                 putaway_type_id=instance.order_no, sku=pickup.bin.sku,
+                                                 batch_id=pickup.batch_id, defaults={'quantity': pick_up_bin_quantity,
+                                                                                'putaway_quantity': pick_up_bin_quantity})
+        PutawayBinInventory.objects.update_or_create(warehouse=pickup.warehouse, sku=pickup.bin.sku,
+                                                     batch_id=pickup.batch_id, putaway_type='CANCELLED',
+                                                     putaway=pu, bin=pickup.bin, putaway_status=True,
+                                                     defaults={'putaway_quantity': pick_up_bin_quantity})
+        pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no, sku__id=pickup.pickup.sku.id)
+        for obj in pickup_obj:
+            obj.status = 'picking_cancelled'
+            obj.save()
+    cancel_order(instance)
 
 
 class AuditInventory(object):

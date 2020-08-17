@@ -2465,3 +2465,8 @@ def create_putaway(sender, created=False, instance=None, *args, **kwargs):
         add_to_putaway_on_partail(instance.ordered_product_mapping.ordered_product.id)
 
 
+@receiver(post_save, sender=Pickup)
+def cancel_status_picker_dashboard(sender, instance=None, created=False, *args, **kwargs):
+    if instance.status=='picking_cancelled':
+        picker_dashboard = PickerDashboard.objects.filter(order__order_no=instance.pickup_type_id)
+        picker_dashboard.update(picking_status='picking_cancelled')
