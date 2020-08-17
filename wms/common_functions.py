@@ -633,7 +633,7 @@ def cancel_order_with_pick(instance):
         # update or create put away bin inventory model
         PutawayBinInventory.objects.update_or_create(warehouse=pickup_bin.warehouse, sku=pickup_bin.bin.sku,
                                                      batch_id=pickup_bin.batch_id, putaway_type='CANCELLED',
-                                                     putaway=pu, bin=pickup_bin.bin, putaway_status=True,
+                                                     putaway=pu, bin=pickup_bin.bin, putaway_status=False,
                                                      defaults={'putaway_quantity': pick_up_bin_quantity})
         # get the queryset filter from Pickup model
         pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no, sku__id=pickup_bin.pickup.sku.id)
