@@ -464,10 +464,12 @@ class PickupDetail(APIView):
                         sum_total = sum([i.pickup_quantity for i in pick_object])
                         Pickup.objects.filter(pickup_type_id=order_no, sku__id=j).update(pickup_quantity=sum_total)
                         bin_inv_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(bin__bin_id=bin_id, sku__id=j,
-                                                                               batch_id=picking_details.last().batch_id, quantity__gt=0, inventory_type__inventory_type='normal')
+                                                                               batch_id=picking_details.last().batch_id,inventory_type__inventory_type='normal')
+
                         bin_inv = bin_inv_obj.last()
                         bin_inv_qty = bin_inv.quantity
-                        bin_inv_obj.update(quantity=abs(bin_inv_qty-i))
+                        bin_inv.quantity=bin_inv_qty +(qty-i)
+                        bin_inv.save()
                         # picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin__bin_id=bin_id)
                         serializer = PickupBinInventorySerializer(picking_details.last())
                         data_list.append(serializer.data)

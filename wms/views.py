@@ -599,7 +599,7 @@ def pickup_entry_creation_with_cron():
                 bin_inv_dict = {}
                 pickup_obj = obj
                 qty = obj.quantity
-                bin_lists = obj.sku.rt_product_sku.filter(quantity__gt=0).order_by('-batch_id', 'quantity')
+                bin_lists = obj.sku.rt_product_sku.filter(quantity__gt=0, inventory_type__inventory_type='normal').order_by('-batch_id', 'quantity')
                 for k in bin_lists:
                     if len(k.batch_id) == 23:
                         bin_inv_dict[str(datetime.strptime(
@@ -626,6 +626,8 @@ def pickup_entry_creation_with_cron():
                     if qty - already_picked <= qty_in_bin:
                         already_picked += qty
                         remaining_qty = qty_in_bin - already_picked
+                        j.quantity = remaining_qty
+                        j.save()
                         qty = 0
                         prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": already_picked, "batch_id": batch_id, "bin": bin_id}
                         print(bin_id)
@@ -634,6 +636,8 @@ def pickup_entry_creation_with_cron():
                     else:
                         already_picked = qty_in_bin
                         remaining_qty = qty - already_picked
+                        j.quantity = 0
+                        j.save()
                         qty = remaining_qty
                         prod_list = {"product": product, "sku": sku, "mrp": mrp, "qty": already_picked, "batch_id": batch_id,"bin": bin_id}
                         data_list.append(prod_list)
