@@ -318,7 +318,6 @@ class OrderManagement(object):
     @classmethod
     @task
     def release_blocking(cls, reserved_args, sku_id=False):
-        import pdb;pdb.set_trace()
         params = json.loads(reserved_args)
         transaction_id = params['transaction_id']
         shop_id = params['shop_id']
@@ -480,36 +479,36 @@ class StockMovementCSV(object):
 
 
 def updating_tables_on_putaway(sh, bin_id, put_away, batch_id, inv_type, inv_state, t, val, put_away_status, pu):
-    bin_inven_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(warehouse=sh, bin=Bin.objects.filter(bin_id=bin_id).last(),
-                                                                           sku=put_away.last().sku, batch_id=batch_id,inv_type=InventoryType.objects.filter(
-                                                                   inventory_type=inv_type).last(), in_stock=t)
-    if bin_inven_obj.exists():
-        bin_inven_obj=bin_inven_obj.last()
-        bin_inven_obj.quantity=val
-        bin_inven_obj.save()
-    else:
-        CommonBinInventoryFunctions.create_bin_inventory(sh,Bin.objects.filter(bin_id=bin_id).last(), put_away.last().sku, batch_id, InventoryType.objects.filter(
-                                                                   inventory_type=inv_type), val, t)
-    # CommonBinInventoryFunctions.update_or_create_bin_inventory(sh, Bin.objects.filter(bin_id=bin_id).last(),
-    #                                                            put_away.last().sku, batch_id,
-    #                                                            InventoryType.objects.filter(
-    #                                                                inventory_type=inv_type).last(), val, t)
-    if put_away_status is True:
-        PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),
-                                           bin=CommonBinInventoryFunctions.get_filtered_bin_inventory().last(),
-                                           putaway_quantity=val, putaway_status=True,
-                                           sku=pu[0].sku, batch_id=pu[0].batch_id,
-                                           putaway_type=pu[0].putaway_type)
-    else:
-        PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),
-                                           bin=CommonBinInventoryFunctions.get_filtered_bin_inventory().last(),
-                                           putaway_quantity=val, putaway_status=False,
-                                           sku=pu[0].sku, batch_id=pu[0].batch_id,
-                                           putaway_type=pu[0].putaway_type)
-    CommonWarehouseInventoryFunctions.create_warehouse_inventory(sh, put_away.last().sku,
-                                                                 CommonInventoryStateFunctions.filter_inventory_state(inventory_state=inv_state).last(),
-                                                                 InventoryType.objects.filter(inventory_type=inv_type).last(),
-                                                                 BinInventory.available_qty(sh.id, put_away.last().sku.id), t)
+    with transaction.atomic():
+        bin_inven_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(warehouse=sh, bin=Bin.objects.filter(bin_id=bin_id).last(),
+                                                                               sku=put_away.last().sku, batch_id=batch_id,inventory_type=InventoryType.objects.filter(
+                                                                       inventory_type=inv_type).last(), in_stock=t)
+        if bin_inven_obj.exists():
+            bin_inven_obj=bin_inven_obj.last()
+            bin_inven_obj.quantity= (val + bin_inven_obj.quantity)
+            bin_inven_obj.save()
+        else:
+            BinInventory.objects.create(warehouse=sh,bin=Bin.objects.filter(bin_id=bin_id).last(), sku=put_away.last().sku, batch_id=batch_id, inventory_type=InventoryType.objects.filter(inventory_type=inv_type).last(), quantity=val, in_stock=t)
+        # CommonBinInventoryFunctions.update_or_create_bin_inventory(sh, Bin.objects.filter(bin_id=bin_id).last(),
+        #                                                            put_away.last().sku, batch_id,
+        #                                                            InventoryType.objects.filter(
+        #                                                                inventory_type=inv_type).last(), val, t)
+        if put_away_status is True:
+            PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),
+                                               bin=CommonBinInventoryFunctions.get_filtered_bin_inventory().last(),
+                                               putaway_quantity=val, putaway_status=True,
+                                               sku=pu[0].sku, batch_id=pu[0].batch_id,
+                                               putaway_type=pu[0].putaway_type)
+        else:
+            PutawayBinInventory.objects.create(warehouse=sh, putaway=put_away.last(),
+                                               bin=CommonBinInventoryFunctions.get_filtered_bin_inventory().last(),
+                                               putaway_quantity=val, putaway_status=False,
+                                               sku=pu[0].sku, batch_id=pu[0].batch_id,
+                                               putaway_type=pu[0].putaway_type)
+        # CommonWarehouseInventoryFunctions.create_warehouse_inventory(sh, put_away.last().sku,
+        #                                                              CommonInventoryStateFunctions.filter_inventory_state(inventory_state=inv_state).last(),
+        #                                                              InventoryType.objects.filter(inventory_type=inv_type).last(),
+        #                                                              BinInventory.available_qty(sh.id, put_away.last().sku.id), t)
 
 
 def common_for_release(prod_list, shop_id, transaction_type, transaction_id, order_status):

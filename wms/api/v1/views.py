@@ -127,6 +127,7 @@ class PutAwayViewSet(APIView):
             return Response(msg, status=status.HTTP_200_OK)
         try:
             warehouse = request.user.shop_employee.all()[0].shop_id
+
         except Exception as e:
             error_logger.error(e)
             return Response({'is_success': False,
@@ -146,7 +147,6 @@ class PutAwayViewSet(APIView):
         inventory_type = 'normal'
         if not InventoryType.objects.filter(inventory_type=inventory_type).exists():
             InventoryType.objects.create(inventory_type=inventory_type)
-
 
         if len(batch_id) != len(put_away_quantity):
             
@@ -464,11 +464,10 @@ class PickupDetail(APIView):
                         sum_total = sum([i.pickup_quantity for i in pick_object])
                         Pickup.objects.filter(pickup_type_id=order_no, sku__id=j).update(pickup_quantity=sum_total)
                         bin_inv_obj = CommonBinInventoryFunctions.get_filtered_bin_inventory(bin__bin_id=bin_id, sku__id=j,
-                                                                               batch_id=picking_details.last().batch_id, quantity__gt=0)
-                        bin_inv_qty = bin_inv_obj.last().quantity
-                        bin_inv_obj.quantity=abs(bin_inv_qty-i)
-                        bin_inv_obj.save()
-                        # bin_inv_obj.update(quantity=abs(bin_inv_qty-i))
+                                                                               batch_id=picking_details.last().batch_id, quantity__gt=0, inventory_type__inventory_type='normal')
+                        bin_inv = bin_inv_obj.last()
+                        bin_inv_qty = bin_inv.quantity
+                        bin_inv_obj.update(quantity=abs(bin_inv_qty-i))
                         # picking_details = PickupBinInventory.objects.filter(pickup__pickup_type_id=order_no, bin__bin__bin_id=bin_id)
                         serializer = PickupBinInventorySerializer(picking_details.last())
                         data_list.append(serializer.data)
