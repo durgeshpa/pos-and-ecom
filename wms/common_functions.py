@@ -18,6 +18,7 @@ from .models import (Bin, BinInventory, Putaway, PutawayBinInventory, Pickup, Wa
 
 from shops.models import Shop
 from products.models import Product
+#from .views import picker_dashboard_cancel_status
 
 
 # Logger
@@ -614,6 +615,9 @@ def cancel_order_with_pick(instance):
                                                          batch_id=pickup.batch_id, putaway_type='SHIPMENT',
                                                          putaway=pu, bin=pickup.bin, putaway_status=True,
                                                          defaults={'putaway_quantity': pick_up_bin_quantity})
+        pickup_obj = Pickup.objects.filter(pickup_type_id=instance.order_no)
+        pickup_obj.update(status='picking_cancelled')
+        #picker_dashboard_cancel_status(instance)
         cancel_order(instance)
 
 

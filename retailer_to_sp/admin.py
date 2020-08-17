@@ -356,9 +356,16 @@ class OrderedProductBatchAdmin(NestedTabularInline):
     fields = ('batch_id', 'ordered_piece', 'expiry_date','pickup_quantity', 'quantity', 'damaged_qty', 'expired_qty')
     readonly_fields = ('batch_id', 'ordered_piece', 'expiry_date', 'pickup_quantity')
     extra=0
-
+    classes = ['batch_inline', ]
     def ordered_piece(self, obj=None):
         return '-'
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    class Media:
+        css = {
+            'all': ('admin/css/ordered_product_batch.css',)
+        }
 
 
 class OrderedProductBatchingAdmin(NestedTabularInline):
@@ -367,9 +374,13 @@ class OrderedProductBatchingAdmin(NestedTabularInline):
     fields = ('batch_id', 'ordered_piece','expiry_date','quantity','returned_qty','damaged_qty','delivered_qty')
     readonly_fields = ('batch_id', 'ordered_piece','expiry_date','quantity')
     extra=0
-
+    classes = ['return_batch_inline', ]
     def ordered_piece(self, obj=None):
         return '-'
+    class Media:
+        css = {
+            'all': ('admin/css/ordered_product_batch.css',)
+        }
 
 class CartProductMappingAdmin(admin.TabularInline):
     model = CartProductMapping
@@ -1025,7 +1036,7 @@ class OrderedProductMappingAdmin(NestedTabularInline):
     inlines = [OrderedProductBatchingAdmin, ]
     extra = 0
     max_num = 0
-
+    classes = ['return_table_inline', ]
     def has_delete_permission(self, request, obj=None):
         return False
 
@@ -1054,7 +1065,7 @@ class OrderedProductAdmin(NestedModelAdmin):
     )
     form = OrderedProductReschedule
     ordering = ['-created_at']
-
+    classes = ['table_inline', ]
     def download_invoice(self, obj):
         if obj.shipment_status == 'SHIPMENT_CREATED':
             return format_html("-")
@@ -1200,9 +1211,10 @@ class ShipmentProductMappingAdmin(NestedTabularInline):
     readonly_fields = ['product', 'ordered_qty', 'expiry_date', 'picked_pieces']
     extra = 0
     max_num = 0
-
+    classes = ['table_inline', ]
     def has_delete_permission(self, request, obj=None):
         return False
+
 
     def expiry_date(self, obj=None):
         return "-"
